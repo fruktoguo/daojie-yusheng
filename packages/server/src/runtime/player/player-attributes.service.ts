@@ -20,7 +20,7 @@ let PlayerAttributesService = class PlayerAttributesService {
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
 
-        const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE];
+        const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(shared_1.DEFAULT_PLAYER_REALM_STAGE);
         return {
             revision: 1,
             stage: shared_1.DEFAULT_PLAYER_REALM_STAGE,
@@ -80,7 +80,7 @@ let PlayerAttributesService = class PlayerAttributesService {
 
         const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
 
-        const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage];
+        const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(stage);
 
         const runtimeBonuses = Array.isArray(player.runtimeBonuses) ? player.runtimeBonuses : [];
 
@@ -94,12 +94,11 @@ let PlayerAttributesService = class PlayerAttributesService {
 
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
 
-        const bodyTrainingAttrBonus = (0, shared_1.calcBodyTrainingAttrBonus)(player.bodyTraining?.level ?? 0);
-        addAttributes(realmBaseAttrs, shared_1.PLAYER_REALM_CONFIG[stage].attrBonus);
+        const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
+        addAttributes(realmBaseAttrs, (0, shared_1.resolvePlayerRealmAttributeBonus)(stage));
 
         const baseAttrs = cloneAttributes(realmBaseAttrs);
         addAttributes(baseAttrs, techniqueAttrBonus);
-        addAttributes(baseAttrs, bodyTrainingAttrBonus);
         for (const bonus of projectedRuntimeBonuses) {
             addAttributes(baseAttrs, bonus.attrs);
         }
@@ -118,6 +117,9 @@ let PlayerAttributesService = class PlayerAttributesService {
         const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
         if (rootFoundation > 0) {
             accumulateUniformAttributePercentBonus(attrPercentBonuses.realm, rootFoundation);
+        }
+        if (bodyTrainingLevel > 0) {
+            accumulateAttributePercentBonus(attrPercentBonuses.realm, (0, shared_1.calcBodyTrainingAttrPercentBonus)(bodyTrainingLevel));
         }
         for (const buff of player.buffs.buffs) {
             if (buff.attrMode === 'percent') {

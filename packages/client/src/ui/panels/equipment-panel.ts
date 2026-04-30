@@ -11,6 +11,7 @@ import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentCondi
 import { getItemDisplayMeta } from '../item-display';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
+import { patchElementHtml } from '../dom-patch';
 
 /** formatEffectCondition：格式化效果条件。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
@@ -155,7 +156,7 @@ export class EquipmentPanel {
     this.slotViews.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    this.pane.replaceChildren();
+    patchElementHtml(this.pane, '');
   }  
   /**
  * setCallbacks：写入Callback。
@@ -228,7 +229,7 @@ export class EquipmentPanel {
     }
 
     preserveSelection(this.pane, () => {
-      this.pane.replaceChildren();
+      patchElementHtml(this.pane, '');
       this.slotViews.clear();
 
       const sectionEl = document.createElement('div');

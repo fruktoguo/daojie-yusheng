@@ -122,6 +122,26 @@ export enum PlayerRealmStage {
  */
 
   Foundation = 6,
+  /**
+ * QiRefiningMiddle：枚举成员常量定义。
+ */
+
+  QiRefiningMiddle = 7,
+  /**
+ * QiRefiningLate：枚举成员常量定义。
+ */
+
+  QiRefiningLate = 8,
+  /**
+ * FoundationMiddle：枚举成员常量定义。
+ */
+
+  FoundationMiddle = 9,
+  /**
+ * FoundationLate：枚举成员常量定义。
+ */
+
+  FoundationLate = 10,
 }
 
 /** 开天门五行数值。 */
@@ -262,6 +282,11 @@ export interface PlayerSpecialStats {
  */
 
   rootFoundation?: number;
+  /**
+ * bodyTrainingLevel：炼体层数，每层提供 1% 全属性增幅。
+ */
+
+  bodyTrainingLevel?: number;
   /**
  * combatExp：战斗Exp相关字段。
  */

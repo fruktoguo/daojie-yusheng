@@ -1,4 +1,5 @@
 import { FloatingTooltip } from './ui/floating-tooltip';
+import { patchElementHtml } from './ui/dom-patch';
 /**
  * ObserveAsideCard：统一结构类型，保证协议与运行时一致性。
  */
@@ -26,13 +27,6 @@ export type ObserveAsideCard = {
 
   tone?: 'buff' | 'debuff';
 };
-
-/** createFragmentFromHtml：从 HTML 创建片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html;
-  return template.content;
-}
 
 /** createObserveModalController：创建观察弹层控制器。 */
 export function createObserveModalController(options: {
@@ -91,7 +85,7 @@ export function createObserveModalController(options: {
       observeModalAsideEl?.classList.add('hidden');
       observeModalAsideEl?.setAttribute('aria-hidden', 'true');
       if (observeModalAsideEl) {
-        observeModalAsideEl.replaceChildren();
+        patchElementHtml(observeModalAsideEl, '');
       }
     },    
     /**
@@ -118,7 +112,7 @@ export function createObserveModalController(options: {
       if (!observeModalBodyEl) {
         return;
       }
-      observeModalBodyEl.replaceChildren(createFragmentFromHtml(html));
+      patchElementHtml(observeModalBodyEl, html);
     },    
     /**
  * renderAsideCards：执行AsideCard相关逻辑。
@@ -133,12 +127,12 @@ export function createObserveModalController(options: {
         return;
       }
       if (cards.length === 0) {
-        observeModalAsideEl.replaceChildren();
+        patchElementHtml(observeModalAsideEl, '');
         observeModalAsideEl.classList.add('hidden');
         observeModalAsideEl.setAttribute('aria-hidden', 'true');
         return;
       }
-      observeModalAsideEl.replaceChildren(createFragmentFromHtml(cards.map((card) => {
+      patchElementHtml(observeModalAsideEl, cards.map((card) => {
         const detail = card.lines
           .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
           .join('');
@@ -149,7 +143,7 @@ export function createObserveModalController(options: {
           </div>
           ${detail ? `<div class="floating-tooltip-aside-detail">${detail}</div>` : ''}
         </div>`;
-      }).join('')));
+      }).join(''));
       observeModalAsideEl.classList.remove('hidden');
       observeModalAsideEl.setAttribute('aria-hidden', 'false');
     },    
@@ -182,7 +176,7 @@ export function refreshZoomChrome(
     zoomSlider.value = zoom.toFixed(2);
   }
   if (zoomLevelEl) {
-    zoomLevelEl.replaceChildren(createFragmentFromHtml(`<span>x</span><span>${formatZoom(zoom)}</span>`));
+    patchElementHtml(zoomLevelEl, `<span>x</span><span>${formatZoom(zoom)}</span>`);
   }
 }
 

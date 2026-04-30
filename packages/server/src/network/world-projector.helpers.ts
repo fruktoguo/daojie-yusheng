@@ -389,6 +389,7 @@ function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialSt
   return {
     foundation: player.foundation,
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
+    bodyTrainingLevel: Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0)),
     combatExp: player.combatExp,
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
@@ -2303,6 +2304,7 @@ function cloneSpecialStats(source: PlayerSpecialStats): PlayerSpecialStats {
     return {
         foundation: source.foundation,
         rootFoundation: source.rootFoundation,
+        bodyTrainingLevel: source.bodyTrainingLevel,
         combatExp: source.combatExp,
         comprehension: source.comprehension,
         luck: source.luck,
@@ -2352,6 +2354,9 @@ function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpe
     if (previous.rootFoundation !== current.rootFoundation) {
         patch.rootFoundation = current.rootFoundation;
     }
+    if (previous.bodyTrainingLevel !== current.bodyTrainingLevel) {
+        patch.bodyTrainingLevel = current.bodyTrainingLevel;
+    }
     if (previous.combatExp !== current.combatExp) {
         patch.combatExp = current.combatExp;
     }
@@ -2374,6 +2379,7 @@ function isSameAttrBonuses(left: AttrBonus[], right: AttrBonus[]) {
         if (leftEntry.source !== rightEntry.source
             || leftEntry.label !== rightEntry.label
             || !isSameAttributes(leftEntry.attrs, rightEntry.attrs)
+            || leftEntry.attrMode !== rightEntry.attrMode
             || !isSamePartialNumericStats(leftEntry.stats, rightEntry.stats)
             || !isSameQiProjectionModifierList(leftEntry.qiProjection, rightEntry.qiProjection)
             || !isSameAttrBonusMeta(leftEntry.meta, rightEntry.meta)) {
@@ -2401,6 +2407,7 @@ function cloneAttrBonus(source: AttrBonus): AttrBonus {
         source: source.source,
         label: source.label,
         attrs: clonePartialAttributes(source.attrs),
+        attrMode: source.attrMode,
         stats: clonePartialNumericStats(source.stats),
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => cloneQiProjectionModifier(entry)) : undefined,
         meta: cloneAttrBonusMetaRecord(source.meta),
@@ -2409,6 +2416,7 @@ function cloneAttrBonus(source: AttrBonus): AttrBonus {
 function isSameSpecialStats(left: PlayerSpecialStats, right: PlayerSpecialStats) {
     return left.foundation === right.foundation
         && left.rootFoundation === right.rootFoundation
+        && left.bodyTrainingLevel === right.bodyTrainingLevel
         && left.combatExp === right.combatExp
         && left.comprehension === right.comprehension
         && left.luck === right.luck;

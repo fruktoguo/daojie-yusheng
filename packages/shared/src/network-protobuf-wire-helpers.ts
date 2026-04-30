@@ -386,6 +386,9 @@ export function toWirePartialPlayerSpecialStats(payload: Partial<PlayerSpecialSt
   if (hasOwn(payload, 'rootFoundation')) {
     wire.rootFoundation = Number(payload.rootFoundation ?? 0);
   }
+  if (hasOwn(payload, 'bodyTrainingLevel')) {
+    wire.bodyTrainingLevel = Number(payload.bodyTrainingLevel ?? 0);
+  }
   if (hasOwn(payload, 'combatExp')) {
     wire.combatExp = Number(payload.combatExp ?? 0);
   }
@@ -409,6 +412,9 @@ export function fromWirePartialPlayerSpecialStats(wire: Record<string, unknown> 
   }
   if (hasOwn(wire, 'rootFoundation')) {
     payload.rootFoundation = Number(wire.rootFoundation ?? 0);
+  }
+  if (hasOwn(wire, 'bodyTrainingLevel')) {
+    payload.bodyTrainingLevel = Number(wire.bodyTrainingLevel ?? 0);
   }
   if (hasOwn(wire, 'combatExp')) {
     payload.combatExp = Number(wire.combatExp ?? 0);

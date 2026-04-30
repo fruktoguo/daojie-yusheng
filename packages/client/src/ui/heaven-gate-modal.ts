@@ -7,6 +7,7 @@ import {
   type PlayerState,
 } from '@mud/shared';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementHtml } from './dom-patch';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spiritual-roots';
@@ -520,7 +521,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     subtitle: `${player.realm?.displayName ?? '开天门'}`,
     hint: '点击空白处关闭',
     renderBody: (body) => {
-      body.innerHTML = renderHeavenGateShell(session, judgement);
+      patchElementHtml(body, renderHeavenGateShell(session, judgement));
     },
     onClose: () => {
       clearPendingAction();
@@ -614,9 +615,9 @@ function patchHeavenGateModalBody(
   setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-name'), escapeHtml(judgement?.name ?? ''));
   setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-meta'), escapeHtml(judgement?.meta ?? ''));
   setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-desc'), escapeHtml(judgement?.desc ?? ''));
-  boardShell.innerHTML = renderBoard(session);
-  actionsShell.innerHTML = renderBoardActions(session);
-  popupShell.innerHTML = renderPendingPopup(session);
+  patchElementHtml(boardShell, renderBoard(session));
+  patchElementHtml(actionsShell, renderBoardActions(session));
+  patchElementHtml(popupShell, renderPendingPopup(session));
   return true;
 }
 /**
@@ -721,8 +722,8 @@ function bindHeavenGateEvents(
 
 
 function setInnerHtml(node: Element | null, value: string): void {
-  if (node) {
-    node.innerHTML = value;
+  if (node instanceof HTMLElement) {
+    patchElementHtml(node, value);
   }
 }
 

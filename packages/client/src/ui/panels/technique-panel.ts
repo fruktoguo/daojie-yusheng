@@ -25,6 +25,7 @@ import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLab
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint } from '../ui-primitives';
@@ -104,13 +105,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** subtractAttrMap：处理subtract属性地图。 */
@@ -416,7 +410,7 @@ export class TechniquePanel {
     this.shellRefs = null;
     const empty = createEmptyHint('尚未习得功法');
     empty.dataset.techEmpty = 'true';
-    this.pane.replaceChildren(empty);
+    patchElementChildren(this.pane, empty);
     this.tooltip.hide(true);
     this.closeModal();
   }  
@@ -1388,7 +1382,7 @@ export class TechniquePanel {
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats);
 
     if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
-      focusShell.replaceChildren(createFragmentFromHtml(this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones)));
+      patchElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));
       this.bindSkillTooltips(focusShell);
     } else {
       this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
@@ -1397,7 +1391,7 @@ export class TechniquePanel {
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
     if (constellationShell.dataset.techModalConstellationSignature !== constellationSignature) {
       constellationShell.dataset.techModalConstellationSignature = constellationSignature;
-      constellationShell.replaceChildren(createFragmentFromHtml(this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones)));
+      patchElementHtml(constellationShell, this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones));
       this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
       this.bindSkillTooltips(constellationShell);
     }
@@ -1567,11 +1561,12 @@ export class TechniquePanel {
       const empty = document.createElement('span');
       empty.className = 'tech-layer-empty';
       empty.textContent = '此层未解锁新技能';
-      skillsNode.replaceChildren(empty);
+      patchElementChildren(skillsNode, empty);
       return;
     }
-    skillsNode.replaceChildren(
-      ...skills.map((skill) => {
+    patchElementChildren(
+      skillsNode,
+      skills.map((skill) => {
         const node = document.createElement('span');
         node.className = 'tech-skill-tag';
         node.dataset.skillTooltipTitle = skill.name;

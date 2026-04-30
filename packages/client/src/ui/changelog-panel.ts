@@ -1,4 +1,5 @@
 import { detailModalHost } from './detail-modal-host';
+import { patchElementChildren } from './dom-patch';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
 /** ChangelogPanel：Changelog面板实现。 */
@@ -47,7 +48,7 @@ export class ChangelogPanel {
     }
     historySection.append(sectionTitle, entryList);
     shell.append(historySection);
-    body.replaceChildren(shell);
+    patchElementChildren(body, shell);
   }
 
   /** renderEntry：渲染条目。 */
@@ -94,4 +95,3 @@ function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, classN
   }
   return element;
 }
-

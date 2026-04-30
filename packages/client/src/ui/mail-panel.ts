@@ -10,6 +10,7 @@ import {
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementChildren } from './dom-patch';
 
 /** 转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -771,8 +772,9 @@ export class MailPanel {
     title.textContent = item.title;
     unreadDot.hidden = item.read;
     time.textContent = new Date(item.createdAt).toLocaleString();
-    meta.replaceChildren(
-      ...[
+    patchElementChildren(
+      meta,
+      [
         item.senderLabel,
         ...stateChips,
         ...(item.expireAt ? [`至 ${new Date(item.expireAt).toLocaleString()}`] : []),
@@ -880,7 +882,7 @@ export class MailPanel {
 
     if (!detail) {
       this.detailRefs = null;
-      detailRoot.replaceChildren(createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
+      patchElementChildren(detailRoot, createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
       return true;
     }
 
@@ -906,7 +908,7 @@ export class MailPanel {
     refs.markReadButton.disabled = detail.read;
     refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
     refs.deleteButton.disabled = !detail.deletable;
-    refs.bodyNode.replaceChildren(...(body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
+    patchElementChildren(refs.bodyNode, (body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
       const nodes: Node[] = [document.createTextNode(line)];
       if (index < arr.length - 1) {
         nodes.push(document.createElement('br'));
@@ -920,7 +922,7 @@ export class MailPanel {
     refs.attachmentNextButton.disabled = attachmentPage >= totalAttachmentPages;
     refs.attachmentEmpty.hidden = detail.attachments.length > 0;
     refs.attachmentList.hidden = detail.attachments.length === 0;
-    refs.attachmentList.replaceChildren(...visibleAttachments.map((attachment) => {
+    patchElementChildren(refs.attachmentList, visibleAttachments.map((attachment) => {
       const item = document.createElement('div');
       item.className = 'mail-attachment-item';
       const name = document.createElement('span');
@@ -948,7 +950,7 @@ export class MailPanel {
     if (this.pageData.items.length === 0) {
       const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createMailEmptyHint(MAIL_LIST_EMPTY_TEXT);
       emptyNode.textContent = MAIL_LIST_EMPTY_TEXT;
-      listRoot.replaceChildren(emptyNode);
+      patchElementChildren(listRoot, emptyNode);
       return true;
     }
     const orderedNodes = this.pageData.items.map((item) => {
@@ -960,7 +962,7 @@ export class MailPanel {
       return node;
     });
     existing.forEach((node) => node.remove());
-    listRoot.replaceChildren(...orderedNodes);
+    patchElementChildren(listRoot, orderedNodes);
     return true;
   }
 

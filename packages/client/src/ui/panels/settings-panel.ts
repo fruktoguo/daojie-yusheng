@@ -33,6 +33,7 @@ import {
   resetMapPerformanceConfig,
   updateMapPerformanceConfig,
 } from '../performance-config';
+import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 
 /** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
@@ -140,8 +141,7 @@ export class SettingsPanel {
 
   /** renderBody：渲染设置弹层主体。 */
   private renderBody(body: HTMLElement): void {
-    const template = document.createElement('template');
-    template.innerHTML = `
+    patchElementHtml(body, `
         <div class="settings-modal-shell ui-tabbed-modal-shell">
           <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="设置分组">
             <button
@@ -182,8 +182,7 @@ export class SettingsPanel {
             ${this.renderPerformanceTab()}
           </div>
         </div>
-      `;
-    body.replaceChildren(template.content.cloneNode(true));
+      `);
   }
 
   /** bindModal：绑定弹窗。 */
@@ -698,13 +697,13 @@ export class SettingsPanel {
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
       setStatus(statusEl, '请至少填写一个兑换码', 'error');
-      resultEl.replaceChildren();
+      patchElementHtml(resultEl, '');
       return;
     }
 
     button.disabled = true;
       setStatus(statusEl, '兑换已呈报，静待回音...', '');
-    resultEl.replaceChildren();
+    patchElementHtml(resultEl, '');
     try {
       const result = await this.options.redeemCodes(codes);
       const successCount = result.results.filter((entry) => entry.ok).length;
@@ -714,12 +713,10 @@ export class SettingsPanel {
         failedCount > 0 ? `兑换收讫：${successCount} 成 ${failedCount} 败` : `兑换收讫：${successCount} 成`,
         failedCount > 0 ? 'error' : 'success',
       );
-      resultEl.replaceChildren(
-        ...result.results.map((entry) => this.createRedeemResultCard(entry)),
-      );
+      patchElementChildren(resultEl, result.results.map((entry) => this.createRedeemResultCard(entry)));
     } catch (error) {
       setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
-      resultEl.replaceChildren();
+      patchElementHtml(resultEl, '');
     } finally {
       button.disabled = false;
     }

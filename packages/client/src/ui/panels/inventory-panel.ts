@@ -52,6 +52,7 @@ import {
   resolveTechniqueIdFromBookItemId,
 } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import {
   buildItemTooltipPayload,
@@ -221,13 +222,6 @@ function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
 }
 
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
-
 /** 背包面板：显示物品列表，支持使用和丢弃 */
 export class InventoryPanel {
   /** MODAL_OWNER：弹窗OWNER。 */
@@ -353,7 +347,7 @@ export class InventoryPanel {
     }
     this.tooltip.hide(true);
     this.shellRefs = null;
-    this.pane.replaceChildren(this.createInventoryEmptyState());
+    patchElementChildren(this.pane, this.createInventoryEmptyState());
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }  
   /**
@@ -1112,7 +1106,7 @@ export class InventoryPanel {
 
   private renderFormationDialogBody(body: HTMLElement, item: ItemStack): void {
     const diskMultiplier = this.resolveFormationDiskMultiplier(item);
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="formation-dialog-layout">
       <div class="formation-config-grid">
         <label class="formation-config-field formation-config-field--select ui-detail-field">
@@ -1170,7 +1164,7 @@ export class InventoryPanel {
         </div>
       </div>
       </div>
-    `));
+    `);
   }
 
   private syncFormationPreview(body: HTMLElement, item: ItemStack): void {
@@ -1612,7 +1606,7 @@ export class InventoryPanel {
     statusLabel: string | null,
   ): void {
     const previewItem = resolvePreviewItem(item);
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="quest-detail-grid inventory-detail-grid">
         <div class="quest-detail-section">
           <strong>物品类型</strong>
@@ -1662,12 +1656,12 @@ export class InventoryPanel {
           ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">批量摧毁</button>` : ''}
         </div>
       </div>
-    `));
+    `);
   }
 
   /** renderDestroyConfirmBody：渲染摧毁确认主体。 */
   private renderDestroyConfirmBody(body: HTMLElement): void {
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="panel-section">
         <div class="empty-hint">摧毁后物品会永久消失，无法找回。</div>
       </div>
@@ -1677,7 +1671,7 @@ export class InventoryPanel {
           <button class="small-btn danger" type="button" data-inventory-destroy-confirm>确认摧毁</button>
         </div>
       </div>
-    `));
+    `);
   }
 
   /** renderSpecialUseConfirmBody：渲染特殊使用确认主体。 */
@@ -1701,7 +1695,7 @@ export class InventoryPanel {
  */
  cancelLabel?: string },
   ): void {
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
         <strong>使用说明</strong>
         ${summary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
@@ -1712,11 +1706,11 @@ export class InventoryPanel {
           <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(summary.confirmLabel ?? '确认使用')}</button>
         </div>
       </div>
-    `));
+    `);
   }
 
   private renderSectFoundingDialogBody(body: HTMLElement): void {
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="sect-founding-modal">
         <div class="sect-founding-form">
           <label class="sect-founding-field">
@@ -1736,7 +1730,7 @@ export class InventoryPanel {
           </div>
         </div>
       </div>
-    `));
+    `);
   }
 
   private normalizeSectName(input: string): string {
@@ -1786,7 +1780,7 @@ export class InventoryPanel {
     halfCount: number,
     maxCount: number,
   ): void {
-    body.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
         <strong>选择数量</strong>
         <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
@@ -1811,7 +1805,7 @@ export class InventoryPanel {
           <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
         </div>
       </div>
-    `));
+    `);
   }
 
   /** patchList：处理patch列表。 */
@@ -1836,7 +1830,7 @@ export class InventoryPanel {
       refs.empty.hidden = false;
       refs.empty.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
       refs.grid.hidden = true;
-      refs.grid.replaceChildren();
+      patchElementHtml(refs.grid, '');
       refs.loadHint.hidden = true;
       refs.loadHint.textContent = '';
       this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);

@@ -2,13 +2,7 @@ import { type Suggestion, type SuggestionReply } from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
+import { patchElementHtml } from './dom-patch';
 
 /** SuggestionListTab：建议列表页签。 */
 type SuggestionListTab = 'all' | 'mine';
@@ -330,7 +324,7 @@ export class SuggestionPanel {
 
   /** renderBody：渲染建议面板主体。 */
   private renderBody(body: HTMLElement): void {
-    body.replaceChildren(createFragmentFromHtml(this.buildBodyHtml()));
+    patchElementHtml(body, this.buildBodyHtml());
   }
 
   /** renderSuggestionListEntry：渲染建议列表条目。 */
@@ -625,19 +619,21 @@ export class SuggestionPanel {
 
     allTabButton.classList.toggle('active', this.activeTab === 'all');
     mineTabButton.classList.toggle('active', this.activeTab === 'mine');
-    mineTabButton.replaceChildren(createFragmentFromHtml(this.renderMineTabLabel(unreadCount)));
+    patchElementHtml(mineTabButton, this.renderMineTabLabel(unreadCount));
 
     listRoot.dataset.listKind = this.activeTab;
-    listRoot.replaceChildren(createFragmentFromHtml(
+    patchElementHtml(
+      listRoot,
       pageData.items.length > 0
         ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
         : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`,
-    ));
-    threadRoot.replaceChildren(createFragmentFromHtml(
+    );
+    patchElementHtml(
+      threadRoot,
       selectedSuggestion
         ? this.renderSuggestionDetail(selectedSuggestion)
         : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>',
-    ));
+    );
 
     prevPageButton.disabled = pageData.page <= 1;
     nextPageButton.disabled = pageData.page >= pageData.totalPages;

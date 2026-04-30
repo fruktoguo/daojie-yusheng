@@ -23,6 +23,11 @@ export interface AttrBonus {
 
   attrs: Partial<Attributes>;  
   /**
+ * attrMode：属性加成模式，flat 为固定值，percent 为百分比乘区。
+ */
+
+  attrMode?: 'flat' | 'percent';
+  /**
  * stats：stat相关字段。
  */
 

@@ -5,6 +5,7 @@
 import { LootWindowState } from '@mud/shared';
 import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementChildren } from '../dom-patch';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
@@ -172,7 +173,7 @@ export class LootPanel {
     for (const source of sources) {
       shell.append(this.createSourceSection(source));
     }
-    body.replaceChildren(shell);
+    patchElementChildren(body, shell);
   }
 
   /** patchBody：按 source section 粒度刷新拾取弹层。 */
@@ -181,8 +182,11 @@ export class LootPanel {
 
     let shell = body.querySelector<HTMLElement>('.loot-shell');
     if (!shell) {
-      shell = createElement('div', 'loot-shell');
-      body.replaceChildren(shell);
+      patchElementChildren(body, createElement('div', 'loot-shell'));
+      shell = body.querySelector<HTMLElement>('.loot-shell');
+      if (!shell) {
+        return false;
+      }
     }
     const staleSections = new Map<string, HTMLElement>();
     shell.querySelectorAll<HTMLElement>('[data-loot-source-section]').forEach((section) => {

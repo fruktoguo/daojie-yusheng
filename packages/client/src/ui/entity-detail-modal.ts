@@ -11,6 +11,7 @@ import {
 } from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { describePreviewBonuses } from './stat-preview';
@@ -168,7 +169,7 @@ export class EntityDetailModal {
       title,
       subtitle,
       renderBody: (body) => {
-        body.innerHTML = `<div data-entity-detail-body="true">${this.renderBody()}</div>`;
+        patchElementHtml(body, `<div data-entity-detail-body="true">${this.renderBody()}</div>`);
       },
       onClose: () => {
         this.buffTooltip.hide(true);
@@ -195,7 +196,7 @@ export class EntityDetailModal {
     }
     titleNode.textContent = title;
     subtitleNode.textContent = subtitle;
-    shell.innerHTML = this.renderBody();
+    patchElementHtml(shell, this.renderBody());
     bindInlineItemTooltips(body);
     this.bindBuffTooltips(body);
     return true;

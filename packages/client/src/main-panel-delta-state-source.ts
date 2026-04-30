@@ -424,6 +424,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
+        bodyTrainingLevel: Math.max(0, Math.floor(player.bodyTraining?.level ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -478,6 +479,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         rootFoundation: patch.specialStats?.rootFoundation
           ?? previous?.specialStats?.rootFoundation
           ?? Math.max(0, Math.floor(player?.rootFoundation ?? 0)),
+        bodyTrainingLevel: patch.specialStats?.bodyTrainingLevel
+          ?? previous?.specialStats?.bodyTrainingLevel
+          ?? Math.max(0, Math.floor(player?.bodyTraining?.level ?? 0)),
         combatExp: patch.specialStats?.combatExp
           ?? previous?.specialStats?.combatExp
           ?? Math.max(0, Math.floor(player?.combatExp ?? 0)),

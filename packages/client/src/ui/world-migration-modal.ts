@@ -2,6 +2,7 @@ import type { PlayerState } from '@mud/shared';
 
 import type { ToastKind } from '../main-app-assembly-types';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementChildren } from './dom-patch';
 
 type WorldMigrationLinePreset = 'peaceful' | 'real';
 
@@ -37,9 +38,7 @@ function renderWorldMigrationModal(
     subtitle: `当前世界：${currentPreset === 'real' ? '现世' : '虚境'}`,
     hint: '切入他道后，随其之道。',
     renderBody: (body: HTMLElement) => {
-      body.replaceChildren(
-        createWorldMigrationShell(options, currentPreset, pendingTargetPreset),
-      );
+      patchElementChildren(body, createWorldMigrationShell(options, currentPreset, pendingTargetPreset));
     },
   };
   if (!detailModalHost.patch({ ...modalOptions })) {

@@ -19,6 +19,7 @@ import {
   type ChatStoredMessage,
 } from '../constants/ui/chat';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
+import { patchElementChildren, patchElementHtml } from './dom-patch';
 import {
   appendChannelMessages,
   clearLegacyChatStorage,
@@ -715,10 +716,11 @@ export class ChatUI {
     for (const entry of visible) {
       const line = document.createElement('div');
       line.className = `chat-line chat-kind-${entry.kind}`;
-      line.replaceChildren(buildLineFragment(entry));
+      line.dataset.chatMessageId = entry.id;
+      patchElementChildren(line, buildLineFragment(entry));
       fragment.appendChild(line);
     }
-    log.replaceChildren(fragment);
+    patchElementChildren(log, Array.from(fragment.childNodes));
 
     if (options?.preserveScrollFromLoadMore) {
       const previousScrollHeight = options.previousScrollHeight ?? 0;
@@ -957,7 +959,10 @@ export class ChatUI {
 
   /** 清空单个频道的消息缓存。 */
   private clearChannel(channel: ChatChannel): void {
-    this.logs.get(channel)?.replaceChildren();
+    const log = this.logs.get(channel);
+    if (log) {
+      patchElementHtml(log, '');
+    }
   }
 
   /** 清理当前不活跃频道的缓存状态。 */

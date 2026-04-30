@@ -19,6 +19,7 @@ import {
   type SkillDamageKind,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
@@ -38,13 +39,6 @@ import {
   normalizeShortcutKey,
   readBoolean,
 } from './action-panel-helpers';
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
 
 type SkillEnabledEntry = {
   skillEnabled?: boolean;
@@ -687,7 +681,7 @@ export class ActionPanel {
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">暂无可用行动</div>'));
+    patchElementHtml(this.pane, '<div class="empty-hint">暂无可用行动</div>');
   }  
   /**
  * setCallbacks：写入Callback。
@@ -902,7 +896,7 @@ export class ActionPanel {
     }
 
     preserveSelection(this.pane, () => {
-      this.pane.replaceChildren(createFragmentFromHtml(html));
+      patchElementHtml(this.pane, html);
       this.captureActionRowRefs();
       this.bindEvents(actions);
       this.bindTooltips(this.pane);
@@ -2990,7 +2984,7 @@ export class ActionPanel {
       title: '宗门管理',
       subtitle: `${summary.name} · 印记 ${summary.mark}`,
       renderBody: (body) => {
-        body.replaceChildren(createFragmentFromHtml(`
+        patchElementHtml(body, `
           <div class="sect-manage-shell">
             <aside class="sect-manage-sidebar" aria-label="宗门管理页签">
               <div class="sect-manage-sidebar-title">管理</div>
@@ -3015,7 +3009,7 @@ export class ActionPanel {
               </div>
             </main>
           </div>
-        `));
+        `);
       },
       onAfterRender: (body) => {
         body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
@@ -4068,7 +4062,7 @@ export class ActionPanel {
       title: '技能方案',
       subtitle: `本地方案 ${this.skillPresets.length} 份 · 当前技能 ${currentSkills.length} 项`,
       renderBody: (body) => {
-        body.replaceChildren(createFragmentFromHtml(`
+        patchElementHtml(body, `
         <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
             <div class="skill-preset-card">
@@ -4149,7 +4143,7 @@ export class ActionPanel {
             </div>
           </div>
         </div>
-      `));
+      `);
       },
       onClose: () => {
         this.resetSkillPresetModalState();
@@ -4791,7 +4785,7 @@ export class ActionPanel {
       title: '技能管理',
       subtitle: `已学技能 ${skillEntries.length} 项 · 已启用 ${slotSummary} · 当前过滤 ${filteredEntries.length} 项`,
       renderBody: (body) => {
-        body.replaceChildren(createFragmentFromHtml(`
+        patchElementHtml(body, `
         <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
             <div class="action-skill-subtabs skill-manage-subtabs">
@@ -4867,7 +4861,7 @@ export class ActionPanel {
               }, entry.metrics)).join('')}
             </div>`}
         </div>
-      `));
+      `);
       },
       onRequestClose: () => this.confirmDiscardSkillManagementChanges(),
       onClose: () => {

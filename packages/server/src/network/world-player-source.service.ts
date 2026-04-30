@@ -898,21 +898,5 @@ function normalizeHeavenGateRoots(value) {
  */
 
 function resolveRealmLevelFromStage(stage) {
-    switch (stage) {
-        case shared_1.PlayerRealmStage.BodyTempering:
-            return 6;
-        case shared_1.PlayerRealmStage.BoneForging:
-            return 9;
-        case shared_1.PlayerRealmStage.Meridian:
-            return 13;
-        case shared_1.PlayerRealmStage.Innate:
-            return 16;
-        case shared_1.PlayerRealmStage.QiRefining:
-            return 19;
-        case shared_1.PlayerRealmStage.Foundation:
-            return 31;
-        case shared_1.PlayerRealmStage.Mortal:
-        default:
-            return 1;
-    }
+    return shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[stage]?.levelFrom ?? 1;
 }

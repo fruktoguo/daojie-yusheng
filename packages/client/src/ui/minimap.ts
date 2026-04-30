@@ -7,6 +7,7 @@ import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listReme
 import { getCachedMapMeta, getCachedUnlockedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { getViewportRoot } from './responsive-viewport';
 import {
   EMPTY_GROUND_PILES,
@@ -1041,7 +1042,7 @@ export class Minimap {
     const modalCtx = this.modalCanvas?.getContext('2d');
     modalCtx?.clearRect(0, 0, this.modalCanvas?.width ?? 0, this.modalCanvas?.height ?? 0);
     if (this.modalList) {
-      this.modalList.innerHTML = '';
+      patchElementHtml(this.modalList, '');
     }
     this.modalDisplayMode = 'unlock';
   }
@@ -1256,7 +1257,7 @@ export class Minimap {
 
     if (filteredEntries.length === 0) {
       this.removeAllCatalogNodes();
-      catalogContainer.replaceChildren(this.getCatalogEmptyNode());
+      patchElementChildren(catalogContainer, this.getCatalogEmptyNode());
       return;
     }
 
@@ -1320,13 +1321,14 @@ export class Minimap {
 
     const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
     if (badgesNode) {
-      badgesNode.replaceChildren();
+      const badges: HTMLElement[] = [];
       if (entry.hasMemory) {
-        badgesNode.appendChild(this.buildCatalogBadge('memory', '忆'));
+        badges.push(this.buildCatalogBadge('memory', '忆'));
       }
       if (entry.hasUnlock) {
-        badgesNode.appendChild(this.buildCatalogBadge('unlock', '图'));
+        badges.push(this.buildCatalogBadge('unlock', '图'));
       }
+      patchElementChildren(badgesNode, badges);
     }
 
     node.dataset.mapId = entry.mapId;
@@ -1720,10 +1722,10 @@ export class Minimap {
       subtitle: `${mapMeta.name} · 坐标 (${x}, ${y})`,
       hint: '点击空白处取消',
       renderBody: (body) => {
-        body.replaceChildren(
+        patchElementChildren(body, [
           this.createConfirmMessage('将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。'),
           this.createMoveConfirmActions(x, y),
-        );
+        ]);
       },
       onClose: () => {
         this.pendingMovePoint = null;
@@ -1756,10 +1758,10 @@ export class Minimap {
       subtitle: mapName,
       hint: '点击空白处取消',
       renderBody: (body) => {
-        body.replaceChildren(
+        patchElementChildren(body, [
           this.createConfirmMessage('只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会重新记入。'),
           this.createDeleteMemoryActions(selectedMapId),
-        );
+        ]);
       },
     });
   }

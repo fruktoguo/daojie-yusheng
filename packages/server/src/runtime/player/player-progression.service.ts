@@ -854,7 +854,8 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             });
         }
 
-        const configuredMaxRealmLevel = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[shared_1.PlayerRealmStage.QiRefining]?.levelTo ?? 30;
+        const finalRealmStage = shared_1.PLAYER_REALM_ORDER[shared_1.PLAYER_REALM_ORDER.length - 1] ?? shared_1.PlayerRealmStage.QiRefining;
+        const configuredMaxRealmLevel = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[finalRealmStage]?.levelTo ?? 30;
         this.maxRealmLevel = Math.min(Math.max(1, ...this.realmLevels.keys()), configuredMaxRealmLevel);
         this.loadBreakthroughTransitions();
         this.logger.log(`已从 ${filePath} 加载 ${this.realmLevels.size} 个境界等级`);
@@ -1755,7 +1756,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             bodyTraining.level += 1;
             bodyTraining.expToNext = (0, shared_1.getBodyTrainingExpToNext)(bodyTraining.level);
             notices.push({
-                text: `炼体突破至第 ${bodyTraining.level} 层，体魄、神识、身法、根骨各提升 1 点。`,
+                text: `炼体突破至第 ${bodyTraining.level} 层，全属性提升 1%。`,
                 kind: 'success',
             });
         }
@@ -1886,19 +1887,15 @@ export { PlayerProgressionService };
 function resolveStageForRealmLevel(realmLv) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (realmLv >= 31)
-        return shared_1.PLAYER_REALM_ORDER[6];
-    if (realmLv >= 19)
-        return shared_1.PLAYER_REALM_ORDER[5];
-    if (realmLv >= 16)
-        return shared_1.PLAYER_REALM_ORDER[4];
-    if (realmLv >= 13)
-        return shared_1.PLAYER_REALM_ORDER[3];
-    if (realmLv >= 9)
-        return shared_1.PLAYER_REALM_ORDER[2];
-    if (realmLv >= 6)
-        return shared_1.PLAYER_REALM_ORDER[1];
-    return shared_1.PLAYER_REALM_ORDER[0];
+    const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
+    for (let index = shared_1.PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
+        const stage = shared_1.PLAYER_REALM_ORDER[index];
+        const range = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
+        if (range && normalizedRealmLv >= range.levelFrom) {
+            return stage;
+        }
+    }
+    return shared_1.DEFAULT_PLAYER_REALM_STAGE;
 }
 /**
  * resolveRealmLevelFromStage：规范化或转换Realm等级FromStage。
@@ -1907,22 +1904,7 @@ function resolveStageForRealmLevel(realmLv) {
  */
 
 function resolveRealmLevelFromStage(stage) {
-    switch (stage) {
-        case shared_1.PLAYER_REALM_ORDER[1]:
-            return 6;
-        case shared_1.PLAYER_REALM_ORDER[2]:
-            return 9;
-        case shared_1.PLAYER_REALM_ORDER[3]:
-            return 13;
-        case shared_1.PLAYER_REALM_ORDER[4]:
-            return 16;
-        case shared_1.PLAYER_REALM_ORDER[5]:
-            return 19;
-        case shared_1.PLAYER_REALM_ORDER[6]:
-            return 31;
-        default:
-            return 1;
-    }
+    return shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[stage]?.levelFrom ?? 1;
 }
 /**
  * formatTechniqueRealmLabel：规范化或转换功法RealmLabel。

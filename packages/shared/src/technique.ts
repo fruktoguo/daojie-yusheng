@@ -20,6 +20,7 @@ import type { QiProjectionModifier } from './qi';
 import { DEFAULT_QI_EFFICIENCY_BP } from './constants/gameplay/qi';
 import {
   BODY_TRAINING_ATTR_KEYS,
+  BODY_TRAINING_ATTR_PERCENT_PER_LEVEL,
   BODY_TRAINING_EXP_BASE,
   BODY_TRAINING_EXP_GROWTH_RATE,
   TECHNIQUE_ATTR_KEYS,
@@ -275,8 +276,8 @@ export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | 
   };
 }
 
-/** 计算炼体累计提供的固定四维加成 */
-export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
+/** 计算炼体累计提供的全六维百分比加成 */
+export function calcBodyTrainingAttrPercentBonus(level: number): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalizedLevel = Math.max(0, Math.floor(level));
@@ -285,9 +286,14 @@ export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
   }
   const result: Partial<Attributes> = {};
   for (const key of BODY_TRAINING_ATTR_KEYS) {
-    result[key] = normalizedLevel;
+    result[key] = normalizedLevel * BODY_TRAINING_ATTR_PERCENT_PER_LEVEL;
   }
   return result;
+}
+
+/** @deprecated 炼体现在返回全六维百分比加成，保留旧名兼容调用方。 */
+export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
+  return calcBodyTrainingAttrPercentBonus(level);
 }
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */

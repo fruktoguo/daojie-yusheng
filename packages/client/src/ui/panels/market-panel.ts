@@ -36,6 +36,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
+import { patchElementHtml } from '../dom-patch';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
 import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
@@ -54,13 +55,6 @@ function escapeHtml(value: unknown): string {
 /** 复用同一套转义逻辑，避免属性值注入。 */
 function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
-}
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** 拼出一行普通提示文本，供 tooltip 复用。 */
@@ -509,7 +503,7 @@ export class MarketPanel {
     const orderCount = this.marketUpdate?.myOrders.length ?? 0;
     const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
     preserveSelection(this.pane, () => {
-      this.pane.replaceChildren(createFragmentFromHtml(`
+      patchElementHtml(this.pane, `
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">坊市</div>
           <div class="market-pane-copy ui-form-copy">${escapeHtml(MARKET_PANE_HINT)}</div>
@@ -520,7 +514,7 @@ export class MarketPanel {
           </div>
           <button class="small-btn" data-market-open type="button">打开坊市</button>
         </div>
-      `));
+      `);
     });
   }
 
@@ -575,11 +569,12 @@ export class MarketPanel {
       title: '坊市',
       subtitle: '天下修士互通有无',
       renderBody: (body) => {
-        body.replaceChildren(createFragmentFromHtml(
+        patchElementHtml(
+          body,
           marketUpdate
             ? this.renderModalBody(marketUpdate)
             : '<div class="empty-hint">坊市行情查探中...</div>',
-        ));
+        );
       },
       onClose: () => {
         this.itemBookLoading = false;
@@ -1489,7 +1484,7 @@ export class MarketPanel {
       return;
     }
     const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
-    bookPanel.replaceChildren(createFragmentFromHtml(this.renderBookPanel(selected, orderBook, update.currencyItemName)));
+    patchElementHtml(bookPanel, this.renderBookPanel(selected, orderBook, update.currencyItemName));
     this.bindBookPanelActionEvents(bookPanel);
     this.bindItemTooltipEvents(bookPanel);
   }
@@ -2053,7 +2048,7 @@ export class MarketPanel {
     const update = this.marketUpdate;
     const selected = this.getSelectedListedItem(update);
     if (!this.tradeDialog || this.modalTab !== 'market' || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || !update || !selected) {
-      root.replaceChildren();
+      patchElementHtml(root, '');
       root.classList.add('hidden');
       delete root.dataset.marketDialogItemKey;
       delete root.dataset.marketDialogKind;
@@ -2066,7 +2061,7 @@ export class MarketPanel {
     if (this.patchTradeDialogOverlay(root, selected, update)) {
       return;
     }
-    root.replaceChildren(createFragmentFromHtml(this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName)));
+    patchElementHtml(root, this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName));
     root.dataset.marketDialogItemKey = selected.itemKey;
     root.dataset.marketDialogKind = this.tradeDialog.kind;
     this.bindTradeDialogOverlayEvents(root, selected, update);
@@ -2099,10 +2094,10 @@ export class MarketPanel {
 
     dialogNode.classList.toggle('market-trade-dialog--buy', state.dialog.kind === 'buy');
     dialogNode.classList.toggle('market-trade-dialog--sell', state.dialog.kind === 'sell');
-    priceDisplay.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(priceDisplay, `
       <strong>${escapeHtml(this.formatMarketUnitPrice(state.dialog.unitPrice))}</strong>
       <span>${escapeHtml(update.currencyItemName)}</span>
-    `));
+    `);
     root.querySelectorAll<HTMLButtonElement>('[data-market-price-preset]').forEach((button) => {
       const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
       button.classList.toggle('active', preset === state.dialog.unitPrice);
@@ -2116,7 +2111,7 @@ export class MarketPanel {
     maxButton.disabled = state.maxButtonDisabled;
     totalNode.classList.toggle('error', state.insufficientCurrency);
     totalValue.textContent = state.totalText;
-    hintsNode.replaceChildren(...Array.from(createFragmentFromHtml(state.hintsHtml).childNodes));
+    patchElementHtml(hintsNode, state.hintsHtml);
     submitButton.disabled = state.disabled;
     submitButton.textContent = state.actionLabel;
     return true;

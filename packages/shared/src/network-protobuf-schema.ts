@@ -264,6 +264,7 @@ message PlayerSpecialStatsPayload {
   optional uint32 comprehension = 3;
   optional uint32 luck = 4;
   optional uint32 rootFoundation = 5;
+  optional uint32 bodyTrainingLevel = 6;
 }
 
 message AttributesPayload {

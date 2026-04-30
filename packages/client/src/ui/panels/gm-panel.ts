@@ -4,13 +4,7 @@
  * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
 import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
+import { patchElementChildren, patchElementHtml } from '../dom-patch';
 
 /** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
@@ -256,7 +250,7 @@ export class GmPanel {
       empty.style.padding = '10px';
       empty.style.textAlign = 'center';
       empty.textContent = '暂无意见收集';
-      this.suggestionListEl.replaceChildren(empty);
+      patchElementChildren(this.suggestionListEl, empty);
       return;
     }
 
@@ -308,7 +302,7 @@ export class GmPanel {
     this.resetHeavenGateBtn = null;
     this.removeBtn = null;
     this.botCountInput = null;
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>'));
+    patchElementHtml(this.pane, '<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>');
   }
 
   /** 确保面板布局只初始化一次。 */
@@ -317,7 +311,7 @@ export class GmPanel {
 
     if (this.initialized) return;
     this.initialized = true;
-    this.pane.replaceChildren(createFragmentFromHtml(`
+    patchElementHtml(this.pane, `
       <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">服务端性能</div>
         <div class="panel-row"><span class="panel-label">CPU 压力</span><span class="panel-value" data-gm-perf-cpu>0%</span></div>
@@ -389,7 +383,7 @@ export class GmPanel {
         <div id="gm-suggestion-list" class="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
         </div>
       </div>
-    `));
+    `);
 
     this.perfCpuEl = this.pane.querySelector('[data-gm-perf-cpu]');
     this.perfMemoryEl = this.pane.querySelector('[data-gm-perf-memory]');
@@ -506,7 +500,7 @@ export class GmPanel {
       empty.className = 'empty-hint ui-empty-hint';
       empty.dataset.gmEmptyState = 'players';
       empty.textContent = '当前没有在线玩家';
-      this.playerListEl.replaceChildren(empty);
+      patchElementChildren(this.playerListEl, empty);
       return;
     }
     const existingRows = new Map<string, HTMLButtonElement>();
@@ -565,7 +559,7 @@ export class GmPanel {
         fragment.appendChild(option);
         seen.add(selected.mapId);
       }
-      this.mapSelect.replaceChildren(fragment);
+      patchElementChildren(this.mapSelect, Array.from(fragment.childNodes));
       this.mapSelect.value = selected.mapId;
     }
 

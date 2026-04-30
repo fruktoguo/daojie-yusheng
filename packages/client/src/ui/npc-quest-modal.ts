@@ -2,6 +2,7 @@ import { Inventory, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
@@ -240,21 +241,21 @@ export class NpcQuestModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.state) {
-      body.replaceChildren(this.createEmptyState('正在交谈...'));
+      patchElementChildren(body, this.createEmptyState('正在交谈...'));
       return;
     }
     if (!this.state) {
-      body.replaceChildren(this.createEmptyState('暂无法查阅委托。'));
+      patchElementChildren(body, this.createEmptyState('暂无法查阅委托。'));
       return;
     }
     if (this.state.quests.length === 0) {
-      body.replaceChildren(this.createEmptyState(`${this.state.npcName} 目前没有新的委托。`));
+      patchElementChildren(body, this.createEmptyState(`${this.state.npcName} 目前没有新的委托。`));
       return;
     }
 
     const selected = this.resolveSelectedQuest();
     if (!selected) {
-      body.replaceChildren(this.createEmptyState('暂无法查阅详情。'));
+      patchElementChildren(body, this.createEmptyState('暂无法查阅详情。'));
       return;
     }
 
@@ -262,12 +263,12 @@ export class NpcQuestModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (!listRoot || !detailRoot) {
-      body.replaceChildren(this.createEmptyState('暂无法查阅详情。'));
+      patchElementChildren(body, this.createEmptyState('暂无法查阅详情。'));
       return;
     }
     this.syncQuestList(listRoot, selected);
     this.syncQuestDetail(detailRoot, selected);
-    body.replaceChildren(shell);
+    patchElementChildren(body, shell);
   }
 
   /** createEmptyState：创建空态节点。 */
@@ -343,7 +344,7 @@ export class NpcQuestModal {
     titleNode.textContent = quest.title;
     statusNode.textContent = getQuestStatusLabel(quest.status);
     lineNode.textContent = getQuestLineLabel(quest.line);
-    descNode.innerHTML = this.renderQuestText(quest.desc, quest);
+    patchElementHtml(descNode, this.renderQuestText(quest.desc, quest));
     return true;
   }
 
@@ -371,9 +372,7 @@ export class NpcQuestModal {
 
   /** syncQuestDetail：刷新详情区内容。 */
   private syncQuestDetail(detailRoot: HTMLElement, selected: QuestState): void {
-    const template = document.createElement('template');
-    template.innerHTML = this.renderQuestDetail(selected).trim();
-    detailRoot.replaceChildren(template.content.cloneNode(true));
+    patchElementHtml(detailRoot, this.renderQuestDetail(selected));
   }
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */

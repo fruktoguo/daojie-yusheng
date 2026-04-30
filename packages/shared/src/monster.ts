@@ -23,8 +23,8 @@ import {
   MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
   PLAYER_REALM_ORDER,
-  PLAYER_REALM_NUMERIC_TEMPLATES,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
+  resolvePlayerRealmNumericTemplate,
 } from './constants/gameplay';
 import { ELEMENT_KEYS } from './constants/gameplay/attributes';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
@@ -823,7 +823,7 @@ export function computeMonsterBaseNumericStatsFromAttrs(
   level?: number,
 ): NumericStats {
   const normalizedAttrs = mergeMonsterEquipmentAttrs(normalizeMonsterAttrs(attrs), equipment);
-  const template = PLAYER_REALM_NUMERIC_TEMPLATES[resolveMonsterBaseRealmStage(level)];
+  const template = resolvePlayerRealmNumericTemplate(resolveMonsterBaseRealmStage(level));
   const percentBonuses: PercentBonusAccumulator = {
     maxHp: 0,
     maxQi: 0,

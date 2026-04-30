@@ -6,6 +6,7 @@ import {
   type TutorialTopic,
 } from '../constants/ui/tutorial';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
 /** TutorialOperationHint：教程操作提示。 */
@@ -202,8 +203,7 @@ export class TutorialPanel {
 
   /** renderBody：渲染身体。 */
   private renderBody(body: HTMLElement): void {
-    const template = document.createElement('template');
-    template.innerHTML = `
+    patchElementHtml(body, `
       <div class="tutorial-modal-body">
         <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="简易教程分类">
           ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
@@ -249,8 +249,7 @@ export class TutorialPanel {
           </section>
         </div>
       </div>
-    `;
-    body.replaceChildren(template.content.cloneNode(true));
+    `);
   }
 
   /** renderMainTab：渲染主流程Tab。 */

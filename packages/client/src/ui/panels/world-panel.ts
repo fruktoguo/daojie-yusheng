@@ -7,6 +7,7 @@ import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { assessMapDanger } from '../../utils/map-danger';
 import { FloatingTooltip } from '../floating-tooltip';
+import { patchElementHtml } from '../dom-patch';
 
 /** 世界面板汇总快照。 */
 interface WorldPanelSnapshot {
@@ -38,13 +39,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 function inferRealm(player: PlayerState): string {
@@ -124,8 +118,8 @@ export class WorldPanel {
   /** clear：清空当前世界面板。 */
   clear(): void {
     this.hideMapTypeTooltip();
-    this.mapPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
-    this.tianjiPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
+    patchElementHtml(this.mapPane, '<div class="empty-hint">尚未进入世界</div>');
+    patchElementHtml(this.tianjiPane, '<div class="empty-hint">尚未进入世界</div>');
   }
 
   /** buildSnapshot：构建地图信息快照。 */
@@ -220,7 +214,7 @@ export class WorldPanel {
     `;
     this.hideMapTypeTooltip();
     preserveSelection(this.mapPane, () => {
-      this.mapPane.replaceChildren(createFragmentFromHtml(html));
+      patchElementHtml(this.mapPane, html);
     });
   }
 
@@ -249,7 +243,7 @@ export class WorldPanel {
       </div>
     `;
     preserveSelection(this.tianjiPane, () => {
-      this.tianjiPane.replaceChildren(createFragmentFromHtml(html));
+      patchElementHtml(this.tianjiPane, html);
     });
   }
 

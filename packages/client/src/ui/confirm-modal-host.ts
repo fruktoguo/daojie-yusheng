@@ -1,3 +1,5 @@
+import { patchElementHtml } from './dom-patch';
+
 type ConfirmModalOptions = {
   ownerId: string;
   title: string;
@@ -36,7 +38,7 @@ class ConfirmModalHost {
     this.title.textContent = options.title;
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
-    this.body.innerHTML = options.bodyHtml;
+    patchElementHtml(this.body, options.bodyHtml);
     this.cancelButton.textContent = options.cancelLabel ?? '取消';
     this.confirmButton.textContent = options.confirmLabel ?? '确认';
     this.confirmButton.disabled = options.confirmDisabled === true;
@@ -126,7 +128,7 @@ class ConfirmModalHost {
     this.ownerId = null;
     this.onConfirm = null;
     this.onClose = null;
-    this.body && (this.body.innerHTML = '');
+    this.body && patchElementHtml(this.body, '');
     this.modal.classList.add('hidden');
     this.modal.setAttribute('aria-hidden', 'true');
     if (notify) {

@@ -17,6 +17,8 @@ exports.WorldRuntimeQuestQueryService = void 0;
 
 const common_1 = require("@nestjs/common");
 
+const shared_1 = require("@mud/shared");
+
 const content_template_repository_1 = require("../../content/content-template.repository");
 
 const map_template_repository_1 = require("../map/map-template.repository");
@@ -36,6 +38,19 @@ const {
     cloneQuestState,
     compareQuestViews,
 } = world_runtime_normalization_helpers_1;
+
+function getRealmStageOrderIndex(stage) {
+    return shared_1.PLAYER_REALM_ORDER.indexOf(stage);
+}
+
+function isRealmStageReached(currentStage, targetStage, strict) {
+    const currentIndex = getRealmStageOrderIndex(currentStage);
+    const targetIndex = getRealmStageOrderIndex(targetStage);
+    if (currentIndex < 0 || targetIndex < 0) {
+        return false;
+    }
+    return strict ? currentIndex > targetIndex : currentIndex >= targetIndex;
+}
 
 /** 任务只读查询服务：承接任务视图构造、奖励解析与导航目标解析。 */
 let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
@@ -174,13 +189,13 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
                     : 0;
             case 'realm_stage': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && player.attrs.stage >= quest.targetRealmStage
+                return quest.targetRealmStage !== undefined && isRealmStageReached(player.attrs.stage, quest.targetRealmStage, false)
                     ? quest.required
                     : quest.progress;
             }
             case 'realm_progress': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && player.attrs.stage > quest.targetRealmStage
+                return quest.targetRealmStage !== undefined && isRealmStageReached(player.attrs.stage, quest.targetRealmStage, true)
                     ? quest.required
                     : quest.progress;
             }

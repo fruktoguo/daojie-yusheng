@@ -3,6 +3,7 @@
 import { Inventory, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import {
   bindInlineItemTooltips,
   renderInlineItemChip,
@@ -28,22 +29,11 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
-
 /** replaceRichContent：以片段替换富文本节点内容。 */
 function replaceRichContent(node: HTMLElement, html: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!html.trim()) {
-    node.replaceChildren();
-    return;
-  }
-  node.replaceChildren(createFragmentFromHtml(html));
+  patchElementHtml(node, html.trim() ? html : '');
 }
 
 /** isSameQuestIdSequence：判断是否Same任务ID Sequence。 */
@@ -185,7 +175,7 @@ export class QuestPanel {
     this.shellRefs = null;
     const emptyNode = this.createEmptyState();
     emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
-    this.pane.replaceChildren(emptyNode);
+    patchElementChildren(this.pane, emptyNode);
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
@@ -207,7 +197,7 @@ export class QuestPanel {
       this.shellRefs = null;
       const emptyNode = this.createEmptyState();
       emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
-      this.pane.replaceChildren(emptyNode);
+      patchElementChildren(this.pane, emptyNode);
       return;
     }
     this.ensureShell();
@@ -540,8 +530,7 @@ export class QuestPanel {
     submitLocation: string,
     navigateLabel: string,
   ): void {
-    const template = document.createElement('template');
-    template.innerHTML = `
+    patchElementHtml(body, `
         <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>章节</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>任务描述</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>剧情</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
@@ -570,8 +559,7 @@ export class QuestPanel {
         </div>
         <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
-      `;
-    body.replaceChildren(template.content.cloneNode(true));
+      `);
   }
 
   /** patchModal：处理patch弹窗。 */

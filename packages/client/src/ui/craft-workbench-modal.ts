@@ -34,6 +34,7 @@ import { getEquipSlotLabel, getItemTypeLabel, getTechniqueGradeLabel } from '../
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
+import { patchElementHtml } from './dom-patch';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 
 type CraftWorkbenchCallbacks = {
@@ -385,7 +386,7 @@ export class CraftWorkbenchModal {
       subtitle: definition.subtitle,
       hint: '点击空白处关闭',
       renderBody: (body) => {
-        body.innerHTML = definition.body;
+        patchElementHtml(body, definition.body);
       },
       onAfterRender: (body) => {
         bindInlineItemTooltips(body);
@@ -420,14 +421,14 @@ export class CraftWorkbenchModal {
     if (craftHeader) {
       const headerKey = this.buildCraftHeaderKey();
       if (craftHeader.dataset.craftHeaderKey !== headerKey) {
-        craftHeader.innerHTML = this.renderCraftHeader();
+        patchElementHtml(craftHeader, this.renderCraftHeader());
         craftHeader.dataset.craftHeaderKey = headerKey;
       }
     }
     if (craftTabs) {
       const tabsKey = this.buildCraftTabsKey();
       if (craftTabs.dataset.craftTabsKey !== tabsKey) {
-        craftTabs.innerHTML = this.renderCraftModeTabs();
+        patchElementHtml(craftTabs, this.renderCraftModeTabs());
         craftTabs.dataset.craftTabsKey = tabsKey;
       }
     }
@@ -440,7 +441,7 @@ export class CraftWorkbenchModal {
     detailModalHost.patch({
       ownerId: CraftWorkbenchModal.MODAL_OWNER,
       renderBody: (nextBody) => {
-        nextBody.innerHTML = definition.body;
+        patchElementHtml(nextBody, definition.body);
       },
       onAfterRender: (nextBody) => {
         bindInlineItemTooltips(nextBody);
@@ -967,17 +968,17 @@ export class CraftWorkbenchModal {
     const stableKey = this.buildAlchemyStableRenderKey();
 
     this.patchAlchemyJobHost(jobHost);
-    topbar.innerHTML = this.renderAlchemyTopbar();
+    patchElementHtml(topbar, this.renderAlchemyTopbar());
     if (shell.dataset.alchemyStableRenderKey === stableKey && preserveDetail) {
       this.restoreAlchemyViewState(body, viewState, true);
       return true;
     }
-    categoryTabs.innerHTML = this.renderAlchemyCategoryTabs();
-    realmTabs.innerHTML = this.renderAlchemyRealmTabs();
-    tabHost.innerHTML = this.renderAlchemyTabButtons();
-    recipeList.innerHTML = this.renderAlchemyRecipeList();
+    patchElementHtml(categoryTabs, this.renderAlchemyCategoryTabs());
+    patchElementHtml(realmTabs, this.renderAlchemyRealmTabs());
+    patchElementHtml(tabHost, this.renderAlchemyTabButtons());
+    patchElementHtml(recipeList, this.renderAlchemyRecipeList());
     detailPanel.dataset.detailKey = nextDetailKey;
-    detailPanel.innerHTML = this.renderAlchemyDetailPanel();
+    patchElementHtml(detailPanel, this.renderAlchemyDetailPanel());
     shell.dataset.alchemyStableRenderKey = stableKey;
     bindInlineItemTooltips(body);
     this.restoreAlchemyViewState(body, viewState, preserveDetail);
@@ -1013,7 +1014,7 @@ export class CraftWorkbenchModal {
     const nextJobKey = this.getAlchemyJobPatchKey(job);
     const card = jobHost.querySelector<HTMLElement>('[data-alchemy-job-card="true"]');
     if (!card || card.dataset.alchemyJobKey !== nextJobKey) {
-      jobHost.innerHTML = this.renderAlchemyJobCard(job);
+      patchElementHtml(jobHost, this.renderAlchemyJobCard(job));
       return;
     }
     if (!job) {
@@ -1155,8 +1156,8 @@ export class CraftWorkbenchModal {
       this.restoreEnhancementViewState(body, viewState);
       return true;
     }
-    workbench.innerHTML = this.renderEnhancementWorkbenchSection();
-    historyPanel.innerHTML = this.renderEnhancementHistory(this.enhancementPanel?.state?.records ?? []);
+    patchElementHtml(workbench, this.renderEnhancementWorkbenchSection());
+    patchElementHtml(historyPanel, this.renderEnhancementHistory(this.enhancementPanel?.state?.records ?? []));
     this.restoreEnhancementViewState(body, viewState);
     return true;
   }
@@ -1168,7 +1169,7 @@ export class CraftWorkbenchModal {
       note.textContent = nextText;
       return;
     }
-    toolbar.innerHTML = this.renderEnhancementToolbar();
+    patchElementHtml(toolbar, this.renderEnhancementToolbar());
   }
 
   private getEnhancementToolbarNoteText(): string {

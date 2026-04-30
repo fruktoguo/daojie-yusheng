@@ -107,6 +107,7 @@ function resolvePlayerSpecialStats(player) {
   return {
     foundation: Math.max(0, Math.trunc(Number(player.foundation ?? 0) || 0)),
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
+    bodyTrainingLevel: Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0)),
     combatExp: Math.max(0, Math.trunc(Number(player.combatExp ?? 0) || 0)),
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),

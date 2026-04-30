@@ -9,7 +9,7 @@ export type AttrTab = 'base' | 'root' | 'vein' | 'combat' | 'qi' | 'special' | '
 /** NumericCardKey：属性面板数值条目键。 */
 export type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
 /** PlayerSpecialCardKey：玩家特殊属性条目键。 */
-export type PlayerSpecialCardKey = keyof PlayerSpecialStats;
+export type PlayerSpecialCardKey = Exclude<keyof PlayerSpecialStats, 'bodyTrainingLevel'>;
 
 export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   base: '六维',

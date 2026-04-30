@@ -1091,11 +1091,12 @@ function buildAttrDetailBonuses(player) {
     const bonuses = [];
     const realmStage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
     const realmConfig = shared_1.PLAYER_REALM_CONFIG[realmStage];
-    if (realmConfig && hasNonZeroAttributes(realmConfig.attrBonus)) {
+    const realmAttrBonus = (0, shared_1.resolvePlayerRealmAttributeBonus)(realmStage);
+    if (realmConfig && hasNonZeroAttributes(realmAttrBonus)) {
         bonuses.push({
             source: `realm:${realmStage}`,
             label: player.realm?.displayName ?? player.realm?.name ?? '境界',
-            attrs: clonePartialAttributes(realmConfig.attrBonus),
+            attrs: clonePartialAttributes(realmAttrBonus),
         });
     }
     for (const technique of player.techniques?.techniques ?? []) {
@@ -1132,8 +1133,12 @@ function buildAttrDetailBonuses(player) {
             source: `buff:${buff.buffId}`,
             label: buff.name || buff.buffId,
             attrs: clonePartialAttributes(buff.attrs),
+            attrMode: buff.attrMode === 'percent' ? 'percent' : 'flat',
             stats: clonePartialNumericStats(buff.stats),
             qiProjection: cloneQiProjectionModifiers(buff.qiProjection),
+            meta: {
+                sourceSkillId: typeof buff.sourceSkillId === 'string' ? buff.sourceSkillId : '',
+            },
         });
     }
     for (const bonus of collectProjectedRuntimeBonuses(player.runtimeBonuses)) {
@@ -1157,7 +1162,7 @@ function buildAttrDetailBonuses(player) {
 function buildAttrDetailNumericStatBreakdowns(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     const stage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-    const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE];
+    const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(stage);
     const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
     const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
     const flatBuffStats = (0, shared_1.createNumericStats)();

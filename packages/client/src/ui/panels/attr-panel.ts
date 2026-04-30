@@ -31,6 +31,7 @@ import {
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
+import { patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import {
@@ -198,13 +199,6 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   return formatDisplayInteger(value);
 }
 
-/** buildAttrConversionSummary：构建属性Conversion摘要。 */
-function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
-  const parts = buildAttrConversionEntries(key, totalValue);
-  return parts.length > 0 ? parts.join('，') : '暂无具体转化';
-}
-
-/** buildAttrConversionLines：构建属性Conversion Lines。 */
 function buildAttrConversionLines(key: AttrKey, totalValue: number): string[] {
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts : ['暂无具体转化'];
@@ -229,6 +223,77 @@ function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] 
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
     });
   return [...percentParts, ...flatParts];
+}
+
+function resolveAttributeAmplificationPercent(specialStats?: PlayerSpecialStats): number {
+  const bodyTrainingPercent = Math.max(0, Math.floor(Number(specialStats?.bodyTrainingLevel ?? 0) || 0));
+  const rootFoundationPercent = Math.max(0, Math.floor(Number(specialStats?.rootFoundation ?? 0) || 0));
+  return bodyTrainingPercent + rootFoundationPercent;
+}
+
+function getAttrBonusValue(bonus: AttrBonus, key: AttrKey): number {
+  const value = Number(bonus.attrs?.[key]);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isTechniqueOrRuntimeAttrBonus(bonus: AttrBonus): boolean {
+  return bonus.source.startsWith('technique:') || bonus.source.startsWith('runtime:');
+}
+
+function isFixedExtraAttrBonus(bonus: AttrBonus): boolean {
+  return bonus.attrMode !== 'percent'
+    && (isTechniqueOrRuntimeAttrBonus(bonus)
+      || bonus.source.startsWith('equipment:')
+      || bonus.source.startsWith('buff:'));
+}
+
+function isPillPercentAttrBonus(bonus: AttrBonus): boolean {
+  if (bonus.attrMode !== 'percent') {
+    return false;
+  }
+  const sourceSkillId = typeof bonus.meta?.sourceSkillId === 'string' ? bonus.meta.sourceSkillId : '';
+  return sourceSkillId.startsWith('pill.') || bonus.source.startsWith('buff:item_buff.');
+}
+
+function sumAttrBonusPercent(bonuses: AttrBonus[], key: AttrKey, predicate: (bonus: AttrBonus) => boolean): number {
+  let total = 0;
+  for (const bonus of bonuses) {
+    if (predicate(bonus)) {
+      total += getAttrBonusValue(bonus, key);
+    }
+  }
+  return total;
+}
+
+function buildAttributeBreakdownLines(
+  key: AttrKey,
+  baseValue: number,
+  finalValue: number,
+  bonuses: AttrBonus[],
+  specialStats?: PlayerSpecialStats,
+): string[] {
+  const baseIncludedExtraValue = sumAttrBonusPercent(bonuses, key, isTechniqueOrRuntimeAttrBonus);
+  const fixedExtraValue = sumAttrBonusPercent(bonuses, key, isFixedExtraAttrBonus);
+  const displayFixedBaseValue = baseValue - baseIncludedExtraValue;
+  const displayFixedTotalValue = displayFixedBaseValue + fixedExtraValue;
+  const realmMultiplier = percentModifierToMultiplier(resolveAttributeAmplificationPercent(specialStats));
+  const buffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isPillPercentAttrBonus(bonus)));
+  const pillMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isPillPercentAttrBonus));
+  const attrMultiplier = 1;
+  const totalMultiplier = attrMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
+  return [
+    renderTooltipPrimaryLine('实际：', formatDisplayInteger(finalValue)),
+    renderTooltipSectionLine(`总固定值：${formatDisplayInteger(displayFixedTotalValue)}`, 'fixed'),
+    renderTooltipChildLine('基础值：', formatDisplayInteger(displayFixedBaseValue), 'fixed'),
+    renderTooltipChildLine('额外值：', `${fixedExtraValue >= 0 ? '+' : ''}${formatDisplayInteger(fixedExtraValue)}`, 'fixed'),
+    renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
+    renderTooltipChildLine('六维：', formatMultiplierDisplay(attrMultiplier), 'percent'),
+    renderTooltipChildLine('境界：', formatMultiplierDisplay(realmMultiplier), 'percent'),
+    renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
+    renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
+    renderTooltipSectionLine('实际转化：', 'percent'),
+    ...buildAttrConversionLines(key, finalValue),
+  ];
 }
 
 /** splitTooltipLines：处理split提示Lines。 */
@@ -437,13 +502,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** 属性雷达图中的单个节点，包含标签、数值、颜色和提示文案。 */
@@ -783,7 +841,7 @@ export class AttrPanel {
     this.lastStructureKey = null;
     this.tooltipTarget = null;
     this.tooltip.hide(true);
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未观测到角色属性</div>'));
+    patchElementHtml(this.pane, '<div class="empty-hint">尚未观测到角色属性</div>');
   }
 
   /** 接收属性更新事件并重新渲染 */
@@ -832,6 +890,7 @@ export class AttrPanel {
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
+        bodyTrainingLevel: Math.max(0, Math.floor(player.bodyTraining?.level ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -851,6 +910,7 @@ export class AttrPanel {
       {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
+        bodyTrainingLevel: Math.max(0, Math.floor(player.bodyTraining?.level ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -949,18 +1009,9 @@ export class AttrPanel {
   ): AttrPanelSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const totalBonus: Partial<Attributes> = {};
-    for (const bonus of bonuses) {
-      for (const key of ATTR_KEYS) {
-        if (bonus.attrs[key] !== undefined) {
-          totalBonus[key] = (totalBonus[key] || 0) + bonus.attrs[key]!;
-        }
-      }
-    }
-
     return {
       panes: {
-        base: this.buildBaseRadarSnapshot(base, final, totalBonus, specialStats),
+        base: this.buildBaseRadarSnapshot(base, final, bonuses, specialStats),
         root: stats && ratioDivisors
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
         : { kind: 'placeholder', message: '灵根未明' },
@@ -1009,7 +1060,7 @@ export class AttrPanel {
   private buildBaseRadarSnapshot(
     base: Attributes,
     final: Attributes,
-    totalBonus: Partial<Attributes>,
+    bonuses: AttrBonus[],
     specialStats?: PlayerSpecialStats,
   ): AttrRadarPaneSnapshot {
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
@@ -1017,20 +1068,13 @@ export class AttrPanel {
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
       const finalValue = final[key];
       const baseValue = base[key];
-      const bonusValue = totalBonus[key] ?? 0;
       const roundedValue = Math.round(finalValue);
       return {
         label: ATTR_KEY_LABELS[key],
         value: finalValue,
         valueLabel: formatDisplayInteger(roundedValue),
         tooltipTitle: ATTR_KEY_LABELS[key],
-        tooltipDetail: [
-          `当前：${formatDisplayInteger(roundedValue)}`,
-          `基础：${formatDisplayInteger(baseValue)}`,
-          `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}`,
-          '实际转化：',
-          ...buildAttrConversionLines(key, finalValue),
-        ].join('\n'),
+        tooltipDetail: buildAttributeBreakdownLines(key, baseValue, finalValue, bonuses, specialStats).join('\n'),
         color: ATTR_COLORS[index % ATTR_COLORS.length],
       };
     });
@@ -1495,7 +1539,7 @@ export class AttrPanel {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
     preserveSelection(this.pane, () => {
-      this.pane.replaceChildren(createFragmentFromHtml(`<div class="attr-layout">
+      patchElementHtml(this.pane, `<div class="attr-layout">
         <div class="action-tab-bar">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
@@ -1504,7 +1548,7 @@ export class AttrPanel {
         <div class="action-tab-pane ${this.activeTab === 'qi' ? 'active' : ''}" data-attr-pane="qi">${this.renderPane(snapshot.panes.qi)}</div>
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
         <div class="action-tab-pane ${this.activeTab === 'craft' ? 'active' : ''}" data-attr-pane="craft">${this.renderPane(snapshot.panes.craft)}</div>
-      </div>`));
+      </div>`);
     });
   }
 

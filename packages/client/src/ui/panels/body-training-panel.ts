@@ -1,13 +1,13 @@
 import {
-  ATTR_KEY_LABELS,
   BodyTrainingState,
   BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
-  calcBodyTrainingAttrBonus,
+  calcBodyTrainingAttrPercentBonus,
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
 } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
+import { patchElementHtml } from '../dom-patch';
 import { preserveSelection } from '../selection-preserver';
 import { createSmallBtn } from '../ui-primitives';
 import { formatDisplayInteger } from '../../utils/number';
@@ -66,13 +66,11 @@ function getProgressRatio(state: BodyTrainingState): number {
 function formatBonusSummary(state: BodyTrainingState): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const attrs = calcBodyTrainingAttrBonus(state.level);
   if (state.level <= 0) {
-    return '四维暂未提升';
+    return '全属性暂未提升';
   }
-  return (['constitution', 'spirit', 'perception', 'talent'] as const)
-    .map((key) => `${ATTR_KEY_LABELS[key]}+${formatDisplayInteger(attrs[key] ?? 0)}`)
-    .join(' / ');
+  const attrs = calcBodyTrainingAttrPercentBonus(state.level);
+  return `全属性+${formatDisplayInteger(attrs.constitution ?? 0)}%`;
 }
 
 /** normalizeFoundation：规范化Foundation。 */
@@ -538,7 +536,7 @@ export class BodyTrainingPanel {
       subtitle: `当前第 ${formatDisplayInteger(this.baseState.level)} 层`,
       hint: '点击空白处关闭',
       renderBody: (body) => {
-        body.innerHTML = this.renderInfusionModalBody(plan, maxLevelGain);
+        patchElementHtml(body, this.renderInfusionModalBody(plan, maxLevelGain));
       },
       onClose: () => {
         this.infusionModalOpen = false;

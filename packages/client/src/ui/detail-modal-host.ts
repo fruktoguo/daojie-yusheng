@@ -3,6 +3,7 @@
  * 所有"点击展开详情"类交互共用此弹层，通过 ownerId 区分归属
  */
 import { preserveSelection } from './selection-preserver';
+import { patchElementChildren, patchElementHtml } from './dom-patch';
 import {
   applyModalFrameClasses,
   buildModalCardClassList,
@@ -174,11 +175,10 @@ class DetailModalHost {
     this.hint.textContent = options.hint ?? '点击空白处关闭';
     preserveSelection(this.body, () => {
       if (typeof options.renderBody === 'function') {
-        this.body.replaceChildren();
-        options.renderBody(this.body);
+        this.patchBodyFromRenderer(options.renderBody);
         return;
       }
-      this.body.innerHTML = options.bodyHtml ?? '';
+      patchElementHtml(this.body, options.bodyHtml ?? '');
     });
     this.modal.classList.remove('hidden');
     this.modal.setAttribute('aria-hidden', 'false');
@@ -227,11 +227,10 @@ class DetailModalHost {
     if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
       preserveSelection(this.body, () => {
         if (typeof options.renderBody === 'function') {
-          this.body.replaceChildren();
-          options.renderBody(this.body);
+          this.patchBodyFromRenderer(options.renderBody);
           return;
         }
-        this.body.innerHTML = options.bodyHtml ?? '';
+        patchElementHtml(this.body, options.bodyHtml ?? '');
       });
       options.onAfterRender?.(this.body);
     }
@@ -270,7 +269,7 @@ class DetailModalHost {
     this.onRequestClose = null;
     this.onClose = null;
     this.setFrameClasses('', undefined);
-    this.body.innerHTML = '';
+    patchElementHtml(this.body, '');
     this.modal.classList.add('hidden');
     this.modal.setAttribute('aria-hidden', 'true');
     if (notify) {
@@ -289,6 +288,13 @@ class DetailModalHost {
       layerClasses: splitModalLayerClasses(variantClass),
       cardClasses: buildModalCardClassList(resolvedSize, variantClass),
     });
+  }
+
+  /** 用临时容器承接旧 renderBody，再局部 patch 到真实弹层 body。 */
+  private patchBodyFromRenderer(renderBody: (body: HTMLElement) => void): void {
+    const scratch = document.createElement('div');
+    renderBody(scratch);
+    patchElementChildren(this.body, Array.from(scratch.childNodes));
   }
 }
 

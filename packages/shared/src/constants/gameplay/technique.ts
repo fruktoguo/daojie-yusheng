@@ -47,8 +47,11 @@ export const BODY_TRAINING_EXP_GROWTH_RATE = 1.2;
 /** 灌注 1 点底蕴可转化的炼体经验 */
 export const BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER = 5;
 
-/** 炼体固定提升的四维属性键 */
-export const BODY_TRAINING_ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
+/** 炼体百分比提升覆盖的六维属性键 */
+export const BODY_TRAINING_ATTR_KEYS: AttrKey[] = ATTR_KEYS;
+
+/** 炼体每层提供的全属性百分比加成 */
+export const BODY_TRAINING_ATTR_PERCENT_PER_LEVEL = 1;
 
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 100;

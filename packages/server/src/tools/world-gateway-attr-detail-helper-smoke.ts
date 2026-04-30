@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier } = require("@mud/shared");
+const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -333,6 +333,83 @@ function testRealmLevelScalesNumericStats() {
     assert.equal(breakdowns.maxHp?.finalValue, realmLv3Player.attrs.numericStats.maxHp);
 }
 
+function testRealmStageConfigAccumulatesFromIncrementalEntries() {
+    const qiLateAttrs = resolvePlayerRealmAttributeBonus(PlayerRealmStage.QiRefiningLate);
+    const foundationAttrs = resolvePlayerRealmAttributeBonus(PlayerRealmStage.FoundationLate);
+    const foundationTemplate = resolvePlayerRealmNumericTemplate(PlayerRealmStage.FoundationLate);
+    assert.equal(PLAYER_REALM_CONFIG[PlayerRealmStage.FoundationLate].attrBonus.constitution, 40);
+    assert.equal(PLAYER_REALM_NUMERIC_TEMPLATES[PlayerRealmStage.FoundationLate].stats.maxHp, 100);
+    for (const key of ATTR_KEYS) {
+        assert.equal(qiLateAttrs[key], 100);
+    }
+    for (const key of ATTR_KEYS) {
+        assert.equal(foundationAttrs[key], 200);
+    }
+    assert.equal(foundationTemplate.stats.maxHp, 500);
+    assert.equal(foundationTemplate.stats.maxQi, 470);
+    assert.equal(foundationTemplate.stats.physAtk, 48);
+    assert.equal(foundationTemplate.stats.spellAtk, 65);
+    assert.equal(foundationTemplate.stats.critDamage, 0);
+    assert.equal(foundationTemplate.stats.cooldownSpeed, 0);
+    assert.equal(foundationTemplate.stats.auraPowerRate, 0);
+    assert.equal(foundationTemplate.stats.viewRange, 10);
+    assert.equal(foundationTemplate.ratioDivisors.crit, 450);
+    const bonuses = buildAttrDetailBonuses({
+        realm: {
+            stage: PlayerRealmStage.FoundationLate,
+            displayName: '筑基后期',
+        },
+        attrs: {
+            stage: PlayerRealmStage.FoundationLate,
+        },
+        techniques: { techniques: [] },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        runtimeBonuses: [],
+    });
+    const realmBonus = bonuses.find((entry) => entry.source === `realm:${PlayerRealmStage.FoundationLate}`);
+    assert.equal(realmBonus?.attrs?.constitution, 200);
+    assert.equal(realmBonus?.attrs?.meridians, 200);
+}
+
+function testBodyTrainingScalesAllAttributesLikeRootFoundation() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (bodyTrainingLevel, rootFoundation = 0) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        rootFoundation,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: bodyTrainingLevel },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    });
+    const basePlayer = createPlayer(0);
+    const bodyPlayer = createPlayer(100);
+    const combinedPlayer = createPlayer(100, 3);
+    service.recalculate(basePlayer);
+    service.recalculate(bodyPlayer);
+    service.recalculate(combinedPlayer);
+    for (const key of ATTR_KEYS) {
+        assert.equal(bodyPlayer.attrs.baseAttrs[key], DEFAULT_BASE_ATTRS[key]);
+        assert.equal(bodyPlayer.attrs.finalAttrs[key], DEFAULT_BASE_ATTRS[key] * 2);
+        assert.ok(Math.abs(combinedPlayer.attrs.finalAttrs[key] - DEFAULT_BASE_ATTRS[key] * 2.03) < 0.000001);
+    }
+    assert.ok(bodyPlayer.attrs.numericStats.maxHp > basePlayer.attrs.numericStats.maxHp);
+    assert.ok(bodyPlayer.attrs.numericStats.maxQi > basePlayer.attrs.numericStats.maxQi);
+    assert.ok(bodyPlayer.attrs.numericStats.physAtk > basePlayer.attrs.numericStats.physAtk);
+    assert.ok(bodyPlayer.attrs.numericStats.spellAtk > basePlayer.attrs.numericStats.spellAtk);
+}
+
 function testEnhancedEquipmentScalesLiveAndDetailStats() {
     const service = new PlayerAttributesService();
     const createPlayer = (enhanceLevel) => ({
@@ -545,6 +622,8 @@ testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testNingqiAddsAuraEfficiencyOnTopOfXuesha();
 testRealmLevelScalesNumericStats();
+testRealmStageConfigAccumulatesFromIncrementalEntries();
+testBodyTrainingScalesAllAttributesLikeRootFoundation();
 testEnhancedEquipmentScalesLiveAndDetailStats();
 testSpecialStatsAffectOnlyConfiguredRates();
 testActiveCultivationProjectsPerTickStats();
