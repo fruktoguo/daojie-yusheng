@@ -167,30 +167,66 @@ jobs:
       - name: Verify deployed production routes
         env:
           GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
         run: |
           set -euo pipefail
-          CURL_IMAGE="curlimages/curl:8.10.1"
-          CURL_TIMEOUT=(--connect-timeout 3 --max-time 8)
-
           docker --context production service logs --tail 120 daojie-yusheng_server || true
           docker --context production service logs --tail 80 daojie-yusheng_client || true
 
-          docker --context production run --rm --network host "$CURL_IMAGE" "${CURL_TIMEOUT[@]}" -fsS http://127.0.0.1:11922/health
+          quote_for_sh() {
+            printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+          }
 
-          docker --context production run --rm --network host "$CURL_IMAGE" "${CURL_TIMEOUT[@]}" -sS -o /tmp/player-login.out -w "%{http_code}" \
-            -H 'Content-Type: application/json' \
-            -X POST http://127.0.0.1:11922/api/auth/login \
-            --data '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
-            | grep -Eq '^(400|401)$'
+          REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}"
+          GM_PASSWORD_Q="$(quote_for_sh "$GM_PASSWORD")"
+          ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
+            "GM_PASSWORD=$GM_PASSWORD_Q timeout 60 sh -s" <<'REMOTE_PROBE'
+          set -eu
 
-          docker --context production run --rm --network host "$CURL_IMAGE" "${CURL_TIMEOUT[@]}" -sS -o /tmp/gm-login.out -w "%{http_code}" \
-            -H 'Content-Type: application/json' \
-            -X POST http://127.0.0.1:11922/api/auth/gm/login \
-            --data "{\"password\":\"$GM_PASSWORD\"}" \
-            | grep -Eq '^200$'
+          if ! command -v curl >/dev/null 2>&1; then
+            echo "curl is required on the production host for route probes" >&2
+            exit 127
+          fi
 
-          docker --context production run --rm --network host "$CURL_IMAGE" "${CURL_TIMEOUT[@]}" -sS -o /tmp/client-login.out -w "%{http_code}" \
-            -H 'Content-Type: application/json' \
-            -X POST http://127.0.0.1:11921/api/auth/login \
-            --data '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
-            | grep -Eq '^(400|401)$'
+          request_json_code() {
+            name="$1"
+            url="$2"
+            data="$3"
+            expected="$4"
+            body="/tmp/${name}.out"
+            code="$(curl --connect-timeout 3 --max-time 8 -sS -o "$body" -w "%{http_code}" \
+              -H 'Content-Type: application/json' \
+              -X POST "$url" \
+              --data "$data")"
+            if ! printf '%s\n' "$code" | grep -Eq "$expected"; then
+              echo "route probe failed: $name url=$url status=$code expected=$expected" >&2
+              sed -n '1,80p' "$body" >&2 || true
+              exit 1
+            fi
+            echo "route probe ok: $name status=$code"
+          }
+
+          json_escape() {
+            printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+          }
+
+          curl --connect-timeout 3 --max-time 8 -fsS http://127.0.0.1:11922/health >/tmp/daojie-health.out
+          echo "route probe ok: server-health"
+
+          request_json_code player-login \
+            http://127.0.0.1:11922/api/auth/login \
+            '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
+            '^(400|401)$'
+
+          request_json_code gm-login \
+            http://127.0.0.1:11922/api/auth/gm/login \
+            "{\"password\":\"$(json_escape "$GM_PASSWORD")\"}" \
+            '^200$'
+
+          request_json_code client-player-login \
+            http://127.0.0.1:11921/api/auth/login \
+            '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
+            '^(400|401)$'
+REMOTE_PROBE
