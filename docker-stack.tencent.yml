@@ -1,0 +1,138 @@
+services:
+  client:
+    image: ${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}
+    environment:
+      NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-auto}
+    ports:
+      - target: 80
+        published: ${CLIENT_PUBLISHED_PORT:-11921}
+        protocol: tcp
+        mode: ingress
+    networks:
+      - daojie_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+
+  server:
+    image: ${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 13001
+      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-https://daojie.yuohira.com}
+      SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET:?SERVER_PLAYER_TOKEN_SECRET is required}
+      SERVER_GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
+      GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
+    ports:
+      - target: 13001
+        published: ${SERVER_PUBLISHED_PORT:-11922}
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - server_backup_data:/var/lib/server
+    networks:
+      - daojie_net
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          fetch('http://127.0.0.1:13001/health').then(async (response) => {
+            const body = await response.json().catch(() => null);
+            const ready = response.ok && body?.ok === true && body?.readiness?.ok === true;
+            process.exit(ready ? 0 : 1);
+          }).catch(() => process.exit(1));
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-mud}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_DATABASE:-daojie_yusheng}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - daojie_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-daojie_yusheng}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    networks:
+      - daojie_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+volumes:
+  pgdata:
+    external: true
+    name: ${DAOJIE_PG_VOLUME:-daojie_yusheng_pgdata}
+  redisdata:
+    external: true
+    name: ${DAOJIE_REDIS_VOLUME:-daojie_yusheng_redisdata}
+  server_backup_data:
+    external: true
+    name: ${DAOJIE_SERVER_BACKUP_VOLUME:-daojie_yusheng_server_backup_data}
+
+networks:
+  daojie_net:
+    driver: overlay
+    attachable: true
