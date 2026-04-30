@@ -2343,6 +2343,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+  await ensurePlayerPresenceColumnsWithClient(client);
   await client.query(`
     ALTER TABLE ${PLAYER_PRESENCE_TABLE}
     ALTER COLUMN runtime_owner_id TYPE varchar(180)
@@ -2732,6 +2733,45 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     )
   `);
   await ensureRecoveryWatermarkColumnsWithClient(client);
+}
+
+async function ensurePlayerPresenceColumnsWithClient(client: PoolClient): Promise<void> {
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS online boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS in_world boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS last_heartbeat_at bigint
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS offline_since_at bigint
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS runtime_owner_id varchar(180)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS session_epoch bigint NOT NULL DEFAULT 1
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS transfer_state varchar(32)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS transfer_target_node_id varchar(120)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()
+  `);
 }
 
 async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Promise<void> {

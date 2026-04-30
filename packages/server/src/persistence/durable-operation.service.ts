@@ -3159,13 +3159,14 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         in_world boolean NOT NULL DEFAULT false,
         last_heartbeat_at bigint,
         offline_since_at bigint,
-        runtime_owner_id varchar(120),
+        runtime_owner_id varchar(180),
         session_epoch bigint NOT NULL DEFAULT 1,
         transfer_state varchar(32),
         transfer_target_node_id varchar(120),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await ensurePlayerPresenceColumnsWithClient(client);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_RECOVERY_WATERMARK_TABLE} (
         player_id varchar(100) PRIMARY KEY,
@@ -3219,6 +3220,49 @@ async function ensureDurableOperationBigintColumnsWithClient(client: import('pg'
       `);
     }
   }
+}
+
+async function ensurePlayerPresenceColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS online boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS in_world boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS last_heartbeat_at bigint
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS offline_since_at bigint
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS runtime_owner_id varchar(180)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ALTER COLUMN runtime_owner_id TYPE varchar(180)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS session_epoch bigint NOT NULL DEFAULT 1
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS transfer_state varchar(32)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS transfer_target_node_id varchar(120)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()
+  `);
 }
 
 async function replacePlayerInventoryItems(

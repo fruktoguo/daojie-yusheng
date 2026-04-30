@@ -159,10 +159,30 @@ jobs:
           SERVER_PLAYER_TOKEN_SECRET="$PLAYER_TOKEN_SECRET" GM_PASSWORD="$GM_PASSWORD" docker --context production stack deploy --detach=false --with-registry-auth -c docker-stack.yml daojie-yusheng
 
       - name: Show production rollout state
+        env:
+          EXPECTED_SERVER_IMAGE: ghcr.io/fruktoguo/daojie-yusheng-server:sha-${{ github.sha }}
+          EXPECTED_CLIENT_IMAGE: ghcr.io/fruktoguo/daojie-yusheng-client:sha-${{ github.sha }}
         run: |
           set -euo pipefail
-          docker --context production service ps daojie-yusheng_server --no-trunc
-          docker --context production service ps daojie-yusheng_client --no-trunc
+          assert_current_running_task() {
+            service="$1"
+            expected_image="$2"
+            tasks="$(docker --context production service ps "$service" --no-trunc \
+              --format '{{.Image}}\t{{.CurrentState}}\t{{.Error}}')"
+            printf '%s\n' "$tasks"
+            if ! printf '%s\n' "$tasks" | awk -F '\t' -v image="$expected_image" '
+              index($1, image) == 1 && $2 ~ /^Running/ { found = 1 }
+              END { exit(found ? 0 : 1) }
+            '; then
+              echo "$service is not running the expected image: $expected_image" >&2
+              docker --context production service ps "$service" --no-trunc >&2 || true
+              docker --context production service logs --since 10m --tail 80 "$service" >&2 || true
+              exit 1
+            fi
+          }
+
+          assert_current_running_task daojie-yusheng_server "$EXPECTED_SERVER_IMAGE"
+          assert_current_running_task daojie-yusheng_client "$EXPECTED_CLIENT_IMAGE"
 
       - name: Verify deployed production routes
         env:

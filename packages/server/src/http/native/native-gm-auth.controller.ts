@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UseGuards } from '@nestjs/common';
 
 import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { NativeAuthRateLimitService } from './native-auth-rate-limit.service';
@@ -78,6 +78,7 @@ export class NativeGmAuthController {
 
 
   @Post('gm/login')
+  @HttpCode(HttpStatus.OK)
   async login(@Body() body: GmLoginBody, @Req() request: RequestLike) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
