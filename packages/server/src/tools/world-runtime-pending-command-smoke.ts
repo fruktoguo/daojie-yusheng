@@ -359,6 +359,106 @@ async function testInvalidAttackNoticeUsesTargetReason() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatInvalidTargetStaysServerInternal() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: null,
+        targetX: 10,
+        targetY: 11,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('该目标无法被攻击');
+        },
+        buildAutoCombatCommand() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return {
+                    playerId,
+                    instanceId: 'public:yunlai_town',
+                    hp: 100,
+                    combat: {
+                        autoBattle: true,
+                    },
+                };
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+
+    const skillService = new WorldRuntimePendingCommandService();
+    const skillLog = [];
+    skillService.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill:area',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:gone',
+        targetRef: null,
+        autoCombat: true,
+    });
+    await skillService.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('没有可命中的目标');
+        },
+        buildAutoCombatCommand() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return {
+                    playerId,
+                    instanceId: 'public:yunlai_town',
+                    hp: 100,
+                    combat: {
+                        autoBattle: true,
+                    },
+                };
+            },
+        },
+        logger: {
+            warn(message) {
+                skillLog.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            skillLog.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(skillLog, [
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（没有可命中的目标）'],
+    ]);
+    assert.equal(skillService.getPendingCommandCount(), 0);
+}
+
 async function testSkillOutOfRangeStaysServerInternal() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -431,6 +531,7 @@ Promise.resolve()
     .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => testInvalidAttackNoticeUsesTargetReason())
+    .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testSkillOutOfRangeStaysServerInternal())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {

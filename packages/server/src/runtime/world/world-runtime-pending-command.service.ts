@@ -14,6 +14,11 @@ exports.WorldRuntimePendingCommandService = void 0;
 const common_1 = require("@nestjs/common");
 
 function normalizePendingCommandNoticeMessage(command, message) {
+    if (command?.autoCombat === true && command?.manualEngage !== true) {
+        if (message === '该目标无法被攻击' || message === '没有可命中的目标') {
+            return null;
+        }
+    }
     if (message === '该目标无法被攻击') {
         return '没有可命中的目标';
     }
