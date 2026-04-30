@@ -24,15 +24,15 @@
     "#,,,,,,,,,,,T,,,,,,o........====.......oooT,,,,,oo~~~~~~~,,#",
     "#,,,,,,,,,,,,,,,,oo.........====.........oo,,,,,oo~~~~~~~,,#",
     "#,,,,,,,,,,,,,,,T,oo........====........oo,,,,T,,oo~~~~~~,,#",
-    "#,,,,,,,,,,,,,,,,,,oo.......====.......oo,,,,,,,,oo~~~~~~,,#",
+    "#,,,,,,,,,,,,,,,,,,oo.......==P=.......oo,,,,,,,,oo~~~~~~,,#",
     "#,,,,,,,,,,,,,,,,,,,,ooo....====.....oo,,,,,,,,,,oo~~~~~~,,#",
-    "#,,,,,,,,,,,,,,,,,,,,,,oo...====...oo,,,,,,,,,,,,oo~~~~~~,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,oo...=P==...oo,,,,,,,,,,,,oo~~~~~~,,#",
     "#,,,,,,,,,##########,,,,oooo====.oo,,,,,,,,,,,,,,oo~~~~~~,,#",
     "#,,,,,,,,,#.......##,,,,,,,o====oo,,,,,,##.....##oo~~~~~~,,#",
     "#,,,,::::::........#,,,,,,,,====,,,,,,,,#.......#::::~~~~,,#",
     "#,,,,::::::........#,,,,,,,,====,,,,,,,,##.....##::::~~~~,,#",
-    "#,,,,:::===========================================::~~~~,,#",
-    "#,,,,::P==========================================P::~~~~,,#",
+    "#,,,,:::P==========================================::~~~~,,#",
+    "#,,,,::PP=========================================P::~~~~,,#",
     "#,,,,:::===========================================::::~~,,#",
     "#,,,,::::::::::::::::::,,,,,====,,,,,,,,,,,#..#::::::~~~~,,#",
     "#,,,,,角檐.檐檐檐檐檐檐檐檐檐.檐檐角::..====..::##,,角檐檐檐檐檐檐檐檐檐檐檐檐檐檐角,,,,,#",
@@ -83,7 +83,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:29,6",
+      "direction": "two_way",
+      "targetPortalId": "sky_ruins:24,44"
     },
     {
       "x": 7,
@@ -95,7 +98,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:7,21",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain:175,9"
     },
     {
       "x": 50,
@@ -107,7 +113,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:50,21",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_01_entry:26,8"
     },
     {
       "x": 50,
@@ -119,7 +128,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:50,37",
+      "direction": "two_way",
+      "targetPortalId": "cold_tide_marsh:4,30"
     },
     {
       "x": 7,
@@ -131,7 +143,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:7,37",
+      "direction": "two_way",
+      "targetPortalId": "deepvein_ridge:56,30"
     },
     {
       "x": 29,
@@ -143,7 +158,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:29,53",
+      "direction": "two_way",
+      "targetPortalId": "emberfall_court:28,3"
     },
     {
       "x": 8,
@@ -155,7 +173,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:8,20",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_entry:21,7"
     },
     {
       "x": 8,
@@ -167,7 +188,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:8,21",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_entry:21,8"
     },
     {
       "x": 30,
@@ -179,7 +203,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:30,13",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:60,32"
     },
     {
       "x": 29,
@@ -191,7 +218,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "qizhen_crossing:29,15",
+      "direction": "two_way",
+      "targetPortalId": "sky_ruins_core_well:15,9"
     }
   ],
   "spawnPoint": {

@@ -356,8 +356,16 @@ export type PortalKind = 'portal' | 'stairs';
 /** 传送触发方式。 */
 export type PortalTrigger = 'manual' | 'auto';
 
+/** 传送点方向。 */
+export type PortalDirection = 'two_way' | 'one_way';
+
 /** 传送点。 */
 export interface Portal {
+/**
+ * id：同地图内稳定传送点ID。
+ */
+
+  id: string;
 /**
  * x：x相关字段。
  */
@@ -383,6 +391,16 @@ export interface Portal {
  */
 
   targetY: number;
+  /**
+ * targetPortalId：双向传送点的目标端ID。
+ */
+
+  targetPortalId?: string;
+  /**
+ * direction：传送方向。
+ */
+
+  direction: PortalDirection;
   /**
  * kind：kind相关字段。
  */

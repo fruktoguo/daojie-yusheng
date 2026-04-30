@@ -151,8 +151,17 @@ function validateComposeRules(errors, mapInfo) {
 
 
 function validatePortals(errors, mapInfo, mapById, width, height) {
+  const portalIds = new Set();
   for (const portal of mapInfo.map.portals ?? []) {
     validatePoint(errors, mapInfo, `portal:${portal.targetMapId ?? "unknown"}`, portal.x, portal.y, width, height);
+    const portalId = typeof portal.id === "string" ? portal.id.trim() : "";
+    if (!portalId) {
+      errors.push(`${mapInfo.map.id}: portal 缺少 id @ ${mapInfo.relativePath}`);
+    } else if (portalIds.has(portalId)) {
+      errors.push(`${mapInfo.map.id}: portal id 重复 ${portalId} @ ${mapInfo.relativePath}`);
+    } else {
+      portalIds.add(portalId);
+    }
     if (typeof portal.targetMapId !== "string") {
       errors.push(`${mapInfo.map.id}: portal 缺少 targetMapId @ ${mapInfo.relativePath}`);
       continue;
@@ -171,19 +180,33 @@ function validatePortals(errors, mapInfo, mapById, width, height) {
       targetMapInfo.map.width,
       targetMapInfo.map.height,
     );
-    const reciprocalPortal = (targetMapInfo.map.portals ?? []).find(
-      (entry) => entry?.x === portal.targetX && entry?.y === portal.targetY,
-    );
+    if (portal.direction === "one_way") {
+      continue;
+    }
+    if (portal.direction !== "two_way") {
+      errors.push(`${mapInfo.map.id}: portal ${portalId || `${portal.x},${portal.y}`} 缺少合法 direction @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    const targetPortalId = typeof portal.targetPortalId === "string" ? portal.targetPortalId.trim() : "";
+    if (!targetPortalId) {
+      errors.push(`${mapInfo.map.id}: 双向 portal ${portalId || `${portal.x},${portal.y}`} 缺少 targetPortalId @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    const reciprocalPortal = (targetMapInfo.map.portals ?? []).find((entry) => entry?.id === targetPortalId);
     if (!reciprocalPortal) {
-      errors.push(`${mapInfo.map.id}: portal 目标坐标 ${portal.targetMapId}(${portal.targetX},${portal.targetY}) 不是对应传送点 @ ${mapInfo.relativePath}`);
+      errors.push(`${mapInfo.map.id}: portal 目标传送点 ${portal.targetMapId}.${targetPortalId} 不存在 @ ${mapInfo.relativePath}`);
       continue;
     }
     if (
-      reciprocalPortal.targetMapId !== mapInfo.map.id
+      reciprocalPortal.direction !== "two_way"
+      || reciprocalPortal.x !== portal.targetX
+      || reciprocalPortal.y !== portal.targetY
+      || reciprocalPortal.targetMapId !== mapInfo.map.id
+      || reciprocalPortal.targetPortalId !== portalId
       || reciprocalPortal.targetX !== portal.x
       || reciprocalPortal.targetY !== portal.y
     ) {
-      errors.push(`${mapInfo.map.id}: portal 与 ${portal.targetMapId}(${portal.targetX},${portal.targetY}) 不是一一对应 @ ${mapInfo.relativePath}`);
+      errors.push(`${mapInfo.map.id}: portal 与 ${portal.targetMapId}.${targetPortalId} 不是双向 ID 回指 @ ${mapInfo.relativePath}`);
     }
   }
 }

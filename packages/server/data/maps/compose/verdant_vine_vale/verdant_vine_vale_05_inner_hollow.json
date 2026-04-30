@@ -20,7 +20,7 @@
     "#,,,,:===:::,,TT,,:::===:,,,,,,#",
     "#===::,,TT::===::===::TT,,::===#",
     "#,,:P,oooo,:=o:TT:o=:,oooo,P:,,#",
-    "#,,:P,TTTT,:=:=TT:==:,TTTT,P:,,#",
+    "#,,:.,TTTT,:=:=TT:==:,TTTT,.:,,#",
     "#===::,,TT::===::===::TT,,::===#",
     "#,,,,:===:::,,TT,,:::===:,,,,,,#",
     "#,,TT:TT,,,,:TTTT:,,,,TT:TT,,,,#",
@@ -42,7 +42,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "verdant_vine_vale_05_inner_hollow:27,9",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_04_garden:4,9"
     },
     {
       "x": 4,
@@ -54,7 +57,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "verdant_vine_vale_05_inner_hollow:4,9",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_06_heart_gate:27,9"
     }
   ],
   "spawnPoint": {

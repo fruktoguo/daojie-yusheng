@@ -32,7 +32,10 @@
       "targetX": 16,
       "targetY": 39,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "id": "yunlai_town_inn_2f:8,9",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:16,39"
     }
   ],
   "dangerLevel": 1,

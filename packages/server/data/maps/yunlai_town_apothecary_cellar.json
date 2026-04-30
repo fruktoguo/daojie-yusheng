@@ -32,7 +32,10 @@
       "targetX": 41,
       "targetY": 38,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "id": "yunlai_town_apothecary_cellar:7,9",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:41,38"
     }
   ],
   "dangerLevel": 1,

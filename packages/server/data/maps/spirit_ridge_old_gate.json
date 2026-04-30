@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge_old_gate:1,9",
+      "direction": "two_way",
+      "targetPortalId": "spirit_ridge:24,11"
     }
   ],
   "spawnPoint": {

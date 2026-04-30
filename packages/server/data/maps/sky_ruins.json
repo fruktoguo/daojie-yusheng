@@ -54,7 +54,7 @@
     "#云云云云云云云云云云云云云云云云云霞霞霞霞霞霞霞霞霞霞霞霞云云云云霞霞霞霞霞霞霞霞霞云云云云#",
     "#云云云云云云云云云云云云云云云云云霞霞霞霞霞霞霞霞霞霞霞霞云云云云霞霞霞霞霞霞霞霞霞云云云云#",
     "#云云云云云云云云云云云云云云云云云霞霞霞霞霞霞P霞霞霞霞霞霞云云云云云云云云云云云云云云云云#",
-    "#云云云云云云云云云云云云云云云云云......=......云云云云云云云云云云云云云云云云#",
+    "#云云云云云云云云云云云云云云云云云......P......云云云云云云云云云云云云云云云云#",
     "#云云云云云云云云云云云云云云云云云云云云云云云=云云云云云云云云云云云云云云云云云云云云云云#",
     "#云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云云#",
     "################################################"
@@ -70,7 +70,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins:24,43",
+      "direction": "two_way",
+      "targetPortalId": "spirit_ridge:24,3"
     },
     {
       "x": 39,
@@ -82,7 +85,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins:39,39",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:39,9"
     },
     {
       "x": 24,
@@ -94,7 +100,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins:24,5",
+      "direction": "two_way",
+      "targetPortalId": "sky_ruins_core_well:1,9"
     },
     {
       "x": 24,
@@ -106,7 +115,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins:24,44",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:29,6"
     }
   ],
   "spawnPoint": {

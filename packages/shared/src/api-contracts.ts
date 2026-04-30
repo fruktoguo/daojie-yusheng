@@ -1675,6 +1675,21 @@ export interface GmShortcutRunRes {
 /** GM 地图传送点记录。 */
 export interface GmMapPortalRecord {
 /**
+ * id：同地图内稳定传送点ID。
+ */
+
+  id: string;
+  /**
+ * targetPortalId：双向传送点的目标端ID。
+ */
+
+  targetPortalId?: string;
+  /**
+ * direction：传送方向。
+ */
+
+  direction?: 'two_way' | 'one_way';
+  /**
  * x：x相关字段。
  */
 

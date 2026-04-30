@@ -18,8 +18,8 @@
     "#,,,,,,,,:,:,:,:,:,:,:,崖崖崖崖,,#",
     "#,,,,刃oo,刃o,刃,o,刃,o,,.,崖崖崖,,,#",
     "#,,,.,.,.,,,.,,,.,,.刃,刃o.,,,,#",
-    "#=:=========================P#",
-    "#=:=========================P#",
+    "#P:=========================P#",
+    "#P:=========================P#",
     "#,,,.,.,.,,,.,,,.,,.刃,刃o.,,,,#",
     "#,,崖崖崖刃,o,刃,o,刃,o,刃,o,,.,,,,,#",
     "#,,崖崖崖崖,,:,:,:,:,:,:,:,,,,,,,#",
@@ -40,7 +40,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_straightway:28,8",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_slope:1,8"
     },
     {
       "x": 28,
@@ -52,7 +55,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_straightway:28,9",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_slope:1,9"
     },
     {
       "x": 1,
@@ -64,7 +70,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_straightway:1,8",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_plateau:30,9"
     },
     {
       "x": 1,
@@ -76,7 +85,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_straightway:1,9",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_plateau:30,10"
     }
   ],
   "spawnPoint": {

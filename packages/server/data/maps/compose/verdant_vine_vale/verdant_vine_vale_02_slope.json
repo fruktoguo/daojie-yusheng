@@ -17,10 +17,10 @@
     "#,,T,,;;;;,TTTT,,TTTT,,;;;;T,#",
     "#,,T,::===:,,,,,,,,,::===:T,,#",
     "#,,TT:,,..:,,TTTT,,,:..,,TT,,#",
-    "#,,,,:..TT:===PP===:TT..:,,,,#",
+    "#,,,,:..TT:===P.===:TT..:,,,,#",
     "#,,,,:..TTT,,,::,,,TTT.:,,,,,#",
     "#,,oP:===::===TT===::===:ooP,#",
-    "#,,oP:...TT,,,TT,,,TT...:ooP,#",
+    "#,,o.:...TT,,,TT,,,TT...:oo.,#",
     "#,,,,:..TTT===::===TTT..:,,,,#",
     "#,,,,:..TT,:,,::,,,:TT..:,,,,#",
     "#,,TT:===::,,,,,,,,::===:TT,,#",
@@ -40,7 +40,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "verdant_vine_vale_02_slope:27,9",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_01_entry:4,8"
     },
     {
       "x": 4,
@@ -52,7 +55,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "verdant_vine_vale_02_slope:4,9",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_03_bridge:27,9"
     },
     {
       "x": 14,
@@ -64,7 +70,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "verdant_vine_vale_02_slope:14,7",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_04_garden:24,4"
     }
   ],
   "spawnPoint": {

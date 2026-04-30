@@ -37,7 +37,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town_old_shrine_crypt:7,7",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:14,13"
     }
   ],
   "spawnPoint": {

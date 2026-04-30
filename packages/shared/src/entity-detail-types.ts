@@ -55,6 +55,11 @@ export interface PortalDetailView {
  */
 
   trigger?: 'manual' | 'auto';
+  /**
+ * direction：传送方向。
+ */
+
+  direction?: 'two_way' | 'one_way';
 }
 /**
  * GroundDetailView：定义接口结构约束，明确可交付字段含义。

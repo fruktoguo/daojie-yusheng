@@ -70,7 +70,9 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "wildlands:24,43",
+      "direction": "one_way"
     },
     {
       "x": 42,
@@ -82,7 +84,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "wildlands:42,24",
+      "direction": "two_way",
+      "targetPortalId": "bamboo_forest:4,39"
     },
     {
       "x": 24,
@@ -94,7 +99,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "wildlands:24,4",
+      "direction": "two_way",
+      "targetPortalId": "spirit_ridge:5,47"
     },
     {
       "x": 24,
@@ -106,7 +114,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "wildlands:24,10",
+      "direction": "two_way",
+      "targetPortalId": "wildlands_gale_den:1,9"
     }
   ],
   "spawnPoint": {

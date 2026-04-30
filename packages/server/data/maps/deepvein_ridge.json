@@ -83,7 +83,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "deepvein_ridge:56,30",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:7,37"
     },
     {
       "x": 10,
@@ -95,7 +98,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "deepvein_ridge:10,8",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:58,30"
     }
   ],
   "spawnPoint": {

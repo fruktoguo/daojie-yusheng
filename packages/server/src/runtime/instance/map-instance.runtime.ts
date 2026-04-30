@@ -621,12 +621,15 @@ class MapInstanceRuntime {
             return false;
         }
         const normalized = {
+            id: typeof portal.id === 'string' && portal.id.trim() ? portal.id.trim() : `${portal.kind ?? 'portal'}:${x},${y}`,
             x,
             y,
             targetMapId: typeof portal.targetMapId === 'string' && portal.targetMapId.trim() ? portal.targetMapId.trim() : this.template.id,
             targetInstanceId: typeof portal.targetInstanceId === 'string' && portal.targetInstanceId.trim() ? portal.targetInstanceId.trim() : null,
             targetX: Number.isFinite(Number(portal.targetX)) ? Math.trunc(Number(portal.targetX)) : this.template.spawnX,
             targetY: Number.isFinite(Number(portal.targetY)) ? Math.trunc(Number(portal.targetY)) : this.template.spawnY,
+            targetPortalId: typeof portal.targetPortalId === 'string' && portal.targetPortalId.trim() ? portal.targetPortalId.trim() : undefined,
+            direction: portal.direction === 'one_way' ? 'one_way' : 'two_way',
             kind: typeof portal.kind === 'string' && portal.kind.trim() ? portal.kind.trim() : 'portal',
             trigger: portal.trigger === 'auto' ? 'auto' : 'manual',
             hidden: portal.hidden === true,
@@ -1957,12 +1960,15 @@ class MapInstanceRuntime {
                     continue;
                 }
                 portals.push({
+                    id: typeof portal.id === 'string' && portal.id.trim() ? portal.id.trim() : `${portal.kind ?? 'portal'}:${x},${y}`,
                     x,
                     y,
                     targetMapId: typeof portal.targetMapId === 'string' && portal.targetMapId.trim() ? portal.targetMapId.trim() : this.template.id,
                     targetInstanceId: typeof portal.targetInstanceId === 'string' && portal.targetInstanceId.trim() ? portal.targetInstanceId.trim() : null,
                     targetX: Number.isFinite(Number(portal.targetX)) ? Math.trunc(Number(portal.targetX)) : this.template.spawnX,
                     targetY: Number.isFinite(Number(portal.targetY)) ? Math.trunc(Number(portal.targetY)) : this.template.spawnY,
+                    targetPortalId: typeof portal.targetPortalId === 'string' && portal.targetPortalId.trim() ? portal.targetPortalId.trim() : undefined,
+                    direction: portal.direction === 'one_way' ? 'one_way' : 'two_way',
                     kind: typeof portal.kind === 'string' && portal.kind.trim() ? portal.kind.trim() : 'portal',
                     trigger: portal.trigger === 'auto' ? 'auto' : 'manual',
                     hidden: portal.hidden === true,
@@ -2702,10 +2708,15 @@ class MapInstanceRuntime {
             .map((portal) => ({
             x: portal.x,
             y: portal.y,
+            id: portal.id,
             kind: portal.kind,
             trigger: portal.trigger,
+            direction: portal.direction ?? 'two_way',
             targetMapId: portal.targetMapId,
             targetInstanceId: portal.targetInstanceId ?? null,
+            targetPortalId: portal.targetPortalId,
+            targetX: portal.targetX,
+            targetY: portal.targetY,
             name: portal.name,
             char: portal.char,
             color: portal.color,

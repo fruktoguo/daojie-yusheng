@@ -1089,6 +1089,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
                 <span class="observe-modal-value">${typeof portalDetail.targetX === 'number' && typeof portalDetail.targetY === 'number' ? `(${portalDetail.targetX}, ${portalDetail.targetY})` : '未知'}</span>
               </div>
               <div class="observe-modal-row">
+                <span class="observe-modal-label">方向</span>
+                <span class="observe-modal-value">${portalDetail.direction === 'one_way' ? '单向' : '双向'}</span>
+              </div>
+              <div class="observe-modal-row">
                 <span class="observe-modal-label">触发方式</span>
                 <span class="observe-modal-value">${escapeHtml(portalDetail.trigger === 'auto' ? '自动触发' : '手动触发')}</span>
               </div>

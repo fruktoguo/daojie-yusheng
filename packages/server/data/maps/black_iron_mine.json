@@ -71,7 +71,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "black_iron_mine:2,8",
+      "direction": "two_way",
+      "targetPortalId": "bamboo_forest:43,9"
     },
     {
       "x": 43,
@@ -83,7 +86,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "black_iron_mine:43,39",
+      "direction": "two_way",
+      "targetPortalId": "beast_valley:6,39"
     },
     {
       "x": 26,
@@ -95,7 +101,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "black_iron_mine:26,23",
+      "direction": "two_way",
+      "targetPortalId": "black_iron_mine_molten_heart:1,9"
     }
   ],
   "spawnPoint": {

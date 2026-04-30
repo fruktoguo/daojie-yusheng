@@ -35,7 +35,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": true
+      "hidden": true,
+      "id": "ruined_cavern_manor:2,9",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:21,21"
     }
   ],
   "spawnPoint": {

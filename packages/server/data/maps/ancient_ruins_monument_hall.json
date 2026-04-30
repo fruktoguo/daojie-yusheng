@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "ancient_ruins_monument_hall:1,9",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:24,22"
     }
   ],
   "spawnPoint": {

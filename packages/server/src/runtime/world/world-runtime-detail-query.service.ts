@@ -174,7 +174,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
         }
         if (kind === 'portal') {
 
-            const portal = view.localPortals.find((entry) => buildPortalId(entry.x, entry.y) === id);
+            const portal = view.localPortals.find((entry) => buildPortalId(entry) === id);
             if (!portal) {
                 return { kind, id, error: '目标不在当前视野内' };
             }
@@ -195,6 +195,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                     targetX: portal.targetX,
                     targetY: portal.targetY,
                     trigger: portal.trigger,
+                    direction: portal.direction ?? 'two_way',
                 },
             };
         }
@@ -368,7 +369,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                 : undefined,
             portal: portal
                 ? {
-                    id: buildPortalId(portal.x, portal.y),
+                    id: buildPortalId(portal),
                     x: portal.x,
                     y: portal.y,
                     kind: portal.kind,
@@ -379,6 +380,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                     targetX: portal.targetX,
                     targetY: portal.targetY,
                     trigger: portal.trigger,
+                    direction: portal.direction ?? 'two_way',
                 }
                 : undefined,
             ground: groundPile

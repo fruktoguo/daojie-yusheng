@@ -71,7 +71,9 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:2,8",
+      "direction": "one_way"
     },
     {
       "x": 43,
@@ -83,7 +85,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:43,9",
+      "direction": "two_way",
+      "targetPortalId": "black_iron_mine:2,8"
     },
     {
       "x": 43,
@@ -95,7 +100,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:43,27",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:2,24"
     },
     {
       "x": 24,
@@ -107,7 +115,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:24,42",
+      "direction": "two_way",
+      "targetPortalId": "beast_valley:4,8"
     },
     {
       "x": 4,
@@ -119,7 +130,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:4,39",
+      "direction": "two_way",
+      "targetPortalId": "wildlands:42,24"
     },
     {
       "x": 15,
@@ -131,7 +145,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest:15,32",
+      "direction": "two_way",
+      "targetPortalId": "bamboo_forest_mantis_court:1,9"
     }
   ],
   "spawnPoint": {

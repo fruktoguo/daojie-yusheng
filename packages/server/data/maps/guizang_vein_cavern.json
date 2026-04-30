@@ -39,12 +39,12 @@
     "崖崖崖,崖崖,;,,T;,,;熔,;,崖崖,,,^,============,^,,,铁刃,,铁,,刃铁崖崖:=,,崖崖,崖崖崖",
     "崖崖崖,崖崖;,,T;,,;熔,;,熔崖崖,,,^,=,,=,=,,=,,=,^,,,刃,,铁,,刃铁,崖崖,=,,崖崖,崖崖崖",
     "崖崖崖,崖崖,,T;^,;熔,;,熔;崖崖,,,^,====刃==铁====,^,,,,,铁,,刃铁,刃崖崖:==,,,,崖崖崖",
-    "崖崖崖,^崖,T;,,,熔,;,熔;,崖崖,,,^,=:,=,=,,=,:=,^,,,,铁,,刃铁,刃,崖崖崖====,,崖崖崖",
-    "崖崖崖,崖崖~寒,,,~,;,熔;,,崖崖,,,^,=::::=:::::=,^,,,铁,,刃铁,刃,铁:崖崖崖=====崖崖崖",
-    "崖崖崖,崖崖寒,,,~,;,熔;,,熔崖崖,,,^,=T,=,,,,=,~=,^,,,,,刃铁,刃,铁刃:崖崖崖崖====崖崖崖",
-    "崖崖崖,崖崖,,,~,,,熔;,,熔,崖崖=,,^======;;=======,,,,刃铁,刃,铁刃,=崖崖崖崖====崖崖崖",
-    "崖崖崖,崖崖,,~,,,oL,,o,,崖崖=,,^,=:,=,,,,=,:=,^,,,刃铁,刃,铁刃,,=崖崖崖====P崖崖崖",
-    "崖崖崖,崖崖,~,,,寒L,,o,,L崖崖=,,^,=熔::::=:::o=,^,,,崖崖,,,:=,::崖崖崖=====崖崖崖",
+    "崖崖崖,^崖,T;,,,熔,;,熔;,崖崖,,,^,=:,=,=,,=,:=,^,,,,铁,,刃铁,刃,崖崖崖===P,,崖崖崖",
+    "崖崖崖,崖崖~寒,,,~,;,熔;,,崖崖,,,^,=::::=:::::=,^,,,铁,,刃铁,刃,铁:崖崖崖==P==崖崖崖",
+    "崖崖崖,崖崖寒,,,~,;,熔;,,熔崖崖,,,^,=T,=,,,,=,~=,^,,,,,刃铁,刃,铁刃:崖崖崖崖=P==崖崖崖",
+    "崖崖崖,崖崖,,,~,,,熔;,,熔,崖崖=,,^======;;=======,,,,刃铁,刃,铁刃,=崖崖崖崖=P==崖崖崖",
+    "崖崖崖,崖崖,,~,,,oL,,o,,崖崖=,,^,=:,=,,,,=,:=,^,,,刃铁,刃,铁刃,,=崖崖崖=P=PP崖崖崖",
+    "崖崖崖,崖崖,~,,,寒L,,o,,L崖崖=,,^,=熔::::=:::o=,^,,,崖崖,,,:=,::崖崖崖===P=崖崖崖",
     "崖崖崖,崖崖~,,,寒~,,o,,Lo崖崖::,^,=:,=,,=,=,:=,^,~T,~,T~,,T,:崖崖=,,,,,崖崖崖",
     "崖崖崖,^崖,,,寒~,,o,,Lo,崖崖=,,^,=,,=,,=,=,,=,^,T,~,T~,,T,,崖崖:=,==^=崖崖崖",
     "崖崖崖,崖崖,,寒~^,o,,Lo,L崖崖=,,^,====寒==L====,^,,~,T~,,T,,~崖^,=,,崖崖,崖崖崖",
@@ -87,7 +87,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": true
+      "hidden": true,
+      "id": "guizang_vein_cavern:21,21",
+      "direction": "two_way",
+      "targetPortalId": "ruined_cavern_manor:2,9"
     },
     {
       "x": 60,
@@ -99,7 +102,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:60,32",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:30,13"
     },
     {
       "x": 57,
@@ -111,7 +117,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:57,32",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain:1,9"
     },
     {
       "x": 58,
@@ -123,7 +132,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:58,28",
+      "direction": "two_way",
+      "targetPortalId": "cold_tide_marsh:34,30"
     },
     {
       "x": 58,
@@ -135,7 +147,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:58,29",
+      "direction": "two_way",
+      "targetPortalId": "verdant_vine_vale_06_heart_gate:4,9"
     },
     {
       "x": 58,
@@ -147,7 +162,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:58,30",
+      "direction": "two_way",
+      "targetPortalId": "deepvein_ridge:10,8"
     },
     {
       "x": 58,
@@ -159,7 +177,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:58,31",
+      "direction": "two_way",
+      "targetPortalId": "emberfall_court:40,42"
     },
     {
       "x": 59,
@@ -171,7 +192,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:59,32",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_tomb_mouth:1,9"
     },
     {
       "x": 59,
@@ -183,7 +207,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "guizang_vein_cavern:59,33",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_tomb_mouth:1,10"
     }
   ],
   "spawnPoint": {

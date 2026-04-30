@@ -155,11 +155,13 @@ interface ProjectorMonsterLike {
   buffs?: unknown[];
 }
 interface ProjectorPortalLike {
+  id?: string | null;
   x: number;
   y: number;
   kind: string;
   targetMapId?: string | null;
   trigger?: string | null;
+  direction?: string | null;
 }
 interface ProjectorGroundPileLike {
   sourceId: string;
@@ -251,6 +253,7 @@ interface ProjectedPortalEntry {
   y: number;
   tm?: string | null;
   tr: 0 | 1;
+  d: 0 | 1;
 }
 interface ProjectedGroundPileEntry {
   x: number;
@@ -557,13 +560,14 @@ function buildFullWorldDelta(
         qm: entry.questMarker ?? null,
     }));
     const portals: WorldPortalPatchView[] = Array.from(view.localPortals, (entry) => ({
-        id: buildPortalId(entry.x, entry.y),
+        id: buildPortalId(entry),
         n: resolvePortalDisplayName(entry, resolveMapName),
         ch: resolvePortalRenderChar(entry),
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
         tr: entry.trigger === 'auto' ? 1 : 0,
+        d: entry.direction === 'one_way' ? 1 : 0,
     }));
     const ground: WorldGroundPatchView[] = Array.from(view.localGroundPiles, (entry) => ({
         sourceId: entry.sourceId,
@@ -712,13 +716,14 @@ function captureWorldState(
         c: entry.color,
         tr: entry.tier,
     }]);
-    const portals: Array<[string, ProjectedPortalEntry]> = view.localPortals.map((entry): [string, ProjectedPortalEntry] => [buildPortalId(entry.x, entry.y), {
+    const portals: Array<[string, ProjectedPortalEntry]> = view.localPortals.map((entry): [string, ProjectedPortalEntry] => [buildPortalId(entry), {
         n: resolvePortalDisplayName(entry, resolveMapName),
         ch: resolvePortalRenderChar(entry),
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
         tr: entry.trigger === 'auto' ? 1 : 0,
+        d: entry.direction === 'one_way' ? 1 : 0,
     }]);
     const groundPiles: Array<[string, ProjectedGroundPileEntry]> = view.localGroundPiles.map((entry): [string, ProjectedGroundPileEntry] => [entry.sourceId, {
         x: entry.x,
@@ -1247,7 +1252,7 @@ function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, current:
     for (const [portalId, entry] of current) {
         const prev = previous.get(portalId);
         if (!prev) {
-            result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr });
+            result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr, d: entry.d });
             continue;
         }
         const delta: WorldPortalPatchView = { id: portalId };
@@ -1274,6 +1279,10 @@ function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, current:
         }
         if (prev.tr !== entry.tr) {
             delta.tr = entry.tr;
+            changed = true;
+        }
+        if (prev.d !== entry.d) {
+            delta.d = entry.d;
             changed = true;
         }
         if (changed) {
@@ -2922,8 +2931,15 @@ function cloneQiProjectionModifier(source: QiProjectionModifier): QiProjectionMo
 function cloneVisibleBuff(source: VisibleBuffState): VisibleBuffState {
     return cloneVisibleBuffProjection(source);
 }
-function buildPortalId(x: number, y: number) {
-    return `${x}:${y}`;
+function buildPortalId(portalOrX: ProjectorPortalLike | number, y?: number) {
+    if (typeof portalOrX === 'object' && portalOrX !== null) {
+        const explicit = typeof portalOrX.id === 'string' ? portalOrX.id.trim() : '';
+        if (explicit) {
+            return explicit;
+        }
+        return `${portalOrX.x}:${portalOrX.y}`;
+    }
+    return `${portalOrX}:${y}`;
 }
 function resolvePlayerRenderChar(displayName, name) {
     const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
@@ -2942,11 +2958,12 @@ function resolvePortalDisplayName(
         return explicitName.trim();
     }
     const targetMapName = resolveMapName?.(portal.targetMapId) ?? null;
+    const directionLabel = portal.direction === 'one_way' ? '单向' : '双向';
     if (typeof targetMapName === 'string' && targetMapName.trim()) {
-        return targetMapName.trim();
+        return `${directionLabel} · ${targetMapName.trim()}`;
     }
     if (typeof portal.targetMapId === 'string' && portal.targetMapId.trim()) {
-        return portal.targetMapId.trim();
+        return `${directionLabel} · ${portal.targetMapId.trim()}`;
     }
-    return portal.kind === 'stairs' ? '楼梯' : '传送阵';
+    return portal.kind === 'stairs' ? `${directionLabel} · 楼梯` : `${directionLabel} · 传送阵`;
 }

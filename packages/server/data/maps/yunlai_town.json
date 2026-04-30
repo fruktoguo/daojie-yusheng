@@ -27,7 +27,7 @@
     "#,,,,,,,#,,,,#S........#oo#..#=====,#....oooo,,,,,,,,,,#,,,,,,:#",
     "#,,,,,,,#,,,,#.oo...oo.#oo#..#=====,#.S..oooo,,,,,,,,,,#,,,,,::#",
     "#,,,,,,,#,,,,#.oo...oo.#,,#..#=====,#...#oooo,,,,,,,,,,#,,,,,::#",
-    "#,,,,,,,#,,,,#.........#,,####=====,#####,,,,,,,,,,,,,,#,,,,::P#",
+    "#,,,,,,,#,,,,#.........#,,####=====,#####,,,,,,,,,,,,,,#,,,,::.#",
     "#,,,,,,,#,,,,#.........#,,,,,,=====,,,,,,,,,,,,,,,,,,,,#,,,,:::#",
     "#,,,,,,,#,,,,####+++####===========o,,,,,,,,,,,,,,,,,,,#,,,::::#",
     "#,,,,,,,#,,,,,,,===================,,,,,,,,,,,,,,,,,,,,ooo:::::#",
@@ -38,7 +38,7 @@
     "#,,,,,ooo,,oo,,,,,,,,,,,,,,..........,,#.........#,,,,,ooo,,,,,#",
     "#,,,,,:::,,,,,,,,,,,,,,,,,,,,,====,,,,,#..........,,,,,#,,,,,,,#",
     "#,,,,,:::==============================#..........=====#,,,,,,,#",
-    "#,,,,,:::====P=========================#..........=====#TTTT,,,#",
+    "#,,,,,:::====.=========================#..........=====#TTTT,,,#",
     "#,,,,,:::==============================#.........#=====#TTTTT,,#",
     "#,,,,,ooo==============================###########=====#TTTTT,,#",
     "#,,,,,,,#,,,,,,,,,,,,,,,,,,,,,====,,,,,,,,,,,,,,,,,,,,,#TT,TT,,#",
@@ -65,7 +65,7 @@
     "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;o#.....#,,,;;#",
     "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o#......,,,;;#",
     "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o.......,,,;;#",
-    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;=P==;;;;;;;;;;;;;;;;o......#;;;;;#",
+    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;=.==;;;;;;;;;;;;;;;;o......#;;;;;#",
     "#====================,,,;;;;;;====;;;;;;;;;========#######=====#",
     "#====================,,,;;;;;;====;;;;;;;;;====================#",
     "#====================,,,;;;;;;====;;;;;;;;;====================#",
@@ -87,7 +87,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town:16,39",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_inn_2f:8,9"
     },
     {
       "x": 41,
@@ -99,7 +102,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town:41,38",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_apothecary_cellar:7,9"
     },
     {
       "x": 14,
@@ -111,7 +117,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town:14,13",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_old_shrine_crypt:7,7"
     },
     {
       "x": 38,
@@ -123,7 +132,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town:38,14",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_ore_basement:6,5"
     },
     {
       "x": 28,
@@ -135,7 +147,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town:28,45",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_south_gate_tower_2f:11,7"
     },
     {
       "x": 48,
@@ -149,43 +164,10 @@
       "allowPlayerOverlap": false,
       "hidden": true,
       "observeTitle": "",
-      "observeDesc": ""
-    },
-    {
-      "x": 31,
-      "y": 54,
-      "targetMapId": "wildlands",
-      "targetX": 24,
-      "targetY": 43,
-      "kind": "portal",
-      "trigger": "manual",
-      "routeDomain": "inherit",
-      "allowPlayerOverlap": false,
-      "hidden": false
-    },
-    {
-      "x": 13,
-      "y": 27,
-      "targetMapId": "bamboo_forest",
-      "targetX": 2,
-      "targetY": 8,
-      "kind": "portal",
-      "trigger": "manual",
-      "routeDomain": "inherit",
-      "allowPlayerOverlap": false,
-      "hidden": false
-    },
-    {
-      "x": 62,
-      "y": 16,
-      "targetMapId": "spirit_ridge",
-      "targetX": 1,
-      "targetY": 36,
-      "kind": "portal",
-      "trigger": "manual",
-      "routeDomain": "inherit",
-      "allowPlayerOverlap": false,
-      "hidden": false
+      "observeDesc": "",
+      "id": "yunlai_town:48,43",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town_lake_bottom_grotto:10,11"
     }
   ],
   "spawnPoint": {

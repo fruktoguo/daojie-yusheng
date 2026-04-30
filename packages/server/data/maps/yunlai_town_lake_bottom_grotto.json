@@ -39,7 +39,10 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "yunlai_town_lake_bottom_grotto:10,11",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:48,43"
     }
   ],
   "spawnPoint": {

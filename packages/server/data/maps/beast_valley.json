@@ -70,7 +70,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:4,8",
+      "direction": "two_way",
+      "targetPortalId": "bamboo_forest:24,42"
     },
     {
       "x": 42,
@@ -82,7 +85,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:42,10",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:44,30"
     },
     {
       "x": 6,
@@ -94,7 +100,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:6,39",
+      "direction": "two_way",
+      "targetPortalId": "black_iron_mine:43,39"
     },
     {
       "x": 24,
@@ -106,7 +115,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:24,43",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:24,43"
     },
     {
       "x": 24,
@@ -118,7 +130,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:24,4",
+      "direction": "two_way",
+      "targetPortalId": "spirit_ridge:23,46"
     },
     {
       "x": 24,
@@ -130,7 +145,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley:24,33",
+      "direction": "two_way",
+      "targetPortalId": "beast_valley_blood_altar:1,9"
     }
   ],
   "spawnPoint": {

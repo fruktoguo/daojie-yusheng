@@ -42,7 +42,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_plateau:30,9",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_straightway:1,8"
     },
     {
       "x": 30,
@@ -54,7 +57,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_plateau:30,10",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_straightway:1,9"
     },
     {
       "x": 1,
@@ -66,7 +72,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_plateau:1,10",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_tomb_front:30,9"
     },
     {
       "x": 1,
@@ -78,7 +87,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain_plateau:1,11",
+      "direction": "two_way",
+      "targetPortalId": "cleft_blade_plain_tomb_front:30,10"
     }
   ],
   "spawnPoint": {

@@ -34,7 +34,10 @@
       "targetX": 38,
       "targetY": 14,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "id": "yunlai_town_ore_basement:6,5",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:38,14"
     }
   ],
   "spawnPoint": {

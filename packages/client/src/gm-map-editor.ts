@@ -1299,7 +1299,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${this.draft.portals.map((portal, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'portal' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="portal" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${portal.hidden ? '隐藏' : ''}${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x},${portal.y}) -> ${this.formatMapTargetLabel(portal.targetMapId)}`)}
+              ${escapeHtml(`${portal.hidden ? '隐藏' : ''}${portal.direction === 'one_way' ? '单向' : '双向'}${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x},${portal.y}) -> ${this.formatMapTargetLabel(portal.targetMapId)}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无传送点。</div>'}
         </div>
@@ -1649,6 +1649,7 @@ export class GmMapEditor {
           <div class="map-form-grid">
             ${numberField('X', `portals.${this.selectedEntity.index}.x`, portal.x)}
             ${numberField('Y', `portals.${this.selectedEntity.index}.y`, portal.y)}
+            ${textField('ID', `portals.${this.selectedEntity.index}.id`, portal.id)}
             ${selectField('类型', `portals.${this.selectedEntity.index}.kind`, portalKind, [
               { value: 'portal', label: '传送阵' },
               { value: 'stairs', label: '楼梯' },
@@ -1657,10 +1658,15 @@ export class GmMapEditor {
               { value: 'manual', label: '手动' },
               { value: 'auto', label: '自动' },
             ])}
+            ${selectField('方向', `portals.${this.selectedEntity.index}.direction`, portal.direction ?? 'two_way', [
+              { value: 'two_way', label: '双向' },
+              { value: 'one_way', label: '单向' },
+            ])}
             ${selectField('路网域', `portals.${this.selectedEntity.index}.routeDomain`, portal.routeDomain ?? 'inherit', PORTAL_ROUTE_DOMAIN_OPTIONS)}
             ${booleanField('允许玩家重叠', `portals.${this.selectedEntity.index}.allowPlayerOverlap`, portal.allowPlayerOverlap, 'wide')}
             ${booleanField('隐藏入口', `portals.${this.selectedEntity.index}.hidden`, portal.hidden, 'wide')}
             ${textField('目标地图', `portals.${this.selectedEntity.index}.targetMapId`, portal.targetMapId)}
+            ${textField('目标传送点 ID', `portals.${this.selectedEntity.index}.targetPortalId`, portal.targetPortalId)}
             ${numberField('目标 X', `portals.${this.selectedEntity.index}.targetX`, portal.targetX)}
             ${numberField('目标 Y', `portals.${this.selectedEntity.index}.targetY`, portal.targetY)}
             ${textField('观察标题', `portals.${this.selectedEntity.index}.observeTitle`, portal.observeTitle, 'wide')}
@@ -2272,8 +2278,11 @@ export class GmMapEditor {
     this.captureUndoState();
     const targetMapId = this.mapList.find((map) => map.id !== this.draft!.id)?.id ?? this.draft!.id;
     this.draft!.portals.push({
+      id: `${this.draft!.id}:${x},${y}`,
       x,
       y,
+      targetPortalId: '',
+      direction: 'two_way',
       targetMapId,
       targetX: 0,
       targetY: 0,
@@ -3449,12 +3458,13 @@ export class GmMapEditor {
     drawEntity(this.draft.spawnPoint.x, this.draft.spawnPoint.y, '生', '#ffd27a', '出生点', 'spawn');
     this.draft.portals.forEach((portal) => {
       const isStairs = portal.kind === 'stairs';
+      const directionLabel = portal.direction === 'one_way' ? '单向' : '双向';
       drawEntity(
         portal.x,
         portal.y,
         isStairs ? '阶' : '阵',
         isStairs ? '#d7b27c' : '#c8a2f2',
-        `${isStairs ? '楼梯' : '传送'}:${this.formatMapTargetLabel(portal.targetMapId)}`,
+        `${directionLabel}${isStairs ? '楼梯' : '传送'}:${this.formatMapTargetLabel(portal.targetMapId)}`,
         'npc',
       );
     });

@@ -398,6 +398,11 @@ export interface WorldPortalPatchView {
 
   tr?: 0 | 1;  
   /**
+ * d：传送方向，1 为单向，0 为双向。
+ */
+
+  d?: 0 | 1;
+  /**
  * rm：rm相关字段。
  */
 

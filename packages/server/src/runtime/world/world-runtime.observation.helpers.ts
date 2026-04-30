@@ -293,7 +293,7 @@ function buildPortalTileEntityDetail(portal, targetMapName) {
         ? `${targetMapName} (${portal.targetX}, ${portal.targetY})`
         : `${portal.targetMapId} (${portal.targetX}, ${portal.targetY})`;
     return {
-        id: buildPortalId(portal.x, portal.y),
+        id: buildPortalId(portal),
         name: buildPortalDisplayName(portal, targetMapName),
         kind: 'portal',
         observation: {
@@ -304,6 +304,7 @@ function buildPortalTileEntityDetail(portal, targetMapName) {
                 : '此地灵路稳定却未主动张开，需要你亲自触动才能穿行。',
             lines: [
                 { label: '类型', value: buildPortalKindLabel(portal.kind) },
+                { label: '方向', value: portal.direction === 'one_way' ? '单向' : '双向' },
                 { label: '触发', value: portal.trigger === 'auto' ? '踏入即触发' : '需要主动使用' },
                 { label: '去向', value: destination },
             ],
@@ -441,7 +442,8 @@ function formatCurrentMaxObservation(current, max) {
 function buildPortalDisplayName(portal, targetMapName) {
 
     const base = buildPortalKindLabel(portal.kind);
-    return targetMapName ? `${base} · ${targetMapName}` : base;
+    const direction = portal.direction === 'one_way' ? '单向' : '双向';
+    return targetMapName ? `${direction}${base} · ${targetMapName}` : `${direction}${base}`;
 }
 /** 将传送点类型映射为界面标签。 */
 function buildPortalKindLabel(kind) {
@@ -458,9 +460,13 @@ function buildPortalKindLabel(kind) {
             return '传送阵';
     }
 }
-/** 由坐标生成稳定传送点 ID。 */
-function buildPortalId(x, y) {
-    return `${x}:${y}`;
+/** 读取显式传送点 ID，兼容旧坐标 ID。 */
+function buildPortalId(portalOrX, y) {
+    if (portalOrX && typeof portalOrX === 'object') {
+        const explicit = typeof portalOrX.id === 'string' ? portalOrX.id.trim() : '';
+        return explicit || `${portalOrX.x}:${portalOrX.y}`;
+    }
+    return `${portalOrX}:${y}`;
 }
 exports.createTileCombatAttributes = createTileCombatAttributes;
 exports.createTileCombatNumericStats = createTileCombatNumericStats;

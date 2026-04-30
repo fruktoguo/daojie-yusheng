@@ -43,7 +43,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain:175,9",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:7,21"
     },
     {
       "x": 1,
@@ -55,7 +58,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cleft_blade_plain:1,9",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:57,32"
     }
   ],
   "spawnPoint": {

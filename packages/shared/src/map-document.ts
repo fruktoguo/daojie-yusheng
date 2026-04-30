@@ -27,6 +27,7 @@ import {
   MapSpaceVisionMode,
   MapRouteDomain,
   MapTimeConfig,
+  PortalDirection,
   MonsterAggroMode,
   PortalKind,
   PortalRouteDomain,
@@ -57,6 +58,21 @@ function normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger
     return trigger;
   }
   return kind === 'stairs' ? 'auto' : 'manual';
+}
+
+/** 传送方向非法时默认按双向处理，兼容旧内容。 */
+function normalizePortalDirection(direction: unknown): PortalDirection {
+  return direction === 'one_way' ? 'one_way' : 'two_way';
+}
+
+/** 生成缺省传送点 ID，旧内容加载时可被稳定补齐。 */
+function normalizePortalId(id: unknown, mapId: string, x: number, y: number): string {
+  const explicit = normalizeOptionalTrimmedString(id);
+  if (explicit) {
+    return explicit;
+  }
+  const normalizedMapId = mapId.trim() || 'map';
+  return `${normalizedMapId}:${x},${y}`;
 }
 
 /** 只有配置了父图时才允许使用父图叠加视野。 */
@@ -476,6 +492,7 @@ export function cloneMapDocument(document: GmMapDocument): GmMapDocument {
 /** 将编辑器原始 JSON 归一成标准地图文档，并顺手做边界修正。 */
 export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const source = raw as Partial<GmMapDocument>;
+  const mapId = typeof source.id === 'string' ? source.id : '';
   const tiles = Array.isArray(source.tiles)
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
     : [];
@@ -531,7 +548,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const monsterSpawns = Array.isArray(source.monsterSpawns) ? source.monsterSpawns : [];
 
   return repairEditableMapDocument(syncPortalTiles({
-    id: typeof source.id === 'string' ? source.id : '',
+    id: mapId,
     name: typeof source.name === 'string' ? source.name : '',
     width: Number.isInteger(source.width) ? Number(source.width) : 0,
     height: Number.isInteger(source.height) ? Number(source.height) : 0,
@@ -572,24 +589,32 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     dangerLevel: Number.isFinite(source.dangerLevel) ? Number(source.dangerLevel) : undefined,
     recommendedRealm: typeof source.recommendedRealm === 'string' ? source.recommendedRealm : undefined,
     tiles,
-    portals: portals.map((portal) => ({
-      x: Number((portal as GmMapPortalRecord).x ?? 0),
-      y: Number((portal as GmMapPortalRecord).y ?? 0),
-      targetMapId: String((portal as GmMapPortalRecord).targetMapId ?? ''),
-      targetX: Number((portal as GmMapPortalRecord).targetX ?? 0),
-      targetY: Number((portal as GmMapPortalRecord).targetY ?? 0),
-      kind: normalizePortalKind((portal as GmMapPortalRecord).kind),
-      trigger: normalizePortalTrigger((portal as GmMapPortalRecord).trigger, (portal as GmMapPortalRecord).kind),
-      routeDomain: normalizePortalRouteDomain((portal as GmMapPortalRecord).routeDomain) ?? 'inherit',
-      allowPlayerOverlap: (portal as GmMapPortalRecord).allowPlayerOverlap === true,
-      hidden: (portal as GmMapPortalRecord).hidden === true,
-      observeTitle: typeof (portal as GmMapPortalRecord).observeTitle === 'string'
-        ? (portal as GmMapPortalRecord).observeTitle
-        : undefined,
-      observeDesc: typeof (portal as GmMapPortalRecord).observeDesc === 'string'
-        ? (portal as GmMapPortalRecord).observeDesc
-        : undefined,
-    })),
+    portals: portals.map((portal) => {
+      const record = portal as GmMapPortalRecord;
+      const x = Number(record.x ?? 0);
+      const y = Number(record.y ?? 0);
+      return {
+        id: normalizePortalId(record.id, mapId, x, y),
+        targetPortalId: normalizeOptionalTrimmedString(record.targetPortalId),
+        direction: normalizePortalDirection(record.direction),
+        x,
+        y,
+        targetMapId: String(record.targetMapId ?? ''),
+        targetX: Number(record.targetX ?? 0),
+        targetY: Number(record.targetY ?? 0),
+        kind: normalizePortalKind(record.kind),
+        trigger: normalizePortalTrigger(record.trigger, record.kind),
+        routeDomain: normalizePortalRouteDomain(record.routeDomain) ?? 'inherit',
+        allowPlayerOverlap: record.allowPlayerOverlap === true,
+        hidden: record.hidden === true,
+        observeTitle: typeof record.observeTitle === 'string'
+          ? record.observeTitle
+          : undefined,
+        observeDesc: typeof record.observeDesc === 'string'
+          ? record.observeDesc
+          : undefined,
+      };
+    }),
     spawnPoint: {
       x: Number((source.spawnPoint as {      
       /**
@@ -834,14 +859,24 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
   if (spawnError) return spawnError;
 
   const portalKeys = new Set<string>();
+  const portalIds = new Set<string>();
   for (let index = 0; index < document.portals.length; index += 1) {
     const portal = document.portals[index]!;
     const label = `传送点 ${index + 1}`;
     const error = ensureWalkablePoint(portal.x, portal.y, label);
     if (error) return error;
+    if (!portal.id.trim()) return `${label} 的 ID 不能为空`;
+    if (portalIds.has(portal.id.trim())) return `${label} 的 ID 与其他传送点重复`;
+    portalIds.add(portal.id.trim());
     if (!portal.targetMapId.trim()) return `${label} 的目标地图不能为空`;
     if (!Number.isInteger(portal.targetX) || !Number.isInteger(portal.targetY)) {
       return `${label} 的目标 X/Y 坐标必须为整数`;
+    }
+    if (portal.direction !== 'one_way' && portal.direction !== 'two_way') {
+      return `${label} 的方向必须为单向或双向`;
+    }
+    if (portal.direction === 'two_way' && !portal.targetPortalId?.trim()) {
+      return `${label} 是双向传送点，必须填写目标传送点 ID`;
     }
     if (!portal.routeDomain) return `${label} 的路网域不能为空`;
     const key = `${portal.x},${portal.y}`;
@@ -1139,9 +1174,10 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
   return null;
 }
 
-/** 对整批地图执行跨图传送点一一对应校验，保证两端都存在且严格回指。 */
+/** 对整批地图执行跨图传送点校验：双向按 ID 严格回指，单向只校验目标落点。 */
 export function validateEditableMapPortalReciprocity(documents: readonly GmMapDocument[]): string | null {
   const documentById = new Map<string, GmMapDocument>();
+  const portalByMapAndId = new Map<string, Map<string, GmMapPortalRecord>>();
 
   for (const document of documents) {
     const mapId = document.id.trim();
@@ -1152,6 +1188,18 @@ export function validateEditableMapPortalReciprocity(documents: readonly GmMapDo
       return `地图 ID 重复: ${mapId}`;
     }
     documentById.set(mapId, document);
+    const portalById = new Map<string, GmMapPortalRecord>();
+    for (const portal of document.portals) {
+      const portalId = portal.id.trim();
+      if (!portalId) {
+        return `${mapId} 存在未填写 ID 的传送点`;
+      }
+      if (portalById.has(portalId)) {
+        return `${mapId} 的传送点 ID 重复: ${portalId}`;
+      }
+      portalById.set(portalId, portal);
+    }
+    portalByMapAndId.set(mapId, portalById);
   }
 
   for (const document of documents) {
@@ -1172,16 +1220,28 @@ export function validateEditableMapPortalReciprocity(documents: readonly GmMapDo
       ) {
         return `${label} 的目标坐标越界: ${targetMapId} (${portal.targetX}, ${portal.targetY})`;
       }
-      const targetPortal = targetDocument.portals.find((entry) => entry.x === portal.targetX && entry.y === portal.targetY);
+      if (portal.direction === 'one_way') {
+        continue;
+      }
+      const targetPortalId = portal.targetPortalId?.trim();
+      if (!targetPortalId) {
+        return `${label} 是双向传送点，必须填写目标传送点 ID`;
+      }
+      const targetPortal = portalByMapAndId.get(targetMapId)?.get(targetPortalId);
       if (!targetPortal) {
-        return `${label} 的目标坐标 ${targetMapId} (${portal.targetX}, ${portal.targetY}) 不是对应传送点`;
+        return `${label} 的目标传送点不存在: ${targetMapId}.${targetPortalId}`;
+      }
+      if (targetPortal.x !== portal.targetX || targetPortal.y !== portal.targetY) {
+        return `${label} 的目标坐标 ${targetMapId} (${portal.targetX}, ${portal.targetY}) 与目标传送点 ${targetPortalId} 坐标不一致`;
       }
       if (
-        targetPortal.targetMapId.trim() !== sourceMapId
+        targetPortal.direction !== 'two_way'
+        || targetPortal.targetMapId.trim() !== sourceMapId
+        || targetPortal.targetPortalId?.trim() !== portal.id.trim()
         || targetPortal.targetX !== portal.x
         || targetPortal.targetY !== portal.y
       ) {
-        return `${label} 与目标传送点 ${targetMapId} (${portal.targetX}, ${portal.targetY}) 不是一一对应`;
+        return `${label} 与目标传送点 ${targetMapId}.${targetPortalId} 不是双向 ID 回指`;
       }
     }
   }

@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "black_iron_mine_molten_heart:1,9",
+      "direction": "two_way",
+      "targetPortalId": "black_iron_mine:26,23"
     }
   ],
   "spawnPoint": {

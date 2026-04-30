@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "beast_valley_blood_altar:1,9",
+      "direction": "two_way",
+      "targetPortalId": "beast_valley:24,33"
     }
   ],
   "spawnPoint": {

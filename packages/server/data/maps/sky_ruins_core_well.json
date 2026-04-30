@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins_core_well:1,9",
+      "direction": "two_way",
+      "targetPortalId": "sky_ruins:24,5"
     },
     {
       "x": 15,
@@ -46,7 +49,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "sky_ruins_core_well:15,9",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:29,15"
     }
   ],
   "spawnPoint": {

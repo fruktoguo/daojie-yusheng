@@ -70,7 +70,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:24,3",
+      "direction": "two_way",
+      "targetPortalId": "sky_ruins:24,43"
     },
     {
       "x": 1,
@@ -82,7 +85,9 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:1,36",
+      "direction": "one_way"
     },
     {
       "x": 5,
@@ -94,7 +99,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:5,47",
+      "direction": "two_way",
+      "targetPortalId": "wildlands:24,4"
     },
     {
       "x": 23,
@@ -106,7 +114,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:23,46",
+      "direction": "two_way",
+      "targetPortalId": "beast_valley:24,4"
     },
     {
       "x": 45,
@@ -118,7 +129,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:45,37",
+      "direction": "two_way",
+      "targetPortalId": "ancient_ruins:9,7"
     },
     {
       "x": 24,
@@ -130,7 +144,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "spirit_ridge:24,11",
+      "direction": "two_way",
+      "targetPortalId": "spirit_ridge_old_gate:1,9"
     }
   ],
   "spawnPoint": {

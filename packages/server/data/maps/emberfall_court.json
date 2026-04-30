@@ -79,7 +79,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "emberfall_court:28,3",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:29,53"
     },
     {
       "x": 40,
@@ -91,7 +94,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "emberfall_court:40,42",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:58,31"
     }
   ],
   "spawnPoint": {

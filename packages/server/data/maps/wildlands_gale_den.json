@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "wildlands_gale_den:1,9",
+      "direction": "two_way",
+      "targetPortalId": "wildlands:24,10"
     }
   ],
   "spawnPoint": {

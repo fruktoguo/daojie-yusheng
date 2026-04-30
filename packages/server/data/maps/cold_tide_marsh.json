@@ -83,7 +83,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cold_tide_marsh:4,30",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:50,37"
     },
     {
       "x": 34,
@@ -95,7 +98,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "cold_tide_marsh:34,30",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:58,28"
     }
   ],
   "spawnPoint": {

@@ -34,7 +34,10 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false
+      "hidden": false,
+      "id": "bamboo_forest_mantis_court:1,9",
+      "direction": "two_way",
+      "targetPortalId": "bamboo_forest:15,32"
     }
   ],
   "spawnPoint": {

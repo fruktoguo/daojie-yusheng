@@ -30,7 +30,10 @@
       "targetX": 28,
       "targetY": 45,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "id": "yunlai_town_south_gate_tower_2f:11,7",
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:28,45"
     }
   ],
   "dangerLevel": 1,

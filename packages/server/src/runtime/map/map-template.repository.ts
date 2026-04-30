@@ -280,11 +280,14 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             const index = portals.length;
             portals.push({
                 index,
+                id: portal.id,
                 x: portal.x,
                 y: portal.y,
                 targetMapId: portal.targetMapId,
                 targetX: portal.targetX,
                 targetY: portal.targetY,
+                targetPortalId: portal.targetPortalId,
+                direction: portal.direction ?? 'two_way',
                 kind: portal.kind ?? 'portal',
                 trigger: portal.trigger ?? 'manual',
                 routeDomain: normalizePortalRouteDomain(portal.routeDomain, document.routeDomain),
