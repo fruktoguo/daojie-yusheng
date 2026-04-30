@@ -108,6 +108,8 @@ export interface IRenderer {
     tileCache: ReadonlyMap<string, Tile>,
     visibleTiles: ReadonlySet<string>,
     visibleTileRevision: number,
+    visibleTileTransitionStartedAt: number,
+    visibleTileTransitionDurationMs: number,
     playerX: number,
     playerY: number,
     displayRangeX: number,

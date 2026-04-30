@@ -144,6 +144,20 @@ interface MarketTradeDialogState {
   confirmPurchase?: boolean;
 }
 
+/** 交易弹窗一次渲染需要的派生状态，供整渲染和局部 patch 共用。 */
+interface MarketTradeDialogViewState {
+  dialog: MarketTradeDialogState;
+  title: string;
+  actionLabel: string;
+  quantityStep: number;
+  inputMax: number;
+  totalText: string;
+  insufficientCurrency: boolean;
+  disabled: boolean;
+  maxButtonDisabled: boolean;
+  hintsHtml: string;
+}
+
 /** 强化预估结果在界面里的展示结构。 */
 interface MarketEnhancementEstimateView {
 /**
@@ -834,7 +848,9 @@ export class MarketPanel {
 
   /** 渲染物品组入口，可强化装备会先进入强化等级列表。 */
   private renderGroupItem(entry: MarketListingGroupView, activeItemId: string): string {
-    const ownedCount = this.findInventoryItemCountByItemId(entry.itemId);
+    const ownedCount = entry.canEnhance
+      ? this.findEquipmentInventoryCountByLevel(entry.itemId, 0)
+      : this.findInventoryItemCountByItemId(entry.itemId);
     const status = this.getItemStatusState(entry.item);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
@@ -1140,12 +1156,16 @@ export class MarketPanel {
     `;
   }
 
-  /** 渲染交易弹窗，只保存临时输入状态。 */
-  private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
+  /** 计算交易弹窗派生状态，避免局部刷新和整渲染口径不一致。 */
+  private getTradeDialogViewState(
+    entry: MarketListedItemView,
+    currencyItemId: string,
+    currencyName: string,
+  ): MarketTradeDialogViewState | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.tradeDialog) {
-      return '';
+      return null;
     }
     const dialog = this.tradeDialog;
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
@@ -1155,20 +1175,55 @@ export class MarketPanel {
     const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
     const quantityStep = this.getTradeDialogQuantityStep(dialog.unitPrice);
     const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
+    const inputMax = Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep);
     const totalCost = this.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
     const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
     const insufficientStepQuantity = quantityMax <= 0;
-    const title = isBuy ? '发起求购' : '发起挂售';
-    const actionLabel = isBuy ? '确认求购' : '确认挂售';
     const disabled = Boolean(conflictOrder)
       || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
+    const hints: string[] = [];
+    if (quantityStep > 1) {
+      hints.push(`<div class="market-action-hint">当前单价下必须按 ${formatDisplayInteger(quantityStep)} 件的倍数交易，${escapeHtml(currencyName)} x1 可买 ${formatDisplayInteger(quantityStep)} 件。</div>`);
+    }
+    if (conflictOrder) {
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? '你已在挂售这件物品，不能再求购。' : '你已在求购这件物品，不能再挂售。')}</div>`);
+    }
+    if (insufficientStepQuantity) {
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? `当前 ${currencyName} 或数量上限不足以按该单价成交至少 ${quantityStep} 件。` : `当前持有数量不足 ${quantityStep} 件，不能按该单价挂售。`)}</div>`);
+    }
+    if (insufficientCurrency && totalCost !== null) {
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(totalCost)}。</div>`);
+    }
+    return {
+      dialog,
+      title: isBuy ? '发起求购' : '发起挂售',
+      actionLabel: isBuy ? '确认求购' : '确认挂售',
+      quantityStep,
+      inputMax,
+      totalText: totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${currencyName}`,
+      insufficientCurrency,
+      disabled,
+      maxButtonDisabled: this.getTradeDialogMaxButtonQuantity(entry, currencyItemId, dialog) <= 0,
+      hintsHtml: hints.join(''),
+    };
+  }
+
+  /** 渲染交易弹窗，只保存临时输入状态。 */
+  private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const state = this.getTradeDialogViewState(entry, currencyItemId, currencyName);
+    if (!state) {
+      return '';
+    }
+    const dialog = state.dialog;
     return `
       <div class="market-trade-modal-shell">
         <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
         <div class="market-trade-dialog market-trade-dialog--${dialog.kind} ui-surface-pane ui-surface-pane--stack" role="dialog" aria-modal="true">
         <div class="market-trade-dialog-head">
           <div class="market-trade-dialog-title ui-title-block">
-            <div class="panel-section-title">${title}</div>
+            <div class="panel-section-title">${state.title}</div>
             <div class="market-trade-dialog-item market-trade-dialog-item--interactive ui-title-block-subtitle" data-market-item-tooltip="selected">${escapeHtml(this.getMarketDisplayName(entry.item))}</div>
           </div>
           <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
@@ -1195,7 +1250,7 @@ export class MarketPanel {
                   <button class="small-btn ghost" data-market-price-action="half" type="button">÷2</button>
                   <button class="small-btn ghost" data-market-price-action="decrease" type="button">-</button>
                 </div>
-                <div class="market-price-display">
+                <div class="market-price-display" data-market-dialog-price-display>
                   <strong>${this.formatMarketUnitPrice(dialog.unitPrice)}</strong>
                   <span>${escapeHtml(currencyName)}</span>
                 </div>
@@ -1216,38 +1271,29 @@ export class MarketPanel {
                   data-market-dialog-quantity
                   type="number"
                   inputmode="numeric"
-                  min="${quantityStep}"
-                  step="${quantityStep}"
-                  max="${Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep)}"
+                  min="${state.quantityStep}"
+                  step="${state.quantityStep}"
+                  max="${state.inputMax}"
                   value="${dialog.quantity}"
                 />
                 <button
                   class="small-btn ghost"
                   data-market-quantity-action="max"
                   type="button"
-                  ${this.getTradeDialogMaxButtonQuantity(entry, currencyItemId, dialog) <= 0 ? 'disabled' : ''}
+                  ${state.maxButtonDisabled ? 'disabled' : ''}
                 >最大</button>
               </div>
             </div>
-            <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
-              <span>${isBuy ? '总价' : '总额'}</span>
-              <strong>${totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${escapeHtml(currencyName)}`}</strong>
+            <div class="market-trade-dialog-total ${state.insufficientCurrency ? 'error' : ''}" data-market-dialog-total>
+              <span>${dialog.kind === 'buy' ? '总价' : '总额'}</span>
+              <strong>${escapeHtml(state.totalText)}</strong>
             </div>
           </div>
-          ${quantityStep > 1
-            ? `<div class="market-action-hint">当前单价下必须按 ${formatDisplayInteger(quantityStep)} 件的倍数交易，${escapeHtml(currencyName)} x1 可买 ${formatDisplayInteger(quantityStep)} 件。</div>`
-            : ''}
-          ${conflictOrder
-            ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? '你已在挂售这件物品，不能再求购。' : '你已在求购这件物品，不能再挂售。')}</div>`
-            : ''}
-          ${insufficientStepQuantity
-            ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? `当前 ${currencyName} 或数量上限不足以按该单价成交至少 ${quantityStep} 件。` : `当前持有数量不足 ${quantityStep} 件，不能按该单价挂售。`)}</div>`
-            : ''}
-          ${insufficientCurrency && totalCost !== null ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(totalCost)}。</div>` : ''}
+          <div class="market-trade-dialog-hints" data-market-dialog-hints>${state.hintsHtml}</div>
         </div>
         <div class="market-trade-dialog-actions">
           <button class="small-btn ghost" data-market-close-dialog type="button">取消</button>
-          <button class="small-btn" data-market-submit-dialog="${dialog.kind}" type="button" ${disabled ? 'disabled' : ''}>${actionLabel}</button>
+          <button class="small-btn" data-market-submit-dialog="${dialog.kind}" type="button" ${state.disabled ? 'disabled' : ''}>${state.actionLabel}</button>
         </div>
       </div>
       </div>
@@ -1356,12 +1402,17 @@ export class MarketPanel {
     if (!body) {
       return;
     }
+    const groupByItemId = new Map(this.getVisibleListingGroups(this.marketUpdate).map((entry) => [entry.itemId, entry] as const));
     body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => {
       const itemId = button.dataset.marketSelectGroup;
       if (!itemId) {
         return;
       }
-      this.syncOwnedBadge(button, this.findInventoryItemCountByItemId(itemId));
+      const group = groupByItemId.get(itemId) ?? null;
+      const ownedCount = group?.canEnhance
+        ? this.findEquipmentInventoryCountByLevel(itemId, 0)
+        : this.findInventoryItemCountByItemId(itemId);
+      this.syncOwnedBadge(button, ownedCount);
     });
     body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
       const itemKey = button.dataset.marketSelectItem;
@@ -2004,15 +2055,71 @@ export class MarketPanel {
     if (!this.tradeDialog || this.modalTab !== 'market' || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || !update || !selected) {
       root.replaceChildren();
       root.classList.add('hidden');
+      delete root.dataset.marketDialogItemKey;
+      delete root.dataset.marketDialogKind;
       this.tooltipNode = null;
       this.tooltip.hide(true);
       return;
     }
 
     root.classList.remove('hidden');
+    if (this.patchTradeDialogOverlay(root, selected, update)) {
+      return;
+    }
     root.replaceChildren(createFragmentFromHtml(this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName)));
+    root.dataset.marketDialogItemKey = selected.itemKey;
+    root.dataset.marketDialogKind = this.tradeDialog.kind;
     this.bindTradeDialogOverlayEvents(root, selected, update);
     this.bindItemTooltipEvents(root);
+  }
+
+  /** 同一物品和方向下只 patch 交易浮层动态值，避免输入框被重建。 */
+  private patchTradeDialogOverlay(
+    root: HTMLElement,
+    selected: MarketListedItemView,
+    update: S2C_MarketUpdate,
+  ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const state = this.getTradeDialogViewState(selected, update.currencyItemId, update.currencyItemName);
+    if (!state || root.dataset.marketDialogItemKey !== selected.itemKey || root.dataset.marketDialogKind !== state.dialog.kind) {
+      return false;
+    }
+    const dialogNode = root.querySelector<HTMLElement>('.market-trade-dialog');
+    const priceDisplay = root.querySelector<HTMLElement>('[data-market-dialog-price-display]');
+    const quantityInput = root.querySelector<HTMLInputElement>('[data-market-dialog-quantity]');
+    const maxButton = root.querySelector<HTMLButtonElement>('[data-market-quantity-action="max"]');
+    const totalNode = root.querySelector<HTMLElement>('[data-market-dialog-total]');
+    const totalValue = totalNode?.querySelector<HTMLElement>('strong') ?? null;
+    const hintsNode = root.querySelector<HTMLElement>('[data-market-dialog-hints]');
+    const submitButton = root.querySelector<HTMLButtonElement>('[data-market-submit-dialog]');
+    if (!dialogNode || !priceDisplay || !quantityInput || !maxButton || !totalNode || !totalValue || !hintsNode || !submitButton) {
+      return false;
+    }
+
+    dialogNode.classList.toggle('market-trade-dialog--buy', state.dialog.kind === 'buy');
+    dialogNode.classList.toggle('market-trade-dialog--sell', state.dialog.kind === 'sell');
+    priceDisplay.replaceChildren(createFragmentFromHtml(`
+      <strong>${escapeHtml(this.formatMarketUnitPrice(state.dialog.unitPrice))}</strong>
+      <span>${escapeHtml(update.currencyItemName)}</span>
+    `));
+    root.querySelectorAll<HTMLButtonElement>('[data-market-price-preset]').forEach((button) => {
+      const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
+      button.classList.toggle('active', preset === state.dialog.unitPrice);
+    });
+    quantityInput.min = String(state.quantityStep);
+    quantityInput.step = String(state.quantityStep);
+    quantityInput.max = String(state.inputMax);
+    if (document.activeElement !== quantityInput) {
+      quantityInput.value = String(state.dialog.quantity);
+    }
+    maxButton.disabled = state.maxButtonDisabled;
+    totalNode.classList.toggle('error', state.insufficientCurrency);
+    totalValue.textContent = state.totalText;
+    hintsNode.replaceChildren(...Array.from(createFragmentFromHtml(state.hintsHtml).childNodes));
+    submitButton.disabled = state.disabled;
+    submitButton.textContent = state.actionLabel;
+    return true;
   }
 
   /** 给交易弹窗里会变化的控件装事件，所有修改都只落在临时态上。 */
@@ -2309,7 +2416,7 @@ export class MarketPanel {
   private formatMarketUnitPrice(value: number): string {
     return formatDisplayNumber(value, {
       maximumFractionDigits: value < 1 ? 2 : 0,
-      compactMaximumFractionDigits: value < 1 ? 2 : 0,
+      compactMaximumFractionDigits: 2,
     });
   }
 
@@ -2499,6 +2606,15 @@ export class MarketPanel {
   private findMatchingInventorySlot(item: ItemStack): number | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (item.type === 'equipment') {
+      const targetLevel = this.getMarketEnhanceLevel(item);
+      const slotIndex = this.inventory.items.findIndex((entry) =>
+        entry.itemId === item.itemId
+        && entry.type === 'equipment'
+        && this.getMarketEnhanceLevel(entry) === targetLevel
+      );
+      return slotIndex >= 0 ? slotIndex : null;
+    }
     const targetKey = createItemStackSignature({ ...item, count: 1 });
     const exactSlotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactSlotIndex >= 0) {
@@ -2512,6 +2628,9 @@ export class MarketPanel {
   private findMatchingInventoryCount(item: ItemStack): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (item.type === 'equipment') {
+      return this.findEquipmentInventoryCountByLevel(item.itemId, this.getMarketEnhanceLevel(item));
+    }
     const targetKey = createItemStackSignature({ ...item, count: 1 });
     const exactMatches = this.inventory.items.filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactMatches.length > 0) {
@@ -2525,5 +2644,17 @@ export class MarketPanel {
   /** 按物品 id 统计背包里的总数量。 */
   private findInventoryItemCountByItemId(itemId: string): number {
     return getPlayerOwnedItemCount(this.player, this.inventory, itemId);
+  }
+
+  /** 按装备强化等级统计持有数量，避免强化占位档位退回到同物品总数。 */
+  private findEquipmentInventoryCountByLevel(itemId: string, enhanceLevel: number): number {
+    const targetLevel = Math.max(0, Math.floor(Number(enhanceLevel) || 0));
+    return this.inventory.items
+      .filter((entry) =>
+        entry.itemId === itemId
+        && entry.type === 'equipment'
+        && this.getMarketEnhanceLevel(entry) === targetLevel
+      )
+      .reduce((sum, entry) => sum + entry.count, 0);
   }
 }

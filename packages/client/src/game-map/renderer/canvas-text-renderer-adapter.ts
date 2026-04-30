@@ -165,6 +165,8 @@ export class CanvasTextRendererAdapter {
       scene.terrain.tileCache,
       scene.terrain.visibleTiles,
       scene.terrain.visibleTileRevision,
+      scene.terrain.visibleTileTransitionStartedAt,
+      scene.terrain.visibleTileTransitionDurationMs,
       scene.player.x,
       scene.player.y,
       getDisplayRangeX(),
@@ -199,4 +201,3 @@ export class CanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
-

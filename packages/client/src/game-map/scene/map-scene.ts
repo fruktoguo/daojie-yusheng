@@ -11,6 +11,8 @@ export class MapScene {
         tileCache: snapshot.tileCache,
         visibleTiles: snapshot.visibleTiles,
         visibleTileRevision: snapshot.visibleTileRevision,
+        visibleTileTransitionStartedAt: snapshot.visibleTileTransitionStartedAt,
+        visibleTileTransitionDurationMs: snapshot.visibleTileTransitionDurationMs,
         time: snapshot.time,
       },
       entities: snapshot.entities,
@@ -19,6 +21,5 @@ export class MapScene {
     };
   }
 }
-
 
 

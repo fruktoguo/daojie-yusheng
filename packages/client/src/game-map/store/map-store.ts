@@ -36,6 +36,7 @@ import {
   getCachedUnlockedMapSnapshot,
   syncCachedUnlockedMapIds,
 } from '../../map-static-cache';
+import { TILE_HIDDEN_FADE_MS } from '../../constants/visuals/time-atmosphere';
 import type {
   MapBootstrapInput,
   MapEntityTransition,
@@ -357,6 +358,11 @@ export class MapStore {
     startedAt: performance.now(),
     durationMs: DEFAULT_MOTION_DURATION_MS,
   };
+  /** 当前视野可见性过渡时间轴，与玩家移动 tick 尽量对齐。 */
+  private visibleTileTransition = {
+    startedAt: performance.now(),
+    durationMs: TILE_HIDDEN_FADE_MS,
+  };
   /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
   /** 记录已由 WorldDelta 预加载的新图实体 mapId，避免后续 SelfDelta 再清掉。 */
@@ -538,16 +544,6 @@ export class MapStore {
     if (Array.isArray(data.pathCells)) {
       this.pathCells = data.pathCells.map((cell) => ({ x: cell.x, y: cell.y }));
     }
-    if (Array.isArray(data.visibleTiles) && !preloadingDifferentMap) {
-      this.cacheVisibleTiles(
-        this.player.mapId,
-        data.visibleTiles,
-        this.player.x - this.getViewRadius(),
-        this.player.y - this.getViewRadius(),
-      );
-    } else if (!preloadingDifferentMap && Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
-      this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
-    }
     if (!preloadingDifferentMap && ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0)) {
       this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
         data.visibleMinimapMarkerAdds ?? [],
@@ -557,12 +553,35 @@ export class MapStore {
         rememberVisibleMarkers(this.player.mapId, data.visibleMinimapMarkerAdds ?? []);
       }
     }
+    const moved = this.player.x !== oldX || this.player.y !== oldY;
+    const hasVisibilityUpdate = !preloadingDifferentMap
+      && (
+        Array.isArray(data.visibleTiles)
+        || (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0)
+      );
+    const transitionStartedAt = performance.now();
+    if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
+      this.tickTiming.durationMs = normalizeMotionDurationMs(data.tickDurationMs);
+    }
+    if (hasVisibilityUpdate) {
+      const visibilityClock = this.resolveVisibleTileTransitionClock(transitionStartedAt, moved);
+      if (Array.isArray(data.visibleTiles)) {
+        this.cacheVisibleTiles(
+          this.player.mapId,
+          data.visibleTiles,
+          this.player.x - this.getViewRadius(),
+          this.player.y - this.getViewRadius(),
+          visibilityClock,
+        );
+      } else {
+        this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches ?? [], visibilityClock);
+      }
+    }
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
     if (hasEntityPatch) {
       this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
-    const moved = this.player.x !== oldX || this.player.y !== oldY;
     const hasSpatialEntityDelta = moved
       || (data.removedEntityIds?.length ?? 0) > 0
       || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
@@ -575,10 +594,7 @@ export class MapStore {
             shiftY: this.player.y - oldY,
           }
         : { settleMotion: true };
-      if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
-        this.tickTiming.durationMs = normalizeMotionDurationMs(data.tickDurationMs);
-      }
-      this.tickTiming.startedAt = performance.now();
+      this.tickTiming.startedAt = transitionStartedAt;
     }
   }
 
@@ -722,6 +738,10 @@ export class MapStore {
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
     this.tickTiming.durationMs = DEFAULT_MOTION_DURATION_MS;
+    this.visibleTileTransition = {
+      startedAt: this.tickTiming.startedAt,
+      durationMs: TILE_HIDDEN_FADE_MS,
+    };
     this.visibleTileRevision += 1;
   }
 
@@ -785,6 +805,8 @@ export class MapStore {
       tileCache: this.tileCache,
       visibleTiles: this.visibleTiles,
       visibleTileRevision: this.visibleTileRevision,
+      visibleTileTransitionStartedAt: this.visibleTileTransition.startedAt,
+      visibleTileTransitionDurationMs: this.visibleTileTransition.durationMs,
       entities: this.entities,
       groundPiles: this.groundPiles,
       overlays: {
@@ -950,7 +972,11 @@ export class MapStore {
   }
 
   /** 按补丁方式更新可见块并提高 minimap 版本号。 */
-  private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
+  private applyVisibleTilePatches(
+    mapId: string,
+    patches: VisibleTilePatch[],
+    transitionClock: { startedAt: number; durationMs: number },
+  ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalizedPatches = patches.map((patch) => ({
@@ -969,10 +995,20 @@ export class MapStore {
     }
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
+    this.visibleTileTransition = transitionClock;
   }
 
   /** 重新缓存整块可见地块并重建可见集合。 */
-  private cacheVisibleTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number): void {
+  private cacheVisibleTiles(
+    mapId: string,
+    tiles: VisibleTile[][],
+    originX: number,
+    originY: number,
+    transitionClock: { startedAt: number; durationMs: number } = {
+      startedAt: performance.now(),
+      durationMs: TILE_HIDDEN_FADE_MS,
+    },
+  ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.visibleTiles.clear();
@@ -991,9 +1027,35 @@ export class MapStore {
     }
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
+    this.visibleTileTransition = transitionClock;
     if (this.awaitingFullVisibilityMapId === mapId) {
       this.awaitingFullVisibilityMapId = null;
     }
+  }
+
+  /** 选择视野过渡时间轴：移动相关补丁复用移动 tick，避免晚到补丁另起动画。 */
+  private resolveVisibleTileTransitionClock(now: number, movedThisDelta: boolean): { startedAt: number; durationMs: number } {
+    const motionDurationMs = Math.max(1, Math.round(this.tickTiming.durationMs || DEFAULT_MOTION_DURATION_MS));
+    if (movedThisDelta) {
+      return {
+        startedAt: now,
+        durationMs: motionDurationMs,
+      };
+    }
+    const elapsedSinceMotionStart = now - this.tickTiming.startedAt;
+    const canJoinRecentMotion = this.entityTransition?.movedId === this.player?.id
+      && elapsedSinceMotionStart >= 0
+      && elapsedSinceMotionStart <= motionDurationMs + TILE_HIDDEN_FADE_MS;
+    if (canJoinRecentMotion) {
+      return {
+        startedAt: this.tickTiming.startedAt,
+        durationMs: motionDurationMs,
+      };
+    }
+    return {
+      startedAt: now,
+      durationMs: TILE_HIDDEN_FADE_MS,
+    };
   }
 }
 

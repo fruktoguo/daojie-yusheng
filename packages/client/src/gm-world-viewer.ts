@@ -600,6 +600,8 @@ export class GmWorldViewer {
       this.currentTileCache,
       visibleTiles,
       this.currentTileRevision,
+      performance.now(),
+      1,
       this.viewX,
       this.viewY,
       GM_WORLD_VIEW_MAX,

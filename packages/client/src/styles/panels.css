@@ -4840,6 +4840,9 @@
       font-size: var(--font-size-11);
       line-height: 1.5;
     }
+    .market-trade-dialog-hints {
+      display: contents;
+    }
     .market-action-hint--error {
       padding: 9px 10px;
       border: 1px solid rgba(165, 61, 47, 0.2);

@@ -470,6 +470,10 @@ export interface MapStoreSnapshot {
  */
 
   visibleTiles: ReadonlySet<string>;  
+  /** 当前可见性过渡起始时间。 */
+  visibleTileTransitionStartedAt: number;
+  /** 当前可见性过渡持续时间。 */
+  visibleTileTransitionDurationMs: number;
   /**
  * entities：entity相关字段。
  */
@@ -602,6 +606,10 @@ export interface MapSceneSnapshot {
  */
 
     visibleTileRevision: number;    
+    /** 当前可见性过渡起始时间。 */
+    visibleTileTransitionStartedAt: number;
+    /** 当前可见性过渡持续时间。 */
+    visibleTileTransitionDurationMs: number;
     /**
  * time：时间相关字段。
  */

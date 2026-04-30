@@ -83,6 +83,11 @@ interface TimeAtmosphereState {
   vignetteAlpha: number;
 }
 
+interface TileVisibilityFadeState {
+  startedAt: number;
+  durationMs: number;
+}
+
 /** 地面物品类型配色。 */
 type GroundItemTypePalette = {
 /**
@@ -896,9 +901,9 @@ export class TextRenderer implements IRenderer {
   /** 上一版可见地块修订号。 */
   private previousVisibleTileRevision = -1;
   /** 不可见地块淡入淡出起始时间。 */
-  private hiddenTileFadeStartedAt = new Map<string, number>();
+  private hiddenTileFadeStartedAt = new Map<string, TileVisibilityFadeState>();
   /** 可见地块淡入起始时间。 */
-  private visibleTileFadeStartedAt = new Map<string, number>();
+  private visibleTileFadeStartedAt = new Map<string, TileVisibilityFadeState>();
   /** 文本测量缓存。 */
   private readonly textMeasureCache = new TextMeasureCache();
   /** 地块 sprite 缓存。 */
@@ -1033,6 +1038,8 @@ export class TextRenderer implements IRenderer {
     tileCache: ReadonlyMap<string, Tile>,
     visibleTiles: ReadonlySet<string>,
     visibleTileRevision: number,
+    visibleTileTransitionStartedAt: number,
+    visibleTileTransitionDurationMs: number,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -1051,7 +1058,13 @@ export class TextRenderer implements IRenderer {
     const fadingPathAlpha = this.getFadingPathAlpha(now);
 
     if (visibleTileRevision !== this.previousVisibleTileRevision) {
-      this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
+      this.syncTileVisibilityTransitions(
+        visibleTiles,
+        tileCache,
+        now,
+        visibleTileTransitionStartedAt,
+        visibleTileTransitionDurationMs,
+      );
       this.previousVisibleTileRevision = visibleTileRevision;
     }
 
@@ -1190,18 +1203,28 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 根据可见性变化更新地块淡入淡出状态。 */
-  private syncTileVisibilityTransitions(visibleTiles: ReadonlySet<string>, tileCache: ReadonlyMap<string, Tile>, now: number): void {
+  private syncTileVisibilityTransitions(
+    visibleTiles: ReadonlySet<string>,
+    tileCache: ReadonlyMap<string, Tile>,
+    now: number,
+    transitionStartedAt: number,
+    transitionDurationMs: number,
+  ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const shouldAnimateVisibleEnter = this.previousVisibleTileKeys.size > 0;
+    const transitionState = {
+      startedAt: Number.isFinite(transitionStartedAt) ? transitionStartedAt : now,
+      durationMs: Math.max(1, Math.round(Number.isFinite(transitionDurationMs) ? transitionDurationMs : TILE_HIDDEN_FADE_MS)),
+    };
     for (const key of this.previousVisibleTileKeys) {
       if (!visibleTiles.has(key) && tileCache.has(key) && !this.hiddenTileFadeStartedAt.has(key)) {
-        this.hiddenTileFadeStartedAt.set(key, now);
+        this.hiddenTileFadeStartedAt.set(key, transitionState);
       }
     }
     for (const key of visibleTiles) {
       if (shouldAnimateVisibleEnter && !this.previousVisibleTileKeys.has(key) && tileCache.has(key) && !this.visibleTileFadeStartedAt.has(key)) {
-        this.visibleTileFadeStartedAt.set(key, now);
+        this.visibleTileFadeStartedAt.set(key, transitionState);
       }
       this.hiddenTileFadeStartedAt.delete(key);
     }
@@ -1210,13 +1233,13 @@ export class TextRenderer implements IRenderer {
         this.visibleTileFadeStartedAt.delete(key);
       }
     }
-    for (const [key, startedAt] of this.hiddenTileFadeStartedAt) {
-      if (!tileCache.has(key) || now - startedAt >= TILE_HIDDEN_FADE_MS) {
+    for (const [key, state] of this.hiddenTileFadeStartedAt) {
+      if (!tileCache.has(key) || now - state.startedAt >= state.durationMs) {
         this.hiddenTileFadeStartedAt.delete(key);
       }
     }
-    for (const [key, startedAt] of this.visibleTileFadeStartedAt) {
-      if (!visibleTiles.has(key) || !tileCache.has(key) || now - startedAt >= TILE_HIDDEN_FADE_MS) {
+    for (const [key, state] of this.visibleTileFadeStartedAt) {
+      if (!visibleTiles.has(key) || !tileCache.has(key) || now - state.startedAt >= state.durationMs) {
         this.visibleTileFadeStartedAt.delete(key);
       }
     }
@@ -1227,22 +1250,22 @@ export class TextRenderer implements IRenderer {
   private getHiddenTileFade(key: string, now: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const startedAt = this.hiddenTileFadeStartedAt.get(key);
-    if (startedAt === undefined) {
+    const state = this.hiddenTileFadeStartedAt.get(key);
+    if (state === undefined) {
       return 1;
     }
-    return Math.max(0, Math.min(1, (now - startedAt) / TILE_HIDDEN_FADE_MS));
+    return Math.max(0, Math.min(1, (now - state.startedAt) / state.durationMs));
   }
 
   /** 计算刚变为可见的地块淡入进度。 */
   private getVisibleTileFade(key: string, now: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const startedAt = this.visibleTileFadeStartedAt.get(key);
-    if (startedAt === undefined) {
+    const state = this.visibleTileFadeStartedAt.get(key);
+    if (state === undefined) {
       return 0;
     }
-    const progress = Math.max(0, Math.min(1, (now - startedAt) / TILE_HIDDEN_FADE_MS));
+    const progress = Math.max(0, Math.min(1, (now - state.startedAt) / state.durationMs));
     return 1 - progress;
   }
 
