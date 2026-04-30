@@ -103,7 +103,7 @@ async function main(): Promise<void> {
       ? '已跑通 100 玩家同时跨节点传送的压测入口，可作为阶段 7.4 的跨节点转移压力侧证'
       : '已跑通跨节点传送压测入口，可作为阶段 7.4 的起点报告',
     excludes: '不证明真实多节点 socket 导流或 lease 接管故障注入',
-    completionMapping: 'replace-ready:proof:stage7.transfer-pressure',
+    completionMapping: 'release:proof:stage7.transfer-pressure',
   }, null, 2));
 }
 

@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'mail expiration archive worker 可稳定归档过期邮件到 archive 表并删除热表附件',
             excludes: '不证明多节点竞争、完整 vacuum 窗口或分区策略',
-            completionMapping: 'replace-ready:proof:with-db.mail-expiration-archive-worker',
+            completionMapping: 'release:proof:with-db.mail-expiration-archive-worker',
           },
           null,
           2,

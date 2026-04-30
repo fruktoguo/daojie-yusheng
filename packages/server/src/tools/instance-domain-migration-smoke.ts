@@ -22,7 +22,7 @@ async function main(): Promise<void> {
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
           answers: 'with-db 下可验证 instance-domain 一次性迁移会把旧 persistent_documents 地图快照投影到 instance_* 分域表，并保留旧快照作为兜底',
           excludes: '不证明全量生产迁移回滚编排，也不证明多节点并发迁移冲突',
-          completionMapping: 'replace-ready:proof:with-db.instance-domain-migration-smoke',
+          completionMapping: 'release:proof:with-db.instance-domain-migration-smoke',
         },
         null,
         2,
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
           legacySnapshotRetained: legacyRow.rowCount === 1,
           answers: 'with-db 下已验证 instance-domain 迁移会把旧 persistent_documents 地图快照投影到 instance_* 分域表，容器会进一步拆到 instance_container_entry/timer，并保留旧快照作为兜底 checkpoint',
           excludes: '不证明全量生产迁移回滚编排，也不证明多节点并发迁移冲突',
-          completionMapping: 'replace-ready:proof:with-db.instance-domain-migration-smoke',
+          completionMapping: 'release:proof:with-db.instance-domain-migration-smoke',
         },
         null,
         2,
@@ -138,7 +138,7 @@ async function main(): Promise<void> {
 }
 
 function resolveMigrationScript(): string {
-  return `${process.cwd()}/packages/server/dist/tools/migrate-next-mainline-once.js`;
+  return `${process.cwd()}/packages/server/dist/tools/import-legacy-persistence-once.js`;
 }
 
 async function seedLegacySnapshot(pool: Pool, instanceId: string, templateId: string): Promise<void> {

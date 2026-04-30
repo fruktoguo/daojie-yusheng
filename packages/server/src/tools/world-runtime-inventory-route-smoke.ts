@@ -122,7 +122,7 @@ async function main(): Promise<void> {
         inventoryCount: runtimePlayer.inventory.items[0]?.count,
         answers: 'WorldRuntimeController 的 grantItem HTTP 路由已接入 DurableOperationService.grantInventoryItems，并会带上 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 进行 durable 发物后再保留运行态库存变更',
         excludes: '不证明真实 HTTP server、数据库提交或更泛化的 quest/redeem 奖励事务化',
-        completionMapping: 'replace-ready:proof:inventory-route',
+        completionMapping: 'release:proof:inventory-route',
       },
       null,
       2,

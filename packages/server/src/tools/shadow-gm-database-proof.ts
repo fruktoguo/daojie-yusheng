@@ -24,7 +24,7 @@ const allowDestructive = (0, gm_database_proof_lib_1.normalizeBooleanEnv)(proces
 const SHADOW_GM_DATABASE_PROOF_CONTRACT = Object.freeze({
     answers: 'shadow 目标机上的 destructive proof：maintenance-active 条件下执行 backup -> download -> restore -> checkpoint backup',
     excludes: '未开启 destructive 开关的普通 shadow 检查、真实运营审批链、外部工单与人工风险复核记录',
-    completionMapping: 'replace-ready:shadow:destructive.gm-database',
+    completionMapping: 'release:shadow:destructive.gm-database',
 });
 /**
  * 串联执行脚本主流程。

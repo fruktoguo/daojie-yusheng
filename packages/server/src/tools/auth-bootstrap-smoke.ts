@@ -67,7 +67,7 @@ const AUTH_BOOTSTRAP_BOUNDARY = Object.freeze({
     ],
     completionMapping: [
         '映射 local 与 proof:with-db 里的 auth/bootstrap 主证明链',
-        '不是 replace-ready 完整完成定义，也不能单独替代 acceptance/full',
+        '不是 release 完整完成定义，也不能单独替代 acceptance/full',
     ],
 });
 /**
@@ -2143,7 +2143,7 @@ async function verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract() {
     });
     const snapshotResult = await snapshotService.loadPlayerSnapshotResult('proof_snapshot_player_invalid_persisted_source');
     if (snapshotResult.source !== 'miss' || snapshotResult.snapshot !== null) {
-        throw new Error(`expected invalid mainline snapshot record to miss after domain mainline cutover, got ${JSON.stringify({
+        throw new Error(`expected invalid snapshot record to miss after domain persistence boundary cleanup, got ${JSON.stringify({
             source: snapshotResult.source,
             persistedSource: snapshotResult.persistedSource,
             fallbackReason: snapshotResult.fallbackReason,

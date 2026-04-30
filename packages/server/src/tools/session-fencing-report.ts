@@ -21,7 +21,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可输出玩家 session fencing 的拒绝次数与成功次数，并作为阶段 6.1 的运行态指标入口',
       excludes: '不证明真实多节点顶号风暴或 socket 导流',
-      completionMapping: 'replace-ready:proof:stage6.session-fencing',
+      completionMapping: 'release:proof:stage6.session-fencing',
     }, null, 2));
     return;
   }
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
       totalCount: operationIds.length,
       answers: '当前已可直接读出玩家 session fencing 的拒绝次数与成功次数，报告可用于观察顶号/旧 session 对强事务的拒绝量',
       excludes: '不证明真实多节点顶号风暴或 socket 导流',
-      completionMapping: 'replace-ready:proof:stage6.session-fencing',
+      completionMapping: 'release:proof:stage6.session-fencing',
     }, null, 2));
   } finally {
     await pool.end().catch(() => undefined);

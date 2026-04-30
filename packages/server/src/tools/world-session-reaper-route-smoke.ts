@@ -20,7 +20,7 @@ async function main(): Promise<void> {
         answers:
           '已直接证明 detached session 过期后，reaper 会先 flushPlayer，再按当前 sessionEpoch 清本地 route，最后清 detached caches；flush 失败时会重试且不会提前清 route/caches。',
         excludes: '不证明真实 socket 连接、gateway bootstrap 或跨节点 redirect，只证明 expired detached session 的 route cleanup 顺序与重试语义。',
-        completionMapping: 'replace-ready:proof:world-session-reaper-route',
+        completionMapping: 'release:proof:world-session-reaper-route',
       },
       null,
       2,

@@ -4,8 +4,8 @@
 
 说明：
 
-- 这份文档是 next 主线后续专项规划，不作为当前 `replace-ready` 的立即阻塞项。
-- 当前 next 主线已经有炼丹、强化 runtime，也已有 `gatherSkill` 状态位；这份文档的目标是把它们收成一套可扩的技艺活动框架。
+- 这份文档是 当前生产主线后续专项规划，不作为当前 `release` 的立即阻塞项。
+- 当前生产主线已经有炼丹、强化 runtime，也已有 `gatherSkill` 状态位；这份文档的目标是把它们收成一套可扩的技艺活动框架。
 
 ## 当前基线
 
@@ -15,7 +15,7 @@
   - 已持有 `alchemySkill / gatherSkill / enhancementSkill` 三套状态。
 - `packages/client/src/ui/panels/attr-panel.ts`
   - 已把三种技艺并列展示为“技艺”页签。
-- 当前 next 主线里：
+- 当前生产主线里：
   - 炼丹和强化是完整写路径。
   - 采集还没有完全接成同等级的 runtime 框架。
 - `main` 分支里：

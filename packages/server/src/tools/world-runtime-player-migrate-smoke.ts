@@ -62,7 +62,7 @@ async function main() {
     flushCalls,
     answers: 'WorldRuntimeService.migratePlayerToNode 现已直接证明：会先 flushPlayer，再执行 beginTransfer() 递增 session_epoch，并把目标 node_id + 新 session_epoch 以 assigned 路由写入 player_session_route handoff 主链。',
     excludes: '不证明目标节点按新 session_epoch 完成 bootstrap 接管、真实跨节点 socket redirect 或 transfer 完成后的路由清理',
-    completionMapping: 'replace-ready:proof:world-runtime.player-migrate-route',
+    completionMapping: 'release:proof:world-runtime.player-migrate-route',
   }, null, 2));
 }
 

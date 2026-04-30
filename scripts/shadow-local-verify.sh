@@ -7,4 +7,4 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/shadow-local-lib.sh"
 
-shadow_run_pnpm verify:replace-ready:shadow
+shadow_run_pnpm verify:release:shadow

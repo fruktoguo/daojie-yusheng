@@ -268,7 +268,7 @@ async function main(): Promise<void> {
       case: 'npc-quest-reward-durable',
       answers: 'with-db 下 submitNpcQuestRewards 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及 player_inventory_item/player_wallet/player_quest_progress/watermark/outbox/audit 的同事务提交',
       excludes: '不证明更通用的世界 tick 资产 intent 编排',
-      completionMapping: 'replace-ready:proof:with-db.npc-quest-reward-durable',
+      completionMapping: 'release:proof:with-db.npc-quest-reward-durable',
       firstResult,
       replayResult,
     }, null, 2));

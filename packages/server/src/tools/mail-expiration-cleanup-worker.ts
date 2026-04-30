@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'mail expiration worker 可清理过期邮件并更新计数聚合',
             excludes: '不证明附件归档、跨节点竞争或 full vacuum 策略',
-            completionMapping: 'replace-ready:proof:with-db.mail-expiration-worker',
+            completionMapping: 'release:proof:with-db.mail-expiration-worker',
           },
           null,
           2,

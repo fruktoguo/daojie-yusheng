@@ -29,7 +29,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可输出强持久化事务的提交耗时与失败率，并作为阶段 6.1 的事务指标入口',
       excludes: '不证明真实多节点顶号风暴或 split-brain',
-      completionMapping: 'replace-ready:proof:stage6.durable-operation-benchmark',
+      completionMapping: 'release:proof:stage6.durable-operation-benchmark',
     }, null, 2));
     return;
   }
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
       commitLatencyMs: summarizeDurations(durations),
       answers: '强持久化事务批量压测已可直接输出提交耗时与成功/失败率，可作为阶段 6.1 的事务指标入口',
       excludes: '不证明真实多节点顶号风暴或 socket 导流',
-      completionMapping: 'replace-ready:proof:stage6.durable-operation-benchmark',
+      completionMapping: 'release:proof:stage6.durable-operation-benchmark',
     }, null, 2));
   } finally {
     await cleanupRows(pool, playerIds, operationIds).catch(() => undefined);

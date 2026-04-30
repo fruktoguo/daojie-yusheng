@@ -55,7 +55,7 @@ import {
   calcTechniqueFinalSpecialStatBonus,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
-import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
+import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
 const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians'] as const;
 const NUMERIC_STAT_KEYS = [

@@ -1,16 +1,16 @@
 # 09 验证门禁与验收
 
-目标：把“能不能接班”收成 next 主线自己的门禁，不再靠 legacy 对齐口径。
+目标：把当前生产主线的验证门禁固定下来，不再靠 legacy 对齐口径。
 
 ## 当前口径
 
-- 这份文档只管 next 主线 gate，不负责替代运维手册。
+- 这份文档只管当前生产主线 gate，不负责替代运维手册。
 - gate 口径以：
   - `packages/server/TESTING.md`
-  - `packages/server/REPLACE-RUNBOOK.md`
-  - 根级 `verify:replace-ready*` wrapper
+  - `packages/server/RUNBOOK.md`
+  - 根级 `verify:release*` wrapper
   为准。
-- `verify:replace-ready*` 是当前唯一文档口径。
+- `verify:release*` 是当前唯一文档口径。
 
 ## 任务
 
@@ -21,10 +21,10 @@
 - [x] 固定 `shadow-destructive` 门禁口径
 - [x] 确认 gate 不再依赖任何迁移 proof 链
 - [x] 跑通 `pnpm build`
-- [x] 跑通 `pnpm verify:replace-ready`
-- [x] 跑通 `pnpm verify:replace-ready:with-db`
-- [x] 跑通 `pnpm verify:replace-ready:acceptance`
-- [x] 跑通 `pnpm verify:replace-ready:full`
+- [x] 跑通 `pnpm verify:release:local`
+- [x] 跑通 `pnpm verify:release:with-db`
+- [x] 跑通 `pnpm verify:release:acceptance`
+- [x] 跑通 `pnpm verify:release:full`
 - [x] 跑通必要的 protocol audit
 - [x] 跑通必要的 boundary audit
 - [x] 跑通 next-only 的关键 smoke
@@ -34,18 +34,21 @@
 
 | Gate | 主命令 | 回答什么 | 必要环境 | 不回答什么 |
 | --- | --- | --- | --- | --- |
-| `local` | `pnpm verify:replace-ready` | 本地 build、本地主证明链、协议审计是否通过 | 无 | shadow 实物验收、GM 运营面、维护窗口 destructive |
-| `with-db` | `pnpm verify:replace-ready:with-db` | 带库持久化 proof 是否成立 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | shadow、GM 关键写路径、破坏性 proof |
-| `proof:with-db` | `pnpm verify:replace-ready:proof:with-db` | 最小 auth/token/bootstrap 带库证明链 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | 完整 persistence / GM / shadow |
-| `shadow` | `pnpm verify:replace-ready:shadow` | 已部署实例的最小只读验收 | shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）+ GM 密码 | 数据库运营面、destructive |
-| `acceptance` | `pnpm verify:replace-ready:acceptance` | `local + shadow + gm` 是否一起通过 | DB 非必须，但 shadow URL 与 GM 密码必须齐 | destructive、完整人工运营回归 |
-| `full` | `pnpm verify:replace-ready:full` | `with-db -> gm-database -> backup-persistence -> shadow -> gm` 是否全绿 | DB + shadow URL + GM 密码 | destructive、真实维护窗口演练 |
-| `shadow-destructive` | `pnpm verify:replace-ready:shadow:destructive` | shadow 维护窗口下 `backup -> download -> restore` 是否可控 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）+ 维护窗口 | 日常替换是否完成 |
-| `shadow-destructive:preflight` | `pnpm verify:replace-ready:shadow:destructive:preflight` | destructive 开关与 target maintenance-active 是否就绪 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`） | destructive proof 本身是否已执行 |
+| `local` | `pnpm verify:release:local` | 本地 build、本地主证明链、协议审计是否通过 | 无 | shadow 实物验收、GM 运营面、维护窗口 destructive |
+| `with-db` | `pnpm verify:release:with-db` | 带库持久化 proof 是否成立 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | shadow、GM 关键写路径、破坏性 proof |
+| `proof:with-db` | `pnpm verify:release:proof:with-db` | 最小 auth/token/bootstrap 带库证明链 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | 完整 persistence / GM / shadow |
+| `shadow` | `pnpm verify:release:shadow` | 已部署实例的最小只读验收 | shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）+ GM 密码 | 数据库运营面、destructive |
+| `acceptance` | `pnpm verify:release:acceptance` | `local + shadow + gm` 是否一起通过 | DB 非必须，但 shadow URL 与 GM 密码必须齐 | destructive、完整人工运营回归 |
+| `quick` | `pnpm verify:quick` | 编译、主线边界、核心 runtime/session/readiness smoke 是否快速通过 | 无 | DB、shadow、完整业务回归 |
+| `standard` | `pnpm verify:standard` | 本地 local 门禁是否稳定通过，且不被 DB 环境自动升级 | 无 | DB、shadow、GM 数据库运营面 |
+| `release` | `pnpm verify:release` | `doctor -> standard -> with-db -> shadow -> gm` 是否通过 | DB + shadow URL + GM 密码 | destructive、真实维护窗口演练 |
+| `full` | `pnpm verify:release:full` | `with-db -> backup-persistence -> shadow -> gm` 是否全绿；需要时可加 `--rerun-gm-database` 强制重跑本地 GM 数据库 destructive proof | DB + shadow URL + GM 密码 | destructive、真实维护窗口演练 |
+| `shadow-destructive` | `pnpm verify:release:shadow:destructive` | shadow 维护窗口下 `backup -> download -> restore` 是否可控 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）+ 维护窗口 | 日常发布是否完成 |
+| `shadow-destructive:preflight` | `pnpm verify:release:shadow:destructive:preflight` | destructive 开关与 target maintenance-active 是否就绪 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`） | destructive proof 本身是否已执行 |
 
 ## 当前环境就绪度
 
-当前这份计划只记录“如何判断环境 ready”，不把某一台机器的 env 文件路径当长期事实。根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 当前都会默认尝试加载：
+当前这份计划只记录“如何判断环境 ready”，不把某一台机器的 env 文件路径当长期事实。根级 `verify:release*` 和 `packages/server` 包内直接执行的 `verify/smoke` 当前都会默认尝试加载：
 
 - `.runtime/server.local.env`
 - `.env`
@@ -67,7 +70,7 @@
 补充区分：
 
 - 默认 shell 下，`shadow-destructive` 仍不是常开 ready 状态；它必须显式进入 maintenance-active 窗口并设置 destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）
-- 本地 destructive 样例记录已清理；真实切换只认本轮执行记录模板里的新记录
+- 本地 destructive 样例记录已清理；维护窗口只认本轮执行记录里的新证据
 
 这表示：
 
@@ -81,7 +84,7 @@
 
 ### 第 1 步：先跑 doctor
 
-- [x] 每轮先跑 `pnpm verify:replace-ready:doctor`
+- [x] 每轮先跑 `pnpm verify:release:doctor`
 
 执行原则：
 
@@ -96,7 +99,9 @@
 推荐命令：
 
 - `pnpm build`
-- `pnpm verify:replace-ready`
+- `pnpm verify:quick`
+- `pnpm verify:standard`
+- `pnpm verify:release:local`
 
 适用：
 
@@ -106,8 +111,8 @@
 
 推荐补跑：
 
-- 涉及 auth / bootstrap / identity / snapshot 时，补 `pnpm verify:replace-ready:proof:with-db`
-- 涉及 persistence / gm-database / restore 时，补 `pnpm verify:replace-ready:with-db`
+- 涉及 auth / bootstrap / identity / snapshot 时，补 `pnpm verify:release:proof:with-db`
+- 涉及 persistence / gm-database / restore 时，补 `pnpm verify:release:with-db`
 - 涉及协议字段 / 发包时，补 `pnpm audit:protocol`
 - 涉及 compat 删除时，补 `pnpm audit:boundaries`
 - 涉及 GM 管理面时，补 `pnpm --dir packages/server smoke:gm`
@@ -116,7 +121,7 @@
 
 推荐命令：
 
-- `pnpm verify:replace-ready:shadow`
+- `pnpm verify:release:shadow`
 
 适用：
 
@@ -124,7 +129,7 @@
 
 ### 第 5 步：跑 `acceptance`
 
-- [x] `pnpm verify:replace-ready:acceptance`
+- [x] `pnpm verify:release:acceptance`
 
 适用：
 
@@ -133,7 +138,7 @@
 
 ### 第 6 步：跑 `full`
 
-- [x] `pnpm verify:replace-ready:full`
+- [x] `pnpm verify:release:full`
 
 适用：
 
@@ -143,8 +148,8 @@
 
 推荐命令：
 
-- `pnpm verify:replace-ready:shadow:destructive:preflight`
-- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`（当前兼容键）
+- `pnpm verify:release:shadow:destructive:preflight`
+- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:release:shadow:destructive`（当前兼容键）
 
 前提：
 
@@ -158,7 +163,8 @@
 ### 协议 / 发包 / PanelDelta / Bootstrap
 
 - `pnpm build`
-- `pnpm verify:replace-ready`
+- `pnpm verify:standard`
+- `pnpm verify:release:local`
 - `pnpm audit:protocol`
 
 ### compat 删除 / legacy 边界收缩
@@ -172,8 +178,8 @@
 
 - `pnpm build`
 - `pnpm --dir packages/server smoke:auth-bootstrap`
-- `pnpm verify:replace-ready:proof:with-db`
-- 如涉及持久化写入，再补 `pnpm verify:replace-ready:with-db`
+- `pnpm verify:release:proof:with-db`
+- 如涉及持久化写入，再补 `pnpm verify:release:with-db`
 
 ### GM / admin / database / restore
 
@@ -181,7 +187,7 @@
 - `pnpm --dir packages/server smoke:gm`
 - `pnpm --dir packages/server smoke:gm-database`
 - `pnpm --dir packages/server smoke:gm-database:backup-persistence`
-- 如涉及已部署实例，再补 `pnpm verify:replace-ready:shadow` 或 `acceptance/full`
+- 如涉及已部署实例，再补 `pnpm verify:release:shadow` 或 `acceptance/full`
 
 ### runtime / combat / loot / monster / respawn
 
@@ -203,7 +209,7 @@
 
 补充说明：
 
-- 当前 `[x]` 只回答现有 `replace-ready` 门禁与 proof 是否成立，不再回答 legacy 数据转换是否成立。
+- 当前 `[x]` 只回答现有 release 门禁与 proof 是否成立，不再回答 legacy 数据转换是否成立。
 - 带库链路仍以上面的 `proof:with-db / with-db / full` 为准，但它们验证的是当前真源、持久化与恢复链，不再包含一次性迁移步骤。
 
 ## 失败归类规则
@@ -221,7 +227,7 @@
 
 ## 完成定义
 
-- [x] 所有门禁都以 next 主链为口径
+- [x] 所有门禁都以当前生产主线为口径
 - [x] 不再把“legacy 对齐”当作默认完成标准
 
 ## 当前验证结论
@@ -231,7 +237,7 @@
 这里必须强制区分三件事：
 
 - `doctor ready`
-- `local mode` 的 `verify:replace-ready` 是否通过
+- `local mode` 的 `verify:release:local` 是否通过
 - 带数据库环境时 `with-db` / `acceptance` / `full` 是否通过
 
 它们不是同一件事，不能互相替代。
@@ -246,54 +252,54 @@
 4. 只有 `with-db` 过了，才继续看 `acceptance/full`
 
 - [x] `pnpm build` 本地通过
-- [x] `pnpm verify:replace-ready` 本地通过，已拿到 `[replace-ready] completed mode=local`
-- [x] `pnpm verify:replace-ready:doctor`
-  - 当前主口径只保留 `pnpm verify:replace-ready:doctor`
-- [x] `pnpm verify:replace-ready:doctor`
+- [x] `pnpm verify:release:local` 本地通过，已拿到 `[release:local] completed mode=local`
+- [x] `pnpm verify:release:doctor`
+  - 当前主口径只保留 `pnpm verify:release:doctor`
+- [x] `pnpm verify:release:doctor`
   - 当前 shell 实跑结果：`local / with-db / proof with-db / shadow / acceptance / full` 为 `ready`
   - `shadow target probe` 当前为 `ready (reachable_with_nonready_health_503)`
   - 当前只剩 `shadow-destructive` 仍未就绪
 - [x] `pnpm --filter @mud/server audit:boundaries`
-  - 本轮实跑结果：mainline 边界审计通过，未发现主链代码命中旧路径
+  - 本轮实跑结果：production 边界审计通过，未发现当前主链代码命中旧路径
 - [x] `pnpm --filter @mud/server smoke:auth-bootstrap`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
 - [x] `pnpm --filter @mud/server smoke:gm`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
-- [x] `pnpm verify:replace-ready:with-db`
-  - 本轮实跑结果：默认本地 env 自动加载后通过，输出 `[replace-ready:with-db] completed`
+- [x] `pnpm verify:release:with-db`
+  - 本轮实跑结果：默认本地 env 自动加载后通过，输出 `[release:with-db] completed`
   - 当前带库链路已覆盖到 `audit:protocol`，并刷新 `docs/protocol-audit.md`
-- [x] `pnpm proof:replace-ready-gates`
+- [x] `pnpm proof:release-gates`
   - 本轮实跑结果：`doctor / acceptance / full` 的脚本边界、root wrapper 和 `09/TESTING` 文档口径已固定一致
 - [x] `shadow target probe`
   - 当前口径已固定到 `doctor / shadow` wrapper：
     - 不能只看 `SERVER_SHADOW_URL/SERVER_URL` 和 `GM_PASSWORD` 是否存在
     - 还要确认 `/health` 可达，且 `/api/auth/gm/login` 不是 `404`
     - 否则只能算“变量存在，但目标不是 shadow 入口”
-- [x] `pnpm verify:replace-ready:acceptance`
+- [x] `pnpm verify:release:acceptance`
   - 本轮先暴露出 gate 漂移：当前 shell 带 DB 时，`acceptance` 首段被偷偷升级成 `with-db`
   - 已修正为固定先跑 `local`
   - 随后补齐了 shadow target probe、`shadow-smoke` 的 `503/liveness` 兼容、以及 `gm` 不再被 DB 变量误带偏
   - 当前已在本机 `127.0.0.1:11923` shadow 实例上实跑通过
-- [x] `pnpm verify:replace-ready:shadow`
+- [x] `pnpm verify:release:shadow`
   - 本轮实跑结果：本机 `127.0.0.1:11923` shadow 已通过 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 与最小主线会话链
-- [x] `pnpm verify:replace-ready:full`
+- [x] `pnpm verify:release:full`
   - 本轮先后修掉了三类真实阻塞：
   - 本地数据库 URL 指错到 `127.0.0.1:5432/mud_next`
   - `auth-bootstrap-smoke` 的 `token_seed` recovery trace 断言过时
   - `gm-smoke` 在本地带库 proof 环境里会被旧 GM 密码记录污染
-  - 最终 `with-db -> gm-database -> backup-persistence -> shadow -> gm` 已全链通过
-- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive:preflight`
+  - 最终 `with-db -> backup-persistence -> shadow -> gm` 为默认全链；需要复验本地 GM 数据库 destructive proof 时显式加 `--rerun-gm-database`
+- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:release:shadow:destructive:preflight`
   - 本轮在本机 `127.0.0.1:11923` maintenance-active shadow 上通过
   - 当前阻塞已从“脚本/口径未固定”收敛成“只有进入 maintenance-active 时才允许继续 destructive”
-- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`
+- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:release:shadow:destructive`
   - 本轮在本机 maintenance-active shadow 上通过
   - 已完成一次 `backup -> download -> restore` destructive proof
   - 关键证据：
     - `backupId=mo610e6a-23df76bc`
     - `checkpointBackupId=mo610elj-9a6db43f`
-  - 旧本地样例记录已删除；后续真实切换必须写入新的执行记录
+  - 旧本地样例记录已删除；后续维护窗口必须写入新的执行记录
 - [x] 已明确不再保留迁移 proof 链
-  - 当前仓库记录只保留 `verify:replace-ready:proof:with-db -> smoke:persistence -> smoke:gm-database -> audit:protocol` 这类现行主链 gate，不再包含一次性迁移步骤
+  - 当前仓库记录只保留 `verify:release:proof:with-db -> smoke:persistence -> smoke:gm-database -> audit:protocol` 这类现行主链 gate，不再包含一次性迁移步骤
 
 ## 交付记录格式
 

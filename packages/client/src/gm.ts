@@ -2594,7 +2594,7 @@ function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): s
   switch (format) {
     case 'postgres_custom_dump':
       return 'PostgreSQL custom dump';
-    case 'mainline_json_snapshot':
+    case 'legacy_json_snapshot':
       return '历史 JSON 快照（硬切后不可恢复）';
     default:
       return '未知格式';

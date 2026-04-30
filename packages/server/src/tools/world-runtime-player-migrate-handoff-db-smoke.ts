@@ -100,7 +100,7 @@ async function main(): Promise<void> {
           answers:
             'with-db 下可验证 migratePlayerToNode bump 的新 session_epoch 会写成 assigned route，并在目标 bootstrap 时被同一 epoch 升级为 connected，随后源节点本地清理也不会误删 remote route',
           excludes: '不证明真实 socket redirect、多节点 lease 协调或 transfer 完成后的最终业务收尾',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-handoff',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-handoff',
         },
         null,
         2,
@@ -260,7 +260,7 @@ async function main(): Promise<void> {
             'with-db 下已直接证明：migratePlayerToNode 会先 flushPlayer，再用真实 beginTransfer bump session_epoch，把同一新 epoch 写成 assigned route；目标节点 bootstrap 会用同一 epoch 升级为 connected，随后源节点本地 route 清理也不会误删 remote route',
           excludes:
             '不证明真实 socket redirect、多节点 lease 协调或 transfer 完成后的最终业务收尾',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-handoff',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-handoff',
         },
         null,
         2,

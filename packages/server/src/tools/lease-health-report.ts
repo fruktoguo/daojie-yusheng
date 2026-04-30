@@ -19,7 +19,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可输出节点 lease 健康、冲突与接管视图，并作为阶段 6.1 的 lease 指标入口',
       excludes: '不证明真实多节点 kill -9 或 split-brain',
-      completionMapping: 'replace-ready:proof:stage6.lease-health',
+      completionMapping: 'release:proof:stage6.lease-health',
     }, null, 2));
     return;
   }
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
       conflictExamples: conflictRows.slice(0, 10),
       answers: '当前可读 lease 健康视图已覆盖 node_registry + instance_catalog，可直接看到 lease 冲突与接管候选',
       excludes: '不证明真实多节点通信故障注入或 split-brain',
-      completionMapping: 'replace-ready:proof:stage6.lease-health',
+      completionMapping: 'release:proof:stage6.lease-health',
     }, null, 2));
   } finally {
     await app.close().catch(() => undefined);

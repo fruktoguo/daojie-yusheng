@@ -191,7 +191,7 @@ async function main() {
         playerId,
         answers: 'PlayerRuntimeService 现已直接证明 bindRuntimeSession/refreshRuntimeSession 在同 sid 下只刷新 heartbeat，不增加 session_epoch；首次 loadOrCreatePlayer 现在还能吃入 sessionEpochFloor，把新 runtime fencing 直接抬到持久化 presence 之上；ensureRuntimeSessionFenceAtLeast() 可在运行中把当前 session_epoch/runtime_owner_id 自愈到指定下界之上；换 sid 的 takeover/rebind 会递增 session_epoch、轮换 runtime_owner_id，并把 presence 打入 dirtyDomains；beginTransfer() 也会在保留原 sessionId 的前提下递增 session_epoch、轮换 runtime_owner_id，把 transfer fencing 写入 presence 投影；transfer 期间的 in_transfer / transfer_target_node_id 会进入 presence 投影，notice 会被缓冲并在完成转移后再放行，转移超时后会自动回滚清理，logbook 相关写入口在过期后会停止推进可持久化内存态',
         excludes: '不证明跨节点 transfer 的分布式接管、bootstrap socket 合同、数据库 presence 回写时序或 durable transaction fencing，也不证明无外部触发时的独立定时器调度或完整的多频道消息复用',
-        completionMapping: 'replace-ready:proof:player-runtime.session-fence',
+        completionMapping: 'release:proof:player-runtime.session-fence',
       },
       null,
       2,

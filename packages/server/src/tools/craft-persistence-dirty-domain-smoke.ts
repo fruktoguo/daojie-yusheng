@@ -308,7 +308,7 @@ function main() {
       {
         ok: true,
         answers: 'CraftPanelRuntimeService 现已把 alchemy_preset / active_job / enhancement_record / profession 显式接入 dirtyDomains，并让 active_job 的 jobVersion 随 craft 变更单调前进；同时强化灵石校验/扣费已切到 wallet，炼丹与强化不再只能退回 snapshot',
-        completionMapping: 'replace-ready:proof:with-db.craft-persistence-dirty-domains',
+        completionMapping: 'release:proof:with-db.craft-persistence-dirty-domains',
       },
       null,
       2,

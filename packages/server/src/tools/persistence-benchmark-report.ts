@@ -37,7 +37,7 @@ async function main(): Promise<void> {
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
           answers: '本地基线下可验证 player flush / map flush / recovery queue 的平均值与 p95/p99，并作为阶段 7.4 起点报告',
           excludes: '不证明 500/1000 规模真实压测、跨节点竞争或故障注入',
-          completionMapping: 'replace-ready:proof:stage7.persistence-benchmark',
+          completionMapping: 'release:proof:stage7.persistence-benchmark',
         },
         null,
         2,
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
           excludes: playerCount >= 500 && instanceCount >= 1000 && walletOpCount >= 100
             ? '不证明跨节点竞争或故障注入'
             : '不证明 500/1000 规模真实压测、跨节点竞争或故障注入',
-          completionMapping: 'replace-ready:proof:stage7.persistence-benchmark',
+          completionMapping: 'release:proof:stage7.persistence-benchmark',
         },
         null,
         2,

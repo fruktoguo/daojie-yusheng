@@ -83,7 +83,7 @@ async function main(): Promise<void> {
         coverage,
         answers: '玩家域热域已通过 player-runtime dirty 标记和现有 smoke/proof 展现为显式列式脏域；market_storage 已从 player dirty domain 脱离，改由坊市持久化上下文单独维护',
         excludes: '不证明所有调用路径都只写一个域，但证明计划里要求的玩家脏域已显式进入 dirty tracking，market_storage 不再属于 player dirty domain',
-        completionMapping: 'replace-ready:proof:stage1.player-dirty-domain-coverage',
+        completionMapping: 'release:proof:stage1.player-dirty-domain-coverage',
       },
       null,
       2,

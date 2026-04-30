@@ -258,7 +258,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；snapshot fallback 脏域会硬失败，lease 失效时不会继续提交。',
-        completionMapping: 'replace-ready:proof:with-db.player-persistence-flush-strategy',
+        completionMapping: 'release:proof:with-db.player-persistence-flush-strategy',
       },
       null,
       2,

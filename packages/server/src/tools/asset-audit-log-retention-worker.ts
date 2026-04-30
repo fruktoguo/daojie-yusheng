@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'asset audit log retention worker 可独立归档热表审计日志到 archive 表',
             excludes: '不证明分区策略、vacuum 窗口或跨节点竞争',
-            completionMapping: 'replace-ready:proof:with-db.asset-audit-log-retention-worker',
+            completionMapping: 'release:proof:with-db.asset-audit-log-retention-worker',
           },
           null,
           2,

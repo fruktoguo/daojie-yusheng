@@ -59,7 +59,7 @@ async function main(): Promise<void> {
       instanceRecoveryPreferDomain: Boolean(worldRuntimeLifecycleService?.restorePublicInstancePersistence),
       answers: '旧 PlayerPersistenceService 已从主线 AppModule DI 退役；WorldPlayerSnapshotService.loadPlayerSnapshotResult 优先走 player-domain 投影恢复，WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 继续委托这条带 source/fallbackReason 的分域恢复 trace。',
       excludes: '不证明旧快照类型文件已物理删除，也不证明 shadow、acceptance、full 或真实线上重启窗口。',
-      completionMapping: 'replace-ready:proof:stage5.snapshot-retirement-boundary',
+      completionMapping: 'release:proof:stage5.snapshot-retirement-boundary',
     };
     console.log(JSON.stringify(report, null, 2));
   } finally {

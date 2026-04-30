@@ -8,7 +8,7 @@ import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { cleanupPostgresRestoreOrphanSectState } from './native-postgres-restore-cleanup';
 
-export type NativeDatabaseBackupFormat = 'postgres_custom_dump' | 'mainline_json_snapshot' | 'unknown';
+export type NativeDatabaseBackupFormat = 'postgres_custom_dump' | 'legacy_json_snapshot' | 'unknown';
 
 interface DatabaseConnectionConfig {
   host?: string;
@@ -50,7 +50,7 @@ export function buildPostgresDumpFileName(backupId: string): string {
 export async function detectDatabaseBackupFormat(filePath: string, fileName = ''): Promise<NativeDatabaseBackupFormat> {
   const normalizedName = String(fileName ?? '').trim().toLowerCase();
   if (normalizedName.endsWith('.json')) {
-    return 'mainline_json_snapshot';
+    return 'legacy_json_snapshot';
   }
   if (normalizedName.endsWith('.dump')) {
     return 'postgres_custom_dump';

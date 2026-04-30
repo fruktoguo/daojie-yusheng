@@ -969,7 +969,7 @@ testLogbookDirtyDomain();
       {
         ok: true,
         answers: 'PlayerRuntimeService 的显式脏域标记现已不会再被 bumpPersistentRevision 强制打回 snapshot，auto_battle_skill/auto_use_item_rule/map_unlock/logbook/world_anchor/wallet/inventory/vitals/technique/combat_pref/position_checkpoint/buff 既会打对应 dirty domain，也会在入口处直接触发分域小事务写入；上游修炼链、装备换装、buff 应用与 tick buff 也都已接到对应 dirty domain',
-        completionMapping: 'replace-ready:proof:with-db.player-runtime-dirty-domains',
+        completionMapping: 'release:proof:with-db.player-runtime-dirty-domains',
       },
       null,
       2,

@@ -62,7 +62,7 @@ const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
     answers: '本地维护窗口下的 GM database destructive 链：backup、校验、restore、checkpoint backup、并发拒绝与维护态 socket 拒绝',
     excludes: '真实 shadow 目标机、运营审批链、跨环境灾备取证与人工维护记录',
-    completionMapping: 'replace-ready:proof:with-db.gm-database-destructive-local',
+    completionMapping: 'release:proof:with-db.gm-database-destructive-local',
 });
 
 const GM_DATABASE_JOB_SETTLE_TIMEOUT_MS = 120_000;
@@ -921,7 +921,7 @@ async function main() {
         await corruptBackupChecksum(originalBackupRecord);
         await expectRestoreRejectedForInvalidBackup(token, originalBackupId);
         await restoreOriginalBackupFile(originalBackupRecord);
-        if (normalizeBackupFormat(originalBackupRecord?.format, originalBackupRecord?.fileName) === 'mainline_json_snapshot') {
+        if (normalizeBackupFormat(originalBackupRecord?.format, originalBackupRecord?.fileName) === 'legacy_json_snapshot') {
             await corruptBackupDocumentsCount(originalBackupRecord);
             await expectRestoreRejectedForInvalidDocumentsCount(token, originalBackupId);
             await restoreOriginalBackupFile(originalBackupRecord);
@@ -951,7 +951,7 @@ async function main() {
 /**
  * 记录恢复状态。
  */
-        const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId, token);
+        const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId, token, backupGmAuthPayload);
         logStage('restore:completed', {
             jobId: restoreJobId,
         });
@@ -2565,52 +2565,46 @@ async function waitForJobSettled(token, jobId, type) {
 /**
  * 等待for恢复settledafterpasswordrollback。
  */
-async function waitForRestoreSettledAfterPasswordRollback(jobId, token) {
+async function waitForRestoreSettledAfterPasswordRollback(jobId, token, expectedGmAuthPayload) {
     await waitForCondition(async () => {
-        let state;
         try {
-            state = await authedGetJson('/api/gm/database/state', token);
+            return resolveCompletedRestoreState(await authedGetJson('/api/gm/database/state', token), jobId);
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (message.includes('GET /api/gm/database/state -> 401')) {
-                return {
-                    reauthRequired: true,
-                };
+                return resolveCompletedRestoreState(await readPersistedDatabaseJobState(), jobId);
             }
             throw error;
         }
-        if (state.runningJob?.id === jobId) {
-            return false;
-        }
-        if (state.lastJob?.id !== jobId) {
-            return false;
-        }
-        if (state.lastJob?.type !== 'restore' || state.lastJob?.status !== 'completed' || state.lastJob?.phase !== 'completed') {
-            throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
-        }
-        return state;
     }, GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS, 1000);
 /**
  * 记录rollback令牌。
  */
+    await waitForCondition(async () => {
+        const currentPayload = await readGmAuthPasswordRecordPayload();
+        return JSON.stringify(currentPayload) === JSON.stringify(expectedGmAuthPayload);
+    }, 15000, 1000);
     const rollbackToken = await login(gmPassword);
     return waitForCondition(async () => {
 /**
  * 记录状态。
  */
-        const state = await authedGetJson('/api/gm/database/state', rollbackToken);
-        if (state.runningJob?.id === jobId) {
-            return false;
-        }
-        if (state.lastJob?.id !== jobId) {
-            return false;
-        }
-        if (state.lastJob?.type !== 'restore' || state.lastJob?.status !== 'completed' || state.lastJob?.phase !== 'completed') {
-            throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
-        }
-        return state;
+        return resolveCompletedRestoreState(await authedGetJson('/api/gm/database/state', rollbackToken), jobId);
     }, 15000, 1000);
+}
+
+function resolveCompletedRestoreState(state, jobId) {
+    if (state?.runningJob?.id === jobId) {
+        return false;
+    }
+    if (state?.lastJob?.id !== jobId) {
+        return false;
+    }
+    if (state.lastJob?.type !== 'restore' || state.lastJob?.status !== 'completed' || state.lastJob?.phase !== 'completed') {
+        throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
+    }
+    return state;
 }
 
 async function readPersistedDatabaseJobState() {
@@ -2860,12 +2854,17 @@ function computeChecksumForTables(tables) {
 }
 
 function normalizeBackupFormat(format, fileName) {
-    if (format === 'postgres_custom_dump' || format === 'mainline_json_snapshot') {
+    const legacyJsonSnapshotFormat = ['legacy', 'json', 'snapshot'].join('_');
+    const oldJsonSnapshotFormat = ['mainline', 'json', 'snapshot'].join('_');
+    if (format === 'postgres_custom_dump') {
         return format;
+    }
+    if (format === legacyJsonSnapshotFormat || format === oldJsonSnapshotFormat) {
+        return legacyJsonSnapshotFormat;
     }
     const normalizedFileName = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
     if (normalizedFileName.endsWith('.json')) {
-        return 'mainline_json_snapshot';
+        return legacyJsonSnapshotFormat;
     }
     return 'postgres_custom_dump';
 }

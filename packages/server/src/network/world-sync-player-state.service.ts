@@ -5,7 +5,7 @@ import {
   cloneNumericRatioDivisors,
   cloneNumericStats,
 } from '@mud/shared';
-import { projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
+import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 
 /** player sync state 服务：承接 bootstrap self 状态与相关只读转换。 */
 @Injectable()

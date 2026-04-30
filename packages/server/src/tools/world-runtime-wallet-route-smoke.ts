@@ -111,7 +111,7 @@ async function main(): Promise<void> {
         debitBalance: debitResult.player.wallet.balances[0].balance,
         answers: 'WorldRuntimeController 的 wallet HTTP 路由已接入 DurableOperationService，并会带上 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 进行 durable 记账后再同步回写运行态钱包',
         excludes: '不证明真实 HTTP server、数据库提交或 outbox worker 集群',
-        completionMapping: 'replace-ready:proof:wallet-route',
+        completionMapping: 'release:proof:wallet-route',
       },
       null,
       2,

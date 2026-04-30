@@ -27,7 +27,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: 'with-db 下验证 GM 地图 tick/time 配置持久化、并发合并、默认值清理和启动恢复回填',
       excludes: '不证明 shadow、acceptance、full 或真实线上重启窗口',
-      completionMapping: 'replace-ready:proof:with-db.gm-map-config-persistence',
+      completionMapping: 'release:proof:with-db.gm-map-config-persistence',
     }, null, 2));
     return;
   }
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
       case: 'gm-map-config-persistence',
       answers: '已验证 GM 地图 tick/time 配置可落库、并发 partial merge 不互相覆盖、默认值会清理记录，并且 RuntimeMapConfigService 启动恢复不依赖 GM HTTP service 生命周期',
       excludes: '不证明 shadow、acceptance、full 或真实线上重启窗口',
-      completionMapping: 'replace-ready:proof:with-db.gm-map-config-persistence',
+      completionMapping: 'release:proof:with-db.gm-map-config-persistence',
     }, null, 2));
   } finally {
     await cleanupRows(pool).catch(() => undefined);

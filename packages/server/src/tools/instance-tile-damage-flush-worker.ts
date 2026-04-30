@@ -30,7 +30,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'instance tile damage worker 可独立认领 instance_flush_ledger，并驱动 instance_tile_damage_state 分域刷盘',
             excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
-            completionMapping: 'replace-ready:proof:with-db.instance-tile-damage-flush-worker',
+            completionMapping: 'release:proof:with-db.instance-tile-damage-flush-worker',
           },
           null,
           2,

@@ -24,7 +24,7 @@ async function main(): Promise<void> {
       instancePurgeSupported,
       answers: 'TTL cleanup paths for mail and instance state are available and callable',
       excludes: 'does not prove partition query performance or production vacuum window',
-      completionMapping: 'replace-ready:proof:stage4.5.ttl-validation',
+      completionMapping: 'release:proof:stage4.5.ttl-validation',
     };
     console.log(JSON.stringify(report, null, 2));
   } finally {

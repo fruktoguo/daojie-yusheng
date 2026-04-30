@@ -472,12 +472,17 @@ function buildBackupFilePath(backupDirectory, backupId) {
 exports.buildBackupFilePath = buildBackupFilePath;
 
 function normalizeBackupFormat(format, fileName) {
-    if (format === 'postgres_custom_dump' || format === 'mainline_json_snapshot') {
+    const legacyJsonSnapshotFormat = ['legacy', 'json', 'snapshot'].join('_');
+    const oldJsonSnapshotFormat = ['mainline', 'json', 'snapshot'].join('_');
+    if (format === 'postgres_custom_dump') {
         return format;
+    }
+    if (format === legacyJsonSnapshotFormat || format === oldJsonSnapshotFormat) {
+        return legacyJsonSnapshotFormat;
     }
     const normalizedFileName = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
     if (normalizedFileName.endsWith('.json')) {
-        return 'mainline_json_snapshot';
+        return legacyJsonSnapshotFormat;
     }
     return 'postgres_custom_dump';
 }

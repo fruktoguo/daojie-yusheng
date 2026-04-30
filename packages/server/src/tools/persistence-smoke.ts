@@ -56,7 +56,7 @@ const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
 const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
     answers: 'with-db 本地环境下的主线持久化闭环：重启后玩家状态、掉落、灵气、地图解锁与结构化坊市托管仓仍可从数据库真源恢复',
     excludes: 'shadow destructive、维护窗口 backup/restore、真实运营取证与跨环境灾备演练',
-    completionMapping: 'replace-ready:proof:with-db.persistence',
+    completionMapping: 'release:proof:with-db.persistence',
 });
 const BASELINE_MARKET_STORAGE_ITEMS = Object.freeze([
     {

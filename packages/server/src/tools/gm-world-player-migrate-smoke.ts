@@ -82,7 +82,7 @@ async function main() {
     result: payload,
     answers: 'GM 手动迁移玩家入口现在直接复用 worldRuntimeService.migratePlayerToNode；flush-before-handoff 只保留在 runtime 主链本体，不再由 GM 包装层重复执行一次。',
     excludes: '不证明 flush 之后的跨节点 bootstrap 接管、socket redirect 或更通用的非 GM 迁移入口；这里只证明 GM 包装层不会再重复 flush。',
-    completionMapping: 'replace-ready:proof:gm-world.player-migrate.flush-before-handoff',
+    completionMapping: 'release:proof:gm-world.player-migrate.flush-before-handoff',
   }, null, 2));
 }
 

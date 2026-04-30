@@ -187,7 +187,7 @@ async function main(): Promise<void> {
       persistedSource: missResult.persistedSource,
       fallbackReason: missResult.fallbackReason,
     },
-    completionMapping: 'replace-ready:proof:stage5.bootstrap-snapshot-trace-boundary',
+    completionMapping: 'release:proof:stage5.bootstrap-snapshot-trace-boundary',
   }, null, 2));
 }
 

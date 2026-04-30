@@ -45,8 +45,8 @@ jobs:
         id: prep
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify replace-ready doctor
-        run: pnpm verify:replace-ready:doctor
+      - name: Verify release doctor
+        run: pnpm verify:release:doctor
 
       - name: Set up SSH key
         env:

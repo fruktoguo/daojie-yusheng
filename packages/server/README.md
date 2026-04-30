@@ -14,16 +14,16 @@
 ```bash
 pnpm build:server
 pnpm --filter @mud/server start:dev
-pnpm verify:replace-ready:doctor
-pnpm verify:replace-ready
-pnpm verify:replace-ready:with-db
-pnpm verify:replace-ready:acceptance
-pnpm verify:replace-ready:full
+pnpm verify:release:doctor
+pnpm verify:release:local
+pnpm verify:release:with-db
+pnpm verify:release:acceptance
+pnpm verify:release:full
 ```
 
 ## 文档
 
 - [测试说明](./TESTING.md)
-- [运维 Runbook](./REPLACE-RUNBOOK.md)
+- [运维 Runbook](./RUNBOOK.md)
 - [验证与验收](../../docs/next-plan/09-verification-and-acceptance.md)
 - [协议审计](../../docs/protocol-audit.md)

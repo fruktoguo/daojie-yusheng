@@ -47,6 +47,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
+const fs = __importStar(require("node:fs"));
 /**
  * 记录net。
  */
@@ -100,8 +101,8 @@ const smokeCases = [
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'loot', scriptFile: 'loot-smoke.js' },
     { name: 'auth-bootstrap', scriptFile: 'auth-bootstrap-smoke.js' },
-    { name: 'auth-bootstrap-mainline', scriptFile: 'auth-bootstrap-smoke.js' },
-    { name: 'auth-bootstrap-migration', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'auth-bootstrap-native', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'auth-bootstrap-legacy-import', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
@@ -134,14 +135,32 @@ const LONG_RUNNING_SMOKE_CASES = new Set([
     'readiness-gate',
     'session',
     'auth-bootstrap',
-    'auth-bootstrap-mainline',
-    'auth-bootstrap-migration',
+    'auth-bootstrap-native',
+    'auth-bootstrap-legacy-import',
     'monster-runtime',
     'monster-combat',
     'monster-ai',
     'monster-skill',
     'monster-reset',
     'monster-loot',
+]);
+const DB_SMOKE_CASES = new Set([
+    'persistence',
+    'player-domain-persistence',
+    'player-domain-recovery',
+    'durable-operation',
+    'gm-database',
+    'gm-map-config-persistence',
+]);
+const PARALLEL_STANDALONE_CASES = new Set([
+    'snapshot-retirement',
+    'map-snapshot-retirement',
+    'multi-worker-flush-stability',
+    'strong-persistence-lease',
+    'player-columnar-schema',
+    'player-dirty-domain-coverage',
+    'world-runtime-instance-capability-guard',
+    'world-runtime-player-session-no-auto-instance',
 ]);
 const SMOKE_GATE_PROFILES = {
     local: {
@@ -194,13 +213,10 @@ async function main() {
     process.stdout.write(`[server smoke] excludes=${gateProfile.excludes}\n`);
     process.stdout.write(`[server smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
     await autoCleanupSmokeArtifacts('suite-start');
-    for (const entry of cases) {
-        if ((entry.name === 'persistence'
-            || entry.name === 'player-domain-persistence'
-            || entry.name === 'player-domain-recovery'
-            || entry.name === 'durable-operation'
-            || entry.name === 'gm-database'
-            || entry.name === 'gm-map-config-persistence') && !hasDatabaseUrl()) {
+    const serialCases = cases.filter((entry) => !canRunCaseInParallel(entry));
+    const parallelCases = cases.filter((entry) => canRunCaseInParallel(entry));
+    for (const entry of serialCases) {
+        if (DB_SMOKE_CASES.has(entry.name) && !hasDatabaseUrl()) {
             results.push({
                 name: entry.name,
                 durationMs: 0,
@@ -208,35 +224,26 @@ async function main() {
             });
             continue;
         }
-/**
- * 记录casestartedat。
- */
-        const caseStartedAt = Date.now();
-        process.stdout.write(`\n[server smoke] running ${entry.name}\n`);
         try {
-            if (entry.standalone) {
-                await runStandaloneSmoke(entry);
+            results.push(await runSmokeCase(entry));
+            if (results[results.length - 1].failed) {
+                process.stderr.write(`[server smoke] failed ${entry.name}: ${results[results.length - 1].error}\n`);
             }
-            else {
-                await runIsolatedSmoke(entry);
-            }
-            results.push({
-                name: entry.name,
-                durationMs: Date.now() - caseStartedAt,
-            });
-        }
-        catch (error) {
-            results.push({
-                name: entry.name,
-                durationMs: Date.now() - caseStartedAt,
-                failed: true,
-                error: formatSmokeError(error),
-            });
-            process.stderr.write(`[server smoke] failed ${entry.name}: ${formatSmokeError(error)}\n`);
         }
         finally {
             await autoCleanupSmokeArtifacts(`case:${entry.name}`);
         }
+    }
+    if (parallelCases.length > 0) {
+        process.stdout.write(`\n[server smoke] running parallel standalone cases=${parallelCases.map((entry) => entry.name).join(', ')}\n`);
+        const parallelResults = await Promise.all(parallelCases.map((entry) => runSmokeCase(entry)));
+        for (const result of parallelResults) {
+            results.push(result);
+            if (result.failed) {
+                process.stderr.write(`[server smoke] failed ${result.name}: ${result.error}\n`);
+            }
+        }
+        await autoCleanupSmokeArtifacts('parallel-standalone');
     }
     process.stdout.write(`\n[server smoke] summary\n`);
     for (const result of results) {
@@ -258,6 +265,43 @@ async function main() {
     process.stdout.write(`[server smoke] boundary=${gateProfile.answers}\n`);
     process.stdout.write(`[server smoke] not_proved=${gateProfile.excludes}\n`);
     process.stdout.write(`[server smoke] total ${Date.now() - startedAt}ms\n`);
+    writeSmokeTiming(gate, results, startedAt);
+}
+async function runSmokeCase(entry) {
+/**
+ * 记录casestartedat。
+ */
+    const caseStartedAt = Date.now();
+    process.stdout.write(`\n[server smoke] running ${entry.name}\n`);
+    try {
+        if (entry.standalone) {
+            await runStandaloneSmoke(entry);
+        }
+        else {
+            await runIsolatedSmoke(entry);
+        }
+        return {
+            name: entry.name,
+            durationMs: Date.now() - caseStartedAt,
+        };
+    }
+    catch (error) {
+        return {
+            name: entry.name,
+            durationMs: Date.now() - caseStartedAt,
+            failed: true,
+            error: formatSmokeError(error),
+        };
+    }
+}
+function canRunCaseInParallel(entry) {
+    if (selectedCaseNames.length > 0) {
+        return false;
+    }
+    if (hasDatabaseUrl()) {
+        return false;
+    }
+    return entry.standalone && PARALLEL_STANDALONE_CASES.has(entry.name) && !DB_SMOKE_CASES.has(entry.name);
 }
 /**
  * 运行isolatedsmoke 校验。
@@ -522,22 +566,22 @@ function resolveCaseExtraEnv(entry) {
         || entry.name === 'persistence'
         || entry.name === 'gm-database'
         || entry.name === 'auth-bootstrap'
-        || entry.name === 'auth-bootstrap-mainline'
-        || entry.name === 'auth-bootstrap-migration') {
+        || entry.name === 'auth-bootstrap-native'
+        || entry.name === 'auth-bootstrap-legacy-import') {
         extraEnv.SERVER_ALLOW_LEGACY_HTTP_COMPAT = '1';
     }
     if (entry.name === 'session') {
         extraEnv.SERVER_SESSION_DETACH_EXPIRE_MS = '4000';
     }
     if (entry.name === 'auth-bootstrap'
-        || entry.name === 'auth-bootstrap-mainline'
-        || entry.name === 'auth-bootstrap-migration') {
+        || entry.name === 'auth-bootstrap-native'
+        || entry.name === 'auth-bootstrap-legacy-import') {
         extraEnv.SERVER_SESSION_DETACH_EXPIRE_MS = '4000';
         extraEnv.SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
-        if (entry.name === 'auth-bootstrap-mainline') {
+        if (entry.name === 'auth-bootstrap-native') {
             extraEnv.SERVER_AUTH_BOOTSTRAP_PROFILE = 'mainline';
         }
-        else if (entry.name === 'auth-bootstrap-migration') {
+        else if (entry.name === 'auth-bootstrap-legacy-import') {
             extraEnv.SERVER_AUTH_BOOTSTRAP_PROFILE = 'migration';
         }
 /**
@@ -545,7 +589,7 @@ function resolveCaseExtraEnv(entry) {
  */
         const traceSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         extraEnv.SERVER_AUTH_TRACE_ENABLED = '1';
-        extraEnv.SERVER_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `mainline-auth-trace-${traceSuffix}.jsonl`);
+        extraEnv.SERVER_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `auth-bootstrap-trace-${traceSuffix}.jsonl`);
     }
     if (LONG_RUNNING_SMOKE_CASES.has(entry.name)) {
         extraEnv.SERVER_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
@@ -614,6 +658,38 @@ function dumpServerLogTail(child, caseName) {
     process.stderr.write(`[server smoke] ${caseName} server log tail (${lines.length} lines)\n`);
     for (const line of lines) {
         process.stderr.write(`${line}\n`);
+    }
+}
+function writeSmokeTiming(gate, results, startedAt) {
+    const finishedAtMs = Date.now();
+    const timingDir = path.join(repoRoot, '.runtime', 'verification-timings');
+    const payload = {
+        command: 'server smoke-suite',
+        gate,
+        startedAt: new Date(startedAt).toISOString(),
+        finishedAt: new Date(finishedAtMs).toISOString(),
+        durationMs: finishedAtMs - startedAt,
+        caseDurations: results.map((result) => ({
+            name: result.name,
+            durationMs: result.durationMs,
+            skipped: result.skipped === true,
+            failed: result.failed === true,
+            error: result.error ?? null,
+        })),
+        failedCase: results.find((result) => result.failed)?.name ?? null,
+        environment: {
+            dbEnabled: hasDatabaseUrl(),
+            shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
+        },
+    };
+    try {
+        fs.mkdirSync(timingDir, { recursive: true });
+        fs.writeFileSync(path.join(timingDir, 'server-smoke-latest.json'), `${JSON.stringify(payload, null, 2)}\n`);
+        fs.appendFileSync(path.join(timingDir, 'server-smoke-history.jsonl'), `${JSON.stringify(payload)}\n`);
+        process.stdout.write(`[server smoke] timing=${path.relative(repoRoot, path.join(timingDir, 'server-smoke-latest.json'))}\n`);
+    }
+    catch (error) {
+        process.stderr.write(`[server smoke] timing write failed: ${formatSmokeError(error)}\n`);
     }
 }
 /**

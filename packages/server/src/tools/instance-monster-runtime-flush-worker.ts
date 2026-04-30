@@ -30,7 +30,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'instance monster runtime worker 可独立认领 instance_flush_ledger，并驱动 instance_monster_runtime_state 分域刷盘',
             excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
-            completionMapping: 'replace-ready:proof:with-db.instance-monster-runtime-flush-worker',
+            completionMapping: 'release:proof:with-db.instance-monster-runtime-flush-worker',
           },
           null,
           2,

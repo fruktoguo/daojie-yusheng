@@ -18,7 +18,7 @@
 - 地图 runtime 不再读写旧 map snapshot；`MapPersistenceService.loadMapSnapshot()` 返回空，`saveMapSnapshot()` 直接拒绝。
 - 兑换码、建议、GM auth、GM 地图配置、宗门、市场订单、市场成交历史、市场托管仓、爱发电配置/订单、数据库备份元数据和数据库任务状态已经从 `persistent_documents` 迁到专表或结构化玩家表。
 - 兑换码奖励、战斗掉落、PvP 奖励、NPC 任务奖励、GM 钱包/发物入口缺少 durable 条件时返回硬错误，不再直写运行态资产作为 fallback。
-- 新增 `persistence-hard-cut-audit` 静态门禁，用于阻断主线 runtime 重新读写旧快照或通用文档桶真源。
+- 新增 `persistence-retirement-audit` 静态门禁，用于阻断主线 runtime 重新读写旧快照或通用文档桶真源。
 
 所以当前文档结论是：
 
@@ -39,7 +39,7 @@
 仍保留的边界：
 
 - [packages/server/src/persistence/player-persistence.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/persistence/player-persistence.service.ts:7) 仍存在，作为离线迁移、旧 dump 转换、历史 smoke 的输入读取工具。
-- 任何正式 runtime provider 重新注入它，都会被 `persistence-hard-cut-audit` 视为失败。
+- 任何正式 runtime provider 重新注入它，都会被 `persistence-retirement-audit` 视为失败。
 
 ### 3.2 旧地图快照
 
@@ -121,10 +121,10 @@
 
 ## 6. 当前验证入口
 
-硬切静态门禁：
+旧真源退役静态门禁：
 
 ```bash
-pnpm --filter @mud/server audit:persistence-hard-cut
+pnpm --filter @mud/server audit:persistence-retirement
 ```
 
 重点证明：
@@ -135,7 +135,7 @@ pnpm --filter @mud/server audit:persistence-hard-cut
 
 仍需单独证明的内容：
 
-- `verify:replace-ready:with-db / shadow / acceptance / full` 全套门禁。
+- `verify:release:with-db / shadow / acceptance / full` 全套门禁。
 - 迁移 dry-run、真实迁移、回滚演练和备份恢复演练。
 - 1000 玩家、1000 实例规模下的 p95/p99、worker backlog、数据库连接池和故障注入报告。
 

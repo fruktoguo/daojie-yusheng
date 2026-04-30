@@ -225,7 +225,7 @@ async function main(): Promise<void> {
       case: 'inventory-grant-durable',
       answers: 'with-db 下 grantInventoryItems 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及 player_inventory_item/watermark/outbox/audit 的同事务提交',
       excludes: '不证明真实战斗 tick 编排、地面/容器状态一致性或更泛化的世界资产 intent 编排',
-      completionMapping: 'replace-ready:proof:with-db.inventory-grant-durable',
+      completionMapping: 'release:proof:with-db.inventory-grant-durable',
       firstResult,
       replayResult,
     }, null, 2));

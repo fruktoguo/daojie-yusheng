@@ -25,7 +25,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可验证节点故障场景下 lease 接管的时延与成功率，并作为阶段 7.4 的故障注入起点报告',
       excludes: '不证明真实多节点 socket 导流、生产级 kill -9 节点或 split-brain',
-      completionMapping: 'replace-ready:proof:stage7.lease-failover',
+      completionMapping: 'release:proof:stage7.lease-failover',
     }, null, 2));
     return;
   }
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
         ? `已跑通 ${instanceCount} 个过期 lease 的自动接管，阶段 7.4 故障注入项的本地基线满足 <60s 目标`
         : `已跑通 ${instanceCount} 个过期 lease 的自动接管，但总耗时超过 60s，需要进一步优化`,
       excludes: '不证明真实多节点通信故障注入或 split-brain',
-      completionMapping: 'replace-ready:proof:stage7.lease-failover',
+      completionMapping: 'release:proof:stage7.lease-failover',
     }, null, 2));
   } finally {
     await cleanupLeaseFailoverRows(pool, instanceIds, nodeId).catch(() => undefined);

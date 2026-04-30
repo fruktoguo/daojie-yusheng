@@ -80,7 +80,7 @@ async function main(): Promise<void> {
         snapshot: queue.getSnapshot(),
         answers: '恢复队列已按优先级与并发门执行；未显式 timeoutMs 时会使用默认 15s 窗口而不是 1ms；超过阈值只告警，不取消运行中的数据库恢复任务',
         excludes: '不证明真实登录风暴压测或跨节点队列',
-        completionMapping: 'replace-ready:proof:stage4.recovery-queue',
+        completionMapping: 'release:proof:stage4.recovery-queue',
       },
       null,
       2,

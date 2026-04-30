@@ -999,7 +999,13 @@ export type GmDatabaseJobType = 'backup' | 'restore';
 export type GmDatabaseJobStatus = 'running' | 'completed' | 'failed';
 
 /** 数据库备份文件格式。 */
-export type GmDatabaseBackupFormat = 'postgres_custom_dump' | 'mainline_json_snapshot';
+export type GmDatabaseBackupFormat = 'postgres_custom_dump' | 'legacy_json_snapshot';
+
+/** 数据库备份作用域。 */
+export type GmDatabaseBackupScope = 'server_persistence' | 'legacy_persistent_documents';
+
+/** 数据库恢复模式。 */
+export type GmDatabaseRestoreMode = 'replace_server_persistence';
 
 /** 数据库备份/恢复作业日志级别。 */
 export type GmDatabaseJobLogLevel = 'info' | 'error';
@@ -1182,12 +1188,12 @@ export interface GmDatabaseStateRes {
  * scope：scope相关字段。
  */
 
-  scope?: 'persistent_documents_only' | 'mainline_persistence';
+  scope?: GmDatabaseBackupScope;
   /**
  * restoreMode：restoreMode相关字段。
  */
 
-  restoreMode?: 'replace_persistent_documents' | 'replace_mainline_persistence';
+  restoreMode?: GmDatabaseRestoreMode;
   /**
  * note：note相关字段。
  */
@@ -1264,7 +1270,7 @@ export interface GmTriggerDatabaseBackupRes {
  * scope：scope相关字段。
  */
 
-  scope?: 'persistent_documents_only' | 'mainline_persistence';
+  scope?: GmDatabaseBackupScope;
   /**
  * documentsCount：数量或计量字段。
  */
@@ -1283,7 +1289,7 @@ export interface GmUploadDatabaseBackupRes {
  * scope：scope相关字段。
  */
 
-  scope?: 'persistent_documents_only' | 'mainline_persistence';
+  scope?: GmDatabaseBackupScope;
 }
 
 /** 触发数据库恢复的请求。 */

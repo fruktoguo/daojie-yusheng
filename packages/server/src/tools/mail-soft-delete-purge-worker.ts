@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'mail soft-delete purge worker 可独立清理热表里已经软删的邮件与附件',
             excludes: '不证明分区策略、vacuum 窗口或跨节点竞争',
-            completionMapping: 'replace-ready:proof:with-db.mail-soft-delete-purge-worker',
+            completionMapping: 'release:proof:with-db.mail-soft-delete-purge-worker',
           },
           null,
           2,

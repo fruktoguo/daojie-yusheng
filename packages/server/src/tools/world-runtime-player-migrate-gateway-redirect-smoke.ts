@@ -134,7 +134,7 @@ async function main(): Promise<void> {
           answers:
             'with-db 下可验证 migratePlayerToNode 写出的 assigned route，会立刻让错误节点 gateway 返回 redirectNodeId/redirectUrl，而不会继续本地 bootstrap',
           excludes: '不证明目标节点 bootstrap 接管、真实 socket 重连完成或 transfer 最终业务收尾',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-gateway-redirect',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-gateway-redirect',
         },
         null,
         2,
@@ -290,7 +290,7 @@ async function main(): Promise<void> {
             'with-db 下已直接证明：WorldRuntimeService.migratePlayerToNode 写出的 assigned route，会立刻让错误节点 gateway 返回 redirectNodeId/redirectUrl，而不会继续本地 bootstrap',
           excludes:
             '不证明目标节点 bootstrap 接管、真实 socket 重连完成或 transfer 最终业务收尾',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-gateway-redirect',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-gateway-redirect',
         },
         null,
         2,

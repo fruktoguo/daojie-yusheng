@@ -28,7 +28,7 @@ async function main(): Promise<void> {
           alerts,
           answers: '单 worker 积压会被标成告警，但不会阻塞其它 worker；当前报告可直接看出哪个域/哪个队列 backlog 最高',
           excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
-          completionMapping: 'replace-ready:proof:stage7.worker-backlog-alert',
+          completionMapping: 'release:proof:stage7.worker-backlog-alert',
         },
         null,
         2,

@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'instance ground item worker 可独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
             excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
-            completionMapping: 'replace-ready:proof:with-db.instance-ground-item-flush-worker',
+            completionMapping: 'release:proof:with-db.instance-ground-item-flush-worker',
           },
           null,
           2,

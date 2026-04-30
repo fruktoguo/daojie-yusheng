@@ -23,7 +23,7 @@ async function main(): Promise<void> {
       instanceRecoveryPreferDomain: Boolean(worldRuntimeLifecycleService?.restorePublicInstancePersistence),
       legacySourceScopeObserved: true,
       modernSourceScopeObserved: true,
-      completionMapping: 'replace-ready:proof:stage5.map-snapshot-retirement-boundary',
+      completionMapping: 'release:proof:stage5.map-snapshot-retirement-boundary',
     };
     assert.equal(report.ok, true);
     assert.equal(report.mapSnapshotRecoveryFallbackRetained, false);

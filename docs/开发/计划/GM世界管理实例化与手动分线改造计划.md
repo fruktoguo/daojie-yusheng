@@ -2,7 +2,7 @@
 
 > 基于当前 `packages/*` 主线代码现状制定。
 >
-> 本计划的目标不是一步到位完成 `instance_catalog`、分布式实例路由和完整实例持久化，而是先把“地图实例”从后台运行时能力推进到“GM 可见、可人工创建、可人工运营”的 next 主线能力。
+> 本计划的目标不是一步到位完成 `instance_catalog`、分布式实例路由和完整实例持久化，而是先把“地图实例”从后台运行时能力推进到“GM 可见、可人工创建、可人工运营”的 当前生产主线能力。
 
 ---
 
@@ -367,7 +367,7 @@
 
 - [x] `pnpm build`
 - [x] 至少一轮与实例主链直接相关的 focused smokes
-- [x] 如本轮改动触及 `client/shared/server` 三端，补跑一轮根级 `pnpm verify:replace-ready`
+- [x] 如本轮改动触及 `client/shared/server` 三端，补跑一轮根级 `pnpm verify:release:local`
   - 已在最新代码状态下重新执行并通过
 - [x] 手工验证 GM 世界管理：
   - 能看到和平/真实两条默认实例

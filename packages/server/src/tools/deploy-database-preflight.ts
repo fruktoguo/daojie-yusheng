@@ -50,7 +50,7 @@ async function main() {
     const afterSchema = await inspectDatabase(pool);
     const needsLegacyPlayerMigration = shouldMigrateLegacyPlayerSnapshots(afterSchema);
     if (needsLegacyPlayerMigration && options.applyTemporaryConversion) {
-      const migrationResult = runMigrationScript('migrate-next-mainline-once.js', [
+      const migrationResult = runMigrationScript('import-legacy-persistence-once.js', [
         '--domains=player-domain',
         '--apply',
       ]);

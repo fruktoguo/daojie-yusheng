@@ -1,6 +1,6 @@
-# next-plan
+# 生产主线计划
 
-这个目录是 next 主线收口、验证与 cutover 的主要任务入口。
+这个目录保留当前生产主线的验证、维护计划与后续专题规划。
 
 当前主线只认 `packages/*`；`legacy/*` 已从工作树移除。
 
@@ -10,12 +10,9 @@
 
 - [main](./main.md)
 
-## 当前仍保留的执行任务
+## 当前验证入口
 
 - [09 验证门禁与验收](./09-verification-and-acceptance.md)
-- [10 切换执行清单](./10-cutover-execution-checklist.md)
-- [10 切换逐步执行手册](./10-cutover-step-by-step-runbook.md)
-- [10 切换执行记录模板](./10-cutover-execution-log-template.md)
 
 ## 后续专题规划
 
@@ -23,3 +20,4 @@
 - [13 敌我判定规则统一化规划](./13-combat-relation-rules-unification.md)
 - [14 技艺活动框架统一化规划](./14-technique-activity-framework.md)
 - [15 地图地块特征统一化规划](./15-map-tile-feature-unification.md)
+- [测试门禁全面优化计划](../开发/计划/测试门禁全面优化计划.md)

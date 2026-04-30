@@ -39,7 +39,7 @@ function main() {
     reaperUsesBindingSessionEpochFallback: true,
     answers: '已直接证明源码边界上 detached 窗口内不会在 handleDisconnect 抢删本地 route，过期回收会按 flush -> clearLocalRoute(sessionEpoch) -> clearDetachedPlayerCaches 顺序执行；当 runtime player 已不在场时，reaper 也会回退使用 binding 中保存的 sessionEpoch 清 route。',
     excludes: '不证明真实 socket/bootstrap/with-db 执行结果，只证明本轮改动后的源码合同与调用顺序。',
-    completionMapping: 'replace-ready:report:detached-route-cleanup',
+    completionMapping: 'release:report:detached-route-cleanup',
   }, null, 2));
 }
 

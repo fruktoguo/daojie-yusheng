@@ -220,14 +220,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                 });
                 return;
             }
-            this.dropInventoryGrantFallback({
-                playerId,
-                instance,
-                item,
-                deps,
-                fallbackNotice: `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但本次奖励缺少可确认的背包落盘上下文。`,
-                fallbackPosition: { x, y },
-            });
+            this.grantInventoryItemInRuntime(playerId, item, deps, `获得 ${formatItemStackLabel(item)}`);
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
@@ -315,14 +308,12 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                     });
                 }
                 else {
-                    this.dropInventoryGrantFallback({
-                        playerId: killer.playerId,
-                        instance: deathSite.instance,
-                        item: reward,
+                    this.grantInventoryItemInRuntime(
+                        killer.playerId,
+                        reward,
                         deps,
-                        fallbackNotice: `${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处，但本次奖励缺少可确认的背包落盘上下文。`,
-                        fallbackPosition: { x: deathSite.x, y: deathSite.y },
-                    });
+                        `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`,
+                    );
                 }
             }
             else {
@@ -363,6 +354,10 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
     dropInventoryGrantFallback(input) {
         input.deps.spawnGroundItem(input.instance, input.fallbackPosition.x, input.fallbackPosition.y, input.item);
         input.deps.queuePlayerNotice(input.playerId, input.fallbackNotice, 'loot');
+    }
+    grantInventoryItemInRuntime(playerId, item, deps, successNotice) {
+        this.playerRuntimeService.receiveInventoryItem(playerId, item);
+        deps.queuePlayerNotice(playerId, successNotice, 'loot');
     }
 };
 exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService;

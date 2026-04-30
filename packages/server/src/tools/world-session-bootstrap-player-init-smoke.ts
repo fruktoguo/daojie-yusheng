@@ -331,7 +331,7 @@ async function main(): Promise<void> {
         log,
         answers: '硬切模式下 bootstrap 恢复超时会拒绝会话，不再创建 starter 出生点 fallback；正常恢复会等待数据库真源并附着到恢复地图',
         excludes: '不证明真实登录风暴压测或多节点恢复队列竞争',
-        completionMapping: 'replace-ready:proof:stage4.login-storm-fallback',
+        completionMapping: 'release:proof:stage4.login-storm-fallback',
       },
       null,
       2,

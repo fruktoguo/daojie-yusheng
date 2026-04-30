@@ -35,7 +35,7 @@ async function main(): Promise<void> {
           ? '已验证 bootstrap 会注册本地 route，disconnect 进入 detached 窗口时不会提前清本地 route，gateway 会按 route 本地放行或拒绝错误节点；若带库，还会验证缺路由时按最低负载节点分配与路由持久化'
           : '已验证 bootstrap 会注册本地 route，disconnect 进入 detached 窗口时不会提前清本地 route，gateway 会按 route 本地放行或拒绝错误节点，并在 with-db 下验证缺路由时按最低负载节点分配与路由持久化',
         excludes: '不证明真实跨节点代理转发、transfer 协议、route heartbeat 或多节点 lease 协调',
-        completionMapping: 'replace-ready:proof:player-session-route',
+        completionMapping: 'release:proof:player-session-route',
       },
       null,
       2,

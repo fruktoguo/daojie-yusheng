@@ -223,7 +223,7 @@ async function main(): Promise<void> {
           'WorldRuntimeTransferService.applyTransfer 现已直接证明会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
         excludes:
           '不证明 player_position_checkpoint/player_world_anchor 的跨节点协议消息格式已完全固化，也不证明真实多节点 socket redirect、route handoff 或数据库写回时序',
-        completionMapping: 'replace-ready:proof:world-runtime-transfer.placement-dirty-domains',
+        completionMapping: 'release:proof:world-runtime-transfer.placement-dirty-domains',
       },
       null,
       2,

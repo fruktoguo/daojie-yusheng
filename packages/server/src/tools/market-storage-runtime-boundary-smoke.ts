@@ -171,7 +171,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         answers: 'MarketRuntimeService 的托管仓内存变更现在只进入坊市持久化上下文，不再把在线玩家打上 market_storage dirty 或推进 player persistentRevision；claimStorage 也会把 instanceId/assignedNodeId/ownershipEpoch 透传到 durable claim 主链',
-        completionMapping: 'replace-ready:proof:with-db.market-storage-runtime-boundary',
+        completionMapping: 'release:proof:with-db.market-storage-runtime-boundary',
       },
       null,
       2,

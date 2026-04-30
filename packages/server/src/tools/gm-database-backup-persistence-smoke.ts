@@ -58,7 +58,7 @@ const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT = Object.freeze({
     answers: 'with-db 本地环境下的 GM backup 元数据持久化：进程重启后同一备份目录、下载路径与 lastJob 状态仍可恢复',
     excludes: '维护窗口 destructive restore、shadow 目标机取证、真实运营备份保留策略与人工审批链',
-    completionMapping: 'replace-ready:proof:with-db.gm-database-backup-persistence',
+    completionMapping: 'release:proof:with-db.gm-database-backup-persistence',
 });
 /**
  * 记录备份directory。

@@ -25,7 +25,7 @@ async function main(): Promise<void> {
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
           answers: 'with-db 下验证数据库导入后会以 server_sect 为真源清理 orphan 宗门派生状态',
           excludes: '不证明真实 pg_restore 文件内容、运行中玩家踢出或 runtime reload，只证明恢复后清理 SQL/JSONB 后处理的幂等性与保留有效宗门数据',
-          completionMapping: 'replace-ready:proof:native-database-restore-sect-cleanup',
+          completionMapping: 'release:proof:native-database-restore-sect-cleanup',
         },
         null,
         2,
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
             '数据库导入后的宗门派生清理会以 server_sect 为唯一真源：删除 owner_sect_id 不存在的阵法、目录和宗门实例分域状态，并从公共地图 runtime_portals 中移除 orphan 宗门入口；有效宗门及普通传送点会保留，重复执行不再产生删除。',
           excludes:
             '不证明 pg_restore 外部进程、备份 checksum、在线玩家踢出和 WorldRuntimeService.reloadAfterRestore；这些仍由 GM restore 协调器与既有 smoke 覆盖。',
-          completionMapping: 'replace-ready:proof:native-database-restore-sect-cleanup',
+          completionMapping: 'release:proof:native-database-restore-sect-cleanup',
         },
         null,
         2,

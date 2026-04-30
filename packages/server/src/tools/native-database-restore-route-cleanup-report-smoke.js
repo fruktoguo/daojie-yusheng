@@ -60,7 +60,7 @@ function main() {
     requeuesExpiredDetachedBindingsOnFailure: true,
     answers: '已直接证明源码边界上 restore 协调器会把 expired detached bindings 一并纳入 detached cleanup，但不会再把它们和 detached-only purge 玩家一起无 epoch 批量 clearLocalRoutes；当前会对 expired bindings 逐个 clearLocalRoute(playerId, sessionEpoch)，同时清 detached caches；若 detached cleanup 失败，还会把这批 expired bindings requeue 回 worldSessionService。',
     excludes: '不证明真实 DI、with-db 执行结果或 restore 后 runtime 重建，只证明这轮新增的 restore cleanup 与 failure-requeue 源码合同。',
-    completionMapping: 'replace-ready:report:native-database-restore-route-cleanup',
+    completionMapping: 'release:report:native-database-restore-route-cleanup',
   }, null, 2));
 }
 

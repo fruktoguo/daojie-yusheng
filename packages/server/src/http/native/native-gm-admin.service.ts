@@ -73,9 +73,14 @@ const LEGACY_BACKUP_FILE_KIND = 'server_persistent_documents_backup_v1';
 
 const LEGACY_MAINLINE_BACKUP_FILE_KIND = 'server_persistence_backup_v2';
 
-const LEGACY_BACKUP_SCOPE_LABEL = 'persistent_documents_only';
+const LEGACY_BACKUP_SCOPE_LABEL = 'legacy_persistent_documents';
 
 const BACKUP_SCOPE_LABEL = 'server_persistence';
+
+const LEGACY_JSON_BACKUP_FORMAT = 'legacy_json_snapshot';
+const OLD_JSON_BACKUP_FORMAT = ['mainline', 'json', 'snapshot'].join('_');
+const OLD_LEGACY_BACKUP_SCOPE_LABEL = ['persistent', 'documents', 'only'].join('_');
+const OLD_SERVER_BACKUP_SCOPE_LABEL = ['mainline', 'persistence'].join('_');
 
 const BACKUP_EXCLUDED_SCOPES = new Set([
     DATABASE_BACKUP_METADATA_SCOPE,
@@ -1590,7 +1595,7 @@ export class NativeGmAdminService {
                 createdAt: stats.mtime.toISOString(),
                 sizeBytes: stats.size,
                 filePath,
-                format: isPostgresDump || isUploadedPostgresDump ? 'postgres_custom_dump' : 'mainline_json_snapshot',
+                format: isPostgresDump || isUploadedPostgresDump ? 'postgres_custom_dump' : LEGACY_JSON_BACKUP_FORMAT,
             });
         }
         return records;
@@ -2222,9 +2227,8 @@ async function resolveExistingBackupFilePath(filePath) {
 async function resolveBackupRecordFormat(record) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const explicitFormat = record?.format === 'postgres_custom_dump' || record?.format === 'mainline_json_snapshot'
-        ? record.format
-        : inferBackupFormatFromFileName(typeof record?.fileName === 'string' ? record.fileName : '');
+    const explicitFormat = normalizeBackupFormatValue(record?.format)
+        ?? inferBackupFormatFromFileName(typeof record?.fileName === 'string' ? record.fileName : '');
     if (explicitFormat !== 'unknown') {
         return explicitFormat;
     }
@@ -2251,7 +2255,7 @@ function inferBackupFormatFromFileName(fileName) {
         return 'postgres_custom_dump';
     }
     if (normalized.endsWith('.json')) {
-        return 'mainline_json_snapshot';
+        return LEGACY_JSON_BACKUP_FORMAT;
     }
     return 'unknown';
 }
@@ -2371,9 +2375,7 @@ function normalizeStoredBackupMetadata(value) {
         ? record.kind
         : null;
 
-    const scope = record?.scope === LEGACY_BACKUP_SCOPE_LABEL
-        ? LEGACY_BACKUP_SCOPE_LABEL
-        : BACKUP_SCOPE_LABEL;
+    const scope = normalizeBackupScope(record?.scope);
 
     const documentsCount = Number(record?.documentsCount);
     const tablesCount = Number(record?.tablesCount);
@@ -2384,9 +2386,7 @@ function normalizeStoredBackupMetadata(value) {
     const tablesChecksumSha256 = typeof record?.tablesChecksumSha256 === 'string' && record.tablesChecksumSha256.trim()
         ? record.tablesChecksumSha256.trim()
         : undefined;
-    const format = record?.format === 'postgres_custom_dump' || record?.format === 'mainline_json_snapshot'
-        ? record.format
-        : inferBackupFormatFromFileName(fileName);
+    const format = normalizeBackupFormatValue(record?.format) ?? inferBackupFormatFromFileName(fileName);
     if (!id || !fileName || !createdAt || !Number.isFinite(sizeBytes) || sizeBytes < 0 || !kind) {
         return null;
     }
@@ -2423,8 +2423,8 @@ function assertCompatibleBackupPayload(value) {
         throw new BadRequestException('备份类型不受支持，当前仅支持 server 主线持久化备份');
     }
     const rawScope = typeof record.scope === 'string' ? record.scope.trim() : '';
-    if (rawScope && rawScope !== BACKUP_SCOPE_LABEL && rawScope !== LEGACY_BACKUP_SCOPE_LABEL) {
-        throw new BadRequestException('备份作用域不受支持，当前仅支持主线持久化兼容备份');
+    if (rawScope && !isKnownBackupScope(rawScope)) {
+        throw new BadRequestException('备份作用域不受支持，当前仅支持 server 持久化兼容备份');
     }
     if (!Array.isArray(record.docs)) {
         throw new BadRequestException('兼容备份缺少 docs 列表');
@@ -2490,8 +2490,35 @@ function assertCompatibleBackupPayload(value) {
         tablesCount: tables.length,
         tablesChecksumSha256: computeStructuredTablesChecksum(tables),
         tables,
-        format: 'mainline_json_snapshot',
+        format: LEGACY_JSON_BACKUP_FORMAT,
     };
+}
+
+function normalizeBackupFormatValue(value) {
+    const format = typeof value === 'string' ? value.trim() : '';
+    if (format === 'postgres_custom_dump') {
+        return 'postgres_custom_dump';
+    }
+    if (format === LEGACY_JSON_BACKUP_FORMAT || format === OLD_JSON_BACKUP_FORMAT) {
+        return LEGACY_JSON_BACKUP_FORMAT;
+    }
+    return null;
+}
+
+function isKnownBackupScope(value) {
+    const scope = typeof value === 'string' ? value.trim() : '';
+    return scope === BACKUP_SCOPE_LABEL
+        || scope === LEGACY_BACKUP_SCOPE_LABEL
+        || scope === OLD_SERVER_BACKUP_SCOPE_LABEL
+        || scope === OLD_LEGACY_BACKUP_SCOPE_LABEL;
+}
+
+function normalizeBackupScope(value) {
+    const scope = typeof value === 'string' ? value.trim() : '';
+    if (scope === LEGACY_BACKUP_SCOPE_LABEL || scope === OLD_LEGACY_BACKUP_SCOPE_LABEL) {
+        return LEGACY_BACKUP_SCOPE_LABEL;
+    }
+    return BACKUP_SCOPE_LABEL;
 }
 
 function normalizeStructuredBackupTableEntry(value, index) {

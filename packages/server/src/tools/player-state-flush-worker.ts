@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'player state worker 可独立认领 player_flush_ledger，并驱动现有 flush 服务处理 snapshot/非锚点检查点脏态',
             excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
-            completionMapping: 'replace-ready:proof:with-db.player-state-flush-worker',
+            completionMapping: 'release:proof:with-db.player-state-flush-worker',
           },
           null,
           2,

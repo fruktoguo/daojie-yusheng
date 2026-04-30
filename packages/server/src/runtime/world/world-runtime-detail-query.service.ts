@@ -27,7 +27,7 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const player_buff_projection_helpers_1 = require("../../network/player-buff-projection.helpers");
+const player_buff_projection_helpers_1 = require("../player/player-buff-projection.helpers");
 const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
 
 const {

@@ -24,7 +24,7 @@ async function main(): Promise<void> {
       outboxSummary,
       answers: '最近一分钟内的 worker 吞吐可直接读取 player / instance / outbox 三条路径的 writes/sec 视图',
       excludes: '不证明真实多 worker 集群压测或故障注入',
-      completionMapping: 'replace-ready:proof:stage6.worker-throughput',
+      completionMapping: 'release:proof:stage6.worker-throughput',
     }, null, 2));
   } finally {
     await app.close().catch(() => undefined);

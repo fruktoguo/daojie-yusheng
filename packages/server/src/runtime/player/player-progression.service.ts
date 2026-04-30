@@ -756,7 +756,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
 
         const realm = this.normalizeRealmState(player.realm);
-        if (!realm.breakthroughReady || !realm.breakthrough) {
+        if (!realm.breakthroughReady) {
             return {
                 changed: false,
                 notices: [{ text: '你的境界火候未到，尚不能突破', kind: 'warn' }],
@@ -764,7 +764,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             };
         }
 
-        const preview = realm.breakthrough;
+        const preview = this.buildBreakthroughPreview(player, realm);
+        if (!preview) {
+            return {
+                changed: false,
+                notices: [{ text: '突破条件尚未满足', kind: 'warn' }],
+                dirtyDomains: [],
+            };
+        }
         if (!preview.canBreakthrough) {
             return {
                 changed: false,
@@ -772,7 +779,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 dirtyDomains: [],
             };
         }
-        const targetRealm = this.createRealmStateFromLevel(realm.breakthrough.targetRealmLv, 0);
+        const targetRealm = this.createRealmStateFromLevel(preview.targetRealmLv, 0);
         this.applyResolvedRealmState(player, targetRealm);
         player.hp = player.maxHp;
         player.qi = player.maxQi;
@@ -1100,7 +1107,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             : (realm.breakthroughItems ?? []).map((item) => ({ ...item }));
         const costProgress = Math.max(0, Math.floor(realm.progressToNext ?? 0));
         const progress = Math.max(0, Math.floor(realm.progress ?? 0));
-        const missingItem = items.find((item) => getInventoryCount(player, item.itemId) < item.count);
+        const missingItem = items.find((item) => !hasInventoryItemCountAtLeast(player, item.itemId, item.count));
         const canRefine = realm.breakthroughReady
             && remaining > 0
             && costProgress > 0
@@ -2273,10 +2280,14 @@ function getInventoryCount(player, itemId) {
     let total = 0;
     for (const entry of player.inventory.items) {
         if (entry.itemId === itemId) {
-            total += entry.count;
+            total += Math.max(0, Math.trunc(Number(entry.count ?? 0) || 0));
         }
     }
     return total;
+}
+
+function hasInventoryItemCountAtLeast(player, itemId, requiredCount) {
+    return getInventoryCount(player, itemId) >= Math.max(1, Math.floor(Number(requiredCount) || 1));
 }
 
 function normalizeBreakthroughTransition(entry) {

@@ -1548,7 +1548,7 @@ async function portalCase(runtime) {
  * 记录socket。
  */
   var socket = runtime.createSocket("portal");
-  await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 31, preferredY: 54 });
+  await hello(runtime, socket, { mapId: "bamboo_forest", preferredX: 4, preferredY: 39 });
   await emitAndWait(socket, C2S.UsePortal, {}, S2C.MapEnter, function (payload) {
     return payload && payload.mid === "wildlands";
   }, 5000);
@@ -1807,7 +1807,7 @@ async function playerControlCase(runtime) {
 /**
  * 记录会话。
  */
-  var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 31, preferredY: 54 });
+  var session = await hello(runtime, socket, { mapId: "bamboo_forest", preferredX: 4, preferredY: 39 });
 /**
  * 记录玩家ID。
  */
@@ -2435,7 +2435,7 @@ async function marketCase(runtime) {
     return payload && payload.page === 1 && Array.isArray(payload.items);
   }, 5000);
   await runtime.api.grantItem(sellerId, tradeItemId, 4);
-  await runtime.api.creditWallet(buyerId, "spirit_stone", 40);
+  await runtime.api.grantItem(buyerId, "spirit_stone", 40);
 /**
  * 记录seller状态。
  */
@@ -2551,7 +2551,7 @@ async function marketCase(runtime) {
     }) + "\n");
     throw error;
   }
-  await runtime.api.creditWallet(storageBuyerId, "spirit_stone", 20);
+  await runtime.api.grantItem(storageBuyerId, "spirit_stone", 20);
 /**
  * 记录storagebuyer状态。
  */

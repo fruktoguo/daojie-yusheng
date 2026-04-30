@@ -97,7 +97,7 @@ async function main(): Promise<void> {
           answers:
             'with-db 下可验证 migratePlayerToNode 会先用真实 beginTransfer bump session_epoch，再把同一新 epoch 以 assigned route 写入 player_session_route',
           excludes: '不证明目标节点 bootstrap 接管、真实 socket redirect 或 transfer 完成后的最终 route 清理',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-route',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-route',
         },
         null,
         2,
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
             'with-db 下已直接证明：WorldRuntimeService.migratePlayerToNode 会先 flushPlayer，再用真实 PlayerRuntimeService.beginTransfer bump session_epoch，并把同一新 epoch 以 assigned route 写入 player_session_route',
           excludes:
             '不证明目标节点 bootstrap 接管、真实 socket redirect 或 transfer 完成后的最终 route 清理',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime.player-migrate-route',
+          completionMapping: 'release:proof:with-db.world-runtime.player-migrate-route',
         },
         null,
         2,

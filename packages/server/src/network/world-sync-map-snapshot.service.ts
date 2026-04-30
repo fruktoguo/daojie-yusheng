@@ -17,7 +17,7 @@ import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.servi
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';
-import { projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
+import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 
 interface WorldRuntimePort {

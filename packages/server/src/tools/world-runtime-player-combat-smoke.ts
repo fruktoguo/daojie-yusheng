@@ -7,13 +7,13 @@ async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
   await testMonsterLootDurableGrant();
-  await testMonsterLootFallsBackToGroundWithoutDurableContext();
+  await testMonsterLootUsesRuntimeInventoryWithoutDurableContext();
   await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
   await testPvPLootDurableGrant();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会先走 grantInventoryItems durable 主链，成功提交后才补发 loot notice；缺少 durable 上下文或 durable 提交失败时会改为地面掉落，不再打断世界 tick',
+    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会优先走 grantInventoryItems durable 主链；缺少 durable 上下文时回退到运行态背包并标记 inventory 脏域，只有 durable 提交失败或背包满才落地，不再让正常击杀掉落直接掉地上',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -206,7 +206,7 @@ async function testMonsterLootDurableGrant() {
   ]);
 }
 
-async function testMonsterLootFallsBackToGroundWithoutDurableContext() {
+async function testMonsterLootUsesRuntimeInventoryWithoutDurableContext() {
   const log: Array<unknown[]> = [];
   const player = {
     playerId: 'player:combat:no-durable-context',
@@ -233,6 +233,11 @@ async function testMonsterLootFallsBackToGroundWithoutDurableContext() {
       assert.equal(itemId, item.itemId);
       return true;
     },
+    receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
+      assert.equal(playerId, player.playerId);
+      player.inventory.items.push({ ...grantedItem });
+      player.inventory.revision += 1;
+    },
   };
   const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
   const deps = {
@@ -247,10 +252,10 @@ async function testMonsterLootFallsBackToGroundWithoutDurableContext() {
   await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context');
 
   assert.deepEqual(log, [
-    ['spawnGroundItem', true, 7, 8, item],
-    ['queuePlayerNotice', player.playerId, '鼠尾 掉落在 (7, 8) 的地面上，但本次奖励缺少可确认的背包落盘上下文。', 'loot'],
+    ['queuePlayerNotice', player.playerId, '获得 鼠尾', 'loot'],
   ]);
-  assert.deepEqual(player.inventory.items, []);
+  assert.deepEqual(player.inventory.items, [item]);
+  assert.equal(player.inventory.revision, 1);
 }
 
 async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {

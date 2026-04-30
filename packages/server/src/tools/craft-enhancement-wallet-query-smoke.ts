@@ -91,7 +91,7 @@ function main() {
       {
         ok: true,
         answers: 'CraftPanelEnhancementQueryService 现已把 spirit_stone 材料候选的 ownedCount 对齐到真钱包可消费总额，并兼容库存回退',
-        completionMapping: 'replace-ready:proof:with-db.craft-enhancement-wallet-query',
+        completionMapping: 'release:proof:with-db.craft-enhancement-wallet-query',
       },
       null,
       2,

@@ -27,7 +27,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可输出单玩家 / 单实例恢复耗时，并作为阶段 6.1 的恢复指标入口',
       excludes: '不证明真实多节点 kill -9 或 socket 导流',
-      completionMapping: 'replace-ready:proof:stage6.recovery-latency',
+      completionMapping: 'release:proof:stage6.recovery-latency',
     }, null, 2));
     return;
   }
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
       recoveredInstanceId: recoveredInstance.meta.instanceId,
       answers: '当前已可直接输出单玩家/单实例恢复耗时，并作为阶段 6.1 的恢复指标入口',
       excludes: '不证明真实多节点 kill -9 或 socket 导流',
-      completionMapping: 'replace-ready:proof:stage6.recovery-latency',
+      completionMapping: 'release:proof:stage6.recovery-latency',
     }, null, 2));
   } finally {
     await pool.query(`DELETE FROM ${INSTANCE_CATALOG_TABLE} WHERE instance_id = $1`, [instanceId]).catch(() => undefined);

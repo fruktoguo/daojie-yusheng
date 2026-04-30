@@ -21,7 +21,7 @@ async function main(): Promise<void> {
         case: 'map-persistence-flush-throttle',
         answers: '旧全量 map snapshot 写入已退役；instance domain interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；到期 time checkpoint 会分批摊开；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
         excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
-        completionMapping: 'replace-ready:proof:stage7.flush-throttle',
+        completionMapping: 'release:proof:stage7.flush-throttle',
       },
       null,
       2,

@@ -13,7 +13,7 @@ echo "==> [shadow-local-all] reset"
 bash "${SCRIPT_DIR}/shadow-local-reset.sh"
 
 echo "==> [shadow-local-all] doctor"
-shadow_run_pnpm verify:replace-ready:doctor
+shadow_run_pnpm verify:release:doctor
 
 echo "==> [shadow-local-all] shadow verify"
 bash "${SCRIPT_DIR}/shadow-local-verify.sh"

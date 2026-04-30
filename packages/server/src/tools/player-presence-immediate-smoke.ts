@@ -230,7 +230,7 @@ async function main(): Promise<void> {
         gateway,
         answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入，不走普通 flush worker；重复 heartbeat 在节流窗口内不会重复直写',
         excludes: '不证明真实 socket 心跳频率、数据库写入耗时分布或多节点下的 heartbeat 协调',
-        completionMapping: 'replace-ready:proof:player-presence-immediate-write',
+        completionMapping: 'release:proof:player-presence-immediate-write',
       },
       null,
       2,

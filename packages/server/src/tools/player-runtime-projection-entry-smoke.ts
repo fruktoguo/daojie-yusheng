@@ -214,7 +214,7 @@ async function main(): Promise<void> {
     projectionMissRejected: true,
     answers: 'PlayerRuntimeService.loadOrCreatePlayer 在 player-domain 启用时只接受分域投影恢复：命中则不调用旧 loader，未命中直接失败，不再回退旧快照 loader 或新建角色。',
     excludes: '不证明所有玩家子域都已经具备独立语义迁移，只证明运行时入口已拒绝旧快照兜底。',
-    completionMapping: 'replace-ready:proof:player-runtime.projection-entry',
+    completionMapping: 'release:proof:player-runtime.projection-entry',
   }, null, 2));
 }
 

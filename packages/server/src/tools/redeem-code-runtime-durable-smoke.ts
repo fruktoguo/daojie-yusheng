@@ -251,7 +251,7 @@ async function main(): Promise<void> {
         answers:
           'RedeemCodeRuntimeService 的非钱包奖励现在会先走 grantInventoryItems durable 主链，成功提交后才落运行态 inventory、wallet、notice、logbook 和 code used 持久化；durable 失败时会保持运行态与兑换码状态不变',
         excludes: '不证明 live socket 兑换码链路或任务奖励库存抽象已统一切换到同一 durable 主链',
-        completionMapping: 'replace-ready:proof:redeem-code-runtime-durable',
+        completionMapping: 'release:proof:redeem-code-runtime-durable',
       },
       null,
       2,

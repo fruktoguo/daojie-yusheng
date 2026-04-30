@@ -16,7 +16,7 @@ async function main(): Promise<void> {
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
       answers: '可输出 player_mail_counter 与 player_mail 主表的一致性修复次数（当前以不一致玩家数衡量）',
       excludes: '不证明真实多节点邮件同步风暴',
-      completionMapping: 'replace-ready:proof:stage6.mail-counter-consistency',
+      completionMapping: 'release:proof:stage6.mail-counter-consistency',
     }, null, 2));
     return;
   }
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
       mismatchedRows: mismatchedRows.slice(0, 20),
       answers: '当前已可直接输出 mail counter 与主表的一致性扫描结果，并据此观察是否存在需要修复的计数差异',
       excludes: '不证明真实多节点邮件同步风暴',
-      completionMapping: 'replace-ready:proof:stage6.mail-counter-consistency',
+      completionMapping: 'release:proof:stage6.mail-counter-consistency',
     }, null, 2));
   } finally {
     await pool.end().catch(() => undefined);

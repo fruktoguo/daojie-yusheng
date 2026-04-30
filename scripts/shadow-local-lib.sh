@@ -11,7 +11,7 @@ SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.log"
 SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.dist-root"
 SHADOW_PORT="${SERVER_SHADOW_PORT:-11923}"
 SHADOW_URL_DEFAULT="http://127.0.0.1:${SHADOW_PORT}"
-SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.mainline.yml}"
+SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.shadow.yml}"
 SHADOW_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-daojie-local}"
 
 shadow_repo_root() {
@@ -82,7 +82,7 @@ shadow_prepare_env() {
   fi
 }
 
-shadow_docker_compose_mainline() {
+shadow_docker_compose() {
   (
     cd "${SHADOW_REPO_ROOT}"
     docker compose -p "${SHADOW_COMPOSE_PROJECT}" -f "${SHADOW_COMPOSE_FILE}" "$@"
@@ -96,8 +96,8 @@ shadow_ensure_local_infra() {
   fi
 
   shadow_require_command docker
-  echo "==> 确保本地主线 PostgreSQL / Redis 已启动..."
-  shadow_docker_compose_mainline up -d postgres redis >/dev/null
+  echo "==> 确保本地 shadow PostgreSQL / Redis 已启动..."
+  shadow_docker_compose up -d postgres redis >/dev/null
 }
 
 shadow_compile_server() {

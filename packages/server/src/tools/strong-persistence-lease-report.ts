@@ -58,7 +58,7 @@ async function main(): Promise<void> {
         coveredMethods: coverage,
         answers: '已确认强持久化主链的 lease 二次校验在现有 durable service 与 smoke proof 中可见，作为阶段 2.5 / 6.1 的覆盖报告',
         excludes: '不证明未列出的新事务已自动接入 durable 主链',
-        completionMapping: 'replace-ready:proof:stage6.strong-persistence-lease-coverage',
+        completionMapping: 'release:proof:stage6.strong-persistence-lease-coverage',
       },
       null,
       2,

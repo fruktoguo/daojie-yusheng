@@ -170,7 +170,7 @@ async function main() {
       totals,
       answers: 'Audits map dynamic legacy snapshots against instance domain tables and applies only missing-domain migrations when the target table is empty.',
       excludes: 'Does not overwrite populated domain tables; reported conflicts require manual review because the populated domain table is treated as newer truth.',
-      completionMapping: 'replace-ready:proof:with-db.map-dynamic-persistence-audit',
+      completionMapping: 'release:proof:with-db.map-dynamic-persistence-audit',
     }, null, 2));
     process.stdout.write('\n');
   } finally {

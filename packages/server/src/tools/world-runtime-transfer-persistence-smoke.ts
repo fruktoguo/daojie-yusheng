@@ -27,7 +27,7 @@ async function main(): Promise<void> {
           answers:
             'with-db 下可验证 transfer 落点打脏 world_anchor/position_checkpoint 后，会经 player_flush_ledger 与 anchor/checkpoint worker 刷进数据库真源',
           excludes: '不证明真实多节点 socket redirect、完整 transfer 协议消息格式或 route handoff',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime-transfer.persistence',
+          completionMapping: 'release:proof:with-db.world-runtime-transfer.persistence',
         },
         null,
         2,
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
             'with-db 下现已直接证明 transfer 落点打脏 world_anchor/position_checkpoint 后，会经 player_flush_ledger 与 anchor/checkpoint worker 刷进 player_world_anchor/player_position_checkpoint 真源',
           excludes:
             '不证明真实多节点 socket redirect、完整 transfer 协议消息格式、route handoff 或跨节点数据库写回时序',
-          completionMapping: 'replace-ready:proof:with-db.world-runtime-transfer.persistence',
+          completionMapping: 'release:proof:with-db.world-runtime-transfer.persistence',
         },
         null,
         2,

@@ -46,7 +46,7 @@ async function main(): Promise<void> {
         answers:
           'WorldRuntimeController.removePlayer 现在只委托 WorldRuntimePlayerSessionService.removePlayer，不会再额外直接 clearLocalRoute 抢先清理本地 route。',
         excludes: '不证明真实 DB route 删除、transfer handoff 或 gateway redirect，只证明 controller 层不会重复触发本地 route cleanup',
-        completionMapping: 'replace-ready:proof:world-runtime.controller.remove-player-route-cleanup',
+        completionMapping: 'release:proof:world-runtime.controller.remove-player-route-cleanup',
       },
       null,
       2,

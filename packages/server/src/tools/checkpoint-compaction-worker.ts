@@ -29,7 +29,7 @@ async function main(): Promise<void> {
             workerId,
             answers: 'checkpoint compaction worker 可独立认领 snapshot_checkpoint ledger，并驱动现有 flush 服务完成一次 checkpoint 刷盘',
             excludes: '不证明多节点 worker 竞争、Redis 唤醒或 dead-letter',
-            completionMapping: 'replace-ready:proof:with-db.checkpoint-compaction-worker',
+            completionMapping: 'release:proof:with-db.checkpoint-compaction-worker',
           },
           null,
           2,

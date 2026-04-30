@@ -25,7 +25,7 @@
 
 - 逻辑上的 `player_identity`，当前真实表名仍是 `server_next_player_identity`
 - 旧玩家快照主表仍是 `server_next_player_snapshot`，当前是“旧快照 + 分域投影双写”状态，不是已经完全退役
-- `player_presence`、`player_world_anchor`、`player_position_checkpoint`、`player_vitals`、`player_progression_core`、`player_attr_state`、`player_body_training_state`、`player_inventory_item`、`player_map_unlock`、`player_equipment_slot`、`player_technique_state`、`player_persistent_buff_state`、`player_quest_progress`、`player_combat_preferences`、`player_auto_battle_skill`、`player_auto_use_item_rule`、`player_profession_state`、`player_alchemy_preset`、`player_active_job`、`player_enhancement_record`、`player_logbook_message`、`player_recovery_watermark` 已经开始承接 next 主线写入
+- `player_presence`、`player_world_anchor`、`player_position_checkpoint`、`player_vitals`、`player_progression_core`、`player_attr_state`、`player_body_training_state`、`player_inventory_item`、`player_map_unlock`、`player_equipment_slot`、`player_technique_state`、`player_persistent_buff_state`、`player_quest_progress`、`player_combat_preferences`、`player_auto_battle_skill`、`player_auto_use_item_rule`、`player_profession_state`、`player_alchemy_preset`、`player_active_job`、`player_enhancement_record`、`player_logbook_message`、`player_recovery_watermark` 已经开始承接 当前生产主线写入
 - `player_vitals` 当前已落地字段子集是 `hp / max_hp / qi / max_qi`；`dead` 还不属于当前 next 快照真源
 - `player_progression_core` 当前已落地字段子集是 `foundation / combat_exp / bone_age_base_years / life_elapsed_ticks / lifespan_years`；击杀计数与跨图导航冷却还不属于当前 next 快照真源
 - `player_attr_state` 当前已落地字段子集是 `base_attrs_payload / bonus_entries_payload / revealed_breakthrough_requirement_ids / realm_payload / heaven_gate_payload / spiritual_roots_payload`
@@ -38,7 +38,7 @@
 - 当前这条分域恢复读链对外仍保持 `source=next`，并通过 `fallbackReason+=player_domain_projection` 标记来源；`player_presence` 单独存在时不会触发恢复
 - `player_active_job` 已采用统一作业表口径，不再继续按“炼丹作业表 / 强化作业表”分成两张当前作业表
 - 当前 `player_active_job` 投影已开始保留 `job_run_id / job_version`，不会在同一作业的普通快照投影里反复重置作业实例身份
-- `migrate-next-mainline-once --domains=player-domain` 已落地，当前迁移目标与上面的已落地投影子集一致，不包含 `player_presence`
+- `import-legacy-persistence-once --domains=player-domain` 已落地，当前迁移目标与上面的已落地投影子集一致，不包含 `player_presence`
 - 当前 GM backup payload 已显式带出 `player_market_storage_item`，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 与 `verify:proof:with-db` 中再次通过
 
 当前尚未等价落地的部分：
