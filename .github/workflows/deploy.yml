@@ -15,8 +15,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Verify replace-ready baseline
+        run: pnpm verify:replace-ready
+
   build-images:
     runs-on: ubuntu-latest
+    needs: verify-baseline
     strategy:
       fail-fast: false
       matrix:
@@ -40,9 +62,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
-
-      - name: Verify replace-ready baseline
-        run: pnpm verify:replace-ready
 
       - name: Normalize image owner
         id: prep
@@ -124,9 +143,6 @@ jobs:
           docker context rm production >/dev/null 2>&1 || true
           docker context create production --docker "host=ssh://${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}:${DEPLOY_SSH_PORT:-22}"
 
-      - name: Verify replace-ready baseline
-        run: pnpm verify:replace-ready
-
       - name: Verify replace-ready doctor
         run: pnpm verify:replace-ready:doctor
 
@@ -138,5 +154,6 @@ jobs:
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
           PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
         run: |
-          SERVER_PLAYER_TOKEN_SECRET="$PLAYER_TOKEN_SECRET" docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
+          SERVER_PLAYER_TOKEN_SECRET="$PLAYER_TOKEN_SECRET" GM_PASSWORD="$GM_PASSWORD" docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng

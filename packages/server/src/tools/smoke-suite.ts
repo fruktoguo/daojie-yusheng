@@ -291,6 +291,10 @@ async function runIsolatedSmoke(entry) {
             ...extraEnv,
         });
     }
+    catch (error) {
+        dumpServerLogTail(server, entry.name);
+        throw error;
+    }
     finally {
         await stopServer(server);
         cleanupCaseExtraEnv(extraEnv);
@@ -345,8 +349,11 @@ async function startServer(port, extraEnv = {}) {
                 }
                 : {}),
         },
-        stdio: 'inherit',
+        stdio: process.env.SERVER_SMOKE_SERVER_LOG === '1' ? 'inherit' : ['ignore', 'pipe', 'pipe'],
     });
+    if (process.env.SERVER_SMOKE_SERVER_LOG !== '1') {
+        attachServerLogTail(child);
+    }
     child.on('exit', (code, signal) => {
         if (code !== null && code !== 0) {
             process.stderr.write(`[server smoke] server exited unexpectedly: code=${code} signal=${signal ?? 'none'}\n`);
@@ -574,6 +581,40 @@ function formatSmokeError(error) {
         return message.split('\n')[0];
     }
     return String(error);
+}
+/**
+ * attachServerLogTail：缓存服务端启动日志尾部，避免正常 CI 输出被 Nest 路由日志刷屏。
+ */
+function attachServerLogTail(child) {
+    const lines = [];
+    child.__serverSmokeLogTail = lines;
+    const capture = (chunk) => {
+        const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+        for (const line of text.split(/\r?\n/)) {
+            if (!line.trim()) {
+                continue;
+            }
+            lines.push(line);
+            if (lines.length > 160) {
+                lines.splice(0, lines.length - 160);
+            }
+        }
+    };
+    child.stdout?.on?.('data', capture);
+    child.stderr?.on?.('data', capture);
+}
+/**
+ * dumpServerLogTail：仅在 case 失败时输出服务端日志尾部，保留定位线索。
+ */
+function dumpServerLogTail(child, caseName) {
+    const lines = Array.isArray(child.__serverSmokeLogTail) ? child.__serverSmokeLogTail : [];
+    if (lines.length === 0) {
+        return;
+    }
+    process.stderr.write(`[server smoke] ${caseName} server log tail (${lines.length} lines)\n`);
+    for (const line of lines) {
+        process.stderr.write(`${line}\n`);
+    }
 }
 /**
  * 等待for健康状态。
