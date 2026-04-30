@@ -229,4 +229,4 @@ jobs:
             http://127.0.0.1:11921/api/auth/login \
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
-REMOTE_PROBE
+          REMOTE_PROBE
