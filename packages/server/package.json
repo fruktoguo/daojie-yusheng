@@ -95,6 +95,7 @@
     "audit:persistence-hard-cut": "pnpm compile && node dist/tools/persistence-hard-cut-audit.js",
     "smoke:migrate-next-mainline": "pnpm compile && node dist/tools/migrate-next-mainline-once.js --apply",
     "convert:main-dump": "pnpm compile && node dist/tools/convert-main-dump-to-current-db.js",
+    "deploy:database-preflight": "pnpm compile && node dist/tools/deploy-database-preflight.js --ensure-current-schema",
     "smoke:durable-operation": "pnpm compile && node dist/tools/durable-operation-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",

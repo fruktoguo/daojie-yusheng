@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,
-  PLAYER_HEARTBEAT_TIMEOUT_MS,
   VIEW_RADIUS,
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
@@ -300,7 +299,6 @@ export class NativeGmStateQueryService {
     if (!pool) {
       return [];
     }
-    const staleOnlineCutoffMs = Date.now() - PLAYER_HEARTBEAT_TIMEOUT_MS;
 
     const result = await pool.query<GmPersistedPlayerSummaryRow>(`
       SELECT
@@ -313,32 +311,44 @@ export class NativeGmStateQueryService {
         auth.register_device_id,
         auth.last_login_device_id,
         auth.banned_at,
-        COALESCE(auth.pending_role_name, ident.player_name, snap.payload #>> '{name}', rw.player_id) AS role_name,
-        COALESCE(auth.display_name, ident.display_name, snap.payload #>> '{displayName}', auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
+        COALESCE(auth.pending_role_name, ident.player_name, rw.player_id) AS role_name,
+        COALESCE(auth.display_name, ident.display_name, auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
         COALESCE(auth.user_id, ident.user_id) AS user_id,
-        COALESCE(snap.payload #>> '{placement,templateId}', 'yunlai_town') AS map_id,
-        COALESCE(NULLIF(snap.payload #>> '{placement,x}', '')::bigint, 0) AS x,
-        COALESCE(NULLIF(snap.payload #>> '{placement,y}', '')::bigint, 0) AS y,
-        COALESCE(vitals.hp, NULLIF(snap.payload #>> '{vitals,hp}', '')::bigint, 1) AS hp,
-        COALESCE(vitals.max_hp, NULLIF(snap.payload #>> '{vitals,maxHp}', '')::bigint, 1) AS max_hp,
-        COALESCE(vitals.qi, NULLIF(snap.payload #>> '{vitals,qi}', '')::bigint, 0) AS qi,
-        COALESCE(NULLIF(snap.payload #>> '{progression,realm,realmLv}', '')::bigint, 1) AS realm_lv,
-        COALESCE(snap.payload #>> '{progression,realm,displayName}', snap.payload #>> '{progression,realm,name}', '凡胎') AS realm_label,
-        COALESCE(combat.auto_battle, NULLIF(snap.payload #>> '{combat,autoBattle}', '')::boolean, false) AS auto_battle,
-        COALESCE(combat.auto_battle_stationary, NULLIF(snap.payload #>> '{combat,autoBattleStationary}', '')::boolean, false) AS auto_battle_stationary,
-        COALESCE(combat.auto_retaliate, NULLIF(snap.payload #>> '{combat,autoRetaliate}', '')::boolean, true) AS auto_retaliate,
-        (COALESCE(presence.online, false) AND COALESCE(presence.last_heartbeat_at, 0) >= $1::bigint) AS online,
-        COALESCE(presence.in_world, false) AS in_world,
+        COALESCE(
+          anchor.last_safe_template_id,
+          CASE
+            WHEN position.instance_id LIKE 'public:%' THEN substring(position.instance_id from 8)
+            WHEN position.instance_id LIKE 'real:%' THEN substring(position.instance_id from 6)
+            ELSE NULLIF(position.instance_id, '')
+          END,
+          'yunlai_town'
+        ) AS map_id,
+        COALESCE(position.x, 0) AS x,
+        COALESCE(position.y, 0) AS y,
+        COALESCE(vitals.hp, 1) AS hp,
+        COALESCE(vitals.max_hp, 1) AS max_hp,
+        COALESCE(vitals.qi, 0) AS qi,
+        CASE
+          WHEN (attrs.realm_payload #>> '{realmLv}') ~ '^-?[0-9]+$' THEN (attrs.realm_payload #>> '{realmLv}')::bigint
+          ELSE 1
+        END AS realm_lv,
+        COALESCE(attrs.realm_payload #>> '{displayName}', attrs.realm_payload #>> '{name}', '凡胎') AS realm_label,
+        COALESCE(combat.auto_battle, false) AS auto_battle,
+        COALESCE(combat.auto_battle_stationary, false) AS auto_battle_stationary,
+        COALESCE(combat.auto_retaliate, true) AS auto_retaliate,
+        false AS online,
+        false AS in_world,
         (EXTRACT(EPOCH FROM rw.updated_at) * 1000)::bigint AS updated_at_ms
       FROM player_recovery_watermark rw
       LEFT JOIN server_player_auth auth ON auth.player_id = rw.player_id
       LEFT JOIN server_player_identity ident ON ident.player_id = rw.player_id
-      LEFT JOIN server_player_snapshot snap ON snap.player_id = rw.player_id
+      LEFT JOIN player_world_anchor anchor ON anchor.player_id = rw.player_id
+      LEFT JOIN player_position_checkpoint position ON position.player_id = rw.player_id
       LEFT JOIN player_vitals vitals ON vitals.player_id = rw.player_id
+      LEFT JOIN player_attr_state attrs ON attrs.player_id = rw.player_id
       LEFT JOIN player_combat_preferences combat ON combat.player_id = rw.player_id
-      LEFT JOIN player_presence presence ON presence.player_id = rw.player_id
       ORDER BY rw.player_id ASC
-    `, [staleOnlineCutoffMs]);
+    `);
 
     return Promise.all(result.rows.map((row) => this.toManagedPlayerSummaryFromSummaryRow(row)));
   }

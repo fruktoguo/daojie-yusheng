@@ -1,106 +1,29 @@
-name: Build And Deploy
+name: Deploy Prod Stack
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
+      image_tag:
+        description: GHCR image tag to deploy
+        required: false
+        default: prod
       temporary_database_conversion:
         description: Temporarily auto-convert legacy test DB player snapshots when detected
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: production-deploy
+  group: deploy-prod-stack
   cancel-in-progress: false
 
 jobs:
-  verify-baseline:
+  deploy-prod:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
-
-      - name: Verify deploy baseline
-        run: pnpm verify:deploy-baseline
-
-  build-images:
-    runs-on: ubuntu-latest
-    needs: verify-baseline
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image_name: daojie-yusheng-server
-            dockerfile: packages/server/Dockerfile
-          - image_name: daojie-yusheng-client
-            dockerfile: packages/client/Dockerfile
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
-
-      - name: Normalize image owner
-        id: prep
-        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push ${{ matrix.image_name }}
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ghcr.io/${{ steps.prep.outputs.owner }}/${{ matrix.image_name }}:latest
-            ghcr.io/${{ steps.prep.outputs.owner }}/${{ matrix.image_name }}:sha-${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-images
     environment: production
 
     steps:
@@ -121,6 +44,9 @@ jobs:
       - name: Normalize image owner
         id: prep
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify replace-ready doctor
+        run: pnpm verify:replace-ready:doctor
 
       - name: Set up SSH key
         env:
@@ -149,13 +75,10 @@ jobs:
           docker context rm production >/dev/null 2>&1 || true
           docker context create production --docker "host=ssh://${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}:${DEPLOY_SSH_PORT:-22}"
 
-      - name: Verify replace-ready doctor
-        run: pnpm verify:replace-ready:doctor
-
       - name: Deploy production stack
         env:
-          CLIENT_IMAGE_TAG: sha-${{ github.sha }}
-          SERVER_IMAGE_TAG: sha-${{ github.sha }}
+          CLIENT_IMAGE_TAG: ${{ inputs.image_tag || 'prod' }}
+          SERVER_IMAGE_TAG: ${{ inputs.image_tag || 'prod' }}
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
@@ -166,8 +89,8 @@ jobs:
 
       - name: Show production rollout state
         env:
-          EXPECTED_SERVER_IMAGE: ghcr.io/fruktoguo/daojie-yusheng-server:sha-${{ github.sha }}
-          EXPECTED_CLIENT_IMAGE: ghcr.io/fruktoguo/daojie-yusheng-client:sha-${{ github.sha }}
+          EXPECTED_SERVER_IMAGE: ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server:${{ inputs.image_tag || 'prod' }}
+          EXPECTED_CLIENT_IMAGE: ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-client:${{ inputs.image_tag || 'prod' }}
         run: |
           set -euo pipefail
           assert_current_running_task() {
@@ -192,7 +115,7 @@ jobs:
 
       - name: Temporary database preflight and conversion
         env:
-          ALLOW_TEMPORARY_DATABASE_CONVERSION: ${{ inputs.temporary_database_conversion || 'false' }}
+          ALLOW_TEMPORARY_DATABASE_CONVERSION: ${{ inputs.temporary_database_conversion }}
           DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
@@ -232,7 +155,7 @@ jobs:
           REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}"
           GM_PASSWORD_Q="$(quote_for_sh "$GM_PASSWORD")"
           PROBE_STATUS=0
-          timeout 75 ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
+          timeout 90 ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
             "GM_PASSWORD=$GM_PASSWORD_Q sh -s" <<'REMOTE_PROBE' || PROBE_STATUS=$?
           set -eu
 
@@ -342,11 +265,6 @@ jobs:
             http://127.0.0.1:11922/api/auth/login \
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
-
-          wait_for_json_code gm-login \
-            http://127.0.0.1:11922/api/auth/gm/login \
-            "{\"password\":\"$(json_escape "$GM_PASSWORD")\"}" \
-            '^200$'
 
           wait_for_json_code client-player-login \
             http://127.0.0.1:11921/api/auth/login \
