@@ -118,6 +118,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
 
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        deps.refreshQuestStates(playerId);
         const quest = player.quests.quests.find((entry) => entry.id === questId);
         if (!quest || quest.status !== 'ready') {
             throw new common_1.NotFoundException('该任务当前无法提交');
@@ -136,9 +137,6 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
         const nextWalletBalances = buildNextQuestWalletBalances(player.wallet?.balances ?? [], walletRewards);
         const nextQuestEntries = this.buildNextQuestEntries(playerId, player.quests.quests, quest.id, quest.nextQuestId);
-        const hasDurableMutation = (requiredItemId && requiredItemCount > 0)
-            || inventoryRewards.length > 0
-            || walletRewards.length > 0;
         if (this.canUseDurableQuestSubmit(player, deps, requiredItemId, requiredItemCount, inventoryRewards, walletRewards)) {
             const leaseContext = await resolveQuestLeaseContext(player.instanceId, deps);
             if (typeof player?.instanceId === 'string' && player.instanceId.trim() && !leaseContext) {
@@ -160,9 +158,6 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
             applyCommittedQuestSubmitState(player, nextInventoryItems, nextWalletBalances, nextQuestEntries, this.playerRuntimeService);
             deps.refreshQuestStates(playerId, true);
         } else {
-            if (hasDurableMutation) {
-                throw new common_1.ServiceUnavailableException('npc_quest_reward_durable_context_required');
-            }
             if (requiredItemId && requiredItemCount > 0) {
                 this.playerRuntimeService.consumeInventoryItemByItemId(playerId, requiredItemId, requiredItemCount);
             }

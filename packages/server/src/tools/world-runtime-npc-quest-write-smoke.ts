@@ -481,6 +481,115 @@ function testDispatchNpcInteractionFallsBackToDialogueNotice() {
     ]);
 }
 
+async function testDispatchSubmitNpcQuestRefreshesStateBeforeReadyCheck() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        templateId: 'map_a',
+        inventory: {
+            items: [],
+            capacity: 8,
+        },
+        quests: {
+            quests: [{
+                id: 'quest:active-ready-after-refresh',
+                status: 'active',
+                submitNpcId: 'npc_a',
+                rewardText: '',
+            }],
+        },
+    };
+    const service = createService(player, log);
+    await service.dispatchSubmitNpcQuest('player:1', 'npc_a', 'quest:active-ready-after-refresh', {
+        resolveAdjacentNpc() {
+            return { npcId: 'npc_a', name: '阿青' };
+        },
+        buildQuestRewardItems() {
+            return [];
+        },
+        refreshQuestStates(playerId) {
+            log.push(['refreshQuestStates', playerId]);
+            if (player.quests.quests[0].status === 'active') {
+                player.quests.quests[0].status = 'ready';
+            }
+        },
+        tryAcceptNextQuest() {
+            return null;
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.equal(player.quests.quests[0].status, 'completed');
+    assert.deepEqual(log, [
+        ['refreshQuestStates', 'player:1'],
+        ['markQuestStateDirty', 'player:1'],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '阿青：做得不错，这是你的奖励 。', 'success'],
+    ]);
+}
+
+async function testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        templateId: 'map_a',
+        inventory: {
+            items: [{ itemId: 'quest_token', count: 2, name: '信物' }],
+            capacity: 8,
+        },
+        wallet: {
+            balances: [],
+        },
+        quests: {
+            quests: [{
+                id: 'quest:ready-local',
+                status: 'ready',
+                submitNpcId: 'npc_a',
+                rewardText: '奖励到手',
+                nextQuestId: 'quest:next',
+                requiredItemId: 'quest_token',
+                requiredItemCount: 1,
+            }],
+        },
+    };
+    const service = createService(player, log);
+    await service.dispatchSubmitNpcQuest('player:1', 'npc_a', 'quest:ready-local', {
+        resolveAdjacentNpc() {
+            return { npcId: 'npc_a', name: '阿青' };
+        },
+        buildQuestRewardItems() {
+            return [
+                { itemId: 'rat_tail', count: 2 },
+                { itemId: 'spirit_stone', count: 3 },
+            ];
+        },
+        refreshQuestStates(playerId) {
+            log.push(['refreshQuestStates', playerId]);
+        },
+        tryAcceptNextQuest(playerId, questId) {
+            log.push(['tryAcceptNextQuest', playerId, questId]);
+            return { id: questId, title: '后续任务' };
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.equal(player.quests.quests[0].status, 'completed');
+    assert.deepEqual(log, [
+        ['refreshQuestStates', 'player:1'],
+        ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
+        ['consumeInventoryItemByItemId', 'player:1', 'quest_token', 1],
+        ['receiveInventoryItem', 'player:1', 'rat_tail', 2],
+        ['creditWallet', 'player:1', 'spirit_stone', 3],
+        ['markQuestStateDirty', 'player:1'],
+        ['tryAcceptNextQuest', 'player:1', 'quest:next'],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '阿青：做得不错，这是你的奖励 奖励到手', 'success'],
+        ['queuePlayerNotice', 'player:1', '新的任务《后续任务》已自动接取', 'info'],
+    ]);
+}
+
 async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
     const log = [];
     const player = {
@@ -552,6 +661,7 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
     const promise = service.dispatchSubmitNpcQuest('player:1', 'npc_a', 'quest:ready', deps);
     await nextTick();
     assert.deepEqual(log, [
+        ['refreshQuestStates', 'player:1'],
         ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
         ['submitNpcQuestRewards', 'quest:ready', 'instance:quest-smoke', 'node:quest-smoke', 11],
     ]);
@@ -563,6 +673,7 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
     });
     await promise;
     assert.deepEqual(log, [
+        ['refreshQuestStates', 'player:1'],
         ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
         ['submitNpcQuestRewards', 'quest:ready', 'instance:quest-smoke', 'node:quest-smoke', 11],
         ['replaceInventoryItems', 'player:1', [['rat_tail', 2]]],
@@ -587,6 +698,8 @@ async function main() {
     testExecuteNpcQuestActionQueuesTalkInteract();
     await testDispatchNpcInteractionPrioritizesSubmit();
     testDispatchNpcInteractionFallsBackToDialogueNotice();
+    await testDispatchSubmitNpcQuestRefreshesStateBeforeReadyCheck();
+    await testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable();
     await testDispatchSubmitNpcQuestUsesDurableInventoryGrant();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-quest-write' }, null, 2));
 }
