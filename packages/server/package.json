@@ -7,6 +7,7 @@
     "build": "pnpm verify",
     "verify": "pnpm compile && pnpm proof:mainline-boundaries && pnpm smoke:all",
     "verify:with-db": "pnpm compile && pnpm proof:mainline-boundaries && pnpm smoke:all:with-db",
+    "verify:deploy-baseline": "pnpm compile && pnpm proof:mainline-boundaries && SERVER_SKIP_LOCAL_ENV_AUTOLOAD=1 DATABASE_URL= SERVER_DATABASE_URL= node dist/tools/run-stable-smoke-suite.js --case readiness-gate --case auth-bootstrap --case gm --case runtime",
     "verify:replace-ready": "pnpm compile && pnpm proof:mainline-boundaries && node dist/tools/run-stable-smoke-suite.js --case readiness-gate --case session --case runtime --case progression --case combat --case loot --case auth-bootstrap --case gm --case redeem-code --case monster-runtime --case monster-combat --case monster-ai --case monster-skill --case monster-reset --case monster-loot --case player-recovery --case player-respawn",
     "verify:proof:with-db": "pnpm compile && pnpm proof:mainline-boundaries && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap-mainline --case auth-bootstrap-migration && node dist/tools/persistence-smoke.js && node dist/tools/player-domain-persistence-smoke.js && node dist/tools/player-domain-recovery-smoke.js && node dist/tools/durable-operation-smoke.js && node dist/tools/gm-database-smoke.js",
     "verify:replace-ready:with-db": "pnpm compile && pnpm proof:mainline-boundaries && node dist/tools/run-stable-smoke-suite.js --include-persistence",

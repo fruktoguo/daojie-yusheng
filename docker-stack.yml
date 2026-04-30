@@ -128,3 +128,4 @@ volumes:
 networks:
   daojie_net:
     driver: overlay
+    attachable: true

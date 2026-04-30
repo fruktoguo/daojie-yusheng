@@ -28,6 +28,7 @@ let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3312);
  * 记录base地址。
  */
 let baseUrl = `http://127.0.0.1:${currentPort}`;
+let activeServer = null;
 /**
  * 串联执行脚本主流程。
  */
@@ -185,10 +186,12 @@ async function startServer(options) {
                     SERVER_SMOKE_ALLOW_UNREADY: '0',
                 }),
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: process.env.SERVER_SMOKE_SERVER_LOG === '1' ? 'inherit' : ['ignore', 'pipe', 'pipe'],
     });
-    child.stdout?.on('data', (chunk) => process.stdout.write(String(chunk)));
-    child.stderr?.on('data', (chunk) => process.stderr.write(String(chunk)));
+    if (process.env.SERVER_SMOKE_SERVER_LOG !== '1') {
+        attachServerLogTail(child);
+    }
+    activeServer = child;
     return child;
 }
 /**
@@ -198,6 +201,9 @@ async function stopServer(child) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (child.killed || child.exitCode !== null) {
+        if (activeServer === child) {
+            activeServer = null;
+        }
         return;
     }
     child.kill('SIGINT');
@@ -211,9 +217,42 @@ async function stopServer(child) {
         }, 4000);
         child.once('exit', () => {
             clearTimeout(timer);
+            if (activeServer === child) {
+                activeServer = null;
+            }
             resolve();
         });
     });
+}
+
+function attachServerLogTail(child) {
+    const lines = [];
+    child.__serverSmokeLogTail = lines;
+    const capture = (chunk) => {
+        const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+        for (const line of text.split(/\r?\n/)) {
+            if (!line.trim()) {
+                continue;
+            }
+            lines.push(line);
+            if (lines.length > 160) {
+                lines.splice(0, lines.length - 160);
+            }
+        }
+    };
+    child.stdout?.on('data', capture);
+    child.stderr?.on('data', capture);
+}
+
+function dumpServerLogTail(child) {
+    const lines = Array.isArray(child?.__serverSmokeLogTail) ? child.__serverSmokeLogTail : [];
+    if (lines.length === 0) {
+        return;
+    }
+    process.stderr.write(`[readiness-gate smoke] server log tail (${lines.length} lines)\n`);
+    for (const line of lines) {
+        process.stderr.write(`${line}\n`);
+    }
 }
 /**
  * 等待for健康状态。
@@ -440,5 +479,6 @@ function delay(ms) {
 }
 void main().catch((error) => {
     console.error(error);
+    dumpServerLogTail(activeServer);
     process.exitCode = 1;
 });

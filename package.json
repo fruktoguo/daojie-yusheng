@@ -17,6 +17,7 @@
     "start:server": "pnpm --filter @mud/server start",
     "build:shared": "pnpm --filter @mud/shared build",
     "build:client": "pnpm --filter @mud/client build",
+    "verify:deploy-baseline": "pnpm build:client && pnpm --filter @mud/server verify:deploy-baseline",
     "verify:replace-ready": "node scripts/replace-ready.js",
     "verify:replace-ready:acceptance": "node scripts/replace-ready-acceptance.js",
     "verify:replace-ready:doctor": "node scripts/replace-ready-doctor.js",
