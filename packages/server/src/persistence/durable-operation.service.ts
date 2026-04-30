@@ -42,6 +42,7 @@ const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
 export interface DurableInventoryItemSnapshot {
   itemId: string;
   count: number;
+  enhanceLevel?: number | null;
   rawPayload: unknown;
 }
 
@@ -3288,6 +3289,7 @@ async function replacePlayerInventoryItems(
     const rawPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
+      enhanceLevel: item.enhanceLevel,
       rawPayload: item.rawPayload,
     });
     placeholders.push(

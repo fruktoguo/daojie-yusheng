@@ -512,6 +512,7 @@ async function main(): Promise<void> {
         {
           itemId: 'direct_ore',
           count: 2,
+          enhanceLevel: 3,
           slotIndex: 5,
           itemInstanceId: `inv:${directPlayerId}:ore`,
           rawPayload: {
@@ -701,7 +702,7 @@ async function main(): Promise<void> {
     );
     const directInventoryRows = await fetchRows(
       pool,
-      'SELECT item_instance_id, slot_index, item_id, count FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      'SELECT item_instance_id, slot_index, item_id, count, raw_payload FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
       [directPlayerId],
     );
     const directMapUnlockRows = await fetchRows(
@@ -791,6 +792,7 @@ async function main(): Promise<void> {
       || directInventoryRows[0]?.item_instance_id !== `inv:${directPlayerId}:ore`
       || Number(directInventoryRows[0]?.slot_index ?? 0) !== 5
       || directInventoryRows[0]?.item_id !== 'direct_ore'
+      || Number((directInventoryRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 3
     ) {
       throw new Error(`unexpected direct player_inventory_item rows: ${JSON.stringify(directInventoryRows)}`);
     }

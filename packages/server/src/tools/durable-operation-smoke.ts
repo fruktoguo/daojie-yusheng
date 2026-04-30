@@ -2087,6 +2087,37 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected equipment watermark row: ${JSON.stringify(equipWatermarkRow)}`);
     }
+    const unequipOperationResult = await service.updateEquipmentLoadout({
+      operationId: `${equipOperationId}:unequip`,
+      playerId: equipPlayerId,
+      expectedRuntimeOwnerId: equipRuntimeOwnerId,
+      expectedSessionEpoch: 13,
+      action: 'unequip',
+      slot: 'weapon',
+      nextInventoryItems: buildUnequippedEnhancedInventoryItems(equipPlayerId),
+      nextEquipmentSlots: [],
+    });
+    if (
+      !unequipOperationResult.ok
+      || unequipOperationResult.alreadyCommitted
+      || unequipOperationResult.action !== 'unequip'
+      || unequipOperationResult.slot !== 'weapon'
+    ) {
+      throw new Error(`unexpected equipment durable unequip result: ${JSON.stringify(unequipOperationResult)}`);
+    }
+    const unequipInventoryRows = await fetchRows(
+      pool,
+      'SELECT item_id, count, raw_payload FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [equipPlayerId],
+    );
+    if (
+      unequipInventoryRows.length !== 1
+      || unequipInventoryRows[0]?.item_id !== 'iron_sword'
+      || Number(unequipInventoryRows[0]?.count) !== 1
+      || Number((unequipInventoryRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 4
+    ) {
+      throw new Error(`unexpected enhanced equipment inventory rows after unequip: ${JSON.stringify(unequipInventoryRows)}`);
+    }
 
     await seedActiveJobStartFixture(pool, {
       playerId: activeJobStartPlayerId,
@@ -4123,6 +4154,27 @@ function buildEquipmentSlots(playerId: string) {
         itemInstanceId,
         count: 1,
         slot: 'weapon',
+        enhanceLevel: 4,
+      },
+    },
+  ];
+}
+
+function buildUnequippedEnhancedInventoryItems(playerId: string) {
+  const itemInstanceId = `inventory:${playerId}:0`;
+  return [
+    {
+      itemId: 'iron_sword',
+      itemInstanceId,
+      count: 1,
+      slot: 'weapon',
+      enhanceLevel: 4,
+      rawPayload: {
+        itemId: 'iron_sword',
+        itemInstanceId,
+        count: 1,
+        slot: 'weapon',
+        enhanceLevel: 4,
       },
     },
   ];

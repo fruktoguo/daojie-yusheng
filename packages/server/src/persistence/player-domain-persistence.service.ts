@@ -231,6 +231,7 @@ export interface PlayerInventoryItemUpsertInput {
   count: number;
   slotIndex?: number | null;
   itemInstanceId?: string | null;
+  enhanceLevel?: number | null;
   rawPayload?: Record<string, unknown> | null;
 }
 
@@ -2853,6 +2854,7 @@ async function replacePlayerInventoryItems(
     const persistedPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
+      enhanceLevel: entry?.enhanceLevel,
       rawPayload,
     });
     placeholders.push(
