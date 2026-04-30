@@ -99,6 +99,25 @@ export interface MarketUpdateView {
   storage: MarketStorage;
 }
 
+/** 坊市分页分类计数，按服务端分页分组口径统计。 */
+export interface MarketListingCountsView {
+/**
+ * categoryCounts：主分类数量。
+ */
+
+  categoryCounts: Partial<Record<ItemType | 'all', number>>;
+  /**
+ * equipmentSlotCounts：装备部位数量。
+ */
+
+  equipmentSlotCounts: Partial<Record<EquipSlot | 'all', number>>;
+  /**
+ * techniqueCategoryCounts：功法书分类数量。
+ */
+
+  techniqueCategoryCounts: Partial<Record<TechniqueCategory | 'all', number>>;
+}
+
 /** 坊市分页列表视图。 */
 export interface MarketListingsView {
 /**
@@ -141,6 +160,11 @@ export interface MarketListingsView {
  */
 
   techniqueCategory: TechniqueCategory | 'all';  
+  /**
+ * counts：当前坊市全局分类数量。
+ */
+
+  counts?: MarketListingCountsView;
   /**
  * items：集合字段。
  */

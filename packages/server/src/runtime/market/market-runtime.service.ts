@@ -142,7 +142,39 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const techniqueCategory = typeof payload?.techniqueCategory === 'string' ? payload.techniqueCategory : 'all';
 
-        const filtered = this.buildMarketListingEntries().filter((entry) => {
+        const entries = this.buildMarketListingEntries();
+
+        const filtered = this.filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory);
+
+        const groups = this.groupMarketListingEntriesForPage(filtered);
+
+        const total = groups.length;
+
+        const start = (page - 1) * pageSize;
+        return {
+            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemName: this.getCurrencyItemName(),
+            page,
+            pageSize,
+            total,
+            category,
+            equipmentSlot,
+            techniqueCategory,
+            counts: this.buildMarketListingCounts(entries),
+            items: groups.slice(start, start + pageSize).flatMap((entry) => entry.entries),
+        };
+    }
+    /**
+ * filterMarketListingEntries：按请求筛选坊市分页条目。
+ * @param entries 坊市分页条目。
+ * @param category 主分类。
+ * @param equipmentSlot 装备部位。
+ * @param techniqueCategory 功法分类。
+ * @returns 筛选后的坊市分页条目。
+ */
+
+    filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory) {
+        return entries.filter((entry) => {
             if (category !== 'all' && entry.itemType !== category) {
                 return false;
             }
@@ -160,22 +192,44 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             return true;
         });
+    }
+    /**
+ * buildMarketListingCounts：按服务端分页分组口径生成分类计数。
+ * @param entries 坊市分页条目。
+ * @returns 坊市分类计数。
+ */
 
-        const groups = this.groupMarketListingEntriesForPage(filtered);
-
-        const total = groups.length;
-
-        const start = (page - 1) * pageSize;
+    buildMarketListingCounts(entries) {
+        const categoryCounts = {
+            all: this.groupMarketListingEntriesForPage(entries).length,
+        };
+        for (const itemType of shared_1.ITEM_TYPES) {
+            categoryCounts[itemType] = this.groupMarketListingEntriesForPage(
+                this.filterMarketListingEntries(entries, itemType, 'all', 'all'),
+            ).length;
+        }
+        const equipmentEntries = this.filterMarketListingEntries(entries, 'equipment', 'all', 'all');
+        const equipmentSlotCounts = {
+            all: this.groupMarketListingEntriesForPage(equipmentEntries).length,
+        };
+        for (const slot of shared_1.EQUIP_SLOTS) {
+            equipmentSlotCounts[slot] = this.groupMarketListingEntriesForPage(
+                this.filterMarketListingEntries(entries, 'equipment', slot, 'all'),
+            ).length;
+        }
+        const techniqueEntries = this.filterMarketListingEntries(entries, 'skill_book', 'all', 'all');
+        const techniqueCategoryCounts = {
+            all: this.groupMarketListingEntriesForPage(techniqueEntries).length,
+        };
+        for (const techniqueCategory of ['arts', 'internal', 'divine', 'secret']) {
+            techniqueCategoryCounts[techniqueCategory] = this.groupMarketListingEntriesForPage(
+                this.filterMarketListingEntries(entries, 'skill_book', 'all', techniqueCategory),
+            ).length;
+        }
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
-            currencyItemName: this.getCurrencyItemName(),
-            page,
-            pageSize,
-            total,
-            category,
-            equipmentSlot,
-            techniqueCategory,
-            items: groups.slice(start, start + pageSize).flatMap((entry) => entry.entries),
+            categoryCounts,
+            equipmentSlotCounts,
+            techniqueCategoryCounts,
         };
     }
     /** 构造玩家自己的挂单列表。 */
@@ -278,7 +332,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const tradePrice = buyOrder.unitPrice;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                this.deliverMarketCurrencyToPlayer(playerId, match.totalCost, context);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -355,11 +409,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
-            if (!this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost)) {
+            if (!this.canAffordMarketCurrency(playerId, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
             }
             this.captureOnlinePlayerState(playerId, context);
-            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+            if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
+            }
 
             const result = this.createEmptyResult(playerId);
 
@@ -374,7 +430,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const tradePrice = sellOrder.unitPrice;
                 this.deliverItemToPlayer(playerId, { ...orderItem, count: tradeQuantity }, context);
-                this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, match.totalCost, context);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -387,7 +443,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const refund = Math.max(0, reservedCost - match.totalCost);
                 if (refund > 0) {
-                    this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, refund);
+                    this.deliverMarketCurrencyToPlayer(playerId, refund, context);
                 }
                 sellOrder.remainingQuantity -= tradeQuantity;
                 sellOrder.updatedAt = Date.now();
@@ -445,13 +501,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
 
             const totalCost = plan.totalCost;
-            if (!this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost)) {
+            if (!this.canAffordMarketCurrency(playerId, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
             }
 
             const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);
             const durableOperationService = this.durableOperationService;
-            const canUseDurableBuyNow = Boolean(durableOperationService?.isEnabled?.() && buyerSnapshot?.runtimeOwnerId && Number.isFinite(buyerSnapshot?.sessionEpoch) && buyerSnapshot?.sessionEpoch > 0);
+            const canUseDurableBuyNow = false;
             const matchedSellerPlans = [];
             if (canUseDurableBuyNow) {
                 for (const match of plan.matches) {
@@ -478,7 +534,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
 
             this.captureOnlinePlayerState(playerId, context);
-            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+            if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
+            }
 
             const result = this.createEmptyResult(playerId);
             const item = { ...sells[0].item };
@@ -552,7 +610,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 const sellOrder = match.order;
                 const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(playerId, { ...item, count: tradeQuantity }, context);
-                this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, match.totalCost, context);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -609,7 +667,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
             const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);
             const durableOperationService = this.durableOperationService;
-            const canUseDurableSellNow = Boolean(durableOperationService?.isEnabled?.() && sellerSnapshot?.runtimeOwnerId && Number.isFinite(sellerSnapshot?.sessionEpoch) && sellerSnapshot?.sessionEpoch > 0);
+            const canUseDurableSellNow = false;
             const matchedBuyerPlans = [];
             if (canUseDurableSellNow) {
                 for (const match of plan.matches) {
@@ -699,7 +757,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 const buyOrder = match.order;
                 const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                this.deliverMarketCurrencyToPlayer(playerId, match.totalCost, context);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -731,7 +789,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '未找到可取消的订单。');
             }
             const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
-            if (playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
+            if (order.side !== 'buy' && playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
                 const operationId = `market-cancel-order:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
                 const nextInventoryItems = order.side === 'sell'
                     ? applyMarketSellNowToInventory(playerSnapshot.inventory.items ?? [], { ...order.item, count: order.remainingQuantity }, order.remainingQuantity)
@@ -784,7 +842,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const refund = (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice);
                 if (refund) {
-                    this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, refund);
+                    this.deliverMarketCurrencyToPlayer(playerId, refund, context);
                 }
             }
             order.status = 'cancelled';
@@ -1403,6 +1461,83 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             count,
             desc: '坊市通行货币。',
         };
+    }
+    /**
+ * canAffordMarketCurrency：判断背包灵石是否足够坊市结算。
+ * @param playerId 玩家 ID。
+ * @param amount 数量。
+ * @returns 是否足够支付。
+ */
+
+    canAffordMarketCurrency(playerId, amount) {
+        const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+        if (normalizedAmount <= 0) {
+            return true;
+        }
+        return this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) >= normalizedAmount;
+    }
+    /**
+ * consumeMarketCurrencyFromInventory：从背包扣除坊市结算灵石。
+ * @param playerId 玩家 ID。
+ * @param amount 数量。
+ * @returns 是否扣除成功。
+ */
+
+    consumeMarketCurrencyFromInventory(playerId, amount) {
+        const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+        if (normalizedAmount <= 0) {
+            return true;
+        }
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const currentItems = cloneInventoryItems(player.inventory?.items ?? []);
+        let owned = 0;
+        for (const item of currentItems) {
+            if (item.itemId === market_1.MARKET_CURRENCY_ITEM_ID) {
+                owned += Math.max(0, Math.trunc(Number(item.count ?? 0)));
+            }
+        }
+        if (owned < normalizedAmount) {
+            return false;
+        }
+
+        let remaining = normalizedAmount;
+        const nextItems = [];
+        for (const item of currentItems) {
+            if (item.itemId !== market_1.MARKET_CURRENCY_ITEM_ID || remaining <= 0) {
+                nextItems.push(item);
+                continue;
+            }
+            const itemCount = Math.max(0, Math.trunc(Number(item.count ?? 0)));
+            if (itemCount <= remaining) {
+                remaining -= itemCount;
+                continue;
+            }
+            nextItems.push({
+                ...item,
+                count: itemCount - remaining,
+            });
+            remaining = 0;
+        }
+        if (remaining > 0) {
+            return false;
+        }
+        this.playerRuntimeService.replaceInventoryItems(playerId, nextItems);
+        return true;
+    }
+    /**
+ * deliverMarketCurrencyToPlayer：按背包物品语义发放坊市灵石。
+ * @param playerId 玩家 ID。
+ * @param amount 数量。
+ * @param context 上下文信息。
+ * @returns 无返回值，直接更新玩家或托管仓。
+ */
+
+    deliverMarketCurrencyToPlayer(playerId, amount, context) {
+        const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+        if (normalizedAmount <= 0) {
+            return;
+        }
+        this.deliverItemToPlayer(playerId, this.createCurrencyItem(normalizedAmount), context);
     }
     /**
  * toFullItem：执行toFull道具相关逻辑。

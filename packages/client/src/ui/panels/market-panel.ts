@@ -33,7 +33,6 @@ import {
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { getViewportRoot } from '../responsive-viewport';
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
@@ -141,6 +140,8 @@ interface MarketTradeDialogState {
  */
 
   unitPrice: number;
+  /** 是否来自卖盘快捷购买，需要二次确认购买。 */
+  confirmPurchase?: boolean;
 }
 
 /** 强化预估结果在界面里的展示结构。 */
@@ -605,9 +606,7 @@ export class MarketPanel {
           this.selectedItemKey = null;
           this.tradeDialog = null;
           this.itemBook = null;
-          this.syncPageSelection();
-          this.requestListings(this.currentPage);
-          this.renderModal();
+          this.requestListings(1);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-equipment-category]').forEach((button) => button.addEventListener('click', () => {
@@ -622,9 +621,7 @@ export class MarketPanel {
           this.selectedItemKey = null;
           this.tradeDialog = null;
           this.itemBook = null;
-          this.syncPageSelection();
-          this.requestListings(this.currentPage);
-          this.renderModal();
+          this.requestListings(1);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-technique-category]').forEach((button) => button.addEventListener('click', () => {
@@ -639,9 +636,7 @@ export class MarketPanel {
           this.selectedItemKey = null;
           this.tradeDialog = null;
           this.itemBook = null;
-          this.syncPageSelection();
-          this.requestListings(this.currentPage);
-          this.renderModal();
+          this.requestListings(1);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-page]').forEach((button) => button.addEventListener('click', () => {
@@ -649,15 +644,14 @@ export class MarketPanel {
           if (!Number.isFinite(nextPage) || nextPage === this.currentPage) {
             return;
           }
-          this.currentPage = this.clampPage(nextPage, this.getVisibleMarketTotalItems(this.marketUpdate));
+          const requestedPage = Math.max(1, Math.floor(nextPage));
+          this.currentPage = requestedPage;
           this.selectedGroupItemId = null;
           this.enhancementBrowseItemId = null;
           this.selectedItemKey = null;
           this.tradeDialog = null;
           this.itemBook = null;
-          this.syncPageSelection();
-          this.requestListings(this.currentPage);
-          this.renderModal();
+          this.requestListings(requestedPage);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-history-page]').forEach((button) => button.addEventListener('click', () => {
@@ -892,6 +886,7 @@ export class MarketPanel {
             ? this.renderPriceLevels(book?.sells ?? [], currencyName, '暂无售单。', {
               kind: 'buy',
               label: '购买',
+              confirmPurchase: true,
               disabled: Boolean(buyConflict),
             })
             : this.renderBookLoading('卖盘查探中...')}
@@ -984,6 +979,8 @@ export class MarketPanel {
  */
 
       disabled?: boolean;
+      /** 是否使用购买确认页。 */
+      confirmPurchase?: boolean;
     },
   ): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1002,6 +999,7 @@ export class MarketPanel {
               class="small-btn ghost market-book-level-action"
               data-market-open-dialog="${quickAction.kind}"
               data-market-open-dialog-price="${level.unitPrice}"
+              data-market-open-dialog-confirm-purchase="${quickAction.confirmPurchase ? 'true' : 'false'}"
               type="button"
               ${quickAction.disabled ? 'disabled' : ''}
             >${quickAction.label}</button>`
@@ -1265,7 +1263,8 @@ export class MarketPanel {
         return;
       }
       const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
-      this.openTradeDialog(selected, kind, presetPrice);
+      const confirmPurchase = button.dataset.marketOpenDialogConfirmPurchase === 'true';
+      this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
     }));
   }
 
@@ -1470,11 +1469,11 @@ export class MarketPanel {
  * count：数量或计量字段。
  */
  count: number }> = [
-      { id: 'all', label: '全部', count: listedItems.length },
+      { id: 'all', label: '全部', count: this.getMarketCategoryCount('all', listedItems.length) },
       ...ITEM_TYPES.map((type) => ({
         id: type,
         label: getItemTypeLabel(type),
-        count: listedItems.filter((item) => item.item.type === type).length,
+        count: this.getMarketCategoryCount(type, listedItems.filter((item) => item.item.type === type).length),
       })),
     ];
     return categories
@@ -1507,12 +1506,12 @@ export class MarketPanel {
       {
         id: 'all',
         label: '全部装备',
-        count: listedItems.filter((item) => item.item.type === 'equipment').length,
+        count: this.getMarketEquipmentSlotCount('all', listedItems.filter((item) => item.item.type === 'equipment').length),
       },
       ...EQUIP_SLOTS.map((slot) => ({
         id: slot,
         label: getEquipSlotLabel(slot),
-        count: listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length,
+        count: this.getMarketEquipmentSlotCount(slot, listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length),
       })),
     ];
     return categories
@@ -1531,10 +1530,10 @@ export class MarketPanel {
     const listedItems = this.getKnownListedItems(update);
     const categories = MARKET_TECHNIQUE_FILTERS.map((category) => ({
       ...category,
-      count: listedItems.filter((item) => (
+      count: this.getMarketTechniqueCategoryCount(category.id, listedItems.filter((item) => (
         item.item.type === 'skill_book'
         && (category.id === 'all' || this.resolveTechniqueCategoryForItem(item.item) === category.id)
-      )).length,
+      )).length),
     }));
     return categories
       .map((category) => `
@@ -1545,6 +1544,30 @@ export class MarketPanel {
         >${escapeHtml(category.label)}<span>${formatDisplayInteger(category.count)}</span></button>
       `)
       .join('');
+  }
+
+  /** 读取服务端主分类计数，兼容旧包回退到本地已知条目。 */
+  private getMarketCategoryCount(category: MarketCategoryFilter, fallback: number): number {
+    return this.normalizeMarketCount(this.marketListings?.counts?.categoryCounts?.[category], fallback);
+  }
+
+  /** 读取服务端装备子分类计数，兼容旧包回退到本地已知条目。 */
+  private getMarketEquipmentSlotCount(slot: MarketEquipmentFilter, fallback: number): number {
+    return this.normalizeMarketCount(this.marketListings?.counts?.equipmentSlotCounts?.[slot], fallback);
+  }
+
+  /** 读取服务端功法书子分类计数，兼容旧包回退到本地已知条目。 */
+  private getMarketTechniqueCategoryCount(category: MarketTechniqueFilter, fallback: number): number {
+    return this.normalizeMarketCount(this.marketListings?.counts?.techniqueCategoryCounts?.[category], fallback);
+  }
+
+  /** 规范化坊市分类计数，避免异常 payload 污染 UI。 */
+  private normalizeMarketCount(value: unknown, fallback: number): number {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return fallback;
+    }
+    return Math.max(0, Math.floor(numeric));
   }
 
   /** 按当前分类筛选出可见列表物品。 */
@@ -1888,14 +1911,87 @@ export class MarketPanel {
   }
 
   /** 打开交易弹窗，并用当前盘面价格作为初始值。 */
-  private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): void {
+  private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null, confirmPurchase = false): void {
     const unitPrice = this.getDefaultTradeDialogPrice(entry, kind, preferredPrice);
     this.tradeDialog = {
       kind,
       quantity: this.normalizeTradeDialogQuantity(1, entry, kind, unitPrice),
       unitPrice,
+      confirmPurchase: kind === 'buy' && confirmPurchase,
     };
     this.syncTradeDialogOverlay();
+  }
+
+  /** 渲染购买确认页，说明直接成交和剩余求购挂单的预估。 */
+  private renderBuyConfirmBody(entry: MarketListedItemView, currencyName: string, quantity: number, unitPrice: number): string {
+    const estimate = this.estimateImmediateBuy(entry, quantity, unitPrice);
+    const maxReservedCost = this.getMarketTradeTotalCost(quantity, unitPrice);
+    const summary = estimate.immediateQuantity > 0
+      ? estimate.pendingQuantity > 0
+        ? `预计先按当前卖盘成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件，剩余 ${formatDisplayInteger(estimate.pendingQuantity)} 件会继续挂为求购单。`
+        : `预计会按当前卖盘直接成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件。`
+      : '当前无法保证立刻成交，确认后会按当前单价挂出求购单。';
+    return `
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>购买数量</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(quantity)}</strong>
+            <span>单价 ${this.formatMarketUnitPrice(unitPrice)} ${escapeHtml(currencyName)}</span>
+          </div>
+        </div>
+        <div class="market-trade-dialog-total">
+          <span>最高占用</span>
+          <strong>${maxReservedCost === null ? '--' : `${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}`}</strong>
+        </div>
+      </div>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>撮合预估</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
+            <span>预计立即成交</span>
+          </div>
+        </div>
+        <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
+          <span>剩余挂单</span>
+          <strong>${formatDisplayInteger(estimate.pendingQuantity)} 件</strong>
+        </div>
+      </div>
+      <div class="market-action-hint">${escapeHtml(summary)}</div>
+      <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">若卖盘成交价低于你的出价，差额会按现有撮合规则退回。</div>
+    `;
+  }
+
+  /** 按当前卖盘估算本次购买会立即成交多少。 */
+  private estimateImmediateBuy(entry: MarketListedItemView, quantity: number, unitPrice: number): {
+    immediateQuantity: number;
+    pendingQuantity: number;
+  } {
+    const book = this.itemBook;
+    if (!book || book.itemKey !== entry.itemKey) {
+      return {
+        immediateQuantity: 0,
+        pendingQuantity: quantity,
+      };
+    }
+    let remaining = quantity;
+    let immediateQuantity = 0;
+    for (const level of book.sells) {
+      if (remaining <= 0 || level.unitPrice > unitPrice) {
+        break;
+      }
+      const matched = Math.min(remaining, level.quantity);
+      if (matched <= 0) {
+        continue;
+      }
+      immediateQuantity += matched;
+      remaining -= matched;
+    }
+    return {
+      immediateQuantity,
+      pendingQuantity: Math.max(0, remaining),
+    };
   }
 
   /** 根据当前临时态同步交易弹窗浮层。 */
@@ -1994,7 +2090,13 @@ export class MarketPanel {
       const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind, this.tradeDialog.unitPrice);
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
-        this.openBuyConfirm(selected, quantity, unitPrice);
+        if (this.tradeDialog.confirmPurchase) {
+          this.openBuyConfirm(selected, quantity, unitPrice);
+          return;
+        }
+        this.callbacks?.onCreateBuyOrder(selected.itemKey, quantity, unitPrice);
+        this.tradeDialog = null;
+        this.syncTradeDialogOverlay();
         return;
       }
       const slotIndex = this.findMatchingInventorySlot(selected.item);
@@ -2009,28 +2111,22 @@ export class MarketPanel {
 
   /** 打开市场买入二次确认弹层。 */
   private openBuyConfirm(entry: MarketListedItemView, quantity: number, unitPrice: number): void {
-    const totalCost = this.getMarketTradeTotalCost(quantity, unitPrice);
     const itemName = this.getMarketDisplayName(entry.item);
     this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
     confirmModalHost.open({
       ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
-      title: '确认求购',
+      title: '确认购买',
       subtitle: itemName,
-      bodyHtml: `
-        <div class="confirm-modal-line"><span>物品</span><strong>${escapeHtml(itemName)}</strong></div>
-        <div class="confirm-modal-line"><span>数量</span><strong>${formatDisplayInteger(quantity)}</strong></div>
-        <div class="confirm-modal-line"><span>单价</span><strong>${this.formatMarketUnitPrice(unitPrice)}</strong></div>
-        <div class="confirm-modal-line"><span>总额</span><strong>${totalCost === null ? '--' : formatDisplayInteger(totalCost)}</strong></div>
-      `,
-      confirmLabel: '确认求购',
-      confirmButtonClass: 'danger',
+      bodyHtml: this.renderBuyConfirmBody(entry, this.marketUpdate?.currencyItemName ?? '', quantity, unitPrice),
+      confirmLabel: '确认购买',
       onConfirm: () => {
         const latest = this.buyConfirmState;
+        const latestEntry = latest ? this.resolveMarketTooltipEntry(latest.itemKey) : null;
         this.buyConfirmState = null;
-        if (!latest) {
+        if (!latest || !latestEntry) {
           return;
         }
-        this.callbacks?.onCreateBuyOrder(latest.itemKey, latest.quantity, latest.unitPrice);
+        this.callbacks?.onCreateBuyOrder(latestEntry.itemKey, latest.quantity, latest.unitPrice);
         this.tradeDialog = null;
         this.syncTradeDialogOverlay();
       },
@@ -2046,12 +2142,15 @@ export class MarketPanel {
 
     let root = document.getElementById(MarketPanel.TRADE_MODAL_ID);
     if (root) {
+      if (root.parentElement !== document.body) {
+        document.body.appendChild(root);
+      }
       return root;
     }
     root = document.createElement('div');
     root.id = MarketPanel.TRADE_MODAL_ID;
     root.className = 'market-trade-modal-layer hidden';
-    (getViewportRoot(document) ?? document.body).appendChild(root);
+    document.body.appendChild(root);
     return root;
   }
 
