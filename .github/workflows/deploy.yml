@@ -172,17 +172,15 @@ jobs:
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
         run: |
           set -euo pipefail
-          docker --context production service logs --tail 120 daojie-yusheng_server || true
-          docker --context production service logs --tail 80 daojie-yusheng_client || true
-
           quote_for_sh() {
             printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
           }
 
           REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}"
           GM_PASSWORD_Q="$(quote_for_sh "$GM_PASSWORD")"
-          ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
-            "GM_PASSWORD=$GM_PASSWORD_Q timeout 60 sh -s" <<'REMOTE_PROBE'
+          PROBE_STATUS=0
+          timeout 75 ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
+            "GM_PASSWORD=$GM_PASSWORD_Q sh -s" <<'REMOTE_PROBE' || PROBE_STATUS=$?
           set -eu
 
           if ! command -v curl >/dev/null 2>&1; then
@@ -230,3 +228,12 @@ jobs:
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
           REMOTE_PROBE
+
+          if [ "$PROBE_STATUS" -ne 0 ]; then
+            echo "production route probe failed with status $PROBE_STATUS" >&2
+            timeout 20 docker --context production service ps daojie-yusheng_server --no-trunc || true
+            timeout 20 docker --context production service ps daojie-yusheng_client --no-trunc || true
+            timeout 20 docker --context production service logs --since 10m --tail 80 daojie-yusheng_server || true
+            timeout 20 docker --context production service logs --since 10m --tail 60 daojie-yusheng_client || true
+            exit "$PROBE_STATUS"
+          fi
