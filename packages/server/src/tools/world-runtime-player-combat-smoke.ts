@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 
+import { ContentTemplateRepository } from '../content/content-template.repository';
 import { WorldRuntimePlayerCombatService } from '../runtime/world/world-runtime-player-combat.service';
 
 async function main(): Promise<void> {
+  testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
+  testMonsterKillExpSettlementUsesTemplateMultiplier();
   await testMonsterLootDurableGrant();
   await testPvPLootDurableGrant();
   console.log(JSON.stringify({
@@ -11,6 +14,83 @@ async function main(): Promise<void> {
     answers: '怪物掉落直入背包与 PvP 血精奖励现在都会先走 grantInventoryItems durable 主链，成功提交后才补发 loot notice，并把 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 一并透传',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+function testMonsterEquipmentDropDefaultsMatchMainTierBuckets() {
+  const repository = new ContentTemplateRepository();
+  const equipmentDrop = { itemId: 'equip.test', name: '测试装备', type: 'equipment', count: 1 };
+  const materialDrop = { itemId: 'mat.test', name: '测试材料', type: 'material', count: 1 };
+
+  assert.equal(repository.computeDefaultMonsterDropChance(equipmentDrop as never, { tier: 'mortal_blood', grade: 'mortal' } as never), 0.05);
+  assert.equal(repository.computeDefaultMonsterDropChance(equipmentDrop as never, { tier: 'variant', grade: 'mortal' } as never), 0.2);
+  assert.equal(repository.computeDefaultMonsterDropChance(equipmentDrop as never, { tier: 'demon_king', grade: 'mortal' } as never), 0.5);
+  assert.equal(repository.computeDefaultMonsterDropChance(materialDrop as never, { tier: 'mortal_blood', grade: 'mortal' } as never), 0.05);
+  assert.equal(repository.computeDefaultMonsterDropChance(materialDrop as never, { tier: 'variant', grade: 'mortal' } as never), 0.2);
+  assert.equal(repository.computeDefaultMonsterDropChance(materialDrop as never, { tier: 'demon_king', grade: 'mortal' } as never), 0.5);
+  assert.equal(repository.getOrdinaryMonsterSpiritStoneDropMultiplier(
+    { itemId: 'spirit_stone' } as never,
+    { monsterTier: 'mortal_blood', monsterLevel: 3, playerRealmLv: 4 } as never,
+  ), 0.7);
+  assert.equal(repository.getOrdinaryMonsterSpiritStoneDropMultiplier(
+    { itemId: 'spirit_stone' } as never,
+    { monsterTier: 'variant', monsterLevel: 3, playerRealmLv: 4 } as never,
+  ), 1);
+}
+
+function testMonsterKillExpSettlementUsesTemplateMultiplier() {
+  const grants: Array<Record<string, unknown>> = [];
+  const players = new Map<string, Record<string, unknown>>([
+    ['player:killer', { playerId: 'player:killer', instanceId: 'instance:combat:exp', realm: { realmLv: 20 } }],
+    ['player:assist', { playerId: 'player:assist', instanceId: 'instance:combat:exp', realm: { realmLv: 5 } }],
+  ]);
+  const contentTemplateRepository = {
+    getMonsterCombatProfile(monsterId: string) {
+      assert.equal(monsterId, 'monster:variant');
+      return { expMultiplier: 5 };
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return players.get(playerId) ?? null;
+    },
+    grantMonsterKillProgress(playerId: string, input: Record<string, unknown>, currentTick: number) {
+      grants.push({ playerId, ...input, currentTick });
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService(contentTemplateRepository as never, playerRuntimeService as never);
+  const instance = {
+    meta: { instanceId: 'instance:combat:exp' },
+    getMonsterDamageContributionEntries(runtimeId: string) {
+      assert.equal(runtimeId, 'monster:variant:1');
+      return [
+        { playerId: 'player:killer', damage: 1 },
+        { playerId: 'player:assist', damage: 9 },
+      ];
+    },
+  };
+  const deps = {
+    resolveCurrentTickForPlayerId(playerId: string) {
+      return playerId === 'player:killer' ? 101 : 102;
+    },
+  };
+
+  service.distributeMonsterKillProgress(instance as never, {
+    runtimeId: 'monster:variant:1',
+    monsterId: 'monster:variant',
+    name: '异种测试妖兽',
+    level: 30,
+    tier: 'variant',
+  } as never, 'player:killer', deps as never);
+
+  assert.deepEqual(grants.map((entry) => entry.playerId), ['player:killer', 'player:assist']);
+  for (const grant of grants) {
+    assert.equal(grant.expMultiplier, 5);
+    assert.equal(grant.expAdjustmentRealmLv, 20);
+  }
+  assert.equal(grants[0]?.contributionRatio, 0.1);
+  assert.equal(grants[1]?.contributionRatio, 0.9);
+  assert.equal(grants[0]?.currentTick, 101);
+  assert.equal(grants[1]?.currentTick, 102);
 }
 
 async function testMonsterLootDurableGrant() {

@@ -449,6 +449,7 @@ class MapInstanceRuntime {
                 color: monster.color,
                 level: monster.level,
                 tier: monster.tier,
+                expMultiplier: monster.expMultiplier,
                 baseAttrs: cloneAttributes(monster.baseAttrs),
                 attrs: cloneAttributes(monster.baseAttrs),
                 baseNumericStats: cloneNumericStats(monster.baseNumericStats),

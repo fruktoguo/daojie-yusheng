@@ -62,6 +62,9 @@ const path = __importStar(require("path"));
 
 const project_path_1 = require("../common/project-path");
 
+const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1;
+const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7;
+
 /** 内容模板仓库：集中加载物品、功法、妖兽掉落和怪物运行时模板。 */
 let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTemplateRepository {
     /** 运行时日志器，记录内容加载与校验失败。 */
@@ -464,7 +467,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
  * @returns 无返回值，直接更新roll怪物Drop相关状态。
  */
 
-    rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0) {
+    rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -491,7 +494,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
                 const chance = baseChance <= 0 || killEquivalent <= 0
                     ? 0
-                    : 1 - Math.pow(1 - baseChance, killEquivalent);
+                    : (1 - Math.pow(1 - baseChance, killEquivalent))
+                        * this.getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context);
                 if (chance <= 0 || Math.random() > chance) {
                     continue;
                 }
@@ -557,6 +561,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 color: template.color,
                 level: template.level,
                 tier: template.tier,
+                expMultiplier: template.expMultiplier,
                 baseAttrs: cloneMonsterAttributes(template.attrs),
                 baseNumericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
                 ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
@@ -659,6 +664,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             attrs: cloneMonsterAttributes(template.attrs),
             numericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
             ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            expMultiplier: template.expMultiplier,
         };
     }
     /**
@@ -917,6 +923,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         if (drop.type === 'material') {
             return this.getMaterialBaseDropChance(context.tier);
         }
+        if (drop.type === 'equipment') {
+            return this.getEquipmentBaseDropChance(context.tier);
+        }
 
         const categoryBase = this.getMonsterDropCategoryBase(drop);
 
@@ -946,6 +955,26 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             default:
                 return 0.05;
         }
+    }
+    getEquipmentBaseDropChance(tier) {
+        switch (tier) {
+            case 'variant':
+                return 0.2;
+            case 'demon_king':
+                return 0.5;
+            default:
+                return 0.05;
+        }
+    }
+    getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context) {
+        if (drop.itemId !== 'spirit_stone' || (0, shared_1.normalizeMonsterTier)(context?.monsterTier) !== 'mortal_blood') {
+            return 1;
+        }
+        const playerRealmLv = Math.max(1, Math.floor(Number(context?.playerRealmLv) || 1));
+        const monsterLevel = Math.max(1, Math.floor(Number(context?.monsterLevel) || 1));
+        return playerRealmLv - monsterLevel >= ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD
+            ? ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER
+            : 1;
     }
     /**
  * getMonsterDropCategoryBase：读取怪物DropCategoryBase。

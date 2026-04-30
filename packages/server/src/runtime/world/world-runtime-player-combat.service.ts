@@ -69,7 +69,11 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
         const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
-        const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate);
+        const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {
+            playerRealmLv: killer?.realm?.realmLv,
+            monsterLevel: monster.level,
+            monsterTier: monster.tier,
+        });
         for (let index = 0; index < items.length; index += 1) {
             const item = items[index];
             await this.deliverMonsterLoot(killerPlayerId, instance, monster.x, monster.y, item, deps, `monster:${monster.runtimeId}:${index}`);
@@ -89,18 +93,21 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
 
         const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
         const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(participants);
+        const killerRealmLv = this.resolvePlayerRealmLv(killerPlayerId);
         let totalContribution = 0;
         for (const participant of participants) {
             totalContribution += participant.contribution;
         }
         for (const participant of participants) {
             const contributionRatio = totalContribution > 0 ? participant.contribution / totalContribution : 1;
+            const expMultiplier = this.resolveMonsterExpMultiplier(monster);
             this.playerRuntimeService.grantMonsterKillProgress(participant.playerId, {
                 monsterLevel: monster.level,
                 monsterName: monster.name,
                 monsterTier: monster.tier,
+                expMultiplier,
                 contributionRatio,
-                expAdjustmentRealmLv: Math.max(topContributionRealmLv, participant.realmLv),
+                expAdjustmentRealmLv: Math.max(topContributionRealmLv, killerRealmLv, participant.realmLv),
                 isKiller: participant.playerId === killerPlayerId,
             }, deps.resolveCurrentTickForPlayerId(participant.playerId));
         }
@@ -170,6 +177,18 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         }
         return topRealmLv;
     }    
+    resolvePlayerRealmLv(playerId) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        return Math.max(1, Math.floor(player?.realm?.realmLv ?? 1));
+    }
+    resolveMonsterExpMultiplier(monster) {
+        if (Number.isFinite(monster?.expMultiplier)) {
+            return Math.max(0, Number(monster.expMultiplier));
+        }
+        const profile = this.contentTemplateRepository.getMonsterCombatProfile(monster?.monsterId);
+        return Number.isFinite(profile?.expMultiplier) ? Math.max(0, Number(profile.expMultiplier)) : undefined;
+    }
+
     /**
  * deliverMonsterLoot：执行deliver怪物掉落相关逻辑。
  * @param playerId 玩家 ID。
