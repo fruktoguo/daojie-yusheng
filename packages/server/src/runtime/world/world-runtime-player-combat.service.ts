@@ -220,7 +220,15 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                 });
                 return;
             }
-            throw new common_1.ServiceUnavailableException('monster_loot_durable_context_required');
+            this.dropInventoryGrantFallback({
+                playerId,
+                instance,
+                item,
+                deps,
+                fallbackNotice: `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但本次奖励缺少可确认的背包落盘上下文。`,
+                fallbackPosition: { x, y },
+            });
+            return;
         }
         deps.spawnGroundItem(instance, x, y, item);
         deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
@@ -302,12 +310,19 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                         sourceType: 'pvp_loot',
                         sourceRefId: `pvp:${killer.playerId}:${victim.playerId}:${reward.itemId}`,
                         successNotice: `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`,
-                        fallbackNotice: `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`,
+                        fallbackNotice: `${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处，但本次奖励落盘失败。`,
                         fallbackPosition: { x: deathSite.x, y: deathSite.y },
                     });
                 }
                 else {
-                    throw new common_1.ServiceUnavailableException('pvp_loot_durable_context_required');
+                    this.dropInventoryGrantFallback({
+                        playerId: killer.playerId,
+                        instance: deathSite.instance,
+                        item: reward,
+                        deps,
+                        fallbackNotice: `${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处，但本次奖励缺少可确认的背包落盘上下文。`,
+                        fallbackPosition: { x: deathSite.x, y: deathSite.y },
+                    });
                 }
             }
             else {
@@ -335,11 +350,19 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
             mutateRuntime: async () => {
                 this.playerRuntimeService.receiveInventoryItem(input.playerId, input.item);
             },
-            swallowFailure: false,
+            onFailure: async (error) => {
+                this.logger.warn(`背包奖励 durable 提交失败，已改为地面掉落：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} reason=${error instanceof Error ? error.message : String(error)}`);
+                this.dropInventoryGrantFallback(input);
+            },
+            swallowFailure: true,
         });
         if (committed) {
             input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');
         }
+    }
+    dropInventoryGrantFallback(input) {
+        input.deps.spawnGroundItem(input.instance, input.fallbackPosition.x, input.fallbackPosition.y, input.item);
+        input.deps.queuePlayerNotice(input.playerId, input.fallbackNotice, 'loot');
     }
 };
 exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService;

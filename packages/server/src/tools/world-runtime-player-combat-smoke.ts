@@ -7,11 +7,13 @@ async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
   await testMonsterLootDurableGrant();
+  await testMonsterLootFallsBackToGroundWithoutDurableContext();
+  await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
   await testPvPLootDurableGrant();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会先走 grantInventoryItems durable 主链，成功提交后才补发 loot notice，并把 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 一并透传',
+    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会先走 grantInventoryItems durable 主链，成功提交后才补发 loot notice；缺少 durable 上下文或 durable 提交失败时会改为地面掉落，不再打断世界 tick',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -202,6 +204,136 @@ async function testMonsterLootDurableGrant() {
   assert.deepEqual(log, [
     ['queuePlayerNotice', 'player:combat:loot', '获得 鼠尾 x2', 'loot'],
   ]);
+}
+
+async function testMonsterLootFallsBackToGroundWithoutDurableContext() {
+  const log: Array<unknown[]> = [];
+  const player = {
+    playerId: 'player:combat:no-durable-context',
+    instanceId: 'instance:combat:1',
+    runtimeOwnerId: null,
+    sessionEpoch: 0,
+    inventory: {
+      items: [],
+      revision: 0,
+      capacity: 20,
+    },
+  };
+  const item = { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
+  const instance = {
+    meta: { instanceId: 'instance:combat:1' },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      assert.equal(playerId, player.playerId);
+      return player;
+    },
+    canReceiveInventoryItem(playerId: string, itemId: string) {
+      assert.equal(playerId, player.playerId);
+      assert.equal(itemId, item.itemId);
+      return true;
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
+  const deps = {
+    queuePlayerNotice(playerId: string, text: string, kind: string) {
+      log.push(['queuePlayerNotice', playerId, text, kind]);
+    },
+    spawnGroundItem(runtime: unknown, x: number, y: number, droppedItem: unknown) {
+      log.push(['spawnGroundItem', runtime === instance, x, y, droppedItem]);
+    },
+  };
+
+  await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context');
+
+  assert.deepEqual(log, [
+    ['spawnGroundItem', true, 7, 8, item],
+    ['queuePlayerNotice', player.playerId, '鼠尾 掉落在 (7, 8) 的地面上，但本次奖励缺少可确认的背包落盘上下文。', 'loot'],
+  ]);
+  assert.deepEqual(player.inventory.items, []);
+}
+
+async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {
+  const log: Array<unknown[]> = [];
+  const player = {
+    playerId: 'player:combat:durable-failure',
+    instanceId: 'instance:combat:1',
+    runtimeOwnerId: 'runtime:combat:failure',
+    sessionEpoch: 3,
+    inventory: {
+      items: [],
+      revision: 0,
+      capacity: 20,
+    },
+    persistentRevision: 0,
+    selfRevision: 0,
+    dirtyDomains: new Set<string>(),
+    suppressImmediateDomainPersistence: false,
+  };
+  const item = { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
+  const instance = {
+    meta: { instanceId: 'instance:combat:1' },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      assert.equal(playerId, player.playerId);
+      return player;
+    },
+    canReceiveInventoryItem(playerId: string, itemId: string) {
+      assert.equal(playerId, player.playerId);
+      assert.equal(itemId, item.itemId);
+      return true;
+    },
+    receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
+      assert.equal(playerId, player.playerId);
+      player.inventory.items.push({ ...grantedItem });
+      player.inventory.revision += 1;
+      player.persistentRevision += 1;
+      player.selfRevision += 1;
+      player.dirtyDomains = new Set(['inventory']);
+    },
+    playerProgressionService: {
+      refreshPreview() {},
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
+  const deps = {
+    durableOperationService: {
+      isEnabled() {
+        return true;
+      },
+      async grantInventoryItems() {
+        throw new Error('simulated_durable_failure');
+      },
+    },
+    instanceCatalogService: {
+      isEnabled() {
+        return true;
+      },
+      async loadInstanceCatalog(instanceId: string) {
+        assert.equal(instanceId, 'instance:combat:1');
+        return {
+          assigned_node_id: 'node:combat',
+          ownership_epoch: 21,
+        };
+      },
+    },
+    queuePlayerNotice(playerId: string, text: string, kind: string) {
+      log.push(['queuePlayerNotice', playerId, text, kind]);
+    },
+    spawnGroundItem(runtime: unknown, x: number, y: number, droppedItem: unknown) {
+      log.push(['spawnGroundItem', runtime === instance, x, y, droppedItem]);
+    },
+  };
+
+  await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:durable-failure');
+
+  assert.deepEqual(log, [
+    ['spawnGroundItem', true, 7, 8, item],
+    ['queuePlayerNotice', player.playerId, '鼠尾 掉落在 (7, 8) 的地面上，但本次奖励落盘失败。', 'loot'],
+  ]);
+  assert.deepEqual(player.inventory.items, []);
+  assert.equal(player.inventory.revision, 0);
 }
 
 async function testPvPLootDurableGrant() {
