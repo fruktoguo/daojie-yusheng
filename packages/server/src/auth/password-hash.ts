@@ -62,11 +62,16 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
     return false;
   }
 
-  const derived = scryptSync(normalizedPassword, parsed.salt, parsed.keyLength, {
-    N: parsed.cost,
-    r: parsed.blockSize,
-    p: parsed.parallelization,
-  });
+  let derived: Buffer;
+  try {
+    derived = scryptSync(normalizedPassword, parsed.salt, parsed.keyLength, {
+      N: parsed.cost,
+      r: parsed.blockSize,
+      p: parsed.parallelization,
+    });
+  } catch {
+    return false;
+  }
   const expected = Buffer.from(parsed.hash, 'hex');
 
   return derived.length === expected.length && timingSafeEqual(derived, expected);

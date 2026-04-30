@@ -183,6 +183,7 @@
     "smoke:world-runtime-sect": "pnpm compile && node dist/tools/world-runtime-sect-smoke.js",
     "smoke:readiness-gate": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case readiness-gate",
     "smoke:auth-bootstrap": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap",
+    "smoke:player-password-hash": "pnpm compile && node dist/tools/player-password-hash-smoke.js",
     "smoke:auth-bootstrap:mainline": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap-mainline",
     "smoke:auth-bootstrap:migration": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap-migration",
     "smoke:mail-schema-report": "pnpm compile && node dist/tools/mail-schema-report.js",
