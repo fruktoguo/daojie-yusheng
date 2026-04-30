@@ -217,33 +217,67 @@ jobs:
             code="$(curl --connect-timeout 3 --max-time 8 -sS -o "$body" -w "%{http_code}" \
               -H 'Content-Type: application/json' \
               -X POST "$url" \
-              --data "$data")"
+              --data "$data" || printf 'curl_error')"
             if ! printf '%s\n' "$code" | grep -Eq "$expected"; then
               echo "route probe failed: $name url=$url status=$code expected=$expected" >&2
               sed -n '1,80p' "$body" >&2 || true
-              exit 1
+              return 1
             fi
             echo "route probe ok: $name status=$code"
+          }
+
+          wait_for_health() {
+            name="$1"
+            url="$2"
+            body="/tmp/${name}.out"
+            attempt=1
+            while [ "$attempt" -le 24 ]; do
+              if curl --connect-timeout 3 --max-time 8 -fsS "$url" >"$body"; then
+                echo "route probe ok: $name attempt=$attempt"
+                return 0
+              fi
+              sleep 2
+              attempt=$((attempt + 1))
+            done
+            echo "route probe failed: $name url=$url after retries" >&2
+            sed -n '1,80p' "$body" >&2 || true
+            return 1
+          }
+
+          wait_for_json_code() {
+            name="$1"
+            url="$2"
+            data="$3"
+            expected="$4"
+            attempt=1
+            while [ "$attempt" -le 24 ]; do
+              if request_json_code "$name" "$url" "$data" "$expected"; then
+                echo "route probe ok: $name attempt=$attempt"
+                return 0
+              fi
+              sleep 2
+              attempt=$((attempt + 1))
+            done
+            return 1
           }
 
           json_escape() {
             printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
           }
 
-          curl --connect-timeout 3 --max-time 8 -fsS http://127.0.0.1:11922/health >/tmp/daojie-health.out
-          echo "route probe ok: server-health"
+          wait_for_health server-health http://127.0.0.1:11922/health
 
-          request_json_code player-login \
+          wait_for_json_code player-login \
             http://127.0.0.1:11922/api/auth/login \
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
 
-          request_json_code gm-login \
+          wait_for_json_code gm-login \
             http://127.0.0.1:11922/api/auth/gm/login \
             "{\"password\":\"$(json_escape "$GM_PASSWORD")\"}" \
             '^200$'
 
-          request_json_code client-player-login \
+          wait_for_json_code client-player-login \
             http://127.0.0.1:11921/api/auth/login \
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
