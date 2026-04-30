@@ -2738,6 +2738,22 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
 async function ensurePlayerPresenceColumnsWithClient(client: PoolClient): Promise<void> {
   await client.query(`
     ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ADD COLUMN IF NOT EXISTS player_id varchar(100)
+  `);
+  if (await hasColumn(client, PLAYER_PRESENCE_TABLE, 'playerId')) {
+    await client.query(`
+      UPDATE ${PLAYER_PRESENCE_TABLE}
+      SET player_id = "playerId"
+      WHERE player_id IS NULL
+        AND "playerId" IS NOT NULL
+    `);
+  }
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS player_presence_player_id_idx
+    ON ${PLAYER_PRESENCE_TABLE}(player_id)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
     ADD COLUMN IF NOT EXISTS online boolean NOT NULL DEFAULT false
   `);
   await client.query(`
@@ -2772,6 +2788,21 @@ async function ensurePlayerPresenceColumnsWithClient(client: PoolClient): Promis
     ALTER TABLE ${PLAYER_PRESENCE_TABLE}
     ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()
   `);
+}
+
+async function hasColumn(client: PoolClient, tableName: string, columnName: string): Promise<boolean> {
+  const result = await client.query(
+    `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName],
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Promise<void> {

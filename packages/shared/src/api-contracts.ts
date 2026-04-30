@@ -945,6 +945,9 @@ export type GmDatabaseJobStatus = 'running' | 'completed' | 'failed';
 /** 数据库备份文件格式。 */
 export type GmDatabaseBackupFormat = 'postgres_custom_dump' | 'mainline_json_snapshot';
 
+/** 数据库备份/恢复作业日志级别。 */
+export type GmDatabaseJobLogLevel = 'info' | 'error';
+
 /** 单个数据库备份记录。 */
 export interface GmDatabaseBackupRecord {
 /**
@@ -999,6 +1002,30 @@ export interface GmDatabaseBackupRecord {
   tablesChecksumSha256?: string;
 }
 
+/** 数据库备份/恢复作业日志。 */
+export interface GmDatabaseJobLogEntry {
+/**
+ * at：日志时间。
+ */
+
+  at: string;
+  /**
+ * level：日志级别。
+ */
+
+  level: GmDatabaseJobLogLevel;
+  /**
+ * message：日志内容。
+ */
+
+  message: string;
+  /**
+ * phase：作业阶段。
+ */
+
+  phase?: string;
+}
+
 /** 数据库备份/恢复作业快照。 */
 export interface GmDatabaseJobSnapshot {
 /**
@@ -1046,6 +1073,26 @@ export interface GmDatabaseJobSnapshot {
  */
 
   error?: string;
+  /**
+ * phase：当前或结束阶段。
+ */
+
+  phase?: string;
+  /**
+ * checkpointBackupId：导入前检查点备份 ID。
+ */
+
+  checkpointBackupId?: string;
+  /**
+ * appliedAt：恢复实际写入完成时间。
+ */
+
+  appliedAt?: string;
+  /**
+ * logs：最近作业日志。
+ */
+
+  logs?: GmDatabaseJobLogEntry[];
 }
 
 /** 数据库管理状态响应。 */
@@ -1065,6 +1112,11 @@ export interface GmDatabaseStateRes {
  */
 
   lastJob?: GmDatabaseJobSnapshot;
+  /**
+ * recentJobLogs：最近数据库任务日志。
+ */
+
+  recentJobLogs?: GmDatabaseJobLogEntry[];
   /**
  * persistenceEnabled：启用开关或状态标识。
  */

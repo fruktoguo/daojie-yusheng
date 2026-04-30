@@ -2510,8 +2510,52 @@ function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
       ? '已完成'
       : '失败';
   const finishedText = job.finishedAt ? ` · 结束于 ${formatDateTime(job.finishedAt)}` : '';
+  const phaseText = job.phase ? ` · 阶段 ${job.phase}` : '';
   const errorText = job.error ? ` · ${job.error}` : '';
-  return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${errorText}`;
+  return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${phaseText}${errorText}`;
+}
+
+/** renderDatabaseJobDetails：渲染数据库任务详情。 */
+function renderDatabaseJobDetails(data: GmDatabaseStateRes | null): string {
+  const job = data?.runningJob ?? data?.lastJob;
+  if (!job) {
+    return '<div class="empty-hint">暂无数据库任务详情。</div>';
+  }
+  const rows = [
+    ['任务 ID', job.id],
+    ['类型', job.type === 'restore' ? '导入/恢复' : '导出/备份'],
+    ['状态', job.status === 'running' ? '进行中' : job.status === 'completed' ? '已完成' : '失败'],
+    ['阶段', job.phase ?? '未记录'],
+    ['来源备份', job.sourceBackupId ?? job.backupId ?? '未记录'],
+    ['导入前备份', job.checkpointBackupId ?? '未生成'],
+    ['开始时间', formatDateTime(job.startedAt)],
+    ['应用时间', job.appliedAt ? formatDateTime(job.appliedAt) : '未记录'],
+    ['结束时间', job.finishedAt ? formatDateTime(job.finishedAt) : '未结束'],
+  ];
+  const details = rows.map(([label, value]) => `
+    <div class="network-row">
+      <div class="network-row-label">${escapeHtml(label)}</div>
+      <div class="network-row-meta">${escapeHtml(value)}</div>
+    </div>
+  `).join('');
+  const error = job.error
+    ? `<div class="note-card danger-text">${escapeHtml(job.error)}</div>`
+    : '';
+  return `${details}${error}`;
+}
+
+/** renderDatabaseJobLogs：渲染数据库任务日志。 */
+function renderDatabaseJobLogs(data: GmDatabaseStateRes | null): string {
+  const logs = data?.recentJobLogs ?? data?.runningJob?.logs ?? data?.lastJob?.logs ?? [];
+  if (logs.length === 0) {
+    return '<div class="empty-hint">暂无数据库任务日志。</div>';
+  }
+  return logs.slice(-20).map((entry) => `
+    <div class="network-row">
+      <div class="network-row-label">${escapeHtml(formatDateTime(entry.at))} · ${entry.level === 'error' ? '错误' : '信息'}</div>
+      <div class="network-row-meta">${escapeHtml(entry.phase ? `${entry.phase} · ${entry.message}` : entry.message)}</div>
+    </div>
+  `).join('');
 }
 
 /** renderDatabasePanel：渲染数据库面板。 */
@@ -2544,6 +2588,8 @@ function renderDatabasePanel(): void {
   const importStatus = databaseImportStatus
     ? databaseImportStatus
     : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套维护态恢复流程。';
+  const jobDetails = renderDatabaseJobDetails(databaseState);
+  const jobLogs = renderDatabaseJobLogs(databaseState);
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2565,6 +2611,20 @@ function renderDatabasePanel(): void {
       <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出数据库备份</button>
     </div>
     <div class="note-card">${escapeHtml(summary)}</div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">数据库任务状态</div>
+        <div class="network-breakdown-subtitle">显示最近一次导出/导入的阶段、导入前备份和错误信息</div>
+      </div>
+      <div class="network-breakdown-list">${jobDetails}</div>
+    </div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">数据库任务日志</div>
+        <div class="network-breakdown-subtitle">恢复失败时会在这里显示服务端记录的阶段和报错</div>
+      </div>
+      <div class="network-breakdown-list">${jobLogs}</div>
+    </div>
     <div class="note-card">
       ${escapeHtml(scopeLine)}<br />
       ${escapeHtml(restoreModeLine)}<br />

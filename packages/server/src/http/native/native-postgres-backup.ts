@@ -189,6 +189,7 @@ async function materializeFilteredRestoreSql(
     const output = createWriteStream(sqlFilePath);
     let stderr = '';
     let settled = false;
+    let resetInjected = false;
     const timeout = createProcessTimeout(restoreChild, 'pg_restore', (message) => {
       stderr = stderr ? `${stderr}\n${message}` : message;
     });
@@ -227,7 +228,17 @@ async function materializeFilteredRestoreSql(
           if (shouldSkipExtensionStatement(line)) {
             continue;
           }
+          if (!resetInjected && line.trim().toUpperCase() === 'BEGIN;') {
+            output.write(`${line}\n`);
+            output.write('DROP SCHEMA IF EXISTS public CASCADE;\n');
+            output.write('CREATE SCHEMA public;\n');
+            resetInjected = true;
+            continue;
+          }
           output.write(`${line}\n`);
+        }
+        if (!resetInjected) {
+          throw new Error('pg_restore 未输出事务起点，拒绝执行非原子数据库恢复');
         }
         output.end();
       } catch (error: unknown) {

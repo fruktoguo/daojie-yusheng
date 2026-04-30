@@ -295,6 +295,7 @@ export class NativeGmAdminService {
             backups,
             runningJob: this.currentDatabaseJob ?? undefined,
             lastJob: this.lastDatabaseJob ?? undefined,
+            recentJobLogs: getDatabaseJobLogs(this.currentDatabaseJob ?? this.lastDatabaseJob),
             retention: { ...DEFAULT_DB_RETENTION },
             schedules: { ...DEFAULT_DB_SCHEDULES },
             automation: {
@@ -507,6 +508,7 @@ export class NativeGmAdminService {
                 kind: 'pre_import',
                 job: null,
             });
+            this.appendDatabaseJobLog(job, `导入前备份已生成：${checkpointBackupId}`);
             try {
                 process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
@@ -517,6 +519,11 @@ export class NativeGmAdminService {
                     throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
                 }
                 await restorePostgresCustomDump(record.filePath, databaseUrl);
+                if (this.pool) {
+                    await ensureNativeGmAdminTables(this.pool);
+                    await this.backfillBackupMetadataFromFilesystem();
+                }
+                this.appendDatabaseJobLog(job, '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
                 job.appliedAt = new Date().toISOString();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
             }
@@ -1748,11 +1755,16 @@ export class NativeGmAdminService {
 
     startDatabaseJob(input) {
         this.assertNoRunningDatabaseJob();
-        this.currentDatabaseJob = input;
+        const startedJob = {
+            ...input,
+            logs: getDatabaseJobLogs(input),
+        };
+        this.currentDatabaseJob = startedJob;
+        this.appendDatabaseJobLog(startedJob, '数据库任务已创建');
         void this.persistDatabaseJobState().catch((error) => {
             this.logger.error('兼容数据库任务状态持久化失败', error instanceof Error ? error.stack : String(error));
         });
-        return input;
+        return startedJob;
     }
     /**
  * updateDatabaseJobPhase：判断DatabaseJob阶段是否满足条件。
@@ -1774,8 +1786,41 @@ export class NativeGmAdminService {
         if (this.currentDatabaseJob?.id === job.id) {
             this.currentDatabaseJob.phase = phase;
         }
+        this.appendDatabaseJobLog(job, `进入阶段：${phase}`, 'info', false);
         void this.persistDatabaseJobState().catch((error) => {
             this.logger.error('兼容数据库任务阶段持久化失败', error instanceof Error ? error.stack : String(error));
+        });
+    }
+    /**
+ * appendDatabaseJobLog：记录数据库任务日志。
+ * @param job 参数说明。
+ * @param message 参数说明。
+ * @param level 参数说明。
+ * @param persist 是否立即持久化。
+ * @returns 无返回值，直接更新数据库任务日志。
+ */
+
+    appendDatabaseJobLog(job, message, level = 'info', persist = true) {
+        if (!job || typeof message !== 'string' || !message.trim()) {
+            return;
+        }
+        const entry = {
+            at: new Date().toISOString(),
+            level,
+            message: message.trim(),
+            phase: typeof job.phase === 'string' ? job.phase : undefined,
+        };
+        const logs = getDatabaseJobLogs(job);
+        logs.push(entry);
+        job.logs = logs.slice(-40);
+        if (this.currentDatabaseJob?.id === job.id) {
+            this.currentDatabaseJob.logs = job.logs;
+        }
+        if (!persist) {
+            return;
+        }
+        void this.persistDatabaseJobState().catch((error) => {
+            this.logger.error('兼容数据库任务日志持久化失败', error instanceof Error ? error.stack : String(error));
         });
     }
     /**
@@ -1799,6 +1844,7 @@ export class NativeGmAdminService {
         catch (error) {
             job.status = 'failed';
             job.error = error instanceof Error ? error.message : String(error);
+            this.appendDatabaseJobLog(job, job.error, 'error', false);
             this.logger.error(`兼容数据库任务失败: ${job.error}`);
         }
         finally {
@@ -2014,6 +2060,48 @@ function cloneDatabaseJob(value) {
     return normalized ? { ...normalized } : null;
 }
 /**
+ * getDatabaseJobLogs：读取数据库任务日志。
+ * @param value 参数说明。
+ * @returns 数据库任务日志。
+ */
+
+function getDatabaseJobLogs(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || !Array.isArray(value.logs)) {
+        return [];
+    }
+    return value.logs
+        .map((entry) => normalizeDatabaseJobLogEntry(entry))
+        .filter((entry) => entry !== null)
+        .slice(-40);
+}
+
+/**
+ * normalizeDatabaseJobLogEntry：规范化数据库任务日志。
+ * @param value 参数说明。
+ * @returns 数据库任务日志。
+ */
+
+function normalizeDatabaseJobLogEntry(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const record = asRecord(value);
+    const at = normalizeTimestamp(record?.at);
+    const message = typeof record?.message === 'string' && record.message.trim() ? record.message.trim() : '';
+    if (!at || !message) {
+        return null;
+    }
+    const level = record?.level === 'error' ? 'error' : 'info';
+    const phase = typeof record?.phase === 'string' && record.phase.trim() ? record.phase.trim() : undefined;
+    return {
+        at,
+        level,
+        message,
+        phase,
+    };
+}
+/**
  * buildBackupFilePath：构建并返回目标对象。
  * @param backupDirectory 参数说明。
  * @param fileName 参数说明。
@@ -2151,6 +2239,7 @@ function normalizeDatabaseJobSnapshot(value) {
         : undefined;
 
     const appliedAt = normalizeTimestamp(record?.appliedAt) ?? undefined;
+    const logs = getDatabaseJobLogs(record);
     return {
         id,
         type,
@@ -2164,6 +2253,7 @@ function normalizeDatabaseJobSnapshot(value) {
         appliedAt,
         phase,
         error,
+        logs,
     };
 }
 /**
