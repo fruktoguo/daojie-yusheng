@@ -146,7 +146,7 @@ function testBreakthroughOnlyUsesTotalAttributes() {
     assert.equal(player.inventory.revision, 0);
 }
 
-function testSpiritualRootRequirementDoesNotBlockBreakthrough() {
+function testSpiritualRootRequirementBlocksQiRefiningBreakthrough() {
     const service = new PlayerProgressionService({
         getItemName(itemId) {
             return itemId;
@@ -184,8 +184,14 @@ function testSpiritualRootRequirementDoesNotBlockBreakthrough() {
         selfRevision: 0,
     };
     const preview = service.buildBreakthroughPreview(player, player.realm);
-    assert.equal(preview.canBreakthrough, true, 'root/spiritual-root config should not block six-stat-only breakthrough');
-    assert.equal(preview.requirements.some((entry) => entry.type === 'root'), false);
+    assert.equal(preview.canBreakthrough, false, 'qi refining breakthrough should require at least one spiritual root');
+    assert.equal(preview.requirements.find((entry) => entry.type === 'root')?.detail, '当前最高灵根 0 / 1');
+    assert.equal(service.attemptBreakthrough(player).changed, false);
+
+    player.spiritualRoots = { metal: 1, wood: 0, water: 0, fire: 0, earth: 0 };
+    const readyPreview = service.buildBreakthroughPreview(player, player.realm);
+    assert.equal(readyPreview.canBreakthrough, true);
+    assert.equal(readyPreview.requirements.find((entry) => entry.type === 'root')?.detail, '当前最高灵根 1 / 1');
     const result = service.attemptBreakthrough(player);
     assert.equal(result.changed, true);
     assert.equal(player.realm.realmLv, 19);
@@ -195,6 +201,6 @@ testBreakthrough();
 testHeavenGateAction();
 testRootFoundationRefineAcceptsExactMaterialCount();
 testBreakthroughOnlyUsesTotalAttributes();
-testSpiritualRootRequirementDoesNotBlockBreakthrough();
+testSpiritualRootRequirementBlocksQiRefiningBreakthrough();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-progression' }, null, 2));

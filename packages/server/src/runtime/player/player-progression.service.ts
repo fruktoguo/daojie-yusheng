@@ -1046,6 +1046,19 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     });
                     continue;
                 }
+                if (requirement.type === 'root') {
+                    const currentValue = getMaxSpiritualRootValue(player);
+                    requirements.push({
+                        id: requirement.id,
+                        type: 'root',
+                        label: requirement.label ?? `任意灵根达到 ${requirement.minValue}`,
+                        completed: currentValue >= requirement.minValue,
+                        hidden: false,
+                        blocksBreakthrough: true,
+                        detail: `当前最高灵根 ${currentValue} / ${requirement.minValue}`,
+                    });
+                    continue;
+                }
             }
             if (transition.toRealmLv > this.maxRealmLevel) {
                 requirements.push({
