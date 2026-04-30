@@ -753,6 +753,7 @@ async function main() {
  * 记录备份内 GM 认证文档。
  */
     let backupGmAuthPayload = null;
+    let preservedGmAuthPayload = null;
 /**
  * 记录原始备份record。
  */
@@ -899,6 +900,10 @@ async function main() {
  * 记录changed令牌。
  */
         const changedToken = await login(changedGmPassword);
+        preservedGmAuthPayload = await readGmAuthPasswordRecordPayload();
+        if (!preservedGmAuthPayload) {
+            throw new Error('expected changed GM auth password record to exist before restore');
+        }
         await expectRestoreRejectedWithoutMaintenance(changedToken, originalBackupId);
     }
     finally {
@@ -951,11 +956,11 @@ async function main() {
 /**
  * 记录恢复状态。
  */
-        const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId, token, backupGmAuthPayload);
+        const restoreState = await waitForRestoreSettledAfterPreservedPassword(restoreJobId, token, preservedGmAuthPayload);
         logStage('restore:completed', {
             jobId: restoreJobId,
         });
-        await assertGmAuthPasswordRecordMatchesBackup(backupGmAuthPayload);
+        await assertGmAuthPasswordRecordMatchesPayload(preservedGmAuthPayload);
         checkpointBackupId = String(restoreState.lastJob?.checkpointBackupId ?? '').trim();
         if (!checkpointBackupId) {
             throw new Error(`expected checkpointBackupId in restore lastJob: ${JSON.stringify(restoreState.lastJob)}`);
@@ -970,7 +975,7 @@ async function main() {
 /**
  * 记录rollback令牌。
  */
-        const rollbackToken = await login(gmPassword);
+        const rollbackToken = await login(changedGmPassword);
         await assertBackupDownload(rollbackToken, checkpointBackupId, requireBackupRecord(restoreState, checkpointBackupId, 'checkpoint backup'));
         await waitForMailPresent(playerId, preBackupMailId, mailPageTotalBaseline);
         await waitForSuggestionAbsent(rollbackToken, postBackupSuggestionId);
@@ -993,12 +998,12 @@ async function main() {
     server = await startServer({ maintenance: false });
     try {
         await waitForHealth({ expectedStatus: 200, expectMaintenance: false });
-        await login(gmPassword);
-        await expectLoginFailure(changedGmPassword);
+        await login(changedGmPassword);
+        await expectLoginFailure(gmPassword);
 /**
  * 记录令牌。
  */
-        const token = await login(gmPassword);
+        const token = await login(changedGmPassword);
 /**
  * 记录final状态。
  */
@@ -1045,7 +1050,7 @@ async function main() {
 /**
  * 记录令牌。
  */
-        const token = await login(gmPassword);
+        const token = await login(changedGmPassword);
 /**
  * 记录interrupted恢复。
  */
@@ -1066,7 +1071,7 @@ async function main() {
 /**
  * 记录令牌。
  */
-        const token = await login(gmPassword);
+        const token = await login(changedGmPassword);
         interruptedRestoreLastJob = await assertInterruptedRestoreFailedAfterRestart(token, {
             jobId: interruptedRestoreJobId,
             backupId: originalBackupId,
@@ -1102,6 +1107,7 @@ async function main() {
     }
     finally {
         await stopServer(server);
+        await resetGmAuthPasswordRecord().catch(() => undefined);
         await node_fs_1.promises.rm(backupDirectory, { recursive: true, force: true }).catch(() => undefined);
     }
 }
@@ -1618,7 +1624,7 @@ function normalizeComparableJson(value) {
         .map((key) => [key, normalizeComparableJson(value[key])]));
 }
 
-async function assertGmAuthPasswordRecordMatchesBackup(expectedPayload) {
+async function assertGmAuthPasswordRecordMatchesPayload(expectedPayload) {
   const client = new pg_1.Client({ connectionString: databaseUrl });
   await client.connect();
   try {
@@ -1630,7 +1636,7 @@ async function assertGmAuthPasswordRecordMatchesBackup(expectedPayload) {
     }
     const currentPayload = result.rows[0]?.raw_payload ?? null;
     if (JSON.stringify(currentPayload) !== JSON.stringify(expectedPayload)) {
-      throw new Error(`expected restored GM auth password record to match backup payload, got ${JSON.stringify({
+      throw new Error(`expected restored GM auth password record to match preserved payload, got ${JSON.stringify({
         expectedPayload,
         currentPayload,
       })}`);
@@ -2565,7 +2571,7 @@ async function waitForJobSettled(token, jobId, type) {
 /**
  * 等待for恢复settledafterpasswordrollback。
  */
-async function waitForRestoreSettledAfterPasswordRollback(jobId, token, expectedGmAuthPayload) {
+async function waitForRestoreSettledAfterPreservedPassword(jobId, token, expectedGmAuthPayload) {
     await waitForCondition(async () => {
         try {
             return resolveCompletedRestoreState(await authedGetJson('/api/gm/database/state', token), jobId);
@@ -2585,7 +2591,7 @@ async function waitForRestoreSettledAfterPasswordRollback(jobId, token, expected
         const currentPayload = await readGmAuthPasswordRecordPayload();
         return JSON.stringify(currentPayload) === JSON.stringify(expectedGmAuthPayload);
     }, 15000, 1000);
-    const rollbackToken = await login(gmPassword);
+    const rollbackToken = await login(changedGmPassword);
     return waitForCondition(async () => {
 /**
  * 记录状态。
