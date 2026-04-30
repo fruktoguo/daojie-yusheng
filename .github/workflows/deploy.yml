@@ -170,26 +170,26 @@ jobs:
         run: |
           set -euo pipefail
           CURL_IMAGE="curlimages/curl:8.10.1"
-          NET="daojie-yusheng_daojie_net"
 
-          docker --context production run --rm --network "$NET" "$CURL_IMAGE" -fsS http://daojie-yusheng_server:13001/health
+          docker --context production service logs --tail 120 daojie-yusheng_server || true
+          docker --context production service logs --tail 80 daojie-yusheng_client || true
 
-          docker --context production run --rm --network "$NET" "$CURL_IMAGE" -sS -o /tmp/player-login.out -w "%{http_code}" \
+          docker --context production run --rm --network host "$CURL_IMAGE" -fsS http://127.0.0.1:11922/health
+
+          docker --context production run --rm --network host "$CURL_IMAGE" -sS -o /tmp/player-login.out -w "%{http_code}" \
             -H 'Content-Type: application/json' \
-            -X POST http://daojie-yusheng_server:13001/api/auth/login \
+            -X POST http://127.0.0.1:11922/api/auth/login \
             --data '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             | grep -Eq '^(400|401)$'
 
-          docker --context production run --rm --network "$NET" "$CURL_IMAGE" -sS -o /tmp/gm-login.out -w "%{http_code}" \
+          docker --context production run --rm --network host "$CURL_IMAGE" -sS -o /tmp/gm-login.out -w "%{http_code}" \
             -H 'Content-Type: application/json' \
-            -X POST http://daojie-yusheng_server:13001/api/auth/gm/login \
+            -X POST http://127.0.0.1:11922/api/auth/gm/login \
             --data "{\"password\":\"$GM_PASSWORD\"}" \
             | grep -Eq '^200$'
 
-          docker --context production run --rm --network "$NET" "$CURL_IMAGE" -sS -o /tmp/client-login.out -w "%{http_code}" \
+          docker --context production run --rm --network host "$CURL_IMAGE" -sS -o /tmp/client-login.out -w "%{http_code}" \
             -H 'Content-Type: application/json' \
-            -X POST http://daojie-yusheng_client/api/auth/login \
+            -X POST http://127.0.0.1:11921/api/auth/login \
             --data '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             | grep -Eq '^(400|401)$'
-
-          docker --context production service logs --tail 80 daojie-yusheng_server || true
