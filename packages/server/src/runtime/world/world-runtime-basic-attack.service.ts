@@ -344,10 +344,22 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  */
 
     resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind) {
-        const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, Math.floor(monster.level ?? 1) * 100));
+        const monsterCombatExp = this.resolveMonsterCombatExpEquivalent(monster);
+        const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
         const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(Math.max(1, attacker.realm?.realmLv ?? 1), Math.max(1, Math.floor(monster.level ?? 1)));
         return this.resolveBasicAttackDamage(attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors, baseDamage, damageKind, combatExpMultiplier * realmGapMultiplier);
     }    
+    resolveMonsterCombatExpEquivalent(monster) {
+        const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
+        const progressionService = this.playerRuntimeService?.playerProgressionService;
+        if (typeof progressionService?.getMonsterCombatExpEquivalent === 'function') {
+            const resolved = progressionService.getMonsterCombatExpEquivalent(level);
+            if (Number.isFinite(resolved) && resolved > 0) {
+                return Math.floor(resolved);
+            }
+        }
+        return level * 100;
+    }
     /**
  * resolveBasicAttackDamageAgainstPlayer：按 legacy 普攻口径结算对玩家伤害。
  * @param attacker 参数说明。

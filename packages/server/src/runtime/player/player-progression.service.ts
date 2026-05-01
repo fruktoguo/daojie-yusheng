@@ -886,6 +886,17 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             review: entry.review,
         })).sort((left, right) => left.realmLv - right.realmLv);
     }    
+    /** 按 main 口径计算怪物在战斗经验伤害分层中的等价值。 */
+    getMonsterCombatExpEquivalent(monsterLevel) {
+        const normalizedLevel = Math.max(1, Math.floor(Number(monsterLevel) || 1));
+        const realmEntry = this.realmLevels.get(normalizedLevel);
+        if (!realmEntry) {
+            return 0;
+        }
+        const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(realmEntry.grade ?? 'mortal'));
+        const gradeFactor = (gradeIndex + 1) / 4;
+        return Math.max(0, Math.floor(Math.max(0, Number(realmEntry.expToNext) || 0) * gradeFactor));
+    }
     /**
  * resolveInitialRealmState：规范化或转换InitialRealm状态。
  * @param player 玩家对象。
