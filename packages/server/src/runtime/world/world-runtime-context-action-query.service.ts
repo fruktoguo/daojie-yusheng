@@ -151,7 +151,7 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         if (respawnTargetMapId && this.templateRepository.has(respawnTargetMapId)) {
             respawnTargetName = this.templateRepository.getOrThrow(respawnTargetMapId).name || respawnTargetMapId;
         }
-        const returnReadyTick = Math.max(0, Math.trunc(Number(player?.combat?.cooldownReadyTickBySkillId?.[shared_1.RETURN_TO_SPAWN_ACTION_ID] ?? 0)));
+        const returnReadyTick = normalizeReturnToSpawnReadyTick(player, currentTick);
         const returnCooldownLeft = Math.max(0, returnReadyTick - currentTick);
         actions.push({
             id: shared_1.RETURN_TO_SPAWN_ACTION_ID,
@@ -293,5 +293,30 @@ exports.WorldRuntimeContextActionQueryService = WorldRuntimeContextActionQuerySe
         player_runtime_service_1.PlayerRuntimeService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService])
 ], WorldRuntimeContextActionQueryService);
+
+function normalizeReturnToSpawnReadyTick(player, currentTick) {
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns) {
+        return 0;
+    }
+    const actionId = shared_1.RETURN_TO_SPAWN_ACTION_ID;
+    const readyTick = Math.max(0, Math.trunc(Number(cooldowns[actionId] ?? 0)));
+    if (readyTick <= 0) {
+        return 0;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const remainingTicks = readyTick - normalizedCurrentTick;
+    if (normalizedCurrentTick <= 0) {
+        // 查询路径可能没有地图 tick，只收敛显示值，不清运行时真源。
+        return readyTick > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+            ? shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+            : readyTick;
+    }
+    if (remainingTicks <= 0 || remainingTicks > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS) {
+        delete cooldowns[actionId];
+        return 0;
+    }
+    return readyTick;
+}
 
 export { WorldRuntimeContextActionQueryService };

@@ -141,7 +141,7 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
         const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(playerId)
             : 0;
-        const readyTick = Math.max(0, Math.trunc(Number(player.combat?.cooldownReadyTickBySkillId?.[shared_1.RETURN_TO_SPAWN_ACTION_ID] ?? 0)));
+        const readyTick = normalizeReturnToSpawnReadyTick(player, currentTick);
         const cooldownLeft = Math.max(0, readyTick - currentTick);
         if (cooldownLeft > 0) {
             if (typeof deps.queuePlayerNotice === 'function') {
@@ -170,5 +170,30 @@ exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService = __
         world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService,
         world_runtime_gm_system_command_service_1.WorldRuntimeGmSystemCommandService])
 ], WorldRuntimeSystemCommandService);
+
+function normalizeReturnToSpawnReadyTick(player, currentTick) {
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns) {
+        return 0;
+    }
+    const actionId = shared_1.RETURN_TO_SPAWN_ACTION_ID;
+    const readyTick = Math.max(0, Math.trunc(Number(cooldowns[actionId] ?? 0)));
+    if (readyTick <= 0) {
+        return 0;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const remainingTicks = readyTick - normalizedCurrentTick;
+    if (normalizedCurrentTick <= 0) {
+        // 系统命令缺少地图 tick 时只收敛提示值，不清运行时真源。
+        return readyTick > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+            ? shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+            : readyTick;
+    }
+    if (remainingTicks <= 0 || remainingTicks > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS) {
+        delete cooldowns[actionId];
+        return 0;
+    }
+    return readyTick;
+}
 
 export { WorldRuntimeSystemCommandService };

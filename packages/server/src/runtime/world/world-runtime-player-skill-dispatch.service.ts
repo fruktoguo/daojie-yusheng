@@ -108,7 +108,7 @@ function resolveTechniqueLevelForSkill(player, skillId) {
 }
 
 function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick) {
-    const readyTick = attacker.combat?.cooldownReadyTickBySkillId?.[skill.id] ?? 0;
+    const readyTick = normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick);
     if (currentTick < readyTick) {
         throw new common_1.BadRequestException(`Skill ${skill.id} cooling down`);
     }
@@ -122,6 +122,24 @@ function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, c
     }
     playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + resolvePlayerSkillCooldownTicks(attacker, skill.cooldown), currentTick);
     return qiCost;
+}
+function normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick) {
+    const cooldowns = attacker?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns || !skill?.id) {
+        return 0;
+    }
+    const readyTick = Math.max(0, Math.trunc(Number(cooldowns[skill.id] ?? 0)));
+    if (readyTick <= 0) {
+        return 0;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const remainingTicks = readyTick - normalizedCurrentTick;
+    const maxCooldownTicks = resolvePlayerSkillCooldownTicks(attacker, skill.cooldown);
+    if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
+        delete cooldowns[skill.id];
+        return 0;
+    }
+    return readyTick;
 }
 function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
     const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));

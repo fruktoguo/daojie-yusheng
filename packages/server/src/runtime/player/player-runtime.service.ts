@@ -4443,13 +4443,18 @@ function buildActionEntries(player, currentTick) {
                 continue;
             }
 
-            const readyTick = player.combat.cooldownReadyTickBySkillId[skill.id] ?? 0;
+            const normalizedReadyTick = normalizeActionCooldownReadyTick(
+                player,
+                skill.id,
+                currentTick,
+                resolvePlayerSkillActionCooldownTicks(player, skill.cooldown),
+            );
             actions.push({
                 id: skill.id,
                 name: skill.name,
                 type: 'skill',
                 desc: skill.desc,
-                cooldownLeft: Math.max(0, readyTick - currentTick),
+                cooldownLeft: Math.max(0, normalizedReadyTick - currentTick),
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: skill.requiresTarget ?? true,
                 targetMode: skill.targetMode ?? 'entity',
@@ -4461,7 +4466,12 @@ function buildActionEntries(player, currentTick) {
     }
     player.combat.autoBattleSkills = autoBattleSkills;
     for (const entry of player.actions.contextActions) {
-        const readyTick = Math.max(0, Math.trunc(Number(player.combat.cooldownReadyTickBySkillId[entry.id] ?? 0)));
+        const readyTick = normalizeActionCooldownReadyTick(
+            player,
+            entry.id,
+            currentTick,
+            resolveContextActionCooldownTicks(entry),
+        );
         actions.push({
             ...entry,
             cooldownLeft: readyTick > 0 ? Math.max(0, readyTick - currentTick) : Math.max(0, Number(entry.cooldownLeft ?? 0)),
@@ -4469,6 +4479,47 @@ function buildActionEntries(player, currentTick) {
     }
     actions.sort((left, right) => ((skillOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER)) || left.id.localeCompare(right.id, 'zh-Hans-CN'));
     return actions;
+}
+
+function resolvePlayerSkillActionCooldownTicks(player, cooldown) {
+    const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
+    const cooldownSpeed = Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0));
+    const cooldownDivisor = Math.max(1, Math.trunc(Number(player.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
+    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
+}
+
+function resolveContextActionCooldownTicks(entry) {
+    if (entry?.id === shared_1.RETURN_TO_SPAWN_ACTION_ID) {
+        return shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS;
+    }
+    return null;
+}
+
+function normalizeActionCooldownReadyTick(player, actionId, currentTick, maxCooldownTicks) {
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns || !actionId) {
+        return 0;
+    }
+    const readyTick = Math.max(0, Math.trunc(Number(cooldowns[actionId] ?? 0)));
+    if (readyTick <= 0) {
+        return 0;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const remainingTicks = readyTick - normalizedCurrentTick;
+    const normalizedMax = Number.isFinite(Number(maxCooldownTicks))
+        ? Math.max(1, Math.trunc(Number(maxCooldownTicks)))
+        : null;
+    if (normalizedCurrentTick <= 0) {
+        // 偏好/内容重建可能没有地图 tick，只收敛面板显示，不清运行时真源。
+        return normalizedMax !== null && readyTick > normalizedMax ? normalizedMax : readyTick;
+    }
+    if (remainingTicks <= 0 || (normalizedMax !== null && remainingTicks > normalizedMax)) {
+        delete cooldowns[actionId];
+        return 0;
+    }
+    return readyTick;
 }
 /**
  * isSameActionList：读取SameAction列表并返回结果。

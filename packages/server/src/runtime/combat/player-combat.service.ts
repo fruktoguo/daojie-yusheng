@@ -46,6 +46,7 @@ let PlayerCombatService = class PlayerCombatService {
         }
 
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
@@ -79,6 +80,7 @@ let PlayerCombatService = class PlayerCombatService {
     /** 玩家对自身执行无目标 Buff 技能，不进入敌对目标校验。 */
     castSelfSkill(attacker, skillId, currentTick, options = undefined) {
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
         const selfState = toCombatPlayerState(attacker);
         const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
             spendQi: (amount) => {
@@ -109,6 +111,7 @@ let PlayerCombatService = class PlayerCombatService {
     castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
 
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), target, resolved, currentTick, distance, {
             spendQi: (amount) => {
@@ -258,6 +261,28 @@ function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
         };
     }
     throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+}
+
+function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
+    const cooldowns = attacker?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns || !resolved?.skill?.id) {
+        resolved.readyTick = 0;
+        return;
+    }
+    const readyTick = Math.max(0, Math.trunc(Number(cooldowns[resolved.skill.id] ?? 0)));
+    if (readyTick <= 0) {
+        resolved.readyTick = 0;
+        return;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const remainingTicks = readyTick - normalizedCurrentTick;
+    const maxCooldownTicks = resolveSkillCooldownTicks(toCombatPlayerState(attacker), resolved.skill.cooldown);
+    if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
+        delete cooldowns[resolved.skill.id];
+        resolved.readyTick = 0;
+        return;
+    }
+    resolved.readyTick = readyTick;
 }
 /**
  * resolveMonsterSkill：规范化或转换怪物技能。
