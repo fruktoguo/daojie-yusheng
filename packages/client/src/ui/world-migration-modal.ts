@@ -38,7 +38,10 @@ function renderWorldMigrationModal(
     subtitle: `当前世界：${currentPreset === 'real' ? '现世' : '虚境'}`,
     hint: '切入他道后，随其之道。',
     renderBody: (body: HTMLElement) => {
-      patchElementChildren(body, createWorldMigrationShell(options, currentPreset, pendingTargetPreset));
+      patchElementChildren(body, createWorldMigrationShell(currentPreset, pendingTargetPreset));
+    },
+    onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
+      bindWorldMigrationActions(body, signal, options);
     },
   };
   if (!detailModalHost.patch({ ...modalOptions })) {
@@ -47,7 +50,6 @@ function renderWorldMigrationModal(
 }
 
 function createWorldMigrationShell(
-  options: OpenWorldMigrationModalOptions,
   currentPreset: WorldMigrationLinePreset,
   pendingTargetPreset: WorldMigrationLinePreset | null,
 ): HTMLElement {
@@ -55,10 +57,10 @@ function createWorldMigrationShell(
   shell.className = 'world-migration-shell';
   shell.append(
     createWorldMigrationIntro(currentPreset),
-    createWorldMigrationChoices(options, currentPreset),
+    createWorldMigrationChoices(currentPreset),
   );
   if (pendingTargetPreset) {
-    shell.append(createWorldMigrationConfirmOverlay(options, pendingTargetPreset));
+    shell.append(createWorldMigrationConfirmOverlay(pendingTargetPreset));
   }
   return shell;
 }
@@ -88,27 +90,26 @@ function createWorldMigrationIntro(currentPreset: WorldMigrationLinePreset): HTM
 }
 
 function createWorldMigrationChoices(
-  options: OpenWorldMigrationModalOptions,
   currentPreset: WorldMigrationLinePreset,
 ): HTMLElement {
   const grid = document.createElement('div');
   grid.className = 'world-migration-choice-grid';
 
   grid.append(
-    createWorldMigrationButton(options, currentPreset, 'peaceful'),
-    createWorldMigrationButton(options, currentPreset, 'real'),
+    createWorldMigrationButton(currentPreset, 'peaceful'),
+    createWorldMigrationButton(currentPreset, 'real'),
   );
   return grid;
 }
 
 function createWorldMigrationButton(
-  options: OpenWorldMigrationModalOptions,
   currentPreset: WorldMigrationLinePreset,
   targetPreset: WorldMigrationLinePreset,
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `world-migration-choice ${currentPreset === targetPreset ? 'active' : ''}`.trim();
+  button.dataset.worldMigrationTarget = targetPreset;
 
   const title = document.createElement('span');
   title.className = 'world-migration-choice-title';
@@ -134,47 +135,18 @@ function createWorldMigrationButton(
   meta.textContent = targetPreset === 'real' ? '现世 · 可争锋 · 可破地' : '虚境 · 禁争伐 · 禁破地';
 
   button.append(head, desc, meta);
-  button.addEventListener('click', () => {
-    const player = options.getPlayer();
-    if (!player) {
-      detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-      options.showToast('身未安定，暂不可跨界。', 'warn');
-      return;
-    }
-    const livePreset = resolveCurrentWorldLinePreset(player.instanceId);
-    if (livePreset === targetPreset) {
-      detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-      options.showToast(
-        targetPreset === 'real' ? '当前已经位于现世。' : '当前已经位于虚境。',
-        'travel',
-      );
-      return;
-    }
-    renderWorldMigrationModal(options, player, targetPreset);
-  });
   return button;
 }
 
 function createWorldMigrationConfirmOverlay(
-  options: OpenWorldMigrationModalOptions,
   targetPreset: WorldMigrationLinePreset,
 ): HTMLElement {
   const overlay = document.createElement('div');
   overlay.className = 'world-migration-popup-overlay';
-  overlay.addEventListener('click', () => {
-    const player = options.getPlayer();
-    if (!player) {
-      detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-      return;
-    }
-    renderWorldMigrationModal(options, player, null);
-  });
+  overlay.dataset.worldMigrationOverlay = 'true';
 
   const popup = document.createElement('section');
   popup.className = 'world-migration-popup';
-  popup.addEventListener('click', (event) => {
-    event.stopPropagation();
-  });
 
   const title = document.createElement('div');
   title.className = 'world-migration-popup-title';
@@ -201,28 +173,98 @@ function createWorldMigrationConfirmOverlay(
   cancelButton.type = 'button';
   cancelButton.className = 'small-btn ghost';
   cancelButton.textContent = '取消';
-  cancelButton.addEventListener('click', () => {
-    const player = options.getPlayer();
-    if (!player) {
-      detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-      return;
-    }
-    renderWorldMigrationModal(options, player, null);
-  });
+  cancelButton.dataset.worldMigrationAction = 'cancel';
 
   const confirmButton = document.createElement('button');
   confirmButton.type = 'button';
   confirmButton.className = 'small-btn';
   confirmButton.textContent = `确认切换到${targetPreset === 'real' ? '现世' : '虚境'}`;
-  confirmButton.addEventListener('click', () => {
-    detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-    options.sendAction('world:migrate', targetPreset);
-  });
+  confirmButton.dataset.worldMigrationAction = 'confirm';
+  confirmButton.dataset.worldMigrationTarget = targetPreset;
 
   actions.append(cancelButton, confirmButton);
   popup.append(title, desc, warning, actions);
   overlay.append(popup);
   return overlay;
+}
+
+function bindWorldMigrationActions(
+  body: HTMLElement,
+  signal: AbortSignal,
+  options: OpenWorldMigrationModalOptions,
+): void {
+  body.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const actionButton = target.closest<HTMLElement>('[data-world-migration-action]');
+    const choiceButton = target.closest<HTMLElement>('[data-world-migration-target]');
+    const overlay = target.closest<HTMLElement>('[data-world-migration-overlay="true"]');
+
+    if (actionButton?.dataset.worldMigrationAction === 'cancel' || target === overlay) {
+      event.preventDefault();
+      closeWorldMigrationConfirm(options);
+      return;
+    }
+
+    if (actionButton?.dataset.worldMigrationAction === 'confirm') {
+      const targetPreset = parseWorldMigrationLinePreset(actionButton.dataset.worldMigrationTarget);
+      if (!targetPreset) {
+        return;
+      }
+      event.preventDefault();
+      detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
+      options.sendAction('world:migrate', targetPreset);
+      return;
+    }
+
+    const targetPreset = parseWorldMigrationLinePreset(choiceButton?.dataset.worldMigrationTarget);
+    if (!targetPreset) {
+      return;
+    }
+    event.preventDefault();
+    openWorldMigrationConfirm(options, targetPreset);
+  }, { signal });
+}
+
+function openWorldMigrationConfirm(
+  options: OpenWorldMigrationModalOptions,
+  targetPreset: WorldMigrationLinePreset,
+): void {
+  const player = options.getPlayer();
+  if (!player) {
+    detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
+    options.showToast('身未安定，暂不可跨界。', 'warn');
+    return;
+  }
+  const livePreset = resolveCurrentWorldLinePreset(player.instanceId);
+  if (livePreset === targetPreset) {
+    detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
+    options.showToast(
+      targetPreset === 'real' ? '当前已经位于现世。' : '当前已经位于虚境。',
+      'travel',
+    );
+    return;
+  }
+  renderWorldMigrationModal(options, player, targetPreset);
+}
+
+function closeWorldMigrationConfirm(options: OpenWorldMigrationModalOptions): void {
+  const player = options.getPlayer();
+  if (!player) {
+    detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
+    return;
+  }
+  renderWorldMigrationModal(options, player, null);
+}
+
+function parseWorldMigrationLinePreset(value: string | undefined): WorldMigrationLinePreset | null {
+  if (value === 'peaceful' || value === 'real') {
+    return value;
+  }
+  return null;
 }
 
 function resolveCurrentWorldLinePreset(instanceId: string | undefined): WorldMigrationLinePreset {
