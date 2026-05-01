@@ -66,7 +66,7 @@ function testHeavenGateAction() {
     assert.deepEqual(result, { ok: true });
 }
 
-function testRootFoundationRefineAcceptsExactMaterialCount() {
+function testRootFoundationRefineAcceptsExactSpiritStoneCount() {
     const service = new PlayerProgressionService({
         getItemName(itemId) {
             return itemId;
@@ -83,20 +83,20 @@ function testRootFoundationRefineAcceptsExactMaterialCount() {
     const player = {
         realm: service.createRealmStateFromLevel(1, Number.MAX_SAFE_INTEGER),
         rootFoundation: 0,
-        inventory: { items: [{ itemId: 'rat_tail', count: 2 }], revision: 0 },
+        inventory: { items: [{ itemId: 'spirit_stone', count: 1 }], revision: 0 },
         attrs: { revision: 0 },
         selfRevision: 0,
     };
     const preview = service.buildRootFoundationPreview(player, player.realm);
-    assert.equal(preview.canRefine, true, 'exact breakthrough material count should satisfy root foundation refine');
+    assert.equal(preview.canRefine, true, 'exact spirit stone count should satisfy root foundation refine');
     const result = service.refineRootFoundation(player);
     assert.equal(result.changed, true);
     assert.equal(player.rootFoundation, 1);
-    assert.equal(player.inventory.items.some((entry) => entry.itemId === 'rat_tail'), false);
+    assert.equal(player.inventory.items.some((entry) => entry.itemId === 'spirit_stone'), false);
     assert.equal(player.inventory.revision, 1);
 }
 
-function testRootFoundationPreviewListsEveryMissingMaterialShortage() {
+function testRootFoundationPreviewReportsSpiritStoneShortage() {
     const service = new PlayerProgressionService({
         getItemName(itemId) {
             return itemId;
@@ -113,13 +113,48 @@ function testRootFoundationPreviewListsEveryMissingMaterialShortage() {
     const player = {
         realm: service.createRealmStateFromLevel(8, Number.MAX_SAFE_INTEGER),
         rootFoundation: 0,
-        inventory: { items: [{ itemId: 'wolf_fang', count: 1 }], revision: 0 },
+        inventory: { items: [{ itemId: 'spirit_stone', count: 10 }], revision: 0 },
         attrs: { revision: 0 },
         selfRevision: 0,
     };
     const preview = service.buildRootFoundationPreview(player, player.realm);
     assert.equal(preview.canRefine, false);
-    assert.equal(preview.blockedReason, '材料不足：wolf_fang缺 3、serpent_gall缺 2');
+    assert.equal(preview.blockedReason, '材料不足：spirit_stone缺 13');
+}
+
+function testRootFoundationRefineStillSupportsConfiguredNonSpiritStoneItem() {
+    const service = new PlayerProgressionService({
+        getItemName(itemId) {
+            return itemId;
+        },
+    }, {
+        recalculate() {
+            return true;
+        },
+        markPanelDirty() {
+            return undefined;
+        },
+    });
+    service.onModuleInit();
+    service.breakthroughTransitions.set(1, {
+        fromRealmLv: 1,
+        toRealmLv: 2,
+        requirements: [{ id: 'test_root_foundation_item', type: 'item', itemId: 'rat_tail', count: 2 }],
+    });
+    const player = {
+        realm: service.createRealmStateFromLevel(1, Number.MAX_SAFE_INTEGER),
+        rootFoundation: 0,
+        inventory: { items: [{ itemId: 'rat_tail', count: 2 }], revision: 0 },
+        attrs: { revision: 0 },
+        selfRevision: 0,
+    };
+    const preview = service.buildRootFoundationPreview(player, player.realm);
+    assert.deepEqual(preview.items, [{ itemId: 'rat_tail', count: 2 }]);
+    assert.equal(preview.canRefine, true, 'configured non-spirit-stone item should satisfy root foundation refine');
+    const result = service.refineRootFoundation(player);
+    assert.equal(result.changed, true);
+    assert.equal(player.inventory.items.some((entry) => entry.itemId === 'rat_tail'), false);
+    assert.equal(player.inventory.revision, 1);
 }
 
 function testBreakthroughOnlyUsesTotalAttributes() {
@@ -225,8 +260,9 @@ function testSpiritualRootRequirementBlocksQiRefiningBreakthrough() {
 
 testBreakthrough();
 testHeavenGateAction();
-testRootFoundationRefineAcceptsExactMaterialCount();
-testRootFoundationPreviewListsEveryMissingMaterialShortage();
+testRootFoundationRefineAcceptsExactSpiritStoneCount();
+testRootFoundationPreviewReportsSpiritStoneShortage();
+testRootFoundationRefineStillSupportsConfiguredNonSpiritStoneItem();
 testBreakthroughOnlyUsesTotalAttributes();
 testSpiritualRootRequirementBlocksQiRefiningBreakthrough();
 

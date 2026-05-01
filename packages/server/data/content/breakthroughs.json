@@ -7,11 +7,11 @@
       "title": "炼皮试手",
       "requirements": [
         {
-          "id": "bw_1_2_rat_tail",
+          "id": "bw_1_2_spirit_stone",
           "type": "item",
-          "itemId": "rat_tail",
-          "count": 2,
-          "label": "备齐鼠尾 2 条，熬炼皮膜",
+          "itemId": "spirit_stone",
+          "count": 1,
+          "label": "备齐灵石 1 枚，凝练根基",
           "increaseAttrRequirementPct": 10
         },
         {
@@ -28,11 +28,11 @@
       "title": "锻骨立根",
       "requirements": [
         {
-          "id": "bw_2_3_boar_tusk",
+          "id": "bw_2_3_spirit_stone",
           "type": "item",
-          "itemId": "boar_tusk",
-          "count": 1,
-          "label": "备齐彘牙 1 枚，磨骨立桩",
+          "itemId": "spirit_stone",
+          "count": 3,
+          "label": "备齐灵石 3 枚，凝练根基",
           "increaseAttrRequirementPct": 10
         },
         {
@@ -57,11 +57,11 @@
       "title": "易筋活络",
       "requirements": [
         {
-          "id": "bw_3_4_lizard_scale",
+          "id": "bw_3_4_spirit_stone",
           "type": "item",
-          "itemId": "lizard_scale",
-          "count": 2,
-          "label": "备齐泽鳞 2 片，舒筋活络",
+          "itemId": "spirit_stone",
+          "count": 5,
+          "label": "备齐灵石 5 枚，凝练根基",
           "increaseAttrRequirementPct": 10
         },
         {
@@ -86,11 +86,11 @@
       "title": "洗髓聚势",
       "requirements": [
         {
-          "id": "bw_4_5_bamboo_heart",
+          "id": "bw_4_5_spirit_stone",
           "type": "item",
-          "itemId": "bamboo_heart",
-          "count": 1,
-          "label": "备齐翠竹心 1 枚，洗练腑髓",
+          "itemId": "spirit_stone",
+          "count": 8,
+          "label": "备齐灵石 8 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -115,11 +115,11 @@
       "title": "养气开门",
       "requirements": [
         {
-          "id": "bw_5_6_serpent_gall",
+          "id": "bw_5_6_spirit_stone",
           "type": "item",
-          "itemId": "serpent_gall",
-          "count": 1,
-          "label": "备齐竹蛇胆 1 枚，作为养气药引",
+          "itemId": "spirit_stone",
+          "count": 11,
+          "label": "备齐灵石 11 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -144,11 +144,11 @@
       "title": "通脉引息",
       "requirements": [
         {
-          "id": "bw_6_7_serpent_gall",
+          "id": "bw_6_7_spirit_stone",
           "type": "item",
-          "itemId": "serpent_gall",
-          "count": 2,
-          "label": "备齐竹蛇胆 2 枚，通行经脉",
+          "itemId": "spirit_stone",
+          "count": 15,
+          "label": "备齐灵石 15 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -173,11 +173,11 @@
       "title": "瑶光点命",
       "requirements": [
         {
-          "id": "bw_7_8_wolf_fang",
+          "id": "bw_7_8_spirit_stone",
           "type": "item",
-          "itemId": "wolf_fang",
-          "count": 2,
-          "label": "备齐狼牙 2 枚，引劲淬锋",
+          "itemId": "spirit_stone",
+          "count": 19,
+          "label": "备齐灵石 19 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -202,19 +202,11 @@
       "title": "开阳试锋",
       "requirements": [
         {
-          "id": "bw_8_9_wolf_fang",
+          "id": "bw_8_9_spirit_stone",
           "type": "item",
-          "itemId": "wolf_fang",
-          "count": 4,
-          "label": "备齐狼牙 4 枚，试锋磨意",
-          "increaseAttrRequirementPct": 15
-        },
-        {
-          "id": "bw_8_9_serpent_gall",
-          "type": "item",
-          "itemId": "serpent_gall",
-          "count": 2,
-          "label": "备齐竹蛇胆 2 枚，护持内息",
+          "itemId": "spirit_stone",
+          "count": 23,
+          "label": "备齐灵石 23 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -239,11 +231,11 @@
       "title": "玉衡定势",
       "requirements": [
         {
-          "id": "bw_9_10_mantis_blade",
+          "id": "bw_9_10_spirit_stone",
           "type": "item",
-          "itemId": "mantis_blade",
-          "count": 2,
-          "label": "备齐螳锋 2 枚，以快打快定身中衡",
+          "itemId": "spirit_stone",
+          "count": 27,
+          "label": "备齐灵石 27 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -268,11 +260,11 @@
       "title": "天权定衡",
       "requirements": [
         {
-          "id": "bw_10_11_black_iron_chunk",
+          "id": "bw_10_11_spirit_stone",
           "type": "item",
-          "itemId": "black_iron_chunk",
-          "count": 2,
-          "label": "备齐玄铁矿块 2 枚，借重压定桩架",
+          "itemId": "spirit_stone",
+          "count": 32,
+          "label": "备齐灵石 32 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -298,11 +290,11 @@
       "title": "天玑藏锋",
       "requirements": [
         {
-          "id": "bw_11_12_rune_shard",
+          "id": "bw_11_12_spirit_stone",
           "type": "item",
-          "itemId": "rune_shard",
-          "count": 2,
-          "label": "备齐断纹石片 2 枚，观纹藏锋",
+          "itemId": "spirit_stone",
+          "count": 36,
+          "label": "备齐灵石 36 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -328,11 +320,11 @@
       "title": "天璇试关",
       "requirements": [
         {
-          "id": "bw_12_13_mine_signal_core",
+          "id": "bw_12_13_spirit_stone",
           "type": "item",
-          "itemId": "mine_signal_core",
-          "count": 1,
-          "label": "备齐失落信标核心 1 枚，借阵核冲关",
+          "itemId": "spirit_stone",
+          "count": 42,
+          "label": "备齐灵石 42 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -358,19 +350,11 @@
       "title": "天枢归轴",
       "requirements": [
         {
-          "id": "bw_13_14_rune_shard",
+          "id": "bw_13_14_spirit_stone",
           "type": "item",
-          "itemId": "rune_shard",
-          "count": 4,
-          "label": "备齐断纹石片 4 枚，归并劲路",
-          "increaseAttrRequirementPct": 18
-        },
-        {
-          "id": "bw_13_14_spirit_iron_fragment",
-          "type": "item",
-          "itemId": "spirit_iron_fragment",
-          "count": 2,
-          "label": "备齐灵铁碎片 2 枚，稳固骨架",
+          "itemId": "spirit_stone",
+          "count": 47,
+          "label": "备齐灵石 47 枚，凝练根基",
           "increaseAttrRequirementPct": 18
         },
         {
@@ -396,11 +380,11 @@
       "title": "宗师立势",
       "requirements": [
         {
-          "id": "bw_14_15_demon_wolf_bone",
+          "id": "bw_14_15_spirit_stone",
           "type": "item",
-          "itemId": "demon_wolf_bone",
-          "count": 2,
-          "label": "备齐妖狼骨 2 枚，定拳脚骨势",
+          "itemId": "spirit_stone",
+          "count": 52,
+          "label": "备齐灵石 52 枚，凝练根基",
           "increaseAttrRequirementPct": 18
         },
         {
@@ -426,19 +410,11 @@
       "title": "大宗师归炁",
       "requirements": [
         {
-          "id": "bw_15_16_valley_core",
+          "id": "bw_15_16_spirit_stone",
           "type": "item",
-          "itemId": "valley_core",
-          "count": 1,
-          "label": "备齐兽谷核心 1 枚，借异质归炁",
-          "increaseAttrRequirementPct": 18
-        },
-        {
-          "id": "bw_15_16_spirit_iron_fragment",
-          "type": "item",
-          "itemId": "spirit_iron_fragment",
-          "count": 4,
-          "label": "备齐灵铁碎片 4 枚，束住一身真劲",
+          "itemId": "spirit_stone",
+          "count": 58,
+          "label": "备齐灵石 58 枚，凝练根基",
           "increaseAttrRequirementPct": 18
         },
         {
@@ -464,19 +440,11 @@
       "title": "临渊凝锋",
       "requirements": [
         {
-          "id": "bw_16_17_blood_feather",
+          "id": "bw_16_17_spirit_stone",
           "type": "item",
-          "itemId": "blood_feather",
-          "count": 4,
-          "label": "备齐血羽 4 枚，借煞意照心",
-          "increaseAttrRequirementPct": 20
-        },
-        {
-          "id": "bw_16_17_demon_wolf_bone",
-          "type": "item",
-          "itemId": "demon_wolf_bone",
-          "count": 4,
-          "label": "备齐妖狼骨 4 枚，压住临渊杀势",
+          "itemId": "spirit_stone",
+          "count": 64,
+          "label": "备齐灵石 64 枚，凝练根基",
           "increaseAttrRequirementPct": 20
         },
         {
@@ -501,19 +469,11 @@
       "title": "叩门问真",
       "requirements": [
         {
-          "id": "bw_17_18_blood_feather",
+          "id": "bw_17_18_spirit_stone",
           "type": "item",
-          "itemId": "blood_feather",
-          "count": 4,
-          "label": "备齐血羽 4 枚，借煞意叩门",
-          "increaseAttrRequirementPct": 20
-        },
-        {
-          "id": "bw_17_18_demon_wolf_bone",
-          "type": "item",
-          "itemId": "demon_wolf_bone",
-          "count": 4,
-          "label": "备齐妖狼骨 4 枚，稳住叩门肉身",
+          "itemId": "spirit_stone",
+          "count": 70,
+          "label": "备齐灵石 70 枚，凝练根基",
           "increaseAttrRequirementPct": 20
         },
         {
@@ -539,27 +499,11 @@
       "title": "破凡入真",
       "requirements": [
         {
-          "id": "bw_18_19_blood_feather",
+          "id": "bw_18_19_spirit_stone",
           "type": "item",
-          "itemId": "blood_feather",
-          "count": 6,
-          "label": "备齐血羽 6 枚，借煞气冲关",
-          "increaseAttrRequirementPct": 20
-        },
-        {
-          "id": "bw_18_19_demon_wolf_bone",
-          "type": "item",
-          "itemId": "demon_wolf_bone",
-          "count": 6,
-          "label": "备齐妖狼骨 6 枚，稳住凡躯根底",
-          "increaseAttrRequirementPct": 20
-        },
-        {
-          "id": "bw_18_19_spirit_iron_fragment",
-          "type": "item",
-          "itemId": "spirit_iron_fragment",
-          "count": 6,
-          "label": "备齐灵铁碎片 6 枚，束骨成炉",
+          "itemId": "spirit_stone",
+          "count": 76,
+          "label": "备齐灵石 76 枚，凝练根基",
           "increaseAttrRequirementPct": 20
         },
         {
@@ -591,19 +535,11 @@
       "title": "二层养脉",
       "requirements": [
         {
-          "id": "bw_19_20_nurturing_leaf",
+          "id": "bw_19_20_spirit_stone",
           "type": "item",
-          "itemId": "nurturing_leaf",
-          "count": 2,
-          "label": "备齐养脉叶 2 片，温养新成经脉",
-          "increaseAttrRequirementPct": 12
-        },
-        {
-          "id": "bw_19_20_verdant_vine",
-          "type": "item",
-          "itemId": "verdant_vine",
-          "count": 1,
-          "label": "备齐青髓藤 1 段，束住初生木行气",
+          "itemId": "spirit_stone",
+          "count": 83,
+          "label": "备齐灵石 83 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -628,19 +564,11 @@
       "title": "三层凝露",
       "requirements": [
         {
-          "id": "bw_20_21_coldspirit_dew",
+          "id": "bw_20_21_spirit_stone",
           "type": "item",
-          "itemId": "coldspirit_dew",
-          "count": 2,
-          "label": "备齐寒魄露 2 滴，压住浮躁杂气",
-          "increaseAttrRequirementPct": 12
-        },
-        {
-          "id": "bw_20_21_moonwell_frost_sand",
-          "type": "item",
-          "itemId": "moonwell_frost_sand",
-          "count": 1,
-          "label": "备齐月井冰砂 1 份，凝实内息水相",
+          "itemId": "spirit_stone",
+          "count": 89,
+          "label": "备齐灵石 89 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -666,19 +594,11 @@
       "title": "四层承岳",
       "requirements": [
         {
-          "id": "bw_21_22_earthbearing_stone",
+          "id": "bw_21_22_spirit_stone",
           "type": "item",
-          "itemId": "earthbearing_stone",
-          "count": 2,
-          "label": "备齐承脉石 2 块，压稳周身气机",
-          "increaseAttrRequirementPct": 12
-        },
-        {
-          "id": "bw_21_22_thickrock_core",
-          "type": "item",
-          "itemId": "thickrock_core",
-          "count": 1,
-          "label": "备齐厚岩核 1 枚，补足脉轮承载",
+          "itemId": "spirit_stone",
+          "count": 96,
+          "label": "备齐灵石 96 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -704,19 +624,11 @@
       "title": "五层熬火",
       "requirements": [
         {
-          "id": "bw_22_23_ember_sand",
+          "id": "bw_22_23_spirit_stone",
           "type": "item",
-          "itemId": "ember_sand",
-          "count": 2,
-          "label": "备齐陨火砂 2 份，熬炼丹田火候",
-          "increaseAttrRequirementPct": 12
-        },
-        {
-          "id": "bw_22_23_embershard_char",
-          "type": "item",
-          "itemId": "embershard_char",
-          "count": 1,
-          "label": "备齐炎髓炭 1 块，借余烬逼炁回炉",
+          "itemId": "spirit_stone",
+          "count": 103,
+          "label": "备齐灵石 103 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -742,19 +654,11 @@
       "title": "六层凝锋",
       "requirements": [
         {
-          "id": "bw_23_24_sword_pellet",
+          "id": "bw_23_24_spirit_stone",
           "type": "item",
-          "itemId": "sword_pellet",
-          "count": 2,
-          "label": "备齐剑丸 2 枚，磨出一口凝练锋息",
-          "increaseAttrRequirementPct": 12
-        },
-        {
-          "id": "bw_23_24_cleft_iron_fragment",
-          "type": "item",
-          "itemId": "cleft_iron_fragment",
-          "count": 1,
-          "label": "备齐残兵铁片 1 枚，借旧兵余意束炁",
+          "itemId": "spirit_stone",
+          "count": 110,
+          "label": "备齐灵石 110 枚，凝练根基",
           "increaseAttrRequirementPct": 12
         },
         {
@@ -780,11 +684,11 @@
       "title": "七层续炁",
       "requirements": [
         {
-          "id": "bw_24_25_spiritwood_heart",
+          "id": "bw_24_25_spirit_stone",
           "type": "item",
-          "itemId": "spiritwood_heart",
-          "count": 1,
-          "label": "备齐生灵木心 1 枚，续起周天生机",
+          "itemId": "spirit_stone",
+          "count": 118,
+          "label": "备齐灵石 118 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -809,11 +713,11 @@
       "title": "八层聚海",
       "requirements": [
         {
-          "id": "bw_25_26_cleantide_essence",
+          "id": "bw_25_26_spirit_stone",
           "type": "item",
-          "itemId": "cleantide_essence",
-          "count": 1,
-          "label": "备齐净潮水精 1 团，洗去周身滞炁",
+          "itemId": "spirit_stone",
+          "count": 125,
+          "label": "备齐灵石 125 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -838,11 +742,11 @@
       "title": "九层凝真",
       "requirements": [
         {
-          "id": "bw_26_27_stonegall_core",
+          "id": "bw_26_27_spirit_stone",
           "type": "item",
-          "itemId": "stonegall_core",
-          "count": 1,
-          "label": "备齐镇岳石胆 1 枚，镇定九转真息",
+          "itemId": "spirit_stone",
+          "count": 133,
+          "label": "备齐灵石 133 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -867,11 +771,11 @@
       "title": "巅峰临门",
       "requirements": [
         {
-          "id": "bw_27_28_furnace_red_crystal",
+          "id": "bw_27_28_spirit_stone",
           "type": "item",
-          "itemId": "furnace_red_crystal",
-          "count": 1,
-          "label": "备齐炉心赤晶 1 枚，以烈性逼近巅峰",
+          "itemId": "spirit_stone",
+          "count": 140,
+          "label": "备齐灵石 140 枚，凝练根基",
           "increaseAttrRequirementPct": 15
         },
         {
@@ -897,11 +801,11 @@
       "title": "圆满归一",
       "requirements": [
         {
-          "id": "bw_28_29_blade_pattern_crystal",
+          "id": "bw_28_29_spirit_stone",
           "type": "item",
-          "itemId": "blade_pattern_crystal",
-          "count": 1,
-          "label": "备齐锋纹残晶 1 枚，收束满身散锋",
+          "itemId": "spirit_stone",
+          "count": 148,
+          "label": "备齐灵石 148 枚，凝练根基",
           "increaseAttrRequirementPct": 18
         },
         {
@@ -927,28 +831,12 @@
       "title": "半步筑基",
       "requirements": [
         {
-          "id": "bw_29_30_fivephase_dust",
+          "id": "bw_29_30_spirit_stone",
           "type": "item",
-          "itemId": "fivephase_dust",
-          "count": 3,
-          "label": "备齐五炁尘 3 份，先试五行并流",
+          "itemId": "spirit_stone",
+          "count": 156,
+          "label": "备齐灵石 156 枚，凝练根基",
           "increaseAttrRequirementPct": 18
-        },
-        {
-          "id": "bw_29_30_guizang_vein_core",
-          "type": "item",
-          "itemId": "guizang_vein_core",
-          "count": 2,
-          "label": "备齐归藏脉核 2 枚，压住合脉反冲",
-          "increaseAttrRequirementPct": 18
-        },
-        {
-          "id": "bw_29_30_half_base_embryo",
-          "type": "item",
-          "itemId": "half_base_embryo",
-          "count": 1,
-          "label": "备齐半基灵胚 1 枚，借旧基胚影摸向道基",
-          "increaseAttrRequirementPct": 20
         },
         {
           "id": "bw_29_30_yellow_perfect",
