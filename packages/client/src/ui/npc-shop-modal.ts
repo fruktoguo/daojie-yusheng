@@ -196,8 +196,6 @@ export class NpcShopModal {
   private tooltipNode: HTMLElement | null = null;
   /** buyConfirmState：待确认购买请求。 */
   private buyConfirmState: { npcId: string; itemId: string; quantity: number } | null = null;
-  /** delegatedEventsBound：delegated事件Bound。 */
-  private delegatedEventsBound = false;
 
   /** setCallbacks：处理set Callbacks。 */
   setCallbacks(callbacks: NpcShopModalCallbacks): void {
@@ -317,9 +315,9 @@ export class NpcShopModal {
         this.tooltip.hide(true);
         confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
       },
-      onAfterRender: (body) => {
-        this.bindEvents(body);
-        this.bindItemTooltipEvents(body);
+      onAfterRender: (body, signal) => {
+        this.bindEvents(body, signal);
+        this.bindItemTooltipEvents(body, signal);
         if (renderState) {
           this.restoreRenderState(body, renderState);
         }
@@ -688,15 +686,11 @@ export class NpcShopModal {
   }
 
   /** bindEvents：绑定事件。 */
-  private bindEvents(body: HTMLElement): void {
+  private bindEvents(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.delegatedEventsBound) {
-      return;
-    }
-    this.delegatedEventsBound = true;
-    body.addEventListener('click', (event) => this.handleBodyClick(event));
-    body.addEventListener('input', (event) => this.handleBodyInput(event));
+    body.addEventListener('click', (event) => this.handleBodyClick(event), { signal });
+    body.addEventListener('input', (event) => this.handleBodyInput(event), { signal });
   }
 
   /** handleBodyClick：处理身体Click。 */
@@ -845,7 +839,6 @@ export class NpcShopModal {
     this.syncToolbarMeta(toolbarMeta, shop);
     this.syncShopList(listRoot, shop, selectedItem);
     this.syncDetailPanel(detailRoot, shop, selectedItem);
-    this.bindItemTooltipEvents(body);
     return true;
   }
 
@@ -949,72 +942,89 @@ export class NpcShopModal {
   }
 
   /** bindItemTooltipEvents：绑定物品提示事件。 */
-  private bindItemTooltipEvents(body: HTMLElement): void {
+  private bindItemTooltipEvents(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const shop = this.shopState?.shop;
-    if (!shop) {
-      return;
-    }
     const tapMode = prefersPinnedTooltipInteraction();
-    body.querySelectorAll<HTMLElement>('[data-npc-shop-item-tooltip]').forEach((node) => {
+    const resolveTooltip = (node: HTMLElement) => {
+      const shop = this.shopState?.shop;
       const itemId = node.dataset.npcShopItemTooltip;
-      const entry = itemId ? shop.items.find((item) => item.itemId === itemId) : null;
-      if (!entry) {
+      const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) ?? null : null;
+      return entry ? buildItemTooltipPayload(entry.item) : null;
+    };
+
+    body.addEventListener('click', (event) => {
+      if (!tapMode || !(event instanceof PointerEvent)) {
         return;
       }
-      if (node.dataset.npcShopTooltipBound === itemId) {
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-npc-shop-item-tooltip]')
+        : null;
+      if (!node || !body.contains(node)) {
         return;
       }
-      node.dataset.npcShopTooltipBound = itemId;
-      const tooltip = buildItemTooltipPayload(entry.item);
-      const showTooltip = (event: PointerEvent): void => {
+      const tooltip = resolveTooltip(node);
+      if (!tooltip) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(node)) {
+        this.tooltipNode = null;
+        this.tooltip.hide(true);
+        return;
+      }
+      this.tooltipNode = node;
+      this.tooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true, signal });
+
+    body.addEventListener('pointermove', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-npc-shop-item-tooltip]')
+        : null;
+      if (!node || !body.contains(node)) {
+        return;
+      }
+      const tooltip = resolveTooltip(node);
+      if (!tooltip) {
+        return;
+      }
+      if (this.tooltipNode !== node) {
         this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,
           asideCards: tooltip.asideCards,
         });
         this.tooltipNode = node;
-      };
+        return;
+      }
+      this.tooltip.move(event.clientX, event.clientY);
+    }, { signal });
 
-      node.addEventListener('click', (event) => {
-        if (!tapMode || !(event instanceof PointerEvent)) {
-          return;
-        }
-        if (this.tooltip.isPinnedTo(node)) {
-          this.tooltipNode = null;
-          this.tooltip.hide(true);
-          return;
-        }
-        this.tooltipNode = node;
-        this.tooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
-          allowHtml: tooltip.allowHtml,
-          asideCards: tooltip.asideCards,
-        });
-        event.preventDefault();
-        event.stopPropagation();
-      });
-
-      node.addEventListener('pointermove', (event) => {
-        if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
-          return;
-        }
-        if (this.tooltipNode !== node) {
-          showTooltip(event);
-          return;
-        }
-        this.tooltip.move(event.clientX, event.clientY);
-      });
-
-      node.addEventListener('pointerleave', () => {
-        if (this.tooltip.isPinnedTo(node)) {
-          return;
-        }
-        if (this.tooltipNode === node) {
-          this.tooltipNode = null;
-          this.tooltip.hide();
-        }
-      });
-    });
+    body.addEventListener('pointerout', (event) => {
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-npc-shop-item-tooltip]')
+        : null;
+      if (!node || !body.contains(node) || this.tooltip.isPinnedTo(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      if (this.tooltipNode === node) {
+        this.tooltipNode = null;
+        this.tooltip.hide();
+      }
+    }, { signal });
   }
 
   /** findInventoryItemCount：查找背包物品数量。 */

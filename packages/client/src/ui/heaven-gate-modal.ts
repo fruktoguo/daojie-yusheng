@@ -533,8 +533,8 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
       lastRenderedSessionKey = null;
       document.body.classList.remove('heaven-gate-brush-cursor');
     },
-    onAfterRender: (body) => {
-      bindHeavenGateEvents(body, player, session, options, shouldAnimate, rootsKey);
+    onAfterRender: (body, signal) => {
+      bindHeavenGateEvents(body, player, session, options, shouldAnimate, rootsKey, signal);
     },
   });
 }
@@ -639,13 +639,13 @@ function bindHeavenGateEvents(
   options: HeavenGateModalOptions,
   shouldAnimate: boolean,
   rootsKey: string | null,
+  signal?: AbortSignal,
 ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   bindCursor(body);
   activeEventContext = { player, session, options };
-  if (body.dataset.heavenGateBound !== 'true') {
-    body.dataset.heavenGateBound = 'true';
+  if (signal) {
     body.addEventListener('click', (event) => {
       const context = activeEventContext;
       if (!context || !detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
@@ -705,7 +705,7 @@ function bindHeavenGateEvents(
         ? { kind: 'restore', element }
         : { kind: 'sever', element };
       renderHeavenGateModal(context.player, context.session, context.options);
-    });
+    }, { signal });
   }
   if (shouldAnimate && rootsKey) {
     animateValues(body, session, rootsKey);

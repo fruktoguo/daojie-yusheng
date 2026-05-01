@@ -388,9 +388,9 @@ export class CraftWorkbenchModal {
       renderBody: (body) => {
         patchElementHtml(body, definition.body);
       },
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
-        this.bindActions(body);
+      onAfterRender: (body, signal) => {
+        bindInlineItemTooltips(body, signal);
+        this.bindActions(body, signal);
         if (this.activeMode === 'alchemy') {
           this.syncAlchemyConfirmModal();
         }
@@ -443,9 +443,9 @@ export class CraftWorkbenchModal {
       renderBody: (nextBody) => {
         patchElementHtml(nextBody, definition.body);
       },
-      onAfterRender: (nextBody) => {
-        bindInlineItemTooltips(nextBody);
-        this.bindActions(nextBody);
+      onAfterRender: (nextBody, signal) => {
+        bindInlineItemTooltips(nextBody, signal);
+        this.bindActions(nextBody, signal);
         if (this.activeMode === 'alchemy') {
           this.syncAlchemyConfirmModal();
         }
@@ -650,11 +650,7 @@ export class CraftWorkbenchModal {
     return [...active, ...queue];
   }
 
-  private bindActions(body: HTMLElement): void {
-    if (body.dataset.craftWorkbenchBound === 'true') {
-      return;
-    }
-    body.dataset.craftWorkbenchBound = 'true';
+  private bindActions(body: HTMLElement, signal: AbortSignal): void {
     body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-craft-action]') : null;
       if (!target) {
@@ -839,7 +835,7 @@ export class CraftWorkbenchModal {
       if (action === 'cancel-enhancement') {
         this.callbacks?.onCancelEnhancement();
       }
-    });
+    }, { signal });
   }
 
   private adjustNumericInput(body: HTMLElement, selector: string, delta: number): void {

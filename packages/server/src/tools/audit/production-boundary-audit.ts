@@ -10,7 +10,9 @@ const repoRoot = path.resolve(packageRoot, "..", "..");
 /**
  * 记录doc输出。
  */
-const docOutput = path.join(repoRoot, "docs", "production-boundary-audit.md");
+const docOutput = process.env.PRODUCTION_BOUNDARY_AUDIT_OUTPUT
+  ? path.resolve(repoRoot, process.env.PRODUCTION_BOUNDARY_AUDIT_OUTPUT)
+  : path.join(repoRoot, ".runtime", "docs", "production-boundary-audit.md");
 
 /**
  * 记录类别order。
@@ -183,6 +185,7 @@ function main() {
  * 记录markdown。
  */
   const markdown = renderMarkdown(summary, results);
+  fs.mkdirSync(path.dirname(docOutput), { recursive: true });
   fs.writeFileSync(docOutput, markdown, "utf8");
   process.stdout.write(`[production boundary audit] report written to ${docOutput}\n`);
   process.stdout.write(`[production boundary audit] matched ${summary.matchedChecks}/${summary.totalChecks} checks, ${summary.totalHits} code hits across ${summary.categories.length} categories\n`);

@@ -194,8 +194,8 @@ export class TutorialPanel {
       onClose: () => {
         this.tooltip.hide(true);
       },
-      onAfterRender: (body) => {
-        this.bind(body);
+      onAfterRender: (body, signal) => {
+        this.bind(body, signal);
         this.sync(body);
       },
     });
@@ -445,62 +445,59 @@ export class TutorialPanel {
   }
 
   /** bind：绑定bind。 */
-  private bind(body: HTMLElement): void {
+  private bind(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (body.dataset.tutorialBound !== '1') {
-      body.dataset.tutorialBound = '1';
-      body.addEventListener('click', (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) {
+    body.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const mainTab = target.closest<HTMLElement>('[data-tutorial-main-tab]');
+      if (mainTab) {
+        const nextId = mainTab.dataset.tutorialMainTab as TutorialMainTabId | undefined;
+        if (!nextId || nextId === this.activeMainTabId) {
           return;
         }
-        const mainTab = target.closest<HTMLElement>('[data-tutorial-main-tab]');
-        if (mainTab) {
-          const nextId = mainTab.dataset.tutorialMainTab as TutorialMainTabId | undefined;
-          if (!nextId || nextId === this.activeMainTabId) {
-            return;
-          }
-          this.activeMainTabId = nextId;
-          this.tooltip.hide(true);
-          this.sync(body);
-          return;
-        }
-        const topicTab = target.closest<HTMLElement>('[data-tutorial-tab]');
-        if (topicTab) {
-          const nextId = topicTab.dataset.tutorialTab;
-          if (!nextId || nextId === this.activeTopicId) {
-            return;
-          }
-          this.activeTopicId = nextId;
-          this.sync(body);
-          return;
-        }
-        const mechanicTab = target.closest<HTMLElement>('[data-tutorial-mechanic-tab]');
-        if (mechanicTab) {
-          const nextId = mechanicTab.dataset.tutorialMechanicTab;
-          if (!nextId || nextId === this.activeMechanicTopicId) {
-            return;
-          }
-          this.activeMechanicTopicId = nextId;
-          this.tooltip.hide(true);
-          this.sync(body);
-          return;
-        }
-        const flowTab = target.closest<HTMLElement>('[data-tutorial-flow-tab]');
-        if (!flowTab) {
-          return;
-        }
-        const nextId = flowTab.dataset.tutorialFlowTab;
-        if (!nextId || nextId === this.activeFlowTopicId) {
-          return;
-        }
-        this.activeFlowTopicId = nextId;
+        this.activeMainTabId = nextId;
         this.tooltip.hide(true);
         this.sync(body);
-      });
-    }
-    this.bindTooltips(body);
+        return;
+      }
+      const topicTab = target.closest<HTMLElement>('[data-tutorial-tab]');
+      if (topicTab) {
+        const nextId = topicTab.dataset.tutorialTab;
+        if (!nextId || nextId === this.activeTopicId) {
+          return;
+        }
+        this.activeTopicId = nextId;
+        this.sync(body);
+        return;
+      }
+      const mechanicTab = target.closest<HTMLElement>('[data-tutorial-mechanic-tab]');
+      if (mechanicTab) {
+        const nextId = mechanicTab.dataset.tutorialMechanicTab;
+        if (!nextId || nextId === this.activeMechanicTopicId) {
+          return;
+        }
+        this.activeMechanicTopicId = nextId;
+        this.tooltip.hide(true);
+        this.sync(body);
+        return;
+      }
+      const flowTab = target.closest<HTMLElement>('[data-tutorial-flow-tab]');
+      if (!flowTab) {
+        return;
+      }
+      const nextId = flowTab.dataset.tutorialFlowTab;
+      if (!nextId || nextId === this.activeFlowTopicId) {
+        return;
+      }
+      this.activeFlowTopicId = nextId;
+      this.tooltip.hide(true);
+      this.sync(body);
+    }, { signal });
+    this.bindTooltips(body, signal);
   }
 
   /** sync：同步同步。 */
@@ -548,7 +545,7 @@ export class TutorialPanel {
   }
 
   /** bindTooltips：绑定Tooltips。 */
-  private bindTooltips(body: HTMLElement): void {
+  private bindTooltips(body: HTMLElement, signal: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
     body.querySelectorAll<HTMLElement>('[data-tutorial-tip-title]').forEach((node) => {
       const title = node.dataset.tutorialTipTitle ?? '';
@@ -565,25 +562,25 @@ export class TutorialPanel {
         this.tooltip.showPinned(node, title, splitTooltipLines(detail), event.clientX, event.clientY);
         event.preventDefault();
         event.stopPropagation();
-      }, true);
+      }, { capture: true, signal });
 
       node.addEventListener('pointerenter', (event) => {
         if (tapMode && this.tooltip.isPinned()) {
           return;
         }
         this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY);
-      });
+      }, { signal });
 
       node.addEventListener('pointermove', (event) => {
         if (tapMode && this.tooltip.isPinned()) {
           return;
         }
         this.tooltip.move(event.clientX, event.clientY);
-      });
+      }, { signal });
 
       node.addEventListener('pointerleave', () => {
         this.tooltip.hide();
-      });
+      }, { signal });
     });
   }
 }

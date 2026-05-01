@@ -541,8 +541,8 @@ export class BodyTrainingPanel {
       onClose: () => {
         this.infusionModalOpen = false;
       },
-      onAfterRender: (body) => {
-        this.bindInfusionModalEvents(body);
+      onAfterRender: (body, signal) => {
+        this.bindInfusionModalEvents(body, signal);
       },
     });
   }
@@ -660,13 +660,9 @@ export class BodyTrainingPanel {
   }
 
   /** bindInfusionModalEvents：绑定Infusion弹窗事件。 */
-  private bindInfusionModalEvents(body: HTMLElement): void {
+  private bindInfusionModalEvents(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (body.dataset.bodyInfuseBound === 'true') {
-      return;
-    }
-    body.dataset.bodyInfuseBound = 'true';
     body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-body-infuse-adjust],[data-body-infuse-all],[data-body-infuse-close],[data-body-infuse-confirm]') : null;
       if (!target || !(target instanceof HTMLButtonElement) || target.disabled) {
@@ -704,7 +700,7 @@ export class BodyTrainingPanel {
         this.closeInfusionModal();
         this.onInfuse(plan.foundationCost);
       }
-    });
+    }, { signal });
   }
 
   /** getMaxLevelGain：读取最大等级Gain。 */

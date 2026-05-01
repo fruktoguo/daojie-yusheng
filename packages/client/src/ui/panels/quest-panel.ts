@@ -506,8 +506,8 @@ export class QuestPanel {
       onClose: () => {
         this.selectedQuestId = undefined;
       },
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
+      onAfterRender: (body, signal) => {
+        bindInlineItemTooltips(body, signal);
         body.querySelector<HTMLElement>('[data-quest-navigate]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           const button = event.currentTarget;
@@ -515,7 +515,7 @@ export class QuestPanel {
           const questId = button.dataset.questId;
           if (!questId) return;
           this.onNavigateQuest?.(questId);
-        });
+        }, { signal });
       },
     });
   }

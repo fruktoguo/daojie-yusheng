@@ -1446,7 +1446,15 @@
       "count": 1
     }
   ],
-  "book.yi_kunlun": [],
+  "book.yi_kunlun": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
+    }
+  ],
   "book.zhenyue_huyuan": [
     {
       "kind": "monster_drop",
@@ -1934,8 +1942,24 @@
       "count": 1
     }
   ],
-  "equip.copper_enhancement_hammer": [],
-  "equip.copper_pill_furnace": [],
+  "equip.copper_enhancement_hammer": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_blacksmith_han",
+      "npcName": "韩铁匠"
+    }
+  ],
+  "equip.copper_pill_furnace": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_blacksmith_han",
+      "npcName": "韩铁匠"
+    }
+  ],
   "equip.deepvein_core": [
     {
       "kind": "monster_drop",
@@ -2748,10 +2772,42 @@
       "count": 1
     }
   ],
-  "formation_disk.earth": [],
-  "formation_disk.mortal": [],
-  "formation_disk.mystic": [],
-  "formation_disk.yellow": [],
+  "formation_disk.earth": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_gu_hui",
+      "npcName": "行修散商·顾回"
+    }
+  ],
+  "formation_disk.mortal": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_gu_hui",
+      "npcName": "行修散商·顾回"
+    }
+  ],
+  "formation_disk.mystic": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_gu_hui",
+      "npcName": "行修散商·顾回"
+    }
+  ],
+  "formation_disk.yellow": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_gu_hui",
+      "npcName": "行修散商·顾回"
+    }
+  ],
   "frost_essence": [
     {
       "kind": "monster_drop",
@@ -2830,6 +2886,12 @@
       "questTitle": "药铺要的不是可怜",
       "line": "main",
       "chapter": "第一章·粮路讨生"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.frost_heart_paste"
     }
   ],
   "furnace_red_crystal": [
@@ -3053,6 +3115,12 @@
       "questTitle": "裂谷里还有活人",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.major_qi_pill"
     }
   ],
   "mantis_blade": [
@@ -3596,6 +3664,12 @@
       "questId": "q_shen_bunk_deposit",
       "questTitle": "脚店押铺钱",
       "line": "side"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.minor_qi_pill"
     }
   ],
   "moonwell_frost_sand": [
@@ -3724,6 +3798,12 @@
       "questTitle": "先把自己练到能扛真相",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.bitter_cultivation_elixir"
     }
   ],
   "pill.break_array_elixir": [
@@ -3800,6 +3880,12 @@
       "questTitle": "路上要过买命钱",
       "line": "main",
       "chapter": "第一章·粮路讨生"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.break_array_elixir"
     }
   ],
   "pill.breakmirror_pellet": [
@@ -3948,7 +4034,14 @@
       "count": 1
     }
   ],
-  "pill.chiyang_draught": [],
+  "pill.chiyang_draught": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.chiyang_draught"
+    }
+  ],
   "pill.clear_eye_elixir": [
     {
       "kind": "shop",
@@ -4041,9 +4134,22 @@
       "questTitle": "药铺要的不是可怜",
       "line": "main",
       "chapter": "第一章·粮路讨生"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.clear_eye_elixir"
     }
   ],
-  "pill.cleartide_powder": [],
+  "pill.cleartide_powder": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.cleartide_powder"
+    }
+  ],
   "pill.crimson_bud_elixir": [
     {
       "kind": "shop",
@@ -4093,11 +4199,38 @@
       "questId": "q_lan_tail_medicine",
       "questTitle": "尾药驱秽",
       "line": "side"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.crimson_bud_elixir"
     }
   ],
-  "pill.earthrest_paste": [],
-  "pill.edge_quenching_powder": [],
-  "pill.fivephase_harmony_pellet": [],
+  "pill.earthrest_paste": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.earthrest_paste"
+    }
+  ],
+  "pill.edge_quenching_powder": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.edge_quenching_powder"
+    }
+  ],
+  "pill.fivephase_harmony_pellet": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.fivephase_harmony_pellet"
+    }
+  ],
   "pill.guiding_powder": [
     {
       "kind": "quest",
@@ -4116,6 +4249,12 @@
       "questTitle": "五炁落账",
       "line": "side",
       "chapter": "终章·归藏压基"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.guiding_powder"
     }
   ],
   "pill.minor_heal": [
@@ -4186,6 +4325,12 @@
       "questTitle": "荒野先认路",
       "line": "main",
       "chapter": "第一章·粮路讨生"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.minor_heal"
     }
   ],
   "pill.ningxiang": [
@@ -4198,7 +4343,14 @@
       "count": 1
     }
   ],
-  "pill.nurturing_paste": [],
+  "pill.nurturing_paste": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.nurturing_paste"
+    }
+  ],
   "pill.shatter_spirit": [
     {
       "kind": "monster_drop",
@@ -4279,6 +4431,12 @@
       "questTitle": "把骨头练硬些",
       "line": "main",
       "chapter": "第一章·粮路讨生"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.windstride_elixir"
     }
   ],
   "pure_yang_pill": [
@@ -4333,6 +4491,12 @@
       "questTitle": "残宫里先听一句实话",
       "line": "main",
       "chapter": "第五章·残宫封天"
+    },
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pure_yang_pill"
     }
   ],
   "quest.miner_token": [
@@ -4363,7 +4527,14 @@
       "count": 1
     }
   ],
-  "recovery_powder": [],
+  "recovery_powder": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.recovery_powder"
+    }
+  ],
   "ridge_beast_claw": [
     {
       "kind": "monster_drop",
@@ -4439,7 +4610,15 @@
       "count": 1
     }
   ],
-  "sect_founding_token": [],
+  "sect_founding_token": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_gu_hui",
+      "npcName": "行修散商·顾回"
+    }
+  ],
   "serpent_gall": [
     {
       "kind": "monster_drop",
@@ -4625,7 +4804,14 @@
       "count": 1
     }
   ],
-  "stabilizing_pellet": [],
+  "stabilizing_pellet": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.stabilizing_pellet"
+    }
+  ],
   "star_metal": [
     {
       "kind": "monster_drop",
@@ -4662,7 +4848,14 @@
       "count": 2
     }
   ],
-  "stone.blood_essence": [],
+  "stone.blood_essence": [
+    {
+      "kind": "runtime_pvp_reward",
+      "mapId": "runtime_pvp",
+      "mapName": "玩家战斗",
+      "sourceLabel": "击败其他玩家时按战斗规则结算"
+    }
+  ],
   "stonegall_core": [
     {
       "kind": "monster_drop",

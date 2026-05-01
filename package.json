@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm run build:packages && pnpm run proof:release-gates",
-    "build:packages": "pnpm run build:client && pnpm run build:server",
+    "build:packages": "pnpm run build:client && pnpm run build:server && pnpm run build:config-editor",
     "build:config-editor": "pnpm --filter @mud/config-editor build",
     "build:server": "pnpm --filter @mud/server compile",
     "check:item-sources": "node scripts/check-item-sources.mjs",

@@ -61,6 +61,7 @@ shadow_prepare_env() {
   export SERVER_URL="${SERVER_URL:-${SERVER_SHADOW_URL}}"
   export SERVER_DATABASE_URL="${SERVER_DATABASE_URL:-${DATABASE_URL:-}}"
   export DATABASE_URL="${DATABASE_URL:-${SERVER_DATABASE_URL:-}}"
+  export SERVER_PLAYER_TOKEN_SECRET="${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}"
   export SERVER_GM_PASSWORD="${SERVER_GM_PASSWORD:-${GM_PASSWORD:-}}"
   export GM_PASSWORD="${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}"
 
@@ -72,8 +73,8 @@ shadow_prepare_env() {
     echo "!! 缺少环境变量: SERVER_GM_PASSWORD 或 GM_PASSWORD" >&2
     exit 1
   fi
-  if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-${SERVER_PLAYER_TOKEN_SECRET:-}}" ]]; then
-    echo "!! 缺少环境变量: SERVER_PLAYER_TOKEN_SECRET 或 SERVER_PLAYER_TOKEN_SECRET" >&2
+  if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-}" ]]; then
+    echo "!! 缺少环境变量: SERVER_PLAYER_TOKEN_SECRET" >&2
     exit 1
   fi
   if [[ -z "${SERVER_RUNTIME_TOKEN:-}" ]]; then

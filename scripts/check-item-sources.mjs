@@ -30,13 +30,19 @@ const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
  */
 const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
 /**
+ * 记录炼丹配方路径。
+ */
+const alchemyRecipesPath = path.join(repoRoot, 'packages/server/data/content/alchemy/recipes.json');
+/**
  * 记录starterinventory路径。
  */
 const starterInventoryPath = path.join(repoRoot, 'packages/server/data/content/starter-inventory.json');
 /**
  * 指定审计 Markdown 报告的输出位置。
  */
-const reportOutputPath = path.join(repoRoot, 'docs', '物品来源审计.md');
+const reportOutputPath = process.env.ITEM_SOURCES_REPORT_OUTPUT
+  ? path.resolve(repoRoot, process.env.ITEM_SOURCES_REPORT_OUTPUT)
+  : path.join(repoRoot, '.runtime', 'docs', '物品来源审计.md');
 
 /**
  * 定义品阶比较时使用的固定顺序。
@@ -50,6 +56,10 @@ const GRADE_INDEX = new Map(GRADE_ORDER.map((grade, index) => [grade, index]));
  * 记录spiritstone物品ID。
  */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+/**
+ * 记录玩家战斗血精奖励物品ID。
+ */
+const BLOOD_ESSENCE_ITEM_ID = 'stone.blood_essence';
 /**
  * 记录怪物equipmentslots。
  */
@@ -413,6 +423,10 @@ function formatInvalidRef(entry) {
       return `- ${entry.itemId} <- 任务 ${entry.questId} ${entry.questTitle} @ ${entry.mapId}`;
     case 'starter':
       return `- ${entry.itemId} <- 初始携带`;
+    case 'alchemy':
+      return `- ${entry.itemId} <- 炼丹 ${entry.recipeId}`;
+    case 'runtime_pvp_reward':
+      return `- ${entry.itemId} <- 玩家战斗奖励`;
     default:
       return `- ${entry.itemId} <- ${entry.kind}`;
   }
@@ -614,7 +628,7 @@ function renderMarkdownReport({
     '',
     `- 生成时间: ${generatedAt}`,
     `- 检查脚本: \`scripts/check-item-sources.mjs\``,
-    '- 统计口径: 只认“玩家实际可获得”的来源，包括怪物 `drops`、任务奖励、商店 `shopItems`、地图容器/搜索/矿点掉落、`starter-inventory`，以及运行时资源地块掉落（如灵石矿、玄铁矿、断剑堆、云墙）。',
+    '- 统计口径: 只认“玩家实际可获得”的来源，包括怪物 `drops`、任务奖励、商店 `shopItems`、地图容器/搜索/矿点掉落、`starter-inventory`、炼丹配方，以及运行时资源地块/PVP 奖励掉落（如灵石矿、玄铁矿、断剑堆、云墙、血精）。',
     '- 特别说明: 怪物 `equipment`、仅作为配置引用的物品，不计入可获得来源。',
     '',
     '## 汇总',
@@ -858,6 +872,10 @@ function main() {
  */
   const maps = mapFiles.map((filePath) => readJson(filePath));
 /**
+ * 记录炼丹配方。
+ */
+  const alchemyRecipes = readJson(alchemyRecipesPath);
+/**
  * 记录starterinventory。
  */
   const starterInventory = readJson(starterInventoryPath);
@@ -1071,6 +1089,15 @@ function main() {
     });
   }
 
+  for (const recipe of Array.isArray(alchemyRecipes) ? alchemyRecipes : []) {
+    pushKnownSource(sourceByItemId, invalidRefs, recipe?.outputItemId, {
+      kind: 'alchemy',
+      mapId: 'crafting',
+      mapName: '炼丹',
+      recipeId: recipe?.recipeId,
+    });
+  }
+
   for (const runtimeSource of runtimeTileNodes) {
     if (!sourceByItemId.has(runtimeSource.itemId)) {
       continue;
@@ -1082,6 +1109,13 @@ function main() {
       sourceLabel: runtimeSource.sourceLabel,
     });
   }
+
+  pushKnownSource(sourceByItemId, invalidRefs, BLOOD_ESSENCE_ITEM_ID, {
+    kind: 'runtime_pvp_reward',
+    mapId: 'runtime_pvp',
+    mapName: '玩家战斗',
+    sourceLabel: '击败其他玩家时按战斗规则结算',
+  });
 
 /**
  * 记录intentionalno来源items。

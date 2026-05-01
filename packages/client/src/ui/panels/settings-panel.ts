@@ -133,8 +133,8 @@ export class SettingsPanel {
       renderBody: (body) => {
         this.renderBody(body);
       },
-      onAfterRender: (body) => {
-        this.bindModal(body);
+      onAfterRender: (body, signal) => {
+        this.bindModal(body, signal);
       },
     });
   }
@@ -186,16 +186,16 @@ export class SettingsPanel {
   }
 
   /** bindModal：绑定弹窗。 */
-  private bindModal(body: HTMLElement): void {
-    this.bindTabs(body);
-    this.bindAccountSettings(body);
-    this.bindRedeemSettings(body);
-    this.bindUiSettings(body);
-    this.bindPerformanceSettings(body);
+  private bindModal(body: HTMLElement, signal: AbortSignal): void {
+    this.bindTabs(body, signal);
+    this.bindAccountSettings(body, signal);
+    this.bindRedeemSettings(body, signal);
+    this.bindUiSettings(body, signal);
+    this.bindPerformanceSettings(body, signal);
   }
 
   /** bindTabs：绑定标签页。 */
-  private bindTabs(body: HTMLElement): void {
+  private bindTabs(body: HTMLElement, signal: AbortSignal): void {
     body.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const nextTab = button.dataset.settingsTab;
@@ -211,12 +211,12 @@ export class SettingsPanel {
         body.querySelectorAll<HTMLElement>('[data-settings-pane]').forEach((entry) => {
           entry.classList.toggle('active', entry.dataset.settingsPane === nextTab);
         });
-      });
+      }, { signal });
     });
   }
 
   /** bindAccountSettings：绑定账号设置。 */
-  private bindAccountSettings(body: HTMLElement): void {
+  private bindAccountSettings(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const displayNameInput = body.querySelector<HTMLInputElement>('#settings-display-name');
@@ -235,20 +235,20 @@ export class SettingsPanel {
 
     displayNameInput.addEventListener('input', () => {
       void this.scheduleDisplayNameCheck(displayNameInput, displayNameStatus);
-    });
+    }, { signal });
     displayNameSubmit.addEventListener('click', () => {
       void this.handleDisplayNameSubmit(displayNameInput, displayNameStatus, displayNameSubmit);
-    });
+    }, { signal });
     passwordSubmit.addEventListener('click', () => {
       void this.handlePasswordSubmit(currentPasswordInput, newPasswordInput, passwordStatus, passwordSubmit);
-    });
+    }, { signal });
     roleNameSubmit.addEventListener('click', () => {
       void this.handleRoleNameSubmit(roleNameInput, roleNameStatus, roleNameSubmit);
-    });
+    }, { signal });
   }
 
   /** bindUiSettings：绑定界面设置。 */
-  private bindUiSettings(body: HTMLElement): void {
+  private bindUiSettings(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const config = getUiStyleConfig();
@@ -273,7 +273,7 @@ export class SettingsPanel {
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         this.syncUiScaleRow(body, nextConfig.uiScale);
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
-      });
+      }, { signal });
     });
 
     if (globalRangeInput && globalNumberInput) {
@@ -290,13 +290,13 @@ export class SettingsPanel {
 
       globalRangeInput.addEventListener('input', () => {
         applyGlobalOffset(globalRangeInput.value);
-      });
+      }, { signal });
       globalNumberInput.addEventListener('input', () => {
         applyGlobalOffset(globalNumberInput.value);
-      });
+      }, { signal });
       globalNumberInput.addEventListener('blur', () => {
         applyGlobalOffset(globalNumberInput.value);
-      });
+      }, { signal });
     }
 
     if (scaleRangeInput && scaleNumberInput) {
@@ -313,13 +313,13 @@ export class SettingsPanel {
 
       scaleRangeInput.addEventListener('input', () => {
         applyScale(scaleRangeInput.value);
-      });
+      }, { signal });
       scaleNumberInput.addEventListener('input', () => {
         applyScale(scaleNumberInput.value);
-      });
+      }, { signal });
       scaleNumberInput.addEventListener('blur', () => {
         applyScale(scaleNumberInput.value);
-      });
+      }, { signal });
     }
 
     resetButton?.addEventListener('click', () => {
@@ -328,11 +328,11 @@ export class SettingsPanel {
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
       this.syncUiScaleRow(body, nextConfig.uiScale);
       setStatus(styleStatus, '界面已复归原本', 'success');
-    });
+    }, { signal });
   }
 
   /** bindRedeemSettings：绑定兑换设置。 */
-  private bindRedeemSettings(body: HTMLElement): void {
+  private bindRedeemSettings(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const textarea = body.querySelector<HTMLTextAreaElement>('#settings-redeem-codes');
@@ -345,11 +345,11 @@ export class SettingsPanel {
 
     button.addEventListener('click', () => {
       void this.handleRedeemSubmit(textarea, statusEl, resultEl, button);
-    });
+    }, { signal });
   }
 
   /** bindPerformanceSettings：绑定性能设置。 */
-  private bindPerformanceSettings(body: HTMLElement): void {
+  private bindPerformanceSettings(body: HTMLElement, signal: AbortSignal): void {
     const config = getMapPerformanceConfig();
     const statusEl = body.querySelector<HTMLElement>('#settings-performance-status');
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-performance-reset');
@@ -365,7 +365,7 @@ export class SettingsPanel {
         });
         this.syncPerformanceControls(body, nextConfig);
         setStatus(statusEl, nextConfig.showFpsMonitor ? '帧率示数已显' : '帧率示数已隐', 'success');
-      });
+      }, { signal });
     });
 
     if (fpsNumberInput) {
@@ -382,17 +382,17 @@ export class SettingsPanel {
       };
       fpsNumberInput.addEventListener('change', () => {
         applyTargetFps(fpsNumberInput.value);
-      });
+      }, { signal });
       fpsNumberInput.addEventListener('blur', () => {
         applyTargetFps(fpsNumberInput.value);
-      });
+      }, { signal });
     }
 
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetMapPerformanceConfig();
       this.syncPerformanceControls(body, nextConfig);
       setStatus(statusEl, '性能已复归原本', 'success');
-    });
+    }, { signal });
   }
 
   /** syncUiModeButtons：同步界面模式按钮。 */

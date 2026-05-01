@@ -21,6 +21,9 @@ async function main() {
     cwd: repoRoot,
     env: {
       ...process.env,
+      DATABASE_URL: '',
+      SERVER_DATABASE_URL: '',
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
       SERVER_PACKAGE_ROOT: packageRoot,
       SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
     },

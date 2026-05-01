@@ -581,7 +581,7 @@ export class MarketPanel {
         this.tooltipNode = null;
         this.tooltip.hide(true);
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         body.querySelectorAll<HTMLElement>('[data-market-modal-tab]').forEach((button) => button.addEventListener('click', () => {
           const tab = button.dataset.marketModalTab as MarketModalTab | undefined;
           if (!tab || tab === this.modalTab) {
@@ -595,7 +595,7 @@ export class MarketPanel {
             this.requestItemBook(this.selectedItemKey);
           }
           this.renderModal();
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-category]').forEach((button) => button.addEventListener('click', () => {
           const category = button.dataset.marketCategory as MarketCategoryFilter | undefined;
@@ -616,7 +616,7 @@ export class MarketPanel {
           this.tradeDialog = null;
           this.itemBook = null;
           this.requestListings(1);
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-equipment-category]').forEach((button) => button.addEventListener('click', () => {
           const category = button.dataset.marketEquipmentCategory as MarketEquipmentFilter | undefined;
@@ -631,7 +631,7 @@ export class MarketPanel {
           this.tradeDialog = null;
           this.itemBook = null;
           this.requestListings(1);
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-technique-category]').forEach((button) => button.addEventListener('click', () => {
           const category = button.dataset.marketTechniqueCategory as MarketTechniqueFilter | undefined;
@@ -646,7 +646,7 @@ export class MarketPanel {
           this.tradeDialog = null;
           this.itemBook = null;
           this.requestListings(1);
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-page]').forEach((button) => button.addEventListener('click', () => {
           const nextPage = Number.parseInt(button.dataset.marketPage ?? '1', 10);
@@ -661,7 +661,7 @@ export class MarketPanel {
           this.tradeDialog = null;
           this.itemBook = null;
           this.requestListings(requestedPage);
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-history-page]').forEach((button) => button.addEventListener('click', () => {
           const nextPage = Number.parseInt(button.dataset.marketHistoryPage ?? '1', 10);
@@ -670,12 +670,15 @@ export class MarketPanel {
           }
           this.requestTradeHistory(nextPage);
           this.renderModal();
-        }));
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => button.addEventListener('click', () => {
           const itemKey = button.dataset.marketSelectItem;
           const groupItemId = button.dataset.marketSelectItemGroup;
           if (!itemKey) {
+            return;
+          }
+          if (itemKey === this.selectedItemKey && (!groupItemId || groupItemId === this.selectedGroupItemId)) {
             return;
           }
           if (groupItemId) {
@@ -686,8 +689,10 @@ export class MarketPanel {
           this.itemBook = null;
           this.tradeDialog = null;
           this.requestItemBook(itemKey);
-          this.renderModal();
-        }));
+          this.patchMarketActiveSelection();
+          this.patchSelectedBookPanel();
+          this.syncTradeDialogOverlay();
+        }, { signal }));
 
         body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => button.addEventListener('click', () => {
           const groupItemId = button.dataset.marketSelectGroup;
@@ -695,6 +700,9 @@ export class MarketPanel {
             ? this.getVisibleListingGroups(this.marketUpdate).find((entry) => entry.itemId === groupItemId) ?? null
             : null;
           if (!group || !groupItemId) {
+            return;
+          }
+          if (groupItemId === this.selectedGroupItemId && !group.canEnhance) {
             return;
           }
           this.selectedGroupItemId = groupItemId;
@@ -711,8 +719,10 @@ export class MarketPanel {
           if (this.selectedItemKey) {
             this.requestItemBook(this.selectedItemKey);
           }
-          this.renderModal();
-        }));
+          this.patchMarketActiveSelection();
+          this.patchSelectedBookPanel();
+          this.syncTradeDialogOverlay();
+        }, { signal }));
 
         body.querySelector<HTMLElement>('[data-market-back-to-groups]')?.addEventListener('click', () => {
           this.enhancementBrowseItemId = null;
@@ -720,9 +730,7 @@ export class MarketPanel {
           this.itemBook = null;
           this.tradeDialog = null;
           this.renderModal();
-        });
-
-        this.bindBookPanelActionEvents(body);
+        }, { signal });
 
         body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
           const orderId = button.dataset.marketCancelOrder;
@@ -730,13 +738,13 @@ export class MarketPanel {
             return;
           }
           this.callbacks?.onCancelOrder(orderId);
-        }));
+        }, { signal }));
 
         body.querySelector<HTMLElement>('[data-market-claim-storage]')?.addEventListener('click', () => {
           this.callbacks?.onClaimStorage();
-        });
+        }, { signal });
 
-        this.bindItemTooltipEvents(body);
+        this.bindMarketModalDelegatedEvents(body, signal);
         this.syncTradeDialogOverlay();
       },
     });
@@ -1295,22 +1303,97 @@ export class MarketPanel {
     `;
   }
 
-  /** 给书籍面板里的快捷按钮装事件。 */
-  private bindBookPanelActionEvents(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
-      const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
-      const selected = this.getSelectedListedItem(this.marketUpdate);
-      if (!kind || !selected) {
+  /** 弹层主体使用委托事件，避免局部 patch 后重复绑定列表和书籍节点。 */
+  private bindMarketModalDelegatedEvents(body: HTMLElement, signal: AbortSignal): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    body.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
         return;
       }
-      const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
-      const confirmPurchase = button.dataset.marketOpenDialogConfirmPurchase === 'true';
-      this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
-    }));
+      const actionButton = target.closest<HTMLElement>('[data-market-open-dialog]');
+      if (actionButton && body.contains(actionButton)) {
+        const kind = actionButton.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
+        const selected = this.getSelectedListedItem(this.marketUpdate);
+        if (kind && selected) {
+          const presetPrice = this.readDatasetNumber(actionButton.dataset.marketOpenDialogPrice);
+          const confirmPurchase = actionButton.dataset.marketOpenDialogConfirmPurchase === 'true';
+          this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
+        }
+        return;
+      }
+      if (!tapMode || !(event instanceof PointerEvent)) {
+        return;
+      }
+      const tooltipNode = target.closest<HTMLElement>('[data-market-item-tooltip]');
+      if (!tooltipNode || !body.contains(tooltipNode)) {
+        return;
+      }
+      const tooltip = this.resolveMarketTooltipPayload(tooltipNode);
+      if (!tooltip) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(tooltipNode)) {
+        this.tooltipNode = null;
+        this.tooltip.hide(true);
+        return;
+      }
+      this.tooltipNode = tooltipNode;
+      this.tooltip.showPinned(tooltipNode, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
+      event.preventDefault();
+      event.stopPropagation();
+    }, { signal });
+
+    body.addEventListener('pointermove', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const tooltipNode = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-market-item-tooltip]')
+        : null;
+      if (!tooltipNode || !body.contains(tooltipNode)) {
+        return;
+      }
+      if (this.tooltipNode !== tooltipNode) {
+        const tooltip = this.resolveMarketTooltipPayload(tooltipNode);
+        if (!tooltip) {
+          return;
+        }
+        this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        this.tooltipNode = tooltipNode;
+        return;
+      }
+      this.tooltip.move(event.clientX, event.clientY);
+    }, { signal });
+
+    body.addEventListener('pointerout', (event) => {
+      const target = event.target;
+      const tooltipNode = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-market-item-tooltip]')
+        : null;
+      if (!tooltipNode || !body.contains(tooltipNode) || this.tooltip.isPinnedTo(tooltipNode)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && tooltipNode.contains(relatedTarget)) {
+        return;
+      }
+      if (this.tooltipNode === tooltipNode) {
+        this.tooltipNode = null;
+        this.tooltip.hide();
+      }
+    }, { signal });
   }
 
   /** 给会显示物品提示的节点绑定悬浮逻辑。 */
-  private bindItemTooltipEvents(body: HTMLElement): void {
+  private bindItemTooltipEvents(body: HTMLElement, signal?: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const nodes = body.querySelectorAll<HTMLElement>('[data-market-item-tooltip]');
@@ -1318,6 +1401,7 @@ export class MarketPanel {
       return;
     }
     const tapMode = prefersPinnedTooltipInteraction();
+    const listenerOptions = signal ? { signal } : undefined;
     const showTooltip = (node: HTMLElement, event: PointerEvent): void => {
       const tooltip = this.resolveMarketTooltipPayload(node);
       if (!tooltip) {
@@ -1351,7 +1435,7 @@ export class MarketPanel {
         });
         event.preventDefault();
         event.stopPropagation();
-      });
+      }, listenerOptions);
 
       node.addEventListener('pointermove', (event) => {
         if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
@@ -1362,7 +1446,7 @@ export class MarketPanel {
           return;
         }
         this.tooltip.move(event.clientX, event.clientY);
-      });
+      }, listenerOptions);
 
       node.addEventListener('pointerleave', () => {
         if (this.tooltip.isPinnedTo(node)) {
@@ -1372,7 +1456,7 @@ export class MarketPanel {
           this.tooltipNode = null;
           this.tooltip.hide();
         }
-      });
+      }, listenerOptions);
     });
   }
 
@@ -1485,8 +1569,25 @@ export class MarketPanel {
     }
     const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
     patchElementHtml(bookPanel, this.renderBookPanel(selected, orderBook, update.currencyItemName));
-    this.bindBookPanelActionEvents(bookPanel);
-    this.bindItemTooltipEvents(bookPanel);
+  }
+
+  /** 局部更新列表选中态，不重建当前 hover 的列表节点。 */
+  private patchMarketActiveSelection(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.modalTab !== 'market') {
+      return;
+    }
+    const body = this.getOpenModalBody();
+    if (!body) {
+      return;
+    }
+    body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.marketSelectItem === this.selectedItemKey);
+    });
+    body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.marketSelectGroup === this.selectedGroupItemId);
+    });
   }
 
   /** 读取当前选中的列表物品。 */
@@ -1908,7 +2009,18 @@ export class MarketPanel {
 
   /** 向外部请求某个物品的书籍详情。 */
   private requestItemBook(itemKey: string): void {
+    const cached = this.itemBookCache.get(itemKey);
+    if (cached) {
+      this.itemBook = cached;
+      this.itemBookLoading = false;
+      return;
+    }
+    if (this.pendingItemBookKeys.has(itemKey)) {
+      this.itemBookLoading = true;
+      return;
+    }
     this.itemBookLoading = true;
+    this.pendingItemBookKeys.add(itemKey);
     this.callbacks?.onRequestItemBook(itemKey);
   }
 

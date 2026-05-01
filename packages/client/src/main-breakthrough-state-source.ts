@@ -192,16 +192,16 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
             </div>
           </div>
         `,
-        onAfterRender: (body) => {
-          bindInlineItemTooltips(body);
+        onAfterRender: (body, signal) => {
+          bindInlineItemTooltips(body, signal);
           body.querySelector<HTMLElement>('[data-breakthrough-confirm]')?.addEventListener('click', () => {
             detailModalHost.close('realm:breakthrough');
             options.sendAction('realm:breakthrough');
-          });
+          }, { signal });
           body.querySelector<HTMLElement>('[data-root-foundation-refine]')?.addEventListener('click', () => {
             detailModalHost.close('realm:breakthrough');
             options.sendAction('realm:refine_root_foundation');
-          });
+          }, { signal });
         },
       });
     },    

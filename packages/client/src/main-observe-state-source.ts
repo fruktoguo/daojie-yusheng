@@ -886,8 +886,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           <div class="observe-loot-preview-list">${buildLootPreviewRowsHtml(entity.lootPreview)}</div>
         </section>
       `,
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
+      onAfterRender: (body, signal) => {
+        bindInlineItemTooltips(body, signal);
       },
     });
   }

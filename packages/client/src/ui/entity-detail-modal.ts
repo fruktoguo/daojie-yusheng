@@ -177,9 +177,9 @@ export class EntityDetailModal {
         this.detail = null;
         this.loading = false;
       },
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
-        this.bindBuffTooltips(body);
+      onAfterRender: (body, signal) => {
+        bindInlineItemTooltips(body, signal);
+        this.bindBuffTooltips(body, signal);
       },
     });
   }
@@ -198,7 +198,6 @@ export class EntityDetailModal {
     subtitleNode.textContent = subtitle;
     patchElementHtml(shell, this.renderBody());
     bindInlineItemTooltips(body);
-    this.bindBuffTooltips(body);
     return true;
   }
 
@@ -530,34 +529,85 @@ export class EntityDetailModal {
   }
 
   /** bindBuffTooltips：绑定 Buff tooltip。 */
-  private bindBuffTooltips(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[data-entity-buff-tooltip-title]').forEach((node) => {
+  private bindBuffTooltips(root: HTMLElement, signal: AbortSignal): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    const resolveTooltip = (node: HTMLElement) => {
       const title = node.dataset.entityBuffTooltipTitle ?? '';
       const detail = node.dataset.entityBuffTooltipDetail ?? '';
       const lines = detail.split('\n').filter(Boolean);
-      const tapMode = prefersPinnedTooltipInteraction();
-      node.addEventListener('click', (event) => {
-        if (!tapMode) {
-          return;
-        }
-        if (this.buffTooltip.isPinnedTo(node)) {
-          this.buffTooltip.hide(true);
-          return;
-        }
-        this.buffTooltip.showPinned(node, title, lines, event.clientX, event.clientY);
-        event.preventDefault();
-        event.stopPropagation();
-      });
-      node.addEventListener('mouseenter', (event) => {
-        this.buffTooltip.show(title, lines, event.clientX, event.clientY);
-      });
-      node.addEventListener('mousemove', (event) => {
-        this.buffTooltip.move(event.clientX, event.clientY);
-      });
-      node.addEventListener('mouseleave', () => {
+      return { title, lines };
+    };
+
+    root.addEventListener('click', (event) => {
+      if (!tapMode || !(event instanceof MouseEvent)) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-entity-buff-tooltip-title]')
+        : null;
+      if (!node || !root.contains(node)) {
+        return;
+      }
+      if (this.buffTooltip.isPinnedTo(node)) {
+        this.buffTooltip.hide(true);
+        return;
+      }
+      const tooltip = resolveTooltip(node);
+      this.buffTooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true, signal });
+
+    root.addEventListener('mouseover', (event) => {
+      if (!(event instanceof MouseEvent)) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-entity-buff-tooltip-title]')
+        : null;
+      if (!node || !root.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      const tooltip = resolveTooltip(node);
+      this.buffTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY);
+    }, { signal });
+
+    root.addEventListener('mousemove', (event) => {
+      if (!(event instanceof MouseEvent)) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-entity-buff-tooltip-title]')
+        : null;
+      if (!node || !root.contains(node)) {
+        return;
+      }
+      this.buffTooltip.move(event.clientX, event.clientY);
+    }, { signal });
+
+    root.addEventListener('mouseout', (event) => {
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-entity-buff-tooltip-title]')
+        : null;
+      if (!node || !root.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      if (!this.buffTooltip.isPinnedTo(node)) {
         this.buffTooltip.hide();
-      });
-    });
+      }
+    }, { signal });
   }
 
   /** formatBuffDuration：格式化 Buff 持续时间。 */

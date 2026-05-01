@@ -7,8 +7,8 @@ services:
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
-      SERVER_GM_PASSWORD: ${GM_PASSWORD:-admin123}
-      GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      SERVER_GM_PASSWORD: ${SERVER_GM_PASSWORD:-${GM_PASSWORD:-}}
+      GM_PASSWORD: ${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}
       SERVER_RUNTIME_TOKEN: ${SERVER_RUNTIME_TOKEN}
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
     ports:

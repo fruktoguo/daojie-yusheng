@@ -327,19 +327,26 @@ escape_yaml_single_quoted() {
   printf '%s' "$value"
 }
 
-# 为本地主线启动生成一次性密钥环境，避免回退到硬编码开发密钥。
+# 为本地主线启动生成一次性密钥环境，避免回退到硬编码开发密钥或默认 GM 密码。
 ensure_server_local_secret_env() {
 # 记录本地密钥 env 文件。
   local local_env_file=".runtime/server.local.env"
 # 记录是否需要写入。
   local needs_write=0
-# 记录jwt密钥。
-  local generated_jwt_secret=""
+# 记录玩家令牌密钥。
+  local generated_player_token_secret=""
+# 记录 GM 密码。
+  local generated_gm_password=""
 # 记录运行时令牌。
   local generated_runtime_token=""
 
-  if [[ -z "${JWT_SECRET:-}" ]]; then
-    generated_jwt_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+  if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}" ]]; then
+    generated_player_token_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if [[ -z "${SERVER_GM_PASSWORD:-${GM_PASSWORD:-}}" ]]; then
+    generated_gm_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('hex'))")"
     needs_write=1
   fi
 
@@ -355,8 +362,12 @@ ensure_server_local_secret_env() {
   mkdir -p ".runtime"
   touch "$local_env_file"
 
-  if [[ -n "$generated_jwt_secret" ]] && ! grep -q '^JWT_SECRET=' "$local_env_file"; then
-    printf 'JWT_SECRET=%s\n' "$generated_jwt_secret" >> "$local_env_file"
+  if [[ -n "$generated_player_token_secret" ]] && ! grep -q '^SERVER_PLAYER_TOKEN_SECRET=' "$local_env_file"; then
+    printf 'SERVER_PLAYER_TOKEN_SECRET=%s\n' "$generated_player_token_secret" >> "$local_env_file"
+  fi
+
+  if [[ -n "$generated_gm_password" ]] && ! grep -q '^SERVER_GM_PASSWORD=' "$local_env_file"; then
+    printf 'SERVER_GM_PASSWORD=%s\n' "$generated_gm_password" >> "$local_env_file"
   fi
 
   if [[ -n "$generated_runtime_token" ]] && ! grep -q '^SERVER_RUNTIME_TOKEN=' "$local_env_file"; then
@@ -431,11 +442,13 @@ prepare_server_base_env() {
   export DB_USERNAME="${DB_USERNAME:-mud}"
   export DB_PASSWORD="${DB_PASSWORD:-jiuzhou123}"
   export DB_DATABASE="${DB_DATABASE:-daojie_yusheng}"
-  export GM_PASSWORD="${GM_PASSWORD:-${SERVER_GM_PASSWORD:-admin123}}"
+  export SERVER_PLAYER_TOKEN_SECRET="${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}"
+  export GM_PASSWORD="${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}"
   export SERVER_GM_PASSWORD="${SERVER_GM_PASSWORD:-$GM_PASSWORD}"
   export SERVER_GM_DATABASE_BACKUP_DIR="${SERVER_GM_DATABASE_BACKUP_DIR:-${GM_DATABASE_BACKUP_DIR:-}}"
 
-  require_env_value "JWT_SECRET" "请按线上部署同名变量提供 JWT_SECRET，可放在 .env/.env.local 或 packages/server/.env(.local)。"
+  require_env_value "SERVER_PLAYER_TOKEN_SECRET" "请按线上部署同名变量提供 SERVER_PLAYER_TOKEN_SECRET，可放在 .env/.env.local 或 packages/server/.env(.local)。"
+  require_env_value "SERVER_GM_PASSWORD" "请按线上部署同名变量提供 SERVER_GM_PASSWORD 或 GM_PASSWORD，可放在 .env/.env.local 或 packages/server/.env(.local)。"
   require_env_value "SERVER_RUNTIME_TOKEN" "请按线上部署同名变量提供 SERVER_RUNTIME_TOKEN，可放在 .env/.env.local 或 packages/server/.env(.local)。"
 }
 
@@ -776,7 +789,7 @@ case "$MODE" in
 services:
   server:
     environment:
-      JWT_SECRET: '$(escape_yaml_single_quoted "$JWT_SECRET")'
+      SERVER_PLAYER_TOKEN_SECRET: '$(escape_yaml_single_quoted "$SERVER_PLAYER_TOKEN_SECRET")'
       SERVER_GM_PASSWORD: '$(escape_yaml_single_quoted "$SERVER_GM_PASSWORD")'
       GM_PASSWORD: '$(escape_yaml_single_quoted "$GM_PASSWORD")'
 EOF
@@ -798,7 +811,8 @@ EOF
     echo "  DB_DATABASE=daojie_yusheng 指定主线 PostgreSQL 数据库名"
     echo "  DB_PORT=15432             指定主线 PostgreSQL 端口"
     echo "  REDIS_PORT=16379          指定主线 Redis 端口"
-    echo "  JWT_SECRET=...            指定线上同名 JWT 密钥"
+    echo "  SERVER_PLAYER_TOKEN_SECRET=... 指定玩家令牌签名密钥"
+    echo "  SERVER_GM_PASSWORD=...    指定 GM 强密码"
     echo "  SERVER_RUNTIME_TOKEN=...   指定线上同名运行时令牌"
     echo "  SERVER_DEBUG_MOVEMENT=1    开启服务端移动诊断日志"
     echo "  VITE_DEBUG_MOVEMENT=1      开启客户端移动诊断日志"

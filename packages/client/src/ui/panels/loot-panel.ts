@@ -135,8 +135,8 @@ export class LootPanel {
         this.suppressAutoOpen = true;
         this.onManualClose?.();
       },
-      onAfterRender: (body) => {
-        this.bindEvents(body);
+      onAfterRender: (body, signal) => {
+        this.bindEvents(body, signal);
       },
     });
   }
@@ -210,13 +210,9 @@ export class LootPanel {
   }
 
   /** bindEvents：绑定事件。 */
-  private bindEvents(body: HTMLElement): void {
+  private bindEvents(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (body.dataset.lootBound === 'true') {
-      return;
-    }
-    body.dataset.lootBound = 'true';
     body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement
         ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all],[data-loot-start-gather],[data-loot-cancel-gather],[data-loot-stop-harvest]')
@@ -256,7 +252,7 @@ export class LootPanel {
       if (target.dataset.lootStopHarvest === 'true') {
         this.onStopHarvest?.();
       }
-    });
+    }, { signal });
   }
 
   /** isHarvestSource：判断是否连续采摘来源。 */

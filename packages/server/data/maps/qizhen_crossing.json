@@ -450,6 +450,12 @@
           "refreshSeconds": 3600
         },
         {
+          "itemId": "book.yi_kunlun",
+          "price": 900,
+          "stockLimit": 3,
+          "refreshSeconds": 3600
+        },
+        {
           "itemId": "book.ningqi_chengji",
           "price": 3000,
           "stockLimit": 1,
@@ -515,7 +521,36 @@
       "color": "#caa882",
       "dialogue": "五行料、残卷页、旧法器，全看你带回来什么。栖真渡这地方，东西新不新不重要，能不能保命才重要。",
       "role": "trader",
-      "shopItems": [],
+      "shopItems": [
+        {
+          "itemId": "formation_disk.mortal",
+          "price": 60
+        },
+        {
+          "itemId": "formation_disk.yellow",
+          "price": 160,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "formation_disk.mystic",
+          "price": 400,
+          "stockLimit": 5,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "formation_disk.earth",
+          "price": 1000,
+          "stockLimit": 2,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "sect_founding_token",
+          "price": 1200,
+          "stockLimit": 1,
+          "refreshSeconds": 7200
+        }
+      ],
       "quests": []
     },
     {

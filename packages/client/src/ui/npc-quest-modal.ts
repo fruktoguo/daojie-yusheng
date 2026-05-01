@@ -92,8 +92,6 @@ export class NpcQuestModal {
   private state: HydratedNpcQuests | null = null;
   /** selectedQuestId：selected任务ID。 */
   private selectedQuestId: string | null = null;
-  /** delegatedEventsBound：delegated事件Bound。 */
-  private delegatedEventsBound = false;
 
   /** setCallbacks：处理set Callbacks。 */
   setCallbacks(callbacks: NpcQuestModalCallbacks): void {
@@ -214,9 +212,9 @@ export class NpcQuestModal {
         this.activeNpcId = null;
         this.loading = false;
       },
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
-        this.bindEvents(body);
+      onAfterRender: (body, signal) => {
+        bindInlineItemTooltips(body, signal);
+        this.bindEvents(body, signal);
         if (renderState) {
           this.restoreRenderState(body, renderState);
         }
@@ -431,14 +429,10 @@ export class NpcQuestModal {
   }
 
   /** bindEvents：绑定事件。 */
-  private bindEvents(body: HTMLElement): void {
+  private bindEvents(body: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.delegatedEventsBound) {
-      return;
-    }
-    this.delegatedEventsBound = true;
-    body.addEventListener('click', (event) => this.handleBodyClick(event));
+    body.addEventListener('click', (event) => this.handleBodyClick(event), { signal });
   }
 
   /** handleBodyClick：处理身体Click。 */

@@ -218,7 +218,6 @@ export class MailPanel {
   /** 待恢复后重放的邮件操作。 */
   private pendingOperation: PendingMailOperation | null = null;
   /** 是否已绑定事件代理。 */
-  private delegatedEventsBound = false;
   /** 邮件详情区缓存的节点引用。 */
   private detailRefs: MailDetailRefs | null = null;  
   /**
@@ -478,7 +477,7 @@ export class MailPanel {
       subtitle: meta.subtitle,
       hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
-      onAfterRender: (body) => this.bindEvents(body),
+      onAfterRender: (body, signal) => this.bindEvents(body, signal),
     });
   }
 
@@ -619,8 +618,8 @@ export class MailPanel {
       subtitle: meta.subtitle,
       hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
-      onAfterRender: (nextBody) => {
-        this.bindEvents(nextBody);
+      onAfterRender: (nextBody, signal) => {
+        this.bindEvents(nextBody, signal);
         if (renderState) {
           this.restoreRenderState(nextBody, renderState);
         }
@@ -1048,15 +1047,11 @@ export class MailPanel {
   }
 
   /** 为弹窗内容绑定一次性事件代理。 */
-  private bindEvents(root: HTMLElement): void {
+  private bindEvents(root: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.delegatedEventsBound) {
-      return;
-    }
-    this.delegatedEventsBound = true;
-    root.addEventListener('click', (event) => this.handleRootClick(event));
-    root.addEventListener('change', (event) => this.handleRootChange(event));
+    root.addEventListener('click', (event) => this.handleRootClick(event), { signal });
+    root.addEventListener('change', (event) => this.handleRootChange(event), { signal });
   }
 
   /** 处理弹窗根节点的点击事件。 */

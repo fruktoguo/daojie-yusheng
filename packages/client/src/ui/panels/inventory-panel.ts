@@ -1012,7 +1012,7 @@ export class InventoryPanel {
         this.clearFormationWorldPreview();
         this.resetModalState();
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           if (!primaryAction || primaryAction.kind === 'status') {
@@ -1037,7 +1037,7 @@ export class InventoryPanel {
           }
           this.onUseItem?.(slotIndex, 1);
           this.closeModal();
-        });
+        }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
           const kind = button.dataset.inventoryOpenAction as InventoryActionKind | undefined;
@@ -1046,12 +1046,12 @@ export class InventoryPanel {
             return;
           }
           this.openActionDialog(kind, slotIndex, Number.isFinite(defaultCount) ? defaultCount : 1);
-        }));
+        }, { signal }));
         body.querySelector<HTMLElement>('[data-inventory-source-toggle="true"]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           this.sourceExpanded = !this.sourceExpanded;
           this.renderModal();
-        });
+        }, { signal });
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -1074,21 +1074,21 @@ export class InventoryPanel {
         this.clearFormationWorldPreview();
         this.resetModalState();
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         body.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-formation-input]').forEach((input) => {
           const onInput = () => this.handleFormationInputChange(body, item, input);
-          input.addEventListener('input', onInput);
-          input.addEventListener('change', onInput);
+          input.addEventListener('input', onInput, { signal });
+          input.addEventListener('change', onInput, { signal });
         });
         this.syncFormationRatioSliders(body, null);
         this.syncFormationPreview(body, item);
-        this.bindFormationRangePreviewButton(body);
+        this.bindFormationRangePreviewButton(body, signal);
         body.querySelector<HTMLElement>('[data-formation-cancel]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           this.clearFormationWorldPreview();
           this.formationDialogSlotIndex = null;
           this.renderModal();
-        });
+        }, { signal });
         body.querySelector<HTMLElement>('[data-formation-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           const payload = this.readFormationPayload(body, slotIndex);
@@ -1098,7 +1098,7 @@ export class InventoryPanel {
           this.clearFormationWorldPreview();
           this.onCreateFormation?.(payload);
           this.closeModal();
-        });
+        }, { signal });
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -1266,20 +1266,20 @@ export class InventoryPanel {
     modalCard?.classList.toggle('formation-range-preview-active', visible);
   }
 
-  private bindFormationRangePreviewButton(body: HTMLElement): void {
+  private bindFormationRangePreviewButton(body: HTMLElement, signal: AbortSignal): void {
     const button = body.querySelector<HTMLButtonElement>('[data-formation-range-preview]');
     if (!button) {
       return;
     }
     const show = () => this.setFormationPreviewFocusMode(true);
     const hide = () => this.setFormationPreviewFocusMode(false);
-    button.addEventListener('mouseenter', show);
-    button.addEventListener('mouseleave', hide);
-    button.addEventListener('focus', show);
-    button.addEventListener('blur', hide);
-    button.addEventListener('pointerdown', show);
-    button.addEventListener('pointerup', hide);
-    button.addEventListener('pointercancel', hide);
+    button.addEventListener('mouseenter', show, { signal });
+    button.addEventListener('mouseleave', hide, { signal });
+    button.addEventListener('focus', show, { signal });
+    button.addEventListener('blur', hide, { signal });
+    button.addEventListener('pointerdown', show, { signal });
+    button.addEventListener('pointerup', hide, { signal });
+    button.addEventListener('pointercancel', hide, { signal });
   }
 
   private clearFormationWorldPreview(): void {
@@ -1417,7 +1417,7 @@ export class InventoryPanel {
       onClose: () => {
         this.resetModalState();
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         const nameInput = body.querySelector<HTMLInputElement>('[data-sect-name-input]');
         const markInput = body.querySelector<HTMLInputElement>('[data-sect-mark-input]');
         const statusNode = body.querySelector<HTMLElement>('[data-sect-founding-status]');
@@ -1426,7 +1426,7 @@ export class InventoryPanel {
           if (markInput && !markInput.dataset.touched) {
             markInput.value = getFirstGrapheme(nameInput.value.trim());
           }
-        });
+        }, { signal });
         markInput?.addEventListener('input', () => {
           markInput.dataset.touched = 'true';
           const normalizedMark = this.normalizeSectMarkInput(markInput.value);
@@ -1434,12 +1434,12 @@ export class InventoryPanel {
             markInput.value = normalizedMark;
           }
           if (statusNode) statusNode.textContent = '';
-        });
+        }, { signal });
         body.querySelector<HTMLElement>('[data-sect-founding-cancel]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           this.sectFoundingDialogSlotIndex = null;
           this.renderModal();
-        });
+        }, { signal });
         body.querySelector<HTMLElement>('[data-sect-founding-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           const sectName = this.normalizeSectName(nameInput?.value ?? '');
@@ -1454,7 +1454,7 @@ export class InventoryPanel {
           }
           this.onUseItem?.(slotIndex, 1, { sectName, sectMark });
           this.closeModal();
-        });
+        }, { signal });
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -1483,7 +1483,7 @@ export class InventoryPanel {
         onClose: () => {
           this.resetModalState();
         },
-        onAfterRender: (body) => {
+        onAfterRender: (body, signal) => {
           body.querySelector<HTMLElement>('[data-inventory-destroy-back]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             this.actionDialog = {
@@ -1491,12 +1491,12 @@ export class InventoryPanel {
               confirmDestroy: false,
             };
             this.renderModal();
-          });
+          }, { signal });
           body.querySelector<HTMLElement>('[data-inventory-destroy-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             this.onDestroyItem?.(slotIndex, selectedCount);
             this.closeModal();
-          });
+          }, { signal });
         },
       });
       this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -1515,17 +1515,17 @@ export class InventoryPanel {
         onClose: () => {
           this.resetModalState();
         },
-        onAfterRender: (body) => {
+        onAfterRender: (body, signal) => {
           body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             this.actionDialog = null;
             this.renderModal();
-          });
+          }, { signal });
           body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             this.onUseItem?.(slotIndex, 1);
             this.closeModal();
-          });
+          }, { signal });
         },
       });
       this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -1543,7 +1543,7 @@ export class InventoryPanel {
       onClose: () => {
         this.resetModalState();
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
         this.syncActionCountInputWidth(countInput, maxCount);
         countInput?.addEventListener('input', () => {
@@ -1552,7 +1552,7 @@ export class InventoryPanel {
             countInput.value = nextValue;
           }
           this.syncActionCountInputWidth(countInput, maxCount);
-        });
+        }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-quick-count]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
           if (!countInput) {
@@ -1560,12 +1560,12 @@ export class InventoryPanel {
           }
           countInput.value = button.dataset.inventoryQuickCount ?? '1';
           this.syncActionCountInputWidth(countInput, maxCount);
-        }));
+        }, { signal }));
         body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           this.actionDialog = null;
           this.renderModal();
-        });
+        }, { signal });
         body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           const selected = this.getUseCountFromInput(countInput, maxCount);
@@ -1585,7 +1585,7 @@ export class InventoryPanel {
             confirmDestroy: true,
           };
           this.renderModal();
-        });
+        }, { signal });
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);

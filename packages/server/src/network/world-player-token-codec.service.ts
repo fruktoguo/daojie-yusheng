@@ -11,7 +11,7 @@ const TOKEN_ISSUER = 'server';
 const TOKEN_VERSION = 1;
 const PLAYER_TOKEN_SECRET_ENV_KEYS = [
   'SERVER_PLAYER_TOKEN_SECRET',
-  'SERVER_PLAYER_TOKEN_SECRET',
+  'JWT_SECRET',
 ] as const;
 const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
@@ -238,7 +238,7 @@ function resolvePlayerTokenSecrets(): string[] {
   }
 
   if (!isDevelopmentLikeEnv()) {
-    throw new Error('非开发环境必须配置 SERVER_PLAYER_TOKEN_SECRET / SERVER_PLAYER_TOKEN_SECRET，禁止回退内置开发密钥。');
+    throw new Error('非开发环境必须配置 SERVER_PLAYER_TOKEN_SECRET；JWT_SECRET 仅作为旧本地配置兼容，禁止回退内置开发密钥。');
   }
 
   secrets.push(DEFAULT_DEV_PLAYER_TOKEN_SECRET);

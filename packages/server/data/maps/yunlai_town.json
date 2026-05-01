@@ -1767,7 +1767,16 @@
       "color": "#e38f66",
       "dialogue": "棚子塌了就塌了，铁砧还在就能开工。",
       "role": "craft",
-      "shopItems": [],
+      "shopItems": [
+        {
+          "itemId": "equip.copper_pill_furnace",
+          "price": 40
+        },
+        {
+          "itemId": "equip.copper_enhancement_hammer",
+          "price": 40
+        }
+      ],
       "quests": []
     },
     {

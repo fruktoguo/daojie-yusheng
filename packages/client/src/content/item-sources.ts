@@ -1,5 +1,5 @@
 /** 物品来源的分类类型。 */
-export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
+export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest' | 'alchemy' | 'runtime_pvp_reward';
 /** 灵石对应的物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
@@ -197,13 +197,27 @@ export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
   npcName: string;
 }
 
+/** 炼丹配方来源条目。 */
+export interface AlchemyItemSourceEntry extends ItemSourceBaseEntry {
+  kind: 'alchemy';
+  recipeId: string;
+}
+
+/** 运行时玩家战斗奖励来源条目。 */
+export interface RuntimePvpRewardItemSourceEntry extends ItemSourceBaseEntry {
+  kind: 'runtime_pvp_reward';
+  sourceLabel: string;
+}
+
 /** 任意一种静态物品来源条目。 */
 export type ItemSourceEntry =
   | MonsterItemSourceEntry
   | DirectItemNodeSourceEntry
   | PoolItemNodeSourceEntry
   | ShopItemSourceEntry
-  | QuestItemSourceEntry;
+  | QuestItemSourceEntry
+  | AlchemyItemSourceEntry
+  | RuntimePvpRewardItemSourceEntry;
 
 /** 物品来源目录的内存结构。 */
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
@@ -267,6 +281,10 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
       return '购买';
     case 'quest':
       return '任务';
+    case 'alchemy':
+      return '炼丹';
+    case 'runtime_pvp_reward':
+      return '战斗';
   }
 }
 
@@ -300,6 +318,20 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{
     return [
       { tone: 'map', text: entry.mapName },
       { tone: 'shop', text: entry.npcName },
+    ];
+  }
+
+  if (entry.kind === 'alchemy') {
+    return [
+      { tone: 'map', text: entry.mapName },
+      { tone: 'quest', text: entry.recipeId },
+    ];
+  }
+
+  if (entry.kind === 'runtime_pvp_reward') {
+    return [
+      { tone: 'map', text: entry.mapName },
+      { tone: 'monster', text: entry.sourceLabel },
     ];
   }
 

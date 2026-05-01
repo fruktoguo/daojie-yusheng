@@ -111,8 +111,6 @@ export class SuggestionPanel {
   private lastSuggestionSyncAt = 0;
   /** lastRefreshRequestAt：last Refresh请求At。 */
   private lastRefreshRequestAt = 0;
-  /** delegatedEventsBound：delegated事件Bound。 */
-  private delegatedEventsBound = false;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param socket Pick<
@@ -203,7 +201,7 @@ export class SuggestionPanel {
       renderBody: (body) => {
         this.renderBody(body);
       },
-      onAfterRender: (el: HTMLElement) => this.bindEvents(el),
+      onAfterRender: (el, signal) => this.bindEvents(el, signal),
     });
   }
 
@@ -445,16 +443,12 @@ export class SuggestionPanel {
   }
 
   /** bindEvents：绑定事件。 */
-  private bindEvents(el: HTMLElement): void {
+  private bindEvents(el: HTMLElement, signal: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.delegatedEventsBound) {
-      return;
-    }
-    this.delegatedEventsBound = true;
-    el.addEventListener('input', (event) => this.handleInput(event));
-    el.addEventListener('click', (event) => this.handleClick(event));
-    el.addEventListener('keydown', (event) => this.handleKeyDown(event));
+    el.addEventListener('input', (event) => this.handleInput(event), { signal });
+    el.addEventListener('click', (event) => this.handleClick(event), { signal });
+    el.addEventListener('keydown', (event) => this.handleKeyDown(event), { signal });
   }
 
   /** render：渲染渲染。 */
@@ -485,7 +479,7 @@ export class SuggestionPanel {
         renderBody: (nextBody) => {
           this.renderBody(nextBody);
         },
-        onAfterRender: (el: HTMLElement) => this.bindEvents(el),
+        onAfterRender: (el, signal) => this.bindEvents(el, signal),
       });
     }
     this.restoreRenderState(body, renderState);

@@ -782,10 +782,10 @@ export class TechniquePanel {
         this.destroyConstellationCanvas();
         this.tooltip.hide(true);
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
-        this.bindSkillTooltips(body);
-        this.bindTechniqueExpTooltip(body);
+        this.bindSkillTooltips(body, signal);
+        this.bindTechniqueExpTooltip(body, signal);
       },
     });
   }
@@ -1113,122 +1113,186 @@ export class TechniquePanel {
   }
 
   /** bindSkillTooltips：绑定技能Tooltips。 */
-  private bindSkillTooltips(modalBody: HTMLElement): void {
+  private bindSkillTooltips(modalBody: HTMLElement, signal: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
-    modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
-      if (node.dataset.skillTooltipBound === '1') {
-        return;
-      }
-      node.dataset.skillTooltipBound = '1';
+    const resolveTooltip = (node: HTMLElement) => {
       const title = node.dataset.skillTooltipTitle ?? '';
       const rich = node.dataset.skillTooltipRich === '1';
       const skillId = node.dataset.skillTooltipSkillId ?? '';
       const unlockLevel = Number(node.dataset.skillTooltipUnlockLevel ?? '0') || undefined;
-      node.addEventListener('click', (event) => {
-        if (!tapMode) {
-          return;
-        }
-        if (this.tooltip.isPinnedTo(node)) {
-          this.tooltip.hide(true);
-          return;
-        }
-        const techniques = resolvePreviewTechniques(this.lastState.techniques);
-        const technique = techniques.find((entry) => entry.skills.some((skill) => skill.id === skillId));
-        const skill = technique?.skills.find((entry) => entry.id === skillId);
-        const tooltip = skill ? buildSkillTooltipContent(skill, {
-          unlockLevel,
-          techLevel: technique?.level,
-          player: this.lastState.previewPlayer,
-          knownSkills: techniques.flatMap((entry) => entry.skills),
-        }) : { lines: [], asideCards: [] };
-        this.tooltip.showPinned(node, title, tooltip.lines, event.clientX, event.clientY, {
-          allowHtml: rich,
-          asideCards: tooltip.asideCards,
-        });
-        event.preventDefault();
-        event.stopPropagation();
-      }, true);
-      node.addEventListener('pointerenter', (event) => {
-        if (tapMode && this.tooltip.isPinned()) {
-          return;
-        }
-        const techniques = resolvePreviewTechniques(this.lastState.techniques);
-        const technique = techniques.find((entry) => entry.skills.some((skill) => skill.id === skillId));
-        const skill = technique?.skills.find((entry) => entry.id === skillId);
-        const tooltip = skill ? buildSkillTooltipContent(skill, {
-          unlockLevel,
-          techLevel: technique?.level,
-          player: this.lastState.previewPlayer,
-          knownSkills: techniques.flatMap((entry) => entry.skills),
-        }) : { lines: [], asideCards: [] };
-        this.tooltip.show(title, tooltip.lines, event.clientX, event.clientY, {
-          allowHtml: rich,
-          asideCards: tooltip.asideCards,
-        });
+      const techniques = resolvePreviewTechniques(this.lastState.techniques);
+      const technique = techniques.find((entry) => entry.skills.some((skill) => skill.id === skillId));
+      const skill = technique?.skills.find((entry) => entry.id === skillId);
+      const tooltip = skill ? buildSkillTooltipContent(skill, {
+        unlockLevel,
+        techLevel: technique?.level,
+        player: this.lastState.previewPlayer,
+        knownSkills: techniques.flatMap((entry) => entry.skills),
+      }) : { lines: [], asideCards: [] };
+      return { title, rich, tooltip };
+    };
+
+    modalBody.addEventListener('click', (event) => {
+      if (!tapMode || !(event instanceof PointerEvent)) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(node)) {
+        this.tooltip.hide(true);
+        return;
+      }
+      const { title, rich, tooltip } = resolveTooltip(node);
+      this.tooltip.showPinned(node, title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: rich,
+        asideCards: tooltip.asideCards,
       });
-      node.addEventListener('pointermove', (event) => {
-        if (tapMode && this.tooltip.isPinned()) {
-          return;
-        }
-        this.tooltip.move(event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true, signal });
+
+    modalBody.addEventListener('pointerover', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      const { title, rich, tooltip } = resolveTooltip(node);
+      this.tooltip.show(title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: rich,
+        asideCards: tooltip.asideCards,
       });
-      node.addEventListener('pointerleave', () => {
+    }, { signal });
+
+    modalBody.addEventListener('pointermove', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      this.tooltip.move(event.clientX, event.clientY);
+    }, { signal });
+
+    modalBody.addEventListener('pointerout', (event) => {
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      if (!this.tooltip.isPinnedTo(node)) {
         this.tooltip.hide();
-      });
-    });
+      }
+    }, { signal });
   }
 
   /** bindTechniqueExpTooltip：绑定Technique Exp提示。 */
-  private bindTechniqueExpTooltip(modalBody: HTMLElement): void {
+  private bindTechniqueExpTooltip(modalBody: HTMLElement, signal: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
-    modalBody.querySelectorAll<HTMLElement>('[data-tech-exp-tooltip="true"]').forEach((node) => {
-      if (node.dataset.techExpTooltipBound === '1') {
+    const showTooltip = (node: HTMLElement, clientX: number, clientY: number, pin = false): void => {
+      if (!this.openTechId) {
         return;
       }
-      node.dataset.techExpTooltipBound = '1';
-      const showTooltip = (clientX: number, clientY: number, pin = false): void => {
-        if (!this.openTechId) {
-          return;
-        }
-        const tech = this.findPreviewTechnique(this.openTechId);
-        if (!tech) {
-          return;
-        }
-        const lines = buildTechniqueExpTooltipLines(tech, this.lastState.previewPlayer);
-        if (pin) {
-          this.tooltip.showPinned(node, '功法经验修正', lines, clientX, clientY);
-          return;
-        }
-        this.tooltip.show('功法经验修正', lines, clientX, clientY);
-      };
-      node.addEventListener('click', (event) => {
-        if (!tapMode) {
-          return;
-        }
-        if (this.tooltip.isPinnedTo(node)) {
-          this.tooltip.hide(true);
-          return;
-        }
-        showTooltip(event.clientX, event.clientY, true);
-        event.preventDefault();
-        event.stopPropagation();
-      }, true);
-      node.addEventListener('pointerenter', (event) => {
-        if (tapMode && this.tooltip.isPinned()) {
-          return;
-        }
-        showTooltip(event.clientX, event.clientY);
-      });
-      node.addEventListener('pointermove', (event) => {
-        if (tapMode && this.tooltip.isPinned()) {
-          return;
-        }
-        this.tooltip.move(event.clientX, event.clientY);
-      });
-      node.addEventListener('pointerleave', () => {
+      const tech = this.findPreviewTechnique(this.openTechId);
+      if (!tech) {
+        return;
+      }
+      const lines = buildTechniqueExpTooltipLines(tech, this.lastState.previewPlayer);
+      if (pin) {
+        this.tooltip.showPinned(node, '功法经验修正', lines, clientX, clientY);
+        return;
+      }
+      this.tooltip.show('功法经验修正', lines, clientX, clientY);
+    };
+    modalBody.addEventListener('click', (event) => {
+      if (!tapMode || !(event instanceof PointerEvent)) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(node)) {
+        this.tooltip.hide(true);
+        return;
+      }
+      showTooltip(node, event.clientX, event.clientY, true);
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true, signal });
+    modalBody.addEventListener('pointerover', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      showTooltip(node, event.clientX, event.clientY);
+    }, { signal });
+    modalBody.addEventListener('pointermove', (event) => {
+      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+        return;
+      }
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      this.tooltip.move(event.clientX, event.clientY);
+    }, { signal });
+    modalBody.addEventListener('pointerout', (event) => {
+      const target = event.target;
+      const node = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
+        : null;
+      if (!node || !modalBody.contains(node)) {
+        return;
+      }
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+        return;
+      }
+      if (!this.tooltip.isPinnedTo(node)) {
         this.tooltip.hide();
-      });
-    });
+      }
+    }, { signal });
   }
 
   /** closeModal：关闭弹窗。 */
@@ -1383,7 +1447,6 @@ export class TechniquePanel {
 
     if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
       patchElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));
-      this.bindSkillTooltips(focusShell);
     } else {
       this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
     }
@@ -1393,7 +1456,6 @@ export class TechniquePanel {
       constellationShell.dataset.techModalConstellationSignature = constellationSignature;
       patchElementHtml(constellationShell, this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones));
       this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
-      this.bindSkillTooltips(constellationShell);
     }
 
     const noteNode = document.querySelector<HTMLElement>('.tech-starfield-note');
@@ -1577,7 +1639,6 @@ export class TechniquePanel {
         return node;
       }),
     );
-    this.bindSkillTooltips(focusShell);
   }
 
   /** findPreviewTechnique：查找Preview Technique。 */

@@ -34,6 +34,10 @@ const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
  */
 const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
 /**
+ * 记录炼丹配方路径。
+ */
+const alchemyRecipesPath = path.join(repoRoot, 'packages/server/data/content/alchemy/recipes.json');
+/**
  * 记录输出文件路径。
  */
 const outputPath = path.join(clientDir, 'src/constants/world/item-sources.generated.json');
@@ -51,6 +55,10 @@ const GRADE_ORDER = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 
  * 记录品阶索引。
  */
 const GRADE_INDEX = new Map(GRADE_ORDER.map((grade, index) => [grade, index]));
+/**
+ * 记录玩家战斗血精奖励物品ID。
+ */
+const BLOOD_ESSENCE_ITEM_ID = 'stone.blood_essence';
 
 /**
  * 递归遍历json文件列表。
@@ -381,6 +389,8 @@ function sortSources(entries) {
     search: 1,
     shop: 2,
     quest: 3,
+    alchemy: 4,
+    runtime_pvp_reward: 5,
   };
 /**
  * 记录seen。
@@ -402,7 +412,7 @@ function sortSources(entries) {
 /**
  * 记录kinddelta。
  */
-      const kindDelta = kindPriority[left.kind] - kindPriority[right.kind];
+      const kindDelta = (kindPriority[left.kind] ?? 99) - (kindPriority[right.kind] ?? 99);
       if (kindDelta !== 0) {
         return kindDelta;
       }
@@ -436,10 +446,13 @@ function sortSources(entries) {
       if (left.kind === 'shop' && right.kind === 'shop') {
         return left.npcId.localeCompare(right.npcId, 'zh-CN');
       }
+      if (left.kind === 'alchemy' && right.kind === 'alchemy') {
+        return left.recipeId.localeCompare(right.recipeId, 'zh-CN');
+      }
 /**
  * 记录地标delta。
  */
-      const landmarkDelta = left.landmarkId.localeCompare(right.landmarkId, 'zh-CN');
+      const landmarkDelta = (left.landmarkId ?? '').localeCompare(right.landmarkId ?? '', 'zh-CN');
       if (landmarkDelta !== 0) {
         return landmarkDelta;
       }
@@ -493,6 +506,7 @@ function main() {
 
   const mapNameById = buildMapNameById(maps);
   const monsterLocationCatalog = buildMonsterLocationCatalog(monsters, mapRefsByMonsterId);
+  const alchemyRecipes = readJson(alchemyRecipesPath);
   const sourceByItemId = new Map(
     items
       .slice()
@@ -673,6 +687,22 @@ function main() {
       count: 1,
     });
   }
+
+  for (const recipe of Array.isArray(alchemyRecipes) ? alchemyRecipes : []) {
+    pushSource(sourceByItemId, recipe.outputItemId, {
+      kind: 'alchemy',
+      mapId: 'crafting',
+      mapName: '炼丹',
+      recipeId: recipe.recipeId,
+    });
+  }
+
+  pushSource(sourceByItemId, BLOOD_ESSENCE_ITEM_ID, {
+    kind: 'runtime_pvp_reward',
+    mapId: 'runtime_pvp',
+    mapName: '玩家战斗',
+    sourceLabel: '击败其他玩家时按战斗规则结算',
+  });
 
 /**
  * 记录目录。

@@ -220,13 +220,16 @@ export function renderTextWithInlineItemHighlights(text: string): string {
 }
 
 /** bindInlineItemTooltips：绑定Inline物品Tooltips。 */
-export function bindInlineItemTooltips(root: HTMLElement): void {
+export function bindInlineItemTooltips(root: HTMLElement, signal?: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (boundRoots.has(root)) {
     return;
   }
   boundRoots.add(root);
+  if (signal) {
+    signal.addEventListener('abort', () => boundRoots.delete(root), { once: true });
+  }
 
   const tapMode = prefersPinnedTooltipInteraction();
 
@@ -263,7 +266,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     });
     event.preventDefault();
     event.stopPropagation();
-  }, true);
+  }, signal ? { capture: true, signal } : true);
 
   root.addEventListener('pointermove', (event) => {
     if (!(event instanceof PointerEvent) || (tapMode && inlineItemTooltip.isPinned())) {
@@ -290,7 +293,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       return;
     }
     inlineItemTooltip.move(event.clientX, event.clientY);
-  });
+  }, signal ? { signal } : undefined);
 
   root.addEventListener('pointerleave', () => {
     if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
@@ -298,7 +301,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       tooltipRequestToken += 1;
       inlineItemTooltip.hide();
     }
-  });
+  }, signal ? { signal } : undefined);
 
   root.addEventListener('pointerdown', (event) => {
     const target = event.target;
@@ -310,5 +313,5 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       tooltipRequestToken += 1;
       inlineItemTooltip.hide();
     }
-  });
+  }, signal ? { signal } : undefined);
 }
