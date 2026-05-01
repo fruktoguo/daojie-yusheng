@@ -72,7 +72,7 @@ function resolveCombatHit(params) {
         );
         reduction = 1 - (1 - reduction) * (1 - elementReduce);
     }
-    damage = Math.max(1, Math.round(damage * (1 - Math.min(0.95, reduction))));
+    damage = Math.max(1, Math.round(damage * Math.max(0, 1 - reduction)));
 
     if (crit) {
         const critMultiplier = (200 + Math.max(0, attackerStats.critDamage) / 10) / 100;

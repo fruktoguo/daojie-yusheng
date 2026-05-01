@@ -93,7 +93,7 @@ function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRa
 }
 /** 生成中文的伤害明细字符串。 */
 function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {
-    return `原始 ${Math.max(0, Math.round(rawDamage))} - 实际 ${Math.max(0, Math.round(actualDamage))} - ${formatCombatDamageType(damageKind, element)}`;
+    return `原始 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(rawDamage)))} - 实际 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(actualDamage)))} - ${formatCombatDamageType(damageKind, element)}`;
 }
 /** 生成“攻击/施展技能”类的动作描述语句。 */
 function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {

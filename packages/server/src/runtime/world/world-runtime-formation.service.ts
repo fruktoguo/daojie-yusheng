@@ -1466,5 +1466,5 @@ function touchInstanceRevision(instance) {
 }
 
 function formatInteger(value) {
-    return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('zh-CN');
+    return (0, shared_1.formatDisplayInteger)(Math.max(0, Math.floor(Number(value) || 0)));
 }

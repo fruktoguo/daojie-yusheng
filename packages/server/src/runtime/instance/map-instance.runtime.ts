@@ -19,6 +19,9 @@ const DEFAULT_VIEW_RADIUS = 10;
 
 /** MONSTER_LOST_SIGHT_CHASE_TICKS：妖兽丢失视野后只追击最后目击点的短暂记忆窗口。 */
 const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
+const MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT = 100;
+const MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT = 100;
+const MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT = 1000;
 
 /** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
@@ -232,6 +235,21 @@ class MapInstanceRuntime {
 
     monsterRuntimeIdByTile = new Map();    
     /**
+ * monsterSpawnGroupsByKey：按刷新点聚合的妖兽运行态分组。
+ */
+
+    monsterSpawnGroupsByKey = new Map();
+    /**
+ * monsterSpawnAccelerationStatesByKey：普通妖兽刷新点清场加速状态。
+ */
+
+    monsterSpawnAccelerationStatesByKey = new Map();
+    /**
+ * monsterSpawnKeyByRuntimeId：妖兽运行态 ID 到刷新点分组键。
+ */
+
+    monsterSpawnKeyByRuntimeId = new Map();
+    /**
  * groundPilesByTile：groundPileByTile相关字段。
  */
 
@@ -431,11 +449,17 @@ class MapInstanceRuntime {
             this.containerIdByTile.set(this.toTileIndex(container.x, container.y), container.id);
         }
         for (const monster of request.monsterSpawns) {
-            this.monstersByRuntimeId.set(monster.runtimeId, {
+            const spawnX = Number.isFinite(Number(monster.spawnOriginX)) ? Math.trunc(Number(monster.spawnOriginX)) : monster.x;
+            const spawnY = Number.isFinite(Number(monster.spawnOriginY)) ? Math.trunc(Number(monster.spawnOriginY)) : monster.y;
+            const spawnKey = typeof monster.spawnKey === 'string' && monster.spawnKey.trim()
+                ? monster.spawnKey.trim()
+                : buildMonsterSpawnKey(monster.monsterId, spawnX, spawnY);
+            const state = {
                 runtimeId: monster.runtimeId,
                 monsterId: monster.monsterId,
-                spawnX: Number.isFinite(Number(monster.spawnOriginX)) ? Math.trunc(Number(monster.spawnOriginX)) : monster.x,
-                spawnY: Number.isFinite(Number(monster.spawnOriginY)) ? Math.trunc(Number(monster.spawnOriginY)) : monster.y,
+                spawnKey,
+                spawnX,
+                spawnY,
                 x: monster.x,
                 y: monster.y,
                 hp: monster.alive ? Math.max(1, Math.min(monster.hp, monster.maxHp)) : 0,
@@ -469,11 +493,21 @@ class MapInstanceRuntime {
                 attackRange: monster.attackRange,
                 attackCooldownTicks: monster.attackCooldownTicks,
                 attackReadyTick: 0,
-            });
+            };
+            this.monstersByRuntimeId.set(monster.runtimeId, state);
+            this.monsterSpawnKeyByRuntimeId.set(monster.runtimeId, spawnKey);
+            const group = this.monsterSpawnGroupsByKey.get(spawnKey);
+            if (group) {
+                group.push(state);
+            }
+            else {
+                this.monsterSpawnGroupsByKey.set(spawnKey, [state]);
+            }
             if (monster.alive) {
                 this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
             }
         }
+        this.initializeMonsterSpawnAccelerationStates();
     }
     /** playerCount：当前实例中的在线玩家数量。 */
     get playerCount() {
@@ -3427,12 +3461,93 @@ class MapInstanceRuntime {
     allocateHandle() {
         return this.freeHandles.pop() ?? this.nextHandle++;
     }
+    /** initializeMonsterSpawnAccelerationStates：初始化普通怪物刷新点清场加速状态。 */
+    initializeMonsterSpawnAccelerationStates() {
+        this.monsterSpawnAccelerationStatesByKey.clear();
+        for (const [spawnKey, group] of this.monsterSpawnGroupsByKey.entries()) {
+            const sample = group[0];
+            if (!sample || !isOrdinaryMonster(sample)) {
+                continue;
+            }
+            this.monsterSpawnAccelerationStatesByKey.set(spawnKey, {
+                spawnKey,
+                respawnSpeedBonusPercent: 0,
+                clearDeadlineTick: areAllMonstersAlive(group)
+                    ? this.tick + resolveMonsterRespawnTicksWithBonus(sample.respawnTicks, 0)
+                    : 0,
+            });
+        }
+    }
+    /** getMonsterSpawnGroup：读取同一刷新点下的全部怪物。 */
+    getMonsterSpawnGroup(monster) {
+        return this.monsterSpawnGroupsByKey.get(monster.spawnKey) ?? [monster];
+    }
+    /** getMonsterSpawnAccelerationState：读取或创建普通怪物刷新点加速状态。 */
+    getMonsterSpawnAccelerationState(monster) {
+        if (!isOrdinaryMonster(monster)) {
+            return undefined;
+        }
+        let state = this.monsterSpawnAccelerationStatesByKey.get(monster.spawnKey);
+        if (!state) {
+            const group = this.getMonsterSpawnGroup(monster);
+            state = {
+                spawnKey: monster.spawnKey,
+                respawnSpeedBonusPercent: 0,
+                clearDeadlineTick: areAllMonstersAlive(group)
+                    ? this.tick + resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, 0)
+                    : 0,
+            };
+            this.monsterSpawnAccelerationStatesByKey.set(monster.spawnKey, state);
+        }
+        return state;
+    }
+    /** resolveMonsterRespawnTicks：按普通怪物清场加速状态计算本次复活间隔。 */
+    resolveMonsterRespawnTicks(monster) {
+        const bonus = this.getMonsterSpawnAccelerationState(monster)?.respawnSpeedBonusPercent ?? 0;
+        return resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, bonus);
+    }
+    /** handleMonsterRespawn：普通怪物整组复活后重设下一次清场期限。 */
+    handleMonsterRespawn(monster) {
+        const state = this.getMonsterSpawnAccelerationState(monster);
+        if (!state) {
+            return;
+        }
+        const group = this.getMonsterSpawnGroup(monster);
+        if (!areAllMonstersAlive(group)) {
+            return;
+        }
+        state.clearDeadlineTick = this.tick + resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, state.respawnSpeedBonusPercent);
+    }
+    /** handleMonsterDefeat：普通怪物整组清场时更新加速倍率并统一复活倒计时。 */
+    handleMonsterDefeat(monster) {
+        const state = this.getMonsterSpawnAccelerationState(monster);
+        if (!state) {
+            return;
+        }
+        const group = this.getMonsterSpawnGroup(monster);
+        if (!areAllMonstersDefeated(group)) {
+            return;
+        }
+        const clearedInTime = state.clearDeadlineTick > 0 && this.tick <= state.clearDeadlineTick;
+        const nextBonusPercent = clearedInTime
+            ? Math.min(MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT, state.respawnSpeedBonusPercent + MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT)
+            : 0;
+        state.respawnSpeedBonusPercent = nextBonusPercent;
+        state.clearDeadlineTick = 0;
+        const respawnTicks = resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, nextBonusPercent);
+        for (const entry of group) {
+            if (!entry.alive) {
+                entry.respawnLeft = respawnTicks;
+                this.markMonsterRuntimePersistenceDirty(entry.runtimeId);
+            }
+        }
+    }
     /** markMonsterDefeated：标记妖兽已经被击败。 */
     markMonsterDefeated(monster) {
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         monster.alive = false;
         monster.hp = 0;
-        monster.respawnLeft = monster.respawnTicks;
+        monster.respawnLeft = this.resolveMonsterRespawnTicks(monster);
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
@@ -3442,6 +3557,7 @@ class MapInstanceRuntime {
         monster.buffs.length = 0;
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
+        this.handleMonsterDefeat(monster);
         this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
         this.worldRevision += 1;
     }
@@ -3465,6 +3581,7 @@ class MapInstanceRuntime {
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+        this.handleMonsterRespawn(monster);
         this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
     }
     /** resolveMonsterTarget：解析妖兽的当前目标。 */
@@ -4363,6 +4480,37 @@ function resolveFacingToward(fromX, fromY, toX, toY) {
         return shared_1.Direction.South;
     }
     return shared_1.Direction.North;
+}
+function buildMonsterSpawnKey(monsterId, spawnX, spawnY) {
+    return `monster_spawn:${monsterId}:${spawnX}:${spawnY}`;
+}
+function isOrdinaryMonster(monster) {
+    return monster?.tier === 'mortal_blood';
+}
+function areAllMonstersAlive(monsters) {
+    return monsters.length > 0 && monsters.every((monster) => monster.alive === true);
+}
+function areAllMonstersDefeated(monsters) {
+    return monsters.length > 0 && monsters.every((monster) => monster.alive !== true);
+}
+function normalizeMonsterRespawnSpeedBonusPercent(value) {
+    if (!Number.isFinite(Number(value))) {
+        return 0;
+    }
+    const normalized = Math.round(Number(value) / MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT)
+        * MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT;
+    return Math.max(0, Math.min(MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT, normalized));
+}
+function resolveMonsterRespawnTicksWithBonus(respawnTicks, bonusPercent) {
+    const safeTicks = Math.max(1, Math.round(Number(respawnTicks) || 1));
+    const safeBonusPercent = normalizeMonsterRespawnSpeedBonusPercent(bonusPercent);
+    return Math.max(
+        1,
+        Math.round(
+            safeTicks * MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT
+                / (MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT + safeBonusPercent),
+        ),
+    );
 }
 /** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {

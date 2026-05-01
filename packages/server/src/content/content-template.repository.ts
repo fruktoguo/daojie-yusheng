@@ -551,9 +551,14 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 y: state.y,
                 spawnOriginX: Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x,
                 spawnOriginY: Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y,
+                spawnKey: typeof state.spawnKey === 'string' && state.spawnKey.trim()
+                    ? state.spawnKey.trim()
+                    : buildMonsterSpawnKey(mapId, monsterId, Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x, Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y),
                 hp: Math.max(0, Math.min(state.hp, template.maxHp)),
                 maxHp: template.maxHp,
-                respawnTicks: template.respawnTicks,
+                respawnTicks: Number.isFinite(Number(state.respawnTicks))
+                    ? Math.max(1, Math.trunc(Number(state.respawnTicks)))
+                    : template.respawnTicks,
                 alive: state.alive,
                 respawnLeft: state.alive ? 0 : Math.max(0, state.respawnLeft),
                 facing: state.facing,
@@ -596,6 +601,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         const document = (0, shared_1.normalizeEditableMapDocument)(raw);
 
         const spawns = Array.isArray(document.monsterSpawns) ? document.monsterSpawns : [];
+        const rawSpawns = Array.isArray(raw?.monsterSpawns) ? raw.monsterSpawns : [];
         if (spawns.length === 0) {
             return null;
         }
@@ -606,9 +612,11 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const occupied = new Set();
 
-        const plannedCounts = planFallbackSpawnCounts(mapId, document, spawns);
         for (let spawnIndex = 0; spawnIndex < spawns.length; spawnIndex += 1) {
             const spawn = spawns[spawnIndex];
+            const rawSpawn = rawSpawns[spawnIndex] && typeof rawSpawns[spawnIndex] === 'object'
+                ? rawSpawns[spawnIndex]
+                : {};
             const monsterId = typeof spawn.templateId === 'string' && spawn.templateId.trim()
                 ? spawn.templateId.trim()
                 : (typeof spawn.id === 'string' ? spawn.id.trim() : '');
@@ -618,24 +626,40 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 continue;
             }
 
-            const count = plannedCounts[spawnIndex] ?? 1;
-            const wanderRadius = Number.isFinite(spawn.wanderRadius)
-                ? Math.max(0, Math.trunc(spawn.wanderRadius))
-                : (Number.isFinite(spawn.radius) ? Math.max(0, Math.trunc(spawn.radius)) : 0);
+            const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
+            const population = resolveFallbackSpawnPopulation(
+                tier,
+                Number.isFinite(rawSpawn.count) ? rawSpawn.count : template.count,
+                Number.isFinite(rawSpawn.maxAlive) ? rawSpawn.maxAlive : template.maxAlive,
+            );
+            const count = population.maxAlive;
+            const respawnTicks = resolveFallbackSpawnRespawnTicks(rawSpawn, template);
+            const spawnOriginX = Math.trunc(spawn.x);
+            const spawnOriginY = Math.trunc(spawn.y);
+            const spawnKey = buildMonsterSpawnKey(mapId, monsterId, spawnOriginX, spawnOriginY);
+            const radius = Number.isFinite(rawSpawn.radius)
+                ? Math.max(0, Math.trunc(Number(rawSpawn.radius)))
+                : Math.max(0, Math.trunc(Number(template.radius) || 0));
+            const wanderRadius = Number.isFinite(rawSpawn.wanderRadius)
+                ? Math.max(0, Math.trunc(Number(rawSpawn.wanderRadius)))
+                : radius;
 
-            const positions = resolveFallbackSpawnPositions(document, spawn, count, occupied);
+            const positions = resolveFallbackSpawnPositions(document, { ...spawn, radius }, count, occupied);
             for (const position of positions) {
                 const nextIndex = nextIndexByMonsterId.get(monsterId) ?? 0;
                 nextIndexByMonsterId.set(monsterId, nextIndex + 1);
+                const alive = position.alive !== false;
                 runtimeStates.push({
                     runtimeId: `monster:${mapId}:${monsterId}:${nextIndex}`,
-                    spawnOriginX: Math.trunc(spawn.x),
-                    spawnOriginY: Math.trunc(spawn.y),
+                    spawnOriginX,
+                    spawnOriginY,
+                    spawnKey,
                     x: position.x,
                     y: position.y,
-                    hp: template.maxHp,
-                    alive: true,
-                    respawnLeft: 0,
+                    hp: alive ? template.maxHp : 0,
+                    alive,
+                    respawnLeft: alive ? 0 : respawnTicks,
+                    respawnTicks,
                     facing: shared_1.Direction.South,
                     wanderRadius,
                 });
@@ -1233,6 +1257,13 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             level: level ?? 1,
             tier,
             maxHp,
+            count: Number.isFinite(raw.count)
+                ? Math.max(1, Math.trunc(Number(raw.count)))
+                : (Number.isFinite(raw.maxAlive) ? Math.max(1, Math.trunc(Number(raw.maxAlive))) : 1),
+            radius: Number.isFinite(raw.radius) ? Math.max(0, Math.trunc(Number(raw.radius))) : 3,
+            maxAlive: Number.isFinite(raw.maxAlive)
+                ? Math.max(1, Math.trunc(Number(raw.maxAlive)))
+                : (Number.isFinite(raw.count) ? Math.max(1, Math.trunc(Number(raw.count))) : 1),
             respawnTicks: normalizeMonsterRespawnTicks(raw.respawnTicks, raw.respawnSec),
             attrs,
             numericStats,
@@ -1550,128 +1581,78 @@ function normalizeMonsterRuntimeStateRecord(raw) {
         x: Math.trunc(x),
         y: Math.trunc(y),
         hp: Math.max(0, Math.trunc(hp)),
+        spawnOriginX: typeof entry.spawnOriginX === 'number' && Number.isFinite(entry.spawnOriginX)
+            ? Math.trunc(entry.spawnOriginX)
+            : undefined,
+        spawnOriginY: typeof entry.spawnOriginY === 'number' && Number.isFinite(entry.spawnOriginY)
+            ? Math.trunc(entry.spawnOriginY)
+            : undefined,
+        spawnKey: typeof entry.spawnKey === 'string' && entry.spawnKey.trim()
+            ? entry.spawnKey.trim()
+            : undefined,
 
         alive: entry.alive !== false,
 
         respawnLeft: typeof entry.respawnLeft === 'number' && Number.isFinite(entry.respawnLeft)
             ? Math.max(0, Math.trunc(entry.respawnLeft))
             : 0,
+        respawnTicks: typeof entry.respawnTicks === 'number' && Number.isFinite(entry.respawnTicks)
+            ? Math.max(1, Math.trunc(entry.respawnTicks))
+            : undefined,
 
         facing: typeof entry.facing === 'number' && Number.isFinite(entry.facing)
             ? Math.trunc(entry.facing)
             : shared_1.Direction.South,
     };
 }
+const ORDINARY_MONSTER_SPAWN_COUNT = 4;
+const ORDINARY_MONSTER_SPAWN_MAX_ALIVE = 6;
 /**
- * planFallbackSpawnCounts：执行planFallbackSpawn数量相关逻辑。
+ * resolveFallbackSpawnPopulation：按 main 刷怪语义解析刷新点种群规模。
+ * @param tier 妖兽血脉层次。
+ * @param configuredCount 配置数量。
+ * @param configuredMaxAlive 配置最大存活数。
+ * @returns 数量与最大存活数。
+ */
+
+function resolveFallbackSpawnPopulation(tier, configuredCount, configuredMaxAlive) {
+    if (tier === 'mortal_blood') {
+        return {
+            count: ORDINARY_MONSTER_SPAWN_COUNT,
+            maxAlive: ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
+        };
+    }
+    const maxAlive = Math.max(1, Math.round(Number(configuredMaxAlive) || 1));
+    const count = Math.min(Math.max(1, Math.round(Number(configuredCount) || maxAlive)), maxAlive);
+    return { count, maxAlive };
+}
+/**
+ * resolveFallbackSpawnRespawnTicks：优先使用地图刷新点覆盖，再回退怪物模板。
+ * @param spawn 地图刷新点。
+ * @param template 怪物运行时模板。
+ * @returns 重生间隔 tick。
+ */
+
+function resolveFallbackSpawnRespawnTicks(spawn, template) {
+    if (Number.isFinite(spawn.respawnTicks)) {
+        return Math.max(1, Math.trunc(Number(spawn.respawnTicks)));
+    }
+    if (Number.isFinite(spawn.respawnSec)) {
+        return Math.max(1, Math.trunc(Number(spawn.respawnSec)));
+    }
+    return Math.max(1, Math.trunc(Number(template.respawnTicks) || 15));
+}
+/**
+ * buildMonsterSpawnKey：构建同一刷新点的稳定分组键。
  * @param mapId 地图 ID。
- * @param document 参数说明。
- * @param spawns 参数说明。
- * @returns 无返回值，直接更新planFallbackSpawn数量相关状态。
+ * @param monsterId 怪物模板 ID。
+ * @param spawnX 刷新点 X。
+ * @param spawnY 刷新点 Y。
+ * @returns 刷新点分组键。
  */
 
-function planFallbackSpawnCounts(mapId, document, spawns) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-    const requestedCounts = spawns.map((spawn) => resolveFallbackSpawnRequestedCount(spawn));
-
-    const totalRequested = requestedCounts.reduce((sum, count) => sum + count, 0);
-    if (totalRequested <= 0) {
-        return [];
-    }
-
-    const profileId = document.terrainProfileId
-        ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[mapId]
-        ?? mapId;
-
-    const perSpawnCap = resolveFallbackSpawnPerSpawnCap(profileId);
-
-    const totalCap = Math.max(spawns.length, Math.min(totalRequested, resolveFallbackSpawnTotalCap(profileId)));
-
-    const cappedCounts = requestedCounts.map((count) => Math.min(count, perSpawnCap));
-
-    const cappedTotal = cappedCounts.reduce((sum, count) => sum + count, 0);
-    if (cappedTotal <= totalCap) {
-        return cappedCounts;
-    }
-
-    const planned = cappedCounts.map((count) => Math.min(1, count));
-
-    let remaining = totalCap - planned.reduce((sum, count) => sum + count, 0);
-    if (remaining <= 0) {
-        return planned;
-    }
-
-    const extras = cappedCounts.map((count) => Math.max(0, count - 1));
-    while (remaining > 0) {
-
-        let allocated = false;
-        for (let index = 0; index < extras.length && remaining > 0; index += 1) {
-            if (extras[index] <= 0) {
-                continue;
-            }
-            planned[index] += 1;
-            extras[index] -= 1;
-            remaining -= 1;
-            allocated = true;
-        }
-        if (!allocated) {
-            break;
-        }
-    }
-    return planned;
-}
-/**
- * resolveFallbackSpawnRequestedCount：规范化或转换FallbackSpawnRequested数量。
- * @param spawn 参数说明。
- * @returns 无返回值，直接更新FallbackSpawnRequested数量相关状态。
- */
-
-function resolveFallbackSpawnRequestedCount(spawn) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (Number.isFinite(spawn.count)) {
-        return Math.max(1, Math.trunc(spawn.count));
-    }
-    if (Number.isFinite(spawn.maxAlive)) {
-        return Math.max(1, Math.trunc(Math.min(spawn.maxAlive, 2)));
-    }
-    return 1;
-}
-/**
- * resolveFallbackSpawnPerSpawnCap：规范化或转换FallbackSpawnPerSpawnCap。
- * @param profileId profile ID。
- * @returns 无返回值，直接更新FallbackSpawnPerSpawnCap相关状态。
- */
-
-function resolveFallbackSpawnPerSpawnCap(profileId) {
-    switch (profileId) {
-        case 'mortal_settlement':
-            return 4;
-        case 'yellow_frontier':
-        case 'yellow_bamboo':
-            return 5;
-        default:
-            return 6;
-    }
-}
-/**
- * resolveFallbackSpawnTotalCap：规范化或转换FallbackSpawnTotalCap。
- * @param profileId profile ID。
- * @returns 无返回值，直接更新FallbackSpawnTotalCap相关状态。
- */
-
-function resolveFallbackSpawnTotalCap(profileId) {
-    switch (profileId) {
-        case 'mortal_settlement':
-            return 12;
-        case 'yellow_frontier':
-        case 'yellow_bamboo':
-            return 16;
-        default:
-            return 18;
-    }
+function buildMonsterSpawnKey(mapId, monsterId, spawnX, spawnY) {
+    return `monster_spawn:${mapId}:${monsterId}:${spawnX}:${spawnY}`;
 }
 /**
  * cloneMonsterAttributes：构建怪物Attribute。
@@ -1765,6 +1746,14 @@ function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
         positions.push({
             x: Math.max(0, Math.min(document.width - 1, Math.trunc(spawn.x))),
             y: Math.max(0, Math.min(document.height - 1, Math.trunc(spawn.y))),
+            alive: false,
+        });
+    }
+    while (positions.length < count) {
+        positions.push({
+            x: Math.max(0, Math.min(document.width - 1, Math.trunc(spawn.x))),
+            y: Math.max(0, Math.min(document.height - 1, Math.trunc(spawn.y))),
+            alive: false,
         });
     }
     return positions;

@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared';
+import { formatDisplayNumber, getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -134,8 +134,8 @@ interface ParsedCombatDamageSegment {
   color: string;
 }
 
-const COMBAT_DAMAGE_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>\d+) - 实际 (?<actual>\d+) - (?:(?<element>金|木|水|火|土)行)?(?<kind>物理|法术) 伤害(?<after>.*)$/;
-const COMBAT_HEAL_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>\d+) - 实际 (?<actual>\d+) 治疗(?<after>.*)$/;
+const COMBAT_DAMAGE_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>[^\s]+) - 实际 (?<actual>[^\s]+) - (?:(?<element>金|木|水|火|土)行)?(?<kind>物理|法术) 伤害(?<after>.*)$/;
+const COMBAT_HEAL_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>[^\s]+) - 实际 (?<actual>[^\s]+) 治疗(?<after>.*)$/;
 const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，结果 (?<result>闪避)(?<after>.*)$/;
 /** 治疗数值胶囊的颜色。 */
 const COMBAT_HEAL_PILL_COLOR = '#1d6e42';
@@ -245,6 +245,19 @@ function formatStamp(at: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+/** 格式化战斗日志里的数值，兼容历史缓存中的纯数字文本。 */
+function formatCombatLogAmount(rawValue: string): string {
+  const value = rawValue.trim();
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return value;
+  }
+  return formatDisplayNumber(numeric, {
+    maximumFractionDigits: 0,
+    compactMaximumFractionDigits: 1,
+  });
+}
+
 /** 生成用于日志或缓存的纯文本消息行。 */
 function buildLineText(entry: ChatStoredMessage): string {
   return `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}${entry.text}`;
@@ -260,22 +273,24 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
     const elementLabel = damageMatch.groups.element;
     const element = elementLabel ? COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY[elementLabel] : undefined;
     const damageTypeLabel = `${elementLabel ? `${elementLabel}行` : ''}${damageMatch.groups.kind ?? ''}`;
+    const rawAmount = formatCombatLogAmount(damageMatch.groups.raw ?? '0');
+    const actualAmount = formatCombatLogAmount(damageMatch.groups.actual ?? '0');
     return {
       before: damageMatch.groups.before ?? '',
       connector: '，造成 ',
-      rawAmount: damageMatch.groups.raw ?? '0',
-      actualAmount: damageMatch.groups.actual ?? '0',
+      rawAmount,
+      actualAmount,
       after: damageMatch.groups.after ?? '',
       details: (damageMatch.groups.details ?? '')
         .split(' / ')
         .map((entry) => entry.trim())
         .filter((entry) => entry.length > 0),
-      pillText: `${damageMatch.groups.actual ?? '0'}`,
+      pillText: actualAmount,
       suffixText: '伤害',
       tooltipTitle: `${damageTypeLabel}伤害`,
       tooltipLines: [
-        `实际伤害 ${damageMatch.groups.actual ?? '0'}`,
-        `原始伤害 ${damageMatch.groups.raw ?? '0'}`,
+        `实际伤害 ${actualAmount}`,
+        `原始伤害 ${rawAmount}`,
       ],
       color: getDamageTrailColor(damageKind, element),
     };
@@ -286,19 +301,21 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
       .split(' / ')
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0);
+    const rawAmount = formatCombatLogAmount(healMatch.groups.raw ?? '0');
+    const actualAmount = formatCombatLogAmount(healMatch.groups.actual ?? '0');
     return {
       before: healMatch.groups.before ?? '',
       connector: '，造成 ',
-      rawAmount: healMatch.groups.raw ?? '0',
-      actualAmount: healMatch.groups.actual ?? '0',
+      rawAmount,
+      actualAmount,
       after: healMatch.groups.after ?? '',
       details,
-      pillText: `${healMatch.groups.actual ?? '0'}`,
+      pillText: actualAmount,
       suffixText: '治疗',
       tooltipTitle: '治疗',
       tooltipLines: [
-        `实际治疗 ${healMatch.groups.actual ?? '0'}`,
-        `原始治疗 ${healMatch.groups.raw ?? '0'}`,
+        `实际治疗 ${actualAmount}`,
+        `原始治疗 ${rawAmount}`,
       ],
       color: COMBAT_HEAL_PILL_COLOR,
     };

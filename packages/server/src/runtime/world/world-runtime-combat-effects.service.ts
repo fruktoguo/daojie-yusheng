@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeCombatEffectsService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared");
 
 /** 战斗特效状态服务：承接实例级 fx buffer 与 push helper。 */
 let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
@@ -99,7 +100,7 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
             type: 'float',
             x,
             y,
-            text: `-${Math.max(0, Math.round(damage))}`,
+            text: `-${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(damage)))}`,
             color,
             variant: 'damage',
         });

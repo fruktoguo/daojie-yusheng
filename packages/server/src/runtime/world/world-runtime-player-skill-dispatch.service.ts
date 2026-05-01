@@ -57,7 +57,7 @@ function formatAuraDamage(value) {
     if (amount < 1) {
         return amount.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
     }
-    return amount.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+    return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
 }
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {

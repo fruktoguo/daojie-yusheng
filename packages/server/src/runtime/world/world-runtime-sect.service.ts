@@ -1280,7 +1280,7 @@ function formatSectGuardianAuraLabel(formation) {
 
 function formatInteger(value) {
     const normalized = Math.max(0, Math.floor(Number(value) || 0));
-    return normalized.toLocaleString('zh-CN');
+    return (0, shared_1.formatDisplayInteger)(normalized);
 }
 
 function buildSectManagementActionDesc(sect, view, deps, guardian) {
