@@ -30,6 +30,15 @@ import { GM_API_BASE_PATH } from './constants/api';
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 /** StatusFn：向世界查看器状态栏输出提示或错误的回调签名。 */
 type StatusFn = (message: string, isError?: boolean) => void;
+type GmWorldInstanceListTab = 'void' | 'real' | 'sect' | 'secret' | 'cave';
+
+const GM_WORLD_INSTANCE_LIST_TABS: readonly { id: GmWorldInstanceListTab; label: string }[] = [
+  { id: 'void', label: '虚境' },
+  { id: 'real', label: '现世' },
+  { id: 'sect', label: '宗门' },
+  { id: 'secret', label: '秘境' },
+  { id: 'cave', label: '洞府' },
+];
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(s: string): string {
@@ -56,6 +65,42 @@ function buildInstanceLineBadge(instance: GmWorldInstanceSummary): string {
     return '宗门';
   }
   return instance.defaultEntry ? '默认线' : '手动线';
+}
+
+function resolveInstanceListTab(instance: GmWorldInstanceSummary): GmWorldInstanceListTab {
+  if (isSectRuntimeInstance(instance)) {
+    return 'sect';
+  }
+  return instance.linePreset === 'real' ? 'real' : 'void';
+}
+
+function resolveInstanceGroupKey(instance: GmWorldInstanceSummary): string {
+  if (isSectRuntimeInstance(instance)) {
+    return `sect|||${instance.templateName || instance.displayName || '宗门'}`;
+  }
+  const linePreset = instance.linePreset === 'real' ? 'real' : 'peaceful';
+  const groupId = instance.mapGroupId || instance.templateId;
+  return `${groupId}|||${linePreset}`;
+}
+
+function resolveInstanceGroupTitle(instance: GmWorldInstanceSummary): string {
+  if (isSectRuntimeInstance(instance)) {
+    return instance.templateName || instance.displayName || '宗门';
+  }
+  const lineLabel = instance.linePreset === 'real' ? '真实' : '和平';
+  return `${instance.mapGroupName || instance.templateName || instance.templateId} · ${lineLabel}`;
+}
+
+function compareWorldInstancesForGmList(left: GmWorldInstanceSummary, right: GmWorldInstanceSummary): number {
+  const lineGap = (left.linePreset === 'peaceful' ? 0 : 1) - (right.linePreset === 'peaceful' ? 0 : 1);
+  if (lineGap !== 0) return lineGap;
+  const groupOrderGap = (left.mapGroupOrder ?? 1000) - (right.mapGroupOrder ?? 1000);
+  if (groupOrderGap !== 0) return groupOrderGap;
+  const groupNameGap = (left.mapGroupName ?? left.templateName).localeCompare(right.mapGroupName ?? right.templateName, 'zh-Hans-CN');
+  if (groupNameGap !== 0) return groupNameGap;
+  const memberOrderGap = (left.mapGroupMemberOrder ?? 0) - (right.mapGroupMemberOrder ?? 0);
+  if (memberOrderGap !== 0) return memberOrderGap;
+  return left.displayName.localeCompare(right.displayName, 'zh-Hans-CN') || left.instanceId.localeCompare(right.instanceId);
 }
 
 function buildInstanceCapabilityText(instance: GmWorldInstanceSummary): string {
@@ -96,6 +141,8 @@ export class GmWorldViewer {
   private canvas: HTMLCanvasElement;
   /** mapListEl：实例列表元素。 */
   private mapListEl: HTMLElement;
+  /** instanceTabsEl：实例分类页签元素。 */
+  private instanceTabsEl: HTMLElement;
   /** timeControlEl：时间Control元素。 */
   private timeControlEl: HTMLElement;
   /** infoEl：信息元素。 */
@@ -176,6 +223,8 @@ export class GmWorldViewer {
   private transferYDraft: string | null = null;
   /** infoTab：右侧信息面板当前页签。 */
   private infoTab: 'info' | 'manage' = 'info';
+  /** instanceListTab：左侧实例列表当前分类。 */
+  private instanceListTab: GmWorldInstanceListTab = 'void';
   /** viewerId：viewer ID。 */
   private readonly viewerId = createViewerId();
   /** observationRegistered：observation Registered。 */
@@ -198,6 +247,7 @@ export class GmWorldViewer {
   ) {
     this.canvas = document.getElementById('world-canvas') as HTMLCanvasElement;
     this.mapListEl = document.getElementById('world-map-list')!;
+    this.instanceTabsEl = document.getElementById('world-instance-tabs')!;
     this.timeControlEl = document.getElementById('world-time-control')!;
     this.infoEl = document.getElementById('world-info')!;
 
@@ -256,6 +306,9 @@ export class GmWorldViewer {
     const nextInstanceSummary = this.instances.find((instance) => instance.instanceId === instanceId) ?? null;
     const preserveViewState = previousRuntime?.templateId === nextInstanceSummary?.templateId;
     const previousPreferredTemplateId = this.getPreferredCreateTemplateId();
+    if (nextInstanceSummary) {
+      this.instanceListTab = resolveInstanceListTab(nextInstanceSummary);
+    }
     this.currentInstanceId = instanceId;
     if (this.createTemplateIdDraft && this.createTemplateIdDraft === previousPreferredTemplateId) {
       this.createTemplateIdDraft = null;
@@ -404,7 +457,9 @@ export class GmWorldViewer {
         this.selectedEntity = null;
       }
       if (!this.currentInstanceId && this.instances.length > 0) {
-        this.currentInstanceId = this.instances[0]!.instanceId;
+        const initialInstance = this.getInstancesForActiveListTab()[0] ?? this.instances[0]!;
+        this.instanceListTab = resolveInstanceListTab(initialInstance);
+        this.currentInstanceId = initialInstance.instanceId;
       }
       if (this.createTemplateIdDraft && this.createTemplateIdDraft === previousPreferredTemplateId) {
         const nextPreferredTemplateId = this.getPreferredCreateTemplateId();
@@ -811,20 +866,27 @@ export class GmWorldViewer {
     });
 
     if (this.instances.length === 0) {
+      this.renderInstanceListTabBar(new Map());
       fragment.append(createFragmentFromHtml('<div class="empty-hint">暂无实例</div>'));
       this.mapListEl.replaceChildren(fragment);
       return;
     }
 
+    const counts = this.countInstancesByListTab();
+    this.renderInstanceListTabBar(counts);
+    const visibleInstances = this.getInstancesForActiveListTab();
+    if (visibleInstances.length === 0) {
+      const activeTab = GM_WORLD_INSTANCE_LIST_TABS.find((tab) => tab.id === this.instanceListTab);
+      const label = activeTab?.label ?? '当前分类';
+      fragment.append(createFragmentFromHtml(`<div class="empty-hint">${escapeHtml(label)}暂无实例</div>`));
+      this.mapListEl.replaceChildren(fragment);
+      return;
+    }
+
     const grouped = new Map<string, { title: string; instances: GmWorldInstanceSummary[] }>();
-    for (const instance of this.instances) {
-      const sectInstance = isSectRuntimeInstance(instance);
-      const groupKey = sectInstance
-        ? `sect|||${instance.templateName || instance.displayName || '宗门'}`
-        : `${instance.templateId}|||${instance.templateName}`;
-      const groupTitle = sectInstance
-        ? (instance.templateName || instance.displayName || '宗门')
-        : `${instance.templateName || instance.templateId} (${instance.templateId})`;
+    for (const instance of visibleInstances) {
+      const groupKey = resolveInstanceGroupKey(instance);
+      const groupTitle = resolveInstanceGroupTitle(instance);
       const group = grouped.get(groupKey);
       if (group) {
         group.instances.push(instance);
@@ -834,6 +896,7 @@ export class GmWorldViewer {
     }
 
     for (const group of grouped.values()) {
+      group.instances.sort(compareWorldInstancesForGmList);
       const groupEl = document.createElement('div');
       groupEl.className = 'world-instance-group';
       groupEl.style.marginBottom = '8px';
@@ -885,6 +948,60 @@ export class GmWorldViewer {
 
     this.mapListEl.replaceChildren(fragment);
   }  
+
+  private getInstancesForActiveListTab(): GmWorldInstanceSummary[] {
+    return this.instances
+      .filter((instance) => resolveInstanceListTab(instance) === this.instanceListTab)
+      .sort(compareWorldInstancesForGmList);
+  }
+
+  private countInstancesByListTab(): Map<GmWorldInstanceListTab, number> {
+    const counts = new Map<GmWorldInstanceListTab, number>();
+    for (const instance of this.instances) {
+      const tab = resolveInstanceListTab(instance);
+      counts.set(tab, (counts.get(tab) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private renderInstanceListTabBar(counts: Map<GmWorldInstanceListTab, number>): void {
+    const tabBar = document.createElement('div');
+    tabBar.className = 'world-instance-tabs-inner';
+    tabBar.setAttribute('role', 'tablist');
+    tabBar.setAttribute('aria-label', '实例类型');
+    for (const tab of GM_WORLD_INSTANCE_LIST_TABS) {
+      const button = document.createElement('button');
+      const active = tab.id === this.instanceListTab;
+      button.type = 'button';
+      button.className = `world-instance-tab${active ? ' active' : ''}`;
+      button.dataset.worldInstanceTab = tab.id;
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.innerHTML = `
+        <span>${escapeHtml(tab.label)}</span>
+        <span class="world-instance-tab-count">${counts.get(tab.id) ?? 0}</span>
+      `;
+      button.addEventListener('click', () => {
+        this.switchInstanceListTab(tab.id).catch(() => {});
+      });
+      tabBar.append(button);
+    }
+    this.instanceTabsEl.replaceChildren(tabBar);
+  }
+
+  private async switchInstanceListTab(tab: GmWorldInstanceListTab): Promise<void> {
+    if (tab === this.instanceListTab) {
+      return;
+    }
+    this.instanceListTab = tab;
+    const visibleInstances = this.getInstancesForActiveListTab();
+    const currentVisible = Boolean(this.currentInstanceId && visibleInstances.some((instance) => instance.instanceId === this.currentInstanceId));
+    this.renderInstanceList();
+    if (!currentVisible && visibleInstances.length > 0) {
+      await this.selectInstance(visibleInstances[0]!.instanceId);
+    }
+  }
+
   /**
  * captureTimeControlDraftState：执行capture时间ControlDraft状态相关逻辑。
  * @returns 返回capture时间ControlDraft状态数值。
@@ -1691,6 +1808,7 @@ export class GmWorldViewer {
       });
       this.createNameDraft = '';
       await this.refreshInstanceList();
+      this.instanceListTab = resolveInstanceListTab(result.instance);
       this.currentInstanceId = result.instance.instanceId;
       await this.loadRuntime();
       this.renderAll();

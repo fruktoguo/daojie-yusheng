@@ -283,12 +283,8 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
             }
             return player;
         },
-        updateCombatSettings(playerId, input, currentTick) {
-            log.push(['updateCombatSettings', playerId, input, currentTick]);
-            const player = players.get(playerId);
-            if (player && input.autoBattle === false) {
-                player.combat.autoBattle = false;
-            }
+        updateCombatSettings() {
+            throw new Error('updateCombatSettings should not run when locked target is cleared');
         },
         clearCombatTarget(playerId, currentTick) {
             log.push(['clearCombatTarget', playerId, currentTick]);
@@ -306,11 +302,10 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['interruptManualCombat', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
-        ['updateCombatSettings', 'player:1', { autoBattle: false }, 9],
         ['clearCombatTarget', 'player:1', 9],
-        ['queuePlayerNotice', 'player:1', '强制攻击目标已经失效，已停止锁定。', 'combat'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+    assert.equal(players.get('player:1')?.combat.autoBattle, true);
 }
 
 testBasicAttackQueue();

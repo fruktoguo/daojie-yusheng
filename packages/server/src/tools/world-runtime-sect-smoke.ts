@@ -12,6 +12,8 @@ const { Direction } = require("@mud/shared");
 const playerId = "player:sect-smoke";
 const deputyPlayerId = "player:sect-deputy";
 const elderPlayerId = "player:sect-elder";
+const laborPlayerId = "player:sect-labor";
+const offlinePlayerId = "player:sect-offline";
 const publicInstanceId = "real:sect_smoke_world";
 
 function main() {
@@ -59,7 +61,9 @@ function main() {
   const player = {
     playerId,
     name: "烟测",
-    displayName: "烟测",
+    displayName: "烟",
+    sessionId: "session:sect-smoke",
+    realm: { realmLv: 7, displayName: "不用于宗门成员显示" },
     sectId: null,
     x: 2,
     y: 2,
@@ -76,7 +80,8 @@ function main() {
   const deputyPlayer = {
     playerId: deputyPlayerId,
     name: "副宗",
-    displayName: "副宗",
+    displayName: "副",
+    realm: { realmLv: 6, displayName: "不用于宗门成员显示" },
     sectId: null,
     x: 2,
     y: 2,
@@ -84,7 +89,17 @@ function main() {
   const elderPlayer = {
     playerId: elderPlayerId,
     name: "长老",
-    displayName: "长老",
+    displayName: "长",
+    realm: { realmLv: 8, displayName: "不用于宗门成员显示" },
+    sectId: null,
+    x: 2,
+    y: 2,
+  };
+  const laborPlayer = {
+    playerId: laborPlayerId,
+    name: "杂役",
+    displayName: "杂",
+    realm: { realmLv: 1, displayName: "不用于宗门成员显示" },
     sectId: null,
     x: 2,
     y: 2,
@@ -93,9 +108,12 @@ function main() {
     [playerId, player],
     [deputyPlayerId, deputyPlayer],
     [elderPlayerId, elderPlayer],
+    [laborPlayerId, laborPlayer],
   ]);
   const instances = new Map([[publicInstanceId, publicInstance]]);
   const notices = [];
+  const mails = [];
+  const transfers = [];
   const guardians = [];
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId) {
@@ -119,10 +137,17 @@ function main() {
       if (target) target.sectId = sectId;
     },
   };
-  const sectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService);
+  const mailRuntimeService = {
+    async createDirectMail(targetPlayerId, input) {
+      mails.push({ playerId: targetPlayerId, ...input });
+      return `mail:${targetPlayerId}:${mails.length}`;
+    },
+  };
+  const sectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService);
   sectService.ensurePersistencePool = async () => null;
   const useItemService = new WorldRuntimeUseItemService(contentTemplateRepository, templateRepository, playerRuntimeService);
   const deps = {
+    playerRuntimeService,
     worldRuntimeSectService: sectService,
     worldRuntimeFormationService: {
       upsertSectGuardianFormation(input) {
@@ -183,7 +208,11 @@ function main() {
       assert.ok(players.has(targetPlayerId));
       notices.push({ text, kind });
     },
+    applyTransfer(transfer) {
+      transfers.push(transfer);
+    },
     refreshQuestStates() {},
+    refreshPlayerContextActions() {},
   };
 
   const virtualInstanceId = "public:sect_smoke_world";
@@ -242,6 +271,7 @@ function main() {
   assert.equal(guardians[0].ownerSectId, player.sectId);
   assert.equal(sectService.findSectById(player.sectId).name, "青玄宗");
   assert.equal(sectService.findSectById(player.sectId).mark, "玄");
+  assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === playerId).name, "烟测");
 
   const entrance = publicInstance.getPortalAtTile(2, 2);
   assert.equal(entrance.kind, "sect_entrance");
@@ -258,26 +288,78 @@ function main() {
 
   const sectInstance = instances.get(entrance.targetInstanceId);
   assert.ok(sectInstance);
+  const previousSectId = "sect:previous-smoke";
+  const previousSect = {
+    sectId: previousSectId,
+    name: "旧雨宗",
+    mark: "旧",
+    founderPlayerId: "player:previous-leader",
+    leaderPlayerId: "player:previous-leader",
+    status: "active",
+    entranceInstanceId: publicInstanceId,
+    entranceTemplateId: "sect_smoke_world",
+    entranceX: 0,
+    entranceY: 0,
+    sectInstanceId: `sect:${previousSectId}:main`,
+    sectTemplateId: `sect_domain:${previousSectId}:x-2_2:y-2_2`,
+    coreX: 2,
+    coreY: 2,
+    expansionRadius: 2,
+    mapMinX: -2,
+    mapMaxX: 2,
+    mapMinY: -2,
+    mapMaxY: 2,
+    members: [
+      { playerId: "player:previous-leader", name: "旧宗主", roleId: "leader", joinedAt: Date.now() },
+      { playerId: deputyPlayerId, name: "副宗", roleId: "outer", joinedAt: Date.now() },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  sectService.sectsById.set(previousSectId, previousSect);
+  sectService.playerSectId.set(deputyPlayerId, previousSectId);
+  deputyPlayer.sectId = previousSectId;
+  publicInstance.connectPlayer({ playerId: deputyPlayerId, sessionId: "session:sect-deputy", preferredX: 4, preferredY: 4 });
 
   const farEntranceActions = sectService.buildSectEntranceActions({
+    playerId: deputyPlayerId,
+    self: { x: 5, y: 5 },
+    instance: { instanceId: publicInstanceId },
+    localPortals: [entrance],
+  }, deps);
+  assert.equal(farEntranceActions.some((action) => action.id.startsWith("sect:apply:")), false);
+  const deputyEntranceView = publicInstance.buildPlayerView(deputyPlayerId, 10);
+  const projectedEntrance = deputyEntranceView.localPortals.find((portal) => portal.kind === "sect_entrance");
+  assert.equal(projectedEntrance?.sectId, player.sectId);
+  const entranceActions = sectService.buildSectEntranceActions(deputyEntranceView, deps);
+  const joinAction = entranceActions.find((action) => action.id.startsWith("sect:apply:"));
+  assert.ok(joinAction);
+  assert.match(joinAction.name, /申请加入青玄宗/);
+  deputyPlayer.x = 4;
+  deputyPlayer.y = 4;
+  sectService.executeSectAction(deputyPlayerId, joinAction.id, deps);
+  assert.equal(deputyPlayer.sectId, previousSectId);
+  assert.equal(sectService.findSectById(player.sectId).members.some((entry) => entry.playerId === deputyPlayerId), false);
+  assert.equal(sectService.findSectById(player.sectId).applications.some((entry) => entry.playerId === deputyPlayerId && entry.status === "pending"), true);
+  assert.equal(mails.some((entry) => entry.playerId === playerId && /申请加入青玄宗/.test(entry.fallbackTitle)), true);
+  sectService.executeSectAction(playerId, `sect:application:approve:${encodeURIComponent(deputyPlayerId)}`, deps);
+  assert.equal(deputyPlayer.sectId, player.sectId);
+  assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === deputyPlayerId).roleId, "outer");
+  assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === deputyPlayerId).name, "副宗");
+  assert.equal(sectService.findSectById(player.sectId).applications.some((entry) => entry.playerId === deputyPlayerId && entry.status === "pending"), false);
+  assert.equal(previousSect.members.some((entry) => entry.playerId === deputyPlayerId), false);
+  assert.equal(mails.some((entry) => entry.playerId === deputyPlayerId && /已准你入山/.test(entry.fallbackTitle)), true);
+  const sameSectEntranceActions = sectService.buildSectEntranceActions({
     playerId: deputyPlayerId,
     self: { x: 4, y: 4 },
     instance: { instanceId: publicInstanceId },
     localPortals: [entrance],
   }, deps);
-  assert.equal(farEntranceActions.some((action) => action.id.startsWith("sect:apply:")), false);
-  const entranceActions = sectService.buildSectEntranceActions({
-    playerId: deputyPlayerId,
-    self: { x: 2, y: 2 },
-    instance: { instanceId: publicInstanceId },
-    localPortals: [entrance],
-  }, deps);
-  const joinAction = entranceActions.find((action) => action.id.startsWith("sect:apply:"));
-  assert.ok(joinAction);
-  assert.match(joinAction.name, /申请加入青玄宗/);
-  sectService.executeSectAction(deputyPlayerId, joinAction.id, deps);
-  assert.equal(deputyPlayer.sectId, player.sectId);
-  assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === deputyPlayerId).roleId, "outer");
+  assert.equal(sameSectEntranceActions.some((action) => action.id.startsWith("sect:apply:")), false);
+  const enterAction = sameSectEntranceActions.find((action) => action.id.startsWith("sect:enter:"));
+  assert.ok(enterAction);
+  sectService.executeSectAction(deputyPlayerId, enterAction.id, deps);
+  assert.equal(transfers.at(-1).targetInstanceId, entrance.targetInstanceId);
 
   assert.equal(sectInstance.template.width, 5);
   assert.equal(sectInstance.template.height, 5);
@@ -411,15 +493,25 @@ function main() {
 
   expandedSect.members.push(
     { playerId: elderPlayerId, name: "长老", roleId: "elder", joinedAt: Date.now() },
+    { playerId: laborPlayerId, name: "杂役", roleId: "labor", joinedAt: Date.now() },
+    { playerId: offlinePlayerId, name: "离线道友", roleId: "outer", joinedAt: Date.now() },
   );
   elderPlayer.sectId = expandedSect.sectId;
+  laborPlayer.sectId = expandedSect.sectId;
   const memberCoreActions = sectService.buildSectCoreActions({
     playerId: deputyPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
   assert.ok(memberCoreActions.some((action) => action.id === "sect:manage"));
-  assert.match(memberCoreActions.find((action) => action.id === "sect:manage").desc, /@@sect:/);
+  const memberManageDesc = memberCoreActions.find((action) => action.id === "sect:manage").desc;
+  assert.match(memberManageDesc, /@@sect:/);
+  const memberManageData = decodeURIComponent(/@@sect:(.*)@@/.exec(memberManageDesc)?.[1] ?? "");
+  assert.match(memberManageData, /"statusLabel":"在线"/);
+  assert.match(memberManageData, /"statusLabel":"离线挂机"/);
+  assert.match(memberManageData, /"statusLabel":"离线"/);
+  assert.match(memberManageData, /"realmLv":7/);
+  assert.match(memberManageData, /"realmLv":6/);
   assert.throws(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
   sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
@@ -429,6 +521,10 @@ function main() {
   sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
   assert.equal(elderPlayer.sectId, null);
+  sectService.executeSectAction(laborPlayerId, "sect:leave", deps);
+  assert.equal(laborPlayer.sectId, null);
+  assert.equal(expandedSect.members.some((entry) => entry.playerId === laborPlayerId), false);
+  assert.equal(sectService.playerSectId.has(laborPlayerId), false);
   sectService.executeSectAction(playerId, `sect:permission:toggle:elder:member_remove`, deps);
   assert.equal(expandedSect.rolePermissions.elder.member_remove, true);
   sectService.executeSectAction(playerId, `sect:transfer:${encodeURIComponent(deputyPlayerId)}`, deps);

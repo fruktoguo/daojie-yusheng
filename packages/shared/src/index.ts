@@ -53,6 +53,7 @@ export * from './network-protobuf-tick-codecs';
 export * from './network-protobuf-update-codecs';
 export * from './network-protobuf-payload-codecs';
 export * from './map-document';
+export * from './map-groups';
 export * from './aura';
 export * from './qi';
 export * from './formation-types';

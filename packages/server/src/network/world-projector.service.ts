@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
 import {
@@ -27,6 +28,13 @@ type MapTemplateRepositoryPort = {
     has(mapId: string): boolean;
     getOrThrow(mapId: string): { name?: string | null };
 };
+type NativePlayerAuthStorePort = {
+    getMemoryUserByPlayerId?(playerId: string): {
+        pendingRoleName?: string | null;
+        playerName?: string | null;
+        displayName?: string | null;
+    } | null;
+};
 
 @Injectable()
 export class WorldProjectorService {
@@ -35,6 +43,9 @@ export class WorldProjectorService {
     constructor(
         @Inject(MapTemplateRepository)
         private readonly templateRepository: MapTemplateRepositoryPort,
+        @Optional()
+        @Inject(NativePlayerAuthStoreService)
+        private readonly playerAuthStore: NativePlayerAuthStorePort | null = null,
     ) {}
 
     private resolveMapName(mapId: string | null | undefined): string | null {
@@ -52,7 +63,8 @@ export class WorldProjectorService {
     }
 
     createInitialEnvelope(binding: any, view: any, player: any) {
-        this.cacheByPlayerId.set(binding.playerId, captureProjectorState(view, player, (mapId) => this.resolveMapName(mapId)));
+        const identityView = this.withAccountIdentityProjection(view);
+        this.cacheByPlayerId.set(binding.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
         return {
             initSession: {
                 sid: binding.sessionId,
@@ -60,38 +72,39 @@ export class WorldProjectorService {
                 t: view.tick,
                 resumed: binding.resumed || undefined,
             },
-            mapEnter: buildMapEnter(view),
-            worldDelta: buildFullWorldDelta(view, (mapId) => this.resolveMapName(mapId)),
+            mapEnter: buildMapEnter(identityView),
+            worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
             selfDelta: buildFullSelfDelta(player),
             panelDelta: buildBootstrapPanelDelta(player),
         };
     }
 
     createDeltaEnvelope(view: any, player: any) {
-        const previous = this.cacheByPlayerId.get(view.playerId);
+        const identityView = this.withAccountIdentityProjection(view);
+        const previous = this.cacheByPlayerId.get(identityView.playerId);
         if (!previous) {
-            this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player, (mapId) => this.resolveMapName(mapId)));
+            this.cacheByPlayerId.set(identityView.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
             return {
-                mapEnter: buildMapEnter(view),
-                worldDelta: buildFullWorldDelta(view, (mapId) => this.resolveMapName(mapId)),
+                mapEnter: buildMapEnter(identityView),
+                worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
                 selfDelta: buildFullSelfDelta(player),
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        if (previous.instanceId !== view.instance.instanceId || previous.self?.templateId !== player.templateId) {
-            this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player, (mapId) => this.resolveMapName(mapId)));
+        if (previous.instanceId !== identityView.instance.instanceId || previous.self?.templateId !== player.templateId) {
+            this.cacheByPlayerId.set(identityView.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
             return {
-                mapEnter: buildMapEnter(view),
-                worldDelta: buildFullWorldDelta(view, (mapId) => this.resolveMapName(mapId)),
+                mapEnter: buildMapEnter(identityView),
+                worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
                 selfDelta: buildFullSelfDelta(player),
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        const currentWorld = previous.worldRevision === view.worldRevision && !hasDynamicContainerCountdown(view, previous.containers)
+        const currentWorld = previous.worldRevision === identityView.worldRevision && !hasDynamicContainerCountdown(identityView, previous.containers)
             ? previous
-            : captureWorldState(view, (mapId) => this.resolveMapName(mapId));
+            : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
         const current = combineProjectorState(currentWorld, capturePlayerState(player));
-        this.cacheByPlayerId.set(view.playerId, current);
+        this.cacheByPlayerId.set(identityView.playerId, current);
         const worldChanged = previous.worldRevision !== current.worldRevision || currentWorld !== previous;
         const playerPatch = worldChanged ? diffPlayerEntries(previous.players, current.players) : [];
         const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, current.monsters) : [];
@@ -126,8 +139,8 @@ export class WorldProjectorService {
                 || formationPatch.length > 0
                     ? {
                         t: view.tick,
-                        wr: view.worldRevision,
-                        sr: view.selfRevision,
+                        wr: identityView.worldRevision,
+                        sr: identityView.selfRevision,
                         p: playerPatch.length > 0 ? playerPatch : undefined,
                         m: monsterPatch.length > 0 ? monsterPatch : undefined,
                         n: npcPatch.length > 0 ? npcPatch : undefined,
@@ -149,6 +162,53 @@ export class WorldProjectorService {
     getEventNames() {
         return S2C;
     }
+
+    private withAccountIdentityProjection(view: any): any {
+        if (!view) {
+            return view;
+        }
+        let changed = false;
+        const selfIdentity = this.resolveAccountIdentityProjection(view.playerId, view.self);
+        const self = selfIdentity
+            ? { ...view.self, ...selfIdentity }
+            : view.self;
+        changed ||= self !== view.self;
+        const visiblePlayers = Array.isArray(view.visiblePlayers)
+            ? view.visiblePlayers.map((entry: any) => {
+                const identity = this.resolveAccountIdentityProjection(entry?.playerId, entry);
+                if (!identity) {
+                    return entry;
+                }
+                changed = true;
+                return { ...entry, ...identity };
+            })
+            : view.visiblePlayers;
+        return changed ? { ...view, self, visiblePlayers } : view;
+    }
+
+    private resolveAccountIdentityProjection(playerId: unknown, fallback: any): { name?: string; displayName?: string } | null {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId || typeof this.playerAuthStore?.getMemoryUserByPlayerId !== 'function') {
+            return null;
+        }
+        const account = this.playerAuthStore.getMemoryUserByPlayerId(normalizedPlayerId);
+        if (!account) {
+            return null;
+        }
+        const name = normalizeIdentityText(account.pendingRoleName) || normalizeIdentityText(account.playerName);
+        const displayName = normalizeIdentityText(account.displayName);
+        if (!name && !displayName) {
+            return null;
+        }
+        return {
+            name: name || normalizeIdentityText(fallback?.name),
+            displayName: displayName || normalizeIdentityText(fallback?.displayName),
+        };
+    }
+}
+
+function normalizeIdentityText(value: unknown): string {
+    return typeof value === 'string' ? value.trim().normalize('NFC') : '';
 }
 
 function hasDynamicContainerCountdown(view: any, previousContainers: Map<string, any>): boolean {

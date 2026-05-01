@@ -5374,6 +5374,9 @@
       padding: 10px;
       min-width: 0;
     }
+    .sect-manage-card--wide {
+      grid-column: 1 / -1;
+    }
     .sect-stat-card-label {
       color: var(--ink-grey);
       font-size: var(--font-size-13);
@@ -5426,6 +5429,11 @@
       border: 1px solid var(--wash-ink);
       background: var(--paper-white);
     }
+    .sect-application-table {
+      overflow: hidden;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+    }
     .sect-member-table-head,
     .sect-member-table-row {
       display: grid;
@@ -5440,6 +5448,28 @@
       border-bottom: 1px solid var(--wash-ink);
       background: var(--surface-muted);
       color: var(--ink-grey);
+    }
+    .sect-application-table-head,
+    .sect-application-table-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) 52px minmax(112px, 0.8fr) max-content;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 8px 10px;
+      font-size: var(--font-size-12);
+    }
+    .sect-application-table-head {
+      border-bottom: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+    }
+    .sect-application-table-row + .sect-application-table-row {
+      border-top: 1px solid var(--wash-ink);
+    }
+    .sect-application-table-head > span,
+    .sect-application-table-row > span {
+      min-width: 0;
     }
     .sect-member-table-row + .sect-member-table-row {
       border-top: 1px solid var(--wash-ink);

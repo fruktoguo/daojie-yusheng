@@ -203,6 +203,7 @@
     "smoke:loot": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case loot",
     "smoke:monster-loot": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case monster-loot",
     "smoke:monster-runtime": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case monster-runtime",
+    "smoke:content-monster-spawn": "pnpm compile && node dist/tools/content-monster-spawn-smoke.js",
     "bench:tick": "pnpm compile && node dist/tools/bench-tick.js",
     "bench:sync": "pnpm compile && node dist/tools/bench-sync.js",
     "bench:combat": "pnpm compile && node dist/tools/bench-combat.js",

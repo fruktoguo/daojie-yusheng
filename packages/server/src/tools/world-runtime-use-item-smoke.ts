@@ -145,7 +145,16 @@ function createService(overrides = {}) {
  * @returns 无返回值，完成地图、标识的条件判断。
  */
 
-        has(mapId) { return mapId === 'wildlands'; },        
+        has(mapId) { return ['wildlands', 'yunlai_town', 'yunlai_town_ore_basement'].includes(mapId); },
+        resolveMapGroupMembers(mapRef) {
+            if (mapRef === '云来镇' || mapRef === 'yunlai_town') {
+                return ['yunlai_town', 'yunlai_town_ore_basement'];
+            }
+            return this.has(mapRef) ? [mapRef] : [];
+        },
+        resolveMapGroupLabel(mapRef) {
+            return mapRef === '云来镇' || mapRef === 'yunlai_town' ? '云来镇' : '';
+        },
         /**
  * getOrThrow：读取OrThrow。
  * @returns 无返回值，完成OrThrow的读取/组装。
@@ -171,6 +180,19 @@ function testMapUnlockBranch() {
         ['consumeInventoryItem', 'player:1', 2, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '已解锁地图：荒原', 'success'],
+    ]);
+}
+function testMapGroupUnlockBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'map_scroll', name: '云来图志', mapUnlockId: '云来镇' });
+    service.dispatchUseItem('player:1', 2, createDeps(log));
+    assert.deepEqual(log, [
+        ['unlockMap', 'player:1', 'yunlai_town'],
+        ['unlockMap', 'player:1', 'yunlai_town_ore_basement'],
+        ['consumeInventoryItem', 'player:1', 2, 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '已解锁地图：云来镇', 'success'],
     ]);
 }
 /**
@@ -275,6 +297,7 @@ function testNormalUseBranch() {
 }
 
 testMapUnlockBranch();
+testMapGroupUnlockBranch();
 testTileAuraBranch();
 testBloodEssenceBatchBranch();
 testRespawnBindBranch();

@@ -2,13 +2,14 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { ELEMENT_KEYS, NUMERIC_STATS_KEYS } = require("@mud/shared");
+const { ELEMENT_KEYS, NUMERIC_STATS_KEYS, resolveMapGroupInfo } = require("@mud/shared");
 
 const packageRoot = path.resolve(__dirname, "..", "..");
 const contentRoot = path.join(packageRoot, "data", "content");
 const mapsRoot = path.join(packageRoot, "data", "maps");
 const numericScalarStatKeys = new Set(NUMERIC_STATS_KEYS.filter((key) => key !== "elementDamageBonus" && key !== "elementDamageReduce"));
 const elementKeys = new Set(ELEMENT_KEYS);
+const SPECIAL_CONSUMABLE_ITEM_IDS = new Set(["pill.shatter_spirit", "pill.wangsheng"]);
 /**
  * walkJsonFiles：执行walkJsonFile相关逻辑。
  * @param dirPath 参数说明。
@@ -219,6 +220,7 @@ function collectMapRefs() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const mapIds = new Set();
+  const mapRefIds = new Set();
   const npcIds = new Set();
   const monsterIds = new Set();
   const npcIdsByMap = new Map();
@@ -229,6 +231,14 @@ function collectMapRefs() {
       continue;
     }
     mapIds.add(map.id);
+    const group = resolveMapGroupInfo(map);
+    mapRefIds.add(map.id);
+    if (group?.mapGroupId) {
+      mapRefIds.add(group.mapGroupId);
+    }
+    if (group?.mapGroupName) {
+      mapRefIds.add(group.mapGroupName);
+    }
     const mapNpcIds = new Set();
     for (const npc of map.npcs ?? []) {
       if (typeof npc?.id !== "string") {
@@ -251,7 +261,7 @@ function collectMapRefs() {
     }
     monsterIdsByMap.set(map.id, mapMonsterIds);
   }
-  return { mapIds, npcIds, monsterIds, npcIdsByMap, monsterIdsByMap };
+  return { mapIds, mapRefIds, npcIds, monsterIds, npcIdsByMap, monsterIdsByMap };
 }
 /**
  * validatePartialNumericStats：判断PartialNumericStat是否满足条件。
@@ -336,11 +346,11 @@ function validateMonsterRefs(errors, monsters, itemIds, skillIds) {
 function validateItemRefs(errors, items, refs) {
   for (const item of items) {
     const itemId = typeof item?.itemId === "string" ? item.itemId : "unknown-item";
-    if (typeof item?.mapUnlockId === "string" && !refs.mapIds.has(item.mapUnlockId)) {
+    if (typeof item?.mapUnlockId === "string" && !refs.mapRefIds.has(item.mapUnlockId)) {
       errors.push(`${itemId}: mapUnlockId 不存在 -> ${item.mapUnlockId}`);
     }
     for (const mapUnlockId of item?.mapUnlockIds ?? []) {
-      if (typeof mapUnlockId === "string" && !refs.mapIds.has(mapUnlockId)) {
+      if (typeof mapUnlockId === "string" && !refs.mapRefIds.has(mapUnlockId)) {
         errors.push(`${itemId}: mapUnlockIds 包含不存在的地图 -> ${mapUnlockId}`);
       }
     }
@@ -349,6 +359,9 @@ function validateItemRefs(errors, items, refs) {
     }
     if (typeof item?.learnTechniqueId === "string" && !refs.techniqueIds.has(item.learnTechniqueId)) {
       errors.push(`${itemId}: learnTechniqueId 不存在 -> ${item.learnTechniqueId}`);
+    }
+    if (item?.type === "consumable" && !hasConsumableUseRuntimeEffect(item)) {
+      errors.push(`${itemId}: consumable 缺少运行时可识别的使用效果字段`);
     }
     for (const buff of item?.consumeBuffs ?? []) {
       const buffLabel = `${itemId}: consumeBuffs.${typeof buff?.buffId === "string" ? buff.buffId : "unknown-buff"}`;
@@ -369,6 +382,23 @@ function validateItemRefs(errors, items, refs) {
       }
     }
   }
+}
+
+function hasConsumableUseRuntimeEffect(item) {
+  if (typeof item?.learnTechniqueId === "string" && item.learnTechniqueId.length > 0) return true;
+  if (item?.useBehavior === "create_sect") return true;
+  if (typeof item?.formationDiskTier === "string" && item.formationDiskTier.length > 0) return true;
+  if (typeof item?.healAmount === "number" && item.healAmount > 0) return true;
+  if (typeof item?.healPercent === "number" && item.healPercent > 0) return true;
+  if (typeof item?.qiPercent === "number" && item.qiPercent > 0) return true;
+  if (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0) return true;
+  if (typeof item?.mapUnlockId === "string" && item.mapUnlockId.length > 0) return true;
+  if (Array.isArray(item?.mapUnlockIds) && item.mapUnlockIds.length > 0) return true;
+  if (typeof item?.respawnBindMapId === "string" && item.respawnBindMapId.length > 0) return true;
+  if (typeof item?.tileAuraGainAmount === "number" && item.tileAuraGainAmount > 0) return true;
+  if (Array.isArray(item?.tileResourceGains) && item.tileResourceGains.length > 0) return true;
+  if (item?.spiritualRootSeedTier === "heaven" || item?.spiritualRootSeedTier === "divine") return true;
+  return SPECIAL_CONSUMABLE_ITEM_IDS.has(item?.itemId);
 }
 /**
  * validateBreakthroughRefs：判断BreakthroughRef是否满足条件。
@@ -630,6 +660,7 @@ function main() {
   validateMapMonsterRefs(errors, mapRefs, monsterIds);
   validateItemRefs(errors, items, {
     mapIds: mapRefs.mapIds,
+    mapRefIds: mapRefs.mapRefIds,
     techniqueIds,
   });
   validateBreakthroughRefs(errors, itemIds);

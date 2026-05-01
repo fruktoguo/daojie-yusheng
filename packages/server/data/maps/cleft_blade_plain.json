@@ -37,7 +37,7 @@
       "x": 175,
       "y": 9,
       "targetMapId": "qizhen_crossing",
-      "targetX": 7,
+      "targetX": 8,
       "targetY": 21,
       "kind": "portal",
       "trigger": "manual",
@@ -45,7 +45,8 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "cleft_blade_plain:175,9",
-      "direction": "one_way"
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:8,21"
     },
     {
       "x": 1,
@@ -59,8 +60,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "cleft_blade_plain:1,9",
-      "direction": "two_way",
-      "targetPortalId": "guizang_vein_cavern:57,32"
+      "direction": "one_way"
     }
   ],
   "spawnPoint": {

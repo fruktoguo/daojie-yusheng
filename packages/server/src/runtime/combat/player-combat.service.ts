@@ -20,6 +20,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const combat_resolution_helpers_1 = require("./combat-resolution.helpers");
 
 /** 战斗运行时技能结算服务：负责技能解析、施放校验与战斗结果写回。 */
 let PlayerCombatService = class PlayerCombatService {
@@ -315,10 +316,14 @@ function resolveMonsterSkill(attacker, skillId) {
 
 function toCombatPlayerState(player) {
     return {
+        playerId: player.playerId,
         hp: player.hp,
         maxHp: player.maxHp,
         qi: player.qi,
         maxQi: player.maxQi,
+        realm: player.realm,
+        realmLv: player.realm?.realmLv,
+        combatExp: player.combatExp,
         attrs: {
             finalAttrs: player.attrs.finalAttrs,
             numericStats: player.attrs.numericStats,
@@ -387,34 +392,21 @@ function resolveDamage(attacker, target, effect, baseDamage) {
 
     const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
 
-    const hitGap = Math.max(0, targetStats.dodge - attackerStats.hit);
-    if (hitGap > 0 && Math.random() < (0, shared_1.ratioValue)(hitGap, targetRatios.dodge)) {
-        return 0;
-    }
-
-    const crit = attackerStats.crit > 0 && Math.random() < (0, shared_1.ratioValue)(attackerStats.crit, attackerRatios.crit);
-
-    let damage = baseDamage;
-    if (effect.element) {
-        damage = Math.max(1, Math.round(damage * (1 + Math.max(0, attackerStats.elementDamageBonus[effect.element]) / 100)));
-    }
-
-    const defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
-
-    let reduction = Math.max(0, (0, shared_1.ratioValue)(defense, 100));
-    if (effect.element) {
-
-        const elementReduce = Math.max(0, (0, shared_1.ratioValue)(targetStats.elementDamageReduce[effect.element], targetRatios.elementDamageReduce[effect.element]));
-        reduction = 1 - (1 - reduction) * (1 - elementReduce);
-    }
-    damage = Math.max(1, Math.round(damage * (1 - Math.min(0.95, reduction))));
-    if (crit) {
-        damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attackerStats.critDamage) / 10) / 100)));
-    }
-    return Math.max(1, Math.round(damage * (0, shared_1.getRealmGapDamageMultiplier)(
-        Math.max(1, attacker.realm?.realmLv ?? 1),
-        Math.max(1, target.realm?.realmLv ?? 1),
-    )));
+    const resolved = (0, combat_resolution_helpers_1.resolveCombatHit)({
+        attackerStats,
+        attackerRatios,
+        attackerRealmLv: resolveCombatantRealmLv(attacker),
+        attackerCombatExp: resolveCombatantCombatExp(attacker),
+        targetStats,
+        targetRatios,
+        targetRealmLv: resolveCombatantRealmLv(target),
+        targetCombatExp: resolveCombatantCombatExp(target),
+        baseDamage,
+        damageKind,
+        element: effect.element,
+        damageMultiplier: 1,
+    });
+    return resolved.damage;
 }
 /**
  * inferDamageKind：执行inferDamageKind相关逻辑。
@@ -424,6 +416,18 @@ function resolveDamage(attacker, target, effect, baseDamage) {
 
 function inferDamageKind(stats) {
     return stats.spellAtk >= stats.physAtk ? 'spell' : 'physical';
+}
+
+function resolveCombatantRealmLv(combatant) {
+    return Math.max(1, Math.floor(Number(combatant?.realm?.realmLv ?? combatant?.realmLv ?? combatant?.level ?? 1) || 1));
+}
+
+function resolveCombatantCombatExp(combatant) {
+    if (Number.isFinite(combatant?.combatExp)) {
+        return Math.max(0, Math.floor(Number(combatant.combatExp)));
+    }
+    const level = resolveCombatantRealmLv(combatant);
+    return level * 100;
 }
 /**
  * toTemporaryBuff：执行toTemporaryBuff相关逻辑。

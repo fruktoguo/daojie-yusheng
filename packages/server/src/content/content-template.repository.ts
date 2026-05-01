@@ -160,6 +160,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             useBehavior: template.useBehavior,
             formationDiskTier: template.formationDiskTier,
             formationDiskMultiplier: template.formationDiskMultiplier,
+            spiritualRootSeedTier: template.spiritualRootSeedTier,
             allowBatchUse: template.allowBatchUse,
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
     }
@@ -585,7 +586,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const filePath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps', `${mapId}.json`);
+        const filePath = findMapDocumentFile(mapId);
         if (!fs.existsSync(filePath)) {
             return null;
         }
@@ -724,6 +725,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         this.monsterRuntimeTemplates.clear();
         this.monsterRuntimeStatesByMapId.clear();
         this.starterInventoryEntries = [];
+        resetMapDocumentFileIndex();
 
         const itemFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'items'));
         for (const file of itemFiles) {
@@ -1346,6 +1348,41 @@ function parseMonsterIdFromRuntimeId(runtimeId) {
     const parts = runtimeId.split(':');
     return parts.length >= 4 ? parts[2] ?? '' : '';
 }
+const mapDocumentFileById = new Map();
+let mapDocumentFileIndexLoaded = false;
+function resetMapDocumentFileIndex() {
+    mapDocumentFileById.clear();
+    mapDocumentFileIndexLoaded = false;
+}
+function findMapDocumentFile(mapId) {
+    const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
+    if (!normalizedMapId) {
+        return '';
+    }
+    const directPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps', `${normalizedMapId}.json`);
+    if (fs.existsSync(directPath)) {
+        return directPath;
+    }
+    if (!mapDocumentFileIndexLoaded) {
+        mapDocumentFileIndexLoaded = true;
+        const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
+        if (fs.existsSync(mapsDir)) {
+            for (const filePath of collectJsonFiles(mapsDir)) {
+                try {
+                    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                    const id = typeof raw?.id === 'string' ? raw.id.trim() : '';
+                    if (id && !mapDocumentFileById.has(id)) {
+                        mapDocumentFileById.set(id, filePath);
+                    }
+                }
+                catch {
+                    continue;
+                }
+            }
+        }
+    }
+    return mapDocumentFileById.get(normalizedMapId) ?? '';
+}
 /**
  * normalizeMonsterMaxHp：规范化或转换怪物MaxHp。
  * @param maxHp 参数说明。
@@ -1831,6 +1868,9 @@ function normalizeItemTemplate(raw) {
         useBehavior: typeof candidate.useBehavior === 'string' && candidate.useBehavior.trim() ? candidate.useBehavior.trim() : undefined,
         formationDiskTier: typeof candidate.formationDiskTier === 'string' ? candidate.formationDiskTier : undefined,
         formationDiskMultiplier: Number.isFinite(candidate.formationDiskMultiplier) ? Math.max(1, Number(candidate.formationDiskMultiplier)) : undefined,
+        spiritualRootSeedTier: candidate.spiritualRootSeedTier === 'heaven' || candidate.spiritualRootSeedTier === 'divine'
+            ? candidate.spiritualRootSeedTier
+            : undefined,
 
         allowBatchUse: candidate.allowBatchUse === true,
 

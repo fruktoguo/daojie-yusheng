@@ -192,7 +192,11 @@ async function main() {
     playerId,
     instance: { instanceId, templateId: "formation_smoke" },
     self: { x: 4, y: 5, name: "阵法测试", displayName: "阵" },
-    visiblePlayers: [],
+    visiblePlayers: [
+      { playerId: "player:visible", name: "凌梦雨", displayName: "凌", x: 5, y: 5 },
+      { playerId: "player:legacy-placeholder", name: "旧档修士", displayName: "@", x: 6, y: 5 },
+      { playerId: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", name: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", displayName: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", x: 7, y: 5 },
+    ],
     localNpcs: [],
     localMonsters: [],
     localPortals: [],
@@ -200,6 +204,18 @@ async function main() {
     localContainers: [],
     localFormations: runtimeFormations,
   });
+  const selfProjection = worldDelta.p.find((entry) => entry.id === playerId);
+  const visibleProjection = worldDelta.p.find((entry) => entry.id === "player:visible");
+  const legacyProjection = worldDelta.p.find((entry) => entry.id === "player:legacy-placeholder");
+  const idOnlyProjection = worldDelta.p.find((entry) => entry.id === "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803");
+  assert.equal(selfProjection.n, "阵法测试");
+  assert.equal(selfProjection.ch, "阵");
+  assert.equal(visibleProjection.n, "凌梦雨");
+  assert.equal(visibleProjection.ch, "凌");
+  assert.equal(legacyProjection.n, "旧档修士");
+  assert.equal(legacyProjection.ch, "旧");
+  assert.equal(idOnlyProjection.n, "修士");
+  assert.equal(idOnlyProjection.ch, "人");
   assert.equal(worldDelta.fmn?.length, 1);
   assert.equal(worldDelta.fmn[0].id, formation.id);
   assert.equal(worldDelta.fmn[0].ch, "◎");

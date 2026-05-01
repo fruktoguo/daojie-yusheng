@@ -232,10 +232,14 @@ export function hideTooltip(): void {
  */
 
 
-export function showToast(message: string, kind: OverlayToastKind = 'system', durationMs = 2500): void {
+export function showToast(message: string | null | undefined, kind: OverlayToastKind = 'system', durationMs = 2500): void {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text) {
+    return;
+  }
   const id = toastIdSeed;
   toastIdSeed += 1;
-  const nextToast: OverlayToastEntry = { id, kind, message };
+  const nextToast: OverlayToastEntry = { id, kind, message: text };
   const previous = overlayStore.getState().toasts;
   overlayStore.patchState({ toasts: [...previous, nextToast] });
   window.setTimeout(() => {

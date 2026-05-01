@@ -1507,8 +1507,13 @@ export interface GmEditorItemOption {
 
   useBehavior?: ItemStack['useBehavior'];
   /**
- * allowBatchUse：allowBatchUse相关字段。
- */
+   * spiritualRootSeedTier：灵根幼苗品阶。
+   */
+
+  spiritualRootSeedTier?: ItemStack['spiritualRootSeedTier'];
+  /**
+   * allowBatchUse：allowBatchUse相关字段。
+   */
 
   allowBatchUse?: boolean;
 }
@@ -2482,6 +2487,10 @@ export interface GmMapDocument {
  */
 
   name: string;
+  mapGroupId?: string;
+  mapGroupName?: string;
+  mapGroupOrder?: number;
+  mapGroupMemberOrder?: number;
   /**
  * width：width相关字段。
  */
@@ -2632,6 +2641,10 @@ export interface GmMapSummary {
  */
 
   name: string;
+  mapGroupId?: string;
+  mapGroupName?: string;
+  mapGroupOrder?: number;
+  mapGroupMemberOrder?: number;
   /**
  * width：width相关字段。
  */
@@ -2726,6 +2739,10 @@ export interface GmWorldInstanceSummary {
  */
 
   displayName: string;
+  mapGroupId?: string;
+  mapGroupName?: string;
+  mapGroupOrder?: number;
+  mapGroupMemberOrder?: number;
   /**
  * templateId：地图模板 ID 标识。
  */

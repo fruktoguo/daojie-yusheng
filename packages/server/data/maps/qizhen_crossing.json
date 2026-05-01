@@ -76,9 +76,9 @@
     {
       "x": 8,
       "y": 21,
-      "targetMapId": "cleft_blade_plain_entry",
-      "targetX": 21,
-      "targetY": 8,
+      "targetMapId": "cleft_blade_plain",
+      "targetX": 175,
+      "targetY": 9,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -86,7 +86,7 @@
       "hidden": false,
       "id": "qizhen_crossing:8,21",
       "direction": "two_way",
-      "targetPortalId": "cleft_blade_plain_entry:21,8"
+      "targetPortalId": "cleft_blade_plain:175,9"
     },
     {
       "x": 50,

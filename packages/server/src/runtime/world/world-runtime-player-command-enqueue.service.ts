@@ -482,13 +482,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
                     const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
                         ? deps.resolveCurrentTickForPlayerId(playerId)
                         : 0;
-                    this.playerRuntimeService.updateCombatSettings(playerId, {
-                        autoBattle: false,
-                    }, currentTick);
                     this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
-                    if (typeof deps.queuePlayerNotice === 'function') {
-                        deps.queuePlayerNotice(playerId, '强制攻击目标已经失效，已停止锁定。', 'combat');
-                    }
                 }
                 return deps.getPlayerViewOrThrow(playerId);
             }

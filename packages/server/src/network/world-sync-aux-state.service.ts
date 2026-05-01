@@ -160,6 +160,7 @@ export class WorldSyncAuxStateService {
     const mapStaticState = this.worldSyncMapStaticAuxService.buildInitialMapStaticState(view, player, template);
     const visibleTiles = mapStaticState.visibleTiles;
     const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
+    const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
     const timeSyncState = this.buildTimeSyncState(template.id, timeState);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
@@ -176,9 +177,13 @@ export class WorldSyncAuxStateService {
     this.worldSyncProtocolService.sendMapStatic(
       socket,
       this.buildMapStaticSyncPayload(template, {
+        mapMeta: this.worldSyncMapSnapshotService.buildMapMetaSync(template),
+        minimap: mapUnlocked ? this.worldSyncMinimapService.buildMinimapSnapshotSync(template) : undefined,
         tiles: visibleTiles.matrix,
         tilesOriginX: resolveVisibleTilesOriginX(view, player),
         tilesOriginY: resolveVisibleTilesOriginY(view, player),
+        visibleMinimapMarkers: mapStaticState.visibleMinimapMarkers,
+        minimapLibrary: minimapLibrary.length > 0 ? minimapLibrary : undefined,
       }),
     );
     if (timeSyncState.tickIntervalMs !== 1000) {
@@ -740,6 +745,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && left.respawnBindMapId === right.respawnBindMapId
     && left.tileAuraGainAmount === right.tileAuraGainAmount
     && shallowEqualTileResourceGainArray(left.tileResourceGains, right.tileResourceGains)
+    && left.spiritualRootSeedTier === right.spiritualRootSeedTier
     && left.alchemySuccessRate === right.alchemySuccessRate
     && left.alchemySpeedRate === right.alchemySpeedRate
     && left.enhancementSuccessRate === right.enhancementSuccessRate

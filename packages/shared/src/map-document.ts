@@ -21,6 +21,7 @@ import {
   GmMapSummary,
 } from './api-contracts';
 import { parseQiResourceKey } from './qi';
+import { resolveMapGroupInfo } from './map-groups';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
 import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
 import {
@@ -546,10 +547,24 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const portals = Array.isArray(source.portals) ? source.portals : [];
   const npcs = Array.isArray(source.npcs) ? source.npcs : [];
   const monsterSpawns = Array.isArray(source.monsterSpawns) ? source.monsterSpawns : [];
+  const mapGroup = resolveMapGroupInfo({
+    id: mapId,
+    name: typeof source.name === 'string' ? source.name : '',
+    parentMapId: typeof source.parentMapId === 'string' ? source.parentMapId : undefined,
+    mapGroupId: typeof source.mapGroupId === 'string' ? source.mapGroupId : undefined,
+    mapGroupName: typeof source.mapGroupName === 'string' ? source.mapGroupName : undefined,
+    mapGroupOrder: Number.isFinite(source.mapGroupOrder) ? Number(source.mapGroupOrder) : undefined,
+    mapGroupMemberOrder: Number.isFinite(source.mapGroupMemberOrder) ? Number(source.mapGroupMemberOrder) : undefined,
+    floorLevel: Number.isInteger(source.floorLevel) ? Number(source.floorLevel) : undefined,
+  });
 
   return repairEditableMapDocument(syncPortalTiles({
     id: mapId,
     name: typeof source.name === 'string' ? source.name : '',
+    mapGroupId: mapGroup.mapGroupId,
+    mapGroupName: mapGroup.mapGroupName,
+    mapGroupOrder: mapGroup.mapGroupOrder,
+    mapGroupMemberOrder: mapGroup.mapGroupMemberOrder,
     width: Number.isInteger(source.width) ? Number(source.width) : 0,
     height: Number.isInteger(source.height) ? Number(source.height) : 0,
     routeDomain: normalizeMapRouteDomain((source as {    
@@ -1254,6 +1269,10 @@ export function buildEditableMapSummary(document: GmMapDocument): GmMapSummary {
   return {
     id: document.id,
     name: document.name,
+    mapGroupId: document.mapGroupId,
+    mapGroupName: document.mapGroupName,
+    mapGroupOrder: document.mapGroupOrder,
+    mapGroupMemberOrder: document.mapGroupMemberOrder,
     width: document.width,
     height: document.height,
     description: document.description,

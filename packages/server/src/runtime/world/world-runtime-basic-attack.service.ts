@@ -18,6 +18,7 @@ exports.WorldRuntimeBasicAttackService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
 const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
@@ -61,10 +62,6 @@ function formatAuraDamage(value) {
     }
     return amount.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 }
-
-/** 普攻减伤采用与 legacy 对齐的攻防基准。 */
-const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
-const DEFENSE_REDUCTION_BASELINE = 100;
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
 let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
@@ -181,7 +178,9 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
         deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
         deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
-        deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
+        if (resolvedDamage.damage > 0) {
+            deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
+        }
         const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
         if (outcome?.defeated) {
             await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
@@ -219,7 +218,9 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
         deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
         deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
+        if (resolvedDamage.damage > 0) {
+            deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
+        }
         this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
         const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
@@ -346,8 +347,19 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
     resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind) {
         const monsterCombatExp = this.resolveMonsterCombatExpEquivalent(monster);
         const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
-        const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(Math.max(1, attacker.realm?.realmLv ?? 1), Math.max(1, Math.floor(monster.level ?? 1)));
-        return this.resolveBasicAttackDamage(attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors, baseDamage, damageKind, combatExpMultiplier * realmGapMultiplier);
+        return this.resolveBasicAttackDamage(
+            attacker.attrs.numericStats,
+            attacker.attrs.ratioDivisors,
+            Math.max(1, attacker.realm?.realmLv ?? 1),
+            Math.max(1, attacker.combatExp ?? 0),
+            monster.numericStats,
+            monster.ratioDivisors,
+            Math.max(1, Math.floor(monster.level ?? 1)),
+            Math.max(1, monsterCombatExp),
+            baseDamage,
+            damageKind,
+            combatExpMultiplier,
+        );
     }
     resolveMonsterCombatExpEquivalent(monster) {
         const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
@@ -371,8 +383,19 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
 
     resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind) {
         const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, target.combatExp ?? 0));
-        const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(Math.max(1, attacker.realm?.realmLv ?? 1), Math.max(1, target.realm?.realmLv ?? 1));
-        return this.resolveBasicAttackDamage(attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors, baseDamage, damageKind, combatExpMultiplier * realmGapMultiplier);
+        return this.resolveBasicAttackDamage(
+            attacker.attrs.numericStats,
+            attacker.attrs.ratioDivisors,
+            Math.max(1, attacker.realm?.realmLv ?? 1),
+            Math.max(1, attacker.combatExp ?? 0),
+            target.attrs.numericStats,
+            target.attrs.ratioDivisors,
+            Math.max(1, target.realm?.realmLv ?? 1),
+            Math.max(1, target.combatExp ?? 0),
+            baseDamage,
+            damageKind,
+            combatExpMultiplier,
+        );
     }
     /**
  * resolveBasicAttackDamage：统一普攻伤害结算。
@@ -386,29 +409,20 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 返回结算结果。
  */
 
-    resolveBasicAttackDamage(attackerStats, attackerRatios, targetStats, targetRatios, baseDamage, damageKind, extraMultiplier = 1) {
-        const hitGap = Math.max(0, targetStats.dodge - attackerStats.hit);
-        if (hitGap > 0 && Math.random() < (0, shared_1.ratioValue)(hitGap, targetRatios.dodge)) {
-            return { rawDamage: 0, damage: 0 };
-        }
-        const defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
-        const attackBasis = Math.max(0, damageKind === 'physical' ? attackerStats.physAtk : attackerStats.spellAtk);
-        const reductionBasis = Math.max(1, attackBasis * DEFENSE_REDUCTION_ATTACK_RATIO + DEFENSE_REDUCTION_BASELINE);
-        const reduction = Math.max(0, (0, shared_1.ratioValue)(Math.max(0, defense), reductionBasis));
-        const crit = attackerStats.crit > 0 && Math.random() < (0, shared_1.ratioValue)(attackerStats.crit, attackerRatios.crit);
-        let rawDamage = Math.max(1, Math.round(baseDamage));
-        let damage = Math.max(1, Math.round(rawDamage * (1 - Math.min(0.95, reduction))));
-        if (crit) {
-            const critMultiplier = (200 + Math.max(0, attackerStats.critDamage) / 10) / 100;
-            rawDamage = Math.max(1, Math.round(rawDamage * critMultiplier));
-            damage = Math.max(1, Math.round(damage * critMultiplier));
-        }
-        rawDamage = Math.max(1, Math.round(rawDamage * Math.max(0, extraMultiplier)));
-        damage = Math.max(1, Math.round(damage * Math.max(0, extraMultiplier)));
-        return {
-            rawDamage,
-            damage,
-        };
+    resolveBasicAttackDamage(attackerStats, attackerRatios, attackerRealmLv, attackerCombatExp, targetStats, targetRatios, targetRealmLv, targetCombatExp, baseDamage, damageKind, extraMultiplier = 1) {
+        return (0, combat_resolution_helpers_1.resolveCombatHit)({
+            attackerStats,
+            attackerRatios,
+            attackerRealmLv,
+            attackerCombatExp,
+            targetStats,
+            targetRatios,
+            targetRealmLv,
+            targetCombatExp,
+            baseDamage,
+            damageKind,
+            damageMultiplier: extraMultiplier,
+        });
     }
 };
 exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService;

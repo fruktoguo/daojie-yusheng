@@ -502,7 +502,13 @@
       .sect-member-table {
         overflow-x: visible;
       }
+      .sect-application-table {
+        overflow-x: visible;
+      }
       .sect-member-table-head {
+        display: none;
+      }
+      .sect-application-table-head {
         display: none;
       }
       .sect-member-table-row {
@@ -511,7 +517,15 @@
         align-items: start;
         gap: 6px;
       }
+      .sect-application-table-row {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 6px;
+      }
       .sect-member-table-row > span {
+        min-width: 0;
+      }
+      .sect-application-table-row > span {
         min-width: 0;
       }
       .detail-modal-card.detail-modal--leaderboard {

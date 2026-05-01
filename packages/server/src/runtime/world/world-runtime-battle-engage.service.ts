@@ -153,11 +153,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         );
         if (!resolvedTarget) {
             if (locked) {
-                this.playerRuntimeService.updateCombatSettings(playerId, {
-                    autoBattle: false,
-                }, currentTick);
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
-                deps.queuePlayerNotice?.(playerId, '强制攻击目标已经失效，已停止锁定。', 'combat');
                 return;
             }
             throw new common_1.BadRequestException('没有可命中的目标');

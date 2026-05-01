@@ -6,7 +6,7 @@ const { Direction, PlayerRealmStage } = require('@mud/shared');
 const { WorldProjectorService } = require('../network/world-projector.service');
 
 function main() {
-  const projector = new WorldProjectorService(createTemplateRepository());
+  const projector = new WorldProjectorService(createTemplateRepository(), createPlayerAuthStore());
   const binding = {
     playerId: 'respawn_player',
     sessionId: 'respawn_session',
@@ -18,6 +18,9 @@ function main() {
     createView({ tick: 100, respawnRemainingTicks: 5 }),
     player,
   );
+  const visiblePlayer = initial.worldDelta?.p?.find((entry) => entry.id === 'p_visible_identity');
+  assert.equal(visiblePlayer?.n, '凌梦雨');
+  assert.equal(visiblePlayer?.ch, '凌');
   const initialContainer = initial.worldDelta?.c?.find((entry) => entry.id === 'container:herb.qingling');
   assert.equal(initialContainer?.rr, 5);
 
@@ -36,6 +39,21 @@ function main() {
   assert.equal(clearedContainer?.rr, null);
 
   console.log(JSON.stringify({ ok: true, case: 'world-projector-container-respawn' }, null, 2));
+}
+
+function createPlayerAuthStore() {
+  return {
+    getMemoryUserByPlayerId(playerId) {
+      if (playerId !== 'p_visible_identity') {
+        return null;
+      }
+      return {
+        pendingRoleName: '凌梦雨',
+        playerName: '凌梦雨',
+        displayName: '凌',
+      };
+    },
+  };
 }
 
 function createTemplateRepository() {
@@ -82,7 +100,15 @@ function createView({ tick, respawnRemainingTicks }) {
     },
     localLandmarks: [],
     localSafeZones: [],
-    visiblePlayers: [],
+    visiblePlayers: [
+      {
+        playerId: 'p_visible_identity',
+        name: 'p_visible_identity',
+        displayName: 'p_visible_identity',
+        x: 2,
+        y: 1,
+      },
+    ],
     localContainers: [container],
     localMonsters: [],
     localNpcs: [],

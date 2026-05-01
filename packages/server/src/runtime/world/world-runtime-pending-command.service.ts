@@ -31,6 +31,10 @@ function normalizePendingCommandNoticeMessage(command, message) {
     return message;
 }
 
+function isTerminalAutoCombatTargetFailure(message) {
+    return message === '该目标无法被攻击' || message === '没有可命中的目标';
+}
+
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService {
 /**
@@ -55,6 +59,20 @@ let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService 
  */
 
     clearManualEngageState(playerId, deps) {
+        const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
+            ? deps.resolveCurrentTickForPlayerId(playerId)
+            : 0;
+        deps.playerRuntimeService?.clearManualEngagePending?.(playerId);
+        deps.playerRuntimeService?.clearCombatTarget?.(playerId, currentTick);
+    }
+    /**
+ * clearAutoCombatTargetAfterFailure：自动战斗确认目标失效后只清理当前目标锁。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 无返回值。
+ */
+
+    clearAutoCombatTargetAfterFailure(playerId, deps) {
         const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(playerId)
             : 0;
@@ -197,6 +215,9 @@ let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService 
                     }
                 }
                 const message = error instanceof Error ? error.message : String(error);
+                if (this.isAutoCombatCommand(command) && isTerminalAutoCombatTargetFailure(message)) {
+                    this.clearAutoCombatTargetAfterFailure(playerId, deps);
+                }
                 const noticeMessage = normalizePendingCommandNoticeMessage(command, message);
                 deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}）`);
                 if (noticeMessage) {

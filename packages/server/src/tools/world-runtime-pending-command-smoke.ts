@@ -394,6 +394,15 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
                     },
                 };
             },
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            updateCombatSettings() {
+                throw new Error('updateCombatSettings should not run for auto-combat target failure');
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
         },
         logger: {
             warn(message) {
@@ -405,6 +414,8 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
         },
     });
     assert.deepEqual(log, [
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 0],
         ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -443,6 +454,15 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
                     },
                 };
             },
+            clearManualEngagePending(playerId) {
+                skillLog.push(['clearManualEngagePending', playerId]);
+            },
+            updateCombatSettings() {
+                throw new Error('updateCombatSettings should not run for auto-combat target failure');
+            },
+            clearCombatTarget(playerId, currentTick) {
+                skillLog.push(['clearCombatTarget', playerId, currentTick]);
+            },
         },
         logger: {
             warn(message) {
@@ -454,6 +474,8 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
         },
     });
     assert.deepEqual(skillLog, [
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 0],
         ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（没有可命中的目标）'],
     ]);
     assert.equal(skillService.getPendingCommandCount(), 0);

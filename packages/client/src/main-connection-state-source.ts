@@ -156,7 +156,10 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         options.showLogin('灵气印记已散，请重新入世');
         return;
       }
-      options.showToast(data.message);
+      const message = typeof data.message === 'string' ? data.message.trim() : '';
+      if (message) {
+        options.showToast(message);
+      }
     },    
     /**
  * handleKick：处理Kick并更新相关状态。

@@ -24,7 +24,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
-import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
+import { getLocalItemTemplate, getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 import { formatDisplayNumber } from '../../utils/number';
@@ -127,6 +127,8 @@ interface SectManagementMember {
   name: string;
   roleId: string;
   roleLabel: string;
+  realmLv: number | null;
+  statusLabel: string;
   self?: boolean;
   leader?: boolean;
 }
@@ -139,11 +141,18 @@ interface SectManagementPermission {
   id: string;
   label: string;
 }
+interface SectManagementApplication {
+  playerId: string;
+  name: string;
+  appliedAt: number;
+}
 interface SectManagementData {
   selfPlayerId: string;
   canEditPermissions: boolean;
   canTransfer: boolean;
   canDissolve: boolean;
+  canLeave: boolean;
+  canReviewApplications: boolean;
   canManageGuardian: boolean;
   canRemoveMembers: boolean;
   canChangeRoles: boolean;
@@ -151,6 +160,7 @@ interface SectManagementData {
   permissions: SectManagementPermission[];
   rolePermissions: Record<string, Record<string, boolean>>;
   members: SectManagementMember[];
+  applications: SectManagementApplication[];
 }
 interface SectManagementSummary {
   name: string;
@@ -207,11 +217,16 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
     const members = Array.isArray(parsed.members) && parsed.members.length > 0
       ? parsed.members.map(normalizeSectManagementMember)
       : fallback.members;
+    const applications = Array.isArray(parsed.applications)
+      ? parsed.applications.map(normalizeSectManagementApplication).filter((entry) => entry.playerId)
+      : fallback.applications;
     return {
       selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
       canEditPermissions: parsed.canEditPermissions === true,
       canTransfer: parsed.canTransfer === true,
       canDissolve: parsed.canDissolve === true,
+      canLeave: parsed.canLeave === true,
+      canReviewApplications: parsed.canReviewApplications === true,
       canManageGuardian: parsed.canManageGuardian === true,
       canRemoveMembers: parsed.canRemoveMembers === true,
       canChangeRoles: parsed.canChangeRoles === true,
@@ -219,6 +234,7 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
       permissions,
       rolePermissions: normalizeSectManagementRolePermissions(parsed.rolePermissions, roles, permissions),
       members,
+      applications,
     };
   } catch (_error) {
     return fallback;
@@ -227,20 +243,32 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
 
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
   const playerId = player?.id ?? '';
-  const name = player?.displayName || player?.name || playerId || '当前宗主';
+  const name = player?.name || player?.displayName || playerId || '当前宗主';
   const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
   return {
     selfPlayerId: playerId,
     canEditPermissions: true,
     canTransfer: true,
     canDissolve: true,
+    canLeave: false,
+    canReviewApplications: true,
     canManageGuardian: true,
     canRemoveMembers: true,
     canChangeRoles: true,
     roles: DEFAULT_SECT_MANAGEMENT_ROLES,
     permissions: DEFAULT_SECT_MANAGEMENT_PERMISSIONS,
     rolePermissions,
-    members: [{ playerId, name, roleId: 'leader', roleLabel: '宗主', self: true, leader: true }],
+    members: [{
+      playerId,
+      name,
+      roleId: 'leader',
+      roleLabel: '宗主',
+      realmLv: Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv)) ? Math.trunc(Number(player?.realm?.realmLv ?? player?.realmLv)) : null,
+      statusLabel: '在线',
+      self: true,
+      leader: true,
+    }],
+    applications: [],
   };
 }
 
@@ -275,9 +303,36 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
     name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知成员',
     roleId,
     roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
+    realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
+    statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : '离线',
     self: source.self === true,
     leader: source.leader === true,
   };
+}
+
+function normalizeSectManagementApplication(input: unknown): SectManagementApplication {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementApplication> : {};
+  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
+  return {
+    playerId,
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知申请人',
+    appliedAt: Number.isFinite(Number(source.appliedAt)) ? Math.trunc(Number(source.appliedAt)) : 0,
+  };
+}
+
+function formatSectTimestamp(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return '未知';
+  }
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatSectMemberRealmLabel(member: SectManagementMember, fallback = '未知'): string {
+  if (!Number.isFinite(Number(member.realmLv)) || Number(member.realmLv) <= 0) {
+    return fallback;
+  }
+  const realmLv = Math.trunc(Number(member.realmLv));
+  return getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${realmLv}`;
 }
 
 function normalizeSectManagementRolePermissions(
@@ -2984,6 +3039,10 @@ export class ActionPanel {
   private renderSectManagementModal(): void {
     const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
     const summary = this.resolveSectManagementSummary(action);
+    const tabs = this.resolveSectManagementTabs(summary);
+    if (!tabs.some((entry) => entry.tab === this.sectManagementTab)) {
+      this.sectManagementTab = tabs[0]?.tab ?? 'overview';
+    }
     this.sectManagementExternalRevision = this.buildSectManagementRevision(summary);
     detailModalHost.open({
       ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
@@ -2996,12 +3055,7 @@ export class ActionPanel {
             <aside class="sect-manage-sidebar" aria-label="宗门管理页签">
               <div class="sect-manage-sidebar-title">管理</div>
               <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="宗门管理">
-                ${this.renderSectManagementTabButton('overview', '基础信息')}
-                ${this.renderSectManagementTabButton('members', '宗门成员')}
-                ${this.renderSectManagementTabButton('roles', '宗门职位')}
-                ${this.renderSectManagementTabButton('manage', '管理事务')}
-                ${this.renderSectManagementTabButton('guardian', '宗门大阵')}
-                ${this.renderSectManagementTabButton('domain', '宗门地脉')}
+                ${tabs.map((entry) => this.renderSectManagementTabButton(entry.tab, entry.label)).join('')}
               </div>
             </aside>
             <main class="sect-manage-main">
@@ -3032,6 +3086,7 @@ export class ActionPanel {
             const actionId = button.dataset.sectAction;
             if (!actionId) return;
             if (actionId === 'sect:dissolve' && !window.confirm('确认解散宗门？该操作会移除所有成员关系。')) return;
+            if (actionId === 'sect:leave' && !window.confirm('确认离开宗门？离开后需要重新递交拜帖并通过审批才能入宗。')) return;
             this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
           }, { signal });
         });
@@ -3054,6 +3109,30 @@ export class ActionPanel {
     });
   }
 
+  private resolveSectManagementTabs(summary: SectManagementSummary): Array<{ tab: SectManagementTab; label: string }> {
+    const tabs: Array<{ tab: SectManagementTab; label: string }> = [
+      { tab: 'overview', label: '基础信息' },
+      { tab: 'members', label: '宗门成员' },
+    ];
+    if (summary.data.canEditPermissions) {
+      tabs.push({ tab: 'roles', label: '宗门职位' });
+    }
+    if (
+      summary.data.canReviewApplications
+      || summary.data.canManageGuardian
+      || summary.data.canTransfer
+      || summary.data.canDissolve
+      || summary.data.canLeave
+    ) {
+      tabs.push({ tab: 'manage', label: '宗门事务' });
+    }
+    if (summary.data.canManageGuardian) {
+      tabs.push({ tab: 'guardian', label: '宗门大阵' });
+    }
+    tabs.push({ tab: 'domain', label: '宗门地脉' });
+    return tabs;
+  }
+
   private renderSectManagementTabButton(tab: SectManagementTab, label: string): string {
     const active = this.sectManagementTab === tab;
     return `<button class="action-skill-subtab-btn sect-manage-tab-btn ${active ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">${label}</button>`;
@@ -3066,10 +3145,13 @@ export class ActionPanel {
       case 'members':
         return this.renderSectManagementMembersPanel(summary);
       case 'roles':
-        return this.renderSectManagementRolesPanel(summary);
+        return summary.data.canEditPermissions ? this.renderSectManagementRolesPanel(summary) : this.renderSectManagementOverviewPanel(summary);
       case 'manage':
         return this.renderSectManagementManagePanel(summary);
       case 'guardian':
+        if (!summary.data.canManageGuardian) {
+          return this.renderSectManagementOverviewPanel(summary);
+        }
         return `
           <div class="panel-section">
             <div class="panel-section-head">
@@ -3227,30 +3309,80 @@ export class ActionPanel {
     const transferButtons = transferTargets.length > 0
       ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>转让给 ${escapeHtml(member.name)}</button>`).join('')
       : '<div class="sect-empty-note">暂无可转让成员。</div>';
+    const applicationRows = summary.data.applications.length > 0
+      ? summary.data.applications.map((entry) => `
+        <div class="sect-application-table-row">
+          <span class="sect-member-name-cell">
+            <span class="sect-member-name-main">${escapeHtml(entry.name)}</span>
+            <span class="sect-member-name-sub">待审批</span>
+          </span>
+          <span>拜帖</span>
+          <span>${escapeHtml(formatSectTimestamp(entry.appliedAt))}</span>
+          <span class="action-section-actions">
+            <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>准入</button>
+            <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>退回</button>
+          </span>
+        </div>
+      `).join('')
+      : '<div class="sect-empty-note">暂无待审批拜帖。</div>';
+    const cards: string[] = [];
+    if (summary.data.canReviewApplications) {
+      cards.push(`
+        <div class="sect-manage-card sect-manage-card--wide">
+          <div class="sect-manage-card-title">入宗审批</div>
+          <div class="sect-application-table">
+            <div class="sect-application-table-head">
+              <span>申请人</span>
+              <span>类型</span>
+              <span>递交时间</span>
+              <span>操作</span>
+            </div>
+            ${applicationRows}
+          </div>
+        </div>
+      `);
+    }
+    if (summary.data.canManageGuardian) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">护宗大阵</div>
+          <button class="small-btn" data-sect-manage-tab="guardian" type="button">前往大阵</button>
+        </div>
+      `);
+    }
+    if (summary.data.canTransfer) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">宗门转让</div>
+          <div class="action-section-actions">${transferButtons}</div>
+        </div>
+      `);
+    }
+    if (summary.data.canDissolve) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">宗门解散</div>
+          <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button">解散宗门</button>
+        </div>
+      `);
+    }
+    if (summary.data.canLeave) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">离开宗门</div>
+          <button class="small-btn ghost" data-sect-action="sect:leave" type="button">离开宗门</button>
+        </div>
+      `);
+    }
     return `
       <div class="sect-detail-pane">
         <div class="sect-pane-head">
           <div>
-            <div class="panel-section-title">管理事务</div>
+            <div class="panel-section-title">宗门事务</div>
           </div>
         </div>
         <div class="sect-manage-card-grid">
-          <div class="sect-manage-card">
-            <div class="sect-manage-card-title">护宗大阵</div>
-            <button class="small-btn" data-sect-manage-tab="guardian" type="button">前往大阵</button>
-          </div>
-          <div class="sect-manage-card">
-            <div class="sect-manage-card-title">宗门地脉</div>
-            <button class="small-btn ghost" data-sect-manage-tab="domain" type="button">查看地脉</button>
-          </div>
-          <div class="sect-manage-card">
-            <div class="sect-manage-card-title">宗门转让</div>
-            <div class="action-section-actions">${transferButtons}</div>
-          </div>
-          <div class="sect-manage-card">
-            <div class="sect-manage-card-title">宗门解散</div>
-            <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button"${summary.data.canDissolve ? '' : ' disabled'}>解散宗门</button>
-          </div>
+          ${cards.join('')}
         </div>
       </div>
     `;
@@ -3264,19 +3396,23 @@ export class ActionPanel {
         </select>`
       : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
     const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
+    const removeButton = canRemove
+      ? `<button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button">移除</button>`
+      : '';
+    const statusClass = member.statusLabel === '在线' ? 'sect-online-text' : 'sect-detail-tag';
     return `
       <div class="sect-member-table-row">
         <span class="sect-member-name-cell">
           <span class="sect-member-name-main">${escapeHtml(member.name)}</span>
-          <span class="sect-member-name-sub">${member.self ? '当前角色' : escapeHtml(member.playerId)}</span>
+          <span class="sect-member-name-sub">${member.self ? '当前角色' : escapeHtml(member.roleLabel)}</span>
         </span>
         <span>${roleControl}</span>
-        <span>${member.self ? escapeHtml(summary.realmLabel) : '未知'}</span>
+        <span>${escapeHtml(formatSectMemberRealmLabel(member, member.self ? summary.realmLabel : '未知'))}</span>
         <span>0</span>
         <span>0</span>
         <span>
-          ${member.self ? '<span class="sect-online-text">在线</span>' : '<span class="sect-detail-tag">名册</span>'}
-          <button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${canRemove ? '' : ' disabled'}>移除</button>
+          <span class="${statusClass}">${escapeHtml(member.statusLabel)}</span>
+          ${removeButton}
         </span>
       </div>
     `;
@@ -3336,7 +3472,7 @@ export class ActionPanel {
     const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
     const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? '0';
     const sectIdLabel = this.previewPlayer?.sectId ? `宗门 ${this.previewPlayer.sectId}` : '宗门已绑定';
-    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.displayName || this.previewPlayer?.name || this.previewPlayer?.id || '当前宗主';
+    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.name || this.previewPlayer?.displayName || this.previewPlayer?.id || '当前宗主';
     const realmLabel = this.previewPlayer?.realm?.displayName || this.previewPlayer?.realmName || this.previewPlayer?.realm?.name || '未知境界';
     const memberCountLabel = String(data.members.length || 1);
     const notice = `${name} 已开宗立派。`;

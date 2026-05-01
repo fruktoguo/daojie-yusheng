@@ -174,6 +174,10 @@ interface WorldRuntimeServiceLike {
     displayName?: string;
     templateId: string;
     templateName?: string;
+    mapGroupId?: string;
+    mapGroupName?: string;
+    mapGroupOrder?: number;
+    mapGroupMemberOrder?: number;
     linePreset?: GmWorldInstanceLinePreset;
     lineIndex?: number;
     instanceOrigin?: 'bootstrap' | 'gm_manual';
@@ -898,6 +902,9 @@ function compareWorldInstanceSummary(
   left: {
     templateName?: string;
     templateId?: string;
+    mapGroupName?: string;
+    mapGroupOrder?: number;
+    mapGroupMemberOrder?: number;
     linePreset?: GmWorldInstanceLinePreset;
     lineIndex?: number;
     displayName?: string;
@@ -905,21 +912,32 @@ function compareWorldInstanceSummary(
   right: {
     templateName?: string;
     templateId?: string;
+    mapGroupName?: string;
+    mapGroupOrder?: number;
+    mapGroupMemberOrder?: number;
     linePreset?: GmWorldInstanceLinePreset;
     lineIndex?: number;
     displayName?: string;
   },
 ): number {
-  const leftTemplate = left.templateName || left.templateId || '';
-  const rightTemplate = right.templateName || right.templateId || '';
-  const templateOrder = leftTemplate.localeCompare(rightTemplate, 'zh-Hans-CN');
-  if (templateOrder !== 0) {
-    return templateOrder;
-  }
   const presetWeight = (value: GmWorldInstanceLinePreset | undefined) => (value === 'real' ? 1 : 0);
   const presetOrder = presetWeight(left.linePreset) - presetWeight(right.linePreset);
   if (presetOrder !== 0) {
     return presetOrder;
+  }
+  const groupOrder = (Number(left.mapGroupOrder) || 1000) - (Number(right.mapGroupOrder) || 1000);
+  if (groupOrder !== 0) {
+    return groupOrder;
+  }
+  const leftGroup = left.mapGroupName || left.templateName || left.templateId || '';
+  const rightGroup = right.mapGroupName || right.templateName || right.templateId || '';
+  const groupNameOrder = leftGroup.localeCompare(rightGroup, 'zh-Hans-CN');
+  if (groupNameOrder !== 0) {
+    return groupNameOrder;
+  }
+  const memberOrder = (Number(left.mapGroupMemberOrder) || 0) - (Number(right.mapGroupMemberOrder) || 0);
+  if (memberOrder !== 0) {
+    return memberOrder;
   }
   const leftIndex = Number.isFinite(left.lineIndex) ? Math.trunc(Number(left.lineIndex)) : 0;
   const rightIndex = Number.isFinite(right.lineIndex) ? Math.trunc(Number(right.lineIndex)) : 0;

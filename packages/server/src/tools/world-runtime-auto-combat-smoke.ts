@@ -481,7 +481,7 @@ function testStopDistancePathDoesNotGenerateRangeCandidateGrid(): void {
   assert.ok(getBoundsChecks() < 400, `unexpected range-grid-like bounds checks: ${getBoundsChecks()}`);
 }
 
-function testLockedDestroyedTileStopsAutoBattle(): void {
+function testLockedDestroyedTileClearsTarget(): void {
   const player = {
     playerId: 'player:1',
     hp: 100,
@@ -548,12 +548,9 @@ function testLockedDestroyedTileStopsAutoBattle(): void {
 
   assert.equal(command, null);
   assert.deepEqual(playerRuntimeService.log, [
-    ['updateCombatSettings', 'player:1', { autoBattle: false }, 19],
     ['clearCombatTarget', 'player:1', 19],
   ]);
-  assert.deepEqual(notices, [
-    ['player:1', '强制攻击目标已经失去踪迹，自动战斗已停止。', 'combat'],
-  ]);
+  assert.deepEqual(notices, []);
 }
 
 function testLockedHerbTileContinuesBasicAttack(): void {
@@ -650,7 +647,7 @@ function testLockedHerbTileContinuesBasicAttack(): void {
   });
 }
 
-function testLockedDepletedHerbTileStopsAutoBattle(): void {
+function testLockedDepletedHerbTileClearsTarget(): void {
   const player = {
     playerId: 'player:1',
     hp: 100,
@@ -716,7 +713,6 @@ function testLockedDepletedHerbTileStopsAutoBattle(): void {
 
   assert.equal(command, null);
   assert.deepEqual(playerRuntimeService.log, [
-    ['updateCombatSettings', 'player:1', { autoBattle: false }, 22],
     ['clearCombatTarget', 'player:1', 22],
   ]);
 }
@@ -804,13 +800,13 @@ testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
 testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
 testStationaryOutOfRangeSkillSkipsWithoutMove();
 testStopDistancePathDoesNotGenerateRangeCandidateGrid();
-testLockedDestroyedTileStopsAutoBattle();
+testLockedDestroyedTileClearsTarget();
 testLockedHerbTileContinuesBasicAttack();
-testLockedDepletedHerbTileStopsAutoBattle();
+testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();
 
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；锁定的可攻击地块摧毁后会停止自动战斗；锁定草药和阵法会在未清空或未摧毁前继续生成下一次攻击。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药和阵法会在未清空或未摧毁前继续生成下一次攻击。',
 }, null, 2));

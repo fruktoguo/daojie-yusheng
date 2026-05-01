@@ -100,8 +100,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "cold_tide_marsh:34,30",
-      "direction": "two_way",
-      "targetPortalId": "guizang_vein_cavern:58,28"
+      "direction": "one_way"
     }
   ],
   "spawnPoint": {

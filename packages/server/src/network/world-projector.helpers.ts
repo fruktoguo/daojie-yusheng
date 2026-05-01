@@ -53,6 +53,7 @@ import {
   type WorldPlayerPatchView,
   type WorldPortalPatchView,
   calcTechniqueFinalSpecialStatBonus,
+  getFirstGrapheme,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
@@ -528,13 +529,13 @@ function buildFullWorldDelta(
 ): WorldDeltaView {
     const players: WorldPlayerPatchView[] = [{
             id: view.playerId,
-            n: view.self.displayName ?? view.self.name,
+            n: resolvePlayerRenderLabel(view.self.name, view.self.displayName, view.playerId),
             ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
             x: view.self.x,
             y: view.self.y,
         }, ...Array.from(view.visiblePlayers, (entry) => ({
             id: entry.playerId,
-            n: entry.name,
+            n: resolvePlayerRenderLabel(entry.name, entry.displayName, entry.playerId),
             ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x,
             y: entry.y,
@@ -762,14 +763,14 @@ function captureWorldState(
         lt: entry.lifecycle === 'persistent' ? 1 : 0,
     }]);
     players.set(view.playerId, {
-        n: view.self.displayName ?? view.self.name,
+        n: resolvePlayerRenderLabel(view.self.name, view.self.displayName, view.playerId),
         ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
         x: view.self.x,
         y: view.self.y,
     });
     for (const entry of view.visiblePlayers) {
         players.set(entry.playerId, {
-            n: entry.name,
+            n: resolvePlayerRenderLabel(entry.name, entry.displayName, entry.playerId),
             ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x,
             y: entry.y,
@@ -1746,6 +1747,7 @@ function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemS
         && left.respawnBindMapId === right.respawnBindMapId
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && isSameTileResourceGainList(left.tileResourceGains, right.tileResourceGains)
+        && left.spiritualRootSeedTier === right.spiritualRootSeedTier
         && left.alchemySuccessRate === right.alchemySuccessRate
         && left.alchemySpeedRate === right.alchemySpeedRate
         && left.enhancementSuccessRate === right.enhancementSuccessRate
@@ -2949,13 +2951,31 @@ function buildPortalId(portalOrX: ProjectorPortalLike | number, y?: number) {
     }
     return `${portalOrX}:${y}`;
 }
+function normalizePlayerIdentityText(value) {
+    return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+function resolvePlayerRenderLabel(name, displayName, playerId) {
+    return normalizePlayerDisplayText(name, playerId)
+        || normalizePlayerDisplayText(displayName, playerId)
+        || '修士';
+}
 function resolvePlayerRenderChar(displayName, name) {
-    const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
-    if (normalizedDisplayName) {
-        return normalizedDisplayName;
+    const normalizedDisplayName = normalizePlayerDisplayText(displayName);
+    const normalizedName = normalizePlayerDisplayText(name);
+    if (normalizedDisplayName && (normalizedDisplayName !== '@' || !normalizedName)) {
+        return getFirstGrapheme(normalizedDisplayName) || '@';
     }
-    const normalizedName = typeof name === 'string' ? name.trim() : '';
-    return normalizedName ? [...normalizedName][0] ?? '@' : '@';
+    return getFirstGrapheme(normalizedName) || '人';
+}
+function normalizePlayerDisplayText(value, playerId = undefined) {
+    const normalized = normalizePlayerIdentityText(value);
+    if (!normalized || isRuntimePlayerIdLike(normalized) || normalized === normalizePlayerIdentityText(playerId)) {
+        return '';
+    }
+    return normalized;
+}
+function isRuntimePlayerIdLike(value) {
+    return /^p_[0-9a-f-]+(?:_\d+)?$/i.test(value) || /^player[:_-]/i.test(value);
 }
 function resolvePortalDisplayName(
     portal: ProjectorPortalLike,

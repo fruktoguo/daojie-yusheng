@@ -100,8 +100,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "deepvein_ridge:10,8",
-      "direction": "two_way",
-      "targetPortalId": "guizang_vein_cavern:58,30"
+      "direction": "one_way"
     }
   ],
   "spawnPoint": {

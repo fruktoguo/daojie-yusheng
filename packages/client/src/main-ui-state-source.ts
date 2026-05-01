@@ -93,6 +93,7 @@ export type MainUiStateSource = ReturnType<typeof createMainUiStateSource>;
 
 export function createMainUiStateSource(options: MainUiStateSourceOptions) {
   let pendingLayoutViewportSync = false;  
+  let toastHideTimer: ReturnType<typeof window.setTimeout> | null = null;
   function getTopTechniqueByRealm(player: PlayerState): PlayerState['techniques'][number] | undefined {
     let top = player.techniques[0];
     for (let index = 1; index < player.techniques.length; index += 1) {
@@ -193,21 +194,30 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
  */
 
     showToast(
-      message: string,
+      message: string | null | undefined,
       kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' = 'system',
     ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const el = options.showToastEl;
       if (!el) return;
+      const text = typeof message === 'string' ? message.trim() : '';
+      if (!text) {
+        return;
+      }
+      if (toastHideTimer !== null) {
+        window.clearTimeout(toastHideTimer);
+        toastHideTimer = null;
+      }
       el.className = `toast-kind-${kind}`;
-      el.textContent = message;
+      el.textContent = text;
       el.classList.remove('hidden');
       el.classList.add('show');
       const durationMs = kind === 'quest' || kind === 'grudge' ? 4200 : 2500;
-      window.setTimeout(() => {
+      toastHideTimer = window.setTimeout(() => {
         el.classList.remove('show');
         el.classList.add('hidden');
+        toastHideTimer = null;
       }, durationMs);
     },    
     /**

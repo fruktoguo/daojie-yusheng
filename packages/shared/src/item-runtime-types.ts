@@ -726,8 +726,13 @@ export interface ItemStack {
 
   formationDiskMultiplier?: number;
   /**
- * allowBatchUse：allowBatchUse相关字段。
- */
+   * spiritualRootSeedTier：灵根幼苗品阶。
+   */
+
+  spiritualRootSeedTier?: 'heaven' | 'divine';
+  /**
+   * allowBatchUse：allowBatchUse相关字段。
+   */
 
   allowBatchUse?: boolean;
 }

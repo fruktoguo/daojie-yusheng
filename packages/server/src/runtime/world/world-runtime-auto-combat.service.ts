@@ -407,9 +407,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         const locked = player.combat.combatTargetLocked;
         if (locked) {
             const currentTick = deps.resolveCurrentTickForPlayerId(player.playerId);
-            this.playerRuntimeService.updateCombatSettings(player.playerId, { autoBattle: false }, currentTick);
             this.playerRuntimeService.clearCombatTarget(player.playerId, currentTick);
-            deps.queuePlayerNotice(player.playerId, '强制攻击目标已经失去踪迹，自动战斗已停止。', 'combat');
             return null;
         }
         if (player.combat.manualEngagePending === true) {

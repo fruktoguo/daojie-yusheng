@@ -898,6 +898,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     maxHp: monster.maxHp,
                     qi: 0,
                     maxQi: 0,
+                    level: monster.level,
+                    realmLv: monster.level,
+                    combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
                     attrs: {
                         finalAttrs: monster.attrs,
                         numericStats: monster.numericStats,
@@ -1199,3 +1202,15 @@ exports.WorldRuntimePlayerSkillDispatchService = WorldRuntimePlayerSkillDispatch
 ], WorldRuntimePlayerSkillDispatchService);
 
 export { WorldRuntimePlayerSkillDispatchService };
+
+function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
+    const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
+    const progressionService = playerRuntimeService?.playerProgressionService;
+    if (typeof progressionService?.getMonsterCombatExpEquivalent === 'function') {
+        const resolved = progressionService.getMonsterCombatExpEquivalent(level);
+        if (Number.isFinite(resolved) && resolved > 0) {
+            return Math.floor(resolved);
+        }
+    }
+    return level * 100;
+}

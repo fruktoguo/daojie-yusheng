@@ -42,6 +42,11 @@ const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 /** 玩家跨节点转移超时时间，超时后自动回滚 transfer 态。 */
 const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
 
+const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
+const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
+const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
+const WANGSHENG_PILL_ITEM_ID = 'pill.wangsheng';
+
 /** 体能下限来源标记，用于把基础生命回填到运行时。 */
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
@@ -2228,6 +2233,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.sectId = normalized;
         player.selfRevision += 1;
+        this.bumpPersistentRevision(player);
         return player;
     }
     /**
@@ -3338,6 +3344,29 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
             consumed = true;
         }
+        const spiritualRootSeedTier = resolveSpiritualRootSeedTier(item);
+        if (spiritualRootSeedTier) {
+            const result = this.playerProgressionService.applySpiritualRootSeed(player, spiritualRootSeedTier);
+            if (!result.changed) {
+                const message = result.notices?.find((notice) => typeof notice?.text === 'string' && notice.text.trim())?.text.trim()
+                    ?? '当前无法使用灵根幼苗';
+                throw new common_1.BadRequestException(message);
+            }
+            this.applyProgressionResult(player, result);
+            consumed = true;
+        }
+        if (item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID || item.itemId === WANGSHENG_PILL_ITEM_ID) {
+            const result = item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
+                ? this.playerProgressionService.applyShatterSpiritPill(player)
+                : this.playerProgressionService.applyWangshengPill(player);
+            if (!result.changed) {
+                const message = result.notices?.find((notice) => typeof notice?.text === 'string' && notice.text.trim())?.text.trim()
+                    ?? '当前无法使用该丹药';
+                throw new common_1.BadRequestException(message);
+            }
+            this.applyProgressionResult(player, result);
+            consumed = true;
+        }
         if (selfChanged) {
             markPlayerDirtyDomains(player, ['vitals']);
             player.selfRevision += 1;
@@ -3370,6 +3399,19 @@ function markPlayerDirtyDomains(player, domains) {
             player.dirtyDomains.add(domain.trim());
         }
     }
+}
+
+function resolveSpiritualRootSeedTier(item) {
+    if (item?.spiritualRootSeedTier === 'heaven' || item?.spiritualRootSeedTier === 'divine') {
+        return item.spiritualRootSeedTier;
+    }
+    if (item?.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID) {
+        return 'heaven';
+    }
+    if (item?.itemId === DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID) {
+        return 'divine';
+    }
+    return null;
 }
 function clearPlayerDirtyDomains(player) {
     if (player?.dirtyDomains instanceof Set) {
@@ -4477,7 +4519,12 @@ function buildActionEntries(player, currentTick) {
             cooldownLeft: readyTick > 0 ? Math.max(0, readyTick - currentTick) : Math.max(0, Number(entry.cooldownLeft ?? 0)),
         });
     }
-    actions.sort((left, right) => ((skillOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER)) || left.id.localeCompare(right.id, 'zh-Hans-CN'));
+    actions.sort((left, right) => {
+        const leftId = typeof left.id === 'string' ? left.id : '';
+        const rightId = typeof right.id === 'string' ? right.id : '';
+        return ((skillOrder.get(leftId) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(rightId) ?? Number.MAX_SAFE_INTEGER))
+            || leftId.localeCompare(rightId, 'zh-Hans-CN');
+    });
     return actions;
 }
 

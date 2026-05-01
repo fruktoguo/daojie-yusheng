@@ -2,7 +2,7 @@
  * 小地图与大地图浏览器
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
-import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
+import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, resolveMapGroupInfo, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
 import { deleteAllRememberedMaps, deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedUnlockedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
@@ -142,6 +142,10 @@ interface CatalogEntry {
  */
 
   mapMeta: MapMeta | null;  
+  mapGroupId: string;
+  mapGroupName: string;
+  mapGroupOrder: number;
+  mapGroupMemberOrder: number;
   /**
  * hasMemory：启用开关或状态标识。
  */
@@ -466,6 +470,26 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
   };
 }
 
+function attachCatalogGroup(entry: Omit<CatalogEntry, 'mapGroupId' | 'mapGroupName' | 'mapGroupOrder' | 'mapGroupMemberOrder'>): CatalogEntry {
+  const group = resolveMapGroupInfo({
+    id: entry.mapMeta?.id ?? entry.mapId,
+    name: entry.mapMeta?.name ?? entry.mapId,
+    parentMapId: entry.mapMeta?.parentMapId,
+    mapGroupId: entry.mapMeta?.mapGroupId,
+    mapGroupName: entry.mapMeta?.mapGroupName,
+    mapGroupOrder: entry.mapMeta?.mapGroupOrder,
+    mapGroupMemberOrder: entry.mapMeta?.mapGroupMemberOrder,
+    floorLevel: entry.mapMeta?.floorLevel,
+  });
+  return {
+    ...entry,
+    mapGroupId: group.mapGroupId,
+    mapGroupName: group.mapGroupName,
+    mapGroupOrder: group.mapGroupOrder,
+    mapGroupMemberOrder: group.mapGroupMemberOrder,
+  };
+}
+
 interface MinimapDrawExtent {
   minX: number;
   minY: number;
@@ -673,6 +697,7 @@ export class Minimap {
   private mobileCatalogOpen = false;
   /** catalogEntryNodes：目录条目Nodes。 */
   private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
+  private readonly catalogGroupHeaderNodes = new Map<string, HTMLElement>();
   /** catalogEmptyNode：目录Empty节点。 */
   private catalogEmptyNode: HTMLElement | null = null;  
   /**
@@ -1185,41 +1210,46 @@ export class Minimap {
 
     for (const mapId of listRememberedMapIds()) {
       const existing = entries.get(mapId);
-      entries.set(mapId, {
+      entries.set(mapId, attachCatalogGroup({
         mapId,
         mapMeta: existing?.mapMeta ?? (mapId === currentMapId ? currentMapMeta : getCachedMapMeta(mapId)),
         hasMemory: true,
         hasUnlock: existing?.hasUnlock ?? false,
-      });
+      }));
     }
 
     for (const entry of listCachedUnlockedMapSummaries()) {
       const existing = entries.get(entry.mapId);
-      entries.set(entry.mapId, {
+      entries.set(entry.mapId, attachCatalogGroup({
         mapId: entry.mapId,
         mapMeta: existing?.mapMeta ?? entry.mapMeta,
         hasMemory: existing?.hasMemory ?? false,
         hasUnlock: true,
-      });
+      }));
     }
 
     if (currentMapId) {
       const existing = entries.get(currentMapId);
-      entries.set(currentMapId, {
+      entries.set(currentMapId, attachCatalogGroup({
         mapId: currentMapId,
         mapMeta: currentMapMeta,
         hasMemory: existing?.hasMemory ?? false,
         hasUnlock: existing?.hasUnlock ?? !!this.scene?.snapshot,
-      });
+      }));
     }
 
     return [...entries.values()].sort((left, right) => {
-      if (left.mapId === currentMapId) {
-        return -1;
+      const leftCurrentGroup = currentMapId && left.mapGroupId === entries.get(currentMapId)?.mapGroupId;
+      const rightCurrentGroup = currentMapId && right.mapGroupId === entries.get(currentMapId)?.mapGroupId;
+      if (leftCurrentGroup !== rightCurrentGroup) {
+        return leftCurrentGroup ? -1 : 1;
       }
-      if (right.mapId === currentMapId) {
-        return 1;
-      }
+      const groupOrderGap = left.mapGroupOrder - right.mapGroupOrder;
+      if (groupOrderGap !== 0) return groupOrderGap;
+      const groupNameGap = left.mapGroupName.localeCompare(right.mapGroupName, 'zh-Hans-CN');
+      if (groupNameGap !== 0) return groupNameGap;
+      const memberOrderGap = left.mapGroupMemberOrder - right.mapGroupMemberOrder;
+      if (memberOrderGap !== 0) return memberOrderGap;
       const leftName = left.mapMeta?.name ?? left.mapId;
       const rightName = right.mapMeta?.name ?? right.mapId;
       return leftName.localeCompare(rightName, 'zh-Hans-CN');
@@ -1277,6 +1307,7 @@ export class Minimap {
     const catalogContainer = this.modalList;
     const previousScrollTop = catalogContainer.scrollTop;
     const filteredIds = new Set(filteredEntries.map((entry) => entry.mapId));
+    const filteredGroupIds = new Set(filteredEntries.map((entry) => entry.mapGroupId));
 
     if (filteredEntries.length === 0) {
       this.removeAllCatalogNodes();
@@ -1294,9 +1325,28 @@ export class Minimap {
         this.catalogEntryNodes.delete(existingId);
       }
     }
+    for (const existingGroupId of Array.from(this.catalogGroupHeaderNodes.keys())) {
+      if (!filteredGroupIds.has(existingGroupId)) {
+        this.catalogGroupHeaderNodes.get(existingGroupId)?.remove();
+        this.catalogGroupHeaderNodes.delete(existingGroupId);
+      }
+    }
 
-    let previousNode: HTMLButtonElement | null = null;
+    let previousNode: HTMLElement | null = null;
+    let previousGroupId = '';
     for (const entry of filteredEntries) {
+      if (entry.mapGroupId !== previousGroupId) {
+        let headerNode = this.catalogGroupHeaderNodes.get(entry.mapGroupId);
+        if (!headerNode) {
+          headerNode = document.createElement('div');
+          headerNode.className = 'map-minimap-modal-group-title';
+          this.catalogGroupHeaderNodes.set(entry.mapGroupId, headerNode);
+        }
+        headerNode.textContent = entry.mapGroupName;
+        this.insertCatalogItemNodeInOrder(headerNode, previousNode, catalogContainer);
+        previousNode = headerNode;
+        previousGroupId = entry.mapGroupId;
+      }
       let node = this.catalogEntryNodes.get(entry.mapId);
       if (!node) {
         node = this.createCatalogItemNode(entry);
@@ -1339,6 +1389,8 @@ export class Minimap {
 
     const signature = [
       entry.mapId,
+      entry.mapGroupId,
+      entry.mapGroupName,
       entry.mapMeta?.name ?? '无名地域',
       entry.hasMemory ? 'memory' : '',
       entry.hasUnlock ? 'unlock' : '',
@@ -1379,8 +1431,8 @@ export class Minimap {
 
 
   private insertCatalogItemNodeInOrder(
-    node: HTMLButtonElement,
-    previousNode: HTMLButtonElement | null,
+    node: HTMLElement,
+    previousNode: HTMLElement | null,
     container: HTMLElement,
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1410,6 +1462,10 @@ export class Minimap {
       node.remove();
     });
     this.catalogEntryNodes.clear();
+    this.catalogGroupHeaderNodes.forEach((node) => {
+      node.remove();
+    });
+    this.catalogGroupHeaderNodes.clear();
   }
 
   /** buildCatalogBadge：构建目录Badge。 */

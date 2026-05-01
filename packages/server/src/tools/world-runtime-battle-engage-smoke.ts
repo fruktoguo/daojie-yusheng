@@ -196,9 +196,8 @@ async function testLockedMissingMonsterEngageClearsTargetWithoutRawWarning(): Pr
       assert.equal(playerId, attacker.playerId);
       return attacker;
     },
-    updateCombatSettings(playerId: string, input: unknown, currentTick: number) {
-      log.push(['updateCombatSettings', playerId, input, currentTick]);
-      attacker.combat.autoBattle = false;
+    updateCombatSettings() {
+      throw new Error('updateCombatSettings should not run for missing locked monster');
     },
     setCombatTarget() {
       throw new Error('setCombatTarget should not run for missing locked monster');
@@ -234,8 +233,8 @@ async function testLockedMissingMonsterEngageClearsTargetWithoutRawWarning(): Pr
     interruptManualCombat(playerId: string) {
       log.push(['interruptManualCombat', playerId]);
     },
-    queuePlayerNotice(playerId: string, message: string, kind: string) {
-      log.push(['queuePlayerNotice', playerId, message, kind]);
+    queuePlayerNotice() {
+      throw new Error('queuePlayerNotice should not run for missing locked monster');
     },
     buildAutoCombatCommand() {
       throw new Error('buildAutoCombatCommand should not run for missing locked monster');
@@ -245,10 +244,9 @@ async function testLockedMissingMonsterEngageClearsTargetWithoutRawWarning(): Pr
   await service.dispatchEngageBattle(attacker.playerId, null, 'monster:missing', null, null, true, deps as never);
   assert.deepEqual(log, [
     ['interruptManualCombat', 'player:attacker'],
-    ['updateCombatSettings', 'player:attacker', { autoBattle: false }, 12],
     ['clearCombatTarget', 'player:attacker', 12],
-    ['queuePlayerNotice', 'player:attacker', '强制攻击目标已经失效，已停止锁定。', 'combat'],
   ]);
+  assert.equal(attacker.combat.autoBattle, true);
 }
 
 async function testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoBattle(): Promise<void> {

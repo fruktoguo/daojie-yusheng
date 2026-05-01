@@ -1460,6 +1460,79 @@
       gap: 8px;
     }
 
+    .world-instance-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .world-instance-tabs {
+      flex: 0 0 auto;
+    }
+
+    .world-instance-tabs-inner {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+    }
+
+    .world-instance-tab {
+      min-width: 0;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 5px;
+      border: 0;
+      border-right: 1px solid var(--wash-ink);
+      background: transparent;
+      color: var(--ink-grey);
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .world-instance-tab:last-child {
+      border-right: 0;
+    }
+
+    .world-instance-tab:hover,
+    .world-instance-tab.active {
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .world-instance-tab.active {
+      box-shadow: inset 0 -2px 0 var(--stamp-red);
+    }
+
+    .world-instance-tab-count {
+      min-width: 16px;
+      padding: 1px 4px;
+      border-radius: 999px;
+      background: rgba(17, 17, 17, 0.08);
+      color: inherit;
+      font-size: 11px;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .world-instance-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    #world-time-control {
+      flex: 0 0 auto;
+    }
+
     .map-row {
       width: 100%;
       padding: 10px 12px;
@@ -2067,8 +2140,9 @@
           <div class="section-title">实例列表</div>
           <div class="section-subtitle">选择实例查看运行时状态</div>
         </div>
-        <div class="section-body">
-          <div id="world-map-list" class="map-list"></div>
+        <div class="section-body world-instance-section">
+          <div id="world-instance-tabs" class="world-instance-tabs"></div>
+          <div id="world-map-list" class="map-list world-instance-list"></div>
           <div id="world-time-control"></div>
         </div>
       </section>

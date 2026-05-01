@@ -18,6 +18,7 @@ exports.WorldRuntimeMonsterActionApplyService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const player_combat_service_1 = require("../combat/player-combat.service");
+const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
@@ -156,17 +157,33 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             && !instance.canSeeTileFrom(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, distance)) {
             return;
         }
-        const damage = typeof action.damage === 'number' ? Math.max(0, Math.round(action.damage)) : 0;
-        if (damage <= 0) {
-            return;
-        }
-        const effectColor = (0, shared_1.getDamageTrailColor)('physical');
+        const damageKind = monster.numericStats.spellAtk > monster.numericStats.physAtk ? 'spell' : 'physical';
+        const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
+            ? monster.numericStats.spellAtk
+            : monster.numericStats.physAtk));
+        const resolvedDamage = (0, combat_resolution_helpers_1.resolveCombatHit)({
+            attackerStats: monster.numericStats,
+            attackerRatios: monster.ratioDivisors,
+            attackerRealmLv: Math.max(1, Math.floor(monster.level ?? 1)),
+            attackerCombatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
+            targetStats: player.attrs.numericStats,
+            targetRatios: player.attrs.ratioDivisors,
+            targetRealmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? 1)),
+            targetCombatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+            baseDamage,
+            damageKind,
+            damageMultiplier: 1,
+        });
+        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
         this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, '攻击');
-        const updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, damage);
         this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
-        this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, damage, effectColor);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
-        this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
+        let updated = player;
+        if (resolvedDamage.damage > 0) {
+            updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, resolvedDamage.damage);
+            this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage.damage, effectColor);
+            this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
+        }
         this.playerRuntimeService.recordActivity(action.targetPlayerId, currentTick, {
             interruptCultivation: true,
         });
@@ -218,6 +235,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 qi: 0,
                 maxQi: 0,
                 level: monster.level,
+                combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
                 skills: monster.skills,
                 cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
                 attrs: {
@@ -264,3 +282,15 @@ exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplySe
 ], WorldRuntimeMonsterActionApplyService);
 
 export { WorldRuntimeMonsterActionApplyService };
+
+function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
+    const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
+    const progressionService = playerRuntimeService?.playerProgressionService;
+    if (typeof progressionService?.getMonsterCombatExpEquivalent === 'function') {
+        const resolved = progressionService.getMonsterCombatExpEquivalent(level);
+        if (Number.isFinite(resolved) && resolved > 0) {
+            return Math.floor(resolved);
+        }
+    }
+    return level * 100;
+}

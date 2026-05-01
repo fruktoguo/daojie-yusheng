@@ -640,6 +640,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           : template?.tileResourceGains
             ? cloneJson(template.tileResourceGains)
             : undefined,
+      spiritualRootSeedTier: item.spiritualRootSeedTier ?? previousSameItem?.spiritualRootSeedTier ?? template?.spiritualRootSeedTier,
       allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
     };
   }  

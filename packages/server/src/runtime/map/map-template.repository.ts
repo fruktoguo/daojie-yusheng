@@ -61,6 +61,9 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
  */
 
     templates = new Map();    
+    mapGroupMembersById = new Map();
+    mapGroupNameById = new Map();
+    mapGroupIdByAlias = new Map();
     /**
  * npcLocationById：NPC位置ByID标识。
  */
@@ -88,6 +91,10 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         return Array.from(this.templates.values(), (template) => ({
             id: template.id,
             name: template.name,
+            mapGroupId: template.mapGroupId,
+            mapGroupName: template.mapGroupName,
+            mapGroupOrder: template.mapGroupOrder,
+            mapGroupMemberOrder: template.mapGroupMemberOrder,
             width: template.width,
             height: template.height,
             routeDomain: template.routeDomain,
@@ -129,12 +136,35 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
     has(templateId) {
         return this.templates.has(templateId);
     }    
+    resolveMapGroupMembers(mapRef) {
+        const normalized = normalizeMapGroupAlias(mapRef);
+        if (!normalized) {
+            return [];
+        }
+        const groupId = this.mapGroupIdByAlias.get(normalized);
+        if (groupId) {
+            return (this.mapGroupMembersById.get(groupId) ?? []).slice();
+        }
+        return this.templates.has(mapRef) ? [mapRef] : [];
+    }
+    resolveMapGroupLabel(mapRef) {
+        const normalized = normalizeMapGroupAlias(mapRef);
+        if (!normalized) {
+            return '';
+        }
+        const groupId = this.mapGroupIdByAlias.get(normalized);
+        if (!groupId) {
+            return this.templates.get(mapRef)?.name ?? '';
+        }
+        return this.mapGroupNameById.get(groupId) ?? groupId;
+    }
     /** registerRuntimeMapTemplate：注册运行时生成地图模板。 */
     registerRuntimeMapTemplate(document) {
         const normalized = (0, shared_1.normalizeEditableMapDocument)(document);
         copyRuntimeMapMetadata(document, normalized);
         const template = this.buildTemplate(normalized, new Map(), new Map());
         this.templates.set(template.id, template);
+        this.rebuildMapGroupIndex();
         return template;
     }
     /**
@@ -164,6 +194,9 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.templates.clear();
+        this.mapGroupMembersById.clear();
+        this.mapGroupNameById.clear();
+        this.mapGroupIdByAlias.clear();
         this.npcLocationById.clear();
         this.questSourceById.clear();
         const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
@@ -203,8 +236,36 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 }
             }
         }
+        this.rebuildMapGroupIndex();
         this.logger.log(`已加载 ${this.templates.size} 个地图模板`);
     }    
+    rebuildMapGroupIndex() {
+        this.mapGroupMembersById.clear();
+        this.mapGroupNameById.clear();
+        this.mapGroupIdByAlias.clear();
+        for (const template of this.templates.values()) {
+            const groupId = typeof template.mapGroupId === 'string' && template.mapGroupId.trim()
+                ? template.mapGroupId.trim()
+                : template.id;
+            const groupName = typeof template.mapGroupName === 'string' && template.mapGroupName.trim()
+                ? template.mapGroupName.trim()
+                : template.name;
+            this.mapGroupNameById.set(groupId, groupName);
+            const aliases = [groupId, groupName].map((entry) => normalizeMapGroupAlias(entry)).filter(Boolean);
+            for (const alias of aliases) {
+                if (!this.mapGroupIdByAlias.has(alias)) {
+                    this.mapGroupIdByAlias.set(alias, groupId);
+                }
+            }
+            const members = this.mapGroupMembersById.get(groupId) ?? [];
+            members.push(template);
+            this.mapGroupMembersById.set(groupId, members);
+        }
+        for (const [groupId, members] of Array.from(this.mapGroupMembersById.entries())) {
+            members.sort(compareMapGroupMembers);
+            this.mapGroupMembersById.set(groupId, members.map((entry) => entry.id));
+        }
+    }
     /**
  * buildTemplate：构建并返回目标对象。
  * @param document 参数说明。
@@ -341,6 +402,10 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         return {
             id: document.id,
             name: document.name,
+            mapGroupId: document.mapGroupId,
+            mapGroupName: document.mapGroupName,
+            mapGroupOrder: document.mapGroupOrder,
+            mapGroupMemberOrder: document.mapGroupMemberOrder,
             width,
             height,
             routeDomain: normalizeRouteDomain(document.routeDomain),
@@ -388,6 +453,22 @@ function collectJsonFiles(dirPath) {
         }
     }
     return files;
+}
+
+function normalizeMapGroupAlias(value) {
+    return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function compareMapGroupMembers(left, right) {
+    const orderGap = (Number(left.mapGroupMemberOrder) || 0) - (Number(right.mapGroupMemberOrder) || 0);
+    if (orderGap !== 0) {
+        return orderGap;
+    }
+    const nameGap = String(left.name ?? '').localeCompare(String(right.name ?? ''), 'zh-Hans-CN');
+    if (nameGap !== 0) {
+        return nameGap;
+    }
+    return String(left.id ?? '').localeCompare(String(right.id ?? ''), 'zh-Hans-CN');
 }
 
 function buildNpcQuestGiverKey(mapId, npcId) {
@@ -832,6 +913,10 @@ function copyRuntimeMapMetadata(source, target) {
     const metadataKeys = [
         'terrainProfileId',
         'terrainRealmLv',
+        'mapGroupId',
+        'mapGroupName',
+        'mapGroupOrder',
+        'mapGroupMemberOrder',
         'sectMap',
         'sectId',
         'sectMark',

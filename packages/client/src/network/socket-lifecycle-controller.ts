@@ -71,8 +71,12 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
 
     bind(socket: Socket): void {
       socket.on('connect', () => {
-        startHeartbeat();
+        stopHeartbeat();
         deps.sendHello();
+      });
+
+      socket.on(S2C.InitSession, () => {
+        startHeartbeat();
         deps.sendHeartbeat();
       });
 

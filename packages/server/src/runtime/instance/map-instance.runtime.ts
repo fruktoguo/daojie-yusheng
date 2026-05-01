@@ -909,6 +909,10 @@ class MapInstanceRuntime {
             displayName: this.meta.displayName,
             templateId: this.meta.templateId,
             templateName: this.template.name,
+            mapGroupId: this.template.mapGroupId,
+            mapGroupName: this.template.mapGroupName,
+            mapGroupOrder: this.template.mapGroupOrder,
+            mapGroupMemberOrder: this.template.mapGroupMemberOrder,
             kind: this.meta.kind,
             linePreset: this.meta.linePreset,
             lineIndex: this.meta.lineIndex,
@@ -2722,6 +2726,7 @@ class MapInstanceRuntime {
             name: portal.name,
             char: portal.char,
             color: portal.color,
+            sectId: portal.sectId,
         }));
     }
     /** collectLocalGroundPiles：收集当前视野内可见地面物品堆。 */

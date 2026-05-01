@@ -1,4 +1,4 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Optional, forwardRef } from '@nestjs/common';
 import {
   DARKNESS_STACK_TO_VISION_MULTIPLIER,
   GAME_DAY_TICKS,
@@ -8,11 +8,13 @@ import {
   getAuraLevel,
   getQiResourceDefaultLevel,
   getQiResourceDisplayLabel,
+  getFirstGrapheme,
   getTileTypeFromMapChar,
   parseQiResourceKey,
 } from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
@@ -30,6 +32,14 @@ interface WorldRuntimePort {
 
 interface PlayerRuntimePort {
   getPlayer(playerId: string): any;
+}
+
+interface NativePlayerAuthStorePort {
+  getMemoryUserByPlayerId?(playerId: string): {
+    pendingRoleName?: string | null;
+    playerName?: string | null;
+    displayName?: string | null;
+  } | null;
 }
 
 interface TemplateRepositoryPort {
@@ -54,6 +64,7 @@ export class WorldSyncMapSnapshotService {
   private readonly templateRepository: TemplateRepositoryPort;
   private readonly mapRuntimeConfigService: RuntimeMapConfigPort;
   private readonly worldSyncMinimapService: WorldSyncMinimapPort;
+  private readonly playerAuthStore: NativePlayerAuthStorePort | null;
 
   constructor(
     @Inject(forwardRef(() => WorldRuntimeService))
@@ -66,12 +77,16 @@ export class WorldSyncMapSnapshotService {
     mapRuntimeConfigService: unknown,
     @Inject(WorldSyncMinimapService)
     worldSyncMinimapService: unknown,
+    @Optional()
+    @Inject(NativePlayerAuthStoreService)
+    playerAuthStore: NativePlayerAuthStorePort | null = null,
   ) {
     this.worldRuntimeService = worldRuntimeService as WorldRuntimePort;
     this.playerRuntimeService = playerRuntimeService as PlayerRuntimePort;
     this.templateRepository = templateRepository as TemplateRepositoryPort;
     this.mapRuntimeConfigService = mapRuntimeConfigService as RuntimeMapConfigPort;
     this.worldSyncMinimapService = worldSyncMinimapService as WorldSyncMinimapPort;
+    this.playerAuthStore = playerAuthStore;
   }
 
   buildVisibleTilesSnapshot(view, player, template) {
@@ -148,7 +163,7 @@ export class WorldSyncMapSnapshotService {
 
   buildRenderEntitiesSnapshot(view, player) {
     const entities = new Map();
-    entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0'));
+    entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0', this.resolveAccountIdentityProjection(player.playerId, player)));
     for (const visible of view.visiblePlayers) {
       const target = this.playerRuntimeService.getPlayer(visible.playerId);
       if (!target) {
@@ -158,7 +173,7 @@ export class WorldSyncMapSnapshotService {
         continue;
       }
       entities.set(target.playerId, {
-        ...buildPlayerRenderEntity(target, '#0f0'),
+        ...buildPlayerRenderEntity(target, '#0f0', this.resolveAccountIdentityProjection(target.playerId, target)),
         x: visible.projectedFromParentMap === true ? visible.x : target.x,
         y: visible.projectedFromParentMap === true ? visible.y : target.y,
       });
@@ -242,6 +257,26 @@ export class WorldSyncMapSnapshotService {
       });
     }
     return entities;
+  }
+
+  private resolveAccountIdentityProjection(playerId: unknown, fallback: any): { name?: string; displayName?: string } | null {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId || typeof this.playerAuthStore?.getMemoryUserByPlayerId !== 'function') {
+      return null;
+    }
+    const account = this.playerAuthStore.getMemoryUserByPlayerId(normalizedPlayerId);
+    if (!account) {
+      return null;
+    }
+    const name = normalizePlayerIdentityText(account.pendingRoleName) || normalizePlayerIdentityText(account.playerName);
+    const displayName = normalizePlayerIdentityText(account.displayName);
+    if (!name && !displayName) {
+      return null;
+    }
+    return {
+      name: name || normalizePlayerIdentityText(fallback?.name),
+      displayName: displayName || normalizePlayerIdentityText(fallback?.displayName),
+    };
   }
 
   buildMinimapLibrarySync(player): any[] {
@@ -531,17 +566,18 @@ function getBuffPresentationScale(buffs) {
   return scale;
 }
 
-function buildPlayerRenderEntity(player, color) {
-  const displayName = typeof player.displayName === 'string' ? player.displayName.trim() : '';
-  const name = typeof player.name === 'string' ? player.name.trim() : '';
-  const playerId = typeof player.playerId === 'string' ? player.playerId.trim() : '';
+function buildPlayerRenderEntity(player, color, identity = null) {
+  const playerId = normalizePlayerIdentityText(player.playerId);
+  const displayName = normalizePlayerDisplayText(identity?.displayName ?? player.displayName, playerId);
+  const name = normalizePlayerDisplayText(identity?.name ?? player.name, playerId);
+  const charSource = displayName && (displayName !== '@' || !name) ? displayName : name;
   return {
     id: player.playerId,
     x: player.x,
     y: player.y,
-    char: (displayName[0] ?? name[0] ?? playerId[0] ?? '@'),
+    char: getFirstGrapheme(charSource) || '人',
     color,
-    name: player.name,
+    name: name || displayName || '修士',
     kind: 'player',
     monsterScale: getBuffPresentationScale(player.buffs?.buffs),
     hp: player.hp,
@@ -550,10 +586,30 @@ function buildPlayerRenderEntity(player, color) {
   };
 }
 
+function normalizePlayerIdentityText(value) {
+  return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+
+function normalizePlayerDisplayText(value, playerId = undefined) {
+  const normalized = normalizePlayerIdentityText(value);
+  if (!normalized || normalized === normalizePlayerIdentityText(playerId) || isRuntimePlayerIdLike(normalized)) {
+    return '';
+  }
+  return normalized;
+}
+
+function isRuntimePlayerIdLike(value) {
+  return /^p_[0-9a-f-]+(?:_\d+)?$/i.test(value) || /^player[:_-]/i.test(value);
+}
+
 function buildMapMetaSync(template) {
   return {
     id: template.id,
     name: template.name,
+    mapGroupId: template.mapGroupId,
+    mapGroupName: template.mapGroupName,
+    mapGroupOrder: template.mapGroupOrder,
+    mapGroupMemberOrder: template.mapGroupMemberOrder,
     width: template.width,
     height: template.height,
     routeDomain: template.routeDomain,

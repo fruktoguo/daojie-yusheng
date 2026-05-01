@@ -55,6 +55,10 @@ function createService(
         return {
           id: template.id,
           name: template.id,
+          mapGroupId: template.id,
+          mapGroupName: template.id,
+          mapGroupOrder: 1000,
+          mapGroupMemberOrder: 0,
           width: 1,
           height: 1,
           routeDomain: null,
@@ -307,9 +311,9 @@ function createService(
   };
 }
 
-function createPlayer(stage = '炼气', progress = 10) {
+function createPlayer(stage = '炼气', progress = 10, unlockedMapIds: string[] = ['map.unlocked']) {
   return {
-    unlockedMapIds: ['map.unlocked'],
+    unlockedMapIds,
     attrs: { numericStats: { viewRange: 2 } },
     realm: {
       stage,
@@ -361,7 +365,7 @@ function testAuxStateSync() {
   assert.deepEqual(log, [
     ['getTemplate', 'map.a'],
     ['sendBootstrap', 'socket:1', ['map.unlocked']],
-    ['sendMapStatic', 'socket:1', true, false, []],
+    ['sendMapStatic', 'socket:1', true, false, ['map.unlocked']],
     ['sendRealm', 'socket:1', '炼气'],
     ['sendLootWindow', 'socket:1', '初始拾取'],
     ['emitInitialThreatSync', 'socket:1', 10, 1],
@@ -387,7 +391,7 @@ function testMapChangeDoesNotAutoUnlockCurrentMap() {
   assert.deepEqual(log, [
     ['getTemplate', 'map.a'],
     ['sendBootstrap', 'socket:2', ['map.unlocked']],
-    ['sendMapStatic', 'socket:2', true, false, []],
+    ['sendMapStatic', 'socket:2', true, false, ['map.unlocked']],
     ['sendRealm', 'socket:2', '炼气'],
     ['sendLootWindow', 'socket:2', '初始拾取'],
     ['emitInitialThreatSync', 'socket:2', 20, 1],
@@ -397,6 +401,22 @@ function testMapChangeDoesNotAutoUnlockCurrentMap() {
     ['emitDeltaThreatSync', 'socket:2', 21, 1, true],
     ['commitPlayerCache', 'player:2', 'delta'],
   ]);
+}
+
+function testInitialSyncSendsCurrentUnlockedMinimap() {
+  const log: unknown[] = [];
+  const { service } = createService(log);
+  const socket = { id: 'socket:current-unlocked', emit() {} };
+
+  service.emitAuxInitialSync('player:current-unlocked', socket, createView(40), createPlayer('炼气', 10, ['map.a']));
+
+  assert.ok(log.some((entry) => Array.isArray(entry)
+    && entry[0] === 'sendMapStatic'
+    && entry[1] === 'socket:current-unlocked'
+    && entry[2] === true
+    && entry[3] === true
+    && Array.isArray(entry[4])
+    && entry[4].join(',') === 'map.a'));
 }
 
 function testTimeOnlyDeltaSyncsTickInterval() {
@@ -415,6 +435,7 @@ function testTimeOnlyDeltaSyncsTickInterval() {
 
 testAuxStateSync();
 testMapChangeDoesNotAutoUnlockCurrentMap();
+testInitialSyncSendsCurrentUnlockedMinimap();
 testTimeOnlyDeltaSyncsTickInterval();
 console.log(
   JSON.stringify({

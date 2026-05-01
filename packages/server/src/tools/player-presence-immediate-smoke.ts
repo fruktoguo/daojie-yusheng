@@ -102,6 +102,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   const persisted: string[] = [];
   const flushCalls: string[] = [];
   let heartbeatCount = 0;
+  let notReadyCount = 0;
   const gateway = new WorldGateway(
     {} as never,
     {} as never,
@@ -154,7 +155,11 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
+    {
+      emitNotReady() {
+        notReadyCount += 1;
+      },
+    } as never,
     {
       unregisterSocket() {
         return {
@@ -175,6 +180,10 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     } as never,
     {} as never,
   );
+
+  gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);
+  assert.equal(heartbeatCount, 0);
+  assert.equal(notReadyCount, 0);
 
   const client = {
     id: 'socket:presence',
@@ -209,7 +218,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   });
   assert.ok(Number.isFinite(Number(presenceWrites[1]?.offlineSinceAt ?? NaN)));
   assert.deepEqual(flushCalls, ['presence:player']);
-  assert.deepEqual(persisted, ['presence:player', 'presence:player']);
+  assert.deepEqual(persisted, ['presence:player']);
 
   return {
     heartbeatWrites: 1,

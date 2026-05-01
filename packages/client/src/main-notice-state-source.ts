@@ -106,12 +106,16 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
     handleSystemMsg(data: S2C_SystemMsg): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+      const rawText = typeof data.text === 'string' ? data.text.trim() : '';
+      if (!rawText) {
+        return;
+      }
       if (data.kind === 'chat') {
-        void options.chatUI.addMessage(data.text, data.from, data.kind);
+        void options.chatUI.addMessage(rawText, data.from, data.kind);
         return;
       }
       if (data.kind === 'grudge') {
-        void options.chatUI.addMessage(data.text, data.from ?? '情仇', data.kind, {
+        void options.chatUI.addMessage(rawText, data.from ?? '情仇', data.kind, {
           id: data.id,
           at: data.occurredAt,
         }).then((stored) => {
@@ -119,26 +123,26 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
             options.ackSystemMessages([data.id]);
           }
         });
-        options.showToast(data.text, data.kind);
+        options.showToast(rawText, data.kind);
         return;
       }
       if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
         const label = data.from ?? (data.kind === 'quest' ? '任务' : data.kind === 'combat' ? '战斗' : '掉落');
-        void options.chatUI.addMessage(data.text, label, data.kind);
+        void options.chatUI.addMessage(rawText, label, data.kind);
         if (data.kind === 'quest' || data.kind === 'loot') {
-          options.showToast(data.text, data.kind);
+          options.showToast(rawText, data.kind);
         }
         return;
       }
       if (data.kind === 'success' || data.kind === 'warn' || data.kind === 'travel') {
         const label = data.from ?? (data.kind === 'success' ? '天机' : data.kind === 'warn' ? '警示' : '江湖');
-        const text = data.text === '目标过远，无法规划路径' ? '目标过远，神识难及' : data.text === '无法到达该位置' ? '此地无法抵达' : data.text;
+        const text = rawText === '目标过远，无法规划路径' ? '目标过远，神识难及' : rawText === '无法到达该位置' ? '此地无法抵达' : rawText;
         void options.chatUI.addMessage(text, label, data.kind);
         options.showToast(text, data.kind);
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
-      const text = data.text === '目标过远，无法规划路径' ? '目标过远，神识难及' : data.text === '无法到达该位置' ? '此地无法抵达' : data.text;
+      const text = rawText === '目标过远，无法规划路径' ? '目标过远，神识难及' : rawText === '无法到达该位置' ? '此地无法抵达' : rawText;
       void options.chatUI.addMessage(text, data.from ?? '系统', fallbackKind);
       if (text === '此地无法抵达' || text === '目标过远，神识难及') {
         options.clearCurrentPath();

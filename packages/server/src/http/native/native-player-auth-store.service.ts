@@ -596,6 +596,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     return user ? cloneUser(user) : null;
   }
 
+  /** 直接从内存索引按玩家 ID 读取账号，供高频投影路径避免数据库 IO。 */
+  getMemoryUserByPlayerId(playerId: string): NativePlayerAuthUser | null {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    const userId = normalizedPlayerId ? this.userIdByPlayerId.get(normalizedPlayerId) ?? '' : '';
+    return userId ? this.getMemoryUserById(userId) : null;
+  }
+
   /** 按玩家 ID 查询账号。 */
   async findUserByPlayerId(playerId: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

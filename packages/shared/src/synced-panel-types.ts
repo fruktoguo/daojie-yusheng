@@ -155,8 +155,13 @@ export interface SyncedItemStack {
 
   tileResourceGains?: TileResourceGainDef[];
   /**
- * allowBatchUse：allowBatchUse相关字段。
- */
+   * spiritualRootSeedTier：灵根幼苗品阶。
+   */
+
+  spiritualRootSeedTier?: ItemStack['spiritualRootSeedTier'];
+  /**
+   * allowBatchUse：allowBatchUse相关字段。
+   */
 
   allowBatchUse?: boolean;
 }

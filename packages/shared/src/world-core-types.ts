@@ -283,6 +283,10 @@ export interface MapMeta {
  */
 
   name: string;
+  mapGroupId?: string;
+  mapGroupName?: string;
+  mapGroupOrder?: number;
+  mapGroupMemberOrder?: number;
   /**
  * width：width相关字段。
  */

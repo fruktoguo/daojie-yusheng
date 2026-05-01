@@ -597,6 +597,172 @@ function testUseConsumableItemDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['inventory', 'vitals'], ['snapshot']);
 }
 
+function createRealProgressionServiceForSmoke() {
+  const service = new PlayerProgressionService(
+    {} as never,
+    {
+      recalculate() {
+        return true;
+      },
+      markPanelDirty() {
+        return undefined;
+      },
+    } as never,
+  );
+  service.onModuleInit();
+  return service;
+}
+
+function testUseDivineRootSeedConsumable(): void {
+  const playerId = 'player:use-divine-root-seed';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: 'kou_xianmen',
+    name: '叩仙门',
+    displayName: '叩仙门',
+    realmLv: 18,
+    progress: 100,
+    progressToNext: 1000,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  const normalizedRealm = progressionService.normalizeRealmState(player.realm);
+  const expectedFoundationCost = progressionService.getHeavenGateRerollCost(normalizedRealm) * 100;
+  player.foundation = expectedFoundationCost;
+  player.inventory.items.push({
+    itemId: 'root_seed.divine',
+    name: '神品灵根幼苗',
+    type: 'consumable',
+    count: 1,
+  } as never);
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  assert.equal(player.inventory.items.length, 0);
+  assert.deepEqual(player.heavenGate?.roots, {
+    metal: 100,
+    wood: 100,
+    water: 100,
+    fire: 100,
+    earth: 100,
+  });
+  assert.equal(player.heavenGate?.entered, false);
+  assert.equal(player.heavenGate?.averageBonus, 200);
+  assert.equal(player.foundation, 0);
+  assert.equal(player.notices.queue.some((notice) => notice.text.includes('神品灵根幼苗')), true);
+  assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr'], ['snapshot']);
+}
+
+function testUseShatterSpiritPillConsumable(): void {
+  const playerId = 'player:use-shatter-spirit-pill';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: 'kou_xianmen',
+    name: '叩仙门',
+    displayName: '叩仙门',
+    realmLv: 18,
+    progress: 800,
+    progressToNext: 1000,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.heavenGate = {
+    unlocked: true,
+    severed: ['wood'],
+    roots: { metal: 80, wood: 0, water: 12, fire: 6, earth: 2 },
+    entered: false,
+    averageBonus: 4,
+  };
+  player.inventory.items.push({
+    itemId: 'pill.shatter_spirit',
+    name: '碎灵丹',
+    type: 'consumable',
+    count: 1,
+  } as never);
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  assert.equal(player.inventory.items.length, 0);
+  assert.equal(player.realm?.progress, 600);
+  assert.deepEqual(player.heavenGate?.roots, null);
+  assert.deepEqual(player.heavenGate?.severed, []);
+  assert.equal(player.heavenGate?.entered, false);
+  assert.equal(player.heavenGate?.averageBonus, 6);
+  assert.equal(player.spiritualRoots, null);
+  assert.equal(player.notices.queue.some((notice) => notice.text.includes('碎灵丹')), true);
+  assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals'], ['snapshot']);
+}
+
+function testUseWangshengPillConsumable(): void {
+  const playerId = 'player:use-wangsheng-pill';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: 'qi_refining',
+    name: '练气',
+    displayName: '练气',
+    realmLv: 19,
+    progress: 456,
+    progressToNext: 1000,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.foundation = 999;
+  player.heavenGate = {
+    unlocked: true,
+    severed: [],
+    roots: { metal: 100, wood: 100, water: 100, fire: 100, earth: 100 },
+    entered: true,
+    averageBonus: 200,
+  };
+  player.spiritualRoots = { metal: 100, wood: 100, water: 100, fire: 100, earth: 100 };
+  player.dead = true;
+  player.hp = 0;
+  player.qi = 9999;
+  player.inventory.items.push({
+    itemId: 'pill.wangsheng',
+    name: '往生丹',
+    type: 'consumable',
+    count: 1,
+  } as never);
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  assert.equal(player.inventory.items.length, 0);
+  assert.equal(player.realm?.realmLv, 1);
+  assert.equal(player.realm?.progress, 0);
+  assert.equal(player.foundation, 0);
+  assert.equal(player.heavenGate, null);
+  assert.equal(player.spiritualRoots, null);
+  assert.equal(player.dead, false);
+  assert.equal(player.hp, 1);
+  assert.equal(player.notices.queue.some((notice) => notice.text.includes('往生丹')), true);
+  assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals'], ['snapshot']);
+}
+
 function testEquipItemDirtyDomain(): void {
   const playerId = 'player:equip-item';
   const service = createHydratedService(playerId);
@@ -986,6 +1152,9 @@ testLogbookDirtyDomain();
   testClearMainTechniquePreservesCultivationActive();
   testCultivationActiveWithoutMainTechnique();
   testUseConsumableItemDirtyDomain();
+  testUseDivineRootSeedConsumable();
+  testUseShatterSpiritPillConsumable();
+  testUseWangshengPillConsumable();
   testEquipItemDirtyDomain();
   testEquipItemSplitsStackedEquipment();
   testBodyTrainingRecalculateDirtyDomain();

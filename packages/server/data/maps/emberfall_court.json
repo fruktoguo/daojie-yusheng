@@ -96,8 +96,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "emberfall_court:40,42",
-      "direction": "two_way",
-      "targetPortalId": "guizang_vein_cavern:58,31"
+      "direction": "one_way"
     }
   ],
   "spawnPoint": {

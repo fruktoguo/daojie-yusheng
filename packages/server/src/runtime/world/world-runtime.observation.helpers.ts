@@ -4,6 +4,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const shared_1 = require("@mud/shared");
+const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
 const OBSERVATION_BLIND_RATIO = 0.2;
@@ -76,31 +77,19 @@ function createTileCombatRatioDivisors() {
 function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const hitGap = Math.max(0, targetStats.dodge - attackerStats.hit);
-    if (hitGap > 0 && Math.random() < (0, shared_1.ratioValue)(hitGap, targetRatios.dodge)) {
-        return { rawDamage: 0, damage: 0 };
-    }
-
-    const defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
-
-    const reduction = Math.max(0, (0, shared_1.ratioValue)(defense, 100));
-
-    const crit = attackerStats.crit > 0 && Math.random() < (0, shared_1.ratioValue)(attackerStats.crit, attackerRatios.crit);
-
-    let rawDamage = Math.max(1, Math.round(baseDamage));
-
-    let damage = Math.max(1, Math.round(rawDamage * (1 - Math.min(0.95, reduction))));
-    if (crit) {
-
-        const critMultiplier = (200 + Math.max(0, attackerStats.critDamage) / 10) / 100;
-        rawDamage = Math.max(1, Math.round(rawDamage * critMultiplier));
-        damage = Math.max(1, Math.round(damage * critMultiplier));
-    }
-    return {
-        rawDamage,
-        damage: Math.max(1, damage),
-    };
+    return (0, combat_resolution_helpers_1.resolveCombatHit)({
+        attackerStats,
+        attackerRatios,
+        attackerRealmLv: 1,
+        attackerCombatExp: 0,
+        targetStats,
+        targetRatios,
+        targetRealmLv: 1,
+        targetCombatExp: 0,
+        baseDamage,
+        damageKind,
+        damageMultiplier: 1,
+    });
 }
 /** 生成中文的伤害明细字符串。 */
 function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {

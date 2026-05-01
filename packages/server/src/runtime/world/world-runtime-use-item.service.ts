@@ -86,7 +86,8 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
                 ? [item.mapUnlockId]
                 : [];
         if (mapUnlockIds.length > 0) {
-            this.handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps);
+            const resolved = this.resolveMapUnlockTargets(mapUnlockIds);
+            this.handleMapUnlockItem(playerId, slotIndex, item, resolved.mapIds, deps, resolved.label);
             return;
         }
         if (typeof item.respawnBindMapId === 'string' && item.respawnBindMapId.trim()) {
@@ -119,7 +120,44 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新地图Unlock道具相关状态。
  */
 
-    handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps) {
+    resolveMapUnlockTargets(mapUnlockIds) {
+        const resolvedMapIds = [];
+        let expandedLabel = '';
+        for (const mapRef of mapUnlockIds) {
+            const normalizedRef = typeof mapRef === 'string' ? mapRef.trim() : '';
+            if (!normalizedRef) {
+                continue;
+            }
+            const groupMembers = typeof this.templateRepository.resolveMapGroupMembers === 'function'
+                ? this.templateRepository.resolveMapGroupMembers(normalizedRef)
+                : [];
+            if (Array.isArray(groupMembers) && groupMembers.length > 0) {
+                for (const mapId of groupMembers) {
+                    if (!resolvedMapIds.includes(mapId)) {
+                        resolvedMapIds.push(mapId);
+                    }
+                }
+                if (!expandedLabel && groupMembers.length > 1 && typeof this.templateRepository.resolveMapGroupLabel === 'function') {
+                    expandedLabel = this.templateRepository.resolveMapGroupLabel(normalizedRef);
+                }
+                continue;
+            }
+            if (!this.templateRepository.has(normalizedRef)) {
+                throw new common_1.BadRequestException(`地图解锁目标不存在：${normalizedRef}`);
+            }
+            if (!resolvedMapIds.includes(normalizedRef)) {
+                resolvedMapIds.push(normalizedRef);
+            }
+        }
+        if (resolvedMapIds.length === 0) {
+            throw new common_1.BadRequestException('地图解锁目标不存在');
+        }
+        return {
+            mapIds: resolvedMapIds,
+            label: expandedLabel,
+        };
+    }
+    handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps, targetLabelOverride = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const mapId of mapUnlockIds) {
@@ -137,9 +175,9 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         }
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         deps.refreshQuestStates(playerId);
-        const targetLabel = mapUnlockIds.length === 1
+        const targetLabel = targetLabelOverride || (mapUnlockIds.length === 1
             ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
-            : `${item.name ?? '地图'}记载的区域`;
+            : `${item.name ?? '地图'}记载的区域`);
         deps.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
     }    
     /**

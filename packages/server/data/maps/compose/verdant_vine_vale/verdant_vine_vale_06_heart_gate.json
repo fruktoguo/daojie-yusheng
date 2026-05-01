@@ -59,8 +59,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "verdant_vine_vale_06_heart_gate:4,9",
-      "direction": "two_way",
-      "targetPortalId": "guizang_vein_cavern:58,29"
+      "direction": "one_way"
     }
   ],
   "spawnPoint": {
