@@ -584,6 +584,9 @@
       backdrop-filter: blur(4px);
       pointer-events: auto;
     }
+    .map-minimap-modal-source-switch.hidden {
+      display: none;
+    }
     .map-minimap-modal-source-toggle {
       min-width: 56px;
       height: 28px;
@@ -596,6 +599,9 @@
       letter-spacing: 1px;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .map-minimap-modal-source-toggle[hidden] {
+      display: none;
     }
     .map-minimap-modal-source-toggle:hover {
       background: rgba(255, 255, 255, 0.08);

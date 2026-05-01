@@ -710,8 +710,14 @@ export class MapStore {
     if (typeof data.hp === 'number') {
       this.player.hp = data.hp;
     }
+    if (typeof data.maxHp === 'number') {
+      this.player.maxHp = data.maxHp;
+    }
     if (typeof data.qi === 'number') {
       this.player.qi = data.qi;
+    }
+    if (typeof data.maxQi === 'number' && this.player.numericStats) {
+      this.player.numericStats.maxQi = data.maxQi;
     }
     if (data.facing !== undefined) {
       this.player.facing = data.facing as Direction;

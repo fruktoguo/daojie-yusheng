@@ -763,10 +763,20 @@ export interface MapSelfDeltaInput {
 
   hp?: number;  
   /**
+ * maxHp：maxHp相关字段。
+ */
+
+  maxHp?: number;
+  /**
  * qi：qi相关字段。
  */
 
   qi?: number;  
+  /**
+ * maxQi：maxQi相关字段。
+ */
+
+  maxQi?: number;
   /**
  * playerPatch：玩家Patch相关字段。
  */

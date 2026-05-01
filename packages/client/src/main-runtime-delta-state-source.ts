@@ -220,10 +220,20 @@ type MainRuntimeDeltaStateSourceOptions = {
 
     hp?: number;    
     /**
+ * maxHp：maxHp相关字段。
+ */
+
+    maxHp?: number;
+    /**
  * qi：qi相关字段。
  */
 
     qi?: number;    
+    /**
+ * maxQi：maxQi相关字段。
+ */
+
+    maxQi?: number;
     /**
  * playerPatch：玩家Patch相关字段。
  */
@@ -685,7 +695,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     if (!player) {
       return null;
     }
-    if (typeof data.x !== 'number' && typeof data.y !== 'number') {
+    const hasEntityVisibleDelta = typeof data.x === 'number'
+      || typeof data.y === 'number'
+      || typeof data.hp === 'number'
+      || typeof data.maxHp === 'number'
+      || typeof data.qi === 'number'
+      || typeof data.maxQi === 'number';
+    if (!hasEntityVisibleDelta) {
       return null;
     }
     const previous = options.getLatestEntityById(player.id);
@@ -903,7 +919,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         y: data.y,
         facing: data.f,
         hp: data.hp,
+        maxHp: data.maxHp,
         qi: data.qi,
+        maxQi: data.maxQi,
         playerPatch,
       });
       const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;

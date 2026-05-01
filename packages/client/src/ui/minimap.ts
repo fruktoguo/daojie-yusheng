@@ -1208,7 +1208,7 @@ export class Minimap {
       entries.set(currentMapId, {
         mapId: currentMapId,
         mapMeta: currentMapMeta,
-        hasMemory: existing?.hasMemory ?? true,
+        hasMemory: existing?.hasMemory ?? false,
         hasUnlock: existing?.hasUnlock ?? !!this.scene?.snapshot,
       });
     }
@@ -1495,7 +1495,7 @@ export class Minimap {
     const current = this.getCurrentDisplayScene();
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
     const availability = this.getDisplayAvailability(selectedMapId, current);
-    const showSwitch = availability.hasMemory && availability.hasUnlock;
+    const showSwitch = availability.hasMemory || availability.hasUnlock;
     const nextMode = this.resolveModalDisplayMode(availability);
     this.modalDisplayMode = nextMode;
 
@@ -1503,15 +1503,23 @@ export class Minimap {
 
     if (this.modalSourceMemoryBtn) {
       const active = nextMode === 'memory';
+      this.modalSourceMemoryBtn.hidden = !availability.hasMemory;
+      this.modalSourceMemoryBtn.disabled = !availability.hasMemory;
       this.modalSourceMemoryBtn.classList.toggle('active', active);
       this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceMemoryBtn.title = '显示本地记忆地图';
+      this.modalSourceMemoryBtn.title = availability.hasUnlock
+        ? '显示本地记忆地图'
+        : '当前地图只有本地记忆，未获得完整地图';
     }
     if (this.modalSourceUnlockBtn) {
       const active = nextMode === 'unlock';
+      this.modalSourceUnlockBtn.hidden = !availability.hasUnlock;
+      this.modalSourceUnlockBtn.disabled = !availability.hasUnlock;
       this.modalSourceUnlockBtn.classList.toggle('active', active);
       this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceUnlockBtn.title = '显示已解锁整图';
+      this.modalSourceUnlockBtn.title = availability.hasMemory
+        ? '显示已解锁整图'
+        : '当前地图已解锁完整舆图';
     }
   }
 

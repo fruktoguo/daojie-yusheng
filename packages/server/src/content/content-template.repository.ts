@@ -1235,6 +1235,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             attrs,
             numericStats,
             ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors),
+            expMultiplier: (0, shared_1.resolveMonsterExpMultiplier)(raw.expMultiplier, tier),
             skills: this.normalizeMonsterSkills(raw.skills, id),
             aggroRange: normalizeMonsterAggroRange(raw.aggroRange, raw.radius, numericStats.viewRange),
             leashRange: normalizeMonsterLeashRange(raw.aggroRange, raw.radius, numericStats.viewRange),

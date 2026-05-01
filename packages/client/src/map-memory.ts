@@ -472,30 +472,30 @@ function persistMemoryAfterDelete(): void {
   flushPersistMemoryNow();
 }
 
-/** 取出某张地图的已记忆地块缓存。 */
-function getRememberedTileMap(mapId: string): Map<string, Tile> {
+/** 取出某张地图的已记忆地块缓存；只读路径不能创建空记忆。 */
+function getRememberedTileMap(mapId: string, create = false): Map<string, Tile> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   ensureMemoryLoaded();
   let remembered = rememberedTilesByMap.get(mapId);
-  if (!remembered) {
+  if (!remembered && create) {
     remembered = new Map<string, Tile>();
     rememberedTilesByMap.set(mapId, remembered);
   }
-  return remembered;
+  return remembered ?? new Map<string, Tile>();
 }
 
-/** 取出某张地图的已记忆小地图标记缓存。 */
-function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
+/** 取出某张地图的已记忆小地图标记缓存；只读路径不能创建空记忆。 */
+function getRememberedMarkerMap(mapId: string, create = false): Map<string, MapMinimapMarker> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   ensureMemoryLoaded();
   let remembered = rememberedMarkersByMap.get(mapId);
-  if (!remembered) {
+  if (!remembered && create) {
     remembered = new Map<string, MapMinimapMarker>();
     rememberedMarkersByMap.set(mapId, remembered);
   }
-  return remembered;
+  return remembered ?? new Map<string, MapMinimapMarker>();
 }
 
 /** 比较两个标记是否在记忆语义上等价。 */
@@ -540,8 +540,8 @@ export function getRememberedMarkers(mapId: string): MapMinimapMarker[] {
 export function listRememberedMapIds(): string[] {
   ensureMemoryLoaded();
   return [...new Set([
-    ...rememberedTilesByMap.keys(),
-    ...rememberedMarkersByMap.keys(),
+    ...[...rememberedTilesByMap.entries()].filter(([, tiles]) => tiles.size > 0).map(([mapId]) => mapId),
+    ...[...rememberedMarkersByMap.entries()].filter(([, markers]) => markers.size > 0).map(([mapId]) => mapId),
   ])].sort();
 }
 
@@ -554,7 +554,7 @@ export function rememberVisibleTiles(
 ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const remembered = getRememberedTileMap(mapId);
+  const remembered = getRememberedTileMap(mapId, true);
   let changed = false;
 
   for (let row = 0; row < tiles.length; row += 1) {
@@ -592,7 +592,7 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
     return;
   }
 
-  const remembered = getRememberedTileMap(mapId);
+  const remembered = getRememberedTileMap(mapId, true);
   let changed = false;
 
   for (const patch of patches) {
@@ -629,7 +629,7 @@ export function rememberVisibleMarkers(mapId: string, markers: MapMinimapMarker[
     return;
   }
 
-  const remembered = getRememberedMarkerMap(mapId);
+  const remembered = getRememberedMarkerMap(mapId, true);
   let changed = false;
 
   for (const marker of markers) {
