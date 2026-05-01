@@ -863,8 +863,6 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
     applyWangshengPill(player) {
         const nextRealm = this.createRealmStateFromLevel(1, 0);
         player.foundation = 0;
-        player.heavenGate = null;
-        player.spiritualRoots = null;
         this.applyResolvedRealmState(player, nextRealm, { forceAttrRecalculate: true });
         player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
         player.qi = Math.min(Math.round(player.maxQi ?? player.qi), Math.max(0, player.qi));
@@ -1304,17 +1302,28 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
     syncHeavenGateState(player, realm) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.hasReachedHeavenGateRealm(realm.realmLv)) {
-            player.heavenGate = null;
-            player.spiritualRoots = null;
-            return null;
-        }
-
         const persisted = normalizeHeavenGateState(player.heavenGate);
 
         const resolvedRoots = persisted?.roots
             ? cloneHeavenGateRoots(persisted.roots)
             : normalizeHeavenGateRoots(player.spiritualRoots);
+
+        if (!this.hasReachedHeavenGateRealm(realm.realmLv)) {
+            if (persisted || resolvedRoots) {
+                player.spiritualRoots = resolvedRoots;
+                const preservedState = {
+                    unlocked: persisted?.unlocked === true || resolvedRoots !== null,
+                    severed: persisted?.severed ?? [],
+                    roots: resolvedRoots,
+                    entered: persisted?.entered === true || resolvedRoots !== null,
+                    averageBonus: persisted?.averageBonus ?? 0,
+                };
+                player.heavenGate = preservedState;
+                return preservedState;
+            }
+            player.heavenGate = null;
+            return null;
+        }
 
         const entered = persisted?.entered === true || (resolvedRoots !== null && player.spiritualRoots !== null);
 

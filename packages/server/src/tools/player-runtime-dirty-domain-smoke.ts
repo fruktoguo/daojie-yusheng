@@ -755,11 +755,61 @@ function testUseWangshengPillConsumable(): void {
   assert.equal(player.realm?.realmLv, 1);
   assert.equal(player.realm?.progress, 0);
   assert.equal(player.foundation, 0);
-  assert.equal(player.heavenGate, null);
-  assert.equal(player.spiritualRoots, null);
+  assert.deepEqual(player.spiritualRoots, { metal: 100, wood: 100, water: 100, fire: 100, earth: 100 });
+  assert.deepEqual(player.heavenGate?.roots, { metal: 100, wood: 100, water: 100, fire: 100, earth: 100 });
+  assert.equal(player.heavenGate?.entered, true);
+  assert.equal(player.heavenGate?.averageBonus, 200);
   assert.equal(player.dead, false);
   assert.equal(player.hp, 1);
   assert.equal(player.notices.queue.some((notice) => notice.text.includes('往生丹')), true);
+  assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals'], ['snapshot']);
+}
+
+function testUseWangshengPillKeepsRerollCountWithoutRoots(): void {
+  const playerId = 'player:use-wangsheng-pill-keeps-reroll-without-roots';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: 'kou_xianmen',
+    name: '叩仙门',
+    displayName: '叩仙门',
+    realmLv: 18,
+    progress: 456,
+    progressToNext: 1000,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.foundation = 999;
+  player.heavenGate = {
+    unlocked: true,
+    severed: [],
+    roots: null,
+    entered: false,
+    averageBonus: 6,
+  };
+  player.spiritualRoots = null;
+  player.inventory.items.push({
+    itemId: 'pill.wangsheng',
+    name: '往生丹',
+    type: 'consumable',
+    count: 1,
+  } as never);
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  assert.equal(player.realm?.realmLv, 1);
+  assert.equal(player.foundation, 0);
+  assert.equal(player.spiritualRoots, null);
+  assert.equal(player.heavenGate?.roots, null);
+  assert.equal(player.heavenGate?.entered, false);
+  assert.equal(player.heavenGate?.averageBonus, 6);
   assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals'], ['snapshot']);
 }
 
@@ -1155,6 +1205,7 @@ testLogbookDirtyDomain();
   testUseDivineRootSeedConsumable();
   testUseShatterSpiritPillConsumable();
   testUseWangshengPillConsumable();
+  testUseWangshengPillKeepsRerollCountWithoutRoots();
   testEquipItemDirtyDomain();
   testEquipItemSplitsStackedEquipment();
   testBodyTrainingRecalculateDirtyDomain();
