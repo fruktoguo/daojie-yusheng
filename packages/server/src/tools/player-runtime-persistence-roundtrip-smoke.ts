@@ -33,17 +33,25 @@ function createPlayerRuntimeService() {
             return mapId === 'yunlai_town';
         },
         getOrThrow(mapId) {
+            const walkableMask = new Uint8Array(64 * 64).fill(1);
+            walkableMask[0] = 0;
             return {
                 id: mapId,
+                width: 64,
+                height: 64,
                 spawnX: 32,
                 spawnY: 5,
+                walkableMask,
             };
         },
         list() {
             return [{
                 id: 'yunlai_town',
+                width: 64,
+                height: 64,
                 spawnX: 32,
                 spawnY: 5,
+                walkableMask: new Uint8Array(64 * 64).fill(1),
             }];
         },
     }, {
@@ -212,6 +220,25 @@ function testMissingRespawnFallsBackToStarterMap() {
     assert.equal(player.respawnY, 5);
 }
 
+function testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.respawn = {
+        instanceId: 'public:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 0,
+        y: 0,
+        facing: Direction.South,
+    };
+    const player = service.hydrateFromSnapshot('player:invalid-respawn', 'session:invalid-respawn', snapshot);
+    assert.equal(player.respawnTemplateId, 'yunlai_town');
+    assert.equal(player.respawnInstanceId, 'public:yunlai_town');
+    assert.equal(player.respawnX, 32);
+    assert.equal(player.respawnY, 5);
+    assert.ok(player.dirtyDomains?.has('position_checkpoint'));
+    assert.ok(player.persistentRevision > player.persistedRevision);
+}
+
 function testSectIdRoundtrip() {
     const service = createPlayerRuntimeService();
     const snapshot = createSnapshot(null);
@@ -227,6 +254,7 @@ testGatherJobRoundtrip();
 testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();
+testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();
 testSectIdRoundtrip();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));

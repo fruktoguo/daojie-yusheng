@@ -73,7 +73,8 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "bamboo_forest:2,8",
-      "direction": "one_way"
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:13,27"
     },
     {
       "x": 43,

@@ -1053,6 +1053,8 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
     const now = performance.now();
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(this.senseQiOverlay?.levelBaseValue);
     const fadingPathAlpha = this.getFadingPathAlpha(now);
@@ -1078,7 +1080,8 @@ export class TextRenderer implements IRenderer {
 
     for (let gy = startGY; gy <= endGY; gy++) {
       for (let gx = startGX; gx <= endGX; gx++) {
-        const { sx, sy } = camera.worldToScreen(gx * cellSize, gy * cellSize, sw, sh);
+        const sx = gx * cellSize + screenOffsetX;
+        const sy = gy * cellSize + screenOffsetY;
         if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
 
         const key = `${gx},${gy}`;
@@ -1491,6 +1494,10 @@ export class TextRenderer implements IRenderer {
     const renderedEntities: RenderedAnimEntity[] = [];
     const motionProgress = Math.max(0, Math.min(1, progress));
     const t = easeOutCubic(motionProgress);
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
+    let crowdedTileKeys: Set<string> | null = null;
+    let localPlayerInRenderedEntities = false;
     for (const anim of this.entities.values()) {
       if (anim.kind === 'formation'
         && this.senseQiOverlay === null
@@ -1500,7 +1507,8 @@ export class TextRenderer implements IRenderer {
       const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
       const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
 
-      const { sx, sy } = camera.worldToScreen(wx, wy, sw, sh);
+      const sx = wx + screenOffsetX;
+      const sy = wy + screenOffsetY;
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
       const presentation = anim.kind === 'monster'
         ? getMonsterPresentation(anim.name, anim.monsterTier)
@@ -1521,19 +1529,22 @@ export class TextRenderer implements IRenderer {
         visualSy,
         visualCellSize,
       });
+      if (anim.kind === 'crowd') {
+        crowdedTileKeys ??= new Set<string>();
+        crowdedTileKeys.add(`${anim.gridX},${anim.gridY}`);
+      }
+      if (anim.id === localPlayerId) {
+        localPlayerInRenderedEntities = true;
+      }
     }
 
-    const crowdedTileKeys = new Set(
-      renderedEntities
-        .filter((entry) => entry.anim.kind === 'crowd')
-        .map((entry) => `${entry.anim.gridX},${entry.anim.gridY}`),
-    );
     let localPlayerRendered: RenderedAnimEntity | undefined;
     if (localPlayerId !== undefined
       && Number.isFinite(localPlayerX)
       && Number.isFinite(localPlayerY)
-      && !renderedEntities.some((entry) => entry.anim.id === localPlayerId)) {
-      const { sx, sy } = camera.worldToScreen(localPlayerX as number, localPlayerY as number, sw, sh);
+      && !localPlayerInRenderedEntities) {
+      const sx = (localPlayerX as number) + screenOffsetX;
+      const sy = (localPlayerY as number) + screenOffsetY;
       localPlayerRendered = {
         anim: {
           id: localPlayerId,
@@ -1561,14 +1572,14 @@ export class TextRenderer implements IRenderer {
 
     this.renderThreatTargetArrows(renderedEntities, localPlayerId, localPlayerRendered);
 
-    const orderedRenderedEntities = [...renderedEntities].sort((left, right) => (
+    renderedEntities.sort((left, right) => (
       getEntityRenderLayer(left.anim.kind) - getEntityRenderLayer(right.anim.kind)
     ));
-    for (const rendered of orderedRenderedEntities) {
+    for (const rendered of renderedEntities) {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
 
-      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
+      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys?.has(`${anim.gridX},${anim.gridY}`)) {
         continue;
       }
 
@@ -1799,7 +1810,10 @@ export class TextRenderer implements IRenderer {
       return;
     }
     const ctx = this.ctx;
-    const renderedById = new Map(renderedEntities.map((entry) => [entry.anim.id, entry]));
+    const renderedById = new Map<string, RenderedAnimEntity>();
+    for (const entry of renderedEntities) {
+      renderedById.set(entry.anim.id, entry);
+    }
     if (localPlayerId !== undefined && localPlayerRendered && !renderedById.has(localPlayerId)) {
       renderedById.set(localPlayerId, localPlayerRendered);
     }
@@ -2302,9 +2316,12 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
 
     this.pruneExpiredFloatingTexts(now);
     const groups = new Map<string, FloatingText[]>();
+    const burstMetaById = new Map<number, { index: number; total: number }>();
     for (const entry of this.floatingTexts) {
       const key = `${entry.x},${entry.y},${entry.variant}`;
       const group = groups.get(key);
@@ -2316,6 +2333,9 @@ export class TextRenderer implements IRenderer {
     }
     for (const group of groups.values()) {
       group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
+      for (let index = 0; index < group.length; index += 1) {
+        burstMetaById.set(group[index].id, { index, total: group.length });
+      }
     }
 
     for (const entry of this.floatingTexts) {
@@ -2330,13 +2350,11 @@ export class TextRenderer implements IRenderer {
       const alpha = entry.variant === 'action' && actionStyle === 'divine'
         ? 1 - Math.max(0, (progress - 0.86) / 0.14)
         : 1 - progress;
-      const worldX = entry.x * cellSize;
-      const worldY = entry.y * cellSize;
-      const { sx, sy } = camera.worldToScreen(worldX, worldY, sw, sh);
+      const sx = entry.x * cellSize + screenOffsetX;
+      const sy = entry.y * cellSize + screenOffsetY;
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-      const group = groups.get(`${entry.x},${entry.y},${entry.variant}`) ?? [entry];
-      const index = group.findIndex((item) => item.id === entry.id);
-      const burst = this.getFloatingTextBurstOffset(index, group.length, cellSize);
+      const burstMeta = burstMetaById.get(entry.id) ?? { index: 0, total: 1 };
+      const burst = this.getFloatingTextBurstOffset(burstMeta.index, burstMeta.total, cellSize);
 
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -2435,14 +2453,18 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
 
     this.pruneExpiredAttackTrails(now);
 
     for (const entry of this.attackTrails) {
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
       const alpha = 1 - progress * 0.85;
-      const from = camera.worldToScreen(entry.fromX * cellSize + cellSize / 2, entry.fromY * cellSize + cellSize / 2, sw, sh);
-      const to = camera.worldToScreen(entry.toX * cellSize + cellSize / 2, entry.toY * cellSize + cellSize / 2, sw, sh);
+      const fromSx = entry.fromX * cellSize + cellSize / 2 + screenOffsetX;
+      const fromSy = entry.fromY * cellSize + cellSize / 2 + screenOffsetY;
+      const toSx = entry.toX * cellSize + cellSize / 2 + screenOffsetX;
+      const toSy = entry.toY * cellSize + cellSize / 2 + screenOffsetY;
 
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -2450,16 +2472,16 @@ export class TextRenderer implements IRenderer {
       ctx.fillStyle = entry.color;
       ctx.lineWidth = Math.max(2, cellSize * 0.09);
       ctx.beginPath();
-      ctx.moveTo(from.sx, from.sy);
-      ctx.lineTo(to.sx, to.sy);
+      ctx.moveTo(fromSx, fromSy);
+      ctx.lineTo(toSx, toSy);
       ctx.stroke();
 
-      const angle = Math.atan2(to.sy - from.sy, to.sx - from.sx);
+      const angle = Math.atan2(toSy - fromSy, toSx - fromSx);
       const head = Math.max(8, cellSize * 0.22);
       ctx.beginPath();
-      ctx.moveTo(to.sx, to.sy);
-      ctx.lineTo(to.sx - head * Math.cos(angle - Math.PI / 6), to.sy - head * Math.sin(angle - Math.PI / 6));
-      ctx.lineTo(to.sx - head * Math.cos(angle + Math.PI / 6), to.sy - head * Math.sin(angle + Math.PI / 6));
+      ctx.moveTo(toSx, toSy);
+      ctx.lineTo(toSx - head * Math.cos(angle - Math.PI / 6), toSy - head * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toSx - head * Math.cos(angle + Math.PI / 6), toSy - head * Math.sin(angle + Math.PI / 6));
       ctx.closePath();
       ctx.fill();
       ctx.restore();
@@ -2476,6 +2498,8 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
 
     this.pruneExpiredWarningZones(now);
 
@@ -2492,7 +2516,8 @@ export class TextRenderer implements IRenderer {
       const frontierAlpha = Math.max(0, Math.min(1, revealDistance - settledDistance));
 
       for (const cell of zone.cells) {
-        const { sx, sy } = camera.worldToScreen(cell.x * cellSize, cell.y * cellSize, sw, sh);
+        const sx = cell.x * cellSize + screenOffsetX;
+        const sy = cell.y * cellSize + screenOffsetY;
         if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) {
           continue;
         }
@@ -2849,6 +2874,8 @@ export class TextRenderer implements IRenderer {
     }
 
     const cellSize = getCellSize();
+    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
+    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
     const route = [{ x: playerX, y: playerY }, ...cells];
     ctx.save();
     ctx.globalAlpha *= alpha;
@@ -2869,10 +2896,12 @@ export class TextRenderer implements IRenderer {
         continue;
       }
 
-      const fromPos = camera.worldToScreen(from.x * cellSize + cellSize / 2, from.y * cellSize + cellSize / 2, sw, sh);
-      const toPos = camera.worldToScreen(to.x * cellSize + cellSize / 2, to.y * cellSize + cellSize / 2, sw, sh);
-      const dx = toPos.sx - fromPos.sx;
-      const dy = toPos.sy - fromPos.sy;
+      const fromSx = from.x * cellSize + cellSize / 2 + screenOffsetX;
+      const fromSy = from.y * cellSize + cellSize / 2 + screenOffsetY;
+      const toSx = to.x * cellSize + cellSize / 2 + screenOffsetX;
+      const toSy = to.y * cellSize + cellSize / 2 + screenOffsetY;
+      const dx = toSx - fromSx;
+      const dy = toSy - fromSy;
       const distance = Math.hypot(dx, dy);
       if (distance < 1) {
         continue;
@@ -2882,10 +2911,10 @@ export class TextRenderer implements IRenderer {
       const uy = dy / distance;
       const startPadding = index === 0 ? cellSize * 0.2 : cellSize * 0.1;
       const endPadding = cellSize * 0.14;
-      const startX = fromPos.sx + ux * startPadding;
-      const startY = fromPos.sy + uy * startPadding;
-      const tipX = toPos.sx - ux * endPadding;
-      const tipY = toPos.sy - uy * endPadding;
+      const startX = fromSx + ux * startPadding;
+      const startY = fromSy + uy * startPadding;
+      const tipX = toSx - ux * endPadding;
+      const tipY = toSy - uy * endPadding;
       const isFinalSegment = toKey === targetKey;
       const arrowColor = isFinalSegment ? PATH_TARGET_STROKE_COLOR : PATH_ARROW_COLOR;
       const headLength = Math.max(8, cellSize * 0.2);

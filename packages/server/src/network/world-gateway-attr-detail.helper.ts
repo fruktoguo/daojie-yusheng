@@ -5,6 +5,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildAttrDetailNumericStatBreakdowns = exports.buildAttrDetailBonuses = void 0;
 
 const shared_1 = require("@mud/shared");
+const pvp_1 = require("../constants/gameplay/pvp");
 /**
  * buildAttrDetailBonuses：构建并返回目标对象。
  * @param player 玩家对象。
@@ -67,7 +68,7 @@ function buildAttrDetailBonuses(player) {
             source: `buff:${buff.buffId}`,
             label: buff.name || buff.buffId,
             attrs: clonePartialAttributes(buff.attrs),
-            attrMode: buff.attrMode === 'percent' ? 'percent' : 'flat',
+            attrMode: resolveBuffModifierMode(buff.attrMode),
             stats: clonePartialNumericStats(buff.stats),
             qiProjection: cloneQiProjectionModifiers(buff.qiProjection),
             meta: {
@@ -110,6 +111,8 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
     const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
     const flatBuffStats = (0, shared_1.createNumericStats)();
+    const buffMultiplierStats = (0, shared_1.createNumericStats)();
+    const pillMultiplierStats = (0, shared_1.createNumericStats)();
     const attrMultipliers = (0, shared_1.createNumericStats)();
     const finalAttrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs;
     if (finalAttrs) {
@@ -139,9 +142,24 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     if (vitalBaselineBonus?.stats) {
         (0, shared_1.addPartialNumericStats)(baseStats, vitalBaselineBonus.stats);
     }
-    for (const buff of player.buffs?.buffs ?? []) {
-        if (buff?.stats) {
-            (0, shared_1.addPartialNumericStats)(flatBuffStats, buff.stats);
+    for (const buff of getActiveBuffs(player.buffs?.buffs)) {
+        if (!buff?.stats) {
+            continue;
+        }
+        const effectFactor = getBuffEffectFactor(buff, realmLv);
+        if (effectFactor === 0) {
+            continue;
+        }
+        const scaledStats = scaleBuffNumericStats(buff, effectFactor);
+        if (!scaledStats) {
+            continue;
+        }
+        if (resolveBuffModifierMode(buff.statMode) === 'percent') {
+            const target = isPillStatBuff(buff) ? pillMultiplierStats : buffMultiplierStats;
+            (0, shared_1.addPartialNumericStats)(target, scaledStats);
+        }
+        else {
+            (0, shared_1.addPartialNumericStats)(flatBuffStats, scaledStats);
         }
     }
     if (player.combat?.cultivationActive === true) {
@@ -164,8 +182,8 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             preMultiplierValue: getNumericStatValue(preMultiplierStats, key),
             attrMultiplierPct: getNumericStatValue(attrMultipliers, key),
             realmMultiplier: getRealmNumericMultiplier(key, realmLv),
-            buffMultiplierPct: 0,
-            pillMultiplierPct: 0,
+            buffMultiplierPct: getNumericStatValue(buffMultiplierStats, key),
+            pillMultiplierPct: getNumericStatValue(pillMultiplierStats, key),
             finalValue: getNumericStatValue(finalStats, key),
         };
     }
@@ -303,6 +321,50 @@ function resolveVitalBaselineBonus(runtimeBonuses) {
     return Array.isArray(runtimeBonuses)
         ? runtimeBonuses.find((entry) => entry?.source === 'runtime:vitals_baseline' && entry.stats && typeof entry.stats === 'object')
         : null;
+}
+
+function isPillStatBuff(buff) {
+    const sourceSkillId = typeof buff?.sourceSkillId === 'string' ? buff.sourceSkillId : '';
+    const buffId = typeof buff?.buffId === 'string' ? buff.buffId : '';
+    return sourceSkillId.startsWith('item:') || sourceSkillId.startsWith('pill.') || buffId.startsWith('item_buff.');
+}
+
+function resolveBuffModifierMode(mode) {
+    return mode === 'flat' ? 'flat' : 'percent';
+}
+
+function getActiveBuffs(buffs) {
+    return Array.isArray(buffs)
+        ? buffs.filter((buff) => buff && buff.remainingTicks > 0 && buff.stacks > 0)
+        : [];
+}
+
+function getBuffEffectFactor(buff, targetRealmLv) {
+    const stackFactor = Math.max(1, Number(buff.stacks ?? 1) || 1);
+    return stackFactor * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+}
+
+function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
+    const normalizedBuffRealmLv = Math.max(1, Math.floor(Number(buffRealmLv ?? targetRealmLv) || 1));
+    const normalizedTargetRealmLv = Math.max(1, Math.floor(Number(targetRealmLv ?? 1) || 1));
+    if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
+        return 1;
+    }
+    return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
+}
+
+function scaleBuffNumericStats(buff, factor) {
+    const scaled = scalePartialNumericStats(buff.stats, factor);
+    if (!scaled || buff.buffId !== pvp_1.PVP_SHA_INFUSION_BUFF_ID) {
+        return scaled;
+    }
+    if (scaled.physAtk !== undefined) {
+        scaled.physAtk = Math.min(scaled.physAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+    }
+    if (scaled.spellAtk !== undefined) {
+        scaled.spellAtk = Math.min(scaled.spellAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+    }
+    return scaled;
 }
 /**
  * isDerivedRuntimeBonusSource：判断Derived运行态Bonu来源是否满足条件。

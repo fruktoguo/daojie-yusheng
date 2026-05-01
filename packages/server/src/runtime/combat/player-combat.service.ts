@@ -76,6 +76,35 @@ let PlayerCombatService = class PlayerCombatService {
             targetPlayerId: target.playerId,
         };
     }
+    /** 玩家对自身执行无目标 Buff 技能，不进入敌对目标校验。 */
+    castSelfSkill(attacker, skillId, currentTick, options = undefined) {
+        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        const selfState = toCombatPlayerState(attacker);
+        const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
+            spendQi: (amount) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
+                this.playerRuntimeService.spendQi(attacker.playerId, amount);
+            },
+            setCooldownReadyTick: (readyTick) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
+                this.playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skillId, readyTick, currentTick);
+            },
+            applySelfBuff: (buff) => {
+                this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
+            },
+            applyTargetBuff: (buff) => {
+                this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
+            },
+        }, options);
+        return {
+            ...result,
+            targetPlayerId: attacker.playerId,
+        };
+    }
     /** 玩家对妖兽施放技能，复用同一条施放流水线并允许写入目标 buff。 */
     castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
 
@@ -400,7 +429,9 @@ function toTemporaryBuff(effect, skill) {
         attrMode: effect.attrMode,
         stats: effect.stats
             ? { ...effect.stats }
-            : (effect.valueStats ? (0, shared_1.compileValueStatsToActualStats)(effect.valueStats) : undefined),
+            : (effect.valueStats
+                ? (effect.statMode === 'flat' ? (0, shared_1.compileValueStatsToActualStats)(effect.valueStats) : { ...effect.valueStats })
+                : undefined),
         statMode: effect.statMode,
         qiProjection: effect.qiProjection ? effect.qiProjection.map((entry) => ({ ...entry })) : undefined,
         persistOnDeath: effect.persistOnDeath === true,

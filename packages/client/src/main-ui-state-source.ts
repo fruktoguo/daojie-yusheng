@@ -93,6 +93,27 @@ export type MainUiStateSource = ReturnType<typeof createMainUiStateSource>;
 
 export function createMainUiStateSource(options: MainUiStateSourceOptions) {
   let pendingLayoutViewportSync = false;  
+  function getTopTechniqueByRealm(player: PlayerState): PlayerState['techniques'][number] | undefined {
+    let top = player.techniques[0];
+    for (let index = 1; index < player.techniques.length; index += 1) {
+      const technique = player.techniques[index];
+      if ((technique?.realm ?? -Infinity) > (top?.realm ?? -Infinity)) {
+        top = technique;
+      }
+    }
+    return top;
+  }
+
+  function getTopTechniqueByLevel(player: PlayerState): PlayerState['techniques'][number] | undefined {
+    let top = player.techniques[0];
+    for (let index = 1; index < player.techniques.length; index += 1) {
+      const technique = player.techniques[index];
+      if ((technique?.level ?? -Infinity) > (top?.level ?? -Infinity)) {
+        top = technique;
+      }
+    }
+    return top;
+  }
   /**
  * resolveRealmLabel：规范化或转换RealmLabel。
  * @param player PlayerState 玩家对象。
@@ -106,7 +127,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     if (player.realmName) {
       return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
     }
-    const top = [...player.techniques].sort((a, b) => b.realm - a.realm)[0];
+    const top = getTopTechniqueByRealm(player);
     if (!top) return '凡俗武者';
     const labels: Record<TechniqueRealm, string> = {
       [TechniqueRealm.Entry]: '武学入门',
@@ -129,7 +150,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     if (player.realm?.path === 'immortal') {
       return player.realm.shortName === '筑基' ? '云游真修' : '初登仙门';
     }
-    const top = [...player.techniques].sort((a, b) => b.level - a.level)[0];
+    const top = getTopTechniqueByLevel(player);
     if (!top) return '无名后学';
     if (top.realm >= TechniqueRealm.Perfection) return '名动一方';
     if (top.realm >= TechniqueRealm.Major) return '先天气成';

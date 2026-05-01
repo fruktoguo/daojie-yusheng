@@ -84,11 +84,16 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         if (previous) {
             previousInstance?.disconnectPlayer(playerId);
         }
+        const respawnPlacement = resolveRespawnPlacement(
+            targetInstance.template,
+            targetMapId === boundRespawnMapId ? player.respawnX : undefined,
+            targetMapId === boundRespawnMapId ? player.respawnY : undefined,
+        );
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
             sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
-            preferredX: targetMapId === boundRespawnMapId && Number.isFinite(player.respawnX) ? player.respawnX : targetInstance.template.spawnX,
-            preferredY: targetMapId === boundRespawnMapId && Number.isFinite(player.respawnY) ? player.respawnY : targetInstance.template.spawnY,
+            preferredX: respawnPlacement.x,
+            preferredY: respawnPlacement.y,
         });
         targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
         deps.setPlayerLocation(playerId, {
@@ -113,5 +118,31 @@ exports.WorldRuntimeRespawnService = WorldRuntimeRespawnService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
 ], WorldRuntimeRespawnService);
+
+function resolveRespawnPlacement(template, inputX, inputY) {
+    const spawnX = Number.isFinite(template?.spawnX) ? Math.trunc(template.spawnX) : 0;
+    const spawnY = Number.isFinite(template?.spawnY) ? Math.trunc(template.spawnY) : 0;
+    const x = Number.isFinite(inputX) ? Math.trunc(inputX) : spawnX;
+    const y = Number.isFinite(inputY) ? Math.trunc(inputY) : spawnY;
+    if (isWalkableTemplatePoint(template, x, y)) {
+        return { x, y };
+    }
+    return { x: spawnX, y: spawnY };
+}
+function isWalkableTemplatePoint(template, x, y) {
+    const width = Number.isFinite(template?.width) ? Math.trunc(template.width) : 0;
+    const height = Number.isFinite(template?.height) ? Math.trunc(template.height) : 0;
+    if (width <= 0 || height <= 0) {
+        return true;
+    }
+    if (x < 0 || y < 0 || x >= width || y >= height) {
+        return false;
+    }
+    const mask = template.walkableMask;
+    if (!mask || typeof mask.length !== 'number') {
+        return true;
+    }
+    return mask[(y * width) + x] === 1;
+}
 
 export { WorldRuntimeRespawnService };

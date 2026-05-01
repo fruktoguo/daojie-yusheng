@@ -7,6 +7,7 @@ const {
   resolveCombatRelation,
   canPlayerDealDamageToPlayer,
 } = require('../runtime/player/player-combat-config.helpers');
+const { PlayerCombatService } = require('../runtime/combat/player-combat.service');
 const { WorldRuntimeAutoCombatService } = require('../runtime/world/world-runtime-auto-combat.service');
 const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
 const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
@@ -220,6 +221,15 @@ async function testSkillDispatchRejectsNeutralPlayer() {
       }
       throw new Error(`unexpected playerId ${playerId}`);
     },
+    getPlayer(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      if (playerId === target.playerId) {
+        return target;
+      }
+      return null;
+    },
     recordActivity() {
       return undefined;
     },
@@ -309,6 +319,158 @@ async function testSkillDispatchRejectsDisabledSkillAction() {
     /技能未启用，无法释放/,
   );
   assert.deepEqual(log, []);
+}
+
+async function testSelfBuffSkillDispatchesWithoutHostileTarget() {
+  const attacker = createPlayer({
+    actions: {
+      actions: [{ id: 'skill.iron_bone_art', type: 'skill', requiresTarget: false }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill.iron_bone_art',
+          name: '铁骨功',
+          cost: 0,
+          cooldown: 1,
+          requiresTarget: false,
+          range: 1,
+          effects: [{
+            type: 'buff',
+            target: 'self',
+            buffId: 'buff.tiegu_guard',
+            name: '铁骨',
+            duration: 12,
+          }],
+        }],
+      }],
+    },
+  });
+  const log = [];
+  const playerRuntimeService = {
+    getPlayerOrThrow(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      throw new Error(`unexpected playerId ${playerId}`);
+    },
+    recordActivity(playerId, tick, options) {
+      log.push(['recordActivity', playerId, tick, options]);
+    },
+  };
+  const service = new WorldRuntimePlayerSkillDispatchService(playerRuntimeService, {
+    castSelfSkill(player, skillId, tick) {
+      log.push(['castSelfSkill', player.playerId, skillId, tick]);
+      return { totalDamage: 0, hitCount: 0 };
+    },
+    castSkill() {
+      throw new Error('castSkill should not run for self buff');
+    },
+    castSkillToMonster() {
+      throw new Error('castSkillToMonster should not run for self buff');
+    },
+  });
+  await service.dispatchCastSkill(attacker.playerId, 'skill.iron_bone_art', null, null, null, {
+    resolveCurrentTickForPlayerId() {
+      log.push(['resolveCurrentTickForPlayerId', attacker.playerId]);
+      return 8;
+    },
+    worldRuntimeCraftInterruptService: {
+      interruptCraftForReason(playerId, _player, reason) {
+        log.push(['interruptCraftForReason', playerId, reason]);
+      },
+    },
+    ensureAttackAllowed(player, skill) {
+      log.push(['ensureAttackAllowed', player.playerId, skill.id]);
+    },
+    getInstanceRuntimeOrThrow(instanceId) {
+      log.push(['getInstanceRuntimeOrThrow', instanceId]);
+      return {
+        listMonsters() {
+          return [];
+        },
+      };
+    },
+    pushActionLabelEffect(instanceId, x, y, label) {
+      log.push(['pushActionLabelEffect', instanceId, x, y, label]);
+    },
+  });
+  assert.deepEqual(log, [
+    ['resolveCurrentTickForPlayerId', attacker.playerId],
+    ['recordActivity', attacker.playerId, 8, { interruptCultivation: true }],
+    ['interruptCraftForReason', attacker.playerId, 'attack'],
+    ['ensureAttackAllowed', attacker.playerId, 'skill.iron_bone_art'],
+    ['getInstanceRuntimeOrThrow', attacker.instanceId],
+    ['resolveCurrentTickForPlayerId', attacker.playerId],
+    ['pushActionLabelEffect', attacker.instanceId, attacker.x, attacker.y, '铁骨功'],
+    ['castSelfSkill', attacker.playerId, 'skill.iron_bone_art', 8],
+  ]);
+}
+
+function testPlayerCombatSelfBuffSkillAppliesBuff() {
+  const attacker = createPlayer({
+    combat: {
+      ...createPlayer().combat,
+      cooldownReadyTickBySkillId: {},
+    },
+    attrs: {
+      finalAttrs: {},
+      numericStats: {
+        maxQiOutputPerTick: 50,
+      },
+      ratioDivisors: {},
+    },
+    buffs: {
+      buffs: [],
+    },
+    techniques: {
+      techniques: [{
+        level: 1,
+        skills: [{
+          id: 'skill.iron_bone_art',
+          name: '铁骨功',
+          cost: 0,
+          cooldown: 1,
+          range: 1,
+          effects: [{
+            type: 'buff',
+            target: 'self',
+            buffId: 'buff.tiegu_guard',
+            name: '铁骨',
+            duration: 12,
+            statMode: 'percent',
+            stats: {
+              physDef: 30,
+            },
+          }],
+        }],
+      }],
+    },
+  });
+  const log = [];
+  const service = new PlayerCombatService({
+    spendQi(playerId, amount) {
+      log.push(['spendQi', playerId, amount]);
+    },
+    setSkillCooldownReadyTick(playerId, skillId, readyTick, tick) {
+      log.push(['setSkillCooldownReadyTick', playerId, skillId, readyTick, tick]);
+    },
+    applyTemporaryBuff(playerId, buff) {
+      log.push(['applyTemporaryBuff', playerId, buff.buffId, buff.statMode, buff.stats]);
+    },
+  });
+  const result = service.castSelfSkill(attacker, 'skill.iron_bone_art', 8);
+  assert.deepEqual(result, {
+    skillId: 'skill.iron_bone_art',
+    qiCost: 0,
+    totalDamage: 0,
+    hitCount: 0,
+    targetPlayerId: attacker.playerId,
+  });
+  assert.deepEqual(log, [
+    ['setSkillCooldownReadyTick', attacker.playerId, 'skill.iron_bone_art', 9, 8],
+    ['applyTemporaryBuff', attacker.playerId, 'buff.tiegu_guard', 'percent', { physDef: 30 }],
+  ]);
 }
 
 function testAutoCombatPrefersRetaliator() {
@@ -404,6 +566,12 @@ function testAutoCombatMoveIsSingleStepLikeMainline() {
         y: 2,
         hp: 50,
       };
+    },
+    isInBounds(x, y) {
+      return x >= 0 && y >= 0 && x < 12 && y < 12;
+    },
+    toTileIndex(x, y) {
+      return y * 12 + x;
     },
     forEachPathingBlocker(_excludePlayerId, _visitor) {
       return undefined;
@@ -631,6 +799,15 @@ async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
       }
       throw new Error(`unexpected playerId ${playerId}`);
     },
+    getPlayer(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      if (playerId === target.playerId) {
+        return target;
+      }
+      return null;
+    },
     updateCombatSettings(playerId, input, tick) {
       log.push(['updateCombatSettings', playerId, input, tick]);
     },
@@ -657,7 +834,7 @@ async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
         log.push(['dispatchBasicAttack']);
       },
     }),
-    /敌方判定规则/,
+    /无法被攻击/,
   );
   assert.deepEqual(log, [
     ['interruptManualCombat', attacker.playerId],
@@ -669,6 +846,8 @@ Promise.resolve()
   .then(() => testBasicAttackRejectsNeutralPlayer())
   .then(() => testSkillDispatchRejectsNeutralPlayer())
   .then(() => testSkillDispatchRejectsDisabledSkillAction())
+  .then(() => testSelfBuffSkillDispatchesWithoutHostileTarget())
+  .then(() => testPlayerCombatSelfBuffSkillAppliesBuff())
   .then(() => testAutoCombatPrefersRetaliator())
   .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
   .then(() => testSkillDispatchLogsFormationDamage())

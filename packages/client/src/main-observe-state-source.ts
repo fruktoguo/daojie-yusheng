@@ -8,6 +8,7 @@ import {
   Tile,
   TileType,
   VisibleBuffState,
+  type PartialNumericStats,
 } from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
@@ -373,6 +374,53 @@ function buildObservationRows(rows: Array<{
 function formatBuffDuration(buff: VisibleBuffState): string {
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
+
+function scaleBuffAttrs(
+  attrs: VisibleBuffState['attrs'],
+  stacks: number,
+): VisibleBuffState['attrs'] | undefined {
+  if (!attrs || stacks === 1) {
+    return attrs;
+  }
+  const scaled: NonNullable<VisibleBuffState['attrs']> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    if (typeof value !== 'number') {
+      continue;
+    }
+    scaled[key as keyof NonNullable<VisibleBuffState['attrs']>] = value * stacks;
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
+function scaleBuffStats(
+  stats: VisibleBuffState['stats'],
+  stacks: number,
+): VisibleBuffState['stats'] | undefined {
+  if (!stats || stacks === 1) {
+    return stats;
+  }
+  const scaled: PartialNumericStats = {};
+  for (const [key, value] of Object.entries(stats)) {
+    if (typeof value === 'number') {
+      (scaled as Record<string, unknown>)[key] = value * stacks;
+      continue;
+    }
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+    const nested: Record<string, number> = {};
+    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      if (typeof nestedValue !== 'number') {
+        continue;
+      }
+      nested[nestedKey] = nestedValue * stacks;
+    }
+    if (Object.keys(nested).length > 0) {
+      (scaled as Record<string, unknown>)[key] = nested;
+    }
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
 /**
  * buildBuffEffectLines：构建并返回目标对象。
  * @param buff VisibleBuffState 参数说明。
@@ -381,7 +429,14 @@ function formatBuffDuration(buff: VisibleBuffState): string {
 
 
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
-  return describePreviewBonuses(buff.attrs, buff.stats);
+  const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
+  return describePreviewBonuses(
+    scaleBuffAttrs(buff.attrs, stackFactor),
+    scaleBuffStats(buff.stats, stackFactor),
+    undefined,
+    buff.attrMode ?? 'percent',
+    buff.statMode ?? 'percent',
+  );
 }
 /**
  * buildBuffTooltipLines：构建并返回目标对象。
@@ -475,7 +530,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   let activeObservedTile: ActiveObservedTile = null;
   let activeObservedTileDetail: S2C_TileDetail | null = null;
-  let activeObservedTileError: string | null = null;  
+  let activeObservedTileError: string | null = null;
+  const boundObserveModalRoots = new WeakSet<HTMLElement>();
+  let observeBuffTooltipTarget: HTMLElement | null = null;
   /**
  * isMatchingObservedTile：判断MatchingObservedTile是否满足条件。
  * @param targetX number 参数说明。
@@ -892,16 +949,27 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     });
   }
   /**
- * bindObserveLootPreviewActions：绑定观察卡掉落预览入口。
- * @param root ParentNode 参数说明。
- * @returns 无返回值，直接更新目标相关状态。
+ * bindObserveModalDelegatedEvents：绑定观察弹层的委托事件。
+ * @param root HTMLElement 参数说明。
+ * @returns 无返回值，直接更新观察弹层交互状态。
  */
 
 
-  function bindObserveLootPreviewActions(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[data-observe-loot-id]').forEach((node) => {
-      node.addEventListener('click', (event) => {
-        const entityId = node.dataset.observeLootId?.trim();
+  function bindObserveModalDelegatedEvents(root: HTMLElement): void {
+    if (boundObserveModalRoots.has(root)) {
+      return;
+    }
+    boundObserveModalRoots.add(root);
+    const tapMode = prefersPinnedTooltipInteraction();
+
+    root.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const lootNode = target.closest<HTMLElement>('[data-observe-loot-id]');
+      if (lootNode && root.contains(lootNode)) {
+        const entityId = lootNode.dataset.observeLootId?.trim();
         if (!entityId) {
           return;
         }
@@ -915,44 +983,67 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         openObserveLootPreview(entity);
         event.preventDefault();
         event.stopPropagation();
-      });
-    });
-  }  
-  /**
- * bindObserveBuffTooltips：执行bindObserveBuff提示相关逻辑。
- * @param root ParentNode 参数说明。
- * @returns 无返回值，直接更新bindObserveBuff提示相关状态。
- */
+        return;
+      }
 
+      if (!tapMode) {
+        return;
+      }
+      const tooltipNode = target.closest<HTMLElement>('[data-buff-tooltip-title]');
+      if (!tooltipNode || !root.contains(tooltipNode)) {
+        return;
+      }
+      if (observeBuffTooltip.isPinnedTo(tooltipNode)) {
+        hideObserveBuffTooltip(true);
+        return;
+      }
+      const title = tooltipNode.dataset.buffTooltipTitle ?? '';
+      const detail = tooltipNode.dataset.buffTooltipDetail ?? '';
+      observeBuffTooltipTarget = tooltipNode;
+      observeBuffTooltip.showPinned(tooltipNode, title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
 
-  function bindObserveBuffTooltips(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
-      const title = node.dataset.buffTooltipTitle ?? '';
-      const detail = node.dataset.buffTooltipDetail ?? '';
-      const lines = detail.split('\n').filter(Boolean);
-      const tapMode = prefersPinnedTooltipInteraction();
-      node.addEventListener('click', (event) => {
-        if (!tapMode) {
-          return;
-        }
-        if (observeBuffTooltip.isPinnedTo(node)) {
-          observeBuffTooltip.hide(true);
-          return;
-        }
-        observeBuffTooltip.showPinned(node, title, lines, event.clientX, event.clientY);
-        event.preventDefault();
-        event.stopPropagation();
-      }, true);
-      node.addEventListener('mouseenter', (event) => {
-        observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
-      });
-      node.addEventListener('mousemove', (event) => {
-        observeBuffTooltip.move(event.clientX, event.clientY);
-      });
-      node.addEventListener('mouseleave', () => {
-        observeBuffTooltip.hide();
-      });
+    root.addEventListener('pointermove', (event) => {
+      if (tapMode && observeBuffTooltip.isPinned()) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        hideObserveBuffTooltip();
+        return;
+      }
+      const tooltipNode = target.closest<HTMLElement>('[data-buff-tooltip-title]');
+      if (!tooltipNode || !root.contains(tooltipNode)) {
+        hideObserveBuffTooltip();
+        return;
+      }
+      if (observeBuffTooltipTarget !== tooltipNode) {
+        const title = tooltipNode.dataset.buffTooltipTitle ?? '';
+        const detail = tooltipNode.dataset.buffTooltipDetail ?? '';
+        observeBuffTooltipTarget = tooltipNode;
+        observeBuffTooltip.show(title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY);
+        return;
+      }
+      observeBuffTooltip.move(event.clientX, event.clientY);
     });
+
+    root.addEventListener('pointerleave', () => {
+      hideObserveBuffTooltip();
+    });
+  }
+
+  function splitObserveBuffTooltipLines(detail: string): string[] {
+    return detail.split('\n').filter(Boolean);
+  }
+
+  function hideObserveBuffTooltip(force = false): void {
+    if (!observeBuffTooltipTarget && !force) {
+      return;
+    }
+    observeBuffTooltipTarget = null;
+    observeBuffTooltip.hide(force);
   }  
   /**
  * render：执行render相关逻辑。
@@ -1135,8 +1226,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         </div>
         ${buildObservedEntitySectionHtml(sortedEntities)}
       `);
-      bindObserveLootPreviewActions(options.observeModalBodyEl);
-      bindObserveBuffTooltips(options.observeModalBodyEl);
+      bindObserveModalDelegatedEvents(options.observeModalBodyEl);
+      if (observeBuffTooltipTarget && !observeBuffTooltipTarget.isConnected) {
+        hideObserveBuffTooltip(true);
+      }
     }
     observeModalController.renderAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
     observeModalController.show();
@@ -1152,6 +1245,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       activeObservedTile = null;
       activeObservedTileDetail = null;
       activeObservedTileError = null;
+      hideObserveBuffTooltip(true);
     },    
     /**
  * hide：执行hide相关逻辑。
@@ -1159,6 +1253,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
  */
 
     hide(): void {
+      hideObserveBuffTooltip(true);
       observeModalController.hide();
       this.clear();
     },    

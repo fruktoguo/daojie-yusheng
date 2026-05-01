@@ -170,6 +170,15 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     createFreshPlayer(playerId, sessionId) {
 
         const starterInventory = this.contentTemplateRepository.createStarterInventory();
+        const defaultRespawnTemplateId = this.mapTemplateRepository.has(DEFAULT_PLAYER_STARTER_MAP_ID)
+            ? DEFAULT_PLAYER_STARTER_MAP_ID
+            : (this.mapTemplateRepository.list()[0]?.id ?? '');
+        const defaultRespawnPlacement = resolveRespawnPlacement(
+            this.mapTemplateRepository,
+            defaultRespawnTemplateId,
+            undefined,
+            undefined,
+        );
 
         const player = {
             playerId,
@@ -191,10 +200,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             persistedRevision: 0,
             instanceId: '',
             templateId: '',
-            respawnTemplateId: '',
-            respawnInstanceId: null,
-            respawnX: 0,
-            respawnY: 0,
+            respawnTemplateId: defaultRespawnTemplateId,
+            respawnInstanceId: defaultRespawnTemplateId ? buildPublicPlayerInstanceId(defaultRespawnTemplateId) : null,
+            respawnX: defaultRespawnPlacement.x,
+            respawnY: defaultRespawnPlacement.y,
             worldPreference: {
                 linePreset: 'peaceful',
             },
@@ -2301,10 +2310,45 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         const normalizedTargetId = typeof targetPlayerId === 'string' && targetPlayerId.trim() ? targetPlayerId.trim() : null;
-        if (player.combat.retaliatePlayerTargetId === normalizedTargetId) {
+        const normalizedCombatTargetId = normalizedTargetId ? `player:${normalizedTargetId}` : null;
+        let changed = false;
+        if (player.combat.retaliatePlayerTargetId !== normalizedTargetId) {
+            player.combat.retaliatePlayerTargetId = normalizedTargetId;
+            changed = true;
+        }
+        if (normalizedTargetId
+            && player.hp > 0
+            && player.combat.autoRetaliate !== false
+            && player.combat.autoBattle !== true) {
+            player.combat.autoBattle = true;
+            player.combat.combatTargetId = normalizedCombatTargetId;
+            player.combat.combatTargetLocked = true;
+            player.combat.manualEngagePending = false;
+            changed = true;
+        }
+        if (!changed) {
             return player;
         }
-        player.combat.retaliatePlayerTargetId = normalizedTargetId;
+        this.rebuildActionState(player, currentTick);
+        markPlayerDirtyDomains(player, ['combat_pref']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /**
+ * activateAutoRetaliate：受怪物攻击时开启自动战斗，由自动战斗选择器接管仇恨目标。
+ * @param playerId 玩家 ID。
+ * @param currentTick 参数说明。
+ * @returns 返回更新后的玩家运行态。
+ */
+
+    activateAutoRetaliate(playerId, currentTick = 0) {
+        const player = this.getPlayerOrThrow(playerId);
+        if (player.hp <= 0 || player.combat.autoRetaliate === false || player.combat.autoBattle === true) {
+            return player;
+        }
+        player.combat.autoBattle = true;
+        player.combat.retaliatePlayerTargetId = null;
+        player.combat.manualEngagePending = false;
         this.rebuildActionState(player, currentTick);
         markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
@@ -2325,9 +2369,19 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
         if (existing) {
-            existing.remainingTicks = Math.max(existing.remainingTicks, buff.remainingTicks);
-            existing.duration = Math.max(existing.duration, buff.duration);
-            existing.stacks = Math.min(existing.maxStacks, Math.max(existing.stacks, buff.stacks));
+            if (isConsumableBuffSource(buff)) {
+                const currentRemainingDuration = Math.max(0, existing.remainingTicks - 1);
+                const addedDuration = Math.max(1, Math.round(buff.duration));
+                existing.duration = currentRemainingDuration + addedDuration;
+                existing.remainingTicks = existing.duration + 1;
+                existing.stacks = Math.min(buff.maxStacks, existing.stacks + 1);
+            }
+            else {
+                existing.remainingTicks = buff.remainingTicks;
+                existing.duration = buff.duration;
+                existing.stacks = Math.min(buff.maxStacks, existing.stacks + Math.max(1, buff.stacks));
+            }
+            existing.maxStacks = buff.maxStacks;
             existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
             existing.attrMode = buff.attrMode;
             existing.stats = buff.stats ? { ...buff.stats } : undefined;
@@ -2720,7 +2774,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             ? Math.trunc(placement.facing)
             : shared_1.Direction.South;
         player.unlockedMapIds = [templateId];
-        return buildRuntimePlayerPersistenceSnapshot(player);
+        return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
     }
     /**
  * buildStarterPersistenceSnapshot：构建并返回目标对象。
@@ -2761,7 +2815,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!player || !player.templateId || (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId)) {
             return null;
         }
-        return buildRuntimePlayerPersistenceSnapshot(player);
+        return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
     }
     /**
  * markPersisted：判断Persisted是否满足条件。
@@ -2838,12 +2892,22 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             : null;
         const snapshotRespawnInstanceId = normalizePlayerPlacementInstanceId(snapshot.respawn?.instanceId)
             ?? (snapshotRespawnTemplateId ? buildPublicPlayerInstanceId(snapshotRespawnTemplateId) : null);
-        const snapshotRespawnX = Number.isFinite(snapshot.respawn?.x)
-            ? Math.trunc(snapshot.respawn.x)
-            : (snapshotRespawnTemplate ? Math.trunc(snapshotRespawnTemplate.spawnX) : 0);
-        const snapshotRespawnY = Number.isFinite(snapshot.respawn?.y)
-            ? Math.trunc(snapshot.respawn.y)
-            : (snapshotRespawnTemplate ? Math.trunc(snapshotRespawnTemplate.spawnY) : 0);
+        const snapshotRespawnPlacement = resolveRespawnPlacement(
+            this.mapTemplateRepository,
+            snapshotRespawnTemplateId,
+            snapshot.respawn?.x,
+            snapshot.respawn?.y,
+        );
+        const snapshotRespawnX = snapshotRespawnPlacement.x;
+        const snapshotRespawnY = snapshotRespawnPlacement.y;
+        const snapshotRespawnRepaired = Boolean(
+            snapshot.respawn
+            && snapshotRespawnTemplateId
+            && (!Number.isFinite(snapshot.respawn.x)
+                || !Number.isFinite(snapshot.respawn.y)
+                || Math.trunc(snapshot.respawn.x) !== snapshotRespawnX
+                || Math.trunc(snapshot.respawn.y) !== snapshotRespawnY)
+        );
 
         const player = {
             playerId,
@@ -3008,6 +3072,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['attr']);
             player.hp = clamp(snapshot.vitals.hp, 0, player.maxHp);
             player.qi = clamp(snapshot.vitals.qi, 0, player.maxQi);
+        }
+        if (snapshotRespawnRepaired) {
+            markPlayerDirtyDomains(player, ['position_checkpoint']);
+            this.bumpPersistentRevision(player);
         }
         this.rebuildActionState(player, 0);
         return player;
@@ -3264,8 +3332,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             consumed = true;
         }
         if (Array.isArray(item.consumeBuffs) && item.consumeBuffs.length > 0) {
+            const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
             for (const buff of item.consumeBuffs) {
-                this.applyTemporaryBuff(player.playerId, toConsumableTemporaryBuff(item, buff));
+                this.applyTemporaryBuff(player.playerId, toConsumableTemporaryBuff(item, buff, sourceRealmLv));
             }
             consumed = true;
         }
@@ -3636,19 +3705,59 @@ function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
         .slice(0, 32);
     return `rt:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}:${ownerDigest}`;
 }
+function resolveRespawnPlacement(mapTemplateRepository, templateId, inputX, inputY) {
+    const normalizedTemplateId = typeof templateId === 'string' && templateId.trim() ? templateId.trim() : '';
+    const template = normalizedTemplateId
+        && typeof mapTemplateRepository?.has === 'function'
+        && mapTemplateRepository.has(normalizedTemplateId)
+        ? mapTemplateRepository.getOrThrow(normalizedTemplateId)
+        : null;
+    const spawnX = Number.isFinite(template?.spawnX) ? Math.trunc(template.spawnX) : 0;
+    const spawnY = Number.isFinite(template?.spawnY) ? Math.trunc(template.spawnY) : 0;
+    const x = Number.isFinite(inputX) ? Math.trunc(inputX) : spawnX;
+    const y = Number.isFinite(inputY) ? Math.trunc(inputY) : spawnY;
+    if (!template) {
+        return { x, y };
+    }
+    if (isWalkableTemplatePoint(template, x, y)) {
+        return { x, y };
+    }
+    return { x: spawnX, y: spawnY };
+}
+function isWalkableTemplatePoint(template, x, y) {
+    const width = Number.isFinite(template?.width) ? Math.trunc(template.width) : 0;
+    const height = Number.isFinite(template?.height) ? Math.trunc(template.height) : 0;
+    if (width <= 0 || height <= 0) {
+        return true;
+    }
+    if (x < 0 || y < 0 || x >= width || y >= height) {
+        return false;
+    }
+    const mask = template.walkableMask;
+    if (!mask || typeof mask.length !== 'number') {
+        return true;
+    }
+    return mask[(y * width) + x] === 1;
+}
 /**
  * buildRuntimePlayerPersistenceSnapshot：构建并返回目标对象。
  * @param player 玩家对象。
  * @returns 无返回值，直接更新运行态玩家Persistence快照相关状态。
  */
 
-function buildRuntimePlayerPersistenceSnapshot(player) {
+function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = null) {
     const templateId = typeof player.templateId === 'string' ? player.templateId.trim() : '';
     const respawnTemplateId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
         ? player.respawnTemplateId.trim()
         : DEFAULT_PLAYER_STARTER_MAP_ID;
     const respawnInstanceId = normalizePlayerPlacementInstanceId(player.respawnInstanceId)
         ?? (respawnTemplateId ? buildPublicPlayerInstanceId(respawnTemplateId) : '');
+    const respawnPlacement = resolveRespawnPlacement(
+        mapTemplateRepository,
+        respawnTemplateId,
+        player.respawnX,
+        player.respawnY,
+    );
     return {
         version: 1,
         savedAt: Date.now(),
@@ -3663,8 +3772,8 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
         respawn: {
             instanceId: respawnInstanceId,
             templateId: respawnTemplateId,
-            x: Number.isFinite(player.respawnX) ? Math.trunc(player.respawnX) : 0,
-            y: Number.isFinite(player.respawnY) ? Math.trunc(player.respawnY) : 0,
+            x: respawnPlacement.x,
+            y: respawnPlacement.y,
             facing: player.facing,
         },
         worldPreference: {
@@ -4890,7 +4999,11 @@ function isSameBuffIdSequence(left, right) {
  * @returns 无返回值，直接更新toConsumableTemporaryBuff相关状态。
  */
 
-function toConsumableTemporaryBuff(item, buff) {
+function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
+    const sourceSkillId = typeof buff.sourceSkillId === 'string' && buff.sourceSkillId.trim()
+        ? buff.sourceSkillId.trim()
+        : `item:${item.itemId}`;
+    const duration = Math.max(1, Math.round(buff.duration));
     return {
         buffId: buff.buffId,
         name: buff.name,
@@ -4898,23 +5011,36 @@ function toConsumableTemporaryBuff(item, buff) {
         shortMark: buff.shortMark ?? (buff.name.slice(0, 1) || '*'),
         category: buff.category ?? 'buff',
         visibility: buff.visibility ?? 'public',
-        remainingTicks: Math.max(1, Math.round(buff.duration)),
-        duration: Math.max(1, Math.round(buff.duration)),
+        remainingTicks: buff.infiniteDuration === true ? 1 : duration + 1,
+        duration,
         stacks: 1,
         maxStacks: Math.max(1, Math.round(buff.maxStacks ?? 1)),
-        sourceSkillId: item.itemId,
+        sourceSkillId,
         sourceSkillName: item.name ?? item.itemId,
+        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: buff.color,
         attrs: buff.attrs ? { ...buff.attrs } : undefined,
         attrMode: buff.attrMode,
         stats: buff.stats
             ? { ...buff.stats }
-            : (buff.valueStats ? (0, shared_1.compileValueStatsToActualStats)(buff.valueStats) : undefined),
+            : (buff.valueStats
+                ? (buff.statMode === 'flat' ? (0, shared_1.compileValueStatsToActualStats)(buff.valueStats) : { ...buff.valueStats })
+                : undefined),
         statMode: buff.statMode,
         qiProjection: buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        infiniteDuration: buff.infiniteDuration === true,
+        sustainCost: buff.sustainCost ? { ...buff.sustainCost } : undefined,
+        sustainTicksElapsed: buff.sustainCost ? 0 : undefined,
+        expireWithBuffId: buff.expireWithBuffId,
         persistOnDeath: buff.persistOnDeath === true,
         persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     };
+}
+
+function isConsumableBuffSource(buff) {
+    const sourceSkillId = typeof buff?.sourceSkillId === 'string' ? buff.sourceSkillId : '';
+    const buffId = typeof buff?.buffId === 'string' ? buff.buffId : '';
+    return sourceSkillId.startsWith('item:') || sourceSkillId.startsWith('pill.') || buffId.startsWith('item_buff.');
 }
 /**
  * cloneRuntimeAttrState：构建运行态Attr状态。

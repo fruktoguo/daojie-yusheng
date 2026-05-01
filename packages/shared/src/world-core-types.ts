@@ -519,6 +519,11 @@ export interface VisibleBuffState {
 
   sourceSkillName?: string;
   /**
+ * realmLv：来源境界等级。
+ */
+
+  realmLv?: number;
+  /**
  * color：color相关字段。
  */
 
@@ -529,10 +534,20 @@ export interface VisibleBuffState {
 
   attrs?: Partial<Attributes>;
   /**
+ * attrMode：六维加成模式。
+ */
+
+  attrMode?: BuffModifierMode;
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;
+  /**
+ * statMode：数值加成模式。
+ */
+
+  statMode?: BuffModifierMode;
   /**
  * qiProjection：qiProjection相关字段。
  */

@@ -438,7 +438,7 @@ function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: 
 }
 
 /** bindCursor：绑定Cursor。 */
-function bindCursor(body: HTMLElement): void {
+function bindCursor(body: HTMLElement, signal?: AbortSignal): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const board = body.querySelector<HTMLElement>('[data-heaven-gate-board]');
@@ -466,9 +466,9 @@ function bindCursor(body: HTMLElement): void {
   };
   body.querySelectorAll<HTMLButtonElement>('[data-heaven-gate-path]').forEach((button) => {
     const label = button.dataset.heavenGateCursorLabel ?? '斩';
-    button.addEventListener('mouseenter', (event) => syncCursor(event as MouseEvent, label));
-    button.addEventListener('mousemove', (event) => syncCursor(event, label));
-    button.addEventListener('mouseleave', hideCursor);
+    button.addEventListener('mouseenter', (event) => syncCursor(event as MouseEvent, label), { signal });
+    button.addEventListener('mousemove', (event) => syncCursor(event, label), { signal });
+    button.addEventListener('mouseleave', hideCursor, { signal });
   });
   /** cursorCleanup：cursor Cleanup。 */
   cursorCleanup = hideCursor;
@@ -643,7 +643,7 @@ function bindHeavenGateEvents(
 ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  bindCursor(body);
+  bindCursor(body, signal);
   activeEventContext = { player, session, options };
   if (signal) {
     body.addEventListener('click', (event) => {

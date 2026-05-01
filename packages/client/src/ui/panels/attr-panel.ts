@@ -225,10 +225,12 @@ function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] 
   return [...percentParts, ...flatParts];
 }
 
-function resolveAttributeAmplificationPercent(specialStats?: PlayerSpecialStats): number {
-  const bodyTrainingPercent = Math.max(0, Math.floor(Number(specialStats?.bodyTrainingLevel ?? 0) || 0));
-  const rootFoundationPercent = Math.max(0, Math.floor(Number(specialStats?.rootFoundation ?? 0) || 0));
-  return bodyTrainingPercent + rootFoundationPercent;
+function resolveBodyTrainingAttributePercent(specialStats?: PlayerSpecialStats): number {
+  return Math.max(0, Math.floor(Number(specialStats?.bodyTrainingLevel ?? 0) || 0));
+}
+
+function resolveRootFoundationAttributePercent(specialStats?: PlayerSpecialStats): number {
+  return Math.max(0, Math.floor(Number(specialStats?.rootFoundation ?? 0) || 0));
 }
 
 function getAttrBonusValue(bonus: AttrBonus, key: AttrKey): number {
@@ -276,19 +278,19 @@ function buildAttributeBreakdownLines(
   const fixedExtraValue = sumAttrBonusPercent(bonuses, key, isFixedExtraAttrBonus);
   const displayFixedBaseValue = baseValue - baseIncludedExtraValue;
   const displayFixedTotalValue = displayFixedBaseValue + fixedExtraValue;
-  const realmMultiplier = percentModifierToMultiplier(resolveAttributeAmplificationPercent(specialStats));
+  const bodyTrainingMultiplier = percentModifierToMultiplier(resolveBodyTrainingAttributePercent(specialStats));
+  const realmMultiplier = percentModifierToMultiplier(resolveRootFoundationAttributePercent(specialStats));
   const buffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isPillPercentAttrBonus(bonus)));
   const pillMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isPillPercentAttrBonus));
-  const attrMultiplier = 1;
-  const totalMultiplier = attrMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
+  const totalMultiplier = bodyTrainingMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
   return [
     renderTooltipPrimaryLine('实际：', formatDisplayInteger(finalValue)),
     renderTooltipSectionLine(`总固定值：${formatDisplayInteger(displayFixedTotalValue)}`, 'fixed'),
     renderTooltipChildLine('基础值：', formatDisplayInteger(displayFixedBaseValue), 'fixed'),
     renderTooltipChildLine('额外值：', `${fixedExtraValue >= 0 ? '+' : ''}${formatDisplayInteger(fixedExtraValue)}`, 'fixed'),
     renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
-    renderTooltipChildLine('六维：', formatMultiplierDisplay(attrMultiplier), 'percent'),
-    renderTooltipChildLine('境界：', formatMultiplierDisplay(realmMultiplier), 'percent'),
+    renderTooltipChildLine('炼体：', formatMultiplierDisplay(bodyTrainingMultiplier), 'percent'),
+    renderTooltipChildLine('根基：', formatMultiplierDisplay(realmMultiplier), 'percent'),
     renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
     renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
     renderTooltipSectionLine('实际转化：', 'percent'),
@@ -804,6 +806,10 @@ export class AttrPanel {
   private lastStructureKey: string | null = null;
   /** tooltipTarget：提示目标。 */
   private tooltipTarget: Element | null = null;  
+  /** tabButtons：属性页签节点缓存。 */
+  private tabButtons = new Map<AttrTab, HTMLElement>();
+  /** paneEls：属性分页节点缓存。 */
+  private paneEls = new Map<AttrTab, HTMLElement>();
   /** callbacks：详情请求回调。 */
   private callbacks: AttrPanelCallbacks | null = null;
   /** latestData：最近一次属性更新。 */
@@ -840,6 +846,8 @@ export class AttrPanel {
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
+    this.tabButtons.clear();
+    this.paneEls.clear();
     this.tooltip.hide(true);
     patchElementHtml(this.pane, '<div class="empty-hint">尚未观测到角色属性</div>');
   }
@@ -1549,6 +1557,7 @@ export class AttrPanel {
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
         <div class="action-tab-pane ${this.activeTab === 'craft' ? 'active' : ''}" data-attr-pane="craft">${this.renderPane(snapshot.panes.craft)}</div>
       </div>`);
+      this.refreshDomRefs();
     });
   }
 
@@ -1651,20 +1660,45 @@ export class AttrPanel {
   /** patch：处理patch。 */
   private patch(snapshot: AttrPanelSnapshot): boolean {
     this.patchTabState();
-    return this.patchPane('base', snapshot.panes.base)
-      && this.patchPane('root', snapshot.panes.root)
-      && this.patchPane('vein', snapshot.panes.vein)
-      && this.patchPane('combat', snapshot.panes.combat)
-      && this.patchPane('qi', snapshot.panes.qi)
-      && this.patchPane('special', snapshot.panes.special)
-      && this.patchPane('craft', snapshot.panes.craft);
+    return this.patchPane(this.activeTab, snapshot.panes[this.activeTab]);
+  }
+
+  /** refreshDomRefs：刷新属性面板的稳定节点缓存。 */
+  private refreshDomRefs(): void {
+    this.tabButtons.clear();
+    this.paneEls.clear();
+    this.pane.querySelectorAll<HTMLElement>('[data-attr-tab]').forEach((entry) => {
+      const tab = entry.dataset.attrTab as AttrTab | undefined;
+      if (tab) {
+        this.tabButtons.set(tab, entry);
+      }
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-attr-pane]').forEach((entry) => {
+      const tab = entry.dataset.attrPane as AttrTab | undefined;
+      if (tab) {
+        this.paneEls.set(tab, entry);
+      }
+    });
+  }
+
+  /** getPaneEl：读取并补齐指定分页节点。 */
+  private getPaneEl(tab: AttrTab): HTMLElement | null {
+    const cached = this.paneEls.get(tab);
+    if (cached?.isConnected) {
+      return cached;
+    }
+    const pane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${tab}"]`);
+    if (pane) {
+      this.paneEls.set(tab, pane);
+    }
+    return pane;
   }
 
   /** patchPane：处理patch Pane。 */
   private patchPane(tab: AttrTab, snapshot: AttrPaneSnapshot): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const pane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${tab}"]`);
+    const pane = this.getPaneEl(tab);
     if (!pane) {
       return false;
     }
@@ -1859,18 +1893,26 @@ export class AttrPanel {
       if (!tab || tab === this.activeTab) {
         return;
       }
+      this.tooltipTarget = null;
+      this.tooltip.hide(true);
       this.activeTab = tab;
       this.patchTabState();
+      if (this.lastSnapshot && !this.patchPane(tab, this.lastSnapshot.panes[tab])) {
+        this.render(this.lastSnapshot);
+      }
     });
   }
 
   /** patchTabState：处理patch Tab状态。 */
   private patchTabState(): void {
-    this.pane.querySelectorAll<HTMLElement>('[data-attr-tab]').forEach((entry) => {
-      entry.classList.toggle('active', entry.dataset.attrTab === this.activeTab);
+    if (this.tabButtons.size === 0 || this.paneEls.size === 0) {
+      this.refreshDomRefs();
+    }
+    this.tabButtons.forEach((entry, tab) => {
+      entry.classList.toggle('active', tab === this.activeTab);
     });
-    this.pane.querySelectorAll<HTMLElement>('[data-attr-pane]').forEach((entry) => {
-      entry.classList.toggle('active', entry.dataset.attrPane === this.activeTab);
+    this.paneEls.forEach((entry, tab) => {
+      entry.classList.toggle('active', tab === this.activeTab);
     });
   }
 

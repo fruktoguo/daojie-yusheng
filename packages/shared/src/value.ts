@@ -723,7 +723,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
       if (effect.chance !== undefined) {
         metaParts.push(`概率${formatNumber(effect.chance * 100)}%`);
       }
-      const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode), ...describeStatBonus(effect.buff.stats, effect.buff.statMode)];
+      const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode ?? 'percent'), ...describeStatBonus(effect.buff.stats, effect.buff.statMode ?? 'percent')];
       const descPart = effect.buff.desc ? `；${effect.buff.desc}` : '';
       return `触发特效:${metaParts.join(' · ')}，获得${effect.buff.name}${conditionText}${effectParts.length > 0 ? `，效果:${effectParts.join(' / ')}` : ''}${descPart}`;
     }

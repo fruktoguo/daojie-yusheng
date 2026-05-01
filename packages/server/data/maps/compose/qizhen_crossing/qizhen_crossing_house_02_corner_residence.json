@@ -22,12 +22,28 @@
     ",,,,#......#.......#,,,,",
     ",,,,#..............#,,,,",
     ",,,,角檐檐檐檐檐檐檐檐檐檐檐檐檐檐角,,,,",
-    ",,,,##W####+####W###,,,,",
+    ",,,,##W####S####W###,,,,",
     ",,,,::::::::::::::::,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,"
   ],
-  "portals": [],
+  "portals": [
+    {
+      "x": 11,
+      "y": 12,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 45,
+      "targetY": 34,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "qizhen_crossing_house_02_corner_residence:11,12",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:45,34"
+    }
+  ],
   "spawnPoint": {
     "x": 14,
     "y": 9

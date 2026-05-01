@@ -315,7 +315,7 @@ function describeBuffEffect(effect: Extract<SkillDef['effects'][number], {
  * type：type相关字段。
  */
  type: 'buff' }>): string[] {
-  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
+  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
 }
 
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
@@ -1006,4 +1006,3 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
 export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string[] {
   return buildSkillTooltipContent(skill, context).lines;
 }
-

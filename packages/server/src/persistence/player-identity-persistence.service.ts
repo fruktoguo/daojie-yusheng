@@ -190,7 +190,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             this.logger.error('玩家身份持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
             await this.safeClosePool();
         }
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -238,7 +238,47 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             throw new Error(`Player identity mainline record invalid: userId=${normalizedUserId}`);
         }
         return normalized;
-    }    
+    }
+    /**
+ * listPlayerIdentitiesByPlayerIds：按玩家 ID 批量读取身份记录。
+ * @param playerIds 玩家 ID 集合。
+ * @returns 玩家 ID 到身份记录的映射。
+ */
+
+    async listPlayerIdentitiesByPlayerIds(playerIds) {
+  // 排行榜等低频读模型需要批量补角色名，避免逐玩家查询。
+
+
+        const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
+            .map((playerId) => normalizeRequiredString(playerId))
+            .filter((playerId) => playerId.length > 0)));
+        if (!this.pool || !this.enabled || normalizedPlayerIds.length === 0) {
+            return new Map();
+        }
+
+        const result = await this.pool.query(`
+        SELECT
+          user_id,
+          username,
+          player_id,
+          display_name,
+          player_name,
+          persisted_source,
+          updated_at,
+          payload
+        FROM ${PLAYER_IDENTITY_TABLE}
+        WHERE player_id = ANY($1::varchar[])
+      `, [normalizedPlayerIds]);
+
+        const identitiesByPlayerId = new Map();
+        for (const row of result.rows ?? []) {
+            const normalized = normalizePersistedPlayerIdentityRow(row);
+            if (normalized?.playerId) {
+                identitiesByPlayerId.set(normalized.playerId, normalized);
+            }
+        }
+        return identitiesByPlayerId;
+    }
     /**
  * savePlayerIdentity：执行save玩家Identity相关逻辑。
  * @param identity 参数说明。
@@ -306,7 +346,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             client.release();
         }
         return normalized;
-    }    
+    }
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
  * @returns 无返回值，直接更新safeClosePool相关状态。

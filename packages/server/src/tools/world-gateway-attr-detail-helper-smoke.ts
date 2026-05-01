@@ -6,6 +6,7 @@ const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
+const { PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
 /**
  * testAttrDetailBuilders：构建testAttr详情Builder。
  * @returns 无返回值，直接更新testAttr详情Builder相关状态。
@@ -530,6 +531,218 @@ function testEnhancedEquipmentScalesLiveAndDetailStats() {
     assert.equal(breakdowns.critDamage?.attrMultiplierPct, 0);
 }
 
+function testBuffStatModePercentUsesMultiplierBreakdown() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (buffs) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs },
+        spiritualRoots: null,
+    });
+    const basePlayer = createPlayer([]);
+    const buffedPlayer = createPlayer([
+        {
+            buffId: 'buff.smoke_attack',
+            name: '测试状态',
+            shortMark: '测',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 10,
+            duration: 10,
+            stacks: 2,
+            maxStacks: 9,
+            stats: {
+                physAtk: 5,
+            },
+            statMode: 'percent',
+        },
+        {
+            buffId: 'item_buff.smoke_pill',
+            name: '测试丹药',
+            shortMark: '丹',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 10,
+            duration: 10,
+            stacks: 1,
+            maxStacks: 1,
+            sourceSkillId: 'pill.smoke',
+            stats: {
+                physAtk: 20,
+            },
+            statMode: 'percent',
+        },
+        {
+            buffId: 'buff.smoke_default_percent',
+            name: '测试默认百分比状态',
+            shortMark: '默',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 10,
+            duration: 10,
+            stacks: 2,
+            maxStacks: 9,
+            stats: {
+                spellAtk: 5,
+            },
+        },
+        {
+            buffId: 'buff.smoke_flat',
+            name: '测试固定状态',
+            shortMark: '固',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 10,
+            duration: 10,
+            stacks: 3,
+            maxStacks: 3,
+            stats: {
+                extraRange: 2,
+            },
+            statMode: 'flat',
+        },
+    ]);
+    service.recalculate(basePlayer);
+    service.recalculate(buffedPlayer);
+    assert.equal(buffedPlayer.attrs.numericStats.physAtk, Math.round(Math.round(basePlayer.attrs.numericStats.physAtk * 1.1) * 1.2));
+    assert.equal(buffedPlayer.attrs.numericStats.spellAtk, Math.round(basePlayer.attrs.numericStats.spellAtk * 1.1));
+    assert.equal(buffedPlayer.attrs.numericStats.extraRange, basePlayer.attrs.numericStats.extraRange + 6);
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(buffedPlayer);
+    assert.equal(breakdowns.physAtk?.flatBuffValue, 0);
+    assert.equal(breakdowns.physAtk?.buffMultiplierPct, 10);
+    assert.equal(breakdowns.physAtk?.pillMultiplierPct, 20);
+    assert.equal(breakdowns.extraRange?.flatBuffValue, 6);
+    assert.equal(breakdowns.extraRange?.buffMultiplierPct, 0);
+    assert.equal(breakdowns.extraRange?.pillMultiplierPct, 0);
+    assert.equal(breakdowns.spellAtk?.buffMultiplierPct, 10);
+}
+
+function testBuffRealmFactorAndShaCapMatchMain() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (realmLv, buffs) => ({
+        realm: {
+            stage: 0,
+            realmLv,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs },
+        spiritualRoots: null,
+    });
+    const baseRealm3Player = createPlayer(3, []);
+    const lowerRealmBuffPlayer = createPlayer(3, [{
+        buffId: 'buff.lower_realm',
+        name: '低境界状态',
+        shortMark: '低',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 1,
+        realmLv: 1,
+        stats: {
+            physAtk: 10,
+        },
+    }]);
+    const cappedShaPlayer = createPlayer(1, [{
+        buffId: PVP_SHA_INFUSION_BUFF_ID,
+        name: '煞气入体',
+        shortMark: '煞',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 200,
+        maxStacks: 999999,
+        realmLv: 1,
+        stats: {
+            physAtk: 1,
+            spellAtk: 1,
+        },
+    }]);
+    service.recalculate(baseRealm3Player);
+    service.recalculate(lowerRealmBuffPlayer);
+    service.recalculate(cappedShaPlayer);
+    const lowerBreakdowns = buildAttrDetailNumericStatBreakdowns(lowerRealmBuffPlayer);
+    assert.ok(Math.abs((lowerBreakdowns.physAtk?.buffMultiplierPct ?? 0) - 8.1) < 0.000001);
+    assert.equal(lowerRealmBuffPlayer.attrs.numericStats.physAtk, Math.round(baseRealm3Player.attrs.numericStats.physAtk * 1.081));
+    const shaBreakdowns = buildAttrDetailNumericStatBreakdowns(cappedShaPlayer);
+    assert.equal(shaBreakdowns.physAtk?.buffMultiplierPct, 100);
+    assert.equal(shaBreakdowns.spellAtk?.buffMultiplierPct, 100);
+}
+
+function testTieguPercentBuffDoesNotCompileRateStats() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (buffs) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs },
+        spiritualRoots: null,
+    });
+    const basePlayer = createPlayer([]);
+    const tieguPlayer = createPlayer([{
+        buffId: 'buff.tiegu_guard',
+        name: '铁骨',
+        shortMark: '骨',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 1,
+        realmLv: 1,
+        stats: {
+            physDef: 30,
+            spellDef: 30,
+            hpRegenRate: 30,
+        },
+        statMode: 'percent',
+    }]);
+    service.recalculate(basePlayer);
+    service.recalculate(tieguPlayer);
+    assert.equal(tieguPlayer.attrs.numericStats.physDef, Math.round(basePlayer.attrs.numericStats.physDef * 1.3));
+    assert.equal(tieguPlayer.attrs.numericStats.spellDef, Math.round(basePlayer.attrs.numericStats.spellDef * 1.3));
+    assert.equal(tieguPlayer.attrs.numericStats.hpRegenRate, Math.round(basePlayer.attrs.numericStats.hpRegenRate * 1.3));
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(tieguPlayer);
+    assert.equal(breakdowns.physDef?.buffMultiplierPct, 30);
+    assert.equal(breakdowns.spellDef?.buffMultiplierPct, 30);
+    assert.equal(breakdowns.hpRegenRate?.buffMultiplierPct, 30);
+    assert.equal(breakdowns.hpRegenRate?.flatBuffValue, 0);
+}
+
 function testSpecialStatsAffectOnlyConfiguredRates() {
     const service = new PlayerAttributesService();
     const createPlayer = (comprehension, luck) => ({
@@ -684,6 +897,9 @@ testRealmLevelScalesNumericStats();
 testRealmStageConfigAccumulatesFromIncrementalEntries();
 testBodyTrainingScalesAllAttributesLikeRootFoundation();
 testEnhancedEquipmentScalesLiveAndDetailStats();
+testBuffStatModePercentUsesMultiplierBreakdown();
+testBuffRealmFactorAndShaCapMatchMain();
+testTieguPercentBuffDoesNotCompileRateStats();
 testSpecialStatsAffectOnlyConfiguredRates();
 testActiveCultivationProjectsPerTickStats();
 testTechniqueSpecialStatsAffectOnlyConfiguredRates();

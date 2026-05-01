@@ -37,7 +37,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
     switch (effect.type) {
       case 'stat_aura':
       case 'progress_boost': {
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
+        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
         return `特效:${effectParts.join(' / ') || '无数值变化'}${conditionText}`;
       }
       case 'periodic_cost': {
@@ -63,7 +63,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
           on_time_segment_changed: '时段切换时',
           on_enter_map: '入图时',
         };
-        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
+        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
         return `触发:${triggerMap[effect.trigger] ?? effect.trigger}获得 ${effect.buff.name} ${effect.buff.duration}息${conditionText}${buffParts.length > 0 ? `，效果:${buffParts.join(' / ')}` : ''}`;
       }
       default:
@@ -132,6 +132,8 @@ export class EquipmentPanel {
   private tooltipSlot: EquipSlot | null = null;
   /** slotViews：槽位Views。 */
   private slotViews = new Map<EquipSlot, EquipmentSlotView>();
+  /** slotSignatures：槽位显示签名，避免相同装备重复写 DOM。 */
+  private slotSignatures = new Map<EquipSlot, string>();
   /** sectionEl：section元素。 */
   private sectionEl: HTMLDivElement | null = null;  
   /** emptyStateEl：装备总空态提示。 */
@@ -154,6 +156,7 @@ export class EquipmentPanel {
     this.tooltipSlot = null;
     this.tooltip.hide(true);
     this.slotViews.clear();
+    this.slotSignatures.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
     patchElementHtml(this.pane, '');
@@ -199,6 +202,13 @@ export class EquipmentPanel {
       const item = equipment[slot];
       const hasItem = !!item;
       hasAnyEquipment ||= hasItem;
+      const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
+      const metaText = item ? formatItemBonuses(item) : '尚未装备';
+      const signature = this.buildSlotSignature(slot, hasItem, itemName, metaText);
+      if (this.slotSignatures.get(slot) === signature) {
+        continue;
+      }
+      this.slotSignatures.set(slot, signature);
       slotView.root.toggleAttribute('data-equip-tooltip-slot', hasItem);
       if (hasItem) {
         slotView.root.dataset.equipTooltipSlot = slot;
@@ -206,11 +216,11 @@ export class EquipmentPanel {
         delete slotView.root.dataset.equipTooltipSlot;
       }
       slotView.name.textContent = getEquipSlotLabel(slot);
-      slotView.item.textContent = item ? getItemDisplayMeta(item).displayItem.name : '';
+      slotView.item.textContent = itemName;
       slotView.item.hidden = !hasItem;
       slotView.empty.textContent = '未着';
       slotView.empty.hidden = hasItem;
-      slotView.meta.textContent = hasItem ? formatItemBonuses(item) : '尚未装备';
+      slotView.meta.textContent = metaText;
       slotView.action.hidden = !hasItem;
       slotView.action.disabled = !hasItem;
       slotView.action.dataset.unequip = slot;
@@ -231,6 +241,7 @@ export class EquipmentPanel {
     preserveSelection(this.pane, () => {
       patchElementHtml(this.pane, '');
       this.slotViews.clear();
+      this.slotSignatures.clear();
 
       const sectionEl = document.createElement('div');
       sectionEl.className = 'panel-section';
@@ -294,6 +305,11 @@ export class EquipmentPanel {
     root.append(copy, action);
 
     return { root, name, item, empty, meta, action };
+  }
+
+  /** buildSlotSignature：生成槽位当前展示所需的稳定签名。 */
+  private buildSlotSignature(slot: EquipSlot, hasItem: boolean, itemName: string, metaText: string): string {
+    return [slot, hasItem ? 'equipped' : 'empty', itemName, metaText].join('|');
   }
 
   /** bindActionEvents：绑定动作事件。 */

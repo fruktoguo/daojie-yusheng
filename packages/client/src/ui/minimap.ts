@@ -1061,6 +1061,7 @@ export class Minimap {
     if (this.modalList) {
       patchElementHtml(this.modalList, '');
     }
+    this.catalogEntryNodes.clear();
     this.modalDisplayMode = 'unlock';
   }
 
@@ -1335,6 +1336,18 @@ export class Minimap {
   /** updateCatalogItemNode：更新目录物品节点。 */
   private updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const signature = [
+      entry.mapId,
+      entry.mapMeta?.name ?? '无名地域',
+      entry.hasMemory ? 'memory' : '',
+      entry.hasUnlock ? 'unlock' : '',
+      entry.mapId === this.selectedMapId ? 'active' : '',
+    ].join('|');
+    if (node.dataset.catalogSignature === signature) {
+      return;
+    }
+    node.dataset.catalogSignature = signature;
 
     const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
     if (nameNode) {

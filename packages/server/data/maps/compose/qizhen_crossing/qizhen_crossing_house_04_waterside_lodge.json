@@ -22,7 +22,7 @@
     ",#......#......#......#,",
     ",##W##+##......##+##W##,",
     ",,,,......壁壁壁壁......,,,,",
-    ",,,,......廊廊+廊廊.....,,,,",
+    ",,,,......廊廊S廊廊.....,,,,",
     ",,,,,角檐檐檐檐檐檐檐檐檐檐檐檐角,,,,,",
     ",,,,,#............#,,,,,",
     ",,,,,##W###++###W##,,,,,",
@@ -35,7 +35,23 @@
     ",,,,,,,,,,,,,,,,,,,,,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,"
   ],
-  "portals": [],
+  "portals": [
+    {
+      "x": 12,
+      "y": 12,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 46,
+      "targetY": 48,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "qizhen_crossing_house_04_waterside_lodge:12,12",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:46,48"
+    }
+  ],
   "spawnPoint": {
     "x": 10,
     "y": 12

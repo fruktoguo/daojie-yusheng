@@ -14,6 +14,7 @@ exports.PlayerAttributesService = void 0;
 const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared");
+const pvp_1 = require("../../constants/gameplay/pvp");
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
 let PlayerAttributesService = class PlayerAttributesService {
@@ -121,21 +122,31 @@ let PlayerAttributesService = class PlayerAttributesService {
         if (bodyTrainingLevel > 0) {
             accumulateAttributePercentBonus(attrPercentBonuses.realm, (0, shared_1.calcBodyTrainingAttrPercentBonus)(bodyTrainingLevel));
         }
-        for (const buff of player.buffs.buffs) {
-            if (buff.attrMode === 'percent') {
-                const target = isPillAttributeBuff(buff) ? attrPercentBonuses.pill : attrPercentBonuses.buff;
-                accumulateAttributePercentBonus(target, buff.attrs, Math.max(1, Math.trunc(Number(buff.stacks ?? 1) || 1)));
+        const flatBuffAttrs = createEmptyAttributes();
+        for (const buff of getActiveBuffs(player.buffs.buffs)) {
+            const effectFactor = getBuffEffectFactor(buff, realmLv);
+            if (effectFactor === 0 || !buff.attrs) {
+                continue;
+            }
+            if (resolveBuffModifierMode(buff.attrMode) === 'flat') {
+                addAttributes(flatBuffAttrs, scaleAttributes(buff.attrs, effectFactor));
             }
             else {
-                addAttributes(finalAttrs, scaleAttributes(buff.attrs, Math.max(1, Math.trunc(Number(buff.stacks ?? 1) || 1))));
+                const target = isPillAttributeBuff(buff) ? attrPercentBonuses.pill : attrPercentBonuses.buff;
+                accumulateAttributePercentBonus(target, buff.attrs, effectFactor);
             }
         }
         clampAttributes(finalAttrs);
-        applyAttributePercentBonuses(finalAttrs, attrPercentBonuses);
+        applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.realm);
+        addAttributes(finalAttrs, flatBuffAttrs);
+        applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.buff);
+        applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.pill);
+        clampAttributes(finalAttrs);
 
         const numericStats = (0, shared_1.cloneNumericStats)(template.stats);
 
         const percentBonuses = createPercentBonusAccumulator();
+        const buffStatPercentBonuses = createNumericStatPercentBonusAccumulator();
         for (const key of shared_1.ATTR_KEYS) {
             const value = finalAttrs[key];
             if (value === 0) {
@@ -153,8 +164,25 @@ let PlayerAttributesService = class PlayerAttributesService {
             const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
             (0, shared_1.addPartialNumericStats)(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
         }
-        for (const buff of player.buffs.buffs) {
-            (0, shared_1.addPartialNumericStats)(numericStats, buff.stats);
+        for (const buff of getActiveBuffs(player.buffs.buffs)) {
+            if (!buff.stats) {
+                continue;
+            }
+            const effectFactor = getBuffEffectFactor(buff, realmLv);
+            if (effectFactor === 0) {
+                continue;
+            }
+            const scaledStats = scaleBuffNumericStats(buff, effectFactor);
+            if (!scaledStats) {
+                continue;
+            }
+            if (resolveBuffModifierMode(buff.statMode) === 'percent') {
+                const target = isPillAttributeBuff(buff) ? buffStatPercentBonuses.pill : buffStatPercentBonuses.buff;
+                (0, shared_1.addPartialNumericStats)(target, scaledStats);
+            }
+            else {
+                (0, shared_1.addPartialNumericStats)(numericStats, scaledStats);
+            }
         }
         for (const bonus of projectedRuntimeBonuses) {
             (0, shared_1.addPartialNumericStats)(numericStats, bonus.stats);
@@ -166,6 +194,9 @@ let PlayerAttributesService = class PlayerAttributesService {
         if (vitalBaselineBonus?.stats) {
             (0, shared_1.addPartialNumericStats)(numericStats, vitalBaselineBonus.stats);
         }
+        applyPercentBonuses(numericStats, buffStatPercentBonuses.buff);
+        applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
+        roundNumericStats(numericStats);
         return {
             stage,
             rawBaseAttrs,
@@ -259,6 +290,13 @@ function createPercentBonusAccumulator() {
     return (0, shared_1.createNumericStats)();
 }
 
+function createNumericStatPercentBonusAccumulator() {
+    return {
+        buff: (0, shared_1.createNumericStats)(),
+        pill: (0, shared_1.createNumericStats)(),
+    };
+}
+
 function createAttributePercentBonusAccumulator() {
     return {
         realm: createEmptyAttributes(),
@@ -303,6 +341,17 @@ const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
 };
 
 const REALM_LINEAR_NUMERIC_KEYS = Object.keys(REALM_LINEAR_NUMERIC_GROWTH_RATES);
+const SIGNED_NUMERIC_STAT_KEYS = new Set([
+    'moveSpeed',
+    'cooldownSpeed',
+    'auraCostReduce',
+    'auraPowerRate',
+    'playerExpRate',
+    'techniqueExpRate',
+    'lootRate',
+    'rareLootRate',
+    'extraAggroRate',
+]);
 /**
  * cloneAttributes：构建Attribute。
  * @param source 来源对象。
@@ -365,40 +414,33 @@ function accumulateUniformAttributePercentBonus(target, amount) {
     }
 }
 
-function accumulateAttributePercentBonus(target, attrs, stacks = 1) {
+function accumulateAttributePercentBonus(target, attrs, factor = 1) {
     if (!attrs) {
         return;
     }
-    const normalizedStacks = Math.max(1, Math.trunc(Number(stacks) || 1));
+    const normalizedFactor = Number.isFinite(Number(factor)) ? Number(factor) : 1;
     for (const key of shared_1.ATTR_KEYS) {
         const value = Number(attrs[key]);
         if (Number.isFinite(value) && value !== 0) {
-            target[key] += value * normalizedStacks;
+            target[key] += value * normalizedFactor;
         }
     }
 }
 
-function applyAttributePercentBonuses(target, bonuses) {
+function applySingleAttributePercentBonuses(target, bonuses) {
     for (const key of shared_1.ATTR_KEYS) {
-        const realmMultiplier = attributePercentToMultiplier(bonuses.realm[key]);
-        const pillMultiplier = attributePercentToMultiplier(bonuses.pill[key]);
-        const buffMultiplier = attributePercentToMultiplier(bonuses.buff[key]);
-        target[key] = Math.max(0, target[key] * realmMultiplier * pillMultiplier * buffMultiplier);
+        target[key] = Math.max(0, target[key] * attributePercentToMultiplier(bonuses[key]));
     }
 }
 
 function attributePercentToMultiplier(percent) {
-    const normalized = Number(percent);
-    if (!Number.isFinite(normalized) || normalized === 0) {
-        return 1;
-    }
-    return Math.max(0, 1 + normalized / 100);
+    return (0, shared_1.percentModifierToMultiplier)(Number(percent));
 }
 
 function isPillAttributeBuff(buff) {
     const sourceSkillId = typeof buff?.sourceSkillId === 'string' ? buff.sourceSkillId : '';
     const buffId = typeof buff?.buffId === 'string' ? buff.buffId : '';
-    return sourceSkillId.startsWith('pill.') || buffId.startsWith('item_buff.');
+    return sourceSkillId.startsWith('item:') || sourceSkillId.startsWith('pill.') || buffId.startsWith('item_buff.');
 }
 /**
  * clampAttributes：执行clampAttribute相关逻辑。
@@ -477,21 +519,80 @@ function applyPercentBonuses(target, bonuses) {
         if (!Number.isFinite(bonus) || bonus === 0) {
             continue;
         }
-        const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS[key] ?? 0;
-        const base = Math.max(target[key], floor);
-        target[key] = Math.round(base * (1 + bonus / 100));
+        const floor = getNumericStatMultiplierFloor(key);
+        const current = key === 'moveSpeed' ? target[key] + floor : target[key];
+        const multiplier = (0, shared_1.percentModifierToMultiplier)(bonus);
+        const nextValue = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
+        target[key] = key === 'moveSpeed' ? nextValue - floor : nextValue;
     }
     for (const element of shared_1.ELEMENT_KEYS) {
         const damageBonus = bonuses.elementDamageBonus?.[element] ?? 0;
         if (damageBonus !== 0) {
             const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageBonus[element] ?? 0;
-            target.elementDamageBonus[element] = Math.round(Math.max(target.elementDamageBonus[element], floor) * (1 + damageBonus / 100));
+            const current = target.elementDamageBonus[element];
+            const multiplier = (0, shared_1.percentModifierToMultiplier)(damageBonus);
+            target.elementDamageBonus[element] = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
         }
         const damageReduce = bonuses.elementDamageReduce?.[element] ?? 0;
         if (damageReduce !== 0) {
             const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageReduce[element] ?? 0;
-            target.elementDamageReduce[element] = Math.round(Math.max(target.elementDamageReduce[element], floor) * (1 + damageReduce / 100));
+            const current = target.elementDamageReduce[element];
+            const multiplier = (0, shared_1.percentModifierToMultiplier)(damageReduce);
+            target.elementDamageReduce[element] = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
         }
+    }
+}
+
+function getNumericStatMultiplierFloor(key) {
+    return shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS[key] ?? 0;
+}
+
+function resolveBuffModifierMode(mode) {
+    return mode === 'flat' ? 'flat' : 'percent';
+}
+
+function getActiveBuffs(buffs) {
+    return Array.isArray(buffs)
+        ? buffs.filter((buff) => buff && buff.remainingTicks > 0 && buff.stacks > 0)
+        : [];
+}
+
+function getBuffEffectFactor(buff, targetRealmLv) {
+    const stackFactor = Math.max(1, Number(buff.stacks ?? 1) || 1);
+    return stackFactor * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+}
+
+function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
+    const normalizedBuffRealmLv = Math.max(1, Math.floor(Number(buffRealmLv ?? targetRealmLv) || 1));
+    const normalizedTargetRealmLv = Math.max(1, Math.floor(Number(targetRealmLv ?? 1) || 1));
+    if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
+        return 1;
+    }
+    return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
+}
+
+function scaleBuffNumericStats(buff, factor) {
+    const scaled = scalePartialNumericStats(buff.stats, factor);
+    if (!scaled || buff.buffId !== pvp_1.PVP_SHA_INFUSION_BUFF_ID) {
+        return scaled;
+    }
+    if (scaled.physAtk !== undefined) {
+        scaled.physAtk = Math.min(scaled.physAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+    }
+    if (scaled.spellAtk !== undefined) {
+        scaled.spellAtk = Math.min(scaled.spellAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+    }
+    return scaled;
+}
+
+function roundNumericStats(target) {
+    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+        const rounded = Math.round(target[key]);
+        target[key] = SIGNED_NUMERIC_STAT_KEYS.has(key) ? rounded : Math.max(0, rounded);
+    }
+    for (const key of shared_1.ELEMENT_KEYS) {
+        target.elementDamageBonus[key] = Math.round(target.elementDamageBonus[key]);
+        target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key]));
     }
 }
 

@@ -145,16 +145,12 @@ export class CanvasTextRendererAdapter {
     if (!this.canvas) {
       return;
     }
+    void projection;
 
     this.cameraBridge.x = camera.x;
     this.cameraBridge.y = camera.y;
-    this.cameraBridge.worldToScreen = (wx, wy, screenW, screenH) => {
-        const point = projection.worldToScreen(wx, wy, camera, screenW, screenH);
-        return {
-          sx: point.x,
-          sy: point.y,
-        };
-      };
+    this.cameraBridge.offsetX = camera.offsetX;
+    this.cameraBridge.offsetY = camera.offsetY;
 
     this.renderer.clear();
     if (!scene.player) {

@@ -940,17 +940,28 @@ export class MapStore {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const removedIdSet = new Set(removedEntityIds);
-    const merged = this.entities
-      .filter((entity) => !removedIdSet.has(entity.id))
-      .map((entity) => cloneJson(entity));
-    const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
-    if (this.player && !removedIdSet.has(this.player.id) && !nextMap.has(this.player.id)) {
+    const merged: ObservedMapEntity[] = [];
+    const nextMap = new Map<string, ObservedMapEntity>();
+    const indexById = new Map<string, number>();
+
+    if (this.player && !removedIdSet.has(this.player.id) && !this.entityMap.has(this.player.id)) {
       const localPlayerEntity = buildLocalPlayerEntity(this.player, this.entityMap.get(this.player.id));
-      merged.unshift(localPlayerEntity);
+      indexById.set(localPlayerEntity.id, merged.length);
+      merged.push(localPlayerEntity);
       nextMap.set(localPlayerEntity.id, localPlayerEntity);
     }
 
-    for (const patch of [...playerPatches, ...entityPatches]) {
+    for (const entity of this.entities) {
+      if (removedIdSet.has(entity.id)) {
+        continue;
+      }
+      const cloned = cloneJson(entity);
+      indexById.set(cloned.id, merged.length);
+      merged.push(cloned);
+      nextMap.set(cloned.id, cloned);
+    }
+
+    const applyPatch = (patch: TickRenderEntity): void => {
       const previous = nextMap.get(patch.id);
       const next = mergeObservedEntityPatch(patch, previous);
       if (this.player && patch.id === this.player.id) {
@@ -958,18 +969,31 @@ export class MapStore {
         next.name = this.player.name ?? next.name;
       }
       if (previous) {
-        const index = merged.findIndex((entity) => entity.id === patch.id);
-        if (index >= 0) {
+        const index = indexById.get(patch.id);
+        if (index !== undefined) {
           merged[index] = next;
         }
       } else {
+        indexById.set(next.id, merged.length);
         merged.push(next);
       }
       nextMap.set(next.id, next);
+    };
+
+    for (const patch of playerPatches) {
+      applyPatch(patch);
+    }
+    for (const patch of entityPatches) {
+      applyPatch(patch);
     }
 
-    const decorated = merged.map((entity) => decorateObservedEntity(entity, this.player));
-    this.entityMap = new Map(decorated.map((entity) => [entity.id, entity]));
+    const decorated: ObservedMapEntity[] = [];
+    this.entityMap = new Map<string, ObservedMapEntity>();
+    for (const entity of merged) {
+      const next = decorateObservedEntity(entity, this.player);
+      decorated.push(next);
+      this.entityMap.set(next.id, next);
+    }
     return decorated;
   }
 

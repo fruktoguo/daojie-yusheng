@@ -7,6 +7,7 @@ import {
   S2C_LeaderboardPlayerLocations,
   VisibleBuffState,
   MONSTER_TIER_LABELS,
+  type PartialNumericStats,
   type NpcQuestMarker,
 } from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
@@ -615,6 +616,49 @@ export class EntityDetailModal {
     return `${Math.max(0, Math.round(buff.remainingTicks))} / ${Math.max(1, Math.round(buff.duration))} 息`;
   }
 
+  /** scaleBuffAttrs：按层数缩放 Buff 六维。 */
+  private scaleBuffAttrs(attrs: VisibleBuffState['attrs'], stacks: number): VisibleBuffState['attrs'] | undefined {
+    if (!attrs || stacks === 1) {
+      return attrs;
+    }
+    const scaled: NonNullable<VisibleBuffState['attrs']> = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      if (typeof value !== 'number') {
+        continue;
+      }
+      scaled[key as keyof NonNullable<VisibleBuffState['attrs']>] = value * stacks;
+    }
+    return Object.keys(scaled).length > 0 ? scaled : undefined;
+  }
+
+  /** scaleBuffStats：按层数缩放 Buff 数值。 */
+  private scaleBuffStats(stats: VisibleBuffState['stats'], stacks: number): VisibleBuffState['stats'] | undefined {
+    if (!stats || stacks === 1) {
+      return stats;
+    }
+    const scaled: PartialNumericStats = {};
+    for (const [key, value] of Object.entries(stats)) {
+      if (typeof value === 'number') {
+        (scaled as Record<string, unknown>)[key] = value * stacks;
+        continue;
+      }
+      if (!value || typeof value !== 'object') {
+        continue;
+      }
+      const nested: Record<string, number> = {};
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        if (typeof nestedValue !== 'number') {
+          continue;
+        }
+        nested[nestedKey] = nestedValue * stacks;
+      }
+      if (Object.keys(nested).length > 0) {
+        (scaled as Record<string, unknown>)[key] = nested;
+      }
+    }
+    return Object.keys(scaled).length > 0 ? scaled : undefined;
+  }
+
   /** buildBuffTooltipLines：组装 Buff tooltip 文案。 */
   private buildBuffTooltipLines(buff: VisibleBuffState): string[] {
     const lines = [
@@ -627,7 +671,14 @@ export class EntityDetailModal {
     if (buff.sourceSkillName || buff.sourceSkillId) {
       lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
     }
-    const effectLines = describePreviewBonuses(buff.attrs, buff.stats);
+    const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
+    const effectLines = describePreviewBonuses(
+      this.scaleBuffAttrs(buff.attrs, stackFactor),
+      this.scaleBuffStats(buff.stats, stackFactor),
+      undefined,
+      buff.attrMode ?? 'percent',
+      buff.statMode ?? 'percent',
+    );
     if (effectLines.length > 0) {
       lines.push(`效果：${effectLines.join('，')}`);
     }

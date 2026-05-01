@@ -165,7 +165,9 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         const updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, damage);
         this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
         this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, damage, effectColor);
-        this.playerRuntimeService.recordActivity(action.targetPlayerId, deps.resolveCurrentTickForPlayerId(action.targetPlayerId), {
+        const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
+        this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
+        this.playerRuntimeService.recordActivity(action.targetPlayerId, currentTick, {
             interruptCultivation: true,
         });
         if (updated.hp <= 0) {
@@ -237,6 +239,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
             if (result.totalDamage > 0) {
                 this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, result.totalDamage, effectColor);
+                this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
             }
             this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
                 interruptCultivation: true,

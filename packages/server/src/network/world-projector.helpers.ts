@@ -2965,12 +2965,13 @@ function resolvePortalDisplayName(
     if (typeof explicitName === 'string' && explicitName.trim()) {
         return explicitName.trim();
     }
+    const kindLabel = portal.kind === 'stairs' ? '楼梯' : '传送阵';
     const targetMapName = resolveMapName?.(portal.targetMapId) ?? null;
     if (typeof targetMapName === 'string' && targetMapName.trim()) {
-        return targetMapName.trim();
+        return `${kindLabel} · ${targetMapName.trim()}`;
     }
     if (typeof portal.targetMapId === 'string' && portal.targetMapId.trim()) {
-        return portal.targetMapId.trim();
+        return `${kindLabel} · ${portal.targetMapId.trim()}`;
     }
-    return portal.kind === 'stairs' ? '楼梯' : '传送阵';
+    return kindLabel;
 }

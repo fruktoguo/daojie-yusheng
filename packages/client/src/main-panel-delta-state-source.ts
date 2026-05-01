@@ -736,20 +736,29 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const removedIdSet = new Set(removeTechniqueIds);
-    const merged = [...latestTechniqueMap.values()]
-      .filter((technique) => !removedIdSet.has(technique.techId))
-      .map((technique) => cloneJson(technique));
-    const nextMap = new Map(merged.map((technique) => [technique.techId, technique] as const));
+    const merged: TechniqueState[] = [];
+    const nextMap = new Map<string, TechniqueState>();
+    const indexById = new Map<string, number>();
+    for (const technique of latestTechniqueMap.values()) {
+      if (removedIdSet.has(technique.techId)) {
+        continue;
+      }
+      const cloned = cloneJson(technique);
+      indexById.set(cloned.techId, merged.length);
+      merged.push(cloned);
+      nextMap.set(cloned.techId, cloned);
+    }
 
     for (const patch of patches) {
       const previous = nextMap.get(patch.techId);
       const next = mergeTechniquePatch(patch, previous);
       if (previous) {
-        const index = merged.findIndex((technique) => technique.techId === patch.techId);
-        if (index >= 0) {
+        const index = indexById.get(patch.techId);
+        if (index !== undefined) {
           merged[index] = next;
         }
       } else {
+        indexById.set(next.techId, merged.length);
         merged.push(next);
       }
       nextMap.set(next.techId, next);
@@ -807,20 +816,29 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const removedIdSet = new Set(removeActionIds);
-    const merged = [...latestActionMap.values()]
-      .filter((action) => !removedIdSet.has(action.id))
-      .map((action) => cloneJson(action));
-    const nextMap = new Map(merged.map((action) => [action.id, action] as const));
+    const merged: ActionDef[] = [];
+    const nextMap = new Map<string, ActionDef>();
+    const indexById = new Map<string, number>();
+    for (const action of latestActionMap.values()) {
+      if (removedIdSet.has(action.id)) {
+        continue;
+      }
+      const cloned = cloneJson(action);
+      indexById.set(cloned.id, merged.length);
+      merged.push(cloned);
+      nextMap.set(cloned.id, cloned);
+    }
 
     for (const patch of patches) {
       const previous = nextMap.get(patch.id);
       const next = mergeActionPatch(patch, previous);
       if (previous) {
-        const index = merged.findIndex((action) => action.id === patch.id);
-        if (index >= 0) {
+        const index = indexById.get(patch.id);
+        if (index !== undefined) {
           merged[index] = next;
         }
       } else {
+        indexById.set(next.id, merged.length);
         merged.push(next);
       }
       nextMap.set(next.id, next);

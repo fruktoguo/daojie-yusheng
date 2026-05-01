@@ -33,8 +33,10 @@ const market_runtime_service_1 = require("../market/market-runtime.service");
 const map_template_repository_1 = require("../map/map-template.repository");
 
 const player_runtime_service_1 = require("./player-runtime.service");
+const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
+const player_identity_persistence_service_1 = require("../../persistence/player-identity-persistence.service");
 
-/** 排行榜运行时：按在线玩家快照聚合榜单与世界摘要，结果做短缓存。 */
+/** 排行榜运行时：按运行态与持久化玩家快照聚合榜单与世界摘要，结果做短缓存。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
 
 /** 排行榜最大返回条数。 */
@@ -69,18 +71,32 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
  */
 
     mapTemplateRepository;
+    /**
+ * playerDomainPersistenceService：玩家分域持久化服务，用于低频榜单补读离线玩家。
+ */
+
+    playerDomainPersistenceService;
+    /**
+ * playerIdentityPersistenceService：玩家身份持久化服务，用于榜单展示角色名。
+ */
+
+    playerIdentityPersistenceService;
     /** 缓存后的排行榜结果。 */
     cachedLeaderboard = null;
+    /** 排行榜缓存生成时的玩家位置索引，供击杀榜坐标追索复用。 */
+    cachedLeaderboardSnapshotsByPlayerId = new Map();
     /** 缓存后的世界摘要。 */
     cachedWorldSummary = null;
     /** 注入玩家运行时和坊市运行时。 */
-    constructor(playerRuntimeService, marketRuntimeService, mapTemplateRepository) {
+    constructor(playerRuntimeService, marketRuntimeService, mapTemplateRepository, playerDomainPersistenceService, playerIdentityPersistenceService) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.mapTemplateRepository = mapTemplateRepository;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
+        this.playerIdentityPersistenceService = playerIdentityPersistenceService;
     }
     /** 构造各榜单快照，按需截断返回。 */
-    buildLeaderboard(limit, sectService = null) {
+    async buildLeaderboard(limit, sectService = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -91,7 +107,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             return this.sliceLeaderboard(cached, effectiveLimit);
         }
 
-        const snapshots = this.collectOnlineSnapshots();
+        const snapshots = await this.collectLeaderboardSnapshots();
 
         const payload = {
             generatedAt: Date.now(),
@@ -108,6 +124,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             },
         };
         this.cachedLeaderboard = payload;
+        this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
         return this.sliceLeaderboard(payload, effectiveLimit);
     }
     /** 构造世界摘要快照。 */
@@ -120,7 +137,9 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             return cached;
         }
 
-        const snapshots = this.collectOnlineSnapshots();
+        const snapshots = this.collectRuntimeSnapshots()
+            .filter((player) => typeof player.sessionId === 'string' && player.sessionId.length > 0)
+            .map((player) => this.createSnapshot(player));
 
         const payload = {
             generatedAt: Date.now(),
@@ -130,7 +149,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         return payload;
     }
     /** 构造玩家击杀榜坐标追索快照。 */
-    buildLeaderboardPlayerLocations(playerIds) {
+    async buildLeaderboardPlayerLocations(playerIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -143,7 +162,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         if (normalizedIds.length === 0) {
             return { entries: [] };
         }
-        const snapshotsByPlayerId = new Map(this.collectOnlineSnapshots().map((snapshot) => [snapshot.playerId, snapshot]));
+        const snapshotsByPlayerId = await this.getLeaderboardSnapshotIndex();
         return {
             entries: normalizedIds.map((playerId) => {
                 const snapshot = snapshotsByPlayerId.get(playerId);
@@ -168,6 +187,16 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             }),
         };
     }
+    /** 读取最新排行榜位置索引；缓存有效时避免坐标追索重复扫描持久化。 */
+    async getLeaderboardSnapshotIndex() {
+        const cached = this.cachedLeaderboard;
+        if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS && this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
+            return this.cachedLeaderboardSnapshotsByPlayerId;
+        }
+        const snapshots = await this.collectLeaderboardSnapshots();
+        this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
+        return this.cachedLeaderboardSnapshotsByPlayerId;
+    }
     /** 把缓存中的榜单裁剪到指定长度。 */
     sliceLeaderboard(source, limit) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -190,21 +219,82 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             },
         };
     }
-    /** 采集当前在线玩家快照，排除 bot 和离线角色。 */
-    collectOnlineSnapshots() {
+    /** 采集排行榜快照：运行态优先，离线玩家从分域持久化补齐。 */
+    async collectLeaderboardSnapshots() {
+        const playersByPlayerId = new Map();
+        for (const player of this.collectRuntimeSnapshots()) {
+            playersByPlayerId.set(player.playerId, player);
+        }
+        for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
+            playersByPlayerId.set(player.playerId, player);
+        }
+        const identitiesByPlayerId = await this.loadLeaderboardIdentities(playersByPlayerId.keys());
+        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(player, identitiesByPlayerId.get(player.playerId) ?? null));
+    }
+    /** 采集当前运行态玩家快照，排除 bot；无 session 的离线挂机也保留给排行榜。 */
+    collectRuntimeSnapshots() {
 
         const players = this.playerRuntimeService.listPlayerSnapshots()
-            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
-            .filter((player) => typeof player.sessionId === 'string' && player.sessionId.length > 0);
-        return players.map((player) => this.createSnapshot(player));
+            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId));
+        return players;
+    }
+    /** 从分域持久化读取不在运行态中的离线玩家，供低频排行榜使用。 */
+    async collectPersistedOfflineSnapshots(existingSnapshotsByPlayerId) {
+        const persistence = this.playerDomainPersistenceService;
+        if (typeof persistence?.isEnabled !== 'function'
+            || !persistence.isEnabled()
+            || typeof persistence.listProjectedSnapshots !== 'function'
+            || typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function'
+            || typeof this.playerRuntimeService.hydrateFromSnapshot !== 'function') {
+            return [];
+        }
+        const entries = await persistence.listProjectedSnapshots((playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId));
+        const players = [];
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const playerId = typeof entry?.playerId === 'string' ? entry.playerId.trim() : '';
+            if (!playerId || (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId) || existingSnapshotsByPlayerId.has(playerId)) {
+                continue;
+            }
+            const player = this.createOfflineRuntimePlayerFromSnapshot(playerId, entry.snapshot);
+            if (player) {
+                players.push(player);
+            }
+        }
+        return players;
+    }
+    /** 把持久化玩家快照临时水合成运行态形状，只用于读榜，不注册进在线运行态。 */
+    createOfflineRuntimePlayerFromSnapshot(playerId, snapshot) {
+        try {
+            const player = this.playerRuntimeService.hydrateFromSnapshot(playerId, null, snapshot);
+            if (!player) {
+                return null;
+            }
+            player.sessionId = null;
+            player.runtimeOwnerId = null;
+            player.lastHeartbeatAt = null;
+            return player;
+        }
+        catch (_error) {
+            return null;
+        }
+    }
+    /** 批量读取榜单显示名；持久化不可用时直接回退运行态名称。 */
+    async loadLeaderboardIdentities(playerIds) {
+        const identityService = this.playerIdentityPersistenceService;
+        if (typeof identityService?.isEnabled !== 'function'
+            || !identityService.isEnabled()
+            || typeof identityService.listPlayerIdentitiesByPlayerIds !== 'function') {
+            return new Map();
+        }
+        return identityService.listPlayerIdentitiesByPlayerIds(playerIds);
     }
     /** 把单个玩家快照整理成排行榜所需的扁平结构。 */
-    createSnapshot(player) {
+    createSnapshot(player, identity = null) {
 
         const finalAttrs = player.attrs?.finalAttrs ?? {};
         return {
             playerId: player.playerId,
-            playerName: normalizePlayerName(player),
+            playerName: normalizePlayerName(player, identity),
             mapId: typeof player.templateId === 'string' ? player.templateId : '',
             mapName: this.resolveMapName(player.templateId),
             x: Math.trunc(Number.isFinite(player.x) ? player.x : 0),
@@ -222,8 +312,8 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             monsterKillCount: toNonNegativeInteger(player.monsterKillCount, 0),
             eliteMonsterKillCount: toNonNegativeInteger(player.eliteMonsterKillCount, 0),
             bossMonsterKillCount: toNonNegativeInteger(player.bossMonsterKillCount, 0),
-            spiritStoneCount: this.getWalletBalance(player.playerId, market_1.MARKET_CURRENCY_ITEM_ID),
-            marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player.playerId, market_1.MARKET_CURRENCY_ITEM_ID),
+            spiritStoneCount: this.getWalletBalance(player, market_1.MARKET_CURRENCY_ITEM_ID),
+            marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, market_1.MARKET_CURRENCY_ITEM_ID),
             playerKillCount: toNonNegativeInteger(player.playerKillCount, 0),
             deathCount: toNonNegativeInteger(player.deathCount, 0),
             bodyTrainingLevel: toNonNegativeInteger(player.bodyTraining?.level, 0),
@@ -410,13 +500,18 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         return total;
     }
     /** 读取玩家钱包里某个货币类型的持有数量。 */
-    getWalletBalance(playerId, walletType) {
-        return this.playerRuntimeService.getWalletBalanceByType(playerId, walletType);
+    getWalletBalance(player, walletType) {
+        const inventoryCount = readInventoryItemCount(player?.inventory?.items, walletType);
+        return inventoryCount > 0 ? inventoryCount : readWalletBalance(player?.wallet?.balances, walletType);
     }
     /** 读取玩家坊市仓库里某个物品的持有数量。 */
-    getMarketStorageItemCount(playerId, itemId) {
+    getMarketStorageItemCount(player, itemId) {
 
-        const storage = this.marketRuntimeService.buildMarketStorage(playerId);
+        const playerStorageCount = readMarketStorageItemCount(player?.marketStorage?.items, itemId);
+        if (playerStorageCount > 0 || typeof player?.sessionId !== 'string' || player.sessionId.length === 0) {
+            return playerStorageCount;
+        }
+        const storage = this.marketRuntimeService.buildMarketStorage(player.playerId);
         return (storage?.items ?? []).reduce((total, entry) => entry?.item?.itemId === itemId ? total + toNonNegativeInteger(entry.count, 0) : total, 0);
     }
     /** 把运行时地图 ID 转成中文地图名。 */
@@ -434,7 +529,9 @@ exports.LeaderboardRuntimeService = LeaderboardRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         market_runtime_service_1.MarketRuntimeService,
-        map_template_repository_1.MapTemplateRepository])
+        map_template_repository_1.MapTemplateRepository,
+        player_domain_persistence_service_1.PlayerDomainPersistenceService,
+        player_identity_persistence_service_1.PlayerIdentityPersistenceService])
 ], LeaderboardRuntimeService);
 export { LeaderboardRuntimeService };
 /**
@@ -479,9 +576,15 @@ function toNonNegativeInteger(input, fallback) {
  * @returns 无返回值，直接更新玩家名称相关状态。
  */
 
-function normalizePlayerName(player) {
+function normalizePlayerName(player, identity = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (typeof identity?.playerName === 'string' && identity.playerName.trim()) {
+        return identity.playerName.trim();
+    }
+    if (typeof identity?.displayName === 'string' && identity.displayName.trim()) {
+        return identity.displayName.trim();
+    }
     if (typeof player.displayName === 'string' && player.displayName.trim()) {
         return player.displayName.trim();
     }
@@ -489,4 +592,27 @@ function normalizePlayerName(player) {
         return player.name.trim();
     }
     return player.playerId;
+}
+function readInventoryItemCount(items, itemId) {
+    if (!Array.isArray(items) || typeof itemId !== 'string' || !itemId) {
+        return 0;
+    }
+    return items.reduce((total, entry) => entry?.itemId === itemId ? total + toNonNegativeInteger(entry.count, 0) : total, 0);
+}
+function readWalletBalance(balances, walletType) {
+    if (!Array.isArray(balances) || typeof walletType !== 'string' || !walletType) {
+        return 0;
+    }
+    return balances.reduce((total, entry) => entry?.walletType === walletType || entry?.type === walletType
+        ? total + toNonNegativeInteger(entry.balance ?? entry.count, 0)
+        : total, 0);
+}
+function readMarketStorageItemCount(items, itemId) {
+    if (!Array.isArray(items) || typeof itemId !== 'string' || !itemId) {
+        return 0;
+    }
+    return items.reduce((total, entry) => {
+        const storageItemId = entry?.item?.itemId ?? entry?.itemId;
+        return storageItemId === itemId ? total + toNonNegativeInteger(entry.count, 0) : total;
+    }, 0);
 }

@@ -9,6 +9,10 @@ export class Camera {
   x = 0;
   /** 摄像机世界坐标 Y。 */
   y = 0;
+  /** 屏幕投影 X 偏移，用于适配新地图相机状态。 */
+  offsetX = 0;
+  /** 屏幕投影 Y 偏移，用于适配新地图相机状态。 */
+  offsetY = 0;
   /** 目标坐标 X，用于插值过渡。 */
   private targetX = 0;
   /** 目标坐标 Y，用于插值过渡。 */
@@ -73,11 +77,10 @@ export class Camera {
  */
  sy: number } {
     return {
-      sx: wx - this.x + screenW / 2,
-      sy: wy - this.y + screenH / 2,
+      sx: wx - this.x + screenW / 2 + this.offsetX,
+      sy: wy - this.y + screenH / 2 + this.offsetY,
     };
   }
 }
-
 
 

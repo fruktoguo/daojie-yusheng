@@ -72,7 +72,8 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "wildlands:24,43",
-      "direction": "one_way"
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:31,54"
     },
     {
       "x": 42,

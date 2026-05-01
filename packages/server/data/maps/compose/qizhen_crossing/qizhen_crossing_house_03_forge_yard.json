@@ -21,13 +21,29 @@
     ",,,,#..壁壁......壁壁..#,,,,",
     ",,,,#..oo......oo..#,,,,",
     ",,,,角檐檐檐檐檐檐檐檐檐檐檐檐檐檐角,,,,",
-    ",,,,#W##W##+##W##W##,,,,",
+    ",,,,#W##W##S##W##W##,,,,",
     ",,,,#....廊廊廊廊廊廊....#,,,,",
     ",,,,::::::::::::::::,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,"
   ],
-  "portals": [],
+  "portals": [
+    {
+      "x": 11,
+      "y": 11,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 13,
+      "targetY": 33,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "qizhen_crossing_house_03_forge_yard:11,11",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:13,33"
+    }
+  ],
   "spawnPoint": {
     "x": 10,
     "y": 7

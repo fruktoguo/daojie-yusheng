@@ -91,6 +91,13 @@ function isTemporaryTileSkill(skill) {
     return getTemporaryTileEffects(skill).length > 0;
 }
 
+function isSelfBuffNoTargetSkill(skill) {
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    return skill?.requiresTarget === false
+        && effects.length > 0
+        && effects.every((effect) => effect?.type === 'buff' && effect.target === 'self');
+}
+
 function resolveTechniqueLevelForSkill(player, skillId) {
     for (const technique of player.techniques?.techniques ?? []) {
         if ((technique.skills ?? []).some((entry) => entry.id === skillId)) {
@@ -263,6 +270,9 @@ function resolveCasterSkillFormulaVar(variable, attacker, techLevel, targetCount
 }
 
 function getResolvedSkillTargetKey(target) {
+    if (target.kind === 'self') {
+        return `self:${target.playerId}`;
+    }
     if (target.kind === 'monster') {
         return `monster:${target.monsterId}`;
     }
@@ -407,6 +417,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!targetPlayerId) {
             if (skill.requiresTarget === false) {
                 const anchor = { x: attacker.x, y: attacker.y };
+                if (isSelfBuffNoTargetSkill(skill)) {
+                    const selfTarget = { kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y };
+                    if (getPlayerSkillWindupTicks(skill) > 0) {
+                        return this.beginPlayerSkillCast(attacker, skill, anchor, 'self', deps);
+                    }
+                    await this.dispatchSkillTargets(attacker, skillId, skill, [selfTarget], deps);
+                    return;
+                }
                 if (getPlayerSkillWindupTicks(skill) > 0) {
                     return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
                 }
@@ -602,6 +620,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             return null;
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        if (targetRef === 'self') {
+            return isSelfBuffNoTargetSkill(skill)
+                ? { kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y }
+                : null;
+        }
         const targetPlayerId = targetRef.startsWith('player:') ? targetRef.slice('player:'.length).trim() : '';
         if (targetPlayerId) {
             if (instance?.meta?.supportsPvp !== true) {
@@ -759,6 +782,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (primaryTarget) {
             pushTarget(primaryTarget);
         }
+        if (isSelfBuffNoTargetSkill(skill)) {
+            const includesSelf = cells.some((cell) => cell.x === attacker.x && cell.y === attacker.y);
+            if (includesSelf) {
+                pushTarget({ kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y });
+            }
+            return targets;
+        }
         const hostileMonster = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
         const hostileFormation = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const hostileTerrain = instance?.meta?.canDamageTile === true
@@ -832,6 +862,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true || castIndex > 0,
                 range: effectiveRange,
             };
+            if (target.kind === 'self') {
+                this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
+                castIndex += 1;
+                continue;
+            }
             if (target.kind === 'monster') {
                 const monster = instance.getMonster(target.monsterId);
                 if (!monster?.alive) {

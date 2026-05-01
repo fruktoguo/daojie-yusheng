@@ -45,7 +45,13 @@ function inferRealm(player: PlayerState): string {
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
   }
-  const highest = [...player.techniques].sort((a, b) => b.realm - a.realm)[0];
+  let highest = player.techniques[0];
+  for (let index = 1; index < player.techniques.length; index += 1) {
+    const technique = player.techniques[index];
+    if ((technique?.realm ?? -Infinity) > (highest?.realm ?? -Infinity)) {
+      highest = technique;
+    }
+  }
   if (!highest) return '凡俗武者';
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
 }

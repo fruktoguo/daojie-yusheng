@@ -143,8 +143,10 @@ function describeBuffStats(
   attrs?: NonNullable<ItemStack['equipAttrs']>,
   stats?: ItemStack['equipStats'],
   valueStats?: ItemStack['equipValueStats'],
+  attrMode?: 'flat' | 'percent',
+  statMode?: 'flat' | 'percent',
 ): string[] {
-  return describePreviewBonuses(attrs, stats, valueStats);
+  return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
 }
 
 /** getTimePhaseLabel：读取时段标签。 */
@@ -217,7 +219,7 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
   const conditionLines = formatEquipmentConditionText(effect);
-  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
+  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
   const lines = [
     `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
     ...(effect.cooldown !== undefined ? [`冷却：${formatDisplayInteger(effect.cooldown)} 息`] : []),
@@ -249,7 +251,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
           renderPlainLine('常驻特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -258,7 +260,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
       };
     }
     case 'progress_boost': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
           renderPlainLine('推进特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -410,14 +412,14 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
         `常驻特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
       ];
     }
     case 'progress_boost': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
         `推进特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
@@ -490,7 +492,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
       metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
     }
     lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
-    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats);
+    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats, buff.attrMode ?? 'percent', buff.statMode ?? 'percent');
     if (bonusLines.length > 0) {
       lines.push(`效果：${bonusLines.join('，')}`);
     }

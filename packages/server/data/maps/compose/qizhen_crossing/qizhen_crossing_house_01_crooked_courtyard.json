@@ -23,11 +23,27 @@
     ",,,,角檐檐檐檐檐檐檐檐檐檐檐檐檐檐角,,,,",
     ",,,,##W####+####W###,,,,",
     ",,,,#....廊廊廊廊廊廊....#,,,,",
-    ",,,,##W####++####W##,,,,",
+    ",,,,##W####S+####W##,,,,",
     ",,,,::::::::::::::::,,,,",
     ",,,,,,,,,,,,,,,,,,,,,,,,"
   ],
-  "portals": [],
+  "portals": [
+    {
+      "x": 11,
+      "y": 13,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 15,
+      "targetY": 52,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "qizhen_crossing_house_01_crooked_courtyard:11,13",
+      "direction": "two_way",
+      "targetPortalId": "qizhen_crossing:15,52"
+    }
+  ],
   "spawnPoint": {
     "x": 8,
     "y": 6

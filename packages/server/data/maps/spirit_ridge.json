@@ -87,7 +87,8 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "spirit_ridge:1,36",
-      "direction": "one_way"
+      "direction": "two_way",
+      "targetPortalId": "yunlai_town:62,16"
     },
     {
       "x": 5,

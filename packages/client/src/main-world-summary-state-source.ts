@@ -415,8 +415,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     `;
   }
 
-  function bindLeaderboardModalEvents(body: HTMLElement): void {
-    body.onclick = (event) => {
+  function bindLeaderboardModalEvents(body: HTMLElement, signal: AbortSignal): void {
+    body.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
@@ -446,11 +446,11 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
         event.stopPropagation();
         openWorldSummaryModal();
       }
-    };
+    }, { signal });
   }
 
-  function bindWorldSummaryModalEvents(body: HTMLElement): void {
-    body.onclick = (event) => {
+  function bindWorldSummaryModalEvents(body: HTMLElement, signal: AbortSignal): void {
+    body.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
@@ -468,7 +468,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
         event.stopPropagation();
         openLeaderboardModal();
       }
-    };
+    }, { signal });
   }
 
   function patchLeaderboardPlayerLocationTexts(): void {

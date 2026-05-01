@@ -68,7 +68,7 @@ class WorldGatewayReadModelHelper {
  * @returns 无返回值，直接更新NextRequestLeaderboard相关状态。
  */
 
-    handleRequestLeaderboard(client, payload) {
+    async handleRequestLeaderboard(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -77,7 +77,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.Leaderboard, this.gateway.leaderboardRuntimeService.buildLeaderboard(
+            client.emit(shared_1.S2C.Leaderboard, await this.gateway.leaderboardRuntimeService.buildLeaderboard(
                 payload?.limit,
                 this.gateway.worldRuntimeService?.worldRuntimeSectService,
             ));
@@ -93,7 +93,7 @@ class WorldGatewayReadModelHelper {
  * @returns 无返回值，直接更新玩家击杀榜坐标追索相关状态。
  */
 
-    handleRequestLeaderboardPlayerLocations(client, payload) {
+    async handleRequestLeaderboardPlayerLocations(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -102,7 +102,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.LeaderboardPlayerLocations, this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
+            client.emit(shared_1.S2C.LeaderboardPlayerLocations, await this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_PLAYER_LOCATIONS_FAILED', error);

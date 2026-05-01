@@ -1868,10 +1868,6 @@ function normalizeConsumableBuffs(raw) {
             return [];
         }
 
-        const compiled = isRecord(candidate.valueStats)
-            ? (0, shared_1.compileValueStatsToActualStats)(candidate.valueStats)
-            : undefined;
-
         const category = candidate.category === 'debuff'
             ? 'debuff'
             : candidate.category === 'buff'
@@ -1898,9 +1894,7 @@ function normalizeConsumableBuffs(raw) {
                 maxStacks: Number.isFinite(candidate.maxStacks) ? Math.max(1, Math.trunc(Number(candidate.maxStacks))) : undefined,
                 attrs: isRecord(candidate.attrs) ? { ...candidate.attrs } : undefined,
                 attrMode: candidate.attrMode === 'percent' ? 'percent' : candidate.attrMode === 'flat' ? 'flat' : undefined,
-                stats: isRecord(candidate.stats)
-                    ? { ...candidate.stats }
-                    : compiled,
+                stats: resolveConfiguredBuffStats(candidate.stats, candidate.valueStats, resolveBuffModifierMode(candidate.statMode)),
                 statMode: candidate.statMode === 'percent' ? 'percent' : candidate.statMode === 'flat' ? 'flat' : undefined,
                 qiProjection: Array.isArray(candidate.qiProjection)
                     ? candidate.qiProjection
@@ -2073,6 +2067,50 @@ function randomIntInclusive(min, max) {
 
 function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function resolveBuffModifierMode(mode) {
+    return mode === 'flat' ? 'flat' : 'percent';
+}
+
+function normalizePartialNumericStats(input) {
+    if (!isRecord(input)) {
+        return undefined;
+    }
+    const stats = {};
+    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+        const value = Number(input[key]);
+        if (!Number.isFinite(value) || value === 0) {
+            continue;
+        }
+        stats[key] = value;
+    }
+    for (const groupKey of ['elementDamageBonus', 'elementDamageReduce']) {
+        const group = input[groupKey];
+        if (!isRecord(group)) {
+            continue;
+        }
+        const normalizedGroup = {};
+        for (const element of shared_1.ELEMENT_KEYS) {
+            const value = Number(group[element]);
+            if (!Number.isFinite(value) || value === 0) {
+                continue;
+            }
+            normalizedGroup[element] = value;
+        }
+        if (Object.keys(normalizedGroup).length > 0) {
+            stats[groupKey] = normalizedGroup;
+        }
+    }
+    return Object.keys(stats).length > 0 ? stats : undefined;
+}
+
+function resolveConfiguredBuffStats(stats, valueStats, mode) {
+    if (mode === 'flat') {
+        return normalizePartialNumericStats(stats)
+            ?? (isRecord(valueStats) ? (0, shared_1.compileValueStatsToActualStats)(valueStats) : undefined);
+    }
+    return normalizePartialNumericStats(stats) ?? normalizePartialNumericStats(valueStats);
 }
 /**
  * clampUnitRatio：执行clampUnitRatio相关逻辑。

@@ -319,6 +319,36 @@ function testAutoBattleSkillDirtyDomain(): void {
   assert.equal(writes[0].skills.length, 1);
 }
 
+function testPlayerRetaliateOpensLockedAutoBattle(): void {
+  const playerId = 'player:retaliate:pvp';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+
+  service.setRetaliatePlayerTarget(playerId, 'player:attacker', 17);
+
+  assert.equal(player.combat.retaliatePlayerTargetId, 'player:attacker');
+  assert.equal(player.combat.autoBattle, true);
+  assert.equal(player.combat.combatTargetId, 'player:player:attacker');
+  assert.equal(player.combat.combatTargetLocked, true);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
+}
+
+function testMonsterRetaliateOpensAutoBattleWithoutPlayerLock(): void {
+  const playerId = 'player:retaliate:monster';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.combat.retaliatePlayerTargetId = 'player:old';
+  service.markPersisted(playerId);
+
+  service.activateAutoRetaliate(playerId, 23);
+
+  assert.equal(player.combat.retaliatePlayerTargetId, null);
+  assert.equal(player.combat.autoBattle, true);
+  assert.equal(player.combat.combatTargetId, null);
+  assert.equal(player.combat.combatTargetLocked, false);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
+}
+
 function testClearMainTechniquePreservesCultivationActive(): void {
   const playerId = 'player:clear-main-technique';
   const service = createHydratedService(playerId);
@@ -940,6 +970,8 @@ function main(): void {
 testAutoUsePillsDirtyDomain();
 testMapUnlockDirtyDomain();
 testAutoBattleSkillDirtyDomain();
+testPlayerRetaliateOpensLockedAutoBattle();
+testMonsterRetaliateOpensAutoBattleWithoutPlayerLock();
 testLogbookDirtyDomain();
   testWorldPreferenceDirtyDomain();
   testGrantWalletItemDirtyDomain();

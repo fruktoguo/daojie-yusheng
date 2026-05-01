@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeRespawnService } = require("../runtime/world/world-runtime-respawn.service");
 
-function createPlayerRuntimeService(log) {
+function createPlayerRuntimeService(log, overrides = {}) {
     return {
         getPlayer(playerId) {
             if (playerId !== 'player:1') {
@@ -14,10 +14,12 @@ function createPlayerRuntimeService(log) {
                 sessionId: 'session:1',
                 templateId: 'wildlands',
                 hp: 0,
+                ...overrides,
                 attrs: {
                     numericStats: {
                         moveSpeed: 12,
                     },
+                    ...(overrides.attrs ?? {}),
                 },
             };
         },
@@ -28,6 +30,8 @@ function createPlayerRuntimeService(log) {
 }
 
 function createDeps(currentMapId, log) {
+    const walkableMask = new Uint8Array(64 * 64).fill(1);
+    walkableMask[0] = 0;
     const previousInstance = {
         template: {
             id: currentMapId,
@@ -44,8 +48,11 @@ function createDeps(currentMapId, log) {
         template: {
             id: currentMapId === 'prison' ? 'prison' : 'yunlai_town',
             name: currentMapId === 'prison' ? '监牢' : '云来镇',
+            width: 64,
+            height: 64,
             spawnX: 10,
             spawnY: 10,
+            walkableMask,
         },
         tick: 88,
         connectPlayer(input) {
@@ -128,7 +135,28 @@ function testRespawnInsidePrisonKeepsPlayerInPrison() {
     ]);
 }
 
+function testInvalidBoundRespawnPointFallsBackToMapSpawn() {
+    const log = [];
+    const service = new WorldRuntimeRespawnService(createPlayerRuntimeService(log, {
+        respawnTemplateId: 'yunlai_town',
+        respawnX: 0,
+        respawnY: 0,
+    }));
+    service.respawnPlayer('player:1', createDeps('wildlands', log));
+    assert.deepEqual(log, [
+        ['getOrCreatePublicInstance', 'yunlai_town'],
+        ['disconnectPlayer', 'wildlands', 'player:1'],
+        ['connectPlayer', 'yunlai_town', 10, 10],
+        ['setPlayerMoveSpeed', 'yunlai_town', 'player:1', 12],
+        ['setPlayerLocation', 'player:1', 'public:yunlai_town'],
+        ['clearNavigationIntent', 'player:1'],
+        ['respawnPlayer', 'player:1', 'yunlai_town', 'public:yunlai_town', 10, 10],
+        ['queuePlayerNotice', 'player:1', '已在 云来镇 复生', 'travel'],
+    ]);
+}
+
 testRespawnFromDefaultMap();
 testRespawnInsidePrisonKeepsPlayerInPrison();
+testInvalidBoundRespawnPointFallsBackToMapSpawn();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-respawn' }, null, 2));
