@@ -61,14 +61,14 @@ services:
         - node
         - -e
         - |
-          fetch('http://127.0.0.1:13001/health').then(async (response) => {
+          fetch('http://127.0.0.1:13001/live').then(async (response) => {
             const body = await response.json().catch(() => null);
-            const ready = response.ok && body?.ok === true && body?.readiness?.ok === true;
-            process.exit(ready ? 0 : 1);
+            const alive = response.ok && body?.alive?.ok === true;
+            process.exit(alive ? 0 : 1);
           }).catch(() => process.exit(1));
       interval: 10s
-      timeout: 5s
-      retries: 3
+      timeout: 15s
+      retries: 6
       start_period: 20s
     deploy:
       replicas: 1
@@ -81,7 +81,7 @@ services:
         parallelism: 1
         delay: 10s
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
         max_attempts: 5
         window: 120s

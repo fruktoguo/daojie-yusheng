@@ -27,6 +27,19 @@ export class HealthController {
     @Optional() private readonly healthReadinessService: HealthReadinessService,
   ) {}
 
+  /** live：只回答进程是否仍能响应，用于容器 liveness。 */
+  @Get('live')
+  live() {
+    return {
+      ok: true,
+      service: 'server',
+      alive: {
+        ok: true,
+        service: 'server',
+      },
+    };
+  }
+
   /** health：处理健康状态。 */
   @Get('health')
   health(@Res({ passthrough: true }) response: ResponseLike) {
@@ -67,6 +80,8 @@ export class HealthController {
           reason: 'service_unavailable',
           tick: 0,
           instanceCount: 0,
+          leaseDegradedInstanceCount: 0,
+          fencedInstanceCount: 0,
           playerCount: 0,
           pendingCommandCount: 0,
         },

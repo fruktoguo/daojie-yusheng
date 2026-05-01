@@ -27,9 +27,6 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
         const dirty = new Set(deps.worldRuntimeLootContainerService.getDirtyInstanceIds());
         for (const [instanceId, instance] of deps.listInstanceEntries()) {
             if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
-                if (typeof deps.fenceInstanceRuntime === 'function') {
-                    deps.fenceInstanceRuntime(instanceId, 'persistence_dirty_scan_lease_check_failed');
-                }
                 dirty.delete(instanceId);
                 continue;
             }
@@ -56,9 +53,6 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 continue;
             }
             if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
-                if (typeof deps.fenceInstanceRuntime === 'function') {
-                    deps.fenceInstanceRuntime(instanceId, 'persistence_dirty_domain_scan_lease_check_failed');
-                }
                 continue;
             }
             const domains = new Set(typeof instance.getDirtyDomains === 'function'

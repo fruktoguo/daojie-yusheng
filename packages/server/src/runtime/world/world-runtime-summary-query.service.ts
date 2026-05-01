@@ -35,6 +35,8 @@ let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
             lastSyncFlushDurationMs: input.lastSyncFlushDurationMs,
             mapTemplateCount: input.mapTemplateCount,
             instanceCount: input.instances.length,
+            leaseDegradedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'lease_degraded'),
+            fencedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'fenced'),
             playerCount: input.playerCount,
             pendingCommandCount: input.pendingCommandCount,
             pendingSystemCommandCount: input.pendingSystemCommandCount,
@@ -107,6 +109,19 @@ function normalizeDirtyBacklog(input) {
         playerDomains: normalizeCount(input.playerDomains),
         instances: normalizeCount(input.instances),
     };
+}
+
+function countInstancesByRuntimeStatus(instances, runtimeStatus) {
+    if (!Array.isArray(instances)) {
+        return 0;
+    }
+    let count = 0;
+    for (const instance of instances) {
+        if (instance?.runtimeStatus === runtimeStatus) {
+            count += 1;
+        }
+    }
+    return count;
 }
 
 function normalizeSummaryObject(input) {

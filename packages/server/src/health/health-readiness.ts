@@ -33,6 +33,16 @@ interface RuntimeSummaryLike {
 
   instanceCount?: number;  
   /**
+ * leaseDegradedInstanceCount：本节点 lease 降级实例数。
+ */
+
+  leaseDegradedInstanceCount?: number;  
+  /**
+ * fencedInstanceCount：已 fencing 实例数。
+ */
+
+  fencedInstanceCount?: number;  
+  /**
  * playerCount：数量或计量字段。
  */
 
@@ -147,6 +157,16 @@ interface RuntimeReadiness {
  */
 
   instanceCount: number;  
+  /**
+ * leaseDegradedInstanceCount：本节点 lease 降级实例数。
+ */
+
+  leaseDegradedInstanceCount: number;  
+  /**
+ * fencedInstanceCount：已 fencing 实例数。
+ */
+
+  fencedInstanceCount: number;  
   /**
  * playerCount：数量或计量字段。
  */
@@ -422,6 +442,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       reason: 'service_unavailable',
       tick: 0,
       instanceCount: 0,
+      leaseDegradedInstanceCount: 0,
+      fencedInstanceCount: 0,
       playerCount: 0,
       pendingCommandCount: 0,
     };
@@ -434,6 +456,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       reason: 'summary_unavailable',
       tick: 0,
       instanceCount: 0,
+      leaseDegradedInstanceCount: 0,
+      fencedInstanceCount: 0,
       playerCount: 0,
       pendingCommandCount: 0,
     };
@@ -443,15 +467,19 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
     const summary = getRuntimeSummary.call(service);
     const tick = readNonNegativeInt(summary.tick);
     const instanceCount = readNonNegativeInt(summary.instanceCount);
+    const leaseDegradedInstanceCount = readNonNegativeInt(summary.leaseDegradedInstanceCount);
+    const fencedInstanceCount = readNonNegativeInt(summary.fencedInstanceCount);
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
-    const ready = instanceCount > 0;
+    const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0;
 
     return {
       ready,
-      reason: ready ? 'ready' : 'no_instances',
+      reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : 'lease_fenced',
       tick,
       instanceCount,
+      leaseDegradedInstanceCount,
+      fencedInstanceCount,
       playerCount,
       pendingCommandCount,
     };
@@ -461,6 +489,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       reason: 'summary_unavailable',
       tick: 0,
       instanceCount: 0,
+      leaseDegradedInstanceCount: 0,
+      fencedInstanceCount: 0,
       playerCount: 0,
       pendingCommandCount: 0,
     };

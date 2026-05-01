@@ -6,6 +6,16 @@ import { normalizeRuntimeInstancePersistentPolicy, parseRuntimeInstanceDescripto
 const INSTANCE_LEASE_TTL_MS = 45_000;
 const INSTANCE_LEASE_RENEW_SKEW_MS = 5_000;
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
+const LOCAL_LEASE_DEGRADED_REASONS = new Set([
+  'advance_frame_lease_check_failed',
+  'instance_tick_lease_check_failed',
+  'action_execution_lease_check_failed',
+  'player_write_lease_check_failed',
+  'instance_write_lease_check_failed',
+  'transfer_lease_check_failed',
+  'build_map_persistence_snapshot_lease_check_failed',
+  'flush_instance_domains_lease_check_failed',
+]);
 
 export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
@@ -56,6 +66,9 @@ export function isInstanceLeaseWritable(runtime, instance) {
   if (!instance || instance?.meta?.runtimeStatus === 'fenced') {
     return false;
   }
+  if (instance?.meta?.runtimeStatus === 'lease_degraded') {
+    return false;
+  }
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return true;
   }
@@ -76,6 +89,10 @@ export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost')
   if (!instance || instance?.meta?.runtimeStatus === 'fenced') {
     return;
   }
+  if (shouldMarkLocalLeaseDegraded(runtime, instance, reason)) {
+    markLocalLeaseDegraded(runtime, instanceId, instance, reason);
+    return;
+  }
   instance.meta.runtimeStatus = 'fenced';
   instance.meta.status = 'lease_lost';
   instance.meta.leaseToken = null;
@@ -89,6 +106,31 @@ export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost')
     return;
   }
   runtime.logger.error(`实例 ${instanceId} lease fencing 命中但仍有在线玩家，已停止写入：${reason} players=${activePlayers.join(',')}`);
+}
+
+function shouldMarkLocalLeaseDegraded(runtime, instance, reason) {
+  if (!LOCAL_LEASE_DEGRADED_REASONS.has(reason)) {
+    return false;
+  }
+  if (!runtime.instanceCatalogService?.isEnabled?.()) {
+    return false;
+  }
+  const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+  const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+  if (!assignedNodeId || !leaseToken || assignedNodeId !== runtime.nodeRegistryService.getNodeId()) {
+    return false;
+  }
+  const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
+  return !Number.isFinite(leaseExpireAt) || leaseExpireAt <= Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS;
+}
+
+function markLocalLeaseDegraded(runtime, instanceId, instance, reason) {
+  const wasDegraded = instance.meta.runtimeStatus === 'lease_degraded';
+  instance.meta.runtimeStatus = 'lease_degraded';
+  instance.meta.status = 'active';
+  if (!wasDegraded) {
+    runtime.logger.warn(`实例 ${instanceId} 本节点 lease 续租降级，暂停写入并等待恢复：${reason}`);
+  }
 }
 
 export async function destroyManagedInstance(runtime, instanceId, reason = 'scheduled_destroy') {

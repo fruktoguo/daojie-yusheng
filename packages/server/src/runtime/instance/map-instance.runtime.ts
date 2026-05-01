@@ -916,6 +916,8 @@ class MapInstanceRuntime {
             defaultEntry: this.meta.defaultEntry === true,
             persistent: this.meta.persistent === true,
             persistentPolicy: this.meta.persistentPolicy,
+            runtimeStatus: this.meta.runtimeStatus,
+            status: this.meta.status,
             supportsPvp: this.meta.supportsPvp === true,
             canDamageTile: this.meta.canDamageTile === true,
             tick: this.tick,
