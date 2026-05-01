@@ -161,6 +161,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayBootstrapHelper.handleHello(client, payload);
     }    
     handleHeartbeat(client, _payload) {
+        if (!this.gatewayGuardHelper.requirePlayerId(client)) {
+            return;
+        }
         return this.gatewayPresenceHelper.handleHeartbeat(client);
     }    
     shouldPersistHeartbeatPresence(playerId, now = Date.now()) {
