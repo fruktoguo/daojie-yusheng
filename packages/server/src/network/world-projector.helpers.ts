@@ -2966,12 +2966,11 @@ function resolvePortalDisplayName(
         return explicitName.trim();
     }
     const targetMapName = resolveMapName?.(portal.targetMapId) ?? null;
-    const directionLabel = portal.direction === 'one_way' ? '单向' : '双向';
     if (typeof targetMapName === 'string' && targetMapName.trim()) {
-        return `${directionLabel} · ${targetMapName.trim()}`;
+        return targetMapName.trim();
     }
     if (typeof portal.targetMapId === 'string' && portal.targetMapId.trim()) {
-        return `${directionLabel} · ${portal.targetMapId.trim()}`;
+        return portal.targetMapId.trim();
     }
-    return portal.kind === 'stairs' ? `${directionLabel} · 楼梯` : `${directionLabel} · 传送阵`;
+    return portal.kind === 'stairs' ? '楼梯' : '传送阵';
 }

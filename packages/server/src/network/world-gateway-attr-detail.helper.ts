@@ -26,17 +26,24 @@ function buildAttrDetailBonuses(player) {
             attrs: clonePartialAttributes(realmAttrBonus),
         });
     }
-    for (const technique of player.techniques?.techniques ?? []) {
-        const techniqueState = toTechniqueState(technique);
-        const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)([techniqueState]);
+    const techniqueStates = (player.techniques?.techniques ?? []).map(toTechniqueState);
+    const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)(techniqueStates);
+    if (hasNonZeroAttributes(techniqueAttrs)) {
+        bonuses.push({
+            source: 'technique:aggregate',
+            label: '功法总成',
+            attrs: clonePartialAttributes(techniqueAttrs),
+        });
+    }
+    for (const techniqueState of techniqueStates) {
         const qiProjection = (0, shared_1.calcTechniqueQiProjectionModifiers)(techniqueState.level, techniqueState.layers);
-        if (!hasNonZeroAttributes(techniqueAttrs) && qiProjection.length === 0) {
+        if (qiProjection.length === 0) {
             continue;
         }
         bonuses.push({
-            source: `technique:${technique.techId}`,
-            label: technique.name ?? technique.techId,
-            attrs: clonePartialAttributes(techniqueAttrs) ?? {},
+            source: `technique:${techniqueState.techId}`,
+            label: techniqueState.name ?? techniqueState.techId,
+            attrs: {},
             qiProjection: cloneQiProjectionModifiers(qiProjection),
         });
     }
@@ -442,7 +449,7 @@ function toTechniqueState(entry) {
     const skills = entry.skills?.map((skill) => cloneTechniqueSkill(skill)) ?? [];
     return {
         techId: entry.techId,
-        name: '',
+        name: entry.name ?? entry.techId,
         level: entry.level ?? 1,
         exp: entry.exp ?? 0,
         expToNext: entry.expToNext ?? 0,

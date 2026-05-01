@@ -2607,7 +2607,7 @@ function renderDatabasePanel(): void {
   const backups = databaseState?.backups ?? [];
   const importStatus = databaseImportStatus
     ? databaseImportStatus
-    : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套维护态恢复流程。';
+    : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套数据库恢复流程。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2631,7 +2631,7 @@ function renderDatabasePanel(): void {
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">导入本地数据库备份</div>
-        <div class="network-breakdown-subtitle">上传新版 PostgreSQL custom dump，登记到当前 GM 备份目录；恢复仍需要服务端维护态</div>
+        <div class="network-breakdown-subtitle">上传新版 PostgreSQL custom dump，登记到当前 GM 备份目录；可直接执行恢复</div>
       </div>
       <div class="filter-row" style="margin-top: 10px;">
         <input id="database-import-file" class="search-input" type="file" accept=".dump,application/octet-stream" ${busy ? 'disabled' : ''} />

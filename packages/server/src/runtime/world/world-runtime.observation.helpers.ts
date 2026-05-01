@@ -442,8 +442,7 @@ function formatCurrentMaxObservation(current, max) {
 function buildPortalDisplayName(portal, targetMapName) {
 
     const base = buildPortalKindLabel(portal.kind);
-    const direction = portal.direction === 'one_way' ? '单向' : '双向';
-    return targetMapName ? `${direction}${base} · ${targetMapName}` : `${direction}${base}`;
+    return targetMapName ? `${base} · ${targetMapName}` : base;
 }
 /** 将传送点类型映射为界面标签。 */
 function buildPortalKindLabel(kind) {

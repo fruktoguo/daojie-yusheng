@@ -501,6 +501,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             : [];
         player.inventory.items = nextItems;
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -856,6 +857,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.inventory.items.push(item);
         }
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -877,7 +879,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!normalizedWalletType) {
             return 0;
         }
-        return readWalletBalance(player, normalizedWalletType);
+        return readInventoryItemCount(player, normalizedWalletType);
     }
     /**
  * canAffordWallet：判断钱包余额是否足够。
@@ -888,7 +890,13 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  */
 
     canAffordWallet(playerId, walletType, amount) {
-        return this.getWalletBalanceByType(playerId, walletType) >= Math.max(0, Math.trunc(amount || 0));
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedWalletType = normalizeWalletType(walletType);
+        const normalizedAmount = Math.max(0, Math.trunc(amount || 0));
+        if (!normalizedWalletType || normalizedAmount <= 0) {
+            return true;
+        }
+        return readInventoryItemCount(player, normalizedWalletType) >= normalizedAmount;
     }
     /**
  * creditWallet：执行wallet加余额相关逻辑。
@@ -908,28 +916,22 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!normalizedWalletType || normalizedAmount <= 0) {
             return player;
         }
-        const balances = ensureWalletBalances(player);
-        const entry = balances.find((row) => row.walletType === normalizedWalletType);
-        if (entry) {
-            entry.balance += normalizedAmount;
-            entry.version += 1;
+        const item = this.contentTemplateRepository.createItem(normalizedWalletType, normalizedAmount);
+        if (!item) {
+            throw new common_1.NotFoundException(`Item ${normalizedWalletType} not found`);
         }
-        else {
-            balances.push({
-                walletType: normalizedWalletType,
-                balance: normalizedAmount,
-                frozenBalance: 0,
-                version: 1,
-            });
+        const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
+        if (existing) {
+            existing.count += item.count;
+        } else {
+            player.inventory.items.push(item);
         }
+        player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
+        this.playerProgressionService.refreshPreview(player);
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, ['wallet']);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
-        if (!isImmediateDomainPersistenceSuppressed(player)) {
-            void this.persistWallet(player).catch((error) => {
-                console.warn(`钱包直写失败：${error instanceof Error ? error.message : String(error)}`);
-            });
-        }
         return player;
     }
     /**
@@ -950,22 +952,17 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!normalizedWalletType || normalizedAmount <= 0) {
             return player;
         }
-        const balances = ensureWalletBalances(player);
-        const entry = balances.find((row) => row.walletType === normalizedWalletType);
-        const walletBalance = entry ? Math.max(0, Math.trunc(Number(entry.balance ?? 0))) : 0;
-        if (walletBalance < normalizedAmount) {
+        const inventoryBalance = readInventoryItemCount(player, normalizedWalletType);
+        if (inventoryBalance < normalizedAmount) {
             throw new common_1.NotFoundException(`Wallet ${normalizedWalletType} insufficient`);
         }
-        entry.balance -= normalizedAmount;
-        entry.version += 1;
+        consumeInventoryItemCount(player.inventory.items, normalizedWalletType, normalizedAmount);
+        player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, normalizedWalletType);
+        this.playerProgressionService.refreshPreview(player);
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, ['wallet']);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
-        if (!isImmediateDomainPersistenceSuppressed(player)) {
-            void this.persistWallet(player).catch((error) => {
-                console.warn(`钱包直写失败：${error instanceof Error ? error.message : String(error)}`);
-            });
-        }
         return player;
     }
     /**
@@ -1356,6 +1353,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
         consumeInventoryItemAt(player.inventory.items, slotIndex, nextCount);
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return extracted;
@@ -1382,6 +1380,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.inventory.items.push({ ...normalized });
         }
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, normalized.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -1436,6 +1435,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique', 'auto_battle_skill', 'attr'] : ['inventory']);
         this.bumpPersistentRevision(player);
@@ -1461,6 +1461,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, Math.max(1, Math.trunc(count)));
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -1498,6 +1499,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             throw new common_1.NotFoundException(`Inventory item ${itemId} insufficient`);
         }
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -1530,6 +1532,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
         consumeInventoryItemAt(player.inventory.items, slotIndex, destroyed.count);
         player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -2999,6 +3002,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
+        syncWalletCacheFromInventory(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
             this.playerAttributesService.recalculate(player);
             markPlayerDirtyDomains(player, ['attr']);
@@ -3453,6 +3457,72 @@ function ensureWalletBalances(player) {
 function readWalletBalance(player, walletType) {
     const balances = Array.isArray(player.wallet?.balances) ? player.wallet.balances : [];
     return balances.reduce((total, entry) => total + (entry?.walletType === walletType ? Math.max(0, Math.trunc(Number(entry?.balance ?? 0))) : 0), 0);
+}
+function readInventoryItemCount(player, itemId) {
+    const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+    if (!normalizedItemId || !Array.isArray(player?.inventory?.items)) {
+        return 0;
+    }
+    return player.inventory.items.reduce((total, entry) => total + (entry?.itemId === normalizedItemId ? Math.max(0, Math.trunc(Number(entry?.count ?? 0))) : 0), 0);
+}
+function isWalletCacheItemId(itemId) {
+    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
+}
+function syncWalletCacheFromInventory(player, changedItemId = null) {
+    const normalizedChangedItemId = typeof changedItemId === 'string' ? changedItemId.trim() : '';
+    const walletItemIds = normalizedChangedItemId
+        ? [normalizedChangedItemId]
+        : ['spirit_stone'];
+    const balances = ensureWalletBalances(player);
+    for (const itemId of walletItemIds) {
+        if (!isWalletCacheItemId(itemId)) {
+            continue;
+        }
+        const nextBalance = readInventoryItemCount(player, itemId);
+        const index = balances.findIndex((entry) => entry?.walletType === itemId);
+        if (nextBalance <= 0) {
+            if (index >= 0) {
+                balances.splice(index, 1);
+            }
+            continue;
+        }
+        if (index >= 0) {
+            const entry = balances[index];
+            if (Math.max(0, Math.trunc(Number(entry.balance ?? 0))) !== nextBalance) {
+                entry.balance = nextBalance;
+                entry.frozenBalance = 0;
+                entry.version = Math.max(0, Math.trunc(Number(entry.version ?? 0))) + 1;
+            }
+            continue;
+        }
+        balances.push({
+            walletType: itemId,
+            balance: nextBalance,
+            frozenBalance: 0,
+            version: 1,
+        });
+    }
+}
+function consumeInventoryItemCount(items, itemId, count) {
+    let remaining = Math.max(0, Math.trunc(Number(count ?? 0)));
+    for (let index = 0; index < items.length && remaining > 0; index += 1) {
+        const entry = items[index];
+        if (entry?.itemId !== itemId) {
+            continue;
+        }
+        const itemCount = Math.max(0, Math.trunc(Number(entry.count ?? 0)));
+        const consumed = Math.min(itemCount, remaining);
+        entry.count = itemCount - consumed;
+        remaining -= consumed;
+    }
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+        if (items[index]?.itemId === itemId && Math.max(0, Math.trunc(Number(items[index]?.count ?? 0))) <= 0) {
+            items.splice(index, 1);
+        }
+    }
+    if (remaining > 0) {
+        throw new common_1.NotFoundException(`Inventory item ${itemId} insufficient`);
+    }
 }
 /**
  * createDefaultRealmState：构建并返回目标对象。

@@ -139,6 +139,64 @@ function testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate() {
     assert.equal(player.attrs.finalAttrs.spirit, DEFAULT_BASE_ATTRS.spirit + techniqueBonus.spirit);
 }
 
+function testAttrDetailUsesAggregateTechniqueAttrBonus() {
+    const service = new PlayerAttributesService();
+    const createTechnique = (techId) => ({
+        techId,
+        name: techId,
+        level: 1,
+        exp: 0,
+        expToNext: 0,
+        realmLv: 1,
+        realm: 0,
+        grade: 'mortal',
+        category: 'internal',
+        skills: [],
+        layers: [{
+            level: 1,
+            expToNext: 0,
+            attrs: {
+                constitution: 900,
+            },
+        }],
+    });
+    const player = {
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: {
+            techniques: [
+                createTechnique('technique:aggregate:1'),
+                createTechnique('technique:aggregate:2'),
+            ],
+        },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    };
+    service.recalculate(player);
+    const expectedTechniqueBonus = calcTechniqueFinalAttrBonus(player.techniques.techniques);
+    const bonuses = buildAttrDetailBonuses(player);
+    const aggregateBonus = bonuses.find((entry) => entry.source === 'technique:aggregate');
+    for (const key of ATTR_KEYS) {
+        assert.equal(aggregateBonus?.attrs?.[key] ?? 0, expectedTechniqueBonus[key]);
+    }
+    const leakedPerTechniqueAttrs = bonuses
+        .filter((entry) => entry.source.startsWith('technique:') && entry.source !== 'technique:aggregate')
+        .reduce((sum, entry) => sum + (entry.attrs?.constitution ?? 0), 0);
+    assert.equal(leakedPerTechniqueAttrs, 0);
+    assert.ok(player.attrs.baseAttrs.constitution - (aggregateBonus?.attrs?.constitution ?? 0) >= 0);
+}
+
 function testTechniqueQiProjectionAppearsInAttrDetail() {
     const player = {
         realm: {
@@ -618,6 +676,7 @@ function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
 
 testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
+testAttrDetailUsesAggregateTechniqueAttrBonus();
 testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testNingqiAddsAuraEfficiencyOnTopOfXuesha();

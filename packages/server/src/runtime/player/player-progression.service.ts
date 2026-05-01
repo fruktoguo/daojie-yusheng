@@ -1121,12 +1121,12 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             : (realm.breakthroughItems ?? []).map((item) => ({ ...item }));
         const costProgress = Math.max(0, Math.floor(realm.progressToNext ?? 0));
         const progress = Math.max(0, Math.floor(realm.progress ?? 0));
-        const missingItem = items.find((item) => !hasInventoryItemCountAtLeast(player, item.itemId, item.count));
+        const missingItems = getMissingBreakthroughItemRequirements(player, items);
         const canRefine = realm.breakthroughReady
             && remaining > 0
             && costProgress > 0
             && progress >= costProgress
-            && !missingItem;
+            && missingItems.length === 0;
         let blockedReason;
         if (remaining <= 0) {
             blockedReason = current > cap
@@ -1136,9 +1136,12 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         else if (!realm.breakthroughReady || progress < costProgress) {
             blockedReason = '需要当前境界修为圆满';
         }
-        else if (missingItem) {
-            const itemName = this.contentTemplateRepository.getItemName(missingItem.itemId) ?? missingItem.itemId;
-            blockedReason = `${itemName}不足`;
+        else if (missingItems.length > 0) {
+            const missingText = missingItems.map((item) => {
+                const itemName = this.contentTemplateRepository.getItemName(item.itemId) ?? item.itemId;
+                return `${itemName}缺 ${item.missingCount}`;
+            }).join('、');
+            blockedReason = `材料不足：${missingText}`;
         }
         return {
             current,
@@ -2283,6 +2286,33 @@ function getInventoryCount(player, itemId) {
 
 function hasInventoryItemCountAtLeast(player, itemId, requiredCount) {
     return getInventoryCount(player, itemId) >= Math.max(1, Math.floor(Number(requiredCount) || 1));
+}
+
+function getMissingBreakthroughItemRequirements(player, items) {
+    const requirements = new Map();
+    for (const item of items ?? []) {
+        const itemId = typeof item?.itemId === 'string' ? item.itemId : '';
+        if (!itemId) {
+            continue;
+        }
+        const requiredCount = Math.max(1, Math.floor(Number(item.count) || 1));
+        requirements.set(itemId, (requirements.get(itemId) ?? 0) + requiredCount);
+    }
+    const missingItems = [];
+    for (const [itemId, requiredCount] of requirements.entries()) {
+        const ownedCount = getInventoryCount(player, itemId);
+        const missingCount = Math.max(0, requiredCount - ownedCount);
+        if (missingCount <= 0) {
+            continue;
+        }
+        missingItems.push({
+            itemId,
+            count: requiredCount,
+            ownedCount,
+            missingCount,
+        });
+    }
+    return missingItems;
 }
 
 function normalizeBreakthroughTransition(entry) {

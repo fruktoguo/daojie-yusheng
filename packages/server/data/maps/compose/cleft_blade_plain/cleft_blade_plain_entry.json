@@ -17,7 +17,7 @@
     "#崖崖,,,,,,,刃刃,,刃,,,,,,,,#",
     "#,,,,,刃oo刃,,刃,,......,,#",
     "#,,,oo,,,,,,,::..===.,,#",
-    "#P,::==========::::::P,#",
+    "#P,::==========:::::::,#",
     "#P,::==========::::::P,#",
     "#,,,oo,,,,,,,::..===.,,#",
     "#,,,,,刃oo刃,,刃,,......,,#",
@@ -28,21 +28,6 @@
     "########################"
   ],
   "portals": [
-    {
-      "x": 21,
-      "y": 7,
-      "targetMapId": "qizhen_crossing",
-      "targetX": 8,
-      "targetY": 20,
-      "kind": "portal",
-      "trigger": "manual",
-      "routeDomain": "inherit",
-      "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "cleft_blade_plain_entry:21,7",
-      "direction": "two_way",
-      "targetPortalId": "qizhen_crossing:8,20"
-    },
     {
       "x": 21,
       "y": 8,

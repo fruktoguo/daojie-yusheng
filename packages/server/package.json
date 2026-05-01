@@ -104,6 +104,7 @@
     "smoke:afdian-persistence": "pnpm compile && node dist/tools/afdian-persistence-smoke.js",
     "smoke:gm-world-dirty-backlog": "pnpm compile && node dist/tools/gm-world-dirty-backlog-smoke.js",
     "smoke:gm-world-nodes": "pnpm compile && node dist/tools/gm-world-nodes-smoke.js",
+    "smoke:instance-lease-sync-error": "pnpm compile && node dist/tools/instance-lease-sync-error-smoke.js",
     "smoke:lease-health-report": "pnpm compile && node dist/tools/lease-health-report.js",
     "smoke:worker-throughput-report": "pnpm compile && node dist/tools/worker-throughput-report.js",
     "smoke:worker-throughput-report:mock": "pnpm compile && node dist/tools/worker-throughput-report-smoke.js",

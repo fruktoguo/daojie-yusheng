@@ -1474,7 +1474,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (normalizedAmount <= 0) {
             return true;
         }
-        return this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) >= normalizedAmount;
+        return this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, normalizedAmount);
     }
     /**
  * consumeMarketCurrencyFromInventory：从背包扣除坊市结算灵石。
@@ -1488,40 +1488,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (normalizedAmount <= 0) {
             return true;
         }
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const currentItems = cloneInventoryItems(player.inventory?.items ?? []);
-        let owned = 0;
-        for (const item of currentItems) {
-            if (item.itemId === market_1.MARKET_CURRENCY_ITEM_ID) {
-                owned += Math.max(0, Math.trunc(Number(item.count ?? 0)));
-            }
+        try {
+            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, normalizedAmount);
         }
-        if (owned < normalizedAmount) {
+        catch {
             return false;
         }
-
-        let remaining = normalizedAmount;
-        const nextItems = [];
-        for (const item of currentItems) {
-            if (item.itemId !== market_1.MARKET_CURRENCY_ITEM_ID || remaining <= 0) {
-                nextItems.push(item);
-                continue;
-            }
-            const itemCount = Math.max(0, Math.trunc(Number(item.count ?? 0)));
-            if (itemCount <= remaining) {
-                remaining -= itemCount;
-                continue;
-            }
-            nextItems.push({
-                ...item,
-                count: itemCount - remaining,
-            });
-            remaining = 0;
-        }
-        if (remaining > 0) {
-            return false;
-        }
-        this.playerRuntimeService.replaceInventoryItems(playerId, nextItems);
         return true;
     }
     /**

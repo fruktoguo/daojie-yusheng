@@ -104,8 +104,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "guizang_vein_cavern:60,32",
-      "direction": "two_way",
-      "targetPortalId": "qizhen_crossing:30,13"
+      "direction": "one_way"
     },
     {
       "x": 57,

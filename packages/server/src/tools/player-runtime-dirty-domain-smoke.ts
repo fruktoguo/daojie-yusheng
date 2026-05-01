@@ -394,17 +394,17 @@ function testGrantWalletItemDirtyDomain(): void {
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 3);
 }
 
-function testCreditWalletDirectWrite(): void {
+function testCreditWalletUsesInventoryCache(): void {
   const playerId = 'player:wallet-credit';
   const service = createHydratedService(playerId);
 
   service.creditWallet(playerId, 'spirit_stone', 3);
 
   const walletWrites = (service as unknown as { walletWrites?: Array<{ playerId: string; balances: unknown[]; versionSeed?: number | null }> }).walletWrites ?? [];
-  assert.equal(walletWrites.length, 1);
-  assert.equal(walletWrites[0].playerId, playerId);
-  assert.equal(walletWrites[0].versionSeed, 2);
-  assertDirtyDomains(service, playerId, ['wallet'], ['snapshot']);
+  assert.equal(walletWrites.length, 0);
+  assertDirtyDomains(service, playerId, ['inventory'], ['snapshot', 'wallet']);
+  assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 3);
+  assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 3);
 }
 
 function testReceiveInventoryItemDirtyDomain(): void {
@@ -945,7 +945,7 @@ testLogbookDirtyDomain();
   testGrantWalletItemDirtyDomain();
   testReceiveInventoryItemDirtyDomain();
   testReceiveWalletItemDirtyDomain();
-  testCreditWalletDirectWrite();
+  testCreditWalletUsesInventoryCache();
   testDebitWalletFallsBackToInventory();
   testSplitInventoryItemDirtyDomain();
   testSetVitalsDirtyDomain();
@@ -968,7 +968,7 @@ testLogbookDirtyDomain();
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerRuntimeService 的显式脏域标记现已不会再被 bumpPersistentRevision 强制打回 snapshot，auto_battle_skill/auto_use_item_rule/map_unlock/logbook/world_anchor/wallet/inventory/vitals/technique/combat_pref/position_checkpoint/buff 既会打对应 dirty domain，也会在入口处直接触发分域小事务写入；上游修炼链、装备换装、buff 应用与 tick buff 也都已接到对应 dirty domain',
+        answers: 'PlayerRuntimeService 的显式脏域标记现已不会再被 bumpPersistentRevision 强制打回 snapshot；灵石 wallet 入口只读写背包真源并同步运行态 wallet 缓存，不再触发 wallet 小事务写入；auto_battle_skill/auto_use_item_rule/map_unlock/logbook/world_anchor/inventory/vitals/technique/combat_pref/position_checkpoint/buff 仍按入口打对应 dirty domain',
         completionMapping: 'release:proof:with-db.player-runtime-dirty-domains',
       },
       null,

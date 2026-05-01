@@ -37,6 +37,7 @@ services:
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
+      SERVER_NODE_ID: ${SERVER_NODE_ID:-daojie-yusheng-server:13001}
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-https://daojie.yuohira.com}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET:?SERVER_PLAYER_TOKEN_SECRET is required}
@@ -74,7 +75,7 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        order: stop-first
         failure_action: rollback
       rollback_config:
         parallelism: 1

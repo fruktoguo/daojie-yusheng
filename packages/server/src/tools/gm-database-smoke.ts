@@ -60,7 +60,7 @@ const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
  */
 const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
-    answers: '本地维护窗口下的 GM database destructive 链：backup、校验、restore、checkpoint backup、并发拒绝与维护态 socket 拒绝',
+    answers: '本地 GM database destructive 链：backup、校验、restore、checkpoint backup、并发拒绝与恢复不再要求维护态',
     excludes: '真实 shadow 目标机、运营审批链、跨环境灾备取证与人工维护记录',
     completionMapping: 'release:proof:with-db.gm-database-destructive-local',
 });
@@ -904,7 +904,10 @@ async function main() {
         if (!preservedGmAuthPayload) {
             throw new Error('expected changed GM auth password record to exist before restore');
         }
-        await expectRestoreRejectedWithoutMaintenance(changedToken, originalBackupId);
+        await expectRestoreDoesNotRequireMaintenance(changedToken);
+        await corruptBackupChecksum(originalBackupRecord);
+        await expectRestoreRejectedForInvalidBackup(changedToken, originalBackupId);
+        await restoreOriginalBackupFile(originalBackupRecord);
     }
     finally {
         await stopServer(server);
@@ -923,9 +926,6 @@ async function main() {
  * 记录令牌。
  */
         const token = await login(changedGmPassword);
-        await corruptBackupChecksum(originalBackupRecord);
-        await expectRestoreRejectedForInvalidBackup(token, originalBackupId);
-        await restoreOriginalBackupFile(originalBackupRecord);
         if (normalizeBackupFormat(originalBackupRecord?.format, originalBackupRecord?.fileName) === 'legacy_json_snapshot') {
             await corruptBackupDocumentsCount(originalBackupRecord);
             await expectRestoreRejectedForInvalidDocumentsCount(token, originalBackupId);
@@ -2407,31 +2407,17 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
     return payload;
 }
 /**
- * 处理expect恢复rejectedwithoutmaintenance。
+ * 处理expect恢复doesnotrequiremaintenance。
  */
-async function expectRestoreRejectedWithoutMaintenance(token, backupId) {
+async function expectRestoreDoesNotRequireMaintenance(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
- * 记录response。
+ * 记录state。
  */
-    const response = await fetch(`${baseUrl}/api/gm/database/restore`, {
-        method: 'POST',
-        headers: {
-            authorization: `Bearer ${token}`,
-            'content-type': 'application/json',
-        },
-        body: JSON.stringify({ backupId }),
-    });
-    if (response.status !== 400) {
-        throw new Error(`expected restore without maintenance to fail with 400, got ${response.status} ${await response.text()}`);
-    }
-/**
- * 记录text。
- */
-    const text = await response.text();
-    if (!text.includes('维护态')) {
-        throw new Error(`expected restore rejection to mention maintenance, got ${text}`);
+    const state = await authedGetJson('/api/gm/database/state', token);
+    if (state?.automation?.restoreRequiresMaintenance !== false) {
+        throw new Error(`expected restoreRequiresMaintenance=false, got ${JSON.stringify(state?.automation)}`);
     }
 }
 /**

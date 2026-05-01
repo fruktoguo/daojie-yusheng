@@ -473,8 +473,6 @@ export class NativeGmAdminService {
     async triggerDatabaseRestore(backupId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.assertRestoreMaintenanceEnabled();
-
         const record = await this.findBackupRecord(backupId);
         if (!record) {
             throw new BadRequestException('目标备份不存在');
@@ -1882,22 +1880,6 @@ export class NativeGmAdminService {
         if (this.currentDatabaseJob?.status === 'running') {
             throw new BadRequestException('当前已有数据库任务执行中');
         }
-    }
-    /**
- * assertRestoreMaintenanceEnabled：执行assertRestoreMaintenance启用相关逻辑。
- * @returns 无返回值，直接更新assertRestoreMaintenance启用相关状态。
- */
-
-    assertRestoreMaintenanceEnabled() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!NATIVE_GM_RESTORE_CONTRACT.requiresMaintenance) {
-            return;
-        }
-        if (readBooleanEnv('SERVER_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
-            return;
-        }
-        throw new BadRequestException('执行数据库恢复前必须先开启维护态（SERVER_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
     }
     /**
  * applyAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。

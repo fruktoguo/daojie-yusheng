@@ -665,7 +665,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             clearInterval(this.instanceLeaseSyncTimer);
         }
         this.instanceLeaseSyncTimer = setInterval(() => {
-            void this.syncAllInstanceLeases();
+            void this.syncAllInstanceLeases().catch((error) => {
+                this.logger.warn(`实例 lease 周期同步失败：${error instanceof Error ? error.message : String(error)}`);
+            });
         }, INSTANCE_LEASE_RENEW_SKEW_MS * 2);
         this.instanceLeaseSyncTimer.unref?.();
     }

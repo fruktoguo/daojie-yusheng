@@ -45,8 +45,7 @@
       "allowPlayerOverlap": false,
       "hidden": false,
       "id": "cleft_blade_plain:175,9",
-      "direction": "two_way",
-      "targetPortalId": "qizhen_crossing:7,21"
+      "direction": "one_way"
     },
     {
       "x": 1,

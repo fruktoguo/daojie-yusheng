@@ -412,14 +412,26 @@ export async function destroyExpiredManagedInstances(runtime) {
 }
 
 export async function syncAllInstanceLeases(runtime) {
-  await destroyExpiredManagedInstances(runtime);
+  try {
+    await destroyExpiredManagedInstances(runtime);
+  } catch (error) {
+    runtime.logger.warn(`过期实例清理失败：${error instanceof Error ? error.message : String(error)}`);
+  }
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
   for (const [instanceId] of runtime.listInstanceEntries()) {
-    await syncInstanceLease(runtime, instanceId);
+    try {
+      await syncInstanceLease(runtime, instanceId);
+    } catch (error) {
+      runtime.logger.warn(`实例 lease 同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  await claimRecoverableCatalogInstances(runtime);
+  try {
+    await claimRecoverableCatalogInstances(runtime);
+  } catch (error) {
+    runtime.logger.warn(`可恢复实例 lease 接管失败：${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function claimRecoverableCatalogInstances(runtime) {

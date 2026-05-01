@@ -96,6 +96,32 @@ function testRootFoundationRefineAcceptsExactMaterialCount() {
     assert.equal(player.inventory.revision, 1);
 }
 
+function testRootFoundationPreviewListsEveryMissingMaterialShortage() {
+    const service = new PlayerProgressionService({
+        getItemName(itemId) {
+            return itemId;
+        },
+    }, {
+        recalculate() {
+            return true;
+        },
+        markPanelDirty() {
+            return undefined;
+        },
+    });
+    service.onModuleInit();
+    const player = {
+        realm: service.createRealmStateFromLevel(8, Number.MAX_SAFE_INTEGER),
+        rootFoundation: 0,
+        inventory: { items: [{ itemId: 'wolf_fang', count: 1 }], revision: 0 },
+        attrs: { revision: 0 },
+        selfRevision: 0,
+    };
+    const preview = service.buildRootFoundationPreview(player, player.realm);
+    assert.equal(preview.canRefine, false);
+    assert.equal(preview.blockedReason, '材料不足：wolf_fang缺 3、serpent_gall缺 2');
+}
+
 function testBreakthroughOnlyUsesTotalAttributes() {
     const service = new PlayerProgressionService({
         getItemName(itemId) {
@@ -200,6 +226,7 @@ function testSpiritualRootRequirementBlocksQiRefiningBreakthrough() {
 testBreakthrough();
 testHeavenGateAction();
 testRootFoundationRefineAcceptsExactMaterialCount();
+testRootFoundationPreviewListsEveryMissingMaterialShortage();
 testBreakthroughOnlyUsesTotalAttributes();
 testSpiritualRootRequirementBlocksQiRefiningBreakthrough();
 
