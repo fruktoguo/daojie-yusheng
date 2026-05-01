@@ -2680,7 +2680,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.playerAttributesService.recalculate(player);
         }
         if (Object.keys(player.combat.cooldownReadyTickBySkillId).length > 0) {
-            player.combat.cooldownReadyTickBySkillId = {};
             this.rebuildActionState(player, input.currentTick);
         }
         if (player.combat.autoBattle) {

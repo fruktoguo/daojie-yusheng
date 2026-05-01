@@ -1167,6 +1167,53 @@ function testRespawnDirtyDomains(): void {
   assertDirtyDomains(service, playerId, ['position_checkpoint', 'vitals', 'buff', 'combat_pref'], ['snapshot']);
 }
 
+function testRespawnPreservesActiveSkillCooldown(): void {
+  const playerId = 'player:respawn-cooldown';
+  const skillId = 'skill.respawn.cooldown';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.techniques.techniques = [
+    {
+      techId: 'tech.respawn.cooldown',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      name: '复生冷却测试',
+      grade: null,
+      category: 'arts',
+      skills: [
+        {
+          id: skillId,
+          name: '复生冷却术',
+          desc: '',
+          cooldown: 30,
+          range: 1,
+          requiresTarget: true,
+        },
+      ],
+    },
+  ] as never;
+  service.rebuildActionState(player, 100);
+  service.setSkillCooldownReadyTick(playerId, skillId, 130, 100);
+  player.hp = 0;
+  player.qi = 1;
+  service.markPersisted(playerId);
+
+  service.respawnPlayer(playerId, {
+    instanceId: 'public:yunlai_town',
+    templateId: 'yunlai_town',
+    x: 32,
+    y: 5,
+    facing: Direction.South,
+    currentTick: 110,
+  });
+
+  assert.equal(player.combat.cooldownReadyTickBySkillId[skillId], 130);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 20);
+}
+
 function testApplyProgressionResultDirtyDomains(): void {
   const playerId = 'player:progression-result';
   const service = createHydratedService(playerId);
@@ -1215,6 +1262,7 @@ testLogbookDirtyDomain();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
   testRespawnDirtyDomains();
+  testRespawnPreservesActiveSkillCooldown();
   testApplyProgressionResultDirtyDomains();
   console.log(
     JSON.stringify(
