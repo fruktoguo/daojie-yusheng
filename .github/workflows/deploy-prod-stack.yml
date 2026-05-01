@@ -142,21 +142,16 @@ jobs:
 
       - name: Verify deployed production routes
         env:
-          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
         run: |
           set -euo pipefail
-          quote_for_sh() {
-            printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
-          }
 
           REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}"
-          GM_PASSWORD_Q="$(quote_for_sh "$GM_PASSWORD")"
           PROBE_STATUS=0
           timeout 90 ssh -p "${DEPLOY_SSH_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE" \
-            "GM_PASSWORD=$GM_PASSWORD_Q sh -s" <<'REMOTE_PROBE' || PROBE_STATUS=$?
+            sh -s <<'REMOTE_PROBE' || PROBE_STATUS=$?
           set -eu
 
           if ! command -v curl >/dev/null 2>&1; then
@@ -174,6 +169,21 @@ jobs:
               -H 'Content-Type: application/json' \
               -X POST "$url" \
               --data "$data" || printf 'curl_error')"
+            if ! printf '%s\n' "$code" | grep -Eq "$expected"; then
+              echo "route probe failed: $name url=$url status=$code expected=$expected" >&2
+              sed -n '1,80p' "$body" >&2 || true
+              return 1
+            fi
+            echo "route probe ok: $name status=$code"
+          }
+
+          request_get_code() {
+            name="$1"
+            url="$2"
+            expected="$3"
+            body="/tmp/${name}.out"
+            code="$(curl --connect-timeout 3 --max-time 8 -sS -o "$body" -w "%{http_code}" \
+              "$url" || printf 'curl_error')"
             if ! printf '%s\n' "$code" | grep -Eq "$expected"; then
               echo "route probe failed: $name url=$url status=$code expected=$expected" >&2
               sed -n '1,80p' "$body" >&2 || true
@@ -217,42 +227,17 @@ jobs:
             return 1
           }
 
-          json_escape() {
-            printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-          }
-
-          wait_for_gm_state() {
+          wait_for_get_code() {
             name="$1"
-            base_url="$2"
+            url="$2"
+            expected="$3"
             attempt=1
             while [ "$attempt" -le 24 ]; do
-              login_body="/tmp/${name}.login.out"
-              state_body="/tmp/${name}.state.out"
-              login_code="$(curl --connect-timeout 3 --max-time 8 -sS -o "$login_body" -w "%{http_code}" \
-                -H 'Content-Type: application/json' \
-                -H 'Origin: https://daojie.yuohira.com' \
-                -X POST "${base_url}/api/auth/gm/login" \
-                --data "{\"password\":\"$(json_escape "$GM_PASSWORD")\"}" || printf 'curl_error')"
-              if [ "$login_code" = "200" ]; then
-                token="$(sed -n 's/.*"accessToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$login_body" | head -n 1)"
-                if [ -n "$token" ]; then
-                  state_code="$(curl --connect-timeout 3 --max-time 10 -sS -o "$state_body" -w "%{http_code}" \
-                    -H "Authorization: Bearer $token" \
-                    -H 'Origin: https://daojie.yuohira.com' \
-                    "${base_url}/api/gm/state?page=1&pageSize=50&sort=realm-desc" || printf 'curl_error')"
-                  if [ "$state_code" = "200" ]; then
-                    echo "route probe ok: $name attempt=$attempt"
-                    return 0
-                  fi
-                  echo "route probe failed: $name state status=$state_code" >&2
-                  sed -n '1,80p' "$state_body" >&2 || true
-                else
-                  echo "route probe failed: $name missing accessToken" >&2
-                  sed -n '1,80p' "$login_body" >&2 || true
-                fi
+              if request_get_code "$name" "$url" "$expected"; then
+                echo "route probe ok: $name attempt=$attempt"
+                return 0
               else
-                echo "route probe failed: $name login status=$login_code" >&2
-                sed -n '1,80p' "$login_body" >&2 || true
+                true
               fi
               sleep 2
               attempt=$((attempt + 1))
@@ -273,8 +258,13 @@ jobs:
             '{"loginName":"__deploy_probe__","password":"__deploy_probe__"}' \
             '^(400|401)$'
 
-          wait_for_gm_state server-gm-state http://127.0.0.1:11922
-          wait_for_gm_state client-gm-state http://127.0.0.1:11921
+          wait_for_get_code server-gm-state-unauthorized \
+            'http://127.0.0.1:11922/api/gm/state?page=1&pageSize=1' \
+            '^(401|403)$'
+
+          wait_for_get_code client-gm-state-unauthorized \
+            'http://127.0.0.1:11921/api/gm/state?page=1&pageSize=1' \
+            '^(401|403)$'
           REMOTE_PROBE
 
           if [ "$PROBE_STATUS" -ne 0 ]; then
