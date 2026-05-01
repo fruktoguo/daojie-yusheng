@@ -3910,7 +3910,7 @@ export class ActionPanel {
       parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
-      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || 'Buff').join('、')}`);
+      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || '增益').join('、')}`);
     }
     return parts.join('；') || '效果以物品真源配置为准。';
   }

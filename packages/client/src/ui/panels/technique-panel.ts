@@ -597,7 +597,7 @@ export class TechniquePanel {
     template.innerHTML = this.renderTechniqueCard(tech).trim();
     const card = template.content.firstElementChild;
     if (!(card instanceof HTMLElement)) {
-      throw new Error('Failed to create technique card element');
+      throw new Error('创建功法卡片元素失败');
     }
     return card;
   }

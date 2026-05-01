@@ -885,7 +885,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             phaseName: entry.phaseName ?? undefined,
             review: entry.review,
         })).sort((left, right) => left.realmLv - right.realmLv);
-    }    
+    }
     /** 按 main 口径计算怪物在战斗经验伤害分层中的等价值。 */
     getMonsterCombatExpEquivalent(monsterLevel) {
         const normalizedLevel = Math.max(1, Math.floor(Number(monsterLevel) || 1));
@@ -916,7 +916,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const stage = player.realm?.stage ?? shared_1.PLAYER_REALM_ORDER[0];
         return this.createRealmStateFromLevel(resolveRealmLevelFromStage(stage), rawProgress);
-    }    
+    }
     /**
  * normalizeRealmState：规范化或转换Realm状态。
  * @param value 参数说明。
@@ -930,7 +930,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return this.createRealmStateFromLevel(1, 0);
         }
         return this.createRealmStateFromLevel(value.realmLv, value.progress);
-    }    
+    }
     /**
  * createRealmStateFromLevel：构建并返回目标对象。
  * @param realmLvInput 参数说明。
@@ -978,7 +978,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             minTechniqueLevel: breakthroughTransition ? 0 : config.minTechniqueLevel,
             minTechniqueRealm: breakthroughTransition ? undefined : config.minTechniqueRealm,
         };
-    }    
+    }
     /**
  * applyResolvedRealmState：规范化或转换ResolvedRealm状态。
  * @param player 玩家对象。
@@ -1006,7 +1006,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             player.persistentRevision += 1;
         }
         return attrRecalculated;
-    }    
+    }
     /**
  * applyRealmPresentation：处理RealmPresentation并更新相关状态。
  * @param player 玩家对象。
@@ -1026,7 +1026,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         player.realm = nextRealm;
         player.heavenGate = heavenGate;
         player.lifespanYears = nextRealm.lifespanYears;
-    }    
+    }
     /**
  * buildBreakthroughPreview：构建并返回目标对象。
  * @param player 玩家对象。
@@ -1120,7 +1120,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             rootFoundation: this.buildRootFoundationPreview(player, realm),
             blockedReason,
         };
-    }    
+    }
     /** 构建凝练根基预览。 */
     buildRootFoundationPreview(player, realm) {
         const current = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
@@ -1200,7 +1200,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
         player.heavenGate = nextState;
         return nextState;
-    }    
+    }
     /**
  * hasCompletedHeavenGate：判断CompletedHeavenGate是否满足条件。
  * @param player 玩家对象。
@@ -1211,7 +1211,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const heavenGate = normalizeHeavenGateState(player.heavenGate);
         return heavenGate?.entered === true || normalizeHeavenGateRoots(player.spiritualRoots) !== null;
-    }    
+    }
     /**
  * hasReachedHeavenGateRealm：判断ReachedHeavenGateRealm是否满足条件。
  * @param realmLv 参数说明。
@@ -1220,7 +1220,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
     hasReachedHeavenGateRealm(realmLv) {
         return realmLv >= HEAVEN_GATE_REALM_LEVEL;
-    }    
+    }
     /**
  * getHeavenGateSeverCost：读取HeavenGateSever消耗。
  * @param realm 参数说明。
@@ -1229,7 +1229,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
     getHeavenGateSeverCost(realm) {
         return Math.max(1, Math.round(realm.progressToNext * 0.1));
-    }    
+    }
     /**
  * getHeavenGateRerollCost：读取HeavenGateReroll消耗。
  * @param realm 参数说明。
@@ -1238,7 +1238,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
     getHeavenGateRerollCost(realm) {
         return Math.max(1, Math.round(realm.progressToNext * 0.25));
-    }    
+    }
     /**
  * weightedPickHeavenGateSegment：执行weightedPickHeavenGateSegment相关逻辑。
  * @param segments 参数说明。
@@ -1259,7 +1259,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             }
         }
         return segments[segments.length - 1];
-    }    
+    }
     /**
  * randomHeavenGateInt：执行randomHeavenGateInt相关逻辑。
  * @param min 参数说明。
@@ -1269,7 +1269,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
     randomHeavenGateInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
-    }    
+    }
     /**
  * getHeavenGateExtraPerfectRootKeepChance：读取HeavenGateExtraPerfect根容器KeepChance。
  * @param averageBonus 参数说明。
@@ -1289,7 +1289,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const squaredSoftCap = HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP * HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP;
         return squaredBonus / (squaredBonus + squaredSoftCap);
-    }    
+    }
     /**
  * distributeHeavenGateRoots：判断distributeHeavenGate根容器是否满足条件。
  * @param total 参数说明。
@@ -1354,7 +1354,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             result[entry.element] = 1 + entry.extra;
         }
         return result;
-    }    
+    }
     /**
  * softenHeavenGatePerfectRoots：执行softenHeavenGatePerfect根容器相关逻辑。
  * @param roots 参数说明。
@@ -1384,7 +1384,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             preservedPerfectCount += 1;
         }
         return roots;
-    }    
+    }
     /**
  * rollHeavenGateRoots：执行rollHeavenGate根容器相关逻辑。
  * @param severed 参数说明。
@@ -1404,7 +1404,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const roots = this.distributeHeavenGateRoots(average * remaining.length, [...remaining]);
         return this.softenHeavenGatePerfectRoots(roots, averageBonus);
-    }    
+    }
     /**
  * consumeInventoryItemById：执行consume背包道具ByID相关逻辑。
  * @param player 玩家对象。
@@ -1431,7 +1431,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 player.inventory.items.splice(index, 1);
             }
         }
-    }    
+    }
     /**
  * gainRealmProgressInternal：执行gainRealm进度Internal相关逻辑。
  * @param player 玩家对象。
@@ -1534,7 +1534,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             actionsDirty: nextRealm.breakthroughReady !== realm.breakthroughReady,
             notices,
         };
-    }    
+    }
     /**
  * resolveCultivatingTechnique：规范化或转换Cultivating功法。
  * @param player 玩家对象。
@@ -1550,7 +1550,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return null;
         }
         return player.techniques.techniques.find((entry) => entry.techId === currentTechId) ?? null;
-    }    
+    }
     /**
  * resolveActiveCultivatingTechnique：规范化或转换激活Cultivating功法。
  * @param player 玩家对象。
@@ -1598,7 +1598,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             ...createEmptyMutation(),
             technique: current,
         };
-    }    
+    }
     /**
  * clearInvalidCultivation：执行clearInvalidCultivation相关逻辑。
  * @param player 玩家对象。
@@ -1619,7 +1619,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     kind: 'warn',
                 }],
         };
-    }    
+    }
     /**
  * findNextCultivatingTechnique：读取NextCultivating功法并返回结果。
  * @param player 玩家对象。
@@ -1644,7 +1644,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             }
         }
         return null;
-    }    
+    }
     /**
  * isTechniqueMaxed：判断功法Maxed是否满足条件。
  * @param technique 参数说明。
@@ -1657,7 +1657,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, level);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
-    }    
+    }
     /** 判断已学功法是否全部圆满。 */
     areAllTechniquesMaxed(player) {
         return player.techniques.techniques.length > 0
@@ -1750,7 +1750,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             }
         }
         return mutation;
-    }    
+    }
     /** 将无主修或全圆满后的功法经验转入炼体。 */
     advanceBodyTrainingProgressInternal(player, amount, resolved) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1823,7 +1823,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             * monsterLevelDecay
             * clamp(contributionRatio, 0, 1)
             / 1000;
-    }    
+    }
     /**
  * getTechniqueCombatExp：读取功法战斗Exp。
  * @param monsterLevel 参数说明。
@@ -1853,7 +1853,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             * monsterLevelDecay
             * clamp(contributionRatio, 0, 1)
             / 200;
-    }    
+    }
     /**
  * finalizeProgressionMutation：执行finalize修炼进度Mutation相关逻辑。
  * @param player 玩家对象。
@@ -1874,7 +1874,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             player.techniques.revision += 1;
         }
         player.persistentRevision += 1;
-    }    
+    }
     /**
  * finalizePresentationMutation：执行finalizePresentationMutation相关逻辑。
  * @param player 玩家对象。

@@ -1444,7 +1444,7 @@ export function PrototypeApp() {
             </div>
 
             <div className="prototype-setting-inline prototype-setting-inline--actions">
-              <UiButton type="button" variants={['ghost']} onClick={() => showToast('Toast host 正常。', 'success')}>Toast</UiButton>
+              <UiButton type="button" variants={['ghost']} onClick={() => showToast('提示宿主正常。', 'success')}>提示</UiButton>
               <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(selectedModule)}>详情</UiButton>
             </div>
           </UiToolbar>

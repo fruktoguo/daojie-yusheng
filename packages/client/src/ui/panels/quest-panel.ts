@@ -174,7 +174,7 @@ export class QuestPanel {
     this.inventory = null;
     this.shellRefs = null;
     const emptyNode = this.createEmptyState();
-    emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
+    emptyNode.textContent = '暂无任务，和场景人物交互可接取';
     patchElementChildren(this.pane, emptyNode);
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
@@ -196,7 +196,7 @@ export class QuestPanel {
       this.lastStructureLine = this.activeLine;
       this.shellRefs = null;
       const emptyNode = this.createEmptyState();
-      emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
+      emptyNode.textContent = '暂无任务，和场景人物交互可接取';
       patchElementChildren(this.pane, emptyNode);
       return;
     }

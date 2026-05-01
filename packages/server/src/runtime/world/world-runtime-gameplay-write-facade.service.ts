@@ -22,7 +22,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
             if (typeof deps.fenceInstanceRuntime === 'function') {
                 deps.fenceInstanceRuntime(instance.meta.instanceId, 'player_write_lease_check_failed');
             }
-            throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+            throw new common_1.ServiceUnavailableException(`地图实例 ${instance.meta.instanceId} 租约不可写`);
         }
     }
 
@@ -32,7 +32,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
             if (typeof deps.fenceInstanceRuntime === 'function') {
                 deps.fenceInstanceRuntime(instance.meta.instanceId, 'instance_write_lease_check_failed');
             }
-            throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+            throw new common_1.ServiceUnavailableException(`地图实例 ${instance.meta.instanceId} 租约不可写`);
         }
     }
 /**

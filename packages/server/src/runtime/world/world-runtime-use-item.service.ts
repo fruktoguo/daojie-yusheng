@@ -68,7 +68,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
@@ -124,11 +124,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         for (const mapId of mapUnlockIds) {
             if (!this.templateRepository.has(mapId)) {
-                throw new common_1.BadRequestException(`Unknown map unlock target: ${mapId}`);
+                throw new common_1.BadRequestException(`地图解锁目标不存在：${mapId}`);
             }
         }
         if (mapUnlockIds.every((mapId) => this.playerRuntimeService.hasUnlockedMap(playerId, mapId))) {
-            throw new common_1.BadRequestException('Map already unlocked');
+            throw new common_1.BadRequestException('地图已经解锁');
         }
         for (const mapId of mapUnlockIds) {
             if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
@@ -157,11 +157,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId || !this.templateRepository.has(normalizedMapId)) {
-            throw new common_1.BadRequestException(`Unknown respawn bind target: ${normalizedMapId || mapId}`);
+            throw new common_1.BadRequestException(`复活绑定目标不存在：${normalizedMapId || mapId}`);
         }
         const changed = this.playerRuntimeService.bindRespawnPoint(playerId, normalizedMapId);
         if (!changed) {
-            throw new common_1.BadRequestException('Respawn point already bound');
+            throw new common_1.BadRequestException('已经绑定该复活点');
         }
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         deps.refreshQuestStates(playerId);
@@ -182,7 +182,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         const resourceGains = this.resolveTileResourceGains(item);
         const normalizedCount = normalizeUseItemCount(count, item);
         if (resourceGains.length <= 0) {
-            throw new common_1.BadRequestException(`Failed to resolve tile resource gain from item ${item.itemId}`);
+            throw new common_1.BadRequestException(`无法解析物品 ${item.itemId} 的地块资源效果`);
         }
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -192,7 +192,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
             const totalGain = entry.amount * normalizedCount;
             const nextValue = instance.addTileResource(entry.resourceKey, player.x, player.y, totalGain);
             if (nextValue === null) {
-                throw new common_1.BadRequestException(`Failed to add tile resource ${entry.resourceKey} at ${player.x},${player.y}`);
+                throw new common_1.BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源 ${entry.resourceKey}`);
             }
             results.push({ ...entry, amount: totalGain, nextValue });
         }

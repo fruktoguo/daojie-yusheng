@@ -476,10 +476,10 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       pendingTargetedAction.range = this.resolveCurrentTargetingRange(pendingTargetedAction);
       this.syncTargetingOverlay();
       if (actionId === 'client:observe') {
-        options.showToast('请选择当前视野内的目标格，Esc 或右键取消');
+        options.showToast('请选择当前视野内的目标格，按取消键或右键取消');
         return;
       }
-      options.showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
+      options.showToast(`请选择 ${pendingTargetedAction.range} 格内目标，按取消键或右键取消`);
     },
     /**
  * cancelTargeting：读取cancelTargeting并返回结果。

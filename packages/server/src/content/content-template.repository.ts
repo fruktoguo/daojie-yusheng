@@ -2462,7 +2462,7 @@ function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
 
     const template = sharedTechniqueBuffs.get(buffRef);
     if (!template) {
-        throw new Error(`共享功法 Buff 模板 ${buffRef} 不存在`);
+        throw new Error(`共享功法增益模板 ${buffRef} 不存在`);
     }
     const { id: _id, ...templateEffect } = template;
     const { buffRef: _buffRef, ...effect } = candidate;

@@ -80,7 +80,7 @@ class WorldGatewayMovementHelper {
             questId,
         });
         if (!questId) {
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, '', false, 'questId is required');
+            this.gateway.worldClientEventService.emitQuestNavigateResult(client, '', false, '任务 ID 不能为空');
             return;
         }
         try {

@@ -946,7 +946,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       }
       const approachTarget = resolveNpcApproachTarget(npc);
       if (!approachTarget) {
-        options.showToast('找不到能靠近该 NPC 的位置');
+        options.showToast('找不到能靠近该场景人物的位置');
         return true;
       }
       pendingAutoInteraction = {

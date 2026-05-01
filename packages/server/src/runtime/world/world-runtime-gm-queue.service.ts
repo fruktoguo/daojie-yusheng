@@ -52,7 +52,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
         this.pendingSystemCommands.push({
             kind: 'gmUpdatePlayer',
@@ -77,7 +77,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
         this.pendingSystemCommands.push({ kind: 'gmResetPlayer', playerId });
         return { queued: true };
@@ -94,11 +94,11 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const anchorPlayerId = typeof anchorPlayerIdInput === 'string' ? anchorPlayerIdInput.trim() : '';
         if (!anchorPlayerId) {
-            throw new common_1.BadRequestException('anchorPlayerId is required');
+            throw new common_1.BadRequestException('锚点玩家 ID 不能为空');
         }
         const count = Math.max(0, Math.min(200, Math.trunc(countInput)));
         if (!Number.isFinite(count) || count <= 0) {
-            throw new common_1.BadRequestException('count must be greater than 0');
+            throw new common_1.BadRequestException('数量必须大于 0');
         }
         this.pendingSystemCommands.push({ kind: 'gmSpawnBots', anchorPlayerId, count });
         return { queued: true };
@@ -218,7 +218,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             ? deps.getInstanceRuntime(requestedInstanceId)
             : null;
         if (requestedInstanceId && !targetInstance) {
-            throw new common_1.BadRequestException(`instanceId not found: ${requestedInstanceId}`);
+            throw new common_1.BadRequestException(`地图实例不存在：${requestedInstanceId}`);
         }
         const nextMapId = command.mapId || player.templateId || deps.resolveDefaultRespawnMapId();
         const resolvedTargetInstance = targetInstance ?? deps.getOrCreatePublicInstance(nextMapId);

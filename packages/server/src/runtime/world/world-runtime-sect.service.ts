@@ -355,7 +355,7 @@ class WorldRuntimeSectService {
             this.toggleSectRolePermission(sect, roleId, permissionId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
-        throw new common_1.BadRequestException(`Unsupported sect action: ${actionId}`);
+        throw new common_1.BadRequestException(`不支持的宗门动作：${actionId}`);
     }
 
     buildSectEntranceActions(view, deps = null) {
@@ -1531,7 +1531,7 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
                 throw new common_1.BadRequestException('宗门山门五格阵基内不能有传送点');
             }
             if (hasNpcAtTile(instance, x, y)) {
-                throw new common_1.BadRequestException('宗门山门五格阵基内不能有 NPC');
+                throw new common_1.BadRequestException('宗门山门五格阵基内不能有场景人物');
             }
             if (typeof instance?.getSafeZoneAtTile === 'function' && instance.getSafeZoneAtTile(x, y)) {
                 throw new common_1.BadRequestException('宗门山门五格阵基内不能有安全区');

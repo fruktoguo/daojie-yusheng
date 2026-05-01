@@ -92,7 +92,7 @@ export async function restorePostgresCustomDump(filePath: string, databaseUrl: s
   }
   const format = await detectDatabaseBackupFormat(filePath);
   if (format !== 'postgres_custom_dump') {
-    throw new Error('目标备份不是 PostgreSQL custom dump');
+    throw new Error('目标备份不是 PostgreSQL 自定义备份');
   }
   const restoreSpec = resolveRestoreProcessSpec(databaseUrl);
   const supportedSettings = getSupportedServerSettingNames(databaseUrl);

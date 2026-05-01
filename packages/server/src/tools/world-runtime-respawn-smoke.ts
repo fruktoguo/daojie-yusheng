@@ -77,6 +77,9 @@ function createDeps(currentMapId, log) {
         getInstanceRuntime(instanceId) {
             return instanceId === `public:${currentMapId}` ? previousInstance : null;
         },
+        clearPendingCommand(playerId) {
+            log.push(['clearPendingCommand', playerId]);
+        },
         resolveDefaultRespawnMapId() {
             log.push(['resolveDefaultRespawnMapId']);
             return 'yunlai_town';
@@ -107,6 +110,7 @@ function testRespawnFromDefaultMap() {
     const service = new WorldRuntimeRespawnService(createPlayerRuntimeService(log));
     service.respawnPlayer('player:1', createDeps('wildlands', log));
     assert.deepEqual(log, [
+        ['clearPendingCommand', 'player:1'],
         ['resolveDefaultRespawnMapId'],
         ['getOrCreatePublicInstance', 'yunlai_town'],
         ['disconnectPlayer', 'wildlands', 'player:1'],
@@ -124,6 +128,7 @@ function testRespawnInsidePrisonKeepsPlayerInPrison() {
     const service = new WorldRuntimeRespawnService(createPlayerRuntimeService(log));
     service.respawnPlayer('player:1', createDeps('prison', log));
     assert.deepEqual(log, [
+        ['clearPendingCommand', 'player:1'],
         ['getOrCreatePublicInstance', 'prison'],
         ['disconnectPlayer', 'prison', 'player:1'],
         ['connectPlayer', 'prison', 10, 10],
@@ -144,6 +149,7 @@ function testInvalidBoundRespawnPointFallsBackToMapSpawn() {
     }));
     service.respawnPlayer('player:1', createDeps('wildlands', log));
     assert.deepEqual(log, [
+        ['clearPendingCommand', 'player:1'],
         ['getOrCreatePublicInstance', 'yunlai_town'],
         ['disconnectPlayer', 'wildlands', 'player:1'],
         ['connectPlayer', 'yunlai_town', 10, 10],

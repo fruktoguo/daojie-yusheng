@@ -633,7 +633,7 @@ export class NativeGmWorldService {
 
     const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : '';
     if (!templateId) {
-      throw new BadRequestException('templateId is required');
+      throw new BadRequestException('模板 ID 不能为空');
     }
     if (isSectTemplateId(templateId)) {
       throw new BadRequestException('宗门地图由宗门运行时创建，不能按和平/真实线手动扩线');
@@ -681,10 +681,10 @@ export class NativeGmWorldService {
     const playerId = typeof body?.playerId === 'string' ? body.playerId.trim() : '';
     const instanceId = typeof body?.instanceId === 'string' ? body.instanceId.trim() : '';
     if (!playerId) {
-      throw new BadRequestException('playerId is required');
+      throw new BadRequestException('玩家 ID 不能为空');
     }
     if (!instanceId) {
-      throw new BadRequestException('instanceId is required');
+      throw new BadRequestException('地图实例 ID 不能为空');
     }
     if (!this.worldRuntimeService.getInstance(instanceId)) {
       throw new BadRequestException('目标实例不存在');
@@ -833,7 +833,7 @@ export class NativeGmWorldService {
 
 function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
   if (!isRuntimeInstanceLinePreset(input)) {
-    throw new BadRequestException('linePreset must be peaceful or real');
+    throw new BadRequestException('分线预设必须是和平线或真实线');
   }
   return input as GmWorldInstanceLinePreset;
 }
@@ -889,7 +889,7 @@ function normalizeOptionalFutureTimestamp(input: unknown): number | null {
   }
   const timestamp = Math.trunc(Number(input));
   if (timestamp <= Date.now()) {
-    throw new BadRequestException('expireAt must be a future timestamp');
+    throw new BadRequestException('过期时间必须是未来时间戳');
   }
   return timestamp;
 }

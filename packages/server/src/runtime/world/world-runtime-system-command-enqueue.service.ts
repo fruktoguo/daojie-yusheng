@@ -64,10 +64,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const monsterId = typeof monsterIdInput === 'string' ? monsterIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('instanceId is required');
+            throw new common_1.BadRequestException('地图实例 ID 不能为空');
         }
         if (!monsterId) {
-            throw new common_1.BadRequestException('monsterId is required');
+            throw new common_1.BadRequestException('妖兽 ID 不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -93,10 +93,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('instanceId is required');
+            throw new common_1.BadRequestException('地图实例 ID 不能为空');
         }
         if (!runtimeId) {
-            throw new common_1.BadRequestException('runtimeId is required');
+            throw new common_1.BadRequestException('运行时 ID 不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -120,15 +120,15 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('instanceId is required');
+            throw new common_1.BadRequestException('地图实例 ID 不能为空');
         }
         if (!runtimeId) {
-            throw new common_1.BadRequestException('runtimeId is required');
+            throw new common_1.BadRequestException('运行时 ID 不能为空');
         }
 
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
-            throw new common_1.BadRequestException('amount is required');
+            throw new common_1.BadRequestException('数量不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -151,12 +151,12 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
 
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
-            throw new common_1.BadRequestException('amount is required');
+            throw new common_1.BadRequestException('数量不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -177,7 +177,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -197,7 +197,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -217,7 +217,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
+            throw new common_1.BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({

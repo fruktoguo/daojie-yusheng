@@ -1276,10 +1276,10 @@ function getBuffCatalogOptions(selectedBuffId?: string): Array<{
   if (!hasServerEditorCatalog()) {
     return selectedBuffId
       ? [
-          { value: '', label: '请选择 Buff' },
+          { value: '', label: '请选择增益' },
           { value: selectedBuffId, label: selectedBuffId },
         ]
-      : [{ value: '', label: '请选择 Buff' }];
+      : [{ value: '', label: '请选择增益' }];
   }
   return gmCatalogHelpers.getBuffCatalogOptions(editorCatalog, selectedBuffId);
 }
@@ -2343,7 +2343,7 @@ function getEditorTabLabel(tab: GmEditorTab): string {
     case 'realm':
       return '属性';
     case 'buffs':
-      return 'Buff';
+      return '增益';
     case 'techniques':
       return '功法';
     case 'shortcuts':
@@ -2593,7 +2593,7 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
 function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): string {
   switch (format) {
     case 'postgres_custom_dump':
-      return 'PostgreSQL custom dump';
+      return 'PostgreSQL 自定义备份';
     case 'legacy_json_snapshot':
       return '历史 JSON 快照（硬切后不可恢复）';
     default:
@@ -2607,7 +2607,7 @@ function renderDatabasePanel(): void {
   const backups = databaseState?.backups ?? [];
   const importStatus = databaseImportStatus
     ? databaseImportStatus
-    : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套数据库恢复流程。';
+    : '只接受新版 PostgreSQL 自定义备份（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套数据库恢复流程。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2631,7 +2631,7 @@ function renderDatabasePanel(): void {
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">导入本地数据库备份</div>
-        <div class="network-breakdown-subtitle">上传新版 PostgreSQL custom dump，登记到当前 GM 备份目录；可直接执行恢复</div>
+        <div class="network-breakdown-subtitle">上传新版 PostgreSQL 自定义备份，登记到当前 GM 备份目录；可直接执行恢复</div>
       </div>
       <div class="filter-row" style="margin-top: 10px;">
         <input id="database-import-file" class="search-input" type="file" accept=".dump,application/octet-stream" ${busy ? 'disabled' : ''} />
@@ -3077,8 +3077,8 @@ function updateDatabaseImportFileSelection(file: File | null): void {
 
   const fileLabel = `${file.name}（${formatBytes(file.size)}）`;
   if (!isSupportedDatabaseImportFile(file)) {
-    patchDatabaseImportStatus(`已选择 ${fileLabel}，但硬切后仅支持新版 PostgreSQL custom dump（.dump）。`);
-    setStatus('仅支持新版 PostgreSQL custom dump（.dump）', true);
+    patchDatabaseImportStatus(`已选择 ${fileLabel}，但硬切后仅支持新版 PostgreSQL 自定义备份（.dump）。`);
+    setStatus('仅支持新版 PostgreSQL 自定义备份（.dump）', true);
     return;
   }
 
@@ -3095,7 +3095,7 @@ async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<vo
     return;
   }
   if (!isSupportedDatabaseImportFile(file)) {
-    setStatus('仅支持新版 PostgreSQL custom dump（.dump）', true);
+    setStatus('仅支持新版 PostgreSQL 自定义备份（.dump）', true);
     patchDatabaseImportStatus(`文件类型不受支持：${file.name}。`);
     return;
   }
@@ -3177,7 +3177,7 @@ async function restoreDatabaseBackup(
     return;
   }
   if (backup && backup.format !== 'postgres_custom_dump') {
-    setStatus('硬切后只支持恢复新版 PostgreSQL custom dump，不再支持历史 JSON 快照', true);
+    setStatus('硬切后只支持恢复新版 PostgreSQL 自定义备份，不再支持历史 JSON 快照', true);
     return;
   }
   const fileName = backup?.fileName ?? options.fallbackFileName ?? backupId;
@@ -4475,11 +4475,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     ? buffs.map((buff, index) => `
       <div class="editor-card">
         <div class="editor-card-head">
-          <div class="editor-card-title">Buff ${index + 1}</div>
+          <div class="editor-card-title">增益 ${index + 1}</div>
           <button class="small-btn danger" type="button" data-action="remove-buff" data-index="${index}">删除</button>
         </div>
         <div class="editor-grid compact">
-          ${selectField('Buff', `temporaryBuffs.${index}.buffId`, buff.buffId, getBuffCatalogOptions(buff.buffId), 'wide')}
+          ${selectField('增益', `temporaryBuffs.${index}.buffId`, buff.buffId, getBuffCatalogOptions(buff.buffId), 'wide')}
           ${numberField('层数', `temporaryBuffs.${index}.stacks`, buff.stacks)}
           ${numberField('剩余时间', `temporaryBuffs.${index}.remainingTicks`, buff.remainingTicks)}
         </div>
@@ -4554,8 +4554,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${nullableTextField('目标地图 ID', `quests.${index}.targetMapId`, quest.targetMapId, 'undefined')}
           ${numberField('目标 X', `quests.${index}.targetX`, typeof quest.targetX === 'number' ? quest.targetX : 0)}
           ${numberField('目标 Y', `quests.${index}.targetY`, typeof quest.targetY === 'number' ? quest.targetY : 0)}
-          ${nullableTextField('目标 NPC ID', `quests.${index}.targetNpcId`, quest.targetNpcId, 'undefined')}
-          ${nullableTextField('目标 NPC 名称', `quests.${index}.targetNpcName`, quest.targetNpcName, 'undefined')}
+          ${nullableTextField('目标场景人物 ID', `quests.${index}.targetNpcId`, quest.targetNpcId, 'undefined')}
+          ${nullableTextField('目标场景人物名称', `quests.${index}.targetNpcName`, quest.targetNpcName, 'undefined')}
           ${nullableTextField('目标文本', `quests.${index}.objectiveText`, quest.objectiveText, 'undefined', 'wide')}
           ${nullableTextField('传话内容', `quests.${index}.relayMessage`, quest.relayMessage, 'undefined', 'wide')}
           ${textField('奖励文本', `quests.${index}.rewardText`, quest.rewardText, 'wide')}
@@ -4568,8 +4568,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${nullableTextField('发放地图名', `quests.${index}.giverMapName`, quest.giverMapName, 'undefined')}
           ${numberField('发放者 X', `quests.${index}.giverX`, typeof quest.giverX === 'number' ? quest.giverX : 0)}
           ${numberField('发放者 Y', `quests.${index}.giverY`, typeof quest.giverY === 'number' ? quest.giverY : 0)}
-          ${nullableTextField('提交 NPC ID', `quests.${index}.submitNpcId`, quest.submitNpcId, 'undefined')}
-          ${nullableTextField('提交 NPC 名称', `quests.${index}.submitNpcName`, quest.submitNpcName, 'undefined')}
+          ${nullableTextField('提交场景人物 ID', `quests.${index}.submitNpcId`, quest.submitNpcId, 'undefined')}
+          ${nullableTextField('提交场景人物名称', `quests.${index}.submitNpcName`, quest.submitNpcName, 'undefined')}
           ${nullableTextField('提交地图 ID', `quests.${index}.submitMapId`, quest.submitMapId, 'undefined')}
           ${nullableTextField('提交地图名', `quests.${index}.submitMapName`, quest.submitMapName, 'undefined')}
           ${numberField('提交 X', `quests.${index}.submitX`, typeof quest.submitX === 'number' ? quest.submitX : 0)}
@@ -4793,11 +4793,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">Buff 编辑</div>
-          <div class="editor-section-note">这里只保留 Buff 选择、层数和剩余时间，其他静态字段按模板自动带出。</div>
+          <div class="editor-section-title">增益编辑</div>
+          <div class="editor-section-note">这里只保留增益选择、层数和剩余时间，其他静态字段按模板自动带出。</div>
         </div>
         <div class="button-row">
-          <button class="small-btn" type="button" data-action="add-buff"${catalogActionDisabled}>新增 Buff</button>
+          <button class="small-btn" type="button" data-action="add-buff"${catalogActionDisabled}>新增增益</button>
         </div>
       </div>
       <div class="editor-card-list">${buffMarkup}</div>
@@ -6774,7 +6774,7 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       break;
     case 'add-buff':
       if (!hasServerEditorCatalog()) {
-        setStatus('服务端编辑目录不可用，当前不能用模板方式新增 Buff。', true);
+        setStatus('服务端编辑目录不可用，当前不能用模板方式新增增益。', true);
         return;
       }
       mutateDraft((draft) => {

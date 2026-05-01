@@ -200,7 +200,7 @@ export class WorldGatewayActionHelper {
           ? payload.type.trim()
           : '';
     if (!actionId) {
-      throw new Error('actionId is required');
+      throw new Error('动作 ID 不能为空');
     }
     return actionId;
   }

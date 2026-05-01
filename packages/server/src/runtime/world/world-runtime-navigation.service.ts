@@ -205,7 +205,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         this.interruptManualNavigation(playerId, deps);
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
+            throw new common_1.BadRequestException('任务 ID 不能为空');
         }
         const intent = { kind: 'quest', questId };
         this.navigationIntents.set(playerId, intent);

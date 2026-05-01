@@ -383,7 +383,7 @@ export class NativeGmController {
   migrateWorldInstance(@Param('instanceId') instanceId: string, @Body() body: NodeMigrationBody) {
     const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
     if (!targetNodeId) {
-      throw new BadRequestException('targetNodeId is required');
+      throw new BadRequestException('目标节点 ID 不能为空');
     }
     return this.nextGmWorldService.migrateInstanceToNode(instanceId, targetNodeId);
   }  
@@ -399,7 +399,7 @@ export class NativeGmController {
   migrateWorldPlayer(@Param('playerId') playerId: string, @Body() body: NodeMigrationBody) {
     const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
     if (!targetNodeId) {
-      throw new BadRequestException('targetNodeId is required');
+      throw new BadRequestException('目标节点 ID 不能为空');
     }
     return this.nextGmWorldService.migratePlayerToNode(playerId, targetNodeId);
   }  

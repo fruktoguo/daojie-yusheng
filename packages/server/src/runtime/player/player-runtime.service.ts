@@ -417,7 +417,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.players.get(playerId);
         if (!player) {
-            throw new common_1.NotFoundException(`Player ${playerId} not found`);
+            throw new common_1.NotFoundException(`玩家不存在：${playerId}`);
         }
         return player;
     }
@@ -855,7 +855,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
         const item = this.contentTemplateRepository.createItem(normalizedItemId, count);
         if (!item) {
-            throw new common_1.NotFoundException(`Item ${normalizedItemId} not found`);
+            throw new common_1.NotFoundException(`物品不存在：${normalizedItemId}`);
         }
 
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
@@ -927,7 +927,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         const item = this.contentTemplateRepository.createItem(normalizedWalletType, normalizedAmount);
         if (!item) {
-            throw new common_1.NotFoundException(`Item ${normalizedWalletType} not found`);
+            throw new common_1.NotFoundException(`钱包物品不存在：${normalizedWalletType}`);
         }
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
         if (existing) {
@@ -963,7 +963,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         const inventoryBalance = readInventoryItemCount(player, normalizedWalletType);
         if (inventoryBalance < normalizedAmount) {
-            throw new common_1.NotFoundException(`Wallet ${normalizedWalletType} insufficient`);
+            throw new common_1.NotFoundException(`${normalizedWalletType} 余额不足`);
         }
         consumeInventoryItemCount(player.inventory.items, normalizedWalletType, normalizedAmount);
         player.inventory.revision += 1;
@@ -1349,7 +1349,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const normalizedCount = Math.max(1, Math.trunc(count));
@@ -1410,7 +1410,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const learnTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -1418,12 +1418,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         let consumed = false;
         if (learnTechniqueId) {
             if (player.techniques.techniques.some((entry) => entry.techId === learnTechniqueId)) {
-                throw new common_1.NotFoundException(`Technique ${learnTechniqueId} already learned`);
+                throw new common_1.NotFoundException(`功法已经学会：${learnTechniqueId}`);
             }
 
             const technique = this.contentTemplateRepository.createTechniqueState(learnTechniqueId);
             if (!technique) {
-                throw new common_1.NotFoundException(`Technique ${learnTechniqueId} not found`);
+                throw new common_1.NotFoundException(`功法不存在：${learnTechniqueId}`);
             }
             player.techniques.techniques.push(toTechniqueUpdateEntry(technique));
             player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
@@ -1440,7 +1440,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             consumed = this.applyConsumableItem(player, item);
         }
         if (!consumed) {
-            throw new common_1.NotFoundException(`Item ${item.itemId} has no usable runtime behavior`);
+            throw new common_1.NotFoundException(`物品 ${item.itemId} 没有可用效果`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         player.inventory.revision += 1;
@@ -1466,7 +1466,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, Math.max(1, Math.trunc(count)));
         player.inventory.revision += 1;
@@ -1492,7 +1492,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         let remaining = Math.max(1, Math.trunc(count));
         if (!Number.isFinite(remaining) || remaining <= 0) {
-            throw new common_1.NotFoundException(`Invalid consume count for ${itemId}`);
+            throw new common_1.NotFoundException(`使用数量无效：${itemId}`);
         }
         for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
             const item = player.inventory.items[slotIndex];
@@ -1505,7 +1505,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             remaining -= consumed;
         }
         if (remaining > 0) {
-            throw new common_1.NotFoundException(`Inventory item ${itemId} insufficient`);
+            throw new common_1.NotFoundException(`背包物品不足：${itemId}`);
         }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, itemId);
@@ -1530,7 +1530,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const normalizedCount = Math.max(1, Math.trunc(count));
@@ -1596,7 +1596,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         if (player.unlockedMapIds.includes(mapId)) {
-            throw new common_1.NotFoundException(`Map ${mapId} already unlocked`);
+            throw new common_1.NotFoundException(`地图已经解锁：${mapId}`);
         }
         player.unlockedMapIds = [...player.unlockedMapIds, mapId]
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
@@ -1629,7 +1629,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId) {
-            throw new common_1.BadRequestException('Respawn bind map id is required');
+            throw new common_1.BadRequestException('复活绑定地图 ID 不能为空');
         }
         const template = this.mapTemplateRepository.getOrThrow(normalizedMapId);
         const player = this.getPlayerOrThrow(playerId);
@@ -1719,22 +1719,22 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         if (!item.equipSlot) {
-            throw new common_1.NotFoundException(`Item ${item.itemId} is not equippable`);
+            throw new common_1.NotFoundException(`物品 ${item.itemId} 不能装备`);
         }
 
         const slot = item.equipSlot;
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry) {
-            throw new common_1.NotFoundException(`Equipment slot ${slot} not found`);
+            throw new common_1.NotFoundException(`装备槽位不存在：${slot}`);
         }
 
         const equippedItem = takeSingleInventoryItemForEquipment(player.inventory.items, slotIndex);
         if (!equippedItem) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
@@ -1764,7 +1764,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry || !equipmentEntry.item) {
-            throw new common_1.NotFoundException(`Equipment slot ${slot} is empty`);
+            throw new common_1.NotFoundException(`装备槽位为空：${slot}`);
         }
         player.inventory.items.push({ ...equipmentEntry.item });
         equipmentEntry.item = null;
@@ -1790,7 +1790,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : null;
         if (normalized && !player.techniques.techniques.some((entry) => entry.techId === normalized)) {
-            throw new common_1.NotFoundException(`Technique ${normalized} not learned`);
+            throw new common_1.NotFoundException(`尚未学会功法：${normalized}`);
         }
         const previousCultivatingTechId = player.techniques.cultivatingTechId;
         player.techniques.cultivatingTechId = normalized;
@@ -1818,10 +1818,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const requested = normalizeCounter(foundationAmount);
         if (requested <= 0) {
-            throw new common_1.BadRequestException('foundation amount is required');
+            throw new common_1.BadRequestException('底蕴数量不能为空');
         }
         if (player.foundation <= 0) {
-            throw new common_1.BadRequestException('foundation is insufficient');
+            throw new common_1.BadRequestException('底蕴不足');
         }
 
         const consumed = Math.min(player.foundation, requested);
@@ -1936,7 +1936,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         if (player.qi < normalized) {
-            throw new common_1.NotFoundException(`Player ${playerId} qi insufficient`);
+            throw new common_1.NotFoundException(`玩家 ${playerId} 元气不足`);
         }
         player.qi -= normalized;
         player.selfRevision += 1;
@@ -3590,7 +3590,7 @@ function consumeInventoryItemCount(items, itemId, count) {
         }
     }
     if (remaining > 0) {
-        throw new common_1.NotFoundException(`Inventory item ${itemId} insufficient`);
+        throw new common_1.NotFoundException(`背包物品不足：${itemId}`);
     }
 }
 /**

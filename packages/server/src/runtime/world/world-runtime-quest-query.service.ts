@@ -232,7 +232,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
 
         const source = this.templateRepository.getQuestSource(questId);
         if (!source) {
-            throw new common_1.NotFoundException(`Quest ${questId} not found`);
+            throw new common_1.NotFoundException(`任务不存在：${questId}`);
         }
 
         const quest = source.quest;

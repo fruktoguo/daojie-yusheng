@@ -140,7 +140,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
+            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         const monsterInstance = deps.getInstanceRuntimeOrThrow(player.instanceId);
         const resolvedTarget = (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
@@ -152,7 +152,15 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
             { currentTick },
         );
         if (!resolvedTarget) {
-            throw new common_1.NotFoundException(`Target ${targetMonsterId} not found or cannot be attacked`);
+            if (locked) {
+                this.playerRuntimeService.updateCombatSettings(playerId, {
+                    autoBattle: false,
+                }, currentTick);
+                this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
+                deps.queuePlayerNotice?.(playerId, '强制攻击目标已经失效，已停止锁定。', 'combat');
+                return;
+            }
+            throw new common_1.BadRequestException('没有可命中的目标');
         }
         if (locked) {
             this.playerRuntimeService.updateCombatSettings(playerId, {

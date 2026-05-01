@@ -56,7 +56,7 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
         const pile = instance.dropGroundItem(player.x, player.y, item);
         if (!pile) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            throw new common_1.BadRequestException(`Failed to drop item at ${player.x},${player.y}`);
+            throw new common_1.BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
         }
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
@@ -98,7 +98,7 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
 
         const pile = instance.dropGroundItem(x, y, item);
         if (!pile) {
-            throw new common_1.BadRequestException(`Failed to spawn loot at ${x},${y}`);
+            throw new common_1.BadRequestException(`无法在 ${x},${y} 生成掉落`);
         }
     }
 };

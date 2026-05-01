@@ -1390,7 +1390,7 @@ export class GmWorldViewer {
         <div class="panel-row"><span class="panel-label">地图尺寸</span><span class="panel-value">${d.width} × ${d.height}</span></div>
         <div class="panel-row"><span class="panel-label">视口玩家</span><span class="panel-value">${playerCount}</span></div>
         <div class="panel-row"><span class="panel-label">视口怪物</span><span class="panel-value">${monsterCount}</span></div>
-        <div class="panel-row"><span class="panel-label">视口 NPC</span><span class="panel-value">${npcCount}</span></div>
+        <div class="panel-row"><span class="panel-label">视口场景人物</span><span class="panel-value">${npcCount}</span></div>
       `,
     );
     this.syncInstanceActionValues();

@@ -129,7 +129,7 @@ class WorldRuntimeFormationService {
         }
         const instanceId = normalizeInstanceId(input?.instanceId);
         if (!instanceId) {
-            throw new common_1.BadRequestException('instanceId is required');
+            throw new common_1.BadRequestException('地图实例 ID 不能为空');
         }
         const x = firstFiniteInteger(input?.x);
         const y = firstFiniteInteger(input?.y);
@@ -1011,7 +1011,7 @@ class WorldRuntimeFormationService {
     findOwnedFormation(playerId, formationInstanceId) {
         const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
         if (!normalizedId) {
-            throw new common_1.BadRequestException('formationInstanceId is required');
+            throw new common_1.BadRequestException('阵法实例 ID 不能为空');
         }
         for (const formations of this.formationsByInstanceId.values()) {
             const formation = formations.find((entry) => entry.id === normalizedId);
@@ -1068,14 +1068,14 @@ class WorldRuntimeFormationService {
     resolveFormationTemplate(formationId) {
         const normalizedId = typeof formationId === 'string' ? formationId.trim() : '';
         if (!normalizedId) {
-            throw new common_1.BadRequestException('formationId is required');
+            throw new common_1.BadRequestException('阵法 ID 不能为空');
         }
         const configured = typeof this.contentTemplateRepository.getFormationTemplate === 'function'
             ? this.contentTemplateRepository.getFormationTemplate(normalizedId)
             : null;
         const template = configured ?? shared_1.getFormationTemplateById(normalizedId);
         if (!template) {
-            throw new common_1.NotFoundException(`Unknown formation: ${normalizedId}`);
+            throw new common_1.NotFoundException(`阵法不存在：${normalizedId}`);
         }
         return template;
     }
@@ -1154,7 +1154,7 @@ async function ensureInstanceFormationStateTable(pool) {
 function normalizeSlotIndex(input) {
     const value = Math.trunc(Number(input));
     if (!Number.isFinite(value) || value < 0) {
-        throw new common_1.BadRequestException('slotIndex is invalid');
+        throw new common_1.BadRequestException('槽位索引无效');
     }
     return value;
 }

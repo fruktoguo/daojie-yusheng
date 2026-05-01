@@ -164,10 +164,10 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
         const itemKey = typeof itemKeyInput === 'string' ? itemKeyInput.trim() : '';
         if (!sourceId) {
-            throw new common_1.BadRequestException('sourceId is required');
+            throw new common_1.BadRequestException('来源 ID 不能为空');
         }
         if (!itemKey) {
-            throw new common_1.BadRequestException('itemKey is required');
+            throw new common_1.BadRequestException('物品键不能为空');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'takeGround',
@@ -191,7 +191,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
         if (!sourceId) {
-            throw new common_1.BadRequestException('sourceId is required');
+            throw new common_1.BadRequestException('来源 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'takeGroundAll',
@@ -372,7 +372,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
         const action = typeof actionInput === 'string' ? actionInput.trim() : '';
         if (action !== 'sever' && action !== 'restore' && action !== 'open' && action !== 'reroll' && action !== 'enter') {
-            throw new common_1.BadRequestException('heaven gate action is required');
+            throw new common_1.BadRequestException('天门动作不能为空');
         }
 
         const element = typeof elementInput === 'string' ? elementInput.trim() : '';
@@ -406,19 +406,19 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
         const targetRef = typeof targetRefInput === 'string' ? targetRefInput.trim() : '';
         if (!skillId) {
-            throw new common_1.BadRequestException('skillId is required');
+            throw new common_1.BadRequestException('技能 ID 不能为空');
         }
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const action = player.actions.actions.find((entry) => entry.id === skillId && entry.type === 'skill');
         if (!action) {
-            throw new common_1.NotFoundException(`Skill action ${skillId} not found`);
+            throw new common_1.NotFoundException(`技能动作不存在：${skillId}`);
         }
         if (action.skillEnabled === false) {
             throw new common_1.BadRequestException('技能未启用，无法释放');
         }
         if (!targetPlayerId && !targetMonsterId && !targetRef && action.requiresTarget !== false) {
-            throw new common_1.BadRequestException('target is required');
+            throw new common_1.BadRequestException('必须指定目标');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'castSkill',
@@ -492,7 +492,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
                 }
                 return deps.getPlayerViewOrThrow(playerId);
             }
-            throw new common_1.BadRequestException('target is required');
+            throw new common_1.BadRequestException('必须指定目标');
         }
         deps.enqueuePendingCommand(playerId, {
             kind,

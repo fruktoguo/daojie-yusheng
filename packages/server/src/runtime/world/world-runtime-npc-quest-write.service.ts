@@ -197,11 +197,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         deps.getPlayerLocationOrThrow(playerId);
         const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!actionId.startsWith('npc:')) {
-            throw new common_1.BadRequestException('npc actionId is required');
+            throw new common_1.BadRequestException('场景人物动作 ID 不能为空');
         }
         const npcId = actionId.slice('npc:'.length).trim();
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'npcInteraction', npcId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -233,10 +233,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
+            throw new common_1.BadRequestException('任务 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'acceptNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -257,10 +257,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
+            throw new common_1.BadRequestException('任务 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'submitNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -278,7 +278,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
 
         const normalizedNpcId = typeof npcId === 'string' ? npcId.trim() : '';
         if (!normalizedNpcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         const questsView = deps.buildNpcQuestsView(playerId, normalizedNpcId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);

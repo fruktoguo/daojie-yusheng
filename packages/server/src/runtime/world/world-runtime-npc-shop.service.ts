@@ -65,10 +65,10 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const itemId = typeof itemIdInput === 'string' ? itemIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         if (!itemId) {
-            throw new common_1.BadRequestException('itemId is required');
+            throw new common_1.BadRequestException('物品 ID 不能为空');
         }
         const quantity = normalizeShopQuantity(quantityInput);
         deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);

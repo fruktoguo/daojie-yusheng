@@ -112,7 +112,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!deps.templateRepository.has(templateId)) {
-            throw new common_1.NotFoundException(`Unknown map template: ${templateId}`);
+            throw new common_1.NotFoundException(`地图模板不存在：${templateId}`);
         }
         return deps.createInstance({
             instanceId: buildPublicInstanceId(templateId),
@@ -139,7 +139,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             return this.getOrCreatePublicInstance(templateId, deps);
         }
         if (!deps.templateRepository.has(templateId)) {
-            throw new common_1.NotFoundException(`Unknown map template: ${templateId}`);
+            throw new common_1.NotFoundException(`地图模板不存在：${templateId}`);
         }
         return deps.createInstance({
             instanceId: buildRealInstanceId(templateId),
@@ -166,7 +166,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         }
         const fallback = deps.templateRepository.list()[0]?.id;
         if (!fallback) {
-            throw new common_1.NotFoundException('No map template available');
+            throw new common_1.NotFoundException('没有可用地图模板');
         }
         return fallback;
     }    
@@ -193,7 +193,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const location = deps.getPlayerLocation(playerId);
         if (!location) {
-            throw new common_1.NotFoundException(`Player ${playerId} is not connected`);
+            throw new common_1.NotFoundException(`玩家 ${playerId} 尚未连接`);
         }
         return location;
     }    
@@ -209,7 +209,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const instance = deps.getInstanceRuntime(instanceId);
         if (!instance) {
-            throw new common_1.NotFoundException(`Instance ${instanceId} not found`);
+            throw new common_1.NotFoundException(`地图实例不存在：${instanceId}`);
         }
         return instance;
     }    
@@ -266,7 +266,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const view = deps.getPlayerView(playerId);
         if (!view) {
-            throw new common_1.NotFoundException(`Player ${playerId} not found`);
+            throw new common_1.NotFoundException(`玩家不存在：${playerId}`);
         }
         return view;
     }

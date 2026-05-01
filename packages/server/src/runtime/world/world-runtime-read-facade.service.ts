@@ -33,7 +33,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         deps.getPlayerLocationOrThrow(playerId);
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         return deps.worldRuntimeNpcShopQueryService.buildNpcShopView(playerId, npcId, deps);
     }    
@@ -64,7 +64,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         deps.getPlayerLocationOrThrow(playerId);
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
+            throw new common_1.BadRequestException('场景人物 ID 不能为空');
         }
         deps.refreshQuestStates(playerId);
         return deps.worldRuntimeQuestQueryService.buildNpcQuestsView(playerId, npcId, deps);
@@ -84,10 +84,10 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         const kind = input.kind;
         const id = typeof input.id === 'string' ? input.id.trim() : '';
         if (!id) {
-            throw new common_1.BadRequestException('id is required');
+            throw new common_1.BadRequestException('ID 不能为空');
         }
         if (kind !== 'npc' && kind !== 'monster' && kind !== 'ground' && kind !== 'player' && kind !== 'portal' && kind !== 'container') {
-            throw new common_1.BadRequestException(`Unsupported detail kind: ${String(kind)}`);
+            throw new common_1.BadRequestException(`不支持的详情类型：${String(kind)}`);
         }
         const view = deps.getPlayerViewOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);

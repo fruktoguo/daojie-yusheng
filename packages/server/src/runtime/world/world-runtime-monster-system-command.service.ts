@@ -52,7 +52,7 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
         const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
         if (items.length === 0) {
-            throw new common_1.NotFoundException(`Monster ${monsterId} produced no loot`);
+            throw new common_1.NotFoundException(`妖兽 ${monsterId} 没有产出掉落`);
         }
         this.spawnItems(instance, x, y, items, deps);
     }    
@@ -70,7 +70,7 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
         const monster = instance.defeatMonster(runtimeId);
         if (!monster) {
-            throw new common_1.NotFoundException(`Monster ${runtimeId} not found or already dead`);
+            throw new common_1.NotFoundException(`妖兽不存在或已经死亡：${runtimeId}`);
         }
         this.spawnRolledMonsterLoot(instance, monster.monsterId, 1, monster.x, monster.y, deps);
     }    
@@ -89,7 +89,7 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
         const target = instance.getMonster(runtimeId);
         if (!target) {
-            throw new common_1.NotFoundException(`Monster ${runtimeId} not found`);
+            throw new common_1.NotFoundException(`妖兽不存在：${runtimeId}`);
         }
         const outcome = instance.applyDamageToMonster(runtimeId, amount);
         if (!outcome?.defeated) {

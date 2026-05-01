@@ -324,7 +324,7 @@ export class NativeGmAdminService {
             runtimeSummary: typeof this.worldRuntimeService?.getRuntimeSummary === 'function'
                 ? this.worldRuntimeService.getRuntimeSummary()
                 : null,
-            note: '当前手工导出会生成 PostgreSQL custom dump，覆盖整个主线数据库真源；硬切后恢复只接受新版 PostgreSQL custom dump，不再导入历史 JSON 快照。',
+            note: '当前手工导出会生成 PostgreSQL 自定义备份，覆盖整个主线数据库真源；硬切后恢复只接受新版 PostgreSQL 自定义备份，不再导入历史 JSON 快照。',
         };
     }
     /**
@@ -485,7 +485,7 @@ export class NativeGmAdminService {
         }
         const backupFormat = await resolveBackupRecordFormat(record);
         if (backupFormat !== 'postgres_custom_dump') {
-            throw new BadRequestException('硬切后只支持恢复新版 PostgreSQL custom dump，不再支持历史 JSON 快照');
+            throw new BadRequestException('硬切后只支持恢复新版 PostgreSQL 自定义备份，不再支持历史 JSON 快照');
         }
         const recordedChecksum = typeof record.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
         if (!recordedChecksum) {
@@ -2430,7 +2430,7 @@ function assertCompatibleBackupPayload(value) {
 
     const documentsCount = Number(record.documentsCount);
     if (!Number.isFinite(documentsCount) || Math.trunc(documentsCount) !== docs.length) {
-        throw new BadRequestException(`兼容备份 documentsCount 与 docs 实际数量不一致：期望 ${Number.isFinite(documentsCount) ? Math.trunc(documentsCount) : 'invalid'}，实际 ${docs.length}`);
+        throw new BadRequestException(`兼容备份 documentsCount 与 docs 实际数量不一致：期望 ${Number.isFinite(documentsCount) ? Math.trunc(documentsCount) : '无效'}，实际 ${docs.length}`);
     }
 
     const checksumSha256 = typeof record.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
@@ -2449,7 +2449,7 @@ function assertCompatibleBackupPayload(value) {
     if (version >= 2) {
         const tablesCount = Number(record.tablesCount);
         if (!Number.isFinite(tablesCount) || Math.trunc(tablesCount) !== tables.length) {
-            throw new BadRequestException(`兼容备份 tablesCount 与 tables 实际数量不一致：期望 ${Number.isFinite(tablesCount) ? Math.trunc(tablesCount) : 'invalid'}，实际 ${tables.length}`);
+            throw new BadRequestException(`兼容备份 tablesCount 与 tables 实际数量不一致：期望 ${Number.isFinite(tablesCount) ? Math.trunc(tablesCount) : '无效'}，实际 ${tables.length}`);
         }
         const tablesChecksumSha256 = typeof record.tablesChecksumSha256 === 'string' ? record.tablesChecksumSha256.trim() : '';
         if (!tablesChecksumSha256) {
@@ -2514,7 +2514,7 @@ function normalizeStructuredBackupTableEntry(value, index) {
     const rows = Array.isArray(record?.rows) ? record.rows : [];
     const rowCount = Number(record?.rowCount);
     if (!Number.isFinite(rowCount) || Math.trunc(rowCount) !== rows.length) {
-        throw new BadRequestException(`兼容备份 tables.${tableName} 的 rowCount 与 rows 实际数量不一致：期望 ${Number.isFinite(rowCount) ? Math.trunc(rowCount) : 'invalid'}，实际 ${rows.length}`);
+        throw new BadRequestException(`兼容备份 tables.${tableName} 的 rowCount 与 rows 实际数量不一致：期望 ${Number.isFinite(rowCount) ? Math.trunc(rowCount) : '无效'}，实际 ${rows.length}`);
     }
     const checksumSha256 = typeof record?.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
     if (!checksumSha256) {
@@ -3018,7 +3018,7 @@ function resolveUploadedBackupExtension(fileName) {
     if (extension === '.dump') {
         return extension;
     }
-    throw new BadRequestException('上传文件类型不受支持，硬切后仅支持 PostgreSQL custom dump（.dump）');
+    throw new BadRequestException('上传文件类型不受支持，硬切后仅支持 PostgreSQL 自定义备份（.dump）');
 }
 
 function buildUploadedBackupId() {
@@ -3075,10 +3075,10 @@ async function validateUploadedDatabaseBackup(filePath, originalFileName) {
     }
 
     if (extname(originalFileName).toLowerCase() === '.json') {
-        throw new BadRequestException('硬切后不再支持上传历史 JSON 快照，请上传新版 PostgreSQL custom dump（.dump）');
+        throw new BadRequestException('硬切后不再支持上传历史 JSON 快照，请上传新版 PostgreSQL 自定义备份（.dump）');
     }
 
-    throw new BadRequestException('上传的 .dump 文件不是 PostgreSQL custom dump（缺少 PGDMP 文件头）');
+    throw new BadRequestException('上传的 .dump 文件不是 PostgreSQL 自定义备份（缺少 PGDMP 文件头）');
 }
 /**
  * clampInteger：执行clampInteger相关逻辑。

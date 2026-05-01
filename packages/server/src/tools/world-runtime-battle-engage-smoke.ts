@@ -178,6 +178,79 @@ async function testMonsterEngageAwaitsImmediateAutoCombatCommand(): Promise<void
   ]);
 }
 
+async function testLockedMissingMonsterEngageClearsTargetWithoutRawWarning(): Promise<void> {
+  const attacker = {
+    playerId: 'player:attacker',
+    instanceId: 'real:yunlai_town',
+    combat: {
+      autoBattle: true,
+      combatTargetId: 'monster:missing',
+      combatTargetLocked: true,
+      retaliatePlayerTargetId: null,
+      combatTargetingRules: undefined,
+    },
+  };
+  const log: Array<unknown[]> = [];
+  const service = new WorldRuntimeBattleEngageService({
+    getPlayerOrThrow(playerId: string) {
+      assert.equal(playerId, attacker.playerId);
+      return attacker;
+    },
+    updateCombatSettings(playerId: string, input: unknown, currentTick: number) {
+      log.push(['updateCombatSettings', playerId, input, currentTick]);
+      attacker.combat.autoBattle = false;
+    },
+    setCombatTarget() {
+      throw new Error('setCombatTarget should not run for missing locked monster');
+    },
+    setManualEngagePending() {
+      throw new Error('setManualEngagePending should not run for missing locked monster');
+    },
+    clearManualEngagePending() {},
+    clearCombatTarget(playerId: string, currentTick: number) {
+      log.push(['clearCombatTarget', playerId, currentTick]);
+      attacker.combat.combatTargetId = null;
+      attacker.combat.combatTargetLocked = false;
+    },
+  } as never);
+  const deps = {
+    resolveCurrentTickForPlayerId() {
+      return 12;
+    },
+    getInstanceRuntimeOrThrow(instanceId: string) {
+      assert.equal(instanceId, 'real:yunlai_town');
+      return {
+        meta: {
+          instanceId: 'real:yunlai_town',
+          supportsPvp: true,
+          canDamageTile: true,
+        },
+        getMonster(runtimeId: string) {
+          assert.equal(runtimeId, 'monster:missing');
+          return null;
+        },
+      };
+    },
+    interruptManualCombat(playerId: string) {
+      log.push(['interruptManualCombat', playerId]);
+    },
+    queuePlayerNotice(playerId: string, message: string, kind: string) {
+      log.push(['queuePlayerNotice', playerId, message, kind]);
+    },
+    buildAutoCombatCommand() {
+      throw new Error('buildAutoCombatCommand should not run for missing locked monster');
+    },
+  };
+
+  await service.dispatchEngageBattle(attacker.playerId, null, 'monster:missing', null, null, true, deps as never);
+  assert.deepEqual(log, [
+    ['interruptManualCombat', 'player:attacker'],
+    ['updateCombatSettings', 'player:attacker', { autoBattle: false }, 12],
+    ['clearCombatTarget', 'player:attacker', 12],
+    ['queuePlayerNotice', 'player:attacker', '强制攻击目标已经失效，已停止锁定。', 'combat'],
+  ]);
+}
+
 async function testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoBattle(): Promise<void> {
   const attacker = {
     playerId: 'player:attacker',
@@ -292,6 +365,7 @@ async function testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoB
 async function main(): Promise<void> {
   await testTileEngageAwaitsImmediateAutoCombatCommand();
   await testMonsterEngageAwaitsImmediateAutoCombatCommand();
+  await testLockedMissingMonsterEngageClearsTargetWithoutRawWarning();
   await testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoBattle();
   console.log(JSON.stringify({
     ok: true,

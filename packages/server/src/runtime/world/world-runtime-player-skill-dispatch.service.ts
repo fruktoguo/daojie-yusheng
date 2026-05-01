@@ -110,13 +110,13 @@ function resolveTechniqueLevelForSkill(player, skillId) {
 function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick) {
     const readyTick = normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick);
     if (currentTick < readyTick) {
-        throw new common_1.BadRequestException(`Skill ${skill.id} cooling down`);
+        throw new common_1.BadRequestException(`技能 ${skill.id} 尚在冷却`);
     }
     const plannedCost = Math.max(0, Math.round(Number(skill.cost) || 0));
     const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
     if (qiCost > 0) {
         if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
-            throw new common_1.BadRequestException(`Skill ${skill.id} qi insufficient`);
+            throw new common_1.BadRequestException(`技能 ${skill.id} 元气不足`);
         }
         playerRuntimeService.spendQi(attacker.playerId, qiCost);
     }
@@ -309,7 +309,7 @@ function getResolvedSkillTargetKey(target) {
 function ensurePlayerSkillActionEnabled(player, skillId) {
     const action = player.actions?.actions?.find((entry) => entry.id === skillId && entry.type === 'skill');
     if (!action) {
-        throw new common_1.NotFoundException(`Skill action ${skillId} not found`);
+        throw new common_1.NotFoundException(`技能动作不存在：${skillId}`);
     }
     if (action.skillEnabled === false) {
         throw new common_1.BadRequestException('技能未启用，无法释放');
@@ -362,11 +362,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
+            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
         }
         deps.ensureAttackAllowed(attacker, skill);
         if (isTemporaryTileSkill(skill)) {
@@ -426,7 +426,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const instanceForAnchor = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
                 const monster = instanceForAnchor.getMonster(targetMonsterId);
                 if (!monster) {
-                    throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+                    throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
                 }
                 return this.beginPlayerSkillCast(attacker, skill, { x: monster.x, y: monster.y }, targetMonsterId, deps);
             }
@@ -448,13 +448,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 }
                 return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
             }
-            throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
+            throw new common_1.BadRequestException('必须指定玩家或妖兽目标');
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (attacker.instanceId !== target.instanceId) {
-            throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
+            throw new common_1.BadRequestException(`目标 ${targetPlayerId} 不在同一地图实例`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
             kind: 'player',
@@ -487,7 +487,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const anchor = { x: Math.trunc(Number(targetX)), y: Math.trunc(Number(targetY)) };
         const cells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, anchor, geometry);
         if (cells.length === 0) {
-            throw new common_1.BadRequestException(`Skill ${skill.id} out of range`);
+            throw new common_1.BadRequestException(`技能 ${skill.id} 超出范围`);
         }
         const effects = getTemporaryTileEffects(skill);
         const techLevel = resolveTechniqueLevelForSkill(attacker, skill.id);
@@ -1082,12 +1082,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, formationInstanceId)
             : null;
         if (!formation) {
-            throw new common_1.NotFoundException(`Formation ${formationInstanceId} not found`);
+            throw new common_1.NotFoundException(`阵法不存在：${formationInstanceId}`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: formation.x, y: formation.y }, deps, {
             kind: 'formation',
@@ -1116,12 +1116,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const target = instance.getMonster(targetMonsterId);
         if (!target) {
-            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+            throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: target.x, y: target.y }, deps, {
             kind: 'monster',
@@ -1156,7 +1156,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
             const skill = findPlayerSkill(attacker, skillId);
             if (!skill) {
-                throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+                throw new common_1.NotFoundException(`技能不存在：${skillId}`);
             }
             const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
                 kind: 'formation_boundary',
@@ -1178,7 +1178,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
             kind: 'tile',

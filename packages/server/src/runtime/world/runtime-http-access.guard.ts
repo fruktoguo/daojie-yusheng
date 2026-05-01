@@ -37,7 +37,7 @@ let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.policy.enabled) {
-            throw new common_1.ServiceUnavailableException('runtime debug HTTP is disabled; set SERVER_RUNTIME_HTTP=1 to enable it explicitly');
+            throw new common_1.ServiceUnavailableException('运行时调试 HTTP 未启用；如需使用，请显式设置 SERVER_RUNTIME_HTTP=1');
         }
         if (this.policy.token === null) {
             return true;
@@ -47,7 +47,7 @@ let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
 
         const token = readRuntimeAdminToken(request.headers);
         if (token !== this.policy.token) {
-            throw new common_1.UnauthorizedException('runtime debug HTTP requires a valid x-runtime-admin-token header or Authorization: Bearer <token>');
+            throw new common_1.UnauthorizedException('运行时调试 HTTP 需要有效的 x-runtime-admin-token 请求头或 Authorization: Bearer <token>');
         }
         return true;
     }

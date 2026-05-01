@@ -177,7 +177,7 @@ export class WorldPlayerTokenCodecService {
     const normalizedSub = String(payload?.sub ?? '').trim();
     const normalizedUsername = String(payload?.username ?? '').trim();
     if (!normalizedSub || !normalizedUsername) {
-      throw new Error('player token payload missing sub or username');
+      throw new Error('玩家令牌载荷缺少 sub 或 username');
     }
 
     const normalizedDisplayName = normalizeOptionalString(payload?.displayName);

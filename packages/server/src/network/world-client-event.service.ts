@@ -34,6 +34,59 @@ const world_session_service_1 = require("./world-session.service");
 
 const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
 
+function normalizeClientVisibleErrorMessage(message) {
+    const text = typeof message === 'string' ? message.trim() : '';
+    if (!text) {
+        return '未知错误';
+    }
+    if (text === 'unknown error') {
+        return '未知错误';
+    }
+    if (text === 'target is required') {
+        return '必须指定目标';
+    }
+    if (text === 'questId is required') {
+        return '任务 ID 不能为空';
+    }
+    if (text === 'actionId is required') {
+        return '动作 ID 不能为空';
+    }
+    if (/^Target .+ not found or cannot be attacked$/.test(text)) {
+        return '没有可命中的目标';
+    }
+    if (/^Monster .+ not found$/.test(text)) {
+        return '妖兽不存在或已失去踪迹';
+    }
+    if (/^Skill .+ out of range$/.test(text)) {
+        return '目标超出技能范围';
+    }
+    if (/^Skill .+ cooling down$/.test(text)) {
+        return '技能尚在冷却';
+    }
+    if (/^Skill .+ qi insufficient$/.test(text)) {
+        return '元气不足，无法释放技能';
+    }
+    if (/^Skill .+ not found$/.test(text) || /^Skill action .+ not found$/.test(text)) {
+        return '技能不存在或尚未启用';
+    }
+    if (/^Player .+ not attached to instance$/.test(text)) {
+        return '玩家尚未进入地图实例';
+    }
+    if (/^Player .+ is not connected$/.test(text)) {
+        return '玩家尚未连接';
+    }
+    if (/^Inventory slot .+ not found$/.test(text)) {
+        return '背包槽位不存在';
+    }
+    if (/^Ground source .+ not found$/.test(text)) {
+        return '地面来源不存在';
+    }
+    if (/^Ground item .+ not found at .+$/.test(text)) {
+        return '地面物品不存在';
+    }
+    return text;
+}
+
 /** 世界客户端事件服务：把 runtime 结果翻译成 Socket 事件并按玩家维度下发。 */
 let WorldClientEventService = class WorldClientEventService {
     /** 邮件 runtime，用于查询邮件摘要、分页和详情。 */
@@ -110,11 +163,11 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 发送标准错误包。 */
     emitError(client, code, message, extra = undefined) {
-        this.emit(client, shared_1.S2C.Error, { code, message, ...(extra ?? {}) });
+        this.emit(client, shared_1.S2C.Error, { code, message: normalizeClientVisibleErrorMessage(message), ...(extra ?? {}) });
     }
     /** 发送由异常对象转换来的错误包。 */
     emitGatewayError(client, code, error) {
-        this.emitError(client, code, error instanceof Error ? error.message : 'unknown error');
+        this.emitError(client, code, error instanceof Error ? error.message : '未知错误');
     }
     /** 发送协议层错误，通常用于鉴权或消息格式错误。 */
     emitProtocolFailure(client, code, text) {
@@ -180,7 +233,7 @@ let WorldClientEventService = class WorldClientEventService {
         const payload = {
             questId,
             ok,
-            error,
+            error: error ? normalizeClientVisibleErrorMessage(error) : error,
         };
         if (Array.isArray(path)) {
             payload.path = path;

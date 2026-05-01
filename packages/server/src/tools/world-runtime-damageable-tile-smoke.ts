@@ -13,6 +13,7 @@ import {
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { WorldRuntimeDetailQueryService } from '../runtime/world/world-runtime-detail-query.service';
+import { buildPlayerObservation } from '../runtime/world/world-runtime.observation.helpers';
 import { findPathPointsOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 function createTemplate() {
@@ -202,6 +203,25 @@ function testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura() {
   assert.equal(detail.maxHp, maxHp);
   assert.equal(detail.aura, undefined);
   assert.equal(detail.resources, undefined);
+}
+
+function testObservationMissingNumericValuesRenderAsZero() {
+  const observation = buildPlayerObservation(undefined, {
+    hp: undefined,
+    maxHp: undefined,
+    qi: 0,
+    maxQi: undefined,
+    attrs: {
+      finalAttrs: {},
+      numericStats: {},
+    },
+  }, true);
+  const serialized = JSON.stringify(observation);
+  assert.equal(serialized.includes('NaN'), false);
+  assert.equal(observation.lines.find((line) => line.label === '生命')?.value, '0 / 0');
+  assert.equal(observation.lines.find((line) => line.label === '灵力')?.value, '0 / 0');
+  assert.equal(observation.lines.find((line) => line.label === '暴击伤害')?.value, '200%');
+  assert.equal(observation.lines.find((line) => line.label === '灵力回复')?.value, '0% / 息');
 }
 
 function testDestroyedTileTurnsIntoFloorProjection() {
@@ -455,6 +475,7 @@ function testPlainTickDoesNotDirtyPersistence() {
 
 testDamagedTileShowsHpBarPayload();
 testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura();
+testObservationMissingNumericValuesRenderAsZero();
 testDestroyedTileTurnsIntoFloorProjection();
 testDestroyedTileBecomesPathReachable();
 testDestroyedTileRecoveryRespectsStabilizerAndHydrates();

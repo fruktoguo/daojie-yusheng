@@ -301,7 +301,7 @@ class WorldGatewayBootstrapHelper {
             emitter.call(this.gateway.worldClientEventService, client, code, error);
             return;
         }
-        this.emitSocketError(client, code, error instanceof Error ? error.message : 'unknown error');
+        this.emitSocketError(client, code, error instanceof Error ? error.message : '未知错误');
     }    
     /**
  * resolveBootstrapAuthContext：规范化或转换引导认证上下文。

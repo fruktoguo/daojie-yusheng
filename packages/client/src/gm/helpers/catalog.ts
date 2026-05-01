@@ -142,7 +142,7 @@ export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuff
       label: selectedBuffId,
     });
   }
-  return [{ value: '', label: '请选择 Buff' }, ...options];
+  return [{ value: '', label: '请选择增益' }, ...options];
 }
 
 /** 输出可用于邮件附件的物品列表，复用 `getItemCatalogOptions` 结果。 */
@@ -331,6 +331,5 @@ export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: s
   }
   return getItemOptionLabel(entry);
 }
-
 
 

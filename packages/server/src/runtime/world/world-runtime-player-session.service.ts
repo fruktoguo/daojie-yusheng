@@ -116,7 +116,7 @@ export class WorldRuntimePlayerSessionService {
   connectPlayer(input: ConnectPlayerInput, deps: WorldRuntimePlayerSessionDeps): unknown {
     const playerId = input.playerId.trim();
     if (!playerId) {
-      throw new BadRequestException('playerId is required');
+      throw new BadRequestException('玩家 ID 不能为空');
     }
 
     const sessionId = input.sessionId?.trim() || `session:${playerId}`;
@@ -263,7 +263,7 @@ export class WorldRuntimePlayerSessionService {
       || publicMapIdFromInstance
       || this.worldRuntimeWorldAccessService.resolveDefaultRespawnMapId(deps);
     if (!targetMapId) {
-      throw new NotFoundException('No map template available');
+      throw new NotFoundException('没有可用地图模板');
     }
 
     if (input.requestedInstanceId && !publicMapIdFromInstance) {

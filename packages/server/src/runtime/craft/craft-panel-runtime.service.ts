@@ -2356,7 +2356,7 @@ function consumeInventoryItemByItemId(player, itemId, count) {
         }
     }
     if (remaining > 0) {
-        throw new Error(`Inventory item ${itemId} insufficient`);
+        throw new Error(`背包物品不足：${itemId}`);
     }
 }
 /**

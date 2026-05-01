@@ -840,7 +840,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '人群'))}</span>
         </div>
         <div class="observe-entity-verdict">此地人影交叠，气机纷杂，只能辨出这里聚着一团密集人群。</div>
-        <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
+        <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、增益与细节变化。</div>
       </div>`;
     }
     const detailRows = buildObserveDetailRows(entity);

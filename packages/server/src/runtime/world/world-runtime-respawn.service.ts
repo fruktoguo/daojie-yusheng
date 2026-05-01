@@ -74,6 +74,9 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         const previous = deps.getPlayerLocation(playerId);
         const previousInstance = previous ? deps.getInstanceRuntime(previous.instanceId) : null;
         const previousMapId = previousInstance?.template?.id ?? player.templateId ?? '';
+        if (typeof deps.clearPendingCommand === 'function') {
+            deps.clearPendingCommand(playerId);
+        }
         const boundRespawnMapId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
             ? player.respawnTemplateId.trim()
             : '';

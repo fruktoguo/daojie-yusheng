@@ -912,11 +912,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
             const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
             if (!targetEntry?.item) {
-                throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
+                throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
             }
             const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
             if (!taken) {
-                throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
+                throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
             }
             await this.grantLootItemsDurably({
                 playerId,
@@ -933,7 +933,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
         if (!item) {
-            throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
+            throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, item);
         deps.refreshQuestStates(playerId);
@@ -987,7 +987,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const pile = instance.getGroundPileBySourceId(sourceId);
         if (!pile || pile.items.length === 0) {
-            throw new common_1.NotFoundException(`Ground source ${sourceId} not found`);
+            throw new common_1.NotFoundException(`地面来源不存在：${sourceId}`);
         }
         const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
         const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
@@ -1050,7 +1050,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
         if (!row) {
-            throw new common_1.NotFoundException(`Container item ${itemKey} not found at ${sourceId}`);
+            throw new common_1.NotFoundException(`容器物品不存在：${itemKey}，来源 ${sourceId}`);
         }
         if (!canReceiveContainerRow(player, row.entries)) {
             throw new common_1.BadRequestException('背包空间不足，无法拿取该物品');

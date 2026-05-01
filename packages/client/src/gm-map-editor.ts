@@ -912,7 +912,7 @@ export class GmMapEditor {
       button.replaceChildren(createFragmentFromHtml(`
         <div class="map-row-title">${escapeHtml(map.name)}</div>
         <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 危险度 ${map.dangerLevel ?? '-'}</div>
-        <div class="map-row-meta">传送点 ${map.portalCount} · NPC ${map.npcCount} · 怪物刷新点 ${map.monsterSpawnCount}</div>
+        <div class="map-row-meta">传送点 ${map.portalCount} · 场景人物 ${map.npcCount} · 怪物刷新点 ${map.monsterSpawnCount}</div>
       `));
       fragment.append(button);
     }
@@ -988,7 +988,7 @@ export class GmMapEditor {
       `${this.draft.width} x ${this.draft.height}`,
       `拼图块 ${this.composePieces.length}`,
       `传送点 ${this.draft.portals.length}`,
-      `NPC ${this.draft.npcs.length}`,
+      `场景人物 ${this.draft.npcs.length}`,
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `无属性灵气点 ${this.draft.auras?.length ?? 0}`,
       `气机点 ${this.draft.resources?.length ?? 0}`,
@@ -1269,7 +1269,7 @@ export class GmMapEditor {
         </div>
       </section>
       <div class="editor-note" style="margin-top: 8px;">
-        当前烘焙只写入地块，不自动带入子图里的传送点、NPC、怪物、灵气和地标，避免把内部逻辑一并拼进大图。
+        当前烘焙只写入地块，不自动带入子图里的传送点、场景人物、怪物、灵气和地标，避免把内部逻辑一并拼进大图。
       </div>
     `;
   }
@@ -1327,22 +1327,22 @@ export class GmMapEditor {
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
-            <div class="editor-section-title">NPC</div>
+            <div class="editor-section-title">场景人物</div>
             <div class="editor-section-note">选中后可直接拖动位置，也可继续改属性。</div>
           </div>
-          <button class="small-btn" type="button" data-map-action="add-npc">新建 NPC</button>
+          <button class="small-btn" type="button" data-map-action="add-npc">新建场景人物</button>
         </div>
         <div class="map-entity-list">
           ${this.draft.npcs.map((npc, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'npc' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="npc" data-entity-index="${index}" type="button">
               ${escapeHtml(`${npc.name || npc.id} @ (${npc.x},${npc.y})`)}
             </button>
-          `).join('') || '<div class="editor-note">暂无 NPC。</div>'}
+          `).join('') || '<div class="editor-note">暂无场景人物。</div>'}
         </div>
       </section>
       ${this.selectedEntity?.kind === 'npc'
         ? this.renderSelectedEntitySection(selectedPoint)
-        : '<div class="editor-note">选中一个 NPC 后可在下方编辑属性。</div>'}
+        : '<div class="editor-note">选中一个场景人物后可在下方编辑属性。</div>'}
     `;
   }
 
@@ -1627,7 +1627,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、气机点、安全区、地标或容器。</div>
+          <div class="editor-note">当前没有选中的传送点、场景人物、怪物刷新点、无属性灵气点、气机点、安全区、地标或容器。</div>
         </section>
       `;
     }
@@ -1684,8 +1684,8 @@ export class GmMapEditor {
         <section class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">NPC 属性</div>
-              <div class="editor-section-note">任务已迁移到独立章节文件，这里只维护 NPC 本身的地图属性。</div>
+              <div class="editor-section-title">场景人物属性</div>
+              <div class="editor-section-note">任务已迁移到独立章节文件，这里只维护场景人物本身的地图属性。</div>
             </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
@@ -1907,7 +1907,7 @@ export class GmMapEditor {
     }
     if (this.selectedEntity.kind === 'npc') {
       const npc = this.draft.npcs[this.selectedEntity.index];
-      return npc ? `NPC ${npc.name || npc.id}` : '无';
+      return npc ? `场景人物 ${npc.name || npc.id}` : '无';
     }
     if (this.selectedEntity.kind === 'monster') {
       const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
@@ -2620,11 +2620,11 @@ export class GmMapEditor {
 
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
-    if (!this.ensureWalkableSelection('NPC')) return;
+    if (!this.ensureWalkableSelection('场景人物')) return;
     this.captureUndoState();
     this.draft!.npcs.push({
       id: `npc_${this.draft!.id}_${this.draft!.npcs.length + 1}`,
-      name: '新 NPC',
+      name: '新场景人物',
       x,
       y,
       char: '人',
@@ -2789,7 +2789,7 @@ export class GmMapEditor {
       return;
     }
     if (this.hasBlockingMapObjectAt(x, y)) {
-      this.setStatus('目标格已有出生点、传送点、NPC 或怪物点，不能放置容器', true);
+      this.setStatus('目标格已有出生点、传送点、场景人物或怪物点，不能放置容器', true);
       return;
     }
     this.captureUndoState();

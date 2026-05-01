@@ -80,8 +80,8 @@ export const PROTOTYPE_MODULES: PrototypeModuleCardData[] = [
   { id: 'mail', title: '邮件面板', domain: '面板', summary: '邮件列表、正文、附件、未读态。', interactions: ['选中态', '滚动保留', '附件区'], status: 'prototype-ready' },
   { id: 'settings', title: '设置面板', domain: '面板', summary: '主题、字号、缩放、登出与兑换码。', interactions: ['表单项', '危险按钮', '主题切换'], status: 'prototype-ready' },
   { id: 'suggestion', title: '建议面板', domain: '面板', summary: '我的建议、处理结果、线程区。', interactions: ['Tab 切换', '线程阅读', '提交入口'], status: 'planned' },
-  { id: 'npc-shop', title: 'NPC 商店', domain: '浮层', summary: '货架列表、详情区、购买确认。', interactions: ['列表详情联动', '数量输入'], status: 'planned' },
-  { id: 'npc-quest', title: 'NPC 委托', domain: '浮层', summary: '接取、提交、任务详情。', interactions: ['详情切换', '状态按钮'], status: 'planned' },
+  { id: 'npc-shop', title: '场景人物商店', domain: '浮层', summary: '货架列表、详情区、购买确认。', interactions: ['列表详情联动', '数量输入'], status: 'planned' },
+  { id: 'npc-quest', title: '场景人物委托', domain: '浮层', summary: '接取、提交、任务详情。', interactions: ['详情切换', '状态按钮'], status: 'planned' },
   { id: 'craft', title: '炼丹 / 强化', domain: '浮层', summary: '双模式工作台、配方、进度、取消。', interactions: ['模式切换', '进度态', '材料列表'], status: 'planned' },
   { id: 'loot', title: '掉落弹层', domain: '浮层', summary: '来源列表、全部拾取、逐项拾取。', interactions: ['列表 patch', '来源头'], status: 'planned' },
   { id: 'minimap', title: '小地图', domain: '浮层', summary: '地图发现、标记、图鉴区。', interactions: ['标记 chips', '滚动列表'], status: 'planned' },
@@ -213,7 +213,7 @@ export const PROTOTYPE_MARKET = [
 ];
 
 export const PROTOTYPE_WORLD_ENTITIES = [
-  { id: 'w-1', name: '青石坊守卫', kind: 'NPC', note: '可对话 · 可接委托' },
+  { id: 'w-1', name: '青石坊守卫', kind: '场景人物', note: '可对话 · 可接委托' },
   { id: 'w-2', name: '赤尾狼', kind: '怪物', note: '精英 · 低血量' },
   { id: 'w-3', name: '坊市界门', kind: '传送点', note: '通往外城' },
 ];

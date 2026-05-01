@@ -50,7 +50,7 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const lockReason = item.equipSlot
@@ -110,7 +110,7 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
 
         const item = this.playerRuntimeService.peekEquippedItem(playerId, slot);
         if (!item) {
-            throw new common_1.NotFoundException(`Equipment slot ${slot} is empty`);
+            throw new common_1.NotFoundException(`装备槽位为空：${slot}`);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const lockReason = deps.craftPanelRuntimeService.getLockedSlotReason(player, slot);

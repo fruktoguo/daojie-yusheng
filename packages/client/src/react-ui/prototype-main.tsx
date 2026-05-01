@@ -13,7 +13,7 @@ initializeUiStyleConfig();
 const rootElement = document.getElementById('react-ui-prototype-root');
 
 if (!rootElement) {
-  throw new Error('react-ui-prototype-root is missing');
+  throw new Error('缺少 React UI 原型根节点');
 }
 
 createRoot(rootElement).render(

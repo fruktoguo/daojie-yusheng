@@ -127,18 +127,28 @@ function cloneVisibleBuff(source) {
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
 }
+/** 观察展示数值归一化，缺失或非有限值按 0 展示。 */
+function normalizeObservationNumber(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+}
+/** 观察清晰度分母归一化，缺失或非有限值按 1 处理，避免 NaN 误判为完整洞察。 */
+function normalizeObservationSpirit(value) {
+    const numeric = normalizeObservationNumber(value);
+    return Math.max(1, Math.round(numeric));
+}
 /** 输出整数展示文本，保持观察面板与主线口径一致。 */
 function formatWholeObservation(value) {
-    return `${Math.max(0, Math.round(value))}`;
+    return `${Math.max(0, Math.round(normalizeObservationNumber(value)))}`;
 }
 /** 输出百分比展示文本，供回复/速率等属性复用。 */
 function formatRateObservation(value) {
-    const percent = value / 100;
+    const percent = normalizeObservationNumber(value) / 100;
     return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
 }
 /** 输出暴伤展示文本，沿用主线 200% 基底口径。 */
 function formatCritDamageObservation(value) {
-    const total = 200 + Math.max(0, value) / 10;
+    const total = 200 + Math.max(0, normalizeObservationNumber(value)) / 10;
     return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
 }
 /** 构建观察面板属性行，恢复与 main 一致的可见属性集合。 */
@@ -382,9 +392,9 @@ function computeObservationProgress(viewerSpirit, targetSpirit) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-    const normalizedViewer = Math.max(1, Math.round(viewerSpirit));
+    const normalizedViewer = normalizeObservationSpirit(viewerSpirit);
 
-    const normalizedTarget = Math.max(1, Math.round(targetSpirit));
+    const normalizedTarget = normalizeObservationSpirit(targetSpirit);
 
     const ratio = normalizedViewer / normalizedTarget;
     if (ratio <= OBSERVATION_BLIND_RATIO) {
@@ -436,7 +446,7 @@ function buildObservationVerdict(progress, selfView) {
 }
 /** 输出“当前值/最大值”数值文本。 */
 function formatCurrentMaxObservation(current, max) {
-    return `${Math.max(0, Math.round(current))} / ${Math.max(0, Math.round(max))}`;
+    return `${Math.max(0, Math.round(normalizeObservationNumber(current)))} / ${Math.max(0, Math.round(normalizeObservationNumber(max)))}`;
 }
 /** 组合可读的传送点显示名。 */
 function buildPortalDisplayName(portal, targetMapName) {

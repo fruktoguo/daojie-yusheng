@@ -587,14 +587,14 @@ function parseDirection(input) {
                 break;
         }
     }
-    throw new common_1.BadRequestException(`Unsupported direction: ${String(input)}`);
+    throw new common_1.BadRequestException(`方向无效：${String(input)}`);
 }
 /** 标准化物品槽位索引。 */
 function normalizeSlotIndex(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid slotIndex: ${String(input)}`);
+        throw new common_1.BadRequestException(`背包槽位无效：${String(input)}`);
     }
     return Math.max(0, Math.trunc(Number(input)));
 }
@@ -605,7 +605,7 @@ function normalizeEquipSlot(input) {
 
     const slot = typeof input === 'string' ? input.trim() : '';
     if (!shared_1.EQUIP_SLOTS.includes(slot)) {
-        throw new common_1.BadRequestException(`Invalid equip slot: ${String(input)}`);
+        throw new common_1.BadRequestException(`装备槽位无效：${String(input)}`);
     }
     return slot;
 }
@@ -630,7 +630,7 @@ function normalizePositiveCount(input) {
         return 1;
     }
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid count: ${String(input)}`);
+        throw new common_1.BadRequestException(`数量无效：${String(input)}`);
     }
     return Math.max(1, Math.trunc(Number(input)));
 }
@@ -639,7 +639,7 @@ function normalizeCoordinate(input, label) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid ${label}: ${String(input)}`);
+        throw new common_1.BadRequestException(`${label} 坐标无效：${String(input)}`);
     }
     return Math.trunc(Number(input));
 }
@@ -651,7 +651,7 @@ function normalizeRollCount(input) {
         return 1;
     }
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid rolls: ${String(input)}`);
+        throw new common_1.BadRequestException(`掉落次数无效：${String(input)}`);
     }
     return Math.max(1, Math.min(1000, Math.trunc(Number(input))));
 }

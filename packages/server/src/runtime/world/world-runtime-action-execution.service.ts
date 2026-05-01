@@ -66,7 +66,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
                 if (typeof deps.fenceInstanceRuntime === 'function') {
                     deps.fenceInstanceRuntime(instance.meta.instanceId, 'action_execution_lease_check_failed');
                 }
-                throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+                throw new common_1.ServiceUnavailableException(`地图实例 ${instance.meta.instanceId} 租约不可写`);
             }
         }
 
@@ -74,7 +74,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
 
         const rawActionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!rawActionId) {
-            throw new common_1.BadRequestException('actionId is required');
+            throw new common_1.BadRequestException('动作 ID 不能为空');
         }
         if (rawActionId.startsWith('npc:')) {
             return this.executeLegacyNpcAction(playerId, rawActionId.slice('npc:'.length), deps);
@@ -112,7 +112,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
             const target = typeof targetInput === 'string' ? targetInput.trim() : '';
             const foundationAmount = Number.parseInt(target, 10);
             if (!Number.isFinite(foundationAmount) || foundationAmount <= 0) {
-                throw new common_1.BadRequestException('foundation amount is required');
+                throw new common_1.BadRequestException('底蕴数量不能为空');
             }
             const result = this.playerRuntimeService.infuseBodyTraining(playerId, foundationAmount);
             deps.queuePlayerNotice(playerId, `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, 'success');
@@ -179,11 +179,11 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId.startsWith('npc_quests:')) {
             const npcId = actionId.slice('npc_quests:'.length).trim();
             if (!npcId) {
-                throw new common_1.BadRequestException('npcId is required');
+                throw new common_1.BadRequestException('场景人物 ID 不能为空');
             }
             return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, deps);
         }
-        throw new common_1.BadRequestException(`Unsupported actionId: ${actionId}`);
+        throw new common_1.BadRequestException(`不支持的动作：${actionId}`);
     }    
     /**
  * executeLegacyNpcAction：执行executeLegacyNPCAction相关逻辑。
@@ -207,7 +207,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
     executeWorldMigration(playerId, targetInput, deps) {
         const linePreset = normalizeWorldMigrationTarget(targetInput);
         if (!linePreset) {
-            throw new common_1.BadRequestException('world migration target is required');
+            throw new common_1.BadRequestException('跨界目标不能为空');
         }
         const currentView = deps.getPlayerViewOrThrow(playerId);
         if (!hasNearbyManualPortal(currentView)) {

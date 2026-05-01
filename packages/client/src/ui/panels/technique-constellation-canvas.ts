@@ -323,11 +323,11 @@ export class TechniqueConstellationCanvas {
 
     const canvas = root.querySelector<HTMLCanvasElement>('[data-tech-starfield-canvas="true"]');
     if (!canvas) {
-      throw new Error('Technique constellation canvas root is incomplete.');
+      throw new Error('功法星图画布根节点不完整。');
     }
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) {
-      throw new Error('Unable to acquire 2D context for technique constellation canvas.');
+      throw new Error('无法获取功法星图画布的 2D 上下文。');
     }
     this.canvas = canvas;
     this.ctx = ctx;
@@ -1291,5 +1291,4 @@ export class TechniqueConstellationCanvas {
       .replaceAll("'", '&#39;');
   }
 }
-
 

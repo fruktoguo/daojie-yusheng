@@ -104,7 +104,7 @@ export const INSPECTOR_TABS: Array<{
   { value: 'meta', label: '地图' },
   { value: 'compose', label: '拼图' },
   { value: 'portal', label: '传送点' },
-  { value: 'npc', label: 'NPC' },
+  { value: 'npc', label: '场景人物' },
   { value: 'monster', label: '怪物' },
   { value: 'aura', label: '无属性灵气' },
   { value: 'resource', label: '气机' },
@@ -123,6 +123,5 @@ export const DEFAULT_EDITOR_ZOOM_INDEX = 3;
 
 /** 撤销栈最多保留的步数。 */
 export const MAX_UNDO_STEPS = 50;
-
 
 

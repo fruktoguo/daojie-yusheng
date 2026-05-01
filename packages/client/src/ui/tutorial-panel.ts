@@ -47,7 +47,7 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
   { label: '全部拿取', path: '拾取弹层->全部拿取' },
   { label: '设为主修', path: '右侧卷轴区->功法->对应功法->设为主修' },
   { label: 'GitHub', path: '左上角外链区->GitHub' },
-  { label: 'Esc', path: '键盘->Esc' },
+  { label: '取消键', path: '键盘->Esc' },
   { label: '观察', path: '右下角行动栏->行动->观察->执行' },
   { label: '拿取', path: '右下角行动栏->行动->拿取->执行' },
   { label: '执行', path: '右下角行动栏->对应条目->执行' },

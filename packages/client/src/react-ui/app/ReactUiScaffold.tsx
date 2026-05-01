@@ -63,10 +63,10 @@ export function ReactUiScaffold() {
             type="button"
             variants={['ghost']}
             onClick={() => {
-              showToast('React UI 单实例 Toast 已接通。', 'success');
+              showToast('新界面单实例提示已接通。', 'success');
             }}
           >
-            测试 Toast
+            测试提示
           </UiButton>
           <UiButton
             type="button"

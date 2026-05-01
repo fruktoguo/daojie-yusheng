@@ -558,17 +558,17 @@ let WorldRuntimeController = class WorldRuntimeController {
         const walletType = typeof body?.walletType === 'string' ? body.walletType.trim() : '';
         const amount = Number.isFinite(body?.amount) ? Math.max(1, Math.trunc(Number(body.amount))) : 1;
         if (!normalizedPlayerId || !walletType || amount <= 0) {
-            throw new common_1.BadRequestException('invalid wallet mutation input');
+            throw new common_1.BadRequestException('钱包变更参数无效');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
-            throw new common_1.ServiceUnavailableException('player session is not ready for durable wallet mutation');
+            throw new common_1.ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化钱包变更');
         }
         const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances, walletType, amount, action);
         if (!nextWalletBalances) {
-            throw new common_1.NotFoundException(`Wallet ${walletType} insufficient`);
+            throw new common_1.NotFoundException(`${walletType} 余额不足`);
         }
         if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
             if (action === 'credit') {
@@ -581,10 +581,10 @@ let WorldRuntimeController = class WorldRuntimeController {
         const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
         const operationId = `op:${normalizedPlayerId}:wallet:${action}:${walletType}:${Date.now().toString(36)}`;
         if (expectedInstanceId && !instanceLease) {
-            throw new common_1.ServiceUnavailableException('instance lease is required for durable wallet mutation');
+            throw new common_1.ServiceUnavailableException('持久化钱包变更需要地图实例租约');
         }
         if (typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
-            throw new common_1.ServiceUnavailableException('durable wallet mutation service is unavailable');
+            throw new common_1.ServiceUnavailableException('持久化钱包变更服务不可用');
         }
         await this.durableOperationService.mutatePlayerWallet({
             operationId,
@@ -610,13 +610,13 @@ let WorldRuntimeController = class WorldRuntimeController {
         const itemId = typeof body?.itemId === 'string' ? body.itemId.trim() : '';
         const count = Number.isFinite(body?.count) ? Math.max(1, Math.trunc(Number(body.count))) : 1;
         if (!normalizedPlayerId || !itemId || count <= 0) {
-            throw new common_1.BadRequestException('invalid inventory grant input');
+            throw new common_1.BadRequestException('背包发放参数无效');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
-            throw new common_1.ServiceUnavailableException('player session is not ready for durable inventory grant');
+            throw new common_1.ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化背包发放');
         }
         if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
             return this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
@@ -628,10 +628,10 @@ let WorldRuntimeController = class WorldRuntimeController {
             const expectedInstanceId = location?.instanceId ?? null;
             const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
             if (expectedInstanceId && !instanceLease) {
-                throw new common_1.ServiceUnavailableException('instance lease is required for durable inventory grant');
+                throw new common_1.ServiceUnavailableException('持久化背包发放需要地图实例租约');
             }
             if (typeof this.durableOperationService?.grantInventoryItems !== 'function') {
-                throw new common_1.ServiceUnavailableException('durable inventory grant service is unavailable');
+                throw new common_1.ServiceUnavailableException('持久化背包发放服务不可用');
             }
             this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
             const grantedItem = buildGrantedInventorySnapshot(itemId, count, player, rollbackState.inventoryItems.length);

@@ -72,7 +72,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -81,7 +81,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
@@ -103,7 +103,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         });
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
+            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         deps.ensureAttackAllowed(attacker);
         const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
@@ -125,8 +125,8 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (targetX !== null && targetY !== null) {
             return this.dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick);
         }
-        throw new common_1.BadRequestException('target is required');
-    }    
+        throw new common_1.BadRequestException('必须指定目标');
+    }
     dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps) {
   // 阵法无生命条，承受伤害时直接按配置折算扣除阵眼剩余灵力。
 
@@ -154,7 +154,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             'combat',
         );
     }
-    
+
     /**
  * dispatchBasicAttackToMonster：判断BasicAttackTo怪物是否满足条件。
  * @param attacker 参数说明。
@@ -171,7 +171,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const monster = instance.getMonster(targetMonsterId);
         if (!monster || !monster.alive) {
-            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+            throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
         if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
@@ -187,7 +187,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
         }
         deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-    }    
+    }
     /**
  * dispatchBasicAttackToPlayer：判断BasicAttackTo玩家是否满足条件。
  * @param attacker 参数说明。
@@ -230,7 +230,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         }
         deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
         deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-    }    
+    }
     /**
  * dispatchBasicAttackToTile：判断BasicAttackToTile是否满足条件。
  * @param attacker 参数说明。
@@ -348,7 +348,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
         const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(Math.max(1, attacker.realm?.realmLv ?? 1), Math.max(1, Math.floor(monster.level ?? 1)));
         return this.resolveBasicAttackDamage(attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors, baseDamage, damageKind, combatExpMultiplier * realmGapMultiplier);
-    }    
+    }
     resolveMonsterCombatExpEquivalent(monster) {
         const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
         const progressionService = this.playerRuntimeService?.playerProgressionService;
@@ -373,7 +373,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, target.combatExp ?? 0));
         const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(Math.max(1, attacker.realm?.realmLv ?? 1), Math.max(1, target.realm?.realmLv ?? 1));
         return this.resolveBasicAttackDamage(attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors, baseDamage, damageKind, combatExpMultiplier * realmGapMultiplier);
-    }    
+    }
     /**
  * resolveBasicAttackDamage：统一普攻伤害结算。
  * @param attackerStats 参数说明。

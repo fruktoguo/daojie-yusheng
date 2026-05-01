@@ -323,7 +323,7 @@ function resolveRequiredCompatMapId(value) {
 
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (!normalized) {
-        throw new Error('Migration player snapshot invalid mapId');
+        throw new Error('迁移玩家快照的 mapId 无效');
     }
     return normalized;
 }
@@ -501,7 +501,7 @@ function normalizeUnlockedMapIds(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Array.isArray(value)) {
-        throw new Error('Migration player snapshot invalid unlockedMinimapIds');
+        throw new Error('迁移玩家快照的 unlockedMinimapIds 无效');
     }
 
     const result = new Set<string>();
