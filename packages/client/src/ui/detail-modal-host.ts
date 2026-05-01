@@ -67,7 +67,7 @@ type DetailModalOptions = {
  * onAfterRender：onAfterRender相关字段。
  */
 
-  onAfterRender?: (body: HTMLElement) => void;
+  onAfterRender?: (body: HTMLElement, signal: AbortSignal) => void;
 };
 
 /** 弹层局部 patch 配置项。 */
@@ -126,7 +126,7 @@ type DetailModalPatchOptions = {
  * onAfterRender：onAfterRender相关字段。
  */
 
-  onAfterRender?: (body: HTMLElement) => void;
+  onAfterRender?: (body: HTMLElement, signal: AbortSignal) => void;
 };
 
 /** DetailModalHost：详情弹窗宿主实现。 */
@@ -151,6 +151,8 @@ class DetailModalHost {
   private onClose: (() => void) | null = null;
   /** frameClassState：帧Class状态。 */
   private frameClassState = { layerClasses: [] as string[], cardClasses: [] as string[] };
+  /** 当前 body 渲染轮次绑定的事件监听，下一轮 patch 前统一撤销。 */
+  private bodyRenderEvents: AbortController | null = null;
   /** initialized：initialized。 */
   private initialized = false;
 
@@ -173,6 +175,7 @@ class DetailModalHost {
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
     this.hint.textContent = options.hint ?? '点击空白处关闭';
+    const renderSignal = this.prepareBodyRenderSignal();
     preserveSelection(this.body, () => {
       if (typeof options.renderBody === 'function') {
         this.patchBodyFromRenderer(options.renderBody);
@@ -182,7 +185,7 @@ class DetailModalHost {
     });
     this.modal.classList.remove('hidden');
     this.modal.setAttribute('aria-hidden', 'false');
-    options.onAfterRender?.(this.body);
+    options.onAfterRender?.(this.body, renderSignal);
   }
 
   /** 仅当 ownerId 匹配时关闭弹层 */
@@ -225,6 +228,7 @@ class DetailModalHost {
       this.hint.textContent = options.hint || '点击空白处关闭';
     }
     if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
+      const renderSignal = this.prepareBodyRenderSignal();
       preserveSelection(this.body, () => {
         if (typeof options.renderBody === 'function') {
           this.patchBodyFromRenderer(options.renderBody);
@@ -232,7 +236,7 @@ class DetailModalHost {
         }
         patchElementHtml(this.body, options.bodyHtml ?? '');
       });
-      options.onAfterRender?.(this.body);
+      options.onAfterRender?.(this.body, renderSignal);
     }
     return true;
   }
@@ -268,6 +272,8 @@ class DetailModalHost {
     this.ownerId = null;
     this.onRequestClose = null;
     this.onClose = null;
+    this.bodyRenderEvents?.abort();
+    this.bodyRenderEvents = null;
     this.setFrameClasses('', undefined);
     patchElementHtml(this.body, '');
     this.modal.classList.add('hidden');
@@ -288,6 +294,13 @@ class DetailModalHost {
       layerClasses: splitModalLayerClasses(variantClass),
       cardClasses: buildModalCardClassList(resolvedSize, variantClass),
     });
+  }
+
+  /** 为下一轮 body 渲染创建事件生命周期。 */
+  private prepareBodyRenderSignal(): AbortSignal {
+    this.bodyRenderEvents?.abort();
+    this.bodyRenderEvents = new AbortController();
+    return this.bodyRenderEvents.signal;
   }
 
   /** 用临时容器承接旧 renderBody，再局部 patch 到真实弹层 body。 */

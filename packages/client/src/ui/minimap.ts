@@ -3,7 +3,7 @@
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
 import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
-import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
+import { deleteAllRememberedMaps, deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedUnlockedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
@@ -608,6 +608,8 @@ export class Minimap {
   private readonly modalTabUnlock = document.getElementById('map-minimap-filter-unlock') as HTMLButtonElement | null;
   /** deleteMemoryBtn：delete Memory按钮。 */
   private readonly deleteMemoryBtn = document.getElementById('map-minimap-delete-memory') as HTMLButtonElement | null;
+  /** deleteAllMemoryBtn：删除全部地图记忆按钮。 */
+  private readonly deleteAllMemoryBtn = document.getElementById('map-minimap-delete-all-memory') as HTMLButtonElement | null;
 
   /** baseCanvas：基础Canvas。 */
   private readonly baseCanvas = document.createElement('canvas');
@@ -631,6 +633,8 @@ export class Minimap {
   private catalogFilter: CatalogFilter = 'all';
   /** moveHandler：移动Handler。 */
   private moveHandler: ((x: number, y: number) => void) | null = null;  
+  /** memoryDeleteHandler：地图记忆删除后通知地图运行时同步缓存。 */
+  private memoryDeleteHandler: ((mapIds: readonly string[] | null) => void) | null = null;
   /**
  * pendingMovePoint：pendingMovePoint相关字段。
  */
@@ -766,8 +770,16 @@ export class Minimap {
       this.renderCatalog();
     });
 
-    this.deleteMemoryBtn?.addEventListener('click', () => {
-      this.openDeleteMemoryConfirm();
+    this.deleteMemoryBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openDeleteMemoryConfirm('selected');
+    });
+
+    this.deleteAllMemoryBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openDeleteMemoryConfirm('all');
     });
 
     this.modalList?.addEventListener('click', (event) => {
@@ -991,6 +1003,11 @@ export class Minimap {
   /** 注册点击地图前往目标坐标的回调 */
   setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.moveHandler = handler;
+  }
+
+  /** 注册本地地图记忆删除后的运行时同步回调。 */
+  setMemoryDeleteHandler(handler: ((mapIds: readonly string[] | null) => void) | null): void {
+    this.memoryDeleteHandler = handler;
   }
 
   /** 更新当前地图场景数据并触发重绘 */
@@ -1249,6 +1266,11 @@ export class Minimap {
       const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
       this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
       this.deleteMemoryBtn.title = selectedEntry?.hasMemory ? `删除 ${selectedEntry.mapMeta?.name ?? selectedEntry.mapId} 的本地记忆` : '当前地图没有可删除的本地记忆';
+    }
+    if (this.deleteAllMemoryBtn) {
+      const hasAnyMemory = listRememberedMapIds().length > 0;
+      this.deleteAllMemoryBtn.disabled = !hasAnyMemory;
+      this.deleteAllMemoryBtn.title = hasAnyMemory ? '删除所有地图的本地记忆' : '当前没有可删除的本地记忆';
     }
 
     const catalogContainer = this.modalList;
@@ -1727,6 +1749,9 @@ export class Minimap {
           this.createMoveConfirmActions(x, y),
         ]);
       },
+      onAfterRender: (body, signal) => {
+        this.bindMoveConfirmActions(body, signal, x, y);
+      },
       onClose: () => {
         this.pendingMovePoint = null;
       },
@@ -1740,28 +1765,39 @@ export class Minimap {
   }
 
   /** openDeleteMemoryConfirm：打开Delete Memory Confirm。 */
-  private openDeleteMemoryConfirm(): void {
+  private openDeleteMemoryConfirm(scope: 'selected' | 'all'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const allEntries = this.buildCatalogEntries();
     const selectedMapId = this.selectedMapId;
-    if (!selectedMapId) {
+    const selectedEntry = selectedMapId ? allEntries.find((candidate) => candidate.mapId === selectedMapId) : null;
+    const rememberedMapIds = listRememberedMapIds();
+    if (scope === 'selected' && (!selectedMapId || !selectedEntry?.hasMemory)) {
       return;
     }
-    const entry = this.buildCatalogEntries().find((candidate) => candidate.mapId === selectedMapId);
-    if (!entry?.hasMemory) {
+    if (scope === 'all' && rememberedMapIds.length === 0) {
       return;
     }
-    const mapName = entry.mapMeta?.name ?? selectedMapId;
+    const mapName = scope === 'all'
+      ? `共 ${formatDisplayInteger(rememberedMapIds.length)} 张地图`
+      : (selectedEntry?.mapMeta?.name ?? selectedMapId ?? '当前地图');
+    const title = scope === 'all' ? '删除全部本地记忆' : '删除本地记忆';
+    const message = scope === 'all'
+      ? '会删除所有地图的本地探索记忆，不会影响已解锁整图。当前视野内正在看到的部分会继续保留在本次画面中。'
+      : '只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会继续保留在本次画面中。';
     detailModalHost.open({
       ownerId: Minimap.DELETE_MEMORY_OWNER,
-      title: '删除本地记忆',
+      title,
       subtitle: mapName,
       hint: '点击空白处取消',
       renderBody: (body) => {
         patchElementChildren(body, [
-          this.createConfirmMessage('只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会重新记入。'),
-          this.createDeleteMemoryActions(selectedMapId),
+          this.createConfirmMessage(message),
+          this.createDeleteMemoryActions(scope),
         ]);
+      },
+      onAfterRender: (body, signal) => {
+        this.bindDeleteMemoryActions(body, signal, scope, selectedMapId);
       },
     });
   }
@@ -1781,13 +1817,24 @@ export class Minimap {
   private createMoveConfirmActions(x: number, y: number): HTMLElement {
     const actions = this.createConfirmActions();
     const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
-    cancelButton.addEventListener('click', (event) => {
+    cancelButton.dataset.mapMoveCancel = 'true';
+    const confirmButton = this.createConfirmButton('确认前往', 'small-btn');
+    confirmButton.dataset.mapMoveConfirm = 'true';
+    actions.append(cancelButton, confirmButton);
+    return actions;
+  }
+
+  /** bindMoveConfirmActions：绑定移动确认弹层按钮。 */
+  private bindMoveConfirmActions(body: HTMLElement, signal: AbortSignal, x: number, y: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    body.querySelector<HTMLButtonElement>('[data-map-move-cancel="true"]')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       this.closeMoveConfirm();
-    });
-    const confirmButton = this.createConfirmButton('确认前往', 'small-btn');
-    confirmButton.addEventListener('click', (event) => {
+    }, { signal });
+
+    body.querySelector<HTMLButtonElement>('[data-map-move-confirm="true"]')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (!this.moveHandler) {
@@ -1796,27 +1843,40 @@ export class Minimap {
       }
       this.moveHandler(x, y);
       this.closeMoveConfirm();
-    });
+    }, { signal });
+  }
+
+  /** createDeleteMemoryActions：创建删除记忆按钮区。 */
+  private createDeleteMemoryActions(scope: 'selected' | 'all'): HTMLElement {
+    const actions = this.createConfirmActions();
+    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
+    cancelButton.dataset.mapMemoryDeleteCancel = 'true';
+    const confirmButton = this.createConfirmButton(scope === 'all' ? '确认全部删除' : '确认删除', 'small-btn danger');
+    confirmButton.dataset.mapMemoryDeleteConfirm = 'true';
     actions.append(cancelButton, confirmButton);
     return actions;
   }
 
-  /** createDeleteMemoryActions：创建删除记忆按钮区。 */
-  private createDeleteMemoryActions(mapId: string): HTMLElement {
-    const actions = this.createConfirmActions();
-    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
-    cancelButton.addEventListener('click', (event) => {
+  /** bindDeleteMemoryActions：绑定删除记忆确认弹层按钮。 */
+  private bindDeleteMemoryActions(body: HTMLElement, signal: AbortSignal, scope: 'selected' | 'all', selectedMapId: string | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    body.querySelector<HTMLButtonElement>('[data-map-memory-delete-cancel="true"]')?.addEventListener('click', (event) => {
+      event.preventDefault();
       event.stopPropagation();
       detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-    });
-    const confirmButton = this.createConfirmButton('确认删除', 'small-btn danger');
-    confirmButton.addEventListener('click', (event) => {
+    }, { signal });
+
+    body.querySelector<HTMLButtonElement>('[data-map-memory-delete-confirm="true"]')?.addEventListener('click', (event) => {
+      event.preventDefault();
       event.stopPropagation();
-      this.deleteSelectedMemory(mapId);
+      if (scope === 'all') {
+        this.deleteAllMemory();
+      } else if (selectedMapId) {
+        this.deleteSelectedMemory(selectedMapId);
+      }
       detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-    });
-    actions.append(cancelButton, confirmButton);
-    return actions;
+    }, { signal });
   }
 
   /** createConfirmActions：创建确认动作容器。 */
@@ -1840,9 +1900,34 @@ export class Minimap {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     deleteRememberedMap(mapId);
+    this.memoryDeleteHandler?.([mapId]);
+    this.applyMemoryDeletionToScene([mapId]);
+    this.renderCatalog();
+    this.scheduleRender();
+  }
+
+  /** deleteAllMemory：处理delete All Memory。 */
+  private deleteAllMemory(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const rememberedMapIds = listRememberedMapIds();
+    if (rememberedMapIds.length === 0) {
+      return;
+    }
+    deleteAllRememberedMaps();
+    this.memoryDeleteHandler?.(null);
+    this.applyMemoryDeletionToScene(null);
+    this.renderCatalog();
+    this.scheduleRender();
+  }
+
+  /** applyMemoryDeletionToScene：同步小地图本地场景中的记忆删除结果。 */
+  private applyMemoryDeletionToScene(mapIds: readonly string[] | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.baseKey = null;
     this.closeMoveConfirm();
-    if (this.scene?.mapMeta?.id === mapId) {
+    if (this.scene?.mapMeta?.id && (mapIds === null || mapIds.includes(this.scene.mapMeta.id))) {
       const nextScene: MinimapScene = {
         ...this.scene,
         rememberedMarkers: [],
@@ -1860,8 +1945,6 @@ export class Minimap {
       }
       this.scene = nextScene;
     }
-    this.renderCatalog();
-    this.scheduleRender();
   }  
   /**
  * getViewportMetrics：读取ViewportMetric。

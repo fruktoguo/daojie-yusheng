@@ -70,6 +70,8 @@ let persistDisabled = false;
 let persistTimer: number | null = null;
 /** 当前是否存在尚未写回存储的记忆改动。 */
 let hasPendingPersist = false;
+/** 下一次落盘是否允许因显式删除导致内容大幅缩小。 */
+let allowNextPersistShrink = false;
 
 /** 判断值是否为地块枚举中的合法类型。 */
 function isTileType(value: unknown): value is TileType {
@@ -337,6 +339,7 @@ function flushPersistMemory(): void {
   const storage = getStorage();
   if (!storage) {
     hasPendingPersist = false;
+    allowNextPersistShrink = false;
     return;
   }
 
@@ -346,7 +349,7 @@ function flushPersistMemory(): void {
 
     // 如果新内容突然比旧内容小很多，通常意味着恢复失败后的残留数据。
     const existingRaw = storage.getItem(MAP_MEMORY_STORAGE_KEY);
-    if (existingRaw && nextJson.length < existingRaw.length * 0.5 && existingRaw.length > 1024) {
+    if (!allowNextPersistShrink && existingRaw && nextJson.length < existingRaw.length * 0.5 && existingRaw.length > 1024) {
       disablePersistence(
         `写入数据异常缩小（${nextJson.length} < ${existingRaw.length} * 0.5），已停止持久化以避免覆盖。`,
       );
@@ -355,6 +358,7 @@ function flushPersistMemory(): void {
 
     storage.setItem(MAP_MEMORY_STORAGE_KEY, nextJson);
     hasPendingPersist = false;
+    allowNextPersistShrink = false;
   } catch (error) {
     disablePersistence('写入本地地图记忆失败，已停止自动持久化以避免覆盖现有数据。', error);
   }
@@ -433,6 +437,9 @@ function ensureMemoryLoaded(): void {
       disablePersistence('本地地图记忆格式无法识别，已保留原始数据且停止本次会话持久化。');
       return;
     }
+    if (Object.keys(envelope.maps).length === 0) {
+      return;
+    }
     if (!importRememberedMaps(envelope.maps)) {
       disablePersistence('本地地图记忆中没有可恢复的有效内容，已保留原始数据且停止本次会话持久化。');
       return;
@@ -452,6 +459,17 @@ function ensureMemoryLoaded(): void {
 /** 对外暴露的记忆持久化触发入口。 */
 function persistMemory(): void {
   schedulePersistMemory();
+}
+
+/** 显式删除后立即落盘，并允许本次内容大幅缩小。 */
+function persistMemoryAfterDelete(): void {
+  if (persistDisabled) {
+    return;
+  }
+  ensurePersistenceLifecycle();
+  hasPendingPersist = true;
+  allowNextPersistShrink = true;
+  flushPersistMemoryNow();
 }
 
 /** 取出某张地图的已记忆地块缓存。 */
@@ -639,6 +657,19 @@ export function deleteRememberedMap(mapId: string): void {
   const removedTiles = rememberedTilesByMap.delete(mapId);
   const removedMarkers = rememberedMarkersByMap.delete(mapId);
   if (removedTiles || removedMarkers) {
-    persistMemory();
+    persistMemoryAfterDelete();
+  }
+}
+
+/** 删除所有地图的本地记忆数据。 */
+export function deleteAllRememberedMaps(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  ensureMemoryLoaded();
+  const hadMemory = rememberedTilesByMap.size > 0 || rememberedMarkersByMap.size > 0;
+  rememberedTilesByMap.clear();
+  rememberedMarkersByMap.clear();
+  if (hadMemory) {
+    persistMemoryAfterDelete();
   }
 }

@@ -17,6 +17,7 @@ import {
   clonePlainValue,
   doesTileTypeBlockSight,
   getFirstGrapheme,
+  getTileTypeFromMapChar,
   isTileTypeWalkable,
 } from '@mud/shared';
 import {
@@ -305,6 +306,10 @@ export class MapStore {
   private time = null as MapStoreSnapshot['time'];
   /** 地块可见性缓存，key 为 "x,y"。 */
   private tileCache = new Map<string, Tile>();
+  /** 已解锁整图转出的静态地形缓存，只用于视野外渲染 fallback。 */
+  private snapshotTileCache = new Map<string, Tile>();
+  /** 主视图使用的渲染缓存：已解锁整图为底，视野/记忆覆盖其上。 */
+  private renderTileCache = new Map<string, Tile>();
   /** 当前会话内可见地块 key 集合。 */
   private visibleTiles = new Set<string>();
   /** 可见地块版本号，用于渲染层增量判断。 */
@@ -368,6 +373,66 @@ export class MapStore {
   /** 记录已由 WorldDelta 预加载的新图实体 mapId，避免后续 SelfDelta 再清掉。 */
   private preloadedEntityMapId: string | null = null;
 
+  /** 设置当前地图完整舆图快照，并同步主视图渲染 fallback。 */
+  private setMinimapSnapshot(snapshot: MapMinimapSnapshot | null): void {
+    this.minimapSnapshot = snapshot;
+    this.rebuildSnapshotTileCache();
+    this.rebuildRenderTileCache();
+  }
+
+  /** 从已解锁整图快照预建静态地形缓存，避免主视图视野外只能依赖记忆。 */
+  private rebuildSnapshotTileCache(): void {
+    this.snapshotTileCache.clear();
+    const snapshot = this.minimapSnapshot;
+    if (!snapshot || snapshot.terrainRows.length === 0) {
+      return;
+    }
+    for (let y = 0; y < snapshot.terrainRows.length; y += 1) {
+      const row = snapshot.terrainRows[y] ?? '';
+      for (let x = 0; x < row.length; x += 1) {
+        const type = getTileTypeFromMapChar(row[x] ?? '.');
+        this.snapshotTileCache.set(`${x},${y}`, {
+          type,
+          walkable: isTileTypeWalkable(type),
+          blocksSight: doesTileTypeBlockSight(type),
+          aura: 0,
+          occupiedBy: null,
+          modifiedAt: null,
+        });
+      }
+    }
+  }
+
+  /** 叠合静态整图与本地记忆/当前视野，供主 Canvas 渲染和命中读取使用。 */
+  private rebuildRenderTileCache(): void {
+    this.renderTileCache = new Map<string, Tile>();
+    for (const [key, tile] of this.snapshotTileCache.entries()) {
+      this.renderTileCache.set(key, { ...tile });
+    }
+    for (const [key, tile] of this.tileCache.entries()) {
+      this.renderTileCache.set(key, { ...tile });
+    }
+  }
+
+  /** 删除记忆后只保留当前可见块，避免旧记忆继续污染主视图。 */
+  private rebuildTileCacheFromVisibleTiles(): void {
+    const visibleOnlyTileCache = new Map<string, Tile>();
+    for (const key of this.visibleTiles) {
+      const tile = this.tileCache.get(key) ?? this.renderTileCache.get(key);
+      if (tile) {
+        visibleOnlyTileCache.set(key, cloneJson(tile));
+      }
+    }
+    this.tileCache = visibleOnlyTileCache;
+    this.minimapMemoryVersion += 1;
+    this.visibleTileRevision += 1;
+    this.visibleTileTransition = {
+      startedAt: performance.now(),
+      durationMs: TILE_HIDDEN_FADE_MS,
+    };
+    this.rebuildRenderTileCache();
+  }
+
   /** 首次接入/重连时初始化地图状态与基础缓存。 */
   applyBootstrap(data: MapBootstrapInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -396,11 +461,11 @@ export class MapStore {
       player.unlockedMinimapIds = [];
     }
     syncCachedUnlockedMapIds(player.unlockedMinimapIds);
-    this.minimapSnapshot = data.minimap ?? (
+    this.setMinimapSnapshot(data.minimap ?? (
       player.unlockedMinimapIds.includes(player.mapId)
         ? getCachedUnlockedMapSnapshot(player.mapId)
         : null
-    );
+    ));
     if (data.minimap) {
       cacheMapSnapshot(player.mapId, data.minimap, { meta: mapMeta ?? null, unlocked: true });
     }
@@ -410,6 +475,8 @@ export class MapStore {
     hydrateTileCacheFromMemory(player.mapId, this.tileCache);
     if (visibleTiles.length > 0) {
       this.cacheVisibleTiles(player.mapId, visibleTiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
+    } else {
+      this.rebuildRenderTileCache();
     }
     this.awaitingFullVisibilityMapId = null;
 
@@ -460,6 +527,9 @@ export class MapStore {
     if (data.mapMeta) {
       if (shouldResetRememberedMap(data.mapId, data.mapMeta, data.minimap)) {
         deleteRememberedMap(data.mapId);
+        if (data.mapId === this.player.mapId) {
+          this.rebuildTileCacheFromVisibleTiles();
+        }
       }
       cacheMapMeta(data.mapMeta);
     }
@@ -468,7 +538,7 @@ export class MapStore {
       this.player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
       syncCachedUnlockedMapIds(this.player.unlockedMinimapIds);
       if (data.mapId === this.player.mapId && !this.minimapSnapshot && this.player.unlockedMinimapIds.includes(this.player.mapId)) {
-        this.minimapSnapshot = getCachedUnlockedMapSnapshot(this.player.mapId);
+        this.setMinimapSnapshot(getCachedUnlockedMapSnapshot(this.player.mapId));
       }
     }
     if (data.visibleMinimapMarkers !== undefined && data.mapId === this.player.mapId) {
@@ -476,7 +546,7 @@ export class MapStore {
       rememberVisibleMarkers(data.mapId, this.visibleMinimapMarkers);
     }
     if ('minimap' in data && data.mapId === this.player.mapId) {
-      this.minimapSnapshot = data.minimap ?? null;
+      this.setMinimapSnapshot(data.minimap ?? null);
     }
     if (data.minimap) {
       cacheMapSnapshot(data.mapId, data.minimap, { meta: data.mapMeta ?? (data.mapId === this.player.mapId ? this.mapMeta : null), unlocked: true });
@@ -511,6 +581,7 @@ export class MapStore {
       this.tileCache.clear();
       this.visibleTiles.clear();
       this.visibleTileRevision += 1;
+      this.rebuildRenderTileCache();
       this.visibleMinimapMarkers = [];
       this.awaitingFullVisibilityMapId = this.player.mapId;
     }
@@ -614,7 +685,7 @@ export class MapStore {
       this.visibleTiles.clear();
       this.visibleTileRevision += 1;
       this.minimapMemoryVersion = 0;
-      this.minimapSnapshot = null;
+      this.setMinimapSnapshot(null);
       this.visibleMinimapMarkers = [];
       this.pathCells = [];
       if (this.preloadedEntityMapId !== nextMapId) {
@@ -624,10 +695,11 @@ export class MapStore {
         this.threatArrows = [];
       }
       this.player.mapId = nextMapId;
-      this.minimapSnapshot = (this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
+      this.setMinimapSnapshot((this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
         ? getCachedUnlockedMapSnapshot(this.player.mapId)
-        : null;
+        : null);
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
+      this.rebuildRenderTileCache();
       this.awaitingFullVisibilityMapId = this.player.mapId;
       this.preloadedEntityMapId = null;
     }
@@ -719,10 +791,12 @@ export class MapStore {
   reset(): void {
     this.mapMeta = null;
     this.player = null;
-    this.minimapSnapshot = null;
+    this.setMinimapSnapshot(null);
     this.visibleMinimapMarkers = [];
     this.time = null;
     this.tileCache.clear();
+    this.snapshotTileCache.clear();
+    this.renderTileCache.clear();
     this.visibleTiles.clear();
     this.entities = [];
     this.entityMap.clear();
@@ -767,7 +841,7 @@ export class MapStore {
 
   /** 按坐标读取已知地块（不考虑可见性）。 */
   getKnownTileAt(x: number, y: number): Tile | null {
-    return this.tileCache.get(`${x},${y}`) ?? null;
+    return this.renderTileCache.get(`${x},${y}`) ?? null;
   }
 
   /** 按坐标读取当前可见地块。 */
@@ -786,6 +860,17 @@ export class MapStore {
     return this.groundPiles.get(`${x},${y}`) ?? null;
   }
 
+  /** 本地地图记忆被手动删除后，同步清理当前地图的记忆派生缓存。 */
+  handleRememberedMapsDeleted(mapIds: readonly string[] | null): void {
+    if (!this.player) {
+      return;
+    }
+    if (mapIds !== null && !mapIds.includes(this.player.mapId)) {
+      return;
+    }
+    this.rebuildTileCacheFromVisibleTiles();
+  }
+
   /** 组装可供渲染/交互使用的只读快照。 */
   getSnapshot(): MapStoreSnapshot {
     return {
@@ -802,7 +887,7 @@ export class MapStore {
           }
         : null,
       time: this.time,
-      tileCache: this.tileCache,
+      tileCache: this.renderTileCache,
       visibleTiles: this.visibleTiles,
       visibleTileRevision: this.visibleTileRevision,
       visibleTileTransitionStartedAt: this.visibleTileTransition.startedAt,
@@ -996,6 +1081,7 @@ export class MapStore {
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
     this.visibleTileTransition = transitionClock;
+    this.rebuildRenderTileCache();
   }
 
   /** 重新缓存整块可见地块并重建可见集合。 */
@@ -1028,6 +1114,7 @@ export class MapStore {
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
     this.visibleTileTransition = transitionClock;
+    this.rebuildRenderTileCache();
     if (this.awaitingFullVisibilityMapId === mapId) {
       this.awaitingFullVisibilityMapId = null;
     }

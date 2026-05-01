@@ -463,9 +463,8 @@
         padding: 16px;
       }
       .detail-modal-card.detail-modal--skill-management {
-        --detail-modal-compact-scale: 0.7;
         width: min(100%, calc(100vw - 16px));
-        height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        height: min(88dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
       .detail-modal-card.detail-modal--sect-management {

@@ -59,6 +59,13 @@ export class MapRuntime implements MapRuntimeApi {
   /** 当前可用安全区域。 */
   private safeArea: MapSafeAreaInsets = { ...DEFAULT_SAFE_AREA };
 
+  constructor() {
+    this.minimap.setMemoryDeleteHandler((mapIds) => {
+      this.store.handleRememberedMapsDeleted(mapIds);
+      this.syncSceneFromStore();
+    });
+  }
+
   /** 初始化运行时挂载，接入交互监听并启动渲染循环。 */
   attach(host: HTMLElement): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

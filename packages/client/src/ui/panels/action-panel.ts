@@ -644,6 +644,8 @@ export class ActionPanel {
   private autoUsePillTooltipNode: HTMLElement | null = null;
   /** 动作行节点缓存，供冷却、顺位和开关状态局部更新。 */
   private actionRowRefs = new Map<string, ActionRowRefs>();  
+  /** 当前面板主体这一轮 render 绑定的 DOM 监听，重绘前统一撤销。 */
+  private paneRenderEvents: AbortController | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -662,6 +664,8 @@ export class ActionPanel {
     this.tooltip.hide(true);
     this.autoUsePillTooltip.hide(true);
     this.autoUsePillTooltipNode = null;
+    this.paneRenderEvents?.abort();
+    this.paneRenderEvents = null;
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
     this.autoUsePillDraft = null;
@@ -867,7 +871,7 @@ export class ActionPanel {
         for (const action of utilityEntries) {
           html += this.renderActionItem(action);
         }
-        html += '</div></div>';
+        html += '</div></div></div>';
         continue;
       }
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
@@ -896,10 +900,13 @@ export class ActionPanel {
     }
 
     preserveSelection(this.pane, () => {
+      this.paneRenderEvents?.abort();
       patchElementHtml(this.pane, html);
+      this.paneRenderEvents = new AbortController();
+      const eventSignal = this.paneRenderEvents.signal;
       this.captureActionRowRefs();
-      this.bindEvents(actions);
-      this.bindTooltips(this.pane);
+      this.bindEvents(actions, eventSignal);
+      this.bindTooltips(this.pane, eventSignal);
     });
   }
 
@@ -928,14 +935,14 @@ export class ActionPanel {
   }
 
   /** 给当前渲染出来的动作区装配标签切换、入口按钮和快捷操作事件。 */
-  private bindEvents(actions: ActionDef[]): void {
+  private bindEvents(actions: ActionDef[], signal: AbortSignal): void {
     this.pane.querySelectorAll<HTMLElement>('[data-action-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const tab = button.dataset.actionTab as ActionMainTab | undefined;
         if (!tab) return;
         this.activeTab = tab;
         this.render(actions);
-      });
+      }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-tab]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -943,37 +950,37 @@ export class ActionPanel {
         if (!tab) return;
         this.activeSkillTab = tab;
         this.render(actions);
-      });
+      }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-manage-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillManagement();
-      });
+      }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-preset-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillPresetModal();
-      });
+      }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-combat-settings-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openCombatSettingsModal();
-      });
+      }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-targeting-plan-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openTargetingPlanModal();
-      });
+      }, { signal });
     });
-    this.bindActionCardEvents(this.pane);
-    this.bindActionExecEvents(this.pane);
-    this.bindBindActionEvents(this.pane);
-    this.bindAutoBattleToggleEvents(this.pane);
-    this.bindAutoBattleDragEvents(this.pane);
+    this.bindActionCardEvents(this.pane, signal);
+    this.bindActionExecEvents(this.pane, signal);
+    this.bindBindActionEvents(this.pane, signal);
+    this.bindAutoBattleToggleEvents(this.pane, signal);
+    this.bindAutoBattleDragEvents(this.pane, signal);
   }
 
   /** 只给带提示信息的节点绑定悬浮提示，避免重复装配整棵树。 */
-  private bindTooltips(root: HTMLElement): void {
+  private bindTooltips(root: HTMLElement, signal?: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
     root.querySelectorAll<HTMLElement>('[data-action-tooltip-title]').forEach((node) => {
       const title = node.dataset.actionTooltipTitle ?? '';
@@ -999,7 +1006,7 @@ export class ActionPanel {
         });
         event.preventDefault();
         event.stopPropagation();
-      }, true);
+      }, { capture: true, signal });
       node.addEventListener('pointerenter', (event) => {
         if (tapMode && this.tooltip.isPinned()) {
           return;
@@ -1013,16 +1020,16 @@ export class ActionPanel {
           allowHtml: rich,
           asideCards: tooltip.asideCards,
         });
-      });
+      }, { signal });
       node.addEventListener('pointermove', (event) => {
         if (tapMode && this.tooltip.isPinned()) {
           return;
         }
         this.tooltip.move(event.clientX, event.clientY);
-      });
+      }, { signal });
       node.addEventListener('pointerleave', () => {
         this.tooltip.hide();
-      });
+      }, { signal });
     });
   }
 
@@ -2010,7 +2017,7 @@ export class ActionPanel {
   }
 
   /** 点击卡片本体时直接触发动作。 */
-  private bindActionCardEvents(root: HTMLElement): void {
+  private bindActionCardEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-action-card]').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.dataset.bindAction) return;
@@ -2022,12 +2029,12 @@ export class ActionPanel {
         }
         const action = this.currentActions.find((entry) => entry.id === actionId);
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
-      });
+      }, { signal });
     });
   }
 
   /** 绑定执行按钮，读取 data-* 参数后交给外部回调。 */
-  private bindActionExecEvents(root: HTMLElement): void {
+  private bindActionExecEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const actionId = button.dataset.action!;
@@ -2041,12 +2048,12 @@ export class ActionPanel {
         const rangeText = button.dataset.actionRange;
         const range = rangeText ? Number(rangeText) : undefined;
         this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
-      });
+      }, { signal });
     });
   }
 
   /** 进入或退出动作绑键模式。 */
-  private bindBindActionEvents(root: HTMLElement): void {
+  private bindBindActionEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-bind-action]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -2056,12 +2063,12 @@ export class ActionPanel {
         this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
         this.render(this.currentActions);
         this.renderSkillManagementModalIfOpen();
-      });
+      }, { signal });
     });
   }
 
   /** 绑定自动战斗开关按钮。 */
-  private bindAutoBattleToggleEvents(root: HTMLElement): void {
+  private bindAutoBattleToggleEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -2069,7 +2076,7 @@ export class ActionPanel {
         const actionId = button.dataset.autoBattleToggle;
         if (!actionId) return;
         this.toggleAutoBattleSkill(actionId);
-      });
+      }, { signal });
     });
   }
 
@@ -2087,7 +2094,7 @@ export class ActionPanel {
   }
 
   /** 绑定自动战斗列表的拖拽排序交互。 */
-  private bindAutoBattleDragEvents(root: HTMLElement): void {
+  private bindAutoBattleDragEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
         const actionId = handle.dataset.autoBattleDrag;
@@ -2098,10 +2105,10 @@ export class ActionPanel {
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', actionId);
         this.updateDragIndicators();
-      });
+      }, { signal });
       handle.addEventListener('dragend', () => {
         this.clearDragState();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
@@ -2113,7 +2120,7 @@ export class ActionPanel {
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
-      });
+      }, { signal });
       row.addEventListener('dragleave', (event) => {
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
@@ -2124,7 +2131,7 @@ export class ActionPanel {
           this.dragOverPosition = null;
           this.updateDragIndicators();
         }
-      });
+      }, { signal });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
         const targetId = row.dataset.autoBattleSkillRow;
@@ -2134,12 +2141,12 @@ export class ActionPanel {
         }
         this.moveAutoBattleSkill(this.draggingSkillId, targetId, this.dragOverPosition);
         this.clearDragState();
-      });
+      }, { signal });
     });
   }
 
   /** 绑定技能管理弹层里的自动开关。 */
-  private bindSkillManagementAutoToggleEvents(root: HTMLElement): void {
+  private bindSkillManagementAutoToggleEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-auto-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -2147,12 +2154,12 @@ export class ActionPanel {
         const actionId = button.dataset.skillManageAutoToggle;
         if (!actionId) return;
         this.toggleSkillManagementAutoBattleSkill(actionId);
-      });
+      }, { signal });
     });
   }
 
   /** 绑定技能管理弹层里的启用开关。 */
-  private bindSkillManagementEnabledToggleEvents(root: HTMLElement): void {
+  private bindSkillManagementEnabledToggleEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -2160,12 +2167,12 @@ export class ActionPanel {
         const actionId = button.dataset.skillManageEnabledToggle;
         if (!actionId) return;
         this.toggleSkillManagementSkillEnabled(actionId);
-      });
+      }, { signal });
     });
   }
 
   /** 绑定技能管理弹层的拖拽排序交互。 */
-  private bindSkillManagementDragEvents(root: HTMLElement): void {
+  private bindSkillManagementDragEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
         const actionId = handle.dataset.skillManageDrag;
@@ -2176,10 +2183,10 @@ export class ActionPanel {
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', actionId);
         this.updateDragIndicators();
-      });
+      }, { signal });
       handle.addEventListener('dragend', () => {
         this.clearDragState();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
@@ -2191,7 +2198,7 @@ export class ActionPanel {
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
-      });
+      }, { signal });
       row.addEventListener('dragleave', (event) => {
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
@@ -2202,7 +2209,7 @@ export class ActionPanel {
           this.dragOverPosition = null;
           this.updateDragIndicators();
         }
-      });
+      }, { signal });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
         const targetId = row.dataset.skillManageSkillRow;
@@ -2212,7 +2219,7 @@ export class ActionPanel {
         }
         this.moveSkillManagementSkill(this.draggingSkillId, targetId, this.dragOverPosition);
         this.clearDragState();
-      });
+      }, { signal });
     });
   }
 
@@ -3011,14 +3018,14 @@ export class ActionPanel {
           </div>
         `);
       },
-      onAfterRender: (body) => {
+      onAfterRender: (body, signal) => {
         body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
           button.addEventListener('click', () => {
             const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
             if (!tab || tab === this.sectManagementTab) return;
             this.sectManagementTab = tab;
             this.renderSectManagementModal();
-          });
+          }, { signal });
         });
         body.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
           button.addEventListener('click', () => {
@@ -3026,7 +3033,7 @@ export class ActionPanel {
             if (!actionId) return;
             if (actionId === 'sect:dissolve' && !window.confirm('确认解散宗门？该操作会移除所有成员关系。')) return;
             this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
-          });
+          }, { signal });
         });
         body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
           select.addEventListener('change', () => {
@@ -3034,14 +3041,14 @@ export class ActionPanel {
             const roleId = select.value;
             if (!playerId || !roleId) return;
             this.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, '修改职位');
-          });
+          }, { signal });
         });
         body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
           const stones = this.readSectGuardianInjectValue(body);
           this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '灌注灵力');
-        });
+        }, { signal });
         const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
-        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview);
+        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
         syncGuardianInjectPreview();
       },
     });
@@ -3522,7 +3529,7 @@ export class ActionPanel {
       bodyHtml: overviewBody,
       onRequestClose: () => this.confirmDiscardCombatSettingsChanges(),
       onClose: () => this.discardCombatSettingsDraft(),
-      onAfterRender: (body) => this.bindCombatSettingsEvents(body),
+      onAfterRender: (body, signal) => this.bindCombatSettingsEvents(body, signal),
     });
     this.combatSettingsExternalRevision = this.buildCombatSettingsExternalRevision();
   }
@@ -3567,8 +3574,8 @@ export class ActionPanel {
           </div>
         </div>
       `,
-      onAfterRender: (body) => {
-        this.bindTargetingPlanEvents(body);
+      onAfterRender: (body, signal) => {
+        this.bindTargetingPlanEvents(body, signal);
       },
     });
     this.targetingPlanExternalRevision = activeMode;
@@ -3621,21 +3628,21 @@ export class ActionPanel {
   }
 
   /** 绑定战斗设置交互。 */
-  private bindCombatSettingsEvents(root: HTMLElement): void {
+  private bindCombatSettingsEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-combat-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const tab = button.dataset.combatSettingsTab;
         this.combatSettingsActiveTab = tab === 'targeting' ? 'targeting' : 'auto_pills';
         this.renderCombatSettingsModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-combat-settings-apply]').forEach((button) => {
-      button.addEventListener('click', () => this.applyCombatSettingsChanges());
+      button.addEventListener('click', () => this.applyCombatSettingsChanges(), { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-combat-settings-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
         this.requestCombatSettingsClose();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3644,7 +3651,7 @@ export class ActionPanel {
           return;
         }
         this.openAutoUsePillPicker(slotIndex);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-open-slot-conditions]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3653,12 +3660,12 @@ export class ActionPanel {
           return;
         }
         this.openAutoUsePillConditionSettings(slotIndex);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-back]').forEach((button) => {
       button.addEventListener('click', () => {
         this.closeAutoUsePillSubview();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3667,12 +3674,12 @@ export class ActionPanel {
           return;
         }
         this.assignAutoUsePillToSelectedSlot(itemId);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-clear-slot]').forEach((button) => {
       button.addEventListener('click', () => {
         this.clearSelectedAutoUsePillSlot();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-add-condition]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3682,7 +3689,7 @@ export class ActionPanel {
           return;
         }
         this.addAutoUsePillCondition(itemId, kind);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-resource]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -3697,7 +3704,7 @@ export class ActionPanel {
             ? { ...condition, resource }
             : condition
         ));
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-op]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -3712,7 +3719,7 @@ export class ActionPanel {
             ? { ...condition, op }
             : condition
         ));
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLInputElement>('[data-auto-pill-condition-threshold]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -3727,7 +3734,7 @@ export class ActionPanel {
             ? { ...condition, thresholdPct }
             : condition
         ));
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-condition-remove]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3737,7 +3744,7 @@ export class ActionPanel {
           return;
         }
         this.removeAutoUsePillCondition(itemId, conditionIndex);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-combat-targeting-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -3761,14 +3768,14 @@ export class ActionPanel {
           [scope]: [...current],
         });
         this.renderCombatSettingsModal();
-      });
+      }, { signal });
     });
-    this.bindAutoUsePillSlotTooltipEvents(root);
-    this.bindAutoUsePillPickerTooltipEvents(root);
+    this.bindAutoUsePillSlotTooltipEvents(root, signal);
+    this.bindAutoUsePillPickerTooltipEvents(root, signal);
   }
 
   /** 绑定索敌方案弹层交互。 */
-  private bindTargetingPlanEvents(root: HTMLElement): void {
+  private bindTargetingPlanEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
       button.addEventListener('click', () => {
         const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
@@ -3782,12 +3789,12 @@ export class ActionPanel {
         this.render(this.currentActions);
         this.renderTargetingPlanModal();
         this.onUpdateAutoBattleTargetingMode?.(mode);
-      });
+      }, { signal });
     });
   }
 
   /** 绑定槽位 tooltip。 */
-  private bindAutoUsePillSlotTooltipEvents(root: HTMLElement): void {
+  private bindAutoUsePillSlotTooltipEvents(root: HTMLElement, signal: AbortSignal): void {
     const slotButtons = root.querySelectorAll<HTMLElement>('[data-auto-pill-slot-item-id]');
     if (slotButtons.length === 0) {
       return;
@@ -3822,11 +3829,11 @@ export class ActionPanel {
         return;
       }
       this.autoUsePillTooltip.move(event.clientX, event.clientY);
-    });
+    }, { signal });
   }
 
   /** 绑定药品选择器 tooltip。 */
-  private bindAutoUsePillPickerTooltipEvents(root: HTMLElement): void {
+  private bindAutoUsePillPickerTooltipEvents(root: HTMLElement, signal: AbortSignal): void {
     const pickerCards = root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]');
     if (pickerCards.length === 0) {
       this.autoUsePillTooltipNode = null;
@@ -3864,17 +3871,17 @@ export class ActionPanel {
         return;
       }
       this.autoUsePillTooltip.move(event.clientX, event.clientY);
-    });
+    }, { signal });
     root.addEventListener('pointerleave', () => {
       this.autoUsePillTooltipNode = null;
       this.autoUsePillTooltip.hide();
-    });
+    }, { signal });
     root.addEventListener('pointerdown', () => {
       if (this.autoUsePillTooltipNode) {
         this.autoUsePillTooltipNode = null;
         this.autoUsePillTooltip.hide();
       }
-    });
+    }, { signal });
   }
 
   /** 渲染自动吃药条件摘要。 */
@@ -4148,32 +4155,32 @@ export class ActionPanel {
       onClose: () => {
         this.resetSkillPresetModalState();
       },
-      onAfterRender: (body) => {
-        this.bindSkillPresetEvents(body);
+      onAfterRender: (body, signal) => {
+        this.bindSkillPresetEvents(body, signal);
       },
     });
     this.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
   }
 
   /** 给技能方案弹层装配输入、保存、导入和导出事件。 */
-  private bindSkillPresetEvents(root: HTMLElement): void {
+  private bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
       input.addEventListener('input', () => {
         this.resetSkillPresetDeleteConfirm();
         this.skillPresetNameDraft = input.value.slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-save]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(false);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-overwrite]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(true);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-select]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4187,42 +4194,42 @@ export class ActionPanel {
         this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
         this.skillPresetStatus = null;
         this.renderSkillPresetModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.applySelectedSkillPreset();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-copy]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.copySelectedSkillPreset();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-selected]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.exportSelectedSkillPreset();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-all]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.exportAllSkillPresets();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-delete]').forEach((button) => {
       button.addEventListener('click', () => {
         this.deleteSelectedSkillPreset();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLTextAreaElement>('[data-skill-preset-import-input]').forEach((input) => {
       input.addEventListener('input', () => {
         this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = input.value;
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import-clear]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4230,18 +4237,18 @@ export class ActionPanel {
         this.skillPresetImportText = '';
         this.skillPresetStatus = null;
         this.renderSkillPresetModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillPresetDeleteConfirm();
         this.importSkillPresetsFromText(this.skillPresetImportText);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import-file-open]').forEach((button) => {
       button.addEventListener('click', () => {
         root.querySelector<HTMLInputElement>('[data-skill-preset-import-file]')?.click();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-import-file]').forEach((input) => {
       input.addEventListener('change', async () => {
@@ -4265,7 +4272,7 @@ export class ActionPanel {
         } finally {
           input.value = '';
         }
-      });
+      }, { signal });
     });
   }
 
@@ -4867,9 +4874,9 @@ export class ActionPanel {
       onClose: () => {
         this.discardSkillManagementDraft();
       },
-      onAfterRender: (body) => {
-        this.bindSkillManagementEvents(body);
-        this.bindTooltips(body);
+      onAfterRender: (body, signal) => {
+        this.bindSkillManagementEvents(body, signal);
+        this.bindTooltips(body, signal);
         this.restoreSkillManagementListScroll(body);
       },
     });
@@ -4877,16 +4884,16 @@ export class ActionPanel {
   }
 
   /** 给技能管理弹层装配分组切换、筛选、排序和应用事件。 */
-  private bindSkillManagementEvents(root: HTMLElement): void {
+  private bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-apply]').forEach((button) => {
       button.addEventListener('click', () => {
         this.applySkillManagementChanges();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
         this.cancelSkillManagementChanges();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4894,13 +4901,13 @@ export class ActionPanel {
         if (!tab) return;
         this.skillManagementTab = tab;
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         this.skillManagementSortOpen = !this.skillManagementSortOpen;
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-field-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4914,7 +4921,7 @@ export class ActionPanel {
         }
         this.skillManagementSortField = value;
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-direction-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4922,13 +4929,13 @@ export class ActionPanel {
         if (!value) return;
         this.skillManagementSortDirection = value;
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         this.skillManagementFilterOpen = !this.skillManagementFilterOpen;
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle-chip]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4940,13 +4947,13 @@ export class ActionPanel {
           this.skillManagementFilterToggles.add(value);
         }
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-all]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillManagementFilters();
         this.renderSkillManagementModal();
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up], [data-skill-manage-move-down]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4975,7 +4982,7 @@ export class ActionPanel {
           return;
         }
         this.moveSkillManagementSkill(actionId, targetId, position);
-      });
+      }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-bulk]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4984,11 +4991,11 @@ export class ActionPanel {
           return;
         }
         this.applySkillManagementBulkMode(mode);
-      });
+      }, { signal });
     });
-    this.bindSkillManagementAutoToggleEvents(root);
-    this.bindSkillManagementEnabledToggleEvents(root);
-    this.bindSkillManagementDragEvents(root);
+    this.bindSkillManagementAutoToggleEvents(root, signal);
+    this.bindSkillManagementEnabledToggleEvents(root, signal);
+    this.bindSkillManagementDragEvents(root, signal);
   }
 
   /** 把当前过滤结果批量切成自动、手动、启用或禁用。 */

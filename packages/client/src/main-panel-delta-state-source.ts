@@ -1140,6 +1140,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoIdleCultivation = player?.autoIdleCultivation ?? true;
       const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
       const previousCultivationActive = player?.cultivationActive ?? false;
+      const previousSenseQiActive = player?.senseQiActive ?? false;
       const nextAutoBattle = data.autoBattle ?? player?.autoBattle ?? false;
       const nextAutoUsePills = data.autoUsePills ?? player?.autoUsePills ?? [];
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
@@ -1169,6 +1170,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previousAutoIdleCultivation !== nextAutoIdleCultivation
         || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
         || previousCultivationActive !== nextCultivationActive
+        || previousSenseQiActive !== nextSenseQiActive
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {
         player.actions = mergedActions;

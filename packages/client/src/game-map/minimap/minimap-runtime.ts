@@ -19,6 +19,11 @@ export class MinimapRuntime {
     this.minimap.setMoveHandler(handler);
   }
 
+  /** 注册地图记忆删除后的缓存同步回调。 */
+  setMemoryDeleteHandler(handler: ((mapIds: readonly string[] | null) => void) | null): void {
+    this.minimap.setMemoryDeleteHandler(handler);
+  }
+
   /** 将 map store 的快照适配为小地图输入并触发更新。 */
   update(snapshot: MapStoreSnapshot): void {
     const scene: MinimapSceneInput = snapshot.minimap.mapMeta
@@ -50,6 +55,5 @@ export class MinimapRuntime {
     this.minimap.clear();
   }
 }
-
 
 

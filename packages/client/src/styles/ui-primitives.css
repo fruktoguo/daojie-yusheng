@@ -67,12 +67,12 @@
 
 .small-btn,
 .ui-btn {
-  padding: 2px 8px;
+  padding: 4px 10px;
   border: 1px solid var(--ink-black);
   background: transparent;
   color: var(--ink-black);
   font-family: var(--font-role-body);
-  font-size: var(--font-size-role-body-12);
+  font-size: var(--font-size-role-body-13);
   cursor: pointer;
   pointer-events: auto;
   transition: all 0.2s;

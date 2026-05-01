@@ -1285,14 +1285,12 @@
       overflow: hidden;
     }
     .detail-modal-card.detail-modal--skill-management {
-      --detail-modal-compact-scale: 0.78;
-      width: min(1040px, calc(100vw - 24px));
-      height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
+      width: min(1180px, calc(100vw - 24px));
+      height: min(88dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
       max-height: none;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      zoom: var(--detail-modal-compact-scale);
       background:
         radial-gradient(circle at top right, rgba(167, 64, 41, 0.08), transparent 30%),
         var(--surface-gradient-paper);
@@ -4952,21 +4950,21 @@
     .action-copy-tooltip {
       cursor: help;
     }
-    .action-name { font-size: var(--font-size-13); color: var(--ink-black); }
-    .action-type { font-size: var(--font-size-11); color: var(--ink-grey); }
+    .action-name { font-size: var(--font-size-14); color: var(--ink-black); }
+    .action-type { font-size: var(--font-size-12); color: var(--ink-grey); }
     .action-shortcut-tag {
       display: inline-block;
       margin-left: 6px;
       padding: 1px 6px;
       border: 1px solid rgba(34, 26, 19, 0.14);
       background: var(--surface-muted-solid);
-      font-size: var(--font-size-10);
+      font-size: var(--font-size-11);
       color: var(--stamp-red);
       vertical-align: middle;
     }
     .action-desc {
       margin-top: 4px;
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
       line-height: 1.45;
       color: var(--ink-grey);
     }
@@ -5215,7 +5213,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
       color: var(--ink-grey);
     }
     .skill-manage-summary span {
@@ -5242,7 +5240,7 @@
     }
     .sect-manage-sidebar-title {
       color: var(--ink-grey);
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
     }
     .sect-manage-subtabs {
       flex: 1;
@@ -5328,7 +5326,7 @@
       border: 1px solid rgba(34, 26, 19, 0.12);
       background: var(--surface-muted);
       color: var(--ink-grey);
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
       line-height: 1.2;
     }
     .sect-detail-tag.strong {
@@ -5341,7 +5339,7 @@
     .sect-detail-action-desc,
     .sect-manage-card-desc {
       color: var(--ink-grey);
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
       line-height: 1.6;
     }
     .sect-detail-notice {
@@ -5378,7 +5376,7 @@
     }
     .sect-stat-card-label {
       color: var(--ink-grey);
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
     }
     .sect-stat-card-value {
       color: var(--ink-black);
@@ -5421,7 +5419,7 @@
     .sect-detail-count,
     .sect-current-role {
       color: var(--ink-grey);
-      font-size: var(--font-size-12);
+      font-size: var(--font-size-13);
     }
     .sect-member-table {
       overflow-x: auto;
@@ -5461,7 +5459,7 @@
     }
     .sect-member-name-sub {
       color: var(--ink-grey);
-      font-size: var(--font-size-11);
+      font-size: var(--font-size-12);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -7398,14 +7396,12 @@
       overflow: hidden;
     }
     .detail-modal-card.detail-modal--skill-management {
-      --detail-modal-compact-scale: 0.78;
-      width: min(1040px, calc(100vw - 24px));
-      height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
+      width: min(1180px, calc(100vw - 24px));
+      height: min(88dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
       max-height: none;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      zoom: var(--detail-modal-compact-scale);
       background:
         radial-gradient(circle at top right, rgba(167, 64, 41, 0.08), transparent 30%),
         var(--surface-gradient-paper);
