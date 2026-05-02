@@ -120,7 +120,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             accumulateUniformAttributePercentBonus(attrPercentBonuses.realm, rootFoundation);
         }
         if (bodyTrainingLevel > 0) {
-            accumulateAttributePercentBonus(attrPercentBonuses.realm, (0, shared_1.calcBodyTrainingAttrPercentBonus)(bodyTrainingLevel));
+            accumulateAttributePercentBonus(attrPercentBonuses.bodyTraining, (0, shared_1.calcBodyTrainingAttrPercentBonus)(bodyTrainingLevel));
         }
         const flatBuffAttrs = createEmptyAttributes();
         for (const buff of getActiveBuffs(player.buffs.buffs)) {
@@ -137,6 +137,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             }
         }
         clampAttributes(finalAttrs);
+        applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.bodyTraining);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.realm);
         addAttributes(finalAttrs, flatBuffAttrs);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.buff);
@@ -163,6 +164,18 @@ let PlayerAttributesService = class PlayerAttributesService {
             }
             const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
             (0, shared_1.addPartialNumericStats)(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
+            for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
+                const effectStats = resolveItemStats(effect.stats, effect.valueStats);
+                if (!effectStats) {
+                    continue;
+                }
+                if (resolveBuffModifierMode(effect.statMode) === 'percent') {
+                    (0, shared_1.addPartialNumericStats)(percentBonuses, effectStats);
+                }
+                else {
+                    (0, shared_1.addPartialNumericStats)(numericStats, effectStats);
+                }
+            }
         }
         for (const buff of getActiveBuffs(player.buffs.buffs)) {
             if (!buff.stats) {
@@ -299,6 +312,7 @@ function createNumericStatPercentBonusAccumulator() {
 
 function createAttributePercentBonusAccumulator() {
     return {
+        bodyTraining: createEmptyAttributes(),
         realm: createEmptyAttributes(),
         pill: createEmptyAttributes(),
         buff: createEmptyAttributes(),
@@ -622,6 +636,54 @@ function applyRealmNumericScaling(target, realmLv) {
 
 function resolveItemStats(equipStats, equipValueStats) {
     return equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(equipValueStats) : equipStats;
+}
+
+function resolveActiveEquipmentProgressEffects(item, player) {
+    if (!Array.isArray(item?.effects) || item.effects.length === 0) {
+        return [];
+    }
+    return item.effects.filter((effect) => effect?.type === 'progress_boost' && matchesEquipmentConditions(player, effect.conditions));
+}
+
+function matchesEquipmentConditions(player, conditions) {
+    const items = Array.isArray(conditions?.items) ? conditions.items : [];
+    if (items.length === 0) {
+        return true;
+    }
+    const matches = (condition) => matchesEquipmentCondition(player, condition);
+    return conditions?.mode === 'any' ? items.some(matches) : items.every(matches);
+}
+
+function matchesEquipmentCondition(player, condition) {
+    switch (condition?.type) {
+        case 'is_cultivating':
+            return (player?.combat?.cultivationActive === true) === condition.value;
+        case 'hp_ratio': {
+            const maxHp = Math.max(1, Math.round(Number(player?.maxHp) || 1));
+            const hp = Math.max(0, Math.round(Number(player?.hp) || 0));
+            const ratio = hp / maxHp;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'qi_ratio': {
+            const maxQi = Math.max(0, Math.round(Number(player?.maxQi) || 0));
+            const qi = Math.max(0, Math.round(Number(player?.qi) || 0));
+            const ratio = maxQi > 0 ? qi / maxQi : 0;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'has_buff':
+            return Array.isArray(player?.buffs?.buffs)
+                && player.buffs.buffs.some((buff) => buff?.buffId === condition.buffId
+                    && Number(buff.remainingTicks) > 0
+                    && Number(buff.stacks ?? 0) >= (condition.minStacks ?? 1));
+        case 'map': {
+            const currentMapId = typeof player?.templateId === 'string' ? player.templateId : '';
+            return Array.isArray(condition.mapIds) && condition.mapIds.includes(currentMapId);
+        }
+        case 'time_segment':
+            return true;
+        default:
+            return true;
+    }
 }
 /**
  * scalePartialNumericStats：执行scalePartialNumericStat相关逻辑。

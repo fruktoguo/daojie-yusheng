@@ -1856,8 +1856,7 @@
       "y": 58,
       "count": 20,
       "radius": 8,
-      "maxAlive": 40,
-      "respawnTicks": 30
+      "maxAlive": 40
     },
     {
       "id": "m_town_rat_refuse",
@@ -1865,23 +1864,20 @@
       "y": 58,
       "count": 20,
       "radius": 8,
-      "maxAlive": 40,
-      "respawnTicks": 30
+      "maxAlive": 40
     },
     {
       "id": "m_gate_thug",
       "x": 57,
       "y": 61,
-      "maxAlive": 8,
-      "respawnTicks": 15
+      "maxAlive": 8
     },
     {
       "id": "m_night_blade",
       "x": 55,
       "y": 53,
       "count": 4,
-      "maxAlive": 8,
-      "respawnTicks": 15
+      "maxAlive": 8
     }
   ]
 }

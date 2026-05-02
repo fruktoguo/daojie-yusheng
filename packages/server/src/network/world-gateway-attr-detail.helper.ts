@@ -51,6 +51,18 @@ function buildAttrDetailBonuses(player) {
     for (const entry of player.equipment?.slots ?? []) {
         const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
+            for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
+                const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
+                if (!hasNonZeroPartialNumericStats(effectStats)) {
+                    continue;
+                }
+                bonuses.push({
+                    source: `equipment:${entry.slot}:effect:${effect.effectId ?? 'progress_boost'}`,
+                    label: item.itemId,
+                    attrs: {},
+                    stats: clonePartialNumericStats(effectStats),
+                });
+            }
             continue;
         }
         bonuses.push({
@@ -59,6 +71,18 @@ function buildAttrDetailBonuses(player) {
             attrs: clonePartialAttributes(item.equipAttrs),
             stats: clonePartialNumericStats(resolveItemNumericStats(item)),
         });
+        for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
+            const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
+            if (!hasNonZeroPartialNumericStats(effectStats)) {
+                continue;
+            }
+            bonuses.push({
+                source: `equipment:${entry.slot}:effect:${effect.effectId ?? 'progress_boost'}`,
+                label: item.itemId,
+                attrs: {},
+                stats: clonePartialNumericStats(effectStats),
+            });
+        }
     }
     for (const buff of player.buffs?.buffs ?? []) {
         if (!hasNonZeroAttributes(buff.attrs) && !hasNonZeroPartialNumericStats(buff.stats) && !Array.isArray(buff.qiProjection)) {
@@ -132,6 +156,9 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             continue;
         }
         (0, shared_1.addPartialNumericStats)(baseStats, resolveItemNumericStats(item));
+        for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
+            (0, shared_1.addPartialNumericStats)(baseStats, resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats }));
+        }
     }
     for (const bonus of collectProjectedRuntimeBonuses(player.runtimeBonuses)) {
         if (bonus?.stats) {
@@ -395,6 +422,54 @@ function isDerivedRuntimeBonusSource(source) {
 
 function resolveItemNumericStats(item) {
     return item?.equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(item.equipValueStats) : item?.equipStats;
+}
+
+function resolveActiveEquipmentProgressEffects(item, player) {
+    if (!Array.isArray(item?.effects) || item.effects.length === 0) {
+        return [];
+    }
+    return item.effects.filter((effect) => effect?.type === 'progress_boost' && matchesEquipmentConditions(player, effect.conditions));
+}
+
+function matchesEquipmentConditions(player, conditions) {
+    const items = Array.isArray(conditions?.items) ? conditions.items : [];
+    if (items.length === 0) {
+        return true;
+    }
+    const matches = (condition) => matchesEquipmentCondition(player, condition);
+    return conditions?.mode === 'any' ? items.some(matches) : items.every(matches);
+}
+
+function matchesEquipmentCondition(player, condition) {
+    switch (condition?.type) {
+        case 'is_cultivating':
+            return (player?.combat?.cultivationActive === true) === condition.value;
+        case 'hp_ratio': {
+            const maxHp = Math.max(1, Math.round(Number(player?.maxHp) || 1));
+            const hp = Math.max(0, Math.round(Number(player?.hp) || 0));
+            const ratio = hp / maxHp;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'qi_ratio': {
+            const maxQi = Math.max(0, Math.round(Number(player?.maxQi) || 0));
+            const qi = Math.max(0, Math.round(Number(player?.qi) || 0));
+            const ratio = maxQi > 0 ? qi / maxQi : 0;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'has_buff':
+            return Array.isArray(player?.buffs?.buffs)
+                && player.buffs.buffs.some((buff) => buff?.buffId === condition.buffId
+                    && Number(buff.remainingTicks) > 0
+                    && Number(buff.stacks ?? 0) >= (condition.minStacks ?? 1));
+        case 'map': {
+            const currentMapId = typeof player?.templateId === 'string' ? player.templateId : '';
+            return Array.isArray(condition.mapIds) && condition.mapIds.includes(currentMapId);
+        }
+        case 'time_segment':
+            return true;
+        default:
+            return true;
+    }
 }
 /**
  * hasNonZeroAttributes：判断NonZeroAttribute是否满足条件。

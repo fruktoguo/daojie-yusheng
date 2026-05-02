@@ -597,6 +597,66 @@ function testUseConsumableItemDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['inventory', 'vitals'], ['snapshot']);
 }
 
+function testInfiniteConsumableBuffSustainsUntilResourceRunsOut(): void {
+  const playerId = 'player:use-infinite-buff';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.maxQi = 200;
+  player.qi = 150;
+  player.inventory.items.push({
+    itemId: 'pill.ningxiang',
+    name: '凝相丹',
+    count: 1,
+    consumeBuffs: [{
+      buffId: 'buff.huanling_candan_faxiang',
+      name: '残丹法相虚影',
+      duration: 1,
+      infiniteDuration: true,
+      sustainCost: {
+        resource: 'qi',
+        baseCost: 100,
+        growthRate: 0.2,
+      },
+      presentationScale: 4,
+      stats: {
+        physAtk: 100,
+      },
+      statMode: 'percent',
+    }, {
+      buffId: 'buff.huanling_candan_kuoyu',
+      name: '虚影扩域',
+      duration: 1,
+      infiniteDuration: true,
+      expireWithBuffId: 'buff.huanling_candan_faxiang',
+      stats: {
+        extraRange: 5,
+      },
+      statMode: 'flat',
+    }],
+  });
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  const faxiang = player.buffs.buffs.find((buff) => buff.buffId === 'buff.huanling_candan_faxiang');
+  assert.equal(faxiang?.infiniteDuration, true);
+  assert.equal(faxiang?.presentationScale, 4);
+  assert.equal(faxiang?.sustainCost?.resource, 'qi');
+  assert.equal(faxiang?.remainingTicks, 1);
+  assert.equal(player.inventory.items.length, 0);
+
+  service.advanceSinglePlayerTick(player, 1, {});
+  assert.equal(player.qi, 50);
+  assert.equal(faxiang?.remainingTicks, 1);
+  assert.equal(faxiang?.sustainTicksElapsed, 1);
+  assert.ok(player.buffs.buffs.some((buff) => buff.buffId === 'buff.huanling_candan_faxiang'));
+
+  service.advanceSinglePlayerTick(player, 2, {});
+  assert.ok(!player.buffs.buffs.some((buff) => buff.buffId === 'buff.huanling_candan_faxiang'));
+  assert.ok(!player.buffs.buffs.some((buff) => buff.buffId === 'buff.huanling_candan_kuoyu'));
+}
+
 function createRealProgressionServiceForSmoke() {
   const service = new PlayerProgressionService(
     {} as never,
@@ -1249,6 +1309,7 @@ testLogbookDirtyDomain();
   testClearMainTechniquePreservesCultivationActive();
   testCultivationActiveWithoutMainTechnique();
   testUseConsumableItemDirtyDomain();
+  testInfiniteConsumableBuffSustainsUntilResourceRunsOut();
   testUseDivineRootSeedConsumable();
   testUseShatterSpiritPillConsumable();
   testUseWangshengPillConsumable();

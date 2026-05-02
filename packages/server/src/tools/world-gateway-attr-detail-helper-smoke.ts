@@ -198,6 +198,72 @@ function testAttrDetailUsesAggregateTechniqueAttrBonus() {
     assert.ok(player.attrs.baseAttrs.constitution - (aggregateBonus?.attrs?.constitution ?? 0) >= 0);
 }
 
+function testCultivationEquipmentProgressBoostAffectsRuntimeStats() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (cultivationActive) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 100,
+        maxQi: 100,
+        hp: 100,
+        qi: 100,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        combat: { cultivationActive },
+        equipment: {
+            slots: [{
+                slot: 'accessory',
+                item: {
+                    itemId: 'equip.test_cultivation_token',
+                    name: '测试打坐令',
+                    type: 'equipment',
+                    count: 1,
+                    desc: '',
+                    effects: [{
+                        effectId: 'test-cultivation-progress',
+                        type: 'progress_boost',
+                        statMode: 'flat',
+                        conditions: {
+                            mode: 'all',
+                            items: [{ type: 'is_cultivating', value: true }],
+                        },
+                        valueStats: {
+                            realmExpPerTick: 3,
+                            techniqueExpPerTick: 7,
+                        },
+                    }],
+                },
+            }],
+        },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    });
+    const inactive = createPlayer(false);
+    const active = createPlayer(true);
+
+    service.recalculate(inactive);
+    service.recalculate(active);
+
+    assert.equal(
+        active.attrs.numericStats.techniqueExpPerTick - inactive.attrs.numericStats.techniqueExpPerTick,
+        CULTIVATE_EXP_PER_TICK + 7,
+    );
+    assert.equal(
+        active.attrs.numericStats.realmExpPerTick - inactive.attrs.numericStats.realmExpPerTick,
+        CULTIVATION_REALM_EXP_PER_TICK + 3,
+    );
+
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(active);
+    assert.equal(breakdowns.techniqueExpPerTick.bonusBaseValue, 7);
+    assert.equal(breakdowns.realmExpPerTick.bonusBaseValue, 3);
+    assert.equal(breakdowns.techniqueExpPerTick.finalValue, active.attrs.numericStats.techniqueExpPerTick);
+}
+
 function testTechniqueQiProjectionAppearsInAttrDetail() {
     const player = {
         realm: {
@@ -461,7 +527,7 @@ function testBodyTrainingScalesAllAttributesLikeRootFoundation() {
     for (const key of ATTR_KEYS) {
         assert.equal(bodyPlayer.attrs.baseAttrs[key], DEFAULT_BASE_ATTRS[key]);
         assert.equal(bodyPlayer.attrs.finalAttrs[key], DEFAULT_BASE_ATTRS[key] * 2);
-        assert.ok(Math.abs(combinedPlayer.attrs.finalAttrs[key] - DEFAULT_BASE_ATTRS[key] * 2.03) < 0.000001);
+        assert.ok(Math.abs(combinedPlayer.attrs.finalAttrs[key] - DEFAULT_BASE_ATTRS[key] * 2.06) < 0.000001);
     }
     assert.ok(bodyPlayer.attrs.numericStats.maxHp > basePlayer.attrs.numericStats.maxHp);
     assert.ok(bodyPlayer.attrs.numericStats.maxQi > basePlayer.attrs.numericStats.maxQi);
@@ -890,6 +956,7 @@ function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
 testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
 testAttrDetailUsesAggregateTechniqueAttrBonus();
+testCultivationEquipmentProgressBoostAffectsRuntimeStats();
 testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testNingqiAddsAuraEfficiencyOnTopOfXuesha();

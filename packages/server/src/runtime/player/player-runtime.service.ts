@@ -2376,10 +2376,16 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
         if (existing) {
             if (isConsumableBuffSource(buff)) {
-                const currentRemainingDuration = Math.max(0, existing.remainingTicks - 1);
-                const addedDuration = Math.max(1, Math.round(buff.duration));
-                existing.duration = currentRemainingDuration + addedDuration;
-                existing.remainingTicks = existing.duration + 1;
+                if (buff.infiniteDuration === true) {
+                    existing.duration = Math.max(1, Math.round(buff.duration));
+                    existing.remainingTicks = 1;
+                }
+                else {
+                    const currentRemainingDuration = Math.max(0, existing.remainingTicks - 1);
+                    const addedDuration = Math.max(1, Math.round(buff.duration));
+                    existing.duration = currentRemainingDuration + addedDuration;
+                    existing.remainingTicks = existing.duration + 1;
+                }
                 existing.stacks = Math.min(buff.maxStacks, existing.stacks + 1);
             }
             else {
@@ -2396,6 +2402,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             existing.sourceSkillId = buff.sourceSkillId;
             existing.sourceSkillName = buff.sourceSkillName;
             existing.color = buff.color;
+            existing.presentationScale = buff.presentationScale;
+            existing.infiniteDuration = buff.infiniteDuration === true;
+            existing.sustainCost = buff.sustainCost ? { ...buff.sustainCost } : undefined;
+            existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
+            existing.expireWithBuffId = buff.expireWithBuffId;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
         }
@@ -2599,10 +2610,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 markPlayerDirtyDomains(player, ['progression']);
                 this.bumpPersistentRevision(player);
             }
-            if (tickTemporaryBuffs(player.buffs.buffs)) {
+            const buffTickResult = tickTemporaryBuffs(player.buffs.buffs, player);
+            if (buffTickResult.changed) {
                 player.buffs.revision += 1;
                 this.playerAttributesService.recalculate(player);
-                markPlayerDirtyDomains(player, ['buff', 'attr']);
+                markPlayerDirtyDomains(player, buffTickResult.vitalsChanged ? ['buff', 'attr', 'vitals'] : ['buff', 'attr']);
                 this.bumpPersistentRevision(player);
             }
             if (recoverPlayerVitals(player, currentTick)) {
@@ -4805,13 +4817,39 @@ function isSameAutoBattleSkillList(previous, current) {
  * @returns 无返回值，直接更新tickTemporaryBuff相关状态。
  */
 
-function tickTemporaryBuffs(buffs) {
+function tickTemporaryBuffs(buffs, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     let changed = false;
+    let vitalsChanged = false;
+    const activeBuffIds = new Set(buffs
+        .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
+        .map((entry) => entry.buffId));
     for (const buff of buffs) {
         if (buff.remainingTicks <= 0) {
+            continue;
+        }
+        if (buff.expireWithBuffId && !activeBuffIds.has(buff.expireWithBuffId)) {
+            buff.remainingTicks = 0;
+            changed = true;
+            continue;
+        }
+        if (buff.infiniteDuration === true) {
+            if (buff.sustainCost && player) {
+                const sustainResult = applyBuffSustainCost(player, buff);
+                vitalsChanged = vitalsChanged || sustainResult.vitalsChanged;
+                if (!sustainResult.sustained) {
+                    buff.remainingTicks = 0;
+                    changed = true;
+                    continue;
+                }
+            }
+            const nextRemainingTicks = Math.max(1, Math.round(Number(buff.remainingTicks) || 1));
+            if (buff.remainingTicks !== nextRemainingTicks) {
+                buff.remainingTicks = nextRemainingTicks;
+                changed = true;
+            }
             continue;
         }
         buff.remainingTicks -= 1;
@@ -4824,6 +4862,15 @@ function tickTemporaryBuffs(buffs) {
         }
     }
 
+    const finalActiveBuffIds = new Set(buffs
+        .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
+        .map((entry) => entry.buffId));
+    for (const buff of buffs) {
+        if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
+            buff.remainingTicks = 0;
+            changed = true;
+        }
+    }
     const nextLength = buffs.filter((entry) => entry.remainingTicks > 0 && entry.stacks > 0).length;
     if (nextLength !== buffs.length) {
         changed = true;
@@ -4839,7 +4886,47 @@ function tickTemporaryBuffs(buffs) {
         }
         buffs.length = writeIndex;
     }
-    return changed;
+    return { changed: changed || vitalsChanged, vitalsChanged };
+}
+
+function applyBuffSustainCost(player, buff) {
+    const cost = resolveBuffSustainCost(buff);
+    if (!cost) {
+        return { sustained: true, vitalsChanged: false };
+    }
+    const elapsed = Math.max(0, Math.floor(Number(buff.sustainTicksElapsed ?? 0) || 0));
+    if (cost.resource === 'qi') {
+        if (Math.max(0, Math.round(Number(player.qi) || 0)) < cost.amount) {
+            return { sustained: false, vitalsChanged: false };
+        }
+        player.qi = Math.max(0, Math.round(Number(player.qi) || 0) - cost.amount);
+    }
+    else {
+        if (Math.max(0, Math.round(Number(player.hp) || 0)) <= cost.amount) {
+            return { sustained: false, vitalsChanged: false };
+        }
+        player.hp = Math.max(1, Math.round(Number(player.hp) || 0) - cost.amount);
+    }
+    player.selfRevision += 1;
+    buff.sustainTicksElapsed = elapsed + 1;
+    return { sustained: true, vitalsChanged: cost.amount > 0 };
+}
+
+function resolveBuffSustainCost(buff) {
+    const sustainCost = buff?.sustainCost;
+    if (!sustainCost || (sustainCost.resource !== 'hp' && sustainCost.resource !== 'qi')) {
+        return null;
+    }
+    const baseCost = Math.max(0, Math.round(Number(sustainCost.baseCost) || 0));
+    if (baseCost <= 0) {
+        return null;
+    }
+    const elapsed = Math.max(0, Math.floor(Number(buff.sustainTicksElapsed ?? 0) || 0));
+    const growthRate = Math.max(0, Number(sustainCost.growthRate) || 0);
+    return {
+        resource: sustainCost.resource,
+        amount: Math.max(1, Math.round(baseCost * Math.pow(1 + growthRate, elapsed))),
+    };
 }
 /**
  * recoverPlayerVitals：执行recover玩家Vital相关逻辑。
@@ -5125,6 +5212,7 @@ function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
                 : undefined),
         statMode: buff.statMode,
         qiProjection: buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        presentationScale: Number.isFinite(buff.presentationScale) && Number(buff.presentationScale) > 0 ? Number(buff.presentationScale) : undefined,
         infiniteDuration: buff.infiniteDuration === true,
         sustainCost: buff.sustainCost ? { ...buff.sustainCost } : undefined,
         sustainTicksElapsed: buff.sustainCost ? 0 : undefined,

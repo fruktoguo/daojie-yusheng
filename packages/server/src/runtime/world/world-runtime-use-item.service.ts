@@ -225,6 +225,9 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        if (isProtectedTileResourceUseTile(instance, player.x, player.y)) {
+            throw new common_1.BadRequestException('当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。');
+        }
         const results = [];
         for (const entry of resourceGains) {
             const totalGain = entry.amount * normalizedCount;
@@ -316,4 +319,54 @@ function resolveTileResourceNoticeLabel(resourceKey) {
         return '灵气';
     }
     return '资源';
+}
+
+function isProtectedTileResourceUseTile(instance, x, y) {
+    if (typeof instance?.isPointInSafeZone === 'function' && instance.isPointInSafeZone(x, y)) {
+        return true;
+    }
+    if (typeof instance?.isSafeZoneTile === 'function' && instance.isSafeZoneTile(x, y)) {
+        return true;
+    }
+    const template = instance?.template ?? {};
+    if (isNearTile(x, y, template.spawnX, template.spawnY, true)) {
+        return true;
+    }
+    const currentMapId = typeof template.id === 'string'
+        ? template.id
+        : typeof instance?.meta?.templateId === 'string'
+            ? instance.meta.templateId
+            : '';
+    const portals = typeof instance?.listAllPortals === 'function'
+        ? instance.listAllPortals()
+        : Array.isArray(template.portals)
+            ? template.portals
+            : [];
+    for (const portal of portals) {
+        if (isNearTile(x, y, portal?.x, portal?.y, true)) {
+            return true;
+        }
+        if ((!currentMapId || portal?.targetMapId === currentMapId) && isNearTile(x, y, portal?.targetX, portal?.targetY, true)) {
+            return true;
+        }
+    }
+    const npcs = Array.isArray(template.npcs) ? template.npcs : [];
+    for (const npc of npcs) {
+        if (isNearTile(x, y, npc?.x, npc?.y, false)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isNearTile(x, y, centerX, centerY, includeCenter) {
+    if (!Number.isFinite(Number(centerX)) || !Number.isFinite(Number(centerY))) {
+        return false;
+    }
+    const dx = Math.abs(Math.trunc(Number(centerX)) - Math.trunc(Number(x)));
+    const dy = Math.abs(Math.trunc(Number(centerY)) - Math.trunc(Number(y)));
+    if (dx > 1 || dy > 1) {
+        return false;
+    }
+    return includeCenter || dx > 0 || dy > 0;
 }

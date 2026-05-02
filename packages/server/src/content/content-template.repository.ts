@@ -1931,6 +1931,18 @@ function normalizeConsumableBuffs(raw) {
                         .filter((modifier) => isRecord(modifier))
                         .map((modifier) => ({ ...modifier }))
                     : undefined,
+                valueStats: isRecord(candidate.valueStats) ? normalizePartialNumericStats(candidate.valueStats) : undefined,
+                presentationScale: Number.isFinite(candidate.presentationScale) && Number(candidate.presentationScale) > 0
+                    ? Number(candidate.presentationScale)
+                    : undefined,
+                infiniteDuration: candidate.infiniteDuration === true,
+                sustainCost: normalizeBuffSustainCost(candidate.sustainCost),
+                expireWithBuffId: typeof candidate.expireWithBuffId === 'string' && candidate.expireWithBuffId.trim()
+                    ? candidate.expireWithBuffId.trim()
+                    : undefined,
+                sourceSkillId: typeof candidate.sourceSkillId === 'string' && candidate.sourceSkillId.trim()
+                    ? candidate.sourceSkillId.trim()
+                    : undefined,
                 persistOnDeath: candidate.persistOnDeath === true,
                 persistOnReturnToSpawn: candidate.persistOnReturnToSpawn === true,
             }];
@@ -2141,6 +2153,23 @@ function resolveConfiguredBuffStats(stats, valueStats, mode) {
             ?? (isRecord(valueStats) ? (0, shared_1.compileValueStatsToActualStats)(valueStats) : undefined);
     }
     return normalizePartialNumericStats(stats) ?? normalizePartialNumericStats(valueStats);
+}
+
+function normalizeBuffSustainCost(input) {
+    if (!isRecord(input)) {
+        return undefined;
+    }
+    const resource = input.resource === 'hp' || input.resource === 'qi' ? input.resource : undefined;
+    const baseCost = Number(input.baseCost);
+    if (!resource || !Number.isFinite(baseCost) || baseCost <= 0) {
+        return undefined;
+    }
+    const growthRate = Number(input.growthRate);
+    return {
+        resource,
+        baseCost: Math.max(1, Math.round(baseCost)),
+        growthRate: Number.isFinite(growthRate) && growthRate > 0 ? growthRate : undefined,
+    };
 }
 /**
  * clampUnitRatio：执行clampUnitRatio相关逻辑。

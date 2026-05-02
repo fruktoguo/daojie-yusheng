@@ -49,10 +49,20 @@ function createDeps(log) {
 
         getInstanceRuntimeOrThrow() {
             return {            
+            template: {
+                id: 'wildlands',
+                spawnX: 99,
+                spawnY: 99,
+                portals: [],
+                npcs: [],
+            },
+            isPointInSafeZone() { return false; },
+            isSafeZoneTile() { return false; },
+            listAllPortals() { return []; },
             /**
- * addTileResource：处理TileResource并更新相关状态。
- * @param resourceKey 资源键。
- * @param x X 坐标。
+	 * addTileResource：处理TileResource并更新相关状态。
+	 * @param resourceKey 资源键。
+	 * @param x X 坐标。
  * @param y Y 坐标。
  * @param amount 参数说明。
  * @returns 无返回值，直接更新TileResource相关状态。
@@ -241,6 +251,39 @@ function testBloodEssenceBatchBranch() {
         ['queuePlayerNotice', 'player:1', '使用 血精石 x3，当前地块煞气提升至 7', 'success'],
     ]);
 }
+function testTileResourceProtectedTileRejectsUse() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'spirit_stone',
+        name: '灵石',
+        count: 2,
+        allowBatchUse: true,
+        tileAuraGainAmount: 100,
+    });
+    const deps = createDeps(log);
+    deps.getInstanceRuntimeOrThrow = () => ({
+        template: {
+            id: 'wildlands',
+            spawnX: 3,
+            spawnY: 4,
+            portals: [],
+            npcs: [],
+        },
+        isPointInSafeZone() { return false; },
+        isSafeZoneTile() { return false; },
+        listAllPortals() { return []; },
+        addTileResource(resourceKey, x, y, amount) {
+            log.push(['addTileResource', resourceKey, x, y, amount]);
+            return 7;
+        },
+    });
+    assert.throws(
+        () => service.dispatchUseItem('player:1', 1, deps, { count: 2 }),
+        /无法使用地块资源道具/,
+    );
+    assert.deepEqual(log, []);
+}
 /**
  * testRespawnBindBranch：执行test复活绑定Branch相关逻辑。
  * @returns 无返回值，直接更新test复活绑定Branch相关状态。
@@ -300,6 +343,7 @@ testMapUnlockBranch();
 testMapGroupUnlockBranch();
 testTileAuraBranch();
 testBloodEssenceBatchBranch();
+testTileResourceProtectedTileRejectsUse();
 testRespawnBindBranch();
 testLegacyTileAuraBranch();
 testNormalUseBranch();
