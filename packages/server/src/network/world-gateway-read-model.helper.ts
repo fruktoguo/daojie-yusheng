@@ -115,7 +115,7 @@ class WorldGatewayReadModelHelper {
  * @returns 无返回值，直接更新NextRequest世界摘要相关状态。
  */
 
-    handleRequestWorldSummary(client, _payload) {
+    async handleRequestWorldSummary(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -124,7 +124,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.WorldSummary, this.gateway.leaderboardRuntimeService.buildWorldSummary());
+            client.emit(shared_1.S2C.WorldSummary, await this.gateway.leaderboardRuntimeService.buildWorldSummary());
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_WORLD_SUMMARY_FAILED', error);

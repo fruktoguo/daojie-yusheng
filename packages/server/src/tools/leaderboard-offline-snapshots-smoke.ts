@@ -221,6 +221,15 @@ async function main(): Promise<void> {
   });
   assert.equal(locations.entries[2].mapName, '离线');
 
+  const worldSummary = await service.buildWorldSummary();
+  assert.deepEqual(worldSummary.summary.realmCounts, {
+    initial: 0,
+    mortal: 3,
+    qiRefiningOrAbove: 0,
+  });
+  assert.equal(worldSummary.summary.killCounts.playerKills, 13);
+  assert.equal(worldSummary.summary.actionCounts.cultivation, 1);
+
   console.log('leaderboard-offline-snapshots-smoke passed');
 }
 

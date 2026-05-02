@@ -128,7 +128,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         return this.sliceLeaderboard(payload, effectiveLimit);
     }
     /** 构造世界摘要快照。 */
-    buildWorldSummary() {
+    async buildWorldSummary() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -137,9 +137,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             return cached;
         }
 
-        const snapshots = this.collectRuntimeSnapshots()
-            .filter((player) => typeof player.sessionId === 'string' && player.sessionId.length > 0)
-            .map((player) => this.createSnapshot(player));
+        const snapshots = await this.collectWorldSummarySnapshots();
 
         const payload = {
             generatedAt: Date.now(),
@@ -196,6 +194,17 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         const snapshots = await this.collectLeaderboardSnapshots();
         this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
         return this.cachedLeaderboardSnapshotsByPlayerId;
+    }
+    /** 采集世界摘要快照：运行态优先，离线玩家从分域持久化补齐；世界摘要不需要角色名回读。 */
+    async collectWorldSummarySnapshots() {
+        const playersByPlayerId = new Map();
+        for (const player of this.collectRuntimeSnapshots()) {
+            playersByPlayerId.set(player.playerId, player);
+        }
+        for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
+            playersByPlayerId.set(player.playerId, player);
+        }
+        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(player));
     }
     /** 把缓存中的榜单裁剪到指定长度。 */
     sliceLeaderboard(source, limit) {
