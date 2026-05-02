@@ -244,8 +244,18 @@ export interface MonsterDetailView {
 
   maxHp: number;  
   /**
- * level：等级数值。
- */
+   * qi：qi相关字段。
+   */
+
+  qi: number;
+  /**
+   * maxQi：maxQi相关字段。
+   */
+
+  maxQi: number;
+  /**
+   * level：等级数值。
+   */
 
   level: number;  
   /**

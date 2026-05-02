@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 
 const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
 const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
+const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/world-runtime-monster-action-apply.service');
 
 function createAttacker(overrides = {}) {
   return {
@@ -93,6 +94,47 @@ function createInstance(overrides = {}) {
   };
 }
 
+function createMonster(overrides = {}) {
+  return {
+    runtimeId: 'monster:caller',
+    monsterId: 'm_soul_caller',
+    name: '唤灵真人',
+    alive: true,
+    hp: 100,
+    maxHp: 100,
+    x: 10,
+    y: 10,
+    level: 12,
+    attackRange: 1,
+    skills: [
+      {
+        id: 'monster:soul_flame',
+        name: '唤灵火',
+        range: 3,
+        cooldown: { ticks: 1 },
+        cost: {},
+        effects: [],
+      },
+    ],
+    cooldownReadyTickBySkillId: {},
+    attrs: {},
+    buffs: [],
+    numericStats: {
+      physAtk: 80,
+      spellAtk: 12,
+      hit: 100,
+      breakPower: 0,
+      crit: 0,
+      critDamage: 0,
+      elementDamageBonus: {},
+    },
+    ratioDivisors: {
+      elementDamageBonus: {},
+    },
+    ...overrides,
+  };
+}
+
 function createBasicAttackService(attacker, target, log = []) {
   const playerRuntimeService = {
     getPlayerOrThrow(playerId) {
@@ -154,6 +196,75 @@ function createBasicAttackDeps(instance, log = []) {
           respawnRemainingTicks: 5,
         };
       },
+    },
+  };
+}
+
+function createMonsterActionApplyService(player, log = [], playerCombatService = {}) {
+  const playerRuntimeService = {
+    playerProgressionService: {
+      getMonsterCombatExpEquivalent(level) {
+        return level * 100;
+      },
+    },
+    getPlayer(playerId) {
+      return playerId === player.playerId ? player : null;
+    },
+    applyDamage(playerId, amount) {
+      log.push(['applyDamage', playerId, amount]);
+      player.hp = Math.max(0, player.hp - amount);
+      return player;
+    },
+    activateAutoRetaliate(playerId, tick) {
+      log.push(['activateAutoRetaliate', playerId, tick]);
+    },
+    recordActivity(playerId, tick, payload) {
+      log.push(['recordActivity', playerId, tick, payload]);
+    },
+    applyTemporaryBuff(playerId, buff) {
+      log.push(['applyTemporaryBuff', playerId, buff]);
+    },
+  };
+  const combatEffectsService = {
+    pushActionLabelEffect(instanceId, x, y, label) {
+      log.push(['pushActionLabelEffect', instanceId, x, y, label]);
+    },
+    pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) {
+      log.push(['pushAttackEffect', instanceId, fromX, fromY, toX, toY, color]);
+    },
+    pushDamageFloatEffect(instanceId, x, y, amount, color) {
+      log.push(['pushDamageFloatEffect', instanceId, x, y, amount, color]);
+    },
+    pushCombatEffect(instanceId, effect) {
+      log.push(['pushCombatEffect', instanceId, effect]);
+    },
+  };
+  return new WorldRuntimeMonsterActionApplyService(
+    playerRuntimeService,
+    playerCombatService,
+    combatEffectsService,
+  );
+}
+
+function createMonsterActionDeps(instance, player, log = []) {
+  return {
+    getPlayerLocation(playerId) {
+      log.push(['getPlayerLocation', playerId]);
+      return playerId === player.playerId ? { instanceId: player.instanceId, x: player.x, y: player.y } : null;
+    },
+    getInstanceRuntime(instanceId) {
+      log.push(['getInstanceRuntime', instanceId]);
+      return instance.meta.instanceId === instanceId ? instance : null;
+    },
+    resolveCurrentTickForPlayerId(playerId) {
+      log.push(['resolveCurrentTickForPlayerId', playerId]);
+      return 24;
+    },
+    queuePlayerNotice(playerId, message, channel) {
+      log.push(['queuePlayerNotice', playerId, message, channel]);
+    },
+    handlePlayerDefeat(playerId) {
+      log.push(['handlePlayerDefeat', playerId]);
     },
   };
 }
@@ -249,6 +360,120 @@ async function testRealLineAllowsPlayerBasicAttack() {
   assert.deepEqual(log[8].slice(0, 2), ['queuePlayerNotice', 'player:target']);
   assert.match(log[8][2], /发起攻击/);
   assert.match(log[8][2], /原始 14 - 实际 9 - 法术/);
+}
+
+function testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    hp: 100,
+    x: 11,
+    y: 10,
+    attrs: {
+      numericStats: {
+        physDef: 0,
+        spellDef: 0,
+        dodge: 0,
+        resolvePower: 0,
+        antiCrit: 0,
+        elementDamageReduce: {},
+      },
+      ratioDivisors: {
+        dodge: 1,
+        elementDamageReduce: {},
+      },
+    },
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const service = createMonsterActionApplyService(player, log);
+  const deps = createMonsterActionDeps(instance, player, log);
+  service.applyMonsterBasicAttack({
+    kind: 'basic-attack',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+  }, deps);
+
+  const float = log.find((entry) => entry[0] === 'pushDamageFloatEffect');
+  assert.ok(float, `expected monster basic attack to enqueue damage float, log=${JSON.stringify(log)}`);
+  assert.deepEqual(float.slice(0, 4), ['pushDamageFloatEffect', 'public:yunlai_town', 11, 10]);
+  assert.equal(float[4] > 0, true);
+  const notice = log.find((entry) => entry[0] === 'queuePlayerNotice');
+  assert.ok(notice, `expected monster basic attack to enqueue combat notice, log=${JSON.stringify(log)}`);
+  assert.deepEqual(notice.slice(0, 2), ['queuePlayerNotice', 'player:victim']);
+  assert.match(notice[2], /唤灵真人对你发起攻击/);
+  assert.match(notice[2], new RegExp(`实际 ${float[4]} - 物理`));
+  assert.equal(notice[3], 'combat');
+}
+
+function testMonsterSkillQueuesCombatNoticeAndDamageFloat() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    tick: 31,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+    applyTemporaryBuffToMonster(runtimeId, buff) {
+      log.push(['applyTemporaryBuffToMonster', runtimeId, buff]);
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill(attacker, target, skillId, currentTick, distance) {
+      log.push(['castMonsterSkill', attacker.runtimeId, target.playerId, skillId, currentTick, distance]);
+      return {
+        skillId,
+        totalDamage: 17,
+        hitCount: 1,
+        damageKind: 'spell',
+        targetPlayerId: target.playerId,
+      };
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+    skillId: 'monster:soul_flame',
+  }, deps);
+
+  const float = log.find((entry) => entry[0] === 'pushDamageFloatEffect');
+  assert.ok(float, `expected monster skill to enqueue damage float, log=${JSON.stringify(log)}`);
+  assert.deepEqual(float.slice(0, 5), ['pushDamageFloatEffect', 'public:yunlai_town', 11, 10, 17]);
+  const notice = log.find((entry) => entry[0] === 'queuePlayerNotice');
+  assert.ok(notice, `expected monster skill to enqueue combat notice, log=${JSON.stringify(log)}`);
+  assert.deepEqual(notice.slice(0, 2), ['queuePlayerNotice', 'player:victim']);
+  assert.match(notice[2], /唤灵真人对你施展唤灵火/);
+  assert.match(notice[2], /原始 17 - 实际 17 - 法术/);
+  assert.equal(notice[3], 'combat');
 }
 
 function testPeacefulLineAllowsTileAttack() {
@@ -442,6 +667,8 @@ async function testRealLineAllowsTileLockOnAndDispatch() {
 Promise.resolve()
   .then(() => testPeacefulLineRejectsPlayerBasicAttack())
   .then(() => testRealLineAllowsPlayerBasicAttack())
+  .then(() => testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat())
+  .then(() => testMonsterSkillQueuesCombatNoticeAndDamageFloat())
   .then(() => testPeacefulLineAllowsTileAttack())
   .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
   .then(() => testTileAttackFallsBackToTerrainWhenContainerIsNotHerb())

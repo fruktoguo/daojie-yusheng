@@ -289,6 +289,7 @@ export class EntityDetailModal {
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${monster.x}, ${monster.y})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>生命</strong><span>${monster.hp}/${monster.maxHp}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>灵力</strong><span>${monster.qi}/${monster.maxQi}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>层级</strong><span>${monster.level}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>血脉</strong><span>${escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><span>${monster.alive ? '存活' : '待重生'}</span></div>

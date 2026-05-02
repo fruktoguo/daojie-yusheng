@@ -35,6 +35,7 @@ function createTileCombatNumericStats(maxHp) {
         hit: 0,
         dodge: 0,
         crit: 0,
+        antiCrit: 0,
         critDamage: 0,
         breakPower: 0,
         resolvePower: 0,
@@ -198,11 +199,11 @@ function buildMonsterObservation(viewerSpirit, monster) {
         ...buildObservationLineSpecs({
             hp: monster.hp,
             maxHp: monster.maxHp,
-            qi: 0,
-            maxQi: 0,
+            qi: monster.qi,
+            maxQi: monster.maxQi ?? monster.numericStats.maxQi,
             stats: monster.numericStats,
             attrs: monster.attrs,
-        }, false),
+        }, true),
         { threshold: 0.28, label: '血脉层次', value: shared_1.MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
         { threshold: 0.9, label: '境界', value: `等级 ${monster.level}` },
     ]);

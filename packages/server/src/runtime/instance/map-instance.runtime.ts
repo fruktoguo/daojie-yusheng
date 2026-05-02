@@ -464,6 +464,8 @@ class MapInstanceRuntime {
                 y: monster.y,
                 hp: monster.alive ? Math.max(1, Math.min(monster.hp, monster.maxHp)) : 0,
                 maxHp: monster.maxHp,
+                qi: monster.alive ? Math.max(0, Math.round(monster.baseNumericStats?.maxQi ?? 0)) : 0,
+                maxQi: Math.max(0, Math.round(monster.baseNumericStats?.maxQi ?? 0)),
                 alive: monster.alive,
                 respawnLeft: monster.alive ? 0 : monster.respawnLeft,
                 respawnTicks: monster.respawnTicks,
@@ -479,6 +481,7 @@ class MapInstanceRuntime {
                 baseNumericStats: cloneNumericStats(monster.baseNumericStats),
                 numericStats: cloneNumericStats(monster.baseNumericStats),
                 ratioDivisors: cloneNumericRatioDivisors(monster.ratioDivisors),
+                initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs.map((entry) => cloneInitialBuff(entry)) : [],
                 buffs: [],
                 skills: monster.skills.map((entry) => cloneSkill(entry)),
                 cooldownReadyTickBySkillId: {},
@@ -494,6 +497,10 @@ class MapInstanceRuntime {
                 attackCooldownTicks: monster.attackCooldownTicks,
                 attackReadyTick: 0,
             };
+            if (state.alive) {
+                applyMonsterInitialBuffs(state);
+                recalculateMonsterDerivedState(state);
+            }
             this.monstersByRuntimeId.set(monster.runtimeId, state);
             this.monsterSpawnKeyByRuntimeId.set(monster.runtimeId, spawnKey);
             const group = this.monsterSpawnGroupsByKey.get(spawnKey);
@@ -1949,6 +1956,12 @@ class MapInstanceRuntime {
             if (Number.isFinite(Number(entry.maxHp))) {
                 monster.maxHp = Math.max(1, Math.trunc(Number(entry.maxHp)));
             }
+            if (Number.isFinite(Number(entry.qi))) {
+                monster.qi = Math.max(0, Math.trunc(Number(entry.qi)));
+            }
+            if (Number.isFinite(Number(entry.maxQi))) {
+                monster.maxQi = Math.max(0, Math.trunc(Number(entry.maxQi)));
+            }
             if (typeof entry.alive === 'boolean') {
                 monster.alive = entry.alive;
             }
@@ -1966,6 +1979,12 @@ class MapInstanceRuntime {
                 if (Number.isFinite(Number(payload.attackReadyTick))) {
                     monster.attackReadyTick = Math.max(0, Math.trunc(Number(payload.attackReadyTick)));
                 }
+                if (Number.isFinite(Number(payload.qi))) {
+                    monster.qi = Math.max(0, Math.trunc(Number(payload.qi)));
+                }
+                if (Number.isFinite(Number(payload.maxQi))) {
+                    monster.maxQi = Math.max(0, Math.trunc(Number(payload.maxQi)));
+                }
                 if (payload.cooldownReadyTickBySkillId && typeof payload.cooldownReadyTickBySkillId === 'object') {
                     monster.cooldownReadyTickBySkillId = { ...payload.cooldownReadyTickBySkillId };
                 }
@@ -1973,6 +1992,10 @@ class MapInstanceRuntime {
                     monster.damageContributors = { ...payload.damageContributors };
                 }
             }
+            if (monster.alive) {
+                ensureMonsterInitialBuffs(monster);
+            }
+            recalculateMonsterDerivedState(monster);
         }
     }
     /** hydrateOverlayChunks：用分域 overlay chunk 回填运行期动态覆盖物。 */
@@ -2306,11 +2329,15 @@ class MapInstanceRuntime {
                 y: monster.y,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
+                qi: monster.qi,
+                maxQi: monster.maxQi,
                 alive: monster.alive === true,
                 respawnLeft: monster.respawnLeft,
                 respawnTicks: monster.respawnTicks,
                 aggroTargetPlayerId: monster.aggroTargetPlayerId ?? null,
                 statePayload: {
+                    qi: monster.qi,
+                    maxQi: monster.maxQi,
                     attackReadyTick: monster.attackReadyTick,
                     cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
                     damageContributors: { ...(monster.damageContributors ?? {}) },
@@ -2352,11 +2379,15 @@ class MapInstanceRuntime {
                 y: monster.y,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
+                qi: monster.qi,
+                maxQi: monster.maxQi,
                 alive: monster.alive === true,
                 respawnLeft: monster.respawnLeft,
                 respawnTicks: monster.respawnTicks,
                 aggroTargetPlayerId: monster.aggroTargetPlayerId ?? null,
                 statePayload: {
+                    qi: monster.qi,
+                    maxQi: monster.maxQi,
                     attackReadyTick: monster.attackReadyTick,
                     cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
                     damageContributors: { ...(monster.damageContributors ?? {}) },
@@ -2915,6 +2946,8 @@ class MapInstanceRuntime {
                 y: monster.y,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
+                qi: monster.qi,
+                maxQi: monster.maxQi,
             });
         }
         monsters.sort(compareLocalMonsters);
@@ -2944,7 +2977,7 @@ class MapInstanceRuntime {
             if (buffChanged && recalculateMonsterDerivedState(monster)) {
                 changed = true;
             }
-            changed = recoverMonsterHp(monster) || changed;
+            changed = recoverMonsterHp(monster) || recoverMonsterQi(monster) || changed;
 
             if (monster.pendingCast) {
                 monster.pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(monster.pendingCast.remainingTicks) || 0) - 1);
@@ -3549,6 +3582,7 @@ class MapInstanceRuntime {
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         monster.alive = false;
         monster.hp = 0;
+        monster.qi = 0;
         monster.respawnLeft = this.resolveMonsterRespawnTicks(monster);
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
@@ -3579,9 +3613,11 @@ class MapInstanceRuntime {
         monster.lastSeenTargetTick = undefined;
         monster.buffs.length = 0;
         monster.damageContributors = {};
+        applyMonsterInitialBuffs(monster);
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
+        monster.qi = monster.maxQi;
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
         this.handleMonsterRespawn(monster);
         this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
@@ -4123,6 +4159,7 @@ function cloneNumericStats(source) {
         hit: source.hit,
         dodge: source.dodge,
         crit: source.crit,
+        antiCrit: source.antiCrit,
         critDamage: source.critDamage,
         breakPower: source.breakPower,
         resolvePower: source.resolvePower,
@@ -4177,6 +4214,81 @@ function cloneTemporaryBuff(source) {
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
 }
+/** cloneInitialBuff：克隆妖兽出生自带 Buff 配置。 */
+function cloneInitialBuff(source) {
+    return {
+        ...source,
+        attrs: source.attrs ? { ...source.attrs } : undefined,
+        stats: source.stats ? { ...source.stats } : undefined,
+        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
+    };
+}
+/** applyMonsterInitialBuffs：按模板给妖兽重建出生自带 Buff。 */
+function applyMonsterInitialBuffs(monster) {
+    monster.buffs.length = 0;
+    ensureMonsterInitialBuffs(monster);
+}
+/** ensureMonsterInitialBuffs：补齐或刷新妖兽模板要求的出生 Buff，不覆盖战斗临时 Buff。 */
+function ensureMonsterInitialBuffs(monster) {
+    for (const effect of monster.initialBuffs ?? []) {
+        const buff = buildMonsterInitialBuffState(monster, effect);
+        if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            continue;
+        }
+        const existing = monster.buffs.find((entry) => entry.buffId === buff.buffId);
+        if (existing) {
+            Object.assign(existing, buff);
+        }
+        else {
+            monster.buffs.push(buff);
+        }
+    }
+    monster.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+}
+/** buildMonsterInitialBuffState：把内容配置转换为运行时 Buff 状态。 */
+function buildMonsterInitialBuffState(monster, effect) {
+    const maxStacks = Math.max(1, Math.trunc(Number(effect.maxStacks) || 1));
+    const duration = Math.max(1, Math.trunc(Number(effect.duration) || 1));
+    const infiniteDuration = effect.infiniteDuration === true;
+    const stacks = Math.min(maxStacks, Math.max(1, Math.trunc(Number(effect.stacks) || 1)));
+    const name = typeof effect.name === 'string' && effect.name.trim() ? effect.name.trim() : effect.buffId;
+    const shortMark = typeof effect.shortMark === 'string' && effect.shortMark.trim()
+        ? Array.from(effect.shortMark.trim())[0]
+        : (Array.from(name)[0] ?? '气');
+    return {
+        buffId: effect.buffId,
+        name,
+        desc: typeof effect.desc === 'string' ? effect.desc : undefined,
+        baseDesc: typeof effect.desc === 'string' ? effect.desc : undefined,
+        shortMark,
+        category: effect.category === 'debuff' ? 'debuff' : 'buff',
+        visibility: effect.visibility === 'observe_only' || effect.visibility === 'hidden' ? effect.visibility : 'public',
+        remainingTicks: infiniteDuration ? 1 : duration + 1,
+        duration,
+        stacks,
+        maxStacks,
+        sourceSkillId: `monster-initial:${monster.monsterId}:${effect.buffId}`,
+        sourceSkillName: `${monster.name}·先天妖势`,
+        realmLv: Math.max(1, Math.floor(monster.level ?? 1)),
+        color: typeof effect.color === 'string' ? effect.color : undefined,
+        attrs: effect.attrs ? { ...effect.attrs } : undefined,
+        attrMode: effect.attrMode,
+        stats: effect.stats ? { ...effect.stats } : undefined,
+        statMode: effect.statMode,
+        qiProjection: effect.qiProjection ? effect.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        presentationScale: Number.isFinite(effect.presentationScale) && Number(effect.presentationScale) > 0
+            ? Number(effect.presentationScale)
+            : undefined,
+        infiniteDuration,
+        sustainCost: effect.sustainCost,
+        sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+        expireWithBuffId: typeof effect.expireWithBuffId === 'string' && effect.expireWithBuffId.trim()
+            ? effect.expireWithBuffId.trim()
+            : undefined,
+        persistOnDeath: effect.persistOnDeath === true,
+        persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
+    };
+}
 /** tickTemporaryBuffs：推进临时 Buff 计时。 */
 function tickTemporaryBuffs(buffs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -4184,6 +4296,9 @@ function tickTemporaryBuffs(buffs) {
 
     let changed = false;
     for (const buff of buffs) {
+        if (buff.infiniteDuration === true) {
+            continue;
+        }
         if (buff.remainingTicks > 0) {
             buff.remainingTicks -= 1;
             changed = true;
@@ -4207,6 +4322,71 @@ function tickTemporaryBuffs(buffs) {
     }
     return changed;
 }
+/** createEmptyAttributes：创建全零六维属性修饰桶。 */
+function createEmptyAttributes() {
+    return {
+        constitution: 0,
+        spirit: 0,
+        perception: 0,
+        talent: 0,
+        strength: 0,
+        meridians: 0,
+    };
+}
+/** addAttributeModifiers：叠加六维属性修饰。 */
+function addAttributeModifiers(target, patch, factor) {
+    target.constitution += (patch.constitution ?? 0) * factor;
+    target.spirit += (patch.spirit ?? 0) * factor;
+    target.perception += (patch.perception ?? 0) * factor;
+    target.talent += (patch.talent ?? 0) * factor;
+    target.strength += (patch.strength ?? patch.comprehension ?? 0) * factor;
+    target.meridians += (patch.meridians ?? patch.luck ?? 0) * factor;
+}
+/** applyAttributePercentModifiers：把百分比属性修饰应用到当前属性。 */
+function applyAttributePercentModifiers(target, modifiers) {
+    target.constitution *= (0, shared_1.percentModifierToMultiplier)(modifiers.constitution);
+    target.spirit *= (0, shared_1.percentModifierToMultiplier)(modifiers.spirit);
+    target.perception *= (0, shared_1.percentModifierToMultiplier)(modifiers.perception);
+    target.talent *= (0, shared_1.percentModifierToMultiplier)(modifiers.talent);
+    target.strength *= (0, shared_1.percentModifierToMultiplier)(modifiers.strength);
+    target.meridians *= (0, shared_1.percentModifierToMultiplier)(modifiers.meridians);
+}
+/** addNumericStatModifiers：叠加数值属性修饰。 */
+function addNumericStatModifiers(target, patch, factor) {
+    for (const [key, value] of Object.entries(patch)) {
+        if (typeof value === 'number') {
+            target[key] = (target[key] ?? 0) + value * factor;
+            continue;
+        }
+        if (value && typeof value === 'object') {
+            const targetGroup = target[key] ?? {};
+            target[key] = targetGroup;
+            for (const [groupKey, groupValue] of Object.entries(value)) {
+                if (typeof groupValue === 'number') {
+                    targetGroup[groupKey] = (targetGroup[groupKey] ?? 0) + groupValue * factor;
+                }
+            }
+        }
+    }
+}
+/** applyNumericStatPercentModifiers：按百分比乘区应用数值属性修饰。 */
+function applyNumericStatPercentModifiers(target, modifiers) {
+    for (const [key, value] of Object.entries(modifiers)) {
+        if (typeof value === 'number') {
+            target[key] = (target[key] ?? 0) * (0, shared_1.percentModifierToMultiplier)(value);
+            continue;
+        }
+        if (value && typeof value === 'object') {
+            const targetGroup = target[key] ?? {};
+            target[key] = targetGroup;
+            for (const [groupKey, groupValue] of Object.entries(value)) {
+                if (typeof groupValue === 'number') {
+                    targetGroup[groupKey] = (targetGroup[groupKey] ?? 0) * (0, shared_1.percentModifierToMultiplier)(groupValue);
+                }
+            }
+        }
+    }
+}
 /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
 function recalculateMonsterDerivedState(monster) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -4215,59 +4395,21 @@ function recalculateMonsterDerivedState(monster) {
     const nextAttrs = cloneAttributes(monster.baseAttrs);
 
     const nextStats = cloneNumericStats(monster.baseNumericStats);
+    const attrPercentModifiers = createEmptyAttributes();
+    const statPercentModifiers = (0, shared_1.createNumericStats)();
     for (const buff of monster.buffs) {
         const stacks = Math.max(1, buff.stacks);
         if (buff.attrs) {
-            nextAttrs.constitution += (buff.attrs.constitution ?? 0) * stacks;
-            nextAttrs.spirit += (buff.attrs.spirit ?? 0) * stacks;
-            nextAttrs.perception += (buff.attrs.perception ?? 0) * stacks;
-            nextAttrs.talent += (buff.attrs.talent ?? 0) * stacks;
-            nextAttrs.strength += (buff.attrs.strength ?? buff.attrs.comprehension ?? 0) * stacks;
-            nextAttrs.meridians += (buff.attrs.meridians ?? buff.attrs.luck ?? 0) * stacks;
+            const targetAttrs = buff.attrMode === 'percent' ? attrPercentModifiers : nextAttrs;
+            addAttributeModifiers(targetAttrs, buff.attrs, stacks);
         }
         if (buff.stats) {
-            nextStats.maxHp += (buff.stats.maxHp ?? 0) * stacks;
-            nextStats.maxQi += (buff.stats.maxQi ?? 0) * stacks;
-            nextStats.physAtk += (buff.stats.physAtk ?? 0) * stacks;
-            nextStats.spellAtk += (buff.stats.spellAtk ?? 0) * stacks;
-            nextStats.physDef += (buff.stats.physDef ?? 0) * stacks;
-            nextStats.spellDef += (buff.stats.spellDef ?? 0) * stacks;
-            nextStats.hit += (buff.stats.hit ?? 0) * stacks;
-            nextStats.dodge += (buff.stats.dodge ?? 0) * stacks;
-            nextStats.crit += (buff.stats.crit ?? 0) * stacks;
-            nextStats.critDamage += (buff.stats.critDamage ?? 0) * stacks;
-            nextStats.breakPower += (buff.stats.breakPower ?? 0) * stacks;
-            nextStats.resolvePower += (buff.stats.resolvePower ?? 0) * stacks;
-            nextStats.maxQiOutputPerTick += (buff.stats.maxQiOutputPerTick ?? 0) * stacks;
-            nextStats.qiRegenRate += (buff.stats.qiRegenRate ?? 0) * stacks;
-            nextStats.hpRegenRate += (buff.stats.hpRegenRate ?? 0) * stacks;
-            nextStats.cooldownSpeed += (buff.stats.cooldownSpeed ?? 0) * stacks;
-            nextStats.auraCostReduce += (buff.stats.auraCostReduce ?? 0) * stacks;
-            nextStats.auraPowerRate += (buff.stats.auraPowerRate ?? 0) * stacks;
-            nextStats.playerExpRate += (buff.stats.playerExpRate ?? 0) * stacks;
-            nextStats.techniqueExpRate += (buff.stats.techniqueExpRate ?? 0) * stacks;
-            nextStats.realmExpPerTick += (buff.stats.realmExpPerTick ?? 0) * stacks;
-            nextStats.techniqueExpPerTick += (buff.stats.techniqueExpPerTick ?? 0) * stacks;
-            nextStats.lootRate += (buff.stats.lootRate ?? 0) * stacks;
-            nextStats.rareLootRate += (buff.stats.rareLootRate ?? 0) * stacks;
-            nextStats.viewRange += (buff.stats.viewRange ?? 0) * stacks;
-            nextStats.moveSpeed += (buff.stats.moveSpeed ?? 0) * stacks;
-            nextStats.extraAggroRate += (buff.stats.extraAggroRate ?? 0) * stacks;
-            nextStats.extraRange += (buff.stats.extraRange ?? 0) * stacks;
-            nextStats.extraArea += (buff.stats.extraArea ?? 0) * stacks;
-            nextStats.actionsPerTurn += (buff.stats.actionsPerTurn ?? 0) * stacks;
-            nextStats.elementDamageBonus.metal += (buff.stats.elementDamageBonus?.metal ?? 0) * stacks;
-            nextStats.elementDamageBonus.wood += (buff.stats.elementDamageBonus?.wood ?? 0) * stacks;
-            nextStats.elementDamageBonus.water += (buff.stats.elementDamageBonus?.water ?? 0) * stacks;
-            nextStats.elementDamageBonus.fire += (buff.stats.elementDamageBonus?.fire ?? 0) * stacks;
-            nextStats.elementDamageBonus.earth += (buff.stats.elementDamageBonus?.earth ?? 0) * stacks;
-            nextStats.elementDamageReduce.metal += (buff.stats.elementDamageReduce?.metal ?? 0) * stacks;
-            nextStats.elementDamageReduce.wood += (buff.stats.elementDamageReduce?.wood ?? 0) * stacks;
-            nextStats.elementDamageReduce.water += (buff.stats.elementDamageReduce?.water ?? 0) * stacks;
-            nextStats.elementDamageReduce.fire += (buff.stats.elementDamageReduce?.fire ?? 0) * stacks;
-            nextStats.elementDamageReduce.earth += (buff.stats.elementDamageReduce?.earth ?? 0) * stacks;
+            const targetStats = buff.statMode === 'percent' ? statPercentModifiers : nextStats;
+            addNumericStatModifiers(targetStats, buff.stats, stacks);
         }
     }
+    applyAttributePercentModifiers(nextAttrs, attrPercentModifiers);
+    applyNumericStatPercentModifiers(nextStats, statPercentModifiers);
     nextStats.maxHp = Math.max(1, Math.round(nextStats.maxHp));
     nextStats.maxQi = Math.max(0, Math.round(nextStats.maxQi));
 
@@ -4275,24 +4417,40 @@ function recalculateMonsterDerivedState(monster) {
 
     const previousHp = monster.hp;
 
+    const previousStats = monster.numericStats;
+
+    const previousMaxQi = Number.isFinite(Number(monster.maxQi))
+        ? Math.max(0, Math.round(Number(monster.maxQi)))
+        : Math.max(0, Math.round(Number(previousStats.maxQi ?? 0)));
+
+    const previousQi = Number.isFinite(Number(monster.qi))
+        ? Math.max(0, Math.round(Number(monster.qi)))
+        : previousMaxQi;
+
     const previousAttrs = monster.attrs;
 
-    const previousStats = monster.numericStats;
     monster.attrs = nextAttrs;
     monster.numericStats = nextStats;
     monster.maxHp = Math.max(1, Math.round(nextStats.maxHp));
+    monster.maxQi = Math.max(0, Math.round(nextStats.maxQi));
     if (monster.alive) {
         monster.hp = previousMaxHp > 0
             ? Math.max(0, Math.min(monster.maxHp, Math.round(previousHp / previousMaxHp * monster.maxHp)))
             : monster.maxHp;
+        monster.qi = previousMaxQi > 0
+            ? Math.max(0, Math.min(monster.maxQi, Math.round(previousQi / previousMaxQi * monster.maxQi)))
+            : monster.maxQi;
     }
     else {
         monster.hp = 0;
+        monster.qi = 0;
     }
     return !isSameAttributes(previousAttrs, nextAttrs)
         || !isSameNumericStats(previousStats, nextStats)
         || previousMaxHp !== monster.maxHp
-        || previousHp !== monster.hp;
+        || previousHp !== monster.hp
+        || previousMaxQi !== monster.maxQi
+        || previousQi !== monster.qi;
 }
 /** isSameAttributes：判断属性是否一致。 */
 function isSameAttributes(left, right) {
@@ -4314,6 +4472,7 @@ function isSameNumericStats(left, right) {
         && left.hit === right.hit
         && left.dodge === right.dodge
         && left.crit === right.crit
+        && left.antiCrit === right.antiCrit
         && left.critDamage === right.critDamage
         && left.breakPower === right.breakPower
         && left.resolvePower === right.resolvePower
@@ -4369,6 +4528,23 @@ function recoverMonsterHp(monster) {
     monster.hp = nextHp;
     return true;
 }
+/** recoverMonsterQi：恢复妖兽灵力值。 */
+function recoverMonsterQi(monster) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!monster.alive || monster.qi >= monster.maxQi || monster.numericStats.qiRegenRate <= 0) {
+        return false;
+    }
+
+    const recover = Math.max(1, Math.round(monster.maxQi * (monster.numericStats.qiRegenRate / 10000)));
+
+    const nextQi = Math.min(monster.maxQi, monster.qi + recover);
+    if (nextQi === monster.qi) {
+        return false;
+    }
+    monster.qi = nextQi;
+    return true;
+}
 /** chooseMonsterSkill：选择妖兽技能。 */
 function chooseMonsterSkill(monster, distance, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -4383,6 +4559,14 @@ function chooseMonsterSkill(monster, distance, currentTick) {
         }
         const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
         if (distance > skillRange) {
+            continue;
+        }
+
+        const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(
+            Math.max(0, Math.round(Number(skill.cost) || 0)),
+            Math.max(0, monster.numericStats?.maxQiOutputPerTick ?? 0),
+        ));
+        if (qiCost > 0 && (monster.qi ?? 0) < qiCost) {
             continue;
         }
 

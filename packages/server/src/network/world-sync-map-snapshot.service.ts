@@ -203,6 +203,8 @@ export class WorldSyncMapSnapshotService {
         monsterScale: getBuffPresentationScale(monster.buffs),
         hp: monster.hp,
         maxHp: monster.maxHp,
+        qi: monster.qi,
+        maxQi: monster.maxQi,
         buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : undefined,
       });
     }

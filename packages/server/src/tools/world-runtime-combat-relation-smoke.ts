@@ -689,6 +689,149 @@ async function testSkillDispatchLogsFormationDamage() {
     && entry[3] === 'combat'));
 }
 
+async function testSkillDispatchLogsMonsterAndPlayerDamage() {
+  const skill = {
+    id: 'skill.damage_log',
+    name: '青木剑诀',
+    effects: [{ type: 'damage', damageKind: 'physical' }],
+    targeting: { range: 3 },
+    range: 3,
+  };
+  const attacker = createPlayer({
+    name: '攻击者',
+    techniques: {
+      techniques: [{
+        skills: [skill],
+      }],
+    },
+  });
+  const targetPlayer = createTarget('player:target', {
+    name: '目标修士',
+    x: 12,
+    y: 10,
+  });
+  const monster = {
+    runtimeId: 'monster:runtime:1',
+    monsterId: 'monster.test',
+    name: '测试妖兽',
+    alive: true,
+    hp: 100,
+    maxHp: 100,
+    x: 11,
+    y: 10,
+    level: 2,
+    attrs: {},
+    numericStats: {},
+    ratioDivisors: {},
+    buffs: [],
+  };
+  const log = [];
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    playerProgressionService: {
+      getMonsterCombatExpEquivalent(level) {
+        return level * 100;
+      },
+    },
+    getPlayerOrThrow(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      throw new Error(`unexpected playerId ${playerId}`);
+    },
+    getPlayer(playerId) {
+      if (playerId === targetPlayer.playerId) {
+        return targetPlayer;
+      }
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      return null;
+    },
+    recordActivity(playerId, tick, payload) {
+      log.push(['recordActivity', playerId, tick, payload]);
+    },
+  }, {
+    castSkillToMonster() {
+      return { totalDamage: 23, hitCount: 1, qiCost: 0 };
+    },
+    castSkill() {
+      return { totalDamage: 17, hitCount: 1, qiCost: 0 };
+    },
+  });
+  await service.dispatchSkillTargets(attacker, skill.id, skill, [
+    {
+      kind: 'monster',
+      monsterId: monster.runtimeId,
+      x: monster.x,
+      y: monster.y,
+    },
+    {
+      kind: 'player',
+      playerId: targetPlayer.playerId,
+      x: targetPlayer.x,
+      y: targetPlayer.y,
+    },
+  ], {
+    getInstanceRuntimeOrThrow(instanceId) {
+      assert.equal(instanceId, attacker.instanceId);
+      return {
+        getMonster(runtimeId) {
+          return runtimeId === monster.runtimeId ? monster : null;
+        },
+        applyDamageToMonster(runtimeId, damage, attackerPlayerId) {
+          log.push(['applyDamageToMonster', runtimeId, damage, attackerPlayerId]);
+          return { defeated: false, monster };
+        },
+      };
+    },
+    resolveCurrentTickForPlayerId(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return 18;
+    },
+    pushActionLabelEffect(instanceId, x, y, label) {
+      log.push(['label', instanceId, x, y, label]);
+    },
+    pushAttackEffect(instanceId, fromX, fromY, toX, toY) {
+      log.push(['attackEffect', instanceId, fromX, fromY, toX, toY]);
+    },
+    pushDamageFloatEffect(instanceId, x, y, damage) {
+      log.push(['damageFloat', instanceId, x, y, damage]);
+    },
+    queuePlayerNotice(playerId, text, kind) {
+      log.push(['notice', playerId, text, kind]);
+    },
+    handlePlayerDefeat(playerId, sourcePlayerId) {
+      log.push(['handlePlayerDefeat', playerId, sourcePlayerId]);
+    },
+  });
+
+  assert.ok(log.some((entry) => entry[0] === 'notice'
+    && entry[1] === attacker.playerId
+    && entry[2].includes('你对测试妖兽施展青木剑诀')
+    && entry[2].includes('原始 23 - 实际 23 - 物理')
+    && entry[3] === 'combat'));
+  assert.ok(log.some((entry) => entry[0] === 'notice'
+    && entry[1] === attacker.playerId
+    && entry[2].includes('你对目标修士施展青木剑诀')
+    && entry[2].includes('原始 17 - 实际 17 - 物理')
+    && entry[3] === 'combat'));
+  assert.ok(log.some((entry) => entry[0] === 'notice'
+    && entry[1] === targetPlayer.playerId
+    && entry[2].includes('攻击者对你施展青木剑诀')
+    && entry[2].includes('原始 17 - 实际 17 - 物理')
+    && entry[3] === 'combat'));
+  assert.ok(log.some((entry) => entry[0] === 'damageFloat'
+    && entry[1] === attacker.instanceId
+    && entry[2] === monster.x
+    && entry[3] === monster.y
+    && entry[4] === 23));
+  assert.ok(log.some((entry) => entry[0] === 'damageFloat'
+    && entry[1] === attacker.instanceId
+    && entry[2] === targetPlayer.x
+    && entry[3] === targetPlayer.y
+    && entry[4] === 17));
+}
+
 async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
   const attacker = createPlayer({
     actions: {
@@ -714,6 +857,7 @@ async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
   });
   const damagedTiles = [];
   const castTargets = [];
+  const notices = [];
   const tileStates = new Map([
     ['11,10', { tileType: 'wall', hp: 100, maxHp: 100, destroyed: false }],
     ['13,10', { tileType: 'wall', hp: 100, maxHp: 100, destroyed: false }],
@@ -780,9 +924,17 @@ async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
     pushDamageFloatEffect() {
       return undefined;
     },
+    queuePlayerNotice(playerId, text, kind) {
+      notices.push([playerId, text, kind]);
+    },
   });
   assert.deepEqual(castTargets.sort(), ['tile:11:10', 'tile:13:10']);
   assert.deepEqual(damagedTiles.sort(), ['11,10', '13,10']);
+  assert.equal(notices.length, 2);
+  assert.ok(notices.every((entry) => entry[0] === attacker.playerId
+    && entry[1].includes('你对地块施展裂地术')
+    && entry[1].includes('原始 10 - 实际 10 - 法术')
+    && entry[2] === 'combat'));
 }
 
 async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
@@ -851,6 +1003,7 @@ Promise.resolve()
   .then(() => testAutoCombatPrefersRetaliator())
   .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
   .then(() => testSkillDispatchLogsFormationDamage())
+  .then(() => testSkillDispatchLogsMonsterAndPlayerDamage())
   .then(() => testSkillDispatchKeepsTileAnchorForAreaTerrainDamage())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
   .then(() => {

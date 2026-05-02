@@ -59,6 +59,18 @@ function formatAuraDamage(value) {
     }
     return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
 }
+function resolveSkillDamageKind(skill) {
+    const damageEffect = Array.isArray(skill?.effects)
+        ? skill.effects.find((effect) => effect?.type === 'damage')
+        : null;
+    return damageEffect?.damageKind === 'physical' ? 'physical' : 'spell';
+}
+function resolveSkillDamageElement(skill) {
+    const damageEffect = Array.isArray(skill?.effects)
+        ? skill.effects.find((effect) => effect?.type === 'damage')
+        : null;
+    return typeof damageEffect?.element === 'string' ? damageEffect.element : undefined;
+}
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
     return (0, shared_1.buildEffectiveTargetingGeometry)({
@@ -868,6 +880,8 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
+        const damageKind = resolveSkillDamageKind(skill);
+        const damageElement = resolveSkillDamageElement(skill);
         const effectiveRange = buildEffectivePlayerSkillGeometry(attacker, skill).range;
         if (castOptions?.showActionLabel !== false) {
             deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
@@ -916,6 +930,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     continue;
                 }
                 deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, result.totalDamage, effectColor);
+                deps.queuePlayerNotice?.(
+                    attacker.playerId,
+                    `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                    'combat',
+                );
                 const outcome = instance.applyDamageToMonster(monster.runtimeId, result.totalDamage, attacker.playerId);
                 if (outcome?.defeated) {
                     await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
@@ -933,6 +952,16 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetPlayer.x, targetPlayer.y, effectColor);
                 if (result.totalDamage > 0) {
                     deps.pushDamageFloatEffect(attacker.instanceId, targetPlayer.x, targetPlayer.y, result.totalDamage, effectColor);
+                    deps.queuePlayerNotice?.(
+                        attacker.playerId,
+                        `${formatCombatActionClause('你', targetPlayer.name ?? targetPlayer.playerId, skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                        'combat',
+                    );
+                    deps.queuePlayerNotice?.(
+                        targetPlayer.playerId,
+                        `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                        'combat',
+                    );
                 }
                 this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true });
                 const updatedTarget = this.playerRuntimeService.getPlayer(targetPlayer.playerId);
@@ -1066,6 +1095,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (appliedDamage > 0) {
                 deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, appliedDamage, effectColor);
             }
+            deps.queuePlayerNotice?.(
+                attacker.playerId,
+                `${formatCombatActionClause('你', '地块', skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
+                'combat',
+            );
             if (tileDamageResult?.destroyed === true) {
                 destroyedTiles.push({ x: target.x, y: target.y });
             }

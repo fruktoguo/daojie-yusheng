@@ -150,6 +150,8 @@ interface ProjectorMonsterLike {
   y: number;
   hp: number;
   maxHp: number;
+  qi?: number;
+  maxQi?: number;
   name: string;
   char: string;
   color: string;
@@ -246,6 +248,8 @@ interface ProjectedMonsterEntry {
   y: number;
   hp: number;
   maxHp: number;
+  qi?: number;
+  maxQi?: number;
   n: string;
   c: string;
   tr?: MonsterTier;
@@ -571,6 +575,8 @@ function buildFullWorldDelta(
         y: entry.y,
         hp: entry.hp,
         maxHp: entry.maxHp,
+        qi: entry.qi,
+        maxQi: entry.maxQi,
         n: entry.name,
         c: entry.color,
         tr: entry.tier,
@@ -738,6 +744,8 @@ function captureWorldState(
         y: entry.y,
         hp: entry.hp,
         maxHp: entry.maxHp,
+        qi: entry.qi,
+        maxQi: entry.maxQi,
         n: entry.name,
         c: entry.color,
         tr: entry.tier,
@@ -1341,6 +1349,8 @@ function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>, curren
                 y: entry.y,
                 hp: entry.hp,
                 maxHp: entry.maxHp,
+                qi: entry.qi,
+                maxQi: entry.maxQi,
                 n: entry.n,
                 c: entry.c,
                 tr: entry.tr,
@@ -1367,6 +1377,14 @@ function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>, curren
         }
         if (prev.maxHp !== entry.maxHp) {
             delta.maxHp = entry.maxHp;
+            changed = true;
+        }
+        if (prev.qi !== entry.qi) {
+            delta.qi = entry.qi;
+            changed = true;
+        }
+        if (prev.maxQi !== entry.maxQi) {
+            delta.maxQi = entry.maxQi;
             changed = true;
         }
         if (prev.n !== entry.n) {

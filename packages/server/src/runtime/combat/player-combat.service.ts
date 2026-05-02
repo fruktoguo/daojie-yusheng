@@ -138,7 +138,7 @@ let PlayerCombatService = class PlayerCombatService {
         };
     }
     /** 妖兽技能施放到玩家目标的统一处理分支。 */
-    castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff) {
+    castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -146,6 +146,7 @@ let PlayerCombatService = class PlayerCombatService {
 
         const result = this.executeResolvedSkillCast(attacker, toCombatPlayerState(target), resolved, currentTick, distance, {
             setCooldownReadyTick: () => undefined,
+            spendQi,
             applySelfBuff,
             applyTargetBuff: applyTargetBuff ?? ((buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);

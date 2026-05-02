@@ -138,6 +138,8 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                     y: monster.y,
                     hp: monster.hp,
                     maxHp: monster.maxHp,
+                    qi: monster.qi,
+                    maxQi: monster.maxQi,
                     level: monster.level,
                     tier: monster.tier,
                     alive: monster.alive,
@@ -330,6 +332,8 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                 monsterTier: monster.tier,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
+                qi: monster.qi,
+                maxQi: monster.maxQi,
                 observation,
                 lootPreview: observation.clarity === 'complete'
                     ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)

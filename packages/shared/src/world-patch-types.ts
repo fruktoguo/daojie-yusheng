@@ -285,8 +285,18 @@ export interface WorldMonsterPatchView {
 
   maxHp?: number;  
   /**
- * n：n相关字段。
- */
+   * qi：qi相关字段。
+   */
+
+  qi?: number;
+  /**
+   * maxQi：maxQi相关字段。
+   */
+
+  maxQi?: number;
+  /**
+   * n：n相关字段。
+   */
 
   n?: string;  
   /**

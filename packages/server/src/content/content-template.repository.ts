@@ -571,6 +571,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 baseAttrs: cloneMonsterAttributes(template.attrs),
                 baseNumericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
                 ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+                initialBuffs: template.initialBuffs?.map((entry) => ({ ...entry })),
                 skills: template.skills.map((entry) => cloneSkill(entry)),
                 aggroRange: template.aggroRange,
                 leashRange: template.leashRange,
@@ -1269,6 +1270,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             numericStats,
             ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors),
             expMultiplier: (0, shared_1.resolveMonsterExpMultiplier)(raw.expMultiplier, tier),
+            initialBuffs: normalizeMonsterInitialBuffs(raw.initialBuffs),
             skills: this.normalizeMonsterSkills(raw.skills, id),
             aggroRange: normalizeMonsterAggroRange(raw.aggroRange, raw.radius, numericStats.viewRange),
             leashRange: normalizeMonsterLeashRange(raw.aggroRange, raw.radius, numericStats.viewRange),
@@ -1948,6 +1950,33 @@ function normalizeConsumableBuffs(raw) {
             }];
     });
     return buffs.length > 0 ? buffs : undefined;
+}
+/**
+ * normalizeMonsterInitialBuffs：规范化妖兽出生自带 Buff。
+ * @param raw 参数说明。
+ * @returns 出生 Buff 配置列表。
+ */
+
+function normalizeMonsterInitialBuffs(raw) {
+    // 内容冷路径完成校验，运行时只消费稳定结构。
+
+    if (!Array.isArray(raw)) {
+        return undefined;
+    }
+    const result = [];
+    for (const entry of raw) {
+        const buffs = normalizeConsumableBuffs([entry]);
+        const buff = buffs?.[0];
+        if (!buff) {
+            continue;
+        }
+        const candidate = entry && typeof entry === 'object' ? entry : {};
+        result.push({
+            ...buff,
+            stacks: Number.isFinite(candidate.stacks) ? Math.max(1, Math.trunc(Number(candidate.stacks))) : undefined,
+        });
+    }
+    return result.length > 0 ? result : undefined;
 }
 /**
  * matchesLootPoolFilters：执行matche掉落PoolFilter相关逻辑。

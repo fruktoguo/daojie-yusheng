@@ -25,6 +25,11 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 const { getSkillEffectColor } = world_runtime_normalization_helpers_1;
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
+const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
+const {
+    formatCombatDamageBreakdown,
+    formatCombatActionClause,
+} = world_runtime_observation_helpers_1;
 
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
 let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApplyService {
@@ -182,6 +187,11 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (resolvedDamage.damage > 0) {
             updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, resolvedDamage.damage);
             this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage.damage, effectColor);
+            deps.queuePlayerNotice?.(
+                action.targetPlayerId,
+                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`,
+                'combat',
+            );
             this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
         }
         this.playerRuntimeService.recordActivity(action.targetPlayerId, currentTick, {
@@ -232,8 +242,8 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 monsterId: monster.monsterId,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
-                qi: 0,
-                maxQi: 0,
+                qi: monster.qi,
+                maxQi: monster.maxQi,
                 level: monster.level,
                 combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
                 skills: monster.skills,
@@ -248,6 +258,9 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
             }, (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
+            }, (amount) => {
+                monster.qi = Math.max(0, Math.round((monster.qi ?? 0) - amount));
+                instance.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             });
             const skill = monster.skills.find((entry) => entry.id === action.skillId);
             const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
@@ -257,6 +270,11 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
             if (result.totalDamage > 0) {
                 this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, result.totalDamage, effectColor);
+                deps.queuePlayerNotice?.(
+                    player.playerId,
+                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, result.damageKind ?? 'spell')} 伤害`,
+                    'combat',
+                );
                 this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
             }
             this.playerRuntimeService.recordActivity(player.playerId, currentTick, {

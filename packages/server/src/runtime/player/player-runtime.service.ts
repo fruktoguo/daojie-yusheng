@@ -5324,6 +5324,7 @@ function cloneNumericStats(source) {
         hit: source.hit,
         dodge: source.dodge,
         crit: source.crit,
+        antiCrit: source.antiCrit,
         critDamage: source.critDamage,
         breakPower: source.breakPower,
         resolvePower: source.resolvePower,
