@@ -894,6 +894,9 @@ export class NativeGmPlayerService {
       if (Number.isFinite(snapshot.foundation)) {
         next.foundation = Math.max(0, Math.trunc(snapshot.foundation));
       }
+      if (Number.isFinite(snapshot.rootFoundation)) {
+        next.rootFoundation = Math.max(0, Math.trunc(snapshot.rootFoundation));
+      }
       if (Number.isFinite(snapshot.combatExp)) {
         next.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
       }
@@ -1105,6 +1108,9 @@ export class NativeGmPlayerService {
       }
       if (Number.isFinite(snapshot.foundation)) {
         persisted.progression.foundation = Math.max(0, Math.trunc(snapshot.foundation));
+      }
+      if (Number.isFinite(snapshot.rootFoundation)) {
+        persisted.progression.rootFoundation = Math.max(0, Math.trunc(snapshot.rootFoundation));
       }
       if (Number.isFinite(snapshot.combatExp)) {
         persisted.progression.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
@@ -1833,6 +1839,7 @@ export class NativeGmPlayerService {
       qi: snapshot.qi,
       dead: snapshot.hp <= 0,
       foundation: snapshot.foundation,
+      rootFoundation: Math.max(0, Math.trunc(Number(snapshot.rootFoundation ?? 0) || 0)),
       combatExp: snapshot.combatExp,
       comprehension: snapshot.comprehension ?? 0,
       luck: snapshot.luck ?? 0,
@@ -1925,6 +1932,7 @@ export class NativeGmPlayerService {
       lifeElapsedTicks: snapshot.progression.lifeElapsedTicks,
       lifespanYears: snapshot.progression.lifespanYears,
       foundation: snapshot.progression.foundation,
+      rootFoundation: Math.max(0, Math.trunc(Number(snapshot.progression.rootFoundation ?? 0) || 0)),
       combatExp: snapshot.progression.combatExp,
       comprehension: snapshot.progression.comprehension ?? 0,
       luck: snapshot.progression.luck ?? 0,

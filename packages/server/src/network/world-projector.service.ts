@@ -100,7 +100,9 @@ export class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        const currentWorld = previous.worldRevision === identityView.worldRevision && !hasDynamicContainerCountdown(identityView, previous.containers)
+        const currentWorld = previous.worldRevision === identityView.worldRevision
+            && !hasDynamicContainerCountdown(identityView, previous.containers)
+            && !hasPlayerPresentationScaleChange(identityView, previous.players)
             ? previous
             : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
         const current = combineProjectorState(currentWorld, capturePlayerState(player));
@@ -221,4 +223,42 @@ function hasDynamicContainerCountdown(view: any, previousContainers: Map<string,
         }
     }
     return false;
+}
+
+function hasPlayerPresentationScaleChange(view: any, previousPlayers: Map<string, any>): boolean {
+    const candidates = [
+        { playerId: view?.playerId, buffs: view?.self?.buffs },
+        ...(Array.isArray(view?.visiblePlayers) ? view.visiblePlayers : []),
+    ];
+    for (const entry of candidates) {
+        const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
+        if (!playerId) {
+            continue;
+        }
+        const nextScale = resolveBuffPresentationScale(entry?.buffs) ?? null;
+        const previousScale = previousPlayers.get(playerId)?.sc ?? null;
+        if (nextScale !== previousScale) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function resolveBuffPresentationScale(source: any): number | undefined {
+    const buffs = Array.isArray(source)
+        ? source
+        : Array.isArray(source?.buffs)
+            ? source.buffs
+            : [];
+    let scale = 1;
+    for (const buff of buffs) {
+        if ((Number(buff?.remainingTicks ?? 0) <= 0) || (Number(buff?.stacks ?? 0) <= 0)) {
+            continue;
+        }
+        const presentationScale = Number(buff?.presentationScale);
+        if (Number.isFinite(presentationScale) && presentationScale > scale) {
+            scale = presentationScale;
+        }
+    }
+    return scale > 1 ? scale : undefined;
 }

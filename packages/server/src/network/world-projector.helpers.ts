@@ -131,6 +131,7 @@ interface ProjectorVisiblePlayerLike {
   displayName?: string | null;
   x: number;
   y: number;
+  buffs?: { buffs?: unknown[] | null } | unknown[] | null;
 }
 interface ProjectorNpcLike {
   npcId: string;
@@ -213,6 +214,7 @@ interface ProjectorViewLike {
     y: number;
     name: string;
     displayName?: string | null;
+    buffs?: { buffs?: unknown[] | null } | unknown[] | null;
   };
   visiblePlayers: ProjectorVisiblePlayerLike[];
   localNpcs: ProjectorNpcLike[];
@@ -227,6 +229,7 @@ interface ProjectedPlayerEntry {
   ch: string;
   x: number;
   y: number;
+  sc?: number | null;
 }
 interface ProjectedNpcEntry {
   x: number;
@@ -523,6 +526,25 @@ function resolvePortalRenderChar(portal: ProjectorPortalLike): string {
     }
     return portal.kind === 'stairs' ? '' : '阵';
 }
+function resolveBuffPresentationScale(source: { buffs?: unknown[] | null } | unknown[] | null | undefined): number | undefined {
+    const buffs = Array.isArray(source)
+        ? source
+        : Array.isArray(source?.buffs)
+            ? source.buffs
+            : [];
+    let scale = 1;
+    for (const buff of buffs) {
+        const record = buff as { remainingTicks?: unknown; stacks?: unknown; presentationScale?: unknown } | null | undefined;
+        if ((Number(record?.remainingTicks ?? 0) <= 0) || (Number(record?.stacks ?? 0) <= 0)) {
+            continue;
+        }
+        const presentationScale = Number(record?.presentationScale);
+        if (Number.isFinite(presentationScale) && presentationScale > scale) {
+            scale = presentationScale;
+        }
+    }
+    return scale > 1 ? scale : undefined;
+}
 function buildFullWorldDelta(
     view: ProjectorViewLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
@@ -533,12 +555,14 @@ function buildFullWorldDelta(
             ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
             x: view.self.x,
             y: view.self.y,
+            sc: resolveBuffPresentationScale(view.self.buffs),
         }, ...Array.from(view.visiblePlayers, (entry) => ({
             id: entry.playerId,
             n: resolvePlayerRenderLabel(entry.name, entry.displayName, entry.playerId),
             ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x,
             y: entry.y,
+            sc: resolveBuffPresentationScale(entry.buffs),
         }))];
     const monsters: WorldMonsterPatchView[] = Array.from(view.localMonsters, (entry) => ({
         id: entry.runtimeId,
@@ -767,6 +791,7 @@ function captureWorldState(
         ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
         x: view.self.x,
         y: view.self.y,
+        sc: resolveBuffPresentationScale(view.self.buffs),
     });
     for (const entry of view.visiblePlayers) {
         players.set(entry.playerId, {
@@ -774,6 +799,7 @@ function captureWorldState(
             ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x,
             y: entry.y,
+            sc: resolveBuffPresentationScale(entry.buffs),
         });
     }
     return {
@@ -1147,7 +1173,7 @@ function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, current:
     for (const [playerId, entry] of current) {
         const prev = previous.get(playerId);
         if (!prev) {
-            result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y });
+            result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, sc: entry.sc });
             continue;
         }
         const delta: WorldPlayerPatchView = { id: playerId };
@@ -1166,6 +1192,10 @@ function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, current:
         }
         if (prev.y !== entry.y) {
             delta.y = entry.y;
+            changed = true;
+        }
+        if (prev.sc !== entry.sc) {
+            delta.sc = entry.sc ?? null;
             changed = true;
         }
         if (changed) {

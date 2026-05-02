@@ -619,16 +619,15 @@ class WorldRuntimeFormationService {
     advanceAuraFormation(instance, formation) {
         const resourceKey = formation.template.effect.resourceKey || shared_1.DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY;
         const halfLifeTicks = Math.max(1, Math.trunc(formation.template.effect.convergenceHalfLifeTicks ?? shared_1.FORMATION_TICKS_PER_DAY));
-        const cells = shared_1.listFormationAffectedCells(formation.template.range.shape, formation.x, formation.y, formation.stats.radius, instance.template.width, instance.template.height);
-        for (const cell of cells) {
-            const current = instance.getTileResource(resourceKey, cell.x, cell.y) ?? 0;
+        forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
+            const current = instance.getTileResource(resourceKey, x, y) ?? 0;
             const target = Math.max(0, formation.stats.effectValue);
             if (current >= target) {
-                continue;
+                return;
             }
             const delta = Math.max(1, Math.ceil((target - current) / halfLifeTicks));
-            instance.addTileResource(resourceKey, cell.x, cell.y, Math.min(delta, target - current));
-        }
+            instance.addTileResource(resourceKey, x, y, Math.min(delta, target - current));
+        });
     }
 
     containsTile(formation, x, y) {
@@ -1254,6 +1253,49 @@ function resolveFormationLifecycle(template) {
 
 function isPersistentFormation(formation) {
     return normalizeFormationLifecycle(formation?.lifecycle ?? formation?.template?.lifecycle) === FORMATION_LIFECYCLE_PERSISTENT;
+}
+
+function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {
+    const shape = formation?.template?.range?.shape;
+    const centerX = Math.trunc(Number(formation?.x));
+    const centerY = Math.trunc(Number(formation?.y));
+    const radius = Math.max(1, Math.trunc(Number(formation?.stats?.radius) || 1));
+    if (!Number.isFinite(centerX) || !Number.isFinite(centerY) || typeof visitor !== 'function') {
+        return;
+    }
+    const hasRuntimeBounds = typeof instance?.isInBounds === 'function';
+    const width = Math.max(0, Math.trunc(Number(instance?.template?.width) || 0));
+    const height = Math.max(0, Math.trunc(Number(instance?.template?.height) || 0));
+    for (let y = centerY - radius; y <= centerY + radius; y += 1) {
+        for (let x = centerX - radius; x <= centerX + radius; x += 1) {
+            if (!isFormationAffectedCell(shape, centerX, centerY, x, y, radius)) {
+                continue;
+            }
+            if (hasRuntimeBounds) {
+                if (instance.isInBounds(x, y) !== true) {
+                    continue;
+                }
+            } else if (x < 0 || y < 0 || x >= width || y >= height) {
+                continue;
+            }
+            visitor(x, y);
+        }
+    }
+}
+
+function isFormationAffectedCell(shape, centerX, centerY, x, y, radius) {
+    const dx = Math.trunc(Number(x)) - centerX;
+    const dy = Math.trunc(Number(y)) - centerY;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+        return false;
+    }
+    if (shape === 'circle') {
+        return (dx * dx) + (dy * dy) <= radius * radius;
+    }
+    if (shape === 'checkerboard') {
+        return ((Math.trunc(Number(x)) + Math.trunc(Number(y))) % 2) === 0;
+    }
+    return true;
 }
 
 function resolvePersistentFormationTickCost(formation) {

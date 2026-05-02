@@ -63,6 +63,22 @@ function buildView(templateId, x, y, worldRevision = 1, selfRevision = 1) {
   };
 }
 
+function buildScaledBuff(scale) {
+  return {
+    buffId: "buff.huanling_candan_faxiang",
+    name: "残丹法相虚影",
+    shortMark: "相",
+    category: "buff",
+    visibility: "public",
+    remainingTicks: 1,
+    duration: 1,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: "skill.huanling_candan_faxiang",
+    presentationScale: scale,
+  };
+}
+
 function buildPlayer(templateId, x, y, selfRevision = 1) {
   return {
     playerId: "player:template-swap",
@@ -128,6 +144,30 @@ function main() {
   assert.equal(delta.worldDelta?.p?.[0]?.x, 10);
   assert.equal(delta.worldDelta?.o?.[0]?.x, 10);
   assert.equal(delta.selfDelta?.mid, "sect:new");
+
+  const scaleProjector = new WorldProjectorService(createTemplateRepository());
+  const initialView = buildView("sect:new", 2, 2, 10, 10);
+  const initialPlayer = buildPlayer("sect:new", 2, 2, 10);
+  scaleProjector.createInitialEnvelope(
+    { playerId: "player:template-swap", sessionId: "session:template-scale" },
+    initialView,
+    initialPlayer,
+  );
+  const scaledView = buildView("sect:new", 2, 2, 10, 11);
+  scaledView.self.buffs = { buffs: [buildScaledBuff(4)] };
+  const scaledPlayer = buildPlayer("sect:new", 2, 2, 11);
+  scaledPlayer.buffs = { revision: 2, buffs: [buildScaledBuff(4)] };
+  const scaleDelta = scaleProjector.createDeltaEnvelope(scaledView, scaledPlayer);
+  assert.equal(scaleDelta?.worldDelta?.p?.[0]?.id, "player:template-swap");
+  assert.equal(scaleDelta?.worldDelta?.p?.[0]?.sc, 4);
+  assert.equal(scaleDelta?.panelDelta?.buff?.buffs?.[0]?.presentationScale, 4);
+  const unscaledView = buildView("sect:new", 2, 2, 10, 12);
+  unscaledView.self.buffs = { buffs: [] };
+  const unscaledPlayer = buildPlayer("sect:new", 2, 2, 12);
+  unscaledPlayer.buffs = { revision: 3, buffs: [] };
+  const clearScaleDelta = scaleProjector.createDeltaEnvelope(unscaledView, unscaledPlayer);
+  assert.equal(clearScaleDelta?.worldDelta?.p?.[0]?.id, "player:template-swap");
+  assert.equal(clearScaleDelta?.worldDelta?.p?.[0]?.sc, null);
 
   console.log(JSON.stringify({ ok: true, case: "world-projector-template-swap" }, null, 2));
 }

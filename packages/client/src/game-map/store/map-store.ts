@@ -11,6 +11,7 @@ import {
   type S2C_MapStatic,
   type TickRenderEntity,
   type Tile,
+  type VisibleBuffState,
   TileType,
   type VisibleTile,
   type VisibleTilePatch,
@@ -101,9 +102,27 @@ function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number
   ));
 }
 
+function resolvePresentationScaleFromBuffs(buffs: readonly VisibleBuffState[] | null | undefined): number | undefined {
+  let scale = 1;
+  for (const buff of buffs ?? []) {
+    if ((buff.remainingTicks ?? 0) <= 0 || (buff.stacks ?? 0) <= 0) {
+      continue;
+    }
+    const presentationScale = Number(buff.presentationScale);
+    if (Number.isFinite(presentationScale) && presentationScale > scale) {
+      scale = presentationScale;
+    }
+  }
+  return scale > 1 ? scale : undefined;
+}
+
 function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState | null): ObservedMapEntity {
+  const isSelf = player !== null && entity.id === player.id;
+  const buffs = isSelf && Array.isArray(player.temporaryBuffs)
+    ? cloneJson(player.temporaryBuffs)
+    : entity.buffs;
   const badge = entity.badge ?? (
-    entity.kind === 'player' && isDemonizedBuffCarrier(entity.buffs)
+    entity.kind === 'player' && isDemonizedBuffCarrier(buffs)
       ? { text: '魔', tone: 'demonic' as const }
       : undefined
   );
@@ -113,6 +132,8 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
     && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === entity.id);
   return {
     ...entity,
+    buffs,
+    monsterScale: isSelf ? resolvePresentationScaleFromBuffs(buffs) : entity.monsterScale,
     badge,
     hostile,
   };
@@ -219,6 +240,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     npcQuestMarker: previous?.npcQuestMarker,
     observation: previous?.observation,
     buffs: player.temporaryBuffs ? cloneJson(player.temporaryBuffs) : previous?.buffs,
+    monsterScale: resolvePresentationScaleFromBuffs(player.temporaryBuffs),
   };
 }
 
@@ -759,6 +781,12 @@ export class MapStore {
 
   /** 用新实体数组替换当前可见实体并更新过渡信息。 */
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
+    if (this.player) {
+      const selfEntity = entities.find((entry) => entry.id === this.player?.id);
+      if (Array.isArray(selfEntity?.buffs)) {
+        this.player.temporaryBuffs = cloneJson(selfEntity.buffs);
+      }
+    }
     this.entities = entities.map((entry) => decorateObservedEntity(cloneJson(entry), this.player));
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);

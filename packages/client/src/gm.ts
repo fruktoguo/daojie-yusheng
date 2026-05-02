@@ -3868,6 +3868,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     qi: 0,
     dead: false,
     foundation: 0,
+    rootFoundation: 0,
     combatExp: 0,
     comprehension: 0,
     luck: 0,
@@ -4745,6 +4746,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
         ${numberField('当前境界修为', 'realm.progress', draft.realm?.progress)}
         ${numberField('底蕴', 'foundation', draft.foundation)}
+        ${numberField('根基', 'rootFoundation', draft.rootFoundation)}
         ${numberField('悟性', 'comprehension', draft.comprehension)}
         ${numberField('幸运', 'luck', draft.luck)}
       </div>
@@ -4868,6 +4870,24 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               <div class="editor-card-meta">把尚未学习且背包里也没有的功法书补进背包。</div>
             </div>
             <button class="small-btn" type="button" data-action="grant-all-unlearned-technique-books"${catalogActionDisabled}>加入背包</button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">添加全部消耗品</div>
+              <div class="editor-card-meta">把目录内全部消耗品补进背包；已有堆叠会补到 999 个。</div>
+            </div>
+            <button class="small-btn" type="button" data-action="grant-all-consumables"${catalogActionDisabled}>加入背包</button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">添加全部装备</div>
+              <div class="editor-card-meta">把目录内全部装备补进背包，每件 1 个；已有同 ID 物品不会重复添加。</div>
+            </div>
+            <button class="small-btn" type="button" data-action="grant-all-equipment"${catalogActionDisabled}>加入背包</button>
           </div>
         </div>
         <div class="editor-card">
@@ -5877,6 +5897,7 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
           ? { progress: draft.realm.progress } as PlayerState['realm']
           : undefined,
         foundation: draft.foundation,
+        rootFoundation: draft.rootFoundation,
         comprehension: draft.comprehension,
         luck: draft.luck,
         revealedBreakthroughRequirementIds: [...(draft.revealedBreakthroughRequirementIds ?? [])],
@@ -6165,6 +6186,66 @@ async function runPlayerTechniqueShortcut(
     return;
   }
   await saveSelectedPlayerSections(['techniques'], `已为当前角色补齐 ${missingTechniqueIds.length} 门功法`);
+}
+
+/** runPlayerItemShortcut：执行玩家物品类快捷操作。 */
+async function runPlayerItemShortcut(action: 'grant-all-consumables' | 'grant-all-equipment'): Promise<void> {
+  if (!draftSnapshot) {
+    setStatus('当前没有可编辑角色', true);
+    return;
+  }
+
+  assertTrustedEditorCatalog('快捷操作：');
+
+  const targetType = action === 'grant-all-consumables' ? 'consumable' : 'equipment';
+  const targetCount = action === 'grant-all-consumables' ? 999 : 1;
+  const catalogItems = editorCatalog!.items
+    .filter((item) => item.type === targetType)
+    .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+  if (catalogItems.length === 0) {
+    setStatus(action === 'grant-all-consumables' ? '当前目录没有消耗品模板' : '当前目录没有装备模板');
+    return;
+  }
+
+  const currentItems = ensureArray(draftSnapshot.inventory.items);
+  const currentItemById = new Map(currentItems.map((item) => [item.itemId, item]));
+  const itemsToAdd = catalogItems.filter((item) => !currentItemById.has(item.itemId));
+  const consumablesToUpdate = action === 'grant-all-consumables'
+    ? catalogItems.filter((item) => {
+        const existing = currentItemById.get(item.itemId);
+        return existing && (existing.count ?? 0) < targetCount;
+      })
+    : [];
+  if (itemsToAdd.length === 0 && consumablesToUpdate.length === 0) {
+    setStatus(action === 'grant-all-consumables' ? '当前角色已拥有全部消耗品，且数量不低于 999' : '当前角色背包已拥有全部装备');
+    return;
+  }
+
+  const changed = mutateDraft((draft) => {
+    const inventoryItems = ensureArray(draft.inventory.items);
+    const inventoryItemById = new Map(inventoryItems.map((item) => [item.itemId, item]));
+    for (const catalogItem of consumablesToUpdate) {
+      const existing = inventoryItemById.get(catalogItem.itemId);
+      if (existing) {
+        existing.count = targetCount;
+      }
+    }
+    for (const catalogItem of itemsToAdd) {
+      const nextItem = createItemFromCatalog(catalogItem.itemId, targetCount);
+      inventoryItems.push(nextItem);
+      inventoryItemById.set(catalogItem.itemId, nextItem);
+    }
+    draft.inventory.items = inventoryItems;
+    draft.inventory.capacity = Math.max(draft.inventory.capacity ?? 0, inventoryItems.length);
+  });
+  if (!changed) {
+    return;
+  }
+  const label = action === 'grant-all-consumables' ? '消耗品' : '装备';
+  const detail = action === 'grant-all-consumables'
+    ? `新增 ${itemsToAdd.length} 种，补足 ${consumablesToUpdate.length} 种到 999 个`
+    : `新增 ${itemsToAdd.length} 件`;
+  await saveSelectedPlayerSections(['items'], `已为当前角色添加全部${label}：${detail}`);
 }
 
 /** openSelectedPlayerMailTab：打开Selected玩家邮件Tab。 */
@@ -6973,6 +7054,12 @@ editorContentEl.addEventListener('click', (event) => {
   ) {
     runPlayerTechniqueShortcut(action).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '执行快捷操作失败', true);
+    });
+    return;
+  }
+  if (action === 'grant-all-consumables' || action === 'grant-all-equipment') {
+    runPlayerItemShortcut(action).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '执行物品快捷操作失败', true);
     });
     return;
   }

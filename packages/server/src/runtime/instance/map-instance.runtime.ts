@@ -923,6 +923,7 @@ class MapInstanceRuntime {
                 x: player.x,
                 y: player.y,
                 facing: player.facing,
+                buffs: player.buffs,
             },
             visibleTileIndices: Array.from(visibleTileIndices),
             visibleTileKeys: Array.from(visibleTileVisibility.keys),
@@ -2734,6 +2735,7 @@ class MapInstanceRuntime {
                 displayName: player.displayName,
                 x: player.x,
                 y: player.y,
+                buffs: player.buffs,
             });
         }
         return visiblePlayers;

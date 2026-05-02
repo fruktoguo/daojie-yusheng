@@ -562,6 +562,11 @@ export interface VisibleBuffState {
  */
 
   infiniteDuration?: boolean;
+  /**
+ * presentationScale：表现缩放倍数，仅用于客户端实体绘制，不影响权威坐标和占位。
+ */
+
+  presentationScale?: number;
 }
 
 /** 渲染用实体。 */

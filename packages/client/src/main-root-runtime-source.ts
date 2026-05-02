@@ -29,9 +29,23 @@ function isDemonizedPlayerEntity(entity: Pick<MainRuntimeObservedEntity, 'kind' 
   ));
 }
 
+function resolvePresentationScaleFromBuffs(buffs: MainRuntimeObservedEntity['buffs']): number | undefined {
+  let scale = 1;
+  for (const buff of buffs ?? []) {
+    if ((buff.remainingTicks ?? 0) <= 0 || (buff.stacks ?? 0) <= 0) {
+      continue;
+    }
+    const presentationScale = Number(buff.presentationScale);
+    if (Number.isFinite(presentationScale) && presentationScale > scale) {
+      scale = presentationScale;
+    }
+  }
+  return scale > 1 ? scale : undefined;
+}
+
 function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
   const buffs = player !== null && entity.id === player.id
-    ? (Array.isArray(player.temporaryBuffs) ? clonePlainValue(player.temporaryBuffs) : undefined)
+    ? (Array.isArray(player.temporaryBuffs) ? clonePlainValue(player.temporaryBuffs) : entity.buffs)
     : entity.buffs;
   const nextEntity = {
     ...entity,
@@ -48,6 +62,9 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     ...nextEntity,
     badge,
     hostile,
+    monsterScale: player !== null && nextEntity.id === player.id
+      ? resolvePresentationScaleFromBuffs(buffs)
+      : nextEntity.monsterScale,
   };
 }
 /**

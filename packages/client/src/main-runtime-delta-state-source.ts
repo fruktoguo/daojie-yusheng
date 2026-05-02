@@ -440,6 +440,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       color: previous?.color ?? PLAYER_ENTITY_COLOR,
       name: patch.n ?? previous?.name ?? fallbackName,
       kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
+      monsterScale: patch.sc === null ? null : (patch.sc ?? previous?.monsterScale),
       hp: isSelf ? (player?.hp ?? previous?.hp) : previous?.hp,
       maxHp: isSelf ? (player?.maxHp ?? previous?.maxHp) : previous?.maxHp,
       qi: isSelf ? (player?.qi ?? previous?.qi) : previous?.qi,

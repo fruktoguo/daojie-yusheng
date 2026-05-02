@@ -12,7 +12,7 @@ const { Pool } = require("pg");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
 const { WorldRuntimeFormationService } = require("../runtime/world/world-runtime-formation.service");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
-const { FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled } = require("@mud/shared");
+const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled } = require("@mud/shared");
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
@@ -232,6 +232,104 @@ async function main() {
   service.advanceInstanceFormations(instance, 2, deps);
   assert.equal(service.listRuntimeFormations(instanceId).length, 1);
   assert.ok(tileResources.size > 0);
+
+  {
+    const sparsePlayerId = "player:formation-sparse-sect";
+    const sparseInstanceId = "sect:sparse-formation:main";
+    const sparseTiles = new Set();
+    for (let y = 0; y < 5; y += 1) {
+      for (let x = 0; x < 5; x += 1) {
+        sparseTiles.add(`${x},${y}`);
+      }
+    }
+    sparseTiles.add("6,2");
+    const sparseTileResources = new Map();
+    const sparsePlayer = {
+      playerId: sparsePlayerId,
+      sectId: "sect:sparse-formation",
+      qi: 100000,
+      inventory: {
+        items: [{
+          itemId: "formation_disk.mortal",
+          name: "凡品阵盘",
+          count: 1,
+          formationDiskTier: "mortal",
+          formationDiskMultiplier: 1,
+        }],
+      },
+      wallet: { spirit_stone: 1000 },
+    };
+    const sparseInstance = {
+      meta: { instanceId: sparseInstanceId, kind: "sect", linePreset: "real" },
+      template: { width: 5, height: 5 },
+      worldRevision: 1,
+      getPlayerPosition(targetPlayerId) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        return { x: 2, y: 2 };
+      },
+      isInBounds(x, y) {
+        return sparseTiles.has(`${Math.trunc(Number(x))},${Math.trunc(Number(y))}`);
+      },
+      getTileResource(resourceKey, x, y) {
+        assert.equal(this.isInBounds(x, y), true);
+        return sparseTileResources.get(`${resourceKey}:${x},${y}`) ?? 0;
+      },
+      addTileResource(resourceKey, x, y, value) {
+        assert.equal(this.isInBounds(x, y), true);
+        const key = `${resourceKey}:${x},${y}`;
+        sparseTileResources.set(key, (sparseTileResources.get(key) ?? 0) + value);
+      },
+    };
+    const sparsePlayerRuntimeService = {
+      getPlayerOrThrow(targetPlayerId) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        return sparsePlayer;
+      },
+      spendQi(targetPlayerId, amount) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        sparsePlayer.qi -= amount;
+      },
+      canAffordWallet(targetPlayerId, itemId, count) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        return (sparsePlayer.wallet[itemId] ?? 0) >= count;
+      },
+      debitWallet(targetPlayerId, itemId, count) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        sparsePlayer.wallet[itemId] = (sparsePlayer.wallet[itemId] ?? 0) - count;
+      },
+      consumeInventoryItem(targetPlayerId, slotIndex, count) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        sparsePlayer.inventory.items[slotIndex].count -= count;
+      },
+      enqueueNotice() {},
+    };
+    const sparseService = new WorldRuntimeFormationService(
+      { getFormationTemplate: () => null },
+      sparsePlayerRuntimeService,
+    );
+    sparseService.ensurePersistencePool = async () => null;
+    const sparseFormation = sparseService.dispatchCreateFormation(sparsePlayerId, {
+      slotIndex: 0,
+      formationId: "spirit_gathering",
+      spiritStoneCount: 1000,
+      allocation: { effectPercent: 50, rangePercent: 40, durationPercent: 10 },
+    }, {
+      getPlayerLocationOrThrow(targetPlayerId) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        return { instanceId: sparseInstanceId, sessionId: "session:sparse-formation" };
+      },
+      getInstanceRuntime(targetInstanceId) {
+        return targetInstanceId === sparseInstanceId ? sparseInstance : null;
+      },
+      refreshPlayerContextActions() {},
+    });
+    assert.ok(sparseFormation.stats.radius > 4);
+    sparseService.advanceInstanceFormations(sparseInstance, 1, {});
+    assert.ok((sparseTileResources.get(`${DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY}:4,2`) ?? 0) > 0);
+    assert.ok((sparseTileResources.get(`${DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY}:6,2`) ?? 0) > 0);
+    assert.equal(sparseTileResources.has(`${DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY}:5,2`), false);
+  }
+
   const auraBeforeRefill = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
   service.dispatchRefillFormation(playerId, {
     formationInstanceId: formation.id,
