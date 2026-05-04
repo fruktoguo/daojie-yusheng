@@ -472,6 +472,9 @@ function normalizeAuctionPayload(raw) {
     if (!raw || typeof raw !== 'object') {
         return undefined;
     }
+    if (raw.mode !== 'auction') {
+        return undefined;
+    }
     const startAtMs = Number.isFinite(Number(raw.startAtMs)) ? Math.max(0, Math.trunc(Number(raw.startAtMs))) : 0;
     const normalDurationSeconds = Number.isFinite(Number(raw.normalDurationSeconds))
         ? Math.max(1, Math.trunc(Number(raw.normalDurationSeconds)))
@@ -490,6 +493,7 @@ function normalizeAuctionPayload(raw) {
     bids.sort((left, right) => right.unitPrice - left.unitPrice || left.createdAt - right.createdAt || left.bidderId.localeCompare(right.bidderId));
     return {
         version: 1,
+        mode: 'auction',
         startAtMs,
         normalDurationSeconds,
         endAtMs,

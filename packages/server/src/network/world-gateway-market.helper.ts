@@ -189,6 +189,7 @@ class WorldGatewayMarketHelper {
                 slotIndex: payload?.slotIndex,
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
+                listingMode: payload?.listingMode,
             });
             this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }

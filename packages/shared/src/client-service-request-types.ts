@@ -253,6 +253,11 @@ export interface CreateMarketSellOrderView {
  */
 
   unitPrice: number;
+  /**
+ * listingMode：挂单入口，默认普通坊市，auction 表示显式寄拍。
+ */
+
+  listingMode?: 'market' | 'auction';
 }
 
 /** 创建买单。 */

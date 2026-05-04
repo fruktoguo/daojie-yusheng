@@ -2483,7 +2483,7 @@ async function marketCase(runtime) {
  */
   var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; }).itemKey;
   sellerState = (await runtime.api.fetchState(sellerId)).player;
-  var auctionListed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, auctionItemId), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
+  var auctionListed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, auctionItemId), quantity: 1, unitPrice: 1, listingMode: 'auction' }, S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; });
   }, 5000);
   var auctionItemKey = auctionListed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; }).itemKey;

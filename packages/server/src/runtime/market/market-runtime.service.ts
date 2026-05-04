@@ -344,6 +344,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     async createSellOrder(playerId, payload) {
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
+            const listingMode = payload?.listingMode === 'auction' || payload?.auction === true ? 'auction' : 'market';
             const item = this.playerRuntimeService.peekInventoryItem(playerId, payload.slotIndex);
             if (!item) {
                 return this.singleMessage(playerId, '要挂售的物品不存在。');
@@ -425,9 +426,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     updatedAt: now,
                 };
                 this.openOrders.push(order);
-                this.initializeAuctionOrderState(order, context);
+                if (listingMode === 'auction') {
+                    this.initializeAuctionOrderState(order, context);
+                }
                 this.markOrderDirty(order.id, context);
-                this.pushNotice(result, playerId, `已挂售 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
+                const listingText = listingMode === 'auction' ? '已寄拍' : '已挂售';
+                this.pushNotice(result, playerId, `${listingText} ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
             }
             this.compactOpenOrders();
             return result;
@@ -547,7 +551,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
 
             const itemKey = this.resolveInternalMarketItemKey(payload.itemKey);
-            if (this.getSortedAuctionBids(itemKey).some((bid) => bid.reservedCost > 0)) {
+            if (this.hasAuctionSellOrders(itemKey) && this.getSortedAuctionBids(itemKey).some((bid) => bid.reservedCost > 0)) {
                 return this.singleMessage(playerId, '该物品已有拍卖出价，请从拍卖行一口价或等待结算。');
             }
             const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
@@ -844,7 +848,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     async cancelOrder(playerId, payload) {
         const requestedOrderId = String(payload.orderId ?? '').trim();
         const requestedOrder = this.openOrders.find((entry) => entry.id === requestedOrderId && entry.ownerId === playerId);
-        if (requestedOrder?.side === 'sell' && this.getSortedAuctionBids(this.getOrderItemKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
+        if (requestedOrder?.side === 'sell' && this.isAuctionOrder(requestedOrder) && this.getSortedAuctionBids(this.getOrderItemKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
             return this.singleMessage(playerId, '这件寄拍已有出价，不能直接撤回。');
         }
         if (this.durableOperationService?.isEnabled()) {
@@ -1126,17 +1130,47 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             buyQuantity: entry.buyQuantity,
         }));
     }
+    /** 只聚合显式拍卖订单，普通坊市挂售不进入拍卖行。 */
+    buildAuctionListedItems() {
+        const grouped = new Map();
+        for (const order of this.openOrders) {
+            if (!this.isAuctionOrder(order)
+                || order.side !== 'sell'
+                || order.status !== 'open'
+                || order.remainingQuantity <= 0
+                || !this.canTradeItemOnMarket(order.item)) {
+                continue;
+            }
+            const orderItem = this.toOrderItem(order.item);
+            const orderItemKey = this.buildItemKey(orderItem);
+            const current = grouped.get(orderItemKey) ?? {
+                itemKey: orderItemKey,
+                item: { ...orderItem },
+                sellOrderCount: 0,
+                sellQuantity: 0,
+                buyOrderCount: 0,
+                buyQuantity: 0,
+                orders: [],
+            };
+            current.sellOrderCount += 1;
+            current.sellQuantity += order.remainingQuantity;
+            current.lowestSellPrice = current.lowestSellPrice === undefined
+                ? order.unitPrice
+                : Math.min(current.lowestSellPrice, order.unitPrice);
+            current.orders.push(order);
+            grouped.set(orderItemKey, current);
+        }
+        return Array.from(grouped.values());
+    }
     /** 构造可参与拍卖的拍品摘要，拍卖行分页会在服务端继续裁剪。 */
     buildAuctionParticipateLotEntries(viewerId = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        return this.buildListedItems()
+        return this.buildAuctionListedItems()
             .filter((entry) => entry.lowestSellPrice !== undefined)
             .map((entry) => {
             const clientItemKey = this.buildClientMarketKey(entry.itemKey);
-            const relatedOrders = this.openOrders.filter((order) => order.status === 'open'
-                && order.remainingQuantity > 0
-                && this.getOrderItemKey(order) === entry.itemKey);
+            const relatedOrders = Array.isArray(entry.orders) ? entry.orders : [];
             const createdAt = relatedOrders.reduce((min, order) => Math.min(min, Number(order.createdAt) || min), Number.MAX_SAFE_INTEGER);
             const seed = this.buildAuctionStableNumber(clientItemKey || entry.itemKey);
             const timing = this.buildAuctionTiming(entry.itemKey, seed, createdAt === Number.MAX_SAFE_INTEGER ? Date.now() : createdAt);
@@ -1186,6 +1220,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             && order.side === 'sell'
             && order.status === 'open'
             && order.remainingQuantity > 0
+            && this.isAuctionOrder(order)
             && this.canTradeItemOnMarket(order.item))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
             .map((order) => {
@@ -1231,7 +1266,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!itemKey) {
                 return this.singleMessage(playerId, '拍品不存在或已结束。');
             }
-            const sellOrders = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
+            const sellOrders = this.getAuctionSellOrders(itemKey).filter((order) => order.ownerId !== playerId);
             if (sellOrders.length === 0) {
                 return this.singleMessage(playerId, '拍品不存在、已结束，或不能对自己的寄拍出价。');
             }
@@ -1313,7 +1348,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (timing && timing.endAtMs <= Date.now()) {
                 return this.singleMessage(playerId, '拍品已经结束，不能一口价。');
             }
-            const sellOrder = this.getSortedOrders(itemKey, 'sell').find((order) => order.ownerId !== playerId);
+            const sellOrder = this.getAuctionSellOrders(itemKey).find((order) => order.ownerId !== playerId);
             if (!sellOrder) {
                 return this.singleMessage(playerId, '拍品不存在、已结束，或不能一口价自己的寄拍。');
             }
@@ -1400,10 +1435,23 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             .filter((entry) => entry.bidderId.length > 0 && entry.unitPrice > 0)
             .sort((left, right) => right.unitPrice - left.unitPrice || left.createdAt - right.createdAt || left.bidderId.localeCompare(right.bidderId));
     }
+    /** 判断订单是否属于显式拍卖寄拍。 */
+    isAuctionOrder(order) {
+        return Boolean(order?.auction && typeof order.auction === 'object' && order.auction.mode === 'auction');
+    }
+    /** 读取指定物品的显式拍卖卖单。 */
+    getAuctionSellOrders(itemKey) {
+        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        return this.getSortedOrders(normalizedItemKey, 'sell').filter((order) => this.isAuctionOrder(order));
+    }
+    /** 是否存在指定物品的显式拍卖卖单。 */
+    hasAuctionSellOrders(itemKey) {
+        return this.getAuctionSellOrders(itemKey).length > 0;
+    }
     /** 启动恢复时从订单 raw_payload 中恢复拍卖状态。 */
     hydrateAuctionStateFromOpenOrders() {
         for (const order of this.openOrders) {
-            if (order.side !== 'sell' || order.status !== 'open' || order.remainingQuantity <= 0) {
+            if (!this.isAuctionOrder(order) || order.side !== 'sell' || order.status !== 'open' || order.remainingQuantity <= 0) {
                 continue;
             }
             const itemKey = this.getOrderItemKey(order);
@@ -1447,11 +1495,26 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (!this.auctionBidsByItemKey.has(itemKey)) {
             this.auctionBidsByItemKey.set(itemKey, []);
         }
+        const timing = this.auctionTimingByItemKey.get(itemKey);
+        if (timing) {
+            order.auction = {
+                version: 1,
+                mode: 'auction',
+                startAtMs: timing.startAtMs,
+                normalDurationSeconds: timing.normalDurationSeconds,
+                endAtMs: timing.endAtMs,
+                maxEndAtMs: timing.maxEndAtMs,
+                bids: this.getSortedAuctionBids(itemKey),
+            };
+        }
         this.persistAuctionStateToCarrier(itemKey, context);
     }
     /** 规范化订单内拍卖状态。 */
     normalizeAuctionOrderState(raw) {
         if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+        if (raw.mode !== 'auction') {
             return null;
         }
         const startAtMs = Number.isFinite(Number(raw.startAtMs)) ? Math.max(0, Math.trunc(Number(raw.startAtMs))) : 0;
@@ -1472,6 +1535,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         bids.sort((left, right) => right.unitPrice - left.unitPrice || left.createdAt - right.createdAt || left.bidderId.localeCompare(right.bidderId));
         return {
             version: 1,
+            mode: 'auction',
             startAtMs,
             normalDurationSeconds,
             endAtMs,
@@ -1486,13 +1550,14 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (!timing) {
             return;
         }
-        const carrier = this.getSortedOrders(normalizedItemKey, 'sell')
+        const carrier = this.getAuctionSellOrders(normalizedItemKey)
             .find((order) => !context || !context.deletedOrderIds.has(order.id));
         if (!carrier) {
             return;
         }
         carrier.auction = {
             version: 1,
+            mode: 'auction',
             startAtMs: timing.startAtMs,
             normalDurationSeconds: timing.normalDurationSeconds,
             endAtMs: timing.endAtMs,
@@ -1523,7 +1588,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 若同一物品仍有寄拍库存，成交后为下一件重新开一个拍卖窗口。 */
     reopenAuctionStateIfActive(itemKey, context) {
         const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
-        const nextOrder = this.getSortedOrders(normalizedItemKey, 'sell')
+        const nextOrder = this.getAuctionSellOrders(normalizedItemKey)
             .find((order) => !context || !context.deletedOrderIds.has(order.id));
         if (!nextOrder) {
             return;
@@ -1560,7 +1625,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             this.persistAuctionStateToCarrier(normalizedItemKey, context);
             return false;
         }
-        const sellOrder = this.getSortedOrders(normalizedItemKey, 'sell')
+        const sellOrder = this.getAuctionSellOrders(normalizedItemKey)
             .find((order) => order.ownerId !== highestBid.bidderId && !context.deletedOrderIds.has(order.id));
         if (!sellOrder) {
             this.refundAuctionBidReserves(normalizedItemKey, context, result, `拍卖行拍品已失效，冻结灵石已退回。`);
@@ -2596,7 +2661,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     compactOpenOrders() {
         this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
         const activeAuctionItemKeys = new Set(this.openOrders
-            .filter((order) => order.side === 'sell' && this.canTradeItemOnMarket(order.item))
+            .filter((order) => this.isAuctionOrder(order) && order.side === 'sell' && this.canTradeItemOnMarket(order.item))
             .map((order) => this.getOrderItemKey(order)));
         for (const itemKey of Array.from(this.auctionBidsByItemKey.keys())) {
             if (!activeAuctionItemKeys.has(itemKey)) {
