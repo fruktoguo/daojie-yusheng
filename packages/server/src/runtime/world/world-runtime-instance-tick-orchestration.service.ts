@@ -83,18 +83,21 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                     }
                     break;
                 }
+                const isFormationTerrainStabilized = typeof deps.worldRuntimeFormationService?.createTerrainStabilizationChecker === 'function'
+                    ? deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId)
+                    : ((x, y) => deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true);
                 const result = instance.tickOnce();
                 if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
                     deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
                 }
                 if (typeof instance.advanceTemporaryTiles === 'function') {
                     instance.advanceTemporaryTiles(instance.tick, (x, y) => (
-                        deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true
+                        isFormationTerrainStabilized(x, y) === true
                     ));
                 }
                 if (typeof instance.advanceTileRecovery === 'function') {
                     instance.advanceTileRecovery((x, y) => (
-                        deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true
+                        isFormationTerrainStabilized(x, y) === true
                         || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                     ));
                 }

@@ -347,6 +347,59 @@ async function testFlushIncrementalInstanceDomains() {
     ]);
 }
 
+async function testFlushFullReplaceTileDamageDomain() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 777,
+        getPersistenceRevision() { return 14; },
+        buildTileDamagePersistenceDelta() {
+            log.push('buildTileDamagePersistenceDelta');
+            return {
+                fullReplace: true,
+                upserts: [],
+                deletes: [],
+            };
+        },
+        buildTileDamagePersistenceEntries() {
+            log.push('buildTileDamagePersistenceEntries');
+            return [
+                { tileIndex: 8, x: 2, y: 2, hp: 0, maxHp: 100, destroyed: true, respawnLeft: 3600 },
+                { tileIndex: 9, x: 3, y: 2, hp: 50, maxHp: 100, destroyed: false, respawnLeft: 0 },
+            ];
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['tile_damage'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async saveTileDamageStates(instanceId, entries) {
+                log.push(['saveTileDamageStates', instanceId, entries.length, entries[0]?.respawnLeft]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildTileDamagePersistenceDelta',
+        'buildTileDamagePersistenceEntries',
+        ['saveTileDamageStates', 'public:yunlai_town', 2, 3600],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 777, 14, ['tile_damage']],
+        ['markPersistenceDomainsPersisted', ['tile_damage']],
+    ]);
+}
+
 async function testFlushTimeDomainCheckpoint() {
     const log = [];
     const service = new WorldRuntimePersistenceStateService();
@@ -446,6 +499,7 @@ testMapTimeDirtyIsLowFrequency();
 Promise.all([
     testFlushOverlayAndMonsterDomains(),
     testFlushIncrementalInstanceDomains(),
+    testFlushFullReplaceTileDamageDomain(),
     testFlushTemporaryTileDomain(),
     testFlushTimeDomainCheckpoint(),
 ]).then(() => {

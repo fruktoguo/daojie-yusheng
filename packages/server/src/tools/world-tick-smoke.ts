@@ -168,10 +168,71 @@ async function testMaintenanceSkipsFrameAndSync() {
   assert.deepEqual(log, ['isRuntimeMaintenanceActive']);
 }
 
+async function testShutdownWaitsForInFlightTickAndBlocksNewTicks() {
+  const log = [];
+  let resolveFrame = () => {};
+
+  const service = new WorldTickService(
+    {
+      flushQueuedStatePushes() {
+        log.push('flushQueuedStatePushes');
+      },
+    },
+    {
+      isRuntimeMaintenanceActive() {
+        return false;
+      },
+    },
+    {
+      getMapTickSpeed() {
+        return 1;
+      },
+    },
+    {
+      advanceFrame() {
+        log.push('advanceFrame:start');
+        return new Promise((resolve) => {
+          resolveFrame = () => {
+            log.push('advanceFrame:resolved');
+            resolve(undefined);
+          };
+        });
+      },
+      recordSyncFlushDuration() {
+        log.push('recordSyncFlushDuration');
+      },
+    },
+    {
+      flushConnectedPlayers() {
+        log.push('flushConnectedPlayers');
+      },
+    },
+  );
+
+  const tickPromise = service.runTickOnce();
+  await new Promise((resolve) => setImmediate(resolve));
+  const shutdownPromise = service.beforeApplicationShutdown();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(log, ['advanceFrame:start']);
+
+  resolveFrame();
+  await Promise.all([tickPromise, shutdownPromise]);
+  await service.runTickOnce();
+
+  assert.deepEqual(log, [
+    'advanceFrame:start',
+    'advanceFrame:resolved',
+    'flushConnectedPlayers',
+    'recordSyncFlushDuration',
+    'flushQueuedStatePushes',
+  ]);
+}
+
 Promise.resolve()
   .then(() => testAwaitsAdvanceFrameBeforeSyncFlush())
   .then(() => testTickInFlightPreventsReentry())
   .then(() => testMaintenanceSkipsFrameAndSync())
+  .then(() => testShutdownWaitsForInFlightTickAndBlocksNewTicks())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-tick' }, null, 2));
   });

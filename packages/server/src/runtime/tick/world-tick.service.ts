@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type BeforeApplicationShutdown, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
 import { WorldSyncService } from '../../network/world-sync.service';
@@ -29,10 +29,11 @@ interface WorldSyncPort {
 }
 
 @Injectable()
-export class WorldTickService implements OnModuleInit, OnModuleDestroy {
+export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
   private readonly logger = new Logger(WorldTickService.name);
   private timer: ReturnType<typeof setInterval> | null = null;
   private tickInFlight = false;
+  private shuttingDown = false;
 
   constructor(
     @Inject(RuntimeGmStateService)
@@ -52,6 +53,9 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async runTickOnce(): Promise<void> {
+    if (this.shuttingDown) {
+      return;
+    }
     if (this.tickInFlight) {
       return;
     }
@@ -83,6 +87,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
+    this.shuttingDown = false;
     this.timer = setInterval(() => {
       void this.runTickOnce();
     }, gameplayConstants.WORLD_TICK_INTERVAL_MS);
@@ -92,6 +97,18 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
+    this.stopTimer();
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    this.shuttingDown = true;
+    this.stopTimer();
+    while (this.tickInFlight) {
+      await sleep(25);
+    }
+  }
+
+  private stopTimer(): void {
     if (!this.timer) {
       return;
     }
@@ -99,4 +116,8 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     clearInterval(this.timer);
     this.timer = null;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

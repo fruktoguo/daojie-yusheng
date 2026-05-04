@@ -355,7 +355,7 @@ class WorldRuntimeFormationService {
             return false;
         }
         for (const formation of formations) {
-            if (formation.active !== true || formation.template.effect.kind !== TERRAIN_STABILIZER_EFFECT_KIND) {
+            if (!isActiveTerrainStabilizerFormation(formation)) {
                 continue;
             }
             if (this.containsTile(formation, x, y)) {
@@ -365,6 +365,41 @@ class WorldRuntimeFormationService {
         return false;
     }
 
+    createTerrainStabilizationChecker(instanceId) {
+        const formations = this.formationsByInstanceId.get(instanceId);
+        if (!formations || formations.length <= 0) {
+            return () => false;
+        }
+        const snapshots = [];
+        for (const formation of formations) {
+            if (!isActiveTerrainStabilizerFormation(formation)) {
+                continue;
+            }
+            snapshots.push({
+                shape: formation.template.range.shape,
+                x: Math.trunc(Number(formation.x)),
+                y: Math.trunc(Number(formation.y)),
+                radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
+            });
+        }
+        if (snapshots.length <= 0) {
+            return () => false;
+        }
+        return (x, y) => {
+            const tileX = Math.trunc(Number(x));
+            const tileY = Math.trunc(Number(y));
+            if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+                return false;
+            }
+            for (const snapshot of snapshots) {
+                if (isFormationAffectedCell(snapshot.shape, snapshot.x, snapshot.y, tileX, tileY, snapshot.radius)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+    }
+
     resolveTerrainDamageReduction(instanceId, x, y) {
         const formations = this.formationsByInstanceId.get(instanceId);
         if (!formations || formations.length <= 0) {
@@ -372,7 +407,7 @@ class WorldRuntimeFormationService {
         }
         let reduction = 0;
         for (const formation of formations) {
-            if (formation.active !== true || formation.template.effect.kind !== TERRAIN_STABILIZER_EFFECT_KIND) {
+            if (!isActiveTerrainStabilizerFormation(formation)) {
                 continue;
             }
             if (!this.containsTile(formation, x, y)) {
@@ -1279,6 +1314,12 @@ function resolveFormationLifecycle(template) {
 
 function isPersistentFormation(formation) {
     return normalizeFormationLifecycle(formation?.lifecycle ?? formation?.template?.lifecycle) === FORMATION_LIFECYCLE_PERSISTENT;
+}
+
+function isActiveTerrainStabilizerFormation(formation) {
+    return formation?.active === true
+        && formation?.template?.effect?.kind === TERRAIN_STABILIZER_EFFECT_KIND
+        && Math.max(0, Number(formation?.remainingAuraBudget) || 0) > 0;
 }
 
 function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {

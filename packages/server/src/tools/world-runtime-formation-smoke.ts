@@ -370,6 +370,104 @@ async function main() {
   assert.equal(service.getFormationCombatState(instanceId, earthFormation.id), null);
   assert.equal(service.isTerrainStabilized(instanceId, 4, 5), false);
 
+  {
+    const snapshotInstanceId = "real:formation_stabilizer_snapshot";
+    const snapshotTemplateRepository = new MapTemplateRepository();
+    snapshotTemplateRepository.registerRuntimeMapTemplate({
+      id: "formation_stabilizer_snapshot",
+      name: "固脉阵 tick 快照测试",
+      width: 7,
+      height: 7,
+      tiles: [
+        ".......",
+        ".......",
+        ".......",
+        "...o...",
+        ".......",
+        ".......",
+        ".......",
+      ],
+      spawnPoint: { x: 0, y: 0 },
+      portals: [],
+      npcs: [],
+      monsters: [],
+      safeZones: [],
+      landmarks: [],
+      containers: [],
+      auras: [],
+    });
+    const snapshotInstance = new MapInstanceRuntime({
+      instanceId: snapshotInstanceId,
+      template: snapshotTemplateRepository.getOrThrow("formation_stabilizer_snapshot"),
+      monsterSpawns: [],
+      kind: "public",
+      persistent: true,
+      createdAt: Date.now(),
+      displayName: "固脉阵 tick 快照测试",
+      linePreset: "real",
+      lineIndex: 1,
+      instanceOrigin: "smoke",
+      defaultEntry: true,
+      canDamageTile: true,
+    });
+    const tileDamageResult = snapshotInstance.damageTile(3, 3, Number.MAX_SAFE_INTEGER);
+    assert.equal(tileDamageResult.destroyed, true);
+    const destroyedTileState = snapshotInstance.getTileCombatState(3, 3);
+    assert.equal(destroyedTileState?.destroyed, true);
+    snapshotInstance.hydrateTileDamage([{
+      tileIndex: snapshotInstance.toTileIndex(3, 3),
+      x: 3,
+      y: 3,
+      hp: 0,
+      maxHp: destroyedTileState.maxHp,
+      destroyed: true,
+      respawnLeft: 1,
+      modifiedAt: Date.now(),
+    }]);
+
+    const stabilizerTemplate = service.resolveFormationTemplate("earth_stabilizing");
+    service.getFormationList(snapshotInstanceId).push({
+      instanceId: snapshotInstanceId,
+      id: "formation:snapshot:earth-stabilizing",
+      ownerPlayerId: playerId,
+      ownerSectId: "sect:smoke",
+      formationId: stabilizerTemplate.id,
+      lifecycle: "deployed",
+      name: stabilizerTemplate.name,
+      template: stabilizerTemplate,
+      diskItemId: "formation_disk.mortal",
+      diskTier: "mortal",
+      diskMultiplier: 1,
+      spiritStoneCount: 1000,
+      qiCost: 0,
+      x: 3,
+      y: 3,
+      eyeInstanceId: snapshotInstanceId,
+      eyeX: 3,
+      eyeY: 3,
+      allocation: { effectPercent: 80, rangePercent: 10, durationPercent: 10 },
+      stats: {
+        effectValue: 1,
+        radius: 1,
+        totalAuraBudget: 1,
+        tickActiveCost: 2,
+        tickInactiveCost: 0,
+      },
+      active: true,
+      remainingAuraBudget: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    const stabilizedAtTickStart = service.createTerrainStabilizationChecker(snapshotInstanceId);
+    assert.equal(stabilizedAtTickStart(3, 3), true);
+    service.advanceInstanceFormations(snapshotInstance, 7, deps);
+    assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), false);
+    assert.equal(snapshotInstance.advanceTileRecovery(stabilizedAtTickStart), false);
+    assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, true);
+    assert.equal(snapshotInstance.advanceTileRecovery((x, y) => service.isTerrainStabilized(snapshotInstanceId, x, y)), true);
+    assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, false);
+  }
+
   player.inventory.items[0].count = 1;
   const barrierFormation = service.dispatchCreateFormation(playerId, {
     slotIndex: 0,

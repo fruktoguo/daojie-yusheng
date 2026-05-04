@@ -177,6 +177,11 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             if (delta && delta.fullReplace !== true && typeof persistence.saveTileDamageDelta === 'function') {
                 await persistence.saveTileDamageDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
             }
+            else if (delta?.fullReplace === true && typeof persistence.saveTileDamageStates === 'function') {
+                await persistence.saveTileDamageStates(instanceId, typeof instance.buildTileDamagePersistenceEntries === 'function'
+                    ? instance.buildTileDamagePersistenceEntries()
+                    : []);
+            }
             else {
                 throw new Error(`instance_domain_delta_required:${instanceId}:tile_damage`);
             }
