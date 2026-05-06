@@ -506,7 +506,7 @@ export class CraftWorkbenchModal {
       return {
         title: '制造技艺',
         subtitle: this.getCraftSubtitle(),
-        variantClass: 'detail-modal--craft',
+        variantClass: 'detail-modal--craft detail-modal--craft-alchemy',
         body: this.renderCraftBody(),
       };
     }
@@ -514,7 +514,7 @@ export class CraftWorkbenchModal {
       return {
         title: '制造技艺',
         subtitle: this.getCraftSubtitle(),
-        variantClass: 'detail-modal--craft',
+        variantClass: 'detail-modal--craft detail-modal--craft-forging',
         body: this.renderCraftBody(),
       };
     }
@@ -522,7 +522,7 @@ export class CraftWorkbenchModal {
       return {
         title: '制造技艺',
         subtitle: this.getCraftSubtitle(),
-        variantClass: 'detail-modal--craft',
+        variantClass: 'detail-modal--craft detail-modal--craft-enhancement',
         body: this.renderCraftBody(),
       };
     }
@@ -1875,7 +1875,7 @@ export class CraftWorkbenchModal {
           </div>
           <div class="enhancement-target-level-card">
             <div class="enhancement-section-title">当前行动</div>
-            <div class="enhancement-target-level-note">强化队列已启动，目标装备和强化锤在任务结束前会保持锁定。</div>
+            <div class="enhancement-target-level-note">强化队列已启动，目标装备在任务结束前会保持锁定。</div>
             <div class="enhancement-summary-metrics enhancement-summary-metrics--compact">
               <div class="enhancement-summary-metric">
                 <span>当前冲击</span>

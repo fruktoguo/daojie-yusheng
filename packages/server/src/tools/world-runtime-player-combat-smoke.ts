@@ -10,10 +10,11 @@ async function main(): Promise<void> {
   await testMonsterLootUsesRuntimeInventoryWithoutDurableContext();
   await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
   await testPvPLootDurableGrant();
+  await testPvPKillClearsMatchedRetaliateTarget();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会优先走 grantInventoryItems durable 主链；缺少 durable 上下文时回退到运行态背包并标记 inventory 脏域，只有 durable 提交失败或背包满才落地，不再让正常击杀掉落直接掉地上',
+    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会优先走 grantInventoryItems durable 主链；缺少 durable 上下文时回退到运行态背包并标记 inventory 脏域，只有 durable 提交失败或背包满才落地，不再让正常击杀掉落直接掉地上；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -471,6 +472,79 @@ async function testPvPLootDurableGrant() {
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(log, [
     ['queuePlayerNotice', 'player:combat:killer', '你从 乙 体内掠得 血精 x4。', 'loot'],
+  ]);
+}
+
+async function testPvPKillClearsMatchedRetaliateTarget() {
+  const log: Array<unknown[]> = [];
+  const victim = {
+    playerId: 'player:combat:victim',
+    name: '乙',
+    hp: 0,
+    x: 4,
+    y: 5,
+    instanceId: 'instance:combat:pvp',
+  };
+  const killer = {
+    playerId: 'player:combat:killer',
+    name: '甲',
+    combat: {
+      retaliatePlayerTargetId: 'player:combat:victim',
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      if (playerId === victim.playerId) {
+        return victim;
+      }
+      if (playerId === killer.playerId) {
+        return killer;
+      }
+      return null;
+    },
+    applyShaInfusionDeathPenalty() {
+      return {
+        consumedProgress: 0,
+        consumedFoundation: 0,
+        backlashAddedStacks: 0,
+        backlashTotalStacks: 0,
+        remainingInfusionStacks: 0,
+      };
+    },
+    clearRetaliatePlayerTargetIfMatches(playerId: string, targetPlayerId: string, currentTick: number) {
+      log.push(['clearRetaliatePlayerTargetIfMatches', playerId, targetPlayerId, currentTick]);
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
+  service.applyPvPKillRewards = async (nextKiller, nextVictim) => {
+    log.push(['applyPvPKillRewards', nextKiller.playerId, nextVictim.playerId]);
+  };
+  const deps = {
+    getInstanceRuntime() {
+      return null;
+    },
+    resolveCurrentTickForPlayerId(playerId: string) {
+      assert.equal(playerId, killer.playerId);
+      return 77;
+    },
+    clearPendingCommand(playerId: string) {
+      log.push(['clearPendingCommand', playerId]);
+    },
+    worldRuntimeGmQueueService: {
+      markPendingRespawn(playerId: string) {
+        log.push(['markPendingRespawn', playerId]);
+      },
+    },
+    queuePlayerNotice() {},
+  };
+
+  await service.handlePlayerDefeat(victim.playerId, deps as never, killer.playerId);
+
+  assert.deepEqual(log, [
+    ['clearRetaliatePlayerTargetIfMatches', killer.playerId, victim.playerId, 77],
+    ['applyPvPKillRewards', killer.playerId, victim.playerId],
+    ['clearPendingCommand', victim.playerId],
+    ['markPendingRespawn', victim.playerId],
   ]);
 }
 

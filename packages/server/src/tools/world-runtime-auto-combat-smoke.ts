@@ -14,6 +14,22 @@ function createPlayerRuntimeService(player: Record<string, unknown>, extraPlayer
     getPlayer(playerId: string) {
       return players.get(playerId) ?? null;
     },
+    clearRetaliatePlayerTargetIfExpired(playerId: string, currentTick: number) {
+      log.push(['clearRetaliatePlayerTargetIfExpired', playerId, currentTick]);
+      const current = players.get(playerId);
+      const combat = current?.combat as { retaliatePlayerTargetId?: string | null; retaliatePlayerTargetLastAttackTick?: number | null } | undefined;
+      if (!combat?.retaliatePlayerTargetId) {
+        return current ?? null;
+      }
+      const lastAttackTick = typeof combat.retaliatePlayerTargetLastAttackTick === 'number'
+        ? combat.retaliatePlayerTargetLastAttackTick
+        : null;
+      if (lastAttackTick === null || currentTick - lastAttackTick >= 1800) {
+        combat.retaliatePlayerTargetId = null;
+        combat.retaliatePlayerTargetLastAttackTick = null;
+      }
+      return current ?? null;
+    },
     clearManualEngagePending(playerId: string) {
       log.push(['clearManualEngagePending', playerId]);
     },
@@ -438,6 +454,38 @@ function testAutoCombatDoesNotEnqueueSpentActionCommand(): void {
   assert.equal(enqueueLog.length, 1);
   assert.equal((enqueueLog[0]?.[1] as { kind?: string })?.kind, 'basicAttack');
   assert.equal((enqueueLog[0]?.[1] as { targetMonsterId?: string })?.targetMonsterId, 'monster:1');
+}
+
+function testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    combat: {
+      autoBattle: false,
+      autoRetaliate: false,
+      manualEngagePending: false,
+      retaliatePlayerTargetId: 'attacker',
+      retaliatePlayerTargetLastAttackTick: 10,
+    },
+  };
+  const enqueueLog: unknown[][] = [];
+  const playerRuntimeService = createPlayerRuntimeService(player);
+  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never);
+
+  service.materializeAutoCombatCommands(createMaterializeDeps(
+    createAdjacentMonsterInstance(),
+    enqueueLog,
+    1810,
+  ) as never);
+
+  assert.deepEqual(playerRuntimeService.log, [
+    ['clearRetaliatePlayerTargetIfExpired', 'player:1', 1810],
+  ]);
+  assert.equal((player.combat as { retaliatePlayerTargetId?: string | null }).retaliatePlayerTargetId, null);
+  assert.equal(enqueueLog.length, 0);
 }
 
 function testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown(): void {
@@ -1108,9 +1156,10 @@ testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization();
 testAutoUsePillSkipsEmptyConditions();
 testAutoUsePillSkipsWhenManualCommandIsPending();
 testAutoUseBuffPillTriggersOnlyWhenBuffMissing();
+testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit();
 
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
 }, null, 2));

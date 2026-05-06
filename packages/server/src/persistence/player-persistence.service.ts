@@ -73,8 +73,10 @@ interface PlayerSnapshotProgression {
   luck?: number;
   bodyTraining: Record<string, unknown> | null;
   alchemySkill: Record<string, unknown> | null;
+  buildingSkill?: Record<string, unknown> | null;
   gatherSkill: Record<string, unknown> | null;
   gatherJob: Record<string, unknown> | null;
+  buildingJob?: Record<string, unknown> | null;
   alchemyPresets: unknown[];
   alchemyJob: Record<string, unknown> | null;
   enhancementSkill: Record<string, unknown> | null;
@@ -135,6 +137,7 @@ interface PlayerSnapshotCombat {
   autoBattleStationary: boolean;
   autoBattleTargetingMode?: string;
   retaliatePlayerTargetId?: string | null;
+  retaliatePlayerTargetLastAttackTick?: number | null;
   combatTargetingRules?: Record<string, unknown> | null;
   combatTargetId: string | null;
   combatTargetLocked: boolean;
@@ -562,8 +565,10 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       luck: isFiniteNumber(progression?.luck) ? Math.max(0, Math.trunc(progression.luck)) : 0,
       bodyTraining: asRecordOrNull(progression?.bodyTraining),
       alchemySkill: asRecordOrNull(progression?.alchemySkill),
+      buildingSkill: asRecordOrNull(progression?.buildingSkill),
       gatherSkill: asRecordOrNull(progression?.gatherSkill),
       gatherJob: asRecordOrNull(progression?.gatherJob),
+      buildingJob: asRecordOrNull(progression?.buildingJob),
       alchemyPresets: Array.isArray(progression?.alchemyPresets) ? progression.alchemyPresets : [],
       alchemyJob: asRecordOrNull(progression?.alchemyJob),
       enhancementSkill: asRecordOrNull(progression?.enhancementSkill),
@@ -625,6 +630,14 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       autoBattle: combat?.autoBattle === true,
       autoRetaliate: combat?.autoRetaliate !== false,
       autoBattleStationary: combat?.autoBattleStationary === true,
+      retaliatePlayerTargetId:
+        typeof combat?.retaliatePlayerTargetId === 'string' && combat.retaliatePlayerTargetId.trim()
+          ? combat.retaliatePlayerTargetId.trim()
+          : null,
+      retaliatePlayerTargetLastAttackTick:
+        isFiniteNumber(combat?.retaliatePlayerTargetLastAttackTick)
+          ? Math.max(0, Math.trunc(Number(combat.retaliatePlayerTargetLastAttackTick)))
+          : null,
       combatTargetId:
         typeof combat?.combatTargetId === 'string' && combat.combatTargetId.trim()
           ? combat.combatTargetId.trim()

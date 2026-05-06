@@ -229,6 +229,7 @@ function createSnapshot() {
       combatTargetingRules: undefined,
       autoBattleTargetingMode: 'auto' as const,
       retaliatePlayerTargetId: null,
+      retaliatePlayerTargetLastAttackTick: null,
       combatTargetId: null,
       combatTargetLocked: false,
       allowAoePlayerHit: false,
@@ -327,9 +328,43 @@ function testPlayerRetaliateOpensLockedAutoBattle(): void {
   service.setRetaliatePlayerTarget(playerId, 'player:attacker', 17);
 
   assert.equal(player.combat.retaliatePlayerTargetId, 'player:attacker');
+  assert.equal(player.combat.retaliatePlayerTargetLastAttackTick, 17);
   assert.equal(player.combat.autoBattle, true);
   assert.equal(player.combat.combatTargetId, 'player:player:attacker');
   assert.equal(player.combat.combatTargetLocked, true);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
+}
+
+function testRetaliatePlayerExpiresAfterThirtyMinutes(): void {
+  const playerId = 'player:retaliate:expire';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+
+  service.setRetaliatePlayerTarget(playerId, 'player:attacker', 10);
+  service.markPersisted(playerId);
+  service.clearRetaliatePlayerTargetIfExpired(playerId, 1809);
+  assert.equal(player.combat.retaliatePlayerTargetId, 'player:attacker');
+  assert.equal(player.combat.retaliatePlayerTargetLastAttackTick, 10);
+
+  service.clearRetaliatePlayerTargetIfExpired(playerId, 1810);
+  assert.equal(player.combat.retaliatePlayerTargetId, null);
+  assert.equal(player.combat.retaliatePlayerTargetLastAttackTick, null);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
+}
+
+function testRetaliatePlayerClearsWhenMatchedTargetDies(): void {
+  const playerId = 'player:retaliate:kill-clear';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+
+  service.setRetaliatePlayerTarget(playerId, 'player:attacker', 20);
+  service.markPersisted(playerId);
+  service.clearRetaliatePlayerTargetIfMatches(playerId, 'player:other', 30);
+  assert.equal(player.combat.retaliatePlayerTargetId, 'player:attacker');
+
+  service.clearRetaliatePlayerTargetIfMatches(playerId, 'player:attacker', 30);
+  assert.equal(player.combat.retaliatePlayerTargetId, null);
+  assert.equal(player.combat.retaliatePlayerTargetLastAttackTick, null);
   assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
 }
 
@@ -338,11 +373,13 @@ function testMonsterRetaliateOpensAutoBattleWithoutPlayerLock(): void {
   const service = createHydratedService(playerId);
   const player = service.getPlayerOrThrow(playerId);
   player.combat.retaliatePlayerTargetId = 'player:old';
+  player.combat.retaliatePlayerTargetLastAttackTick = 11;
   service.markPersisted(playerId);
 
   service.activateAutoRetaliate(playerId, 23);
 
   assert.equal(player.combat.retaliatePlayerTargetId, null);
+  assert.equal(player.combat.retaliatePlayerTargetLastAttackTick, null);
   assert.equal(player.combat.autoBattle, true);
   assert.equal(player.combat.combatTargetId, null);
   assert.equal(player.combat.combatTargetLocked, false);
@@ -1294,6 +1331,8 @@ testAutoUsePillsDirtyDomain();
 testMapUnlockDirtyDomain();
 testAutoBattleSkillDirtyDomain();
 testPlayerRetaliateOpensLockedAutoBattle();
+testRetaliatePlayerExpiresAfterThirtyMinutes();
+testRetaliatePlayerClearsWhenMatchedTargetDies();
 testMonsterRetaliateOpensAutoBattleWithoutPlayerLock();
 testLogbookDirtyDomain();
   testWorldPreferenceDirtyDomain();

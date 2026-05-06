@@ -732,6 +732,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         handleBuildDeconstructIntent(playerId, payload) {
         return world_runtime_building_service_1.handleBuildDeconstructIntent(this, playerId, payload);
     }
+        handleStartBuildingConstruction(playerId, buildingId) {
+        return world_runtime_building_service_1.handleStartBuildingConstruction(this, playerId, buildingId);
+    }
+        dispatchStartBuildingConstruction(playerId, buildingId) {
+        return world_runtime_building_service_1.dispatchStartBuildingConstruction(this, playerId, buildingId);
+    }
+        interruptBuildingConstruction(playerId, reason) {
+        return world_runtime_building_service_1.interruptBuildingConstruction(this, playerId, reason);
+    }
+        tickBuildingConstruction(playerId) {
+        return world_runtime_building_service_1.tickBuildingConstruction(this, playerId);
+    }
         listBuildingOperationAudit(limit = 50) {
         return world_runtime_building_service_1.listBuildingOperationAudit(this, limit);
     }

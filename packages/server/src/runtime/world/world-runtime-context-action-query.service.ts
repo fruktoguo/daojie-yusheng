@@ -188,6 +188,36 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
                 cooldownLeft: 0,
             });
         }
+        const localBuildings = Array.isArray(view?.localBuildings) ? view.localBuildings : [];
+        if (typeof deps?.getInstanceRuntimeOrThrow === 'function') {
+            for (const entry of localBuildings) {
+                if (chebyshevDistance(view.self.x, view.self.y, entry.x, entry.y) > 1) {
+                    continue;
+                }
+                const sourceInstanceId = typeof entry?.instanceId === 'string' && entry.instanceId.trim()
+                    ? entry.instanceId.trim()
+                    : view.instance.instanceId;
+                const instance = deps.getInstanceRuntimeOrThrow(sourceInstanceId);
+                const building = instance?.buildingById?.get?.(entry.id);
+                if (!building || building.state !== 'building') {
+                    continue;
+                }
+                if (building.ownerPlayerId && building.ownerPlayerId !== view.playerId) {
+                    continue;
+                }
+                const remainingTicks = Math.max(1, Math.trunc(Number(entry?.remainingTicks ?? building.buildRemainingTicks ?? building.buildStrength ?? 1)));
+                const buildingName = typeof entry?.name === 'string' && entry.name.trim()
+                    ? entry.name.trim()
+                    : (typeof building.defId === 'string' ? building.defId : '建筑');
+                actions.push({
+                    id: `building:start:${building.id}`,
+                    name: `开始建造：${buildingName}（余 ${remainingTicks} 息）`,
+                    type: 'interact',
+                    desc: `靠近半成品后持续施工，剩余 ${remainingTicks} 息。`,
+                    cooldownLeft: 0,
+                });
+            }
+        }
         if (typeof deps?.worldRuntimeSectService?.buildSectCoreActions === 'function') {
             actions.push(...deps.worldRuntimeSectService.buildSectCoreActions(view, deps));
         }

@@ -223,7 +223,12 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
   const buildingFengShuiStateSource = createMainBuildingFengShuiStateSource({
     socket: buildingSender, setFengShuiOverlay: (overlay) => mapRuntime.setFengShuiOverlay(overlay), setBuildPreviewOverlay: (overlay) => mapRuntime.setBuildPreviewOverlay(overlay),
-    getPlayer: () => rootRuntimeSource.getPlayer(), showToast: callbacks.showToast,
+    getPlayer: () => rootRuntimeSource.getPlayer(),
+    showToast: callbacks.showToast,
+    beginTargeting: callbacks.beginTargeting,
+    cancelTargeting: callbacks.cancelTargeting,
+    getInfoRadius: callbacks.getInfoRadius,
+    sidePanel,
   });
   const inventoryStateSource = createMainInventoryStateSource({
     inventoryPanel,
@@ -303,13 +308,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       attrPanel,
       worldPanel,
       entityDetailModal,
-    },    
-    /**
- * setPanelDeltaStateSource：写入面板增量状态来源。
- * @param value typeof panelDeltaStateSource 参数说明。
- * @returns 无返回值，直接更新面板Delta状态来源相关状态。
- */
-
+    },
     setPanelDeltaStateSource(value: typeof panelDeltaStateSource) {
       panelDeltaStateSource = value;
     },

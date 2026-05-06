@@ -138,4 +138,9 @@ export interface BuildingInstance {
   createdAtTick: number;
   updatedAtTick: number;
   revision: number;
+  buildStrength?: number;
+  builderSkillLevel?: number;
+  buildCompleteTick?: number;
+  buildRemainingTicks?: number;
+  activeBuilderPlayerId?: string | null;
 }

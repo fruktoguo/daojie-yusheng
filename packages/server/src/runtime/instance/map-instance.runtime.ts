@@ -888,9 +888,13 @@ class MapInstanceRuntime {
         if (this.buildingById.has(buildingId)) {
             return { ok: true, duplicate: true, building: this.buildingById.get(buildingId) };
         }
+        const state = normalizeBuildingState(input?.state ?? 'active');
         const previousTileTypes = [];
-        const wasInRoomInfluence = cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
-        if (compiled.visualTileType) {
+        const usesActiveTopology = buildingUsesActiveTopology({ state });
+        const wasInRoomInfluence = usesActiveTopology
+            ? cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex))
+            : false;
+        if (usesActiveTopology && compiled.visualTileType) {
             for (const cellIndex of cells) {
                 previousTileTypes.push([cellIndex, this.tilePlane.getTileType(cellIndex)]);
                 this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
@@ -907,41 +911,132 @@ class MapInstanceRuntime {
             ownerPlayerId: typeof input?.ownerPlayerId === 'string' && input.ownerPlayerId.trim() ? input.ownerPlayerId.trim() : null,
             ownerSectId: typeof input?.ownerSectId === 'string' && input.ownerSectId.trim() ? input.ownerSectId.trim() : null,
             roomId: null,
-            hp: compiled.maxHp,
-            maxHp: compiled.maxHp,
-            state: input?.state ?? 'active',
+            hp: Math.max(0, Math.min(Math.max(1, Math.trunc(Number(input?.maxHp ?? compiled.maxHp) || compiled.maxHp)), Math.trunc(Number(input?.hp ?? input?.maxHp ?? compiled.maxHp) || compiled.maxHp))),
+            maxHp: Math.max(1, Math.trunc(Number(input?.maxHp ?? compiled.maxHp) || compiled.maxHp)),
+            state,
             createdAtTick: this.tick,
             updatedAtTick: this.tick,
             revision: 1,
+            buildStrength: Number.isFinite(Number(input?.buildStrength)) ? Math.max(1, Math.trunc(Number(input.buildStrength))) : undefined,
+            builderSkillLevel: Number.isFinite(Number(input?.builderSkillLevel)) ? Math.max(1, Math.trunc(Number(input.builderSkillLevel))) : undefined,
+            buildCompleteTick: state === 'building' && normalizeBuildingId(input?.activeBuilderPlayerId)
+                ? Math.max(this.tick, Math.trunc(Number(input?.buildCompleteTick ?? (this.tick + normalizeBuildingRemainingTicks(input?.buildRemainingTicks ?? input?.buildStrength, input?.buildStrength)))))
+                : undefined,
+            buildRemainingTicks: state === 'building'
+                ? normalizeBuildingRemainingTicks(input?.buildRemainingTicks ?? input?.buildStrength, input?.buildStrength)
+                : undefined,
+            activeBuilderPlayerId: state === 'building'
+                ? (normalizeBuildingId(input?.activeBuilderPlayerId) || null)
+                : null,
         };
         this.buildingById.set(building.id, building);
         this.buildingCellsById.set(building.id, cells);
         if (previousTileTypes.length > 0) {
             this.buildingPreviousTileTypeById.set(building.id, previousTileTypes);
         }
-        this.applyBuildingTopologyForBuilding(building.id);
-        const affectsBoundaryTopology = compiledBuildingAffectsRoomBoundaryTopology(compiled);
-        const affectsRoofTopology = compiled.roofCoverage > 0;
-        const shouldRecalculateRooms = affectsBoundaryTopology
-            ? cells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex, this.tilePlane.getTileType(cellIndex), compiled.visualTileType ?? this.getEffectiveTileTypeByCellIndex(cellIndex)))
-            : affectsRoofTopology && wasInRoomInfluence;
-        if (shouldRecalculateRooms) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'place', dirtyCellCount: cells.length });
-        }
-        else if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
-            for (const cellIndex of cells) {
-                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_place_fengshui');
+        let dirtyDomains = ['building'];
+        if (usesActiveTopology) {
+            this.applyBuildingTopologyForBuilding(building.id);
+            const affectsBoundaryTopology = compiledBuildingAffectsRoomBoundaryTopology(compiled);
+            const affectsRoofTopology = compiled.roofCoverage > 0;
+            const shouldRecalculateRooms = affectsBoundaryTopology
+                ? cells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex, this.tilePlane.getTileType(cellIndex), compiled.visualTileType ?? this.getEffectiveTileTypeByCellIndex(cellIndex)))
+                : affectsRoofTopology && wasInRoomInfluence;
+            if (shouldRecalculateRooms) {
+                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'place', dirtyCellCount: cells.length });
+                dirtyDomains = dirtyDomains.concat(['room', 'fengshui']);
+            }
+            else if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
+                for (const cellIndex of cells) {
+                    this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_place_fengshui');
+                }
+                if (wasInRoomInfluence) {
+                    dirtyDomains.push('fengshui');
+                }
+            }
+            if (previousTileTypes.length > 0) {
+                dirtyDomains.push('tile_cell');
             }
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains([
-            'building',
-            ...(shouldRecalculateRooms ? ['room', 'fengshui'] : []),
-            ...(!shouldRecalculateRooms && (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) && wasInRoomInfluence ? ['fengshui'] : []),
-            ...(previousTileTypes.length > 0 ? ['tile_cell'] : []),
-        ]);
+        this.markPersistenceDirtyDomains(Array.from(new Set(dirtyDomains)));
         return { ok: true, building };
+    }
+    /** startBuildingConstruction：把半成品建筑切到持续施工状态。 */
+    startBuildingConstruction(buildingIdInput, playerIdInput) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const playerId = normalizeBuildingId(playerIdInput);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building) {
+            return { ok: false, reason: 'building_not_found' };
+        }
+        if (building.state !== 'building') {
+            return { ok: false, reason: 'building_not_under_construction' };
+        }
+        if (building.ownerPlayerId && building.ownerPlayerId !== playerId) {
+            return { ok: false, reason: 'building_owner_mismatch' };
+        }
+        const player = playerId ? this.playersById.get(playerId) : null;
+        if (!player) {
+            return { ok: false, reason: 'player_not_found' };
+        }
+        if (chebyshevDistance(player.x, player.y, building.x, building.y) > 1) {
+            return { ok: false, reason: 'building_too_far' };
+        }
+        let changed = false;
+        for (const entry of this.buildingById.values()) {
+            if (entry?.state !== 'building' || entry.id === building.id) {
+                continue;
+            }
+            if (entry.activeBuilderPlayerId === playerId) {
+                entry.activeBuilderPlayerId = null;
+                entry.buildCompleteTick = undefined;
+                entry.updatedAtTick = this.tick;
+                entry.revision = Math.max(1, Math.trunc(Number(entry.revision) || 1)) + 1;
+                changed = true;
+            }
+        }
+        if (building.activeBuilderPlayerId === playerId) {
+            return { ok: true, building, changed };
+        }
+        building.activeBuilderPlayerId = playerId;
+        building.buildCompleteTick = this.tick + resolveBuildingRemainingTicks(building);
+        building.updatedAtTick = this.tick;
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        changed = true;
+        if (changed) {
+            this.worldRevision += 1;
+            this.persistentRevision += 1;
+            this.markPersistenceDirtyDomains(['building']);
+        }
+        return { ok: true, building, changed };
+    }
+    /** stopBuildingConstruction：暂停指定玩家的半成品施工。 */
+    stopBuildingConstruction(buildingIdInput, playerIdInput) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const playerId = normalizeBuildingId(playerIdInput);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building) {
+            return { ok: false, reason: 'building_not_found' };
+        }
+        if (building.state !== 'building') {
+            return { ok: false, reason: 'building_not_under_construction' };
+        }
+        if (playerId && building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
+            return { ok: false, reason: 'building_owner_mismatch' };
+        }
+        if (!building.activeBuilderPlayerId) {
+            return { ok: true, building, changed: false };
+        }
+        building.activeBuilderPlayerId = null;
+        building.buildCompleteTick = undefined;
+        building.updatedAtTick = this.tick;
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomains(['building']);
+        return { ok: true, building, changed: true };
     }
     /** deconstructBuildingInstance：服务端权威拆除建筑，调用方负责返还和审计。 */
     deconstructBuildingInstance(buildingIdInput) {
@@ -994,8 +1089,8 @@ class MapInstanceRuntime {
         this.buildingIdByCell.clear();
         const catalog = this.buildingCatalog;
         if (catalog?.defByHandle) {
-            for (const [buildingId, building] of this.buildingById.entries()) {
-                if (!building || building.state === 'destroyed') {
+        for (const [buildingId, building] of this.buildingById.entries()) {
+                if (!building || !buildingUsesActiveTopology(building)) {
                     continue;
                 }
                 const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
@@ -1030,7 +1125,7 @@ class MapInstanceRuntime {
             ? catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId)
             : null;
         const cells = this.buildingCellsById.get(buildingId) ?? [];
-        if (!building || !compiled || cells.length === 0) {
+        if (!building || !compiled || cells.length === 0 || !buildingUsesActiveTopology(building)) {
             return false;
         }
         this.buildingTopologyIndex?.applyBuildingToCells(compiled, cells);
@@ -1123,6 +1218,7 @@ class MapInstanceRuntime {
             if (!aggregate) {
                 continue;
             }
+            room.role = (0, fengshui_calculator_service_1.inferRoomRole)(catalog, room, aggregate).role;
             const snapshot = (0, fengshui_calculator_service_1.calculateFengShuiSnapshot)(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
@@ -1237,6 +1333,7 @@ class MapInstanceRuntime {
             if (!room || !aggregate) {
                 continue;
             }
+            room.role = (0, fengshui_calculator_service_1.inferRoomRole)(this.buildingCatalog, room, aggregate).role;
             const snapshot = (0, fengshui_calculator_service_1.calculateFengShuiSnapshot)(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
@@ -1384,7 +1481,7 @@ class MapInstanceRuntime {
             if (!aggregate) {
                 continue;
             }
-            applyCompiledBuildingToRoomAggregate(aggregate, compiled);
+            applyCompiledBuildingToRoomAggregate(aggregate, compiled, catalog);
             building.roomId = roomId;
         }
         return aggregates;
@@ -1564,10 +1661,15 @@ class MapInstanceRuntime {
                 roomId: typeof entry?.roomId === 'string' && entry.roomId.trim() ? entry.roomId.trim() : null,
                 hp: Math.max(0, Math.trunc(Number(entry?.hp) || 0)),
                 maxHp: Math.max(1, Math.trunc(Number(entry?.maxHp) || compiled?.maxHp || 1)),
-                state: typeof entry?.state === 'string' && entry.state.trim() ? entry.state.trim() : 'active',
+                state: normalizeBuildingState(entry?.state),
                 createdAtTick: Math.max(0, Math.trunc(Number(entry?.createdAtTick) || 0)),
                 updatedAtTick: Math.max(0, Math.trunc(Number(entry?.updatedAtTick) || 0)),
                 revision: Math.max(1, Math.trunc(Number(entry?.revision) || 1)),
+                buildStrength: Number.isFinite(Number(entry?.buildStrength)) ? Math.max(1, Math.trunc(Number(entry.buildStrength))) : undefined,
+                builderSkillLevel: Number.isFinite(Number(entry?.builderSkillLevel)) ? Math.max(1, Math.trunc(Number(entry.builderSkillLevel))) : undefined,
+                buildCompleteTick: Number.isFinite(Number(entry?.buildCompleteTick)) ? Math.max(0, Math.trunc(Number(entry.buildCompleteTick))) : undefined,
+                buildRemainingTicks: Number.isFinite(Number(entry?.buildRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.buildRemainingTicks))) : undefined,
+                activeBuilderPlayerId: normalizeBuildingId(entry?.activeBuilderPlayerId) || null,
             };
             this.buildingById.set(id, building);
             const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);
@@ -1576,7 +1678,7 @@ class MapInstanceRuntime {
             if (previousTileTypes.length > 0) {
                 this.buildingPreviousTileTypeById.set(id, previousTileTypes);
             }
-            if (compiled?.visualTileType) {
+            if (compiled?.visualTileType && buildingUsesActiveTopology(building)) {
                 for (const cellIndex of cells) {
                     if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
                         this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
@@ -1683,6 +1785,88 @@ class MapInstanceRuntime {
         }
         return this.buildTransfer(player, portal, reason);
     }
+    advanceBuildingConstruction() {
+        const completedBuildings = [];
+        let changed = false;
+        for (const building of this.buildingById.values()) {
+            if (building?.state !== 'building') {
+                continue;
+            }
+            const activeBuilderPlayerId = normalizeBuildingId(building.activeBuilderPlayerId);
+            if (!activeBuilderPlayerId) {
+                continue;
+            }
+            const activeBuilder = this.playersById.get(activeBuilderPlayerId);
+            if (!activeBuilder || chebyshevDistance(activeBuilder.x, activeBuilder.y, building.x, building.y) > 1) {
+                building.activeBuilderPlayerId = null;
+                building.buildCompleteTick = undefined;
+                building.updatedAtTick = this.tick;
+                building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                changed = true;
+                continue;
+            }
+            const nextRemainingTicks = Math.max(0, resolveBuildingRemainingTicks(building) - 1);
+            building.buildRemainingTicks = nextRemainingTicks;
+            building.buildCompleteTick = nextRemainingTicks > 0 ? this.tick + nextRemainingTicks : this.tick;
+            building.updatedAtTick = this.tick;
+            building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+            changed = true;
+            if (nextRemainingTicks > 0) {
+                continue;
+            }
+            building.state = 'active';
+            building.activeBuilderPlayerId = null;
+            const completionDomains = this.activatePlacedBuildingTopologyAndVisual(building);
+            if (completionDomains.length > 0) {
+                this.markPersistenceDirtyDomains(completionDomains);
+            }
+            completedBuildings.push(building);
+        }
+        if (!changed) {
+            return completedBuildings;
+        }
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomains(['building']);
+        return completedBuildings;
+    }
+    activatePlacedBuildingTopologyAndVisual(building) {
+        const compiled = building && this.buildingCatalog?.defByHandle
+            ? this.buildingCatalog.defByHandle[building.defHandle] ?? this.buildingCatalog.defById?.get?.(building.defId)
+            : null;
+        const cells = building ? (this.buildingCellsById.get(building.id) ?? []) : [];
+        if (!building || !compiled || cells.length === 0) {
+            return [];
+        }
+        const previousTileTypes = [];
+        const wasInRoomInfluence = cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
+        if (compiled.visualTileType) {
+            for (const cellIndex of cells) {
+                previousTileTypes.push([cellIndex, this.tilePlane.getTileType(cellIndex)]);
+                this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
+            }
+        }
+        if (previousTileTypes.length > 0) {
+            this.buildingPreviousTileTypeById.set(building.id, previousTileTypes);
+        }
+        this.applyBuildingTopologyForBuilding(building.id);
+        const affectsBoundaryTopology = compiledBuildingAffectsRoomBoundaryTopology(compiled);
+        const affectsRoofTopology = compiled.roofCoverage > 0;
+        const shouldRecalculateRooms = affectsBoundaryTopology
+            ? cells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex, this.tilePlane.getTileType(cellIndex), compiled.visualTileType ?? this.getEffectiveTileTypeByCellIndex(cellIndex)))
+            : affectsRoofTopology && wasInRoomInfluence;
+        if (shouldRecalculateRooms) {
+            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'build_complete', dirtyCellCount: cells.length });
+            return ['building', 'room', 'fengshui', ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+        }
+        if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
+            for (const cellIndex of cells) {
+                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_complete_fengshui');
+            }
+            return ['building', ...(wasInRoomInfluence ? ['fengshui'] : []), ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+        }
+        return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+    }
     /** tickOnce：推进当前地图实例的一个逻辑 tick。 */
     tickOnce() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1718,8 +1902,10 @@ class MapInstanceRuntime {
             player.lastResolvedTick = this.tick;
         }
         this.pendingCommands.clear();
+        const completedBuildings = this.advanceBuildingConstruction();
         this.advanceMonsters(monsterActions);
         return {
+            completedBuildings,
             transfers,
             monsterActions,
         };
@@ -1752,6 +1938,7 @@ class MapInstanceRuntime {
         const localContainers = this.collectLocalContainers(player.x, player.y, radius, visibleTileVisibility);
 
         const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, radius, visibleTileVisibility);
+        const localBuildings = this.collectLocalBuildings(player.x, player.y, radius, visibleTileVisibility);
         return {
             playerId: player.playerId,
             sessionId: player.sessionId,
@@ -1784,6 +1971,7 @@ class MapInstanceRuntime {
             localSafeZones,
             localContainers,
             localGroundPiles,
+            localBuildings,
         };
     }
     /** snapshot：构建地图实例快照。 */
@@ -3762,6 +3950,38 @@ class MapInstanceRuntime {
         containers.sort(compareLocalContainers);
         return containers;
     }
+    /** collectLocalBuildings：收集视野内未完工的半成品建筑。 */
+    collectLocalBuildings(centerX, centerY, radius, visibleTileVisibility = null) {
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
+        const buildings = [];
+        for (const building of this.buildingById.values()) {
+            if (building?.state !== 'building') {
+                continue;
+            }
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, building.x, building.y)) {
+                continue;
+            }
+            if (!this.isTileVisibleByFilter(building.x, building.y, visibility)) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            buildings.push({
+                id: building.id,
+                x: building.x,
+                y: building.y,
+                name: compiled?.name ?? building.defId,
+                char: typeof compiled?.glyph === 'string' && compiled.glyph.trim()
+                    ? compiled.glyph.trim()[0] ?? '筑'
+                    : (compiled?.name?.trim()?.[0] ?? '筑'),
+                color: typeof compiled?.color === 'string' && compiled.color.trim()
+                    ? compiled.color.trim()
+                    : '#cbd5e1',
+                remainingTicks: resolveBuildingRemainingTicks(building),
+            });
+        }
+        buildings.sort((left, right) => left.id.localeCompare(right.id, 'zh-CN'));
+        return buildings;
+    }
     /** collectLocalLandmarks：收集当前视野内可见地标。 */
     collectLocalLandmarks(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -5639,6 +5859,42 @@ function rotationToIndex(rotation) {
 function normalizeBuildingId(value) {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
+function normalizeBuildingState(value) {
+    switch (value) {
+        case 'planned':
+        case 'building':
+        case 'active':
+        case 'damaged':
+        case 'destroyed':
+        case 'deconstructing':
+            return value;
+        default:
+            return 'active';
+    }
+}
+function buildingUsesActiveTopology(buildingOrState) {
+    const state = typeof buildingOrState === 'string'
+        ? buildingOrState
+        : normalizeBuildingState(buildingOrState?.state);
+    return state !== 'planned' && state !== 'building' && state !== 'destroyed';
+}
+function normalizeBuildingRemainingTicks(value, fallbackValue = undefined) {
+    const resolved = Number.isFinite(Number(value))
+        ? Math.trunc(Number(value))
+        : Number.isFinite(Number(fallbackValue))
+            ? Math.trunc(Number(fallbackValue))
+            : 1;
+    return Math.max(1, resolved);
+}
+function resolveBuildingRemainingTicks(building) {
+    if (Number.isFinite(Number(building?.buildRemainingTicks))) {
+        return Math.max(0, Math.trunc(Number(building.buildRemainingTicks)));
+    }
+    if (Number.isFinite(Number(building?.buildStrength))) {
+        return Math.max(1, Math.trunc(Number(building.buildStrength)));
+    }
+    return 1;
+}
 function resolveBuildingCatalogRevision(catalog) {
     if (!Array.isArray(catalog?.defs)) {
         return 0;
@@ -5669,28 +5925,39 @@ function createRoomAggregate(room) {
         roofCoverage: room.roofCoverageRatio,
         elementVector: new Int32Array(5),
         traitCounts: new Map(),
+        traitKeys: new Set(),
         comfort: 0,
         stability: 0,
         qiRaw: 0,
+        qiAffinity: 0,
+        qiLeak: 0,
         shaRaw: 0,
+        shaEmit: 0,
+        shaReduce: 0,
         integrityPenalty: 0,
         formationScore: 0,
         topologyRevision: room.topologyRevision,
         aggregateRevision: room.topologyRevision + room.contentRevision,
     };
 }
-function applyCompiledBuildingToRoomAggregate(aggregate, compiled) {
+function applyCompiledBuildingToRoomAggregate(aggregate, compiled, catalog = null) {
     for (let index = 0; index < compiled.elementVector.length; index += 1) {
         aggregate.elementVector[index] += compiled.elementVector[index] ?? 0;
     }
     for (const traitId of compiled.traitIds ?? []) {
         aggregate.traitCounts.set(traitId, (aggregate.traitCounts.get(traitId) ?? 0) + 1);
+        const traitKey = catalog?.traitKeysById?.[traitId];
+        if (traitKey && aggregate.traitKeys instanceof Set) {
+            aggregate.traitKeys.add(traitKey);
+        }
     }
     aggregate.comfort += compiled.fengShuiContrib?.[0] ?? 0;
     aggregate.stability += compiled.fengShuiContrib?.[1] ?? 0;
-    aggregate.qiRaw += compiled.fengShuiContrib?.[2] ?? 0;
-    aggregate.shaRaw += Math.max(0, compiled.fengShuiContrib?.[4] ?? 0);
-    aggregate.shaRaw = Math.max(0, aggregate.shaRaw - Math.max(0, compiled.fengShuiContrib?.[5] ?? 0));
+    aggregate.qiAffinity += Math.max(0, compiled.fengShuiContrib?.[2] ?? 0);
+    aggregate.qiLeak += Math.max(0, compiled.fengShuiContrib?.[3] ?? 0);
+    aggregate.shaEmit += Math.max(0, compiled.fengShuiContrib?.[4] ?? 0);
+    aggregate.shaReduce += Math.max(0, compiled.fengShuiContrib?.[5] ?? 0);
+    aggregate.shaRaw = Math.max(0, aggregate.shaEmit - aggregate.shaReduce);
     aggregate.integrityPenalty += Math.max(0, compiled.fengShuiContrib?.[6] ?? 0);
     aggregate.aggregateRevision += compiled.revision ?? 0;
 }

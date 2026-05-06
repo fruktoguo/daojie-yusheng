@@ -104,6 +104,9 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
                     deps,
                 );
             }
+            if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
+                deps.tickBuildingConstruction(playerId);
+            }
         }
     }
 };

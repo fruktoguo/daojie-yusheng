@@ -74,7 +74,7 @@ function createPlayerRuntimeService() {
     });
 }
 
-function createSnapshot(gatherJob) {
+function createSnapshot(gatherJob, buildingJob = null) {
     return {
         version: 1,
         savedAt: 1000,
@@ -101,6 +101,7 @@ function createSnapshot(gatherJob) {
             alchemySkill: null,
             gatherSkill: null,
             gatherJob,
+            buildingJob,
             alchemyPresets: [],
             alchemyJob: null,
             enhancementSkill: null,
@@ -142,11 +143,12 @@ function createSnapshot(gatherJob) {
             autoRetaliate: true,
             autoBattleStationary: false,
             autoUsePills: [],
-            combatTargetingRules: null,
-            autoBattleTargetingMode: 'auto',
-            retaliatePlayerTargetId: null,
-            combatTargetId: null,
-            combatTargetLocked: false,
+        combatTargetingRules: null,
+        autoBattleTargetingMode: 'auto',
+        retaliatePlayerTargetId: null,
+        retaliatePlayerTargetLastAttackTick: null,
+        combatTargetId: null,
+        combatTargetLocked: false,
             allowAoePlayerHit: false,
             autoIdleCultivation: true,
             autoSwitchCultivation: false,
@@ -180,6 +182,27 @@ function testGatherJobRoundtrip() {
     assert.deepEqual(snapshot.worldPreference, { linePreset: 'real' });
 }
 
+function testBuildingJobRoundtrip() {
+    const service = createPlayerRuntimeService();
+    const buildingJob = {
+        buildingId: 'building:half:1',
+        buildingName: '门',
+        instanceId: 'real:building_command_runtime_smoke',
+        phase: 'building',
+        startedAt: 100,
+        totalTicks: 8,
+        remainingTicks: 3,
+        pausedTicks: 0,
+        successRate: 1,
+        spiritStoneCost: 0,
+    };
+    const player = service.hydrateFromSnapshot('player:building', 'session:1', createSnapshot(null, buildingJob));
+    assert.deepEqual(player.buildingJob, buildingJob);
+    service.players.set('player:building', player);
+    const snapshot = service.buildPersistenceSnapshot('player:building');
+    assert.deepEqual(snapshot.progression.buildingJob, buildingJob);
+}
+
 function testInvalidGatherJobFallsBackToNull() {
     const service = createPlayerRuntimeService();
     const player = service.hydrateFromSnapshot('player:2', 'session:2', createSnapshot({
@@ -198,6 +221,7 @@ function testFreshSnapshotKeepsGatherJobEmpty() {
         facing: Direction.South,
     });
     assert.equal(snapshot.progression.gatherJob, null);
+    assert.equal(snapshot.progression.buildingJob, null);
     assert.deepEqual(snapshot.worldPreference, { linePreset: 'peaceful' });
 }
 
@@ -250,8 +274,9 @@ function testSectIdRoundtrip() {
     assert.equal(persisted.sectId, 'sect:player:alpha');
 }
 
-testGatherJobRoundtrip();
-testInvalidGatherJobFallsBackToNull();
+    testGatherJobRoundtrip();
+    testBuildingJobRoundtrip();
+    testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();
 testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();

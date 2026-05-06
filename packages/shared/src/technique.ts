@@ -17,6 +17,7 @@ import type {
 import type { SkillDef } from './skill-types';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import type { QiProjectionModifier } from './qi';
+import { getRealmAttributeMultiplier } from './combat';
 import { DEFAULT_QI_EFFICIENCY_BP } from './constants/gameplay/qi';
 import {
   BODY_TRAINING_ATTR_KEYS,
@@ -208,12 +209,14 @@ export function calculateTechniqueSkillQiCost(
 ): number {
   const normalizedMultiplier = Number.isFinite(costMultiplier) ? Math.max(0, costMultiplier) : 0;
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
+  const realmFactor = getRealmAttributeMultiplier(normalizedRealmLv);
   return Math.max(
     0,
     Math.round(
       normalizedMultiplier
       * getTechniqueGradeQiCostMultiplier(grade)
-      * normalizedRealmLv,
+      * normalizedRealmLv
+      * realmFactor,
     ),
   );
 }

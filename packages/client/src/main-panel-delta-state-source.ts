@@ -436,6 +436,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       realmProgressToNext: player.realm?.progressToNext,
       realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
       alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
+      buildingSkill: player.buildingSkill ? cloneJson(player.buildingSkill) : undefined,
       gatherSkill: player.gatherSkill ? cloneJson(player.gatherSkill) : undefined,
       enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
     };
@@ -507,6 +508,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       alchemySkill: patch.alchemySkill
         ? cloneJson(patch.alchemySkill)
         : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (player?.alchemySkill ? cloneJson(player.alchemySkill) : undefined)),
+      buildingSkill: patch.buildingSkill
+        ? cloneJson(patch.buildingSkill)
+        : (previous?.buildingSkill ? cloneJson(previous.buildingSkill) : (player?.buildingSkill ? cloneJson(player.buildingSkill) : undefined)),
       gatherSkill: patch.gatherSkill
         ? cloneJson(patch.gatherSkill)
         : (previous?.gatherSkill ? cloneJson(previous.gatherSkill) : (player?.gatherSkill ? cloneJson(player.gatherSkill) : undefined)),
@@ -1062,6 +1066,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         }
         player.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? player.breakthroughReady;
         player.alchemySkill = latestAttrUpdate.alchemySkill ?? player.alchemySkill;
+        player.buildingSkill = latestAttrUpdate.buildingSkill ?? player.buildingSkill;
+        player.gatherSkill = latestAttrUpdate.gatherSkill ?? player.gatherSkill;
+        player.enhancementSkill = latestAttrUpdate.enhancementSkill ?? player.enhancementSkill;
         if (player.realm) {
           player.realm.progress = latestAttrUpdate.realmProgress ?? player.realm.progress;
           player.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? player.realm.progressToNext;

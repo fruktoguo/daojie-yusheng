@@ -390,6 +390,7 @@ const MONSTER_ENTITY_COLOR = '#ff9b73';
 const NPC_ENTITY_COLOR = '#f3d27a';
 const PORTAL_ENTITY_COLOR = '#b9a7ff';
 const CONTAINER_ENTITY_COLOR = '#c18b46';
+const BUILDING_ENTITY_COLOR = '#9fb4c8';
 const FORMATION_ENTITY_COLOR = '#4da3ff';
 /**
  * getFirstGrapheme：读取首个Grapheme。
@@ -449,7 +450,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }  
+  }
   /**
  * buildMonsterTickEntity：构建并返回目标对象。
  * @param patch NonNullable<S2C_WorldDelta['m']>[number] 参数说明。
@@ -475,7 +476,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }  
+  }
   /**
  * buildNpcTickEntity：构建并返回目标对象。
  * @param patch NonNullable<S2C_WorldDelta['n']>[number] 参数说明。
@@ -499,7 +500,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }  
+  }
   /**
  * buildPortalTickEntity：构建并返回目标对象。
  * @param patch NonNullable<S2C_WorldDelta['o']>[number] 参数说明。
@@ -523,7 +524,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }  
+  }
   /**
  * buildContainerTickEntity：构建并返回目标对象。
  * @param patch NonNullable<S2C_WorldDelta['c']>[number] 参数说明。
@@ -550,6 +551,32 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       buffs: previous?.buffs,
     };
   }  
+  /**
+ * buildBuildingTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<S2C_WorldDelta['bd']>[number] 参数说明。
+ * @returns 返回半成品建筑 tick 实体。
+ */
+  function buildBuildingTickEntity(patch: NonNullable<S2C_WorldDelta['bd']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
+    return {
+      id: patch.id,
+      x: patch.x ?? previous?.wx ?? 0,
+      y: patch.y ?? previous?.wy ?? 0,
+      char: patch.ch ?? previous?.char ?? '筑',
+      color: patch.c ?? previous?.color ?? BUILDING_ENTITY_COLOR,
+      name: patch.n ?? previous?.name ?? '未完工建筑',
+      kind: 'building',
+      hp: previous?.hp,
+      maxHp: previous?.maxHp,
+      qi: previous?.qi,
+      maxQi: previous?.maxQi,
+      respawnRemainingTicks: patch.rt === null ? null : patch.rt ?? previous?.respawnRemainingTicks,
+      respawnTotalTicks: previous?.respawnTotalTicks,
+      npcQuestMarker: previous?.npcQuestMarker,
+      observation: previous?.observation,
+      buffs: previous?.buffs,
+    };
+  }
   /**
  * buildFormationTickEntity：构建并返回目标对象。
  * @param patch NonNullable<S2C_WorldDelta['fmn']>[number] 参数说明。
@@ -650,6 +677,14 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         continue;
       }
       entityPatches.push(buildContainerTickEntity(patch, ignorePreviousEntities));
+    }
+
+    for (const patch of data.bd ?? []) {
+      if (patch.rm) {
+        removedEntityIds.push(patch.id);
+        continue;
+      }
+      entityPatches.push(buildBuildingTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.fmn ?? []) {

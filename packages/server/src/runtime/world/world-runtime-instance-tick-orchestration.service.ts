@@ -14,6 +14,7 @@ exports.WorldRuntimeInstanceTickOrchestrationService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
+const world_runtime_building_service_1 = require("./world-runtime-building.service");
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTickOrchestrationService {
@@ -100,6 +101,11 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                         isFormationTerrainStabilized(x, y) === true
                         || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                     ));
+                }
+                if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
+                    for (const building of result.completedBuildings) {
+                        (0, world_runtime_building_service_1.awardBuildingConstructionCompletion)(deps, building);
+                    }
                 }
                 for (const transfer of result.transfers) {
                     deps.applyTransfer(transfer);

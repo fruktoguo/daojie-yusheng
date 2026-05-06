@@ -26,10 +26,15 @@ export interface RoomAggregate {
   roofCoverage: number;
   elementVector: Int32Array;
   traitCounts: Map<number, number>;
+  traitKeys?: Set<string>;
   comfort: number;
   stability: number;
   qiRaw: number;
+  qiAffinity?: number;
+  qiLeak?: number;
   shaRaw: number;
+  shaEmit?: number;
+  shaReduce?: number;
   integrityPenalty: number;
   formationScore: number;
   topologyRevision: number;
@@ -80,6 +85,14 @@ export interface CompiledFengShuiRule {
   severity: FengShuiReasonSeverity;
 }
 
+export interface RoomRoleInference {
+  role: RoomRole;
+  confidence: number;
+  secondRole?: RoomRole;
+  secondConfidence?: number;
+  reasons: Array<{ role: RoomRole; score: number; reasonCode: string }>;
+}
+
 type CompiledFengShuiCondition =
   | { kind: 'roomRoleIs'; role: RoomRole }
   | { kind: 'enclosedIs'; enclosed: boolean }
@@ -104,6 +117,65 @@ export class FengShuiCalculatorService {
   ): FengShuiSnapshot {
     return calculateFengShuiSnapshot(room, aggregate, rules, options);
   }
+
+  inferRoomRole(catalog: CompiledBuildingCatalog, room: RoomInstance, aggregate: RoomAggregate): RoomRoleInference {
+    return inferRoomRole(catalog, room, aggregate);
+  }
+}
+
+const ROOM_ROLE_MIN_CONFIDENCE = 60;
+const ROOM_ROLE_MIN_LEAD = 30;
+
+const ROOM_ROLE_TRAIT_HINTS: ReadonlyArray<{
+  trait: string;
+  role: RoomRole;
+  score: number;
+  reasonCode: string;
+}> = [
+  { trait: 'facility.alchemy.heat_source', role: 'alchemy', score: 100, reasonCode: 'room.role.alchemy' },
+  { trait: 'facility.meditation', role: 'meditation', score: 90, reasonCode: 'room.role.meditation' },
+  { trait: 'comfort.rest', role: 'bedroom', score: 90, reasonCode: 'room.role.bedroom' },
+  { trait: 'storage.shelf', role: 'storage', score: 70, reasonCode: 'room.role.storage' },
+  { trait: 'semi_outdoor.corridor', role: 'courtyard', score: 60, reasonCode: 'room.role.courtyard' },
+];
+
+export function inferRoomRole(
+  catalog: CompiledBuildingCatalog,
+  room: RoomInstance,
+  aggregate: RoomAggregate,
+): RoomRoleInference {
+  const scores = new Map<RoomRole, number>();
+  const reasons: RoomRoleInference['reasons'] = [];
+  for (const hint of ROOM_ROLE_TRAIT_HINTS) {
+    if (readTraitCount(catalog, aggregate, hint.trait) <= 0) {
+      continue;
+    }
+    scores.set(hint.role, (scores.get(hint.role) ?? 0) + hint.score);
+    reasons.push({ role: hint.role, score: hint.score, reasonCode: hint.reasonCode });
+  }
+  if (room.roofCoverageRatio < 80 && room.area >= 16) {
+    scores.set('courtyard', (scores.get('courtyard') ?? 0) + 30);
+    reasons.push({ role: 'courtyard', score: 30, reasonCode: 'room.role.courtyard_low_roof' });
+  }
+  const ranked = Array.from(scores.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  const [bestRole, bestScore] = ranked[0] ?? ['generic', 0];
+  const [secondRole, secondScore] = ranked[1] ?? [undefined, 0];
+  if (bestScore < ROOM_ROLE_MIN_CONFIDENCE || bestScore - secondScore < ROOM_ROLE_MIN_LEAD) {
+    return {
+      role: 'generic',
+      confidence: bestScore,
+      secondRole,
+      secondConfidence: secondScore,
+      reasons: bestScore > 0 ? reasons.concat([{ role: 'generic', score: 0, reasonCode: 'room.role.generic_mixed' }]) : reasons,
+    };
+  }
+  return {
+    role: bestRole,
+    confidence: bestScore,
+    secondRole,
+    secondConfidence: secondScore,
+    reasons,
+  };
 }
 
 export function compileFengShuiRules(
@@ -127,9 +199,9 @@ export function calculateFengShuiSnapshot(
   rules: readonly CompiledFengShuiRule[],
   options: { instanceId?: string; updatedAtTick?: number; revision?: number } = {},
 ): FengShuiSnapshot {
+  void rules;
   const primaryElement = resolvePrimaryElement(aggregate.elementVector);
   const functionElement = FENGSHUI_DEFAULT_FUNCTION_ELEMENT_BY_ROOM_ROLE[room.role] ?? 'neutral';
-  const context = { room, aggregate, primaryElement, functionElement };
   const reasons: FengShuiReason[] = [];
   let score = FENGSHUI_BASE_SCORE;
   let shapeScore = 0;
@@ -141,32 +213,90 @@ export function calculateFengShuiSnapshot(
   let elementScore = 0;
   let formationScore = normalizeInt(aggregate.formationScore, 0);
 
-  for (const rule of rules) {
-    if (!rule.when.every((condition) => evaluateCondition(condition, context))) {
-      continue;
-    }
-    score += rule.scoreDelta;
-    reasons.push({
-      code: rule.reasonCode,
-      delta: rule.scoreDelta,
-      severity: rule.severity,
-    });
-    const code = rule.reasonCode;
-    if (code.includes('shape') || code.includes('area')) shapeScore += rule.scoreDelta;
-    else if (code.includes('enclosure') || code.includes('closed') || code.includes('door')) enclosureScore += rule.scoreDelta;
-    else if (code.includes('qi')) qiScore += rule.scoreDelta;
-    else if (code.includes('sha')) shaScore += Math.abs(Math.min(0, rule.scoreDelta));
-    else if (code.includes('comfort')) comfortScore += rule.scoreDelta;
-    else if (code.includes('integrity') || code.includes('broken')) integrityScore += rule.scoreDelta;
-    else if (code.includes('element')) elementScore += rule.scoreDelta;
-    else if (code.includes('formation')) formationScore += rule.scoreDelta;
+  if (room.role !== 'generic') {
+    addReason(reasons, `room.role.${room.role}`, 0, 'info');
   }
 
+  if (room.enclosed) {
+    enclosureScore += addReason(reasons, 'shell.closed', 80, 'good');
+  } else {
+    enclosureScore += addReason(reasons, 'shell.open', -120, 'bad');
+  }
+  if (room.enclosed && room.doorCount <= 0) {
+    enclosureScore += addReason(reasons, 'shell.no_door', -80, 'warning');
+  }
+  if (room.area >= 6 && room.area <= 64) {
+    shapeScore += addReason(reasons, 'shell.area_balanced', 40, 'good');
+  }
+  const roofCoverage = aggregate.roofCoverage || room.roofCoverageRatio;
+  if (roofCoverage >= 80) {
+    shapeScore += addReason(reasons, 'shell.roof_covered', 30, 'good');
+  }
+
+  const roleScore = calculateRoleScore(room, aggregate, reasons);
+  comfortScore += roleScore;
+
+  const elementDelta = calculateElementScore(primaryElement, functionElement, reasons);
+  elementScore += elementDelta;
+
+  const qiDensity = room.area > 0 ? aggregate.qiRaw / room.area : 0;
+  if (qiDensity >= 80) {
+    qiScore += addReason(reasons, 'qi.dense', 40, 'good');
+  } else if (qiDensity < 20) {
+    qiScore += addReason(reasons, 'qi.low', -30, 'warning');
+  }
+  const qiLeak = Math.max(0, normalizeInt(aggregate.qiLeak, 0));
+  if (qiLeak > 0) {
+    qiScore += addReason(reasons, 'qi.leak', -Math.min(80, qiLeak * 10), 'bad');
+  }
+  const qiAffinity = Math.max(0, normalizeInt(aggregate.qiAffinity, 0));
+  if (qiAffinity > 0) {
+    qiScore += addReason(reasons, 'qi.affinity', Math.min(60, qiAffinity * 10), 'good');
+  }
+
+  if (aggregate.comfort >= 12) {
+    comfortScore += addReason(reasons, 'comfort.good', 30, 'good');
+  } else if (aggregate.comfort <= -6) {
+    comfortScore += addReason(reasons, 'comfort.bad', -30, 'bad');
+  }
+  if (aggregate.stability >= 12) {
+    shapeScore += addReason(reasons, 'stability.good', 20, 'good');
+  } else if (aggregate.stability <= 0) {
+    shapeScore += addReason(reasons, 'stability.bad', -20, 'warning');
+  }
+
+  const shaEmit = Math.max(0, normalizeInt(aggregate.shaEmit, aggregate.shaRaw));
+  const shaReduce = Math.max(0, normalizeInt(aggregate.shaReduce, 0));
+  const shaExposure = Math.max(0, normalizeInt(aggregate.shaRaw, shaEmit - shaReduce));
+  if (shaExposure <= 0 && shaReduce > 0) {
+    shaScore += addReason(reasons, 'sha.reduced', 20, 'good');
+  } else if (shaExposure > 15) {
+    shaScore += addReason(reasons, 'sha.exposed', -90, 'bad');
+  } else if (shaExposure > 5) {
+    shaScore += addReason(reasons, 'sha.exposed', -50, 'bad');
+  } else if (shaExposure > 0) {
+    shaScore += addReason(reasons, 'sha.exposed', -20, 'warning');
+  }
+  if (hasTrait(aggregate, 'sha.screen')) {
+    shaScore += addReason(reasons, 'sha.screen', 20, 'good');
+  }
+
+  score += shapeScore + enclosureScore + qiScore + shaScore + comfortScore + elementScore + formationScore;
+  if (room.role === 'generic' && score > 520) {
+    const delta = 520 - score;
+    comfortScore += delta;
+    reasons.push({
+      code: 'room.role.generic_cap',
+      delta,
+      severity: 'info',
+    });
+    score = 520;
+  }
   score = clamp(score - Math.max(0, aggregate.integrityPenalty), FENGSHUI_SCORE_MIN, FENGSHUI_SCORE_MAX);
   if (aggregate.integrityPenalty > 0) {
     integrityScore -= aggregate.integrityPenalty;
     reasons.push({
-      code: 'integrity_penalty',
+      code: 'integrity.penalty',
       delta: -aggregate.integrityPenalty,
       severity: 'bad',
     });
@@ -191,6 +321,60 @@ export function calculateFengShuiSnapshot(
     revision: normalizeInt(options.revision, aggregate.aggregateRevision),
     updatedAtTick: normalizeInt(options.updatedAtTick, 0),
   };
+}
+
+function calculateRoleScore(room: RoomInstance, aggregate: RoomAggregate, reasons: FengShuiReason[]): number {
+  switch (room.role) {
+    case 'alchemy':
+      return hasTrait(aggregate, 'facility.alchemy.heat_source') ? addReason(reasons, 'trait.alchemy_heat_source', 60, 'good') : 0;
+    case 'meditation':
+      return hasTrait(aggregate, 'facility.meditation') ? addReason(reasons, 'trait.meditation_facility', 50, 'good') : 0;
+    case 'bedroom':
+      return hasTrait(aggregate, 'comfort.rest') ? addReason(reasons, 'trait.rest_comfort', 50, 'good') : 0;
+    case 'storage':
+      return hasTrait(aggregate, 'storage.shelf') ? addReason(reasons, 'trait.storage_shelf', 45, 'good') : 0;
+    case 'courtyard':
+      return hasTrait(aggregate, 'semi_outdoor.corridor') ? addReason(reasons, 'trait.courtyard_corridor', 30, 'good') : 0;
+    default:
+      return 0;
+  }
+}
+
+function calculateElementScore(
+  primaryElement: FiveElement,
+  functionElement: FiveElement,
+  reasons: FengShuiReason[],
+): number {
+  if (primaryElement === 'neutral' || functionElement === 'neutral') {
+    return 0;
+  }
+  if (primaryElement === functionElement) {
+    return addReason(reasons, 'element.same_function', 25, 'good');
+  }
+  if (generates(primaryElement, functionElement)) {
+    return addReason(reasons, 'element.generates_function', 45, 'good');
+  }
+  if (FENGSHUI_CONTROLS[primaryElement] === functionElement) {
+    return addReason(reasons, 'element.conflicts_function', -60, 'bad');
+  }
+  if (FENGSHUI_CONTROLS[functionElement] === primaryElement) {
+    return addReason(reasons, 'element.conflicts_function', -40, 'bad');
+  }
+  return 0;
+}
+
+function addReason(reasons: FengShuiReason[], code: string, delta: number, severity: FengShuiReasonSeverity): number {
+  reasons.push({ code, delta, severity });
+  return delta;
+}
+
+function readTraitCount(catalog: CompiledBuildingCatalog, aggregate: RoomAggregate, trait: string): number {
+  const traitId = catalog.traitIdsByKey.get(trait);
+  return traitId ? aggregate.traitCounts.get(traitId) ?? 0 : 0;
+}
+
+function hasTrait(aggregate: RoomAggregate, trait: string): boolean {
+  return aggregate.traitKeys instanceof Set && aggregate.traitKeys.has(trait);
 }
 
 function compileCondition(catalog: CompiledBuildingCatalog, condition: FengShuiCondition): CompiledFengShuiCondition {

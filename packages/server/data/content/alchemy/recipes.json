@@ -29,18 +29,23 @@
     "baseBrewTicks": 16,
     "ingredients": [
       {
-        "itemId": "rat_tail",
+        "itemId": "mat.moondew_grass",
         "count": 2,
         "role": "main"
       },
       {
-        "itemId": "boar_tusk",
+        "itemId": "mat.green_spirit_stem",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "rat_tail",
         "count": 2,
         "role": "aux"
       },
       {
-        "itemId": "lizard_scale",
-        "count": 1,
+        "itemId": "boar_tusk",
+        "count": 2,
         "role": "aux"
       }
     ]
@@ -62,8 +67,13 @@
         "role": "main"
       },
       {
-        "itemId": "mat.green_spirit_stem",
-        "count": 1,
+        "itemId": "crystal_dust",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 2,
         "role": "aux"
       }
     ]
@@ -76,17 +86,22 @@
     "ingredients": [
       {
         "itemId": "mat.green_spirit_stem",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.red_flame_leaf",
         "count": 1,
         "role": "main"
       },
       {
-        "itemId": "mat.bloodbud_fruit",
+        "itemId": "mat.clear_mind_flower",
         "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "crystal_dust",
+        "count": 3,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 3,
         "role": "aux"
       }
     ]
@@ -99,7 +114,7 @@
     "ingredients": [
       {
         "itemId": "mat.frost_lotus_petal",
-        "count": 2,
+        "count": 1,
         "role": "main"
       },
       {
@@ -108,8 +123,18 @@
         "role": "main"
       },
       {
-        "itemId": "mat.breakarray_shard",
-        "count": 1,
+        "itemId": "bamboo_heart",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "lizard_scale",
+        "count": 5,
         "role": "aux"
       }
     ]
@@ -122,7 +147,7 @@
     "ingredients": [
       {
         "itemId": "mat.breakarray_shard",
-        "count": 2,
+        "count": 1,
         "role": "main"
       },
       {
@@ -131,8 +156,8 @@
         "role": "main"
       },
       {
-        "itemId": "mat.clear_mind_flower",
-        "count": 1,
+        "itemId": "soul_ink",
+        "count": 6,
         "role": "aux"
       }
     ]
@@ -145,7 +170,7 @@
     "ingredients": [
       {
         "itemId": "mat.clear_mind_flower",
-        "count": 2,
+        "count": 1,
         "role": "main"
       },
       {
@@ -154,8 +179,13 @@
         "role": "main"
       },
       {
-        "itemId": "mat.swiftwind_reed",
-        "count": 1,
+        "itemId": "crystal_dust",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 3,
         "role": "aux"
       }
     ]
@@ -168,17 +198,27 @@
     "ingredients": [
       {
         "itemId": "mat.swiftwind_reed",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.green_spirit_stem",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spider_silk",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "lizard_scale",
         "count": 2,
-        "role": "main"
+        "role": "aux"
       },
       {
-        "itemId": "mat.clear_mind_flower",
-        "count": 1,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.breakarray_shard",
-        "count": 1,
+        "itemId": "bamboo_heart",
+        "count": 3,
         "role": "aux"
       }
     ]
@@ -190,18 +230,23 @@
     "baseBrewTicks": 30,
     "ingredients": [
       {
-        "itemId": "ember_sand",
+        "itemId": "mat.red_flame_leaf",
         "count": 2,
         "role": "main"
       },
       {
-        "itemId": "embershard_char",
+        "itemId": "mat.sunmelt_seed",
         "count": 1,
         "role": "main"
       },
       {
-        "itemId": "mat.scorchheart_petal",
-        "count": 1,
+        "itemId": "wolf_fang",
+        "count": 5,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 7,
         "role": "aux"
       }
     ]
@@ -213,18 +258,23 @@
     "baseBrewTicks": 32,
     "ingredients": [
       {
-        "itemId": "nurturing_leaf",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "coldspirit_dew",
+        "itemId": "mat.bitterheart_vine",
         "count": 1,
         "role": "main"
       },
       {
-        "itemId": "earthbearing_stone",
+        "itemId": "mat.clear_mind_flower",
         "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "wolf_fang",
+        "count": 6,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 5,
         "role": "aux"
       }
     ]
@@ -246,7 +296,7 @@
         "role": "main"
       },
       {
-        "itemId": "nurturing_leaf",
+        "itemId": "spiritwood_heart",
         "count": 1,
         "role": "aux"
       }
@@ -269,7 +319,7 @@
         "role": "main"
       },
       {
-        "itemId": "coldspirit_dew",
+        "itemId": "cleantide_essence",
         "count": 1,
         "role": "aux"
       }
@@ -292,7 +342,7 @@
         "role": "main"
       },
       {
-        "itemId": "earthbearing_stone",
+        "itemId": "stonegall_core",
         "count": 1,
         "role": "aux"
       }
@@ -305,9 +355,19 @@
     "baseBrewTicks": 38,
     "ingredients": [
       {
-        "itemId": "blade_pattern_crystal",
+        "itemId": "mat.goldthread_briar",
         "count": 2,
         "role": "main"
+      },
+      {
+        "itemId": "mat.ironvein_caltrop",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "aux"
       }
     ]
   },
@@ -318,9 +378,19 @@
     "baseBrewTicks": 40,
     "ingredients": [
       {
-        "itemId": "spiritwood_heart",
+        "itemId": "mat.longvein_vine",
         "count": 2,
         "role": "main"
+      },
+      {
+        "itemId": "mat.returnspring_leaf",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
       }
     ]
   },
@@ -331,9 +401,19 @@
     "baseBrewTicks": 40,
     "ingredients": [
       {
-        "itemId": "cleantide_essence",
+        "itemId": "mat.coldmarrow_reed",
         "count": 2,
         "role": "main"
+      },
+      {
+        "itemId": "mat.moonwell_stamen",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
       }
     ]
   },
@@ -344,9 +424,19 @@
     "baseBrewTicks": 40,
     "ingredients": [
       {
-        "itemId": "furnace_red_crystal",
+        "itemId": "mat.scorchheart_petal",
         "count": 2,
         "role": "main"
+      },
+      {
+        "itemId": "mat.flamegrain_spike",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1,
+        "role": "aux"
       }
     ]
   },
@@ -357,9 +447,19 @@
     "baseBrewTicks": 42,
     "ingredients": [
       {
-        "itemId": "stonegall_core",
+        "itemId": "mat.bearingroot_ginseng",
         "count": 2,
         "role": "main"
+      },
+      {
+        "itemId": "mat.stonecore_lingzhi",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "aux"
       }
     ]
   },
@@ -370,19 +470,39 @@
     "baseBrewTicks": 48,
     "ingredients": [
       {
-        "itemId": "fivephase_dust",
+        "itemId": "mat.longvein_vine",
         "count": 2,
         "role": "main"
       },
       {
-        "itemId": "guizang_vein_core",
+        "itemId": "mat.coldmarrow_reed",
         "count": 1,
         "role": "main"
       },
       {
-        "itemId": "half_base_embryo",
+        "itemId": "mat.scorchheart_petal",
         "count": 1,
         "role": "main"
+      },
+      {
+        "itemId": "mat.bearingroot_ginseng",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.goldthread_briar",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
       }
     ]
   }

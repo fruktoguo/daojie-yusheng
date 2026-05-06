@@ -487,6 +487,18 @@ export interface WorldContainerPatchView {
   rm?: 1;
 }
 
+/** 世界增量中的半成品建筑补丁。 */
+export interface WorldBuildingPatchView {
+  id: string;
+  x?: number;
+  y?: number;
+  n?: string;
+  ch?: string;
+  c?: string;
+  rt?: number | null;
+  rm?: 1;
+}
+
 /** 世界增量中的阵法实体补丁。 */
 export interface WorldFormationPatchView {
 /**
@@ -639,6 +651,11 @@ export interface WorldDeltaView {
  */
 
   c?: WorldContainerPatchView[];  
+  /**
+ * bd：半成品建筑实体补丁。
+ */
+
+  bd?: WorldBuildingPatchView[];
   /**
  * fmn：阵法实体补丁。
  */

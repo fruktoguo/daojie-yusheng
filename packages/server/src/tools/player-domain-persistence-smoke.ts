@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     );
     const combatPreferenceRow = await fetchSingleRow(
       pool,
-      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, sense_qi_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
+      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, retaliate_player_target_last_attack_tick, sense_qi_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
       [playerId],
     );
     const autoBattleSkillRows = await fetchRows(
@@ -265,6 +265,7 @@ async function main(): Promise<void> {
       || combatPreferenceRow.auto_battle !== true
       || combatPreferenceRow.auto_battle_targeting_mode !== 'boss'
       || combatPreferenceRow.retaliate_player_target_id !== 'rival_alpha'
+      || Number(combatPreferenceRow.retaliate_player_target_last_attack_tick) !== 3456
       || combatPreferenceRow.sense_qi_active !== true
       || combatPreferenceRow.cultivating_tech_id !== 'qi.breathing'
     ) {
@@ -286,7 +287,7 @@ async function main(): Promise<void> {
       throw new Error(`unexpected player_auto_use_item_rule rows: ${JSON.stringify(autoUseRuleRows)}`);
     }
     const professionTypes = professionRows.map((entry) => String(entry?.profession_type ?? ''));
-    if (professionTypes.join(',') !== 'alchemy,enhancement,gather') {
+    if (professionTypes.join(',') !== 'alchemy,building,enhancement,gather') {
       throw new Error(`unexpected player_profession_state rows: ${JSON.stringify(professionRows)}`);
     }
     if (presetRows.length !== 1 || presetRows[0]?.recipe_id !== 'qi_pill') {
@@ -443,7 +444,7 @@ async function main(): Promise<void> {
     const edgeProfessionMap = new Map(
       edgeProfessionRows.map((entry) => [String(entry.profession_type ?? ''), Number(entry.level ?? 0)]),
     );
-    if (edgeProfessionMap.get('alchemy') !== 1 || edgeProfessionMap.get('enhancement') !== 1) {
+    if (edgeProfessionMap.get('alchemy') !== 1 || edgeProfessionMap.get('building') !== 1 || edgeProfessionMap.get('enhancement') !== 1) {
       throw new Error(`unexpected empty-string-safe player_profession_state rows: ${JSON.stringify(edgeProfessionRows)}`);
     }
     if (
@@ -556,6 +557,7 @@ async function main(): Promise<void> {
         autoBattleStationary: true,
         autoBattleTargetingMode: 'elite',
         retaliatePlayerTargetId: null,
+        retaliatePlayerTargetLastAttackTick: null,
         combatTargetId: 'monster.alpha',
         combatTargetLocked: true,
         allowAoePlayerHit: false,
@@ -1148,6 +1150,7 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
       autoBattleStationary: false,
       autoBattleTargetingMode: 'boss',
       retaliatePlayerTargetId: 'rival_alpha',
+      retaliatePlayerTargetLastAttackTick: 3456,
       combatTargetId: null,
       combatTargetLocked: false,
       allowAoePlayerHit: false,

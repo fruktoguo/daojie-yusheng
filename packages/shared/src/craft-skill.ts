@@ -57,7 +57,7 @@ export function computeTimedCraftSkillExp(
     * (ticks / CRAFT_SKILL_EXP_TICK_DIVISOR)
     * (CRAFT_SKILL_LEVEL_DECAY_RATE ** Math.max(0, level - 1))
     * normalizedMultiplier;
-  return Math.max(0, Math.round(gain));
+  return Math.max(0, gain);
 }
 
 /** 统一计算一次或一批技艺动作的经验收益。 */
@@ -94,14 +94,15 @@ export function computeCraftSkillExpGain(params: CraftSkillExpComputationParams)
 
   const baseGain = Math.max(
     0,
-    Math.round(((successGainPerAttempt * normalizedSuccessCount) + (failureGainPerAttempt * normalizedFailureCount)) / totalAttempts),
+    ((successGainPerAttempt * normalizedSuccessCount) + (failureGainPerAttempt * normalizedFailureCount)) / totalAttempts,
   );
+  const finalGainRaw = baseGain * getCraftSkillEarlyLevelExpMultiplier(normalizedSkillLevel);
   return {
     referenceLevel,
     totalAttempts,
     successGainPerAttempt,
     failureGainPerAttempt,
     baseGain,
-    finalGain: Math.max(0, Math.round(baseGain * getCraftSkillEarlyLevelExpMultiplier(normalizedSkillLevel))),
+    finalGain: finalGainRaw > 0 ? Math.max(1, Math.round(finalGainRaw)) : 0,
   };
 }

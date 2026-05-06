@@ -47,6 +47,7 @@ import type {
 } from './service-sync-types';
 import type {
   GroundItemPilePatchView,
+  WorldBuildingPatchView,
   SelfDeltaView,
   TickRenderEntityView,
   TickView,
@@ -114,6 +115,8 @@ export interface S2C_WorldPortalPatch extends WorldPortalPatchView {}
 export interface S2C_WorldGroundPatch extends WorldGroundPatchView {}
 /** 世界增量中的容器实体补丁。 */
 export interface S2C_WorldContainerPatch extends WorldContainerPatchView {}
+/** 世界半成品建筑补丁。 */
+export interface S2C_WorldBuildingPatch extends WorldBuildingPatchView {}
 /** 世界阵法补丁。 */
 export interface S2C_WorldFormationPatch extends WorldFormationPatchView {}
 /** 建造命令低频回执。 */
@@ -156,6 +159,11 @@ export interface S2C_WorldDelta extends WorldDeltaView {
  */
 
   c?: S2C_WorldContainerPatch[];  
+  /**
+ * bd：半成品建筑实体补丁。
+ */
+
+  bd?: S2C_WorldBuildingPatch[];
   /**
  * fmn：阵法实体补丁。
  */

@@ -78,6 +78,8 @@ export interface BuildPlaceIntentView {
   x: number;
   y: number;
   rotation?: 0 | 90 | 180 | 270;
+  buildStrength?: number;
+  selectedMaterialItemIds?: string[];
 }
 
 export interface BuildDeconstructIntentView {
@@ -109,6 +111,11 @@ export interface BuildingInstanceView {
   roomId?: string | null;
   hp?: number;
   maxHp?: number;
+  buildStrength?: number;
+  builderSkillLevel?: number;
+  buildCompleteTick?: number;
+  buildRemainingTicks?: number;
+  activeBuilderPlayerId?: string | null;
   revision: number;
 }
 

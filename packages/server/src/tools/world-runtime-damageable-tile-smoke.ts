@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 
 import {
   calculateTerrainDurability,
+  formatDisplayCurrentMax,
+  formatDisplayInteger,
   getTileTraversalCost,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -222,6 +224,35 @@ function testObservationMissingNumericValuesRenderAsZero() {
   assert.equal(observation.lines.find((line) => line.label === '灵力')?.value, '0 / 0');
   assert.equal(observation.lines.find((line) => line.label === '暴击伤害')?.value, '200%');
   assert.equal(observation.lines.find((line) => line.label === '灵力回复')?.value, '0% / 息');
+}
+
+function testObservationLargeValuesUseChineseUnits() {
+  const hugeQi = 1.06e45;
+  const hugePhysAtk = 3.2736948448385585e42;
+  const observation = buildPlayerObservation(undefined, {
+    hp: 24_000,
+    maxHp: 24_000,
+    qi: hugeQi,
+    maxQi: hugeQi,
+    attrs: {
+      finalAttrs: {
+        spirit: 0,
+      },
+      numericStats: {
+        physAtk: hugePhysAtk,
+      },
+    },
+  }, true);
+
+  assert.equal(
+    observation.lines.find((line) => line.label === '灵力')?.value,
+    formatDisplayCurrentMax(hugeQi, hugeQi),
+  );
+  assert.equal(
+    observation.lines.find((line) => line.label === '物理攻击')?.value,
+    formatDisplayInteger(hugePhysAtk),
+  );
+  assert.equal(JSON.stringify(observation).includes('e+'), false);
 }
 
 function testDestroyedTileTurnsIntoFloorProjection() {
@@ -476,6 +507,7 @@ function testPlainTickDoesNotDirtyPersistence() {
 testDamagedTileShowsHpBarPayload();
 testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura();
 testObservationMissingNumericValuesRenderAsZero();
+testObservationLargeValuesUseChineseUnits();
 testDestroyedTileTurnsIntoFloorProjection();
 testDestroyedTileBecomesPathReachable();
 testDestroyedTileRecoveryRespectsStabilizerAndHydrates();

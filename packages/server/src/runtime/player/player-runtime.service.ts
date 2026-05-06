@@ -41,6 +41,8 @@ const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
 const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 /** 玩家跨节点转移超时时间，超时后自动回滚 transfer 态。 */
 const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
+/** 被玩家攻击后保留反击仇敌的最长时间，按 1Hz tick 计算为 30 分钟。 */
+const RETALIATE_PLAYER_TARGET_TIMEOUT_TICKS = 30 * 60;
 
 const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
@@ -291,6 +293,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 combatTargetingRules: undefined,
                 autoBattleTargetingMode: 'auto',
                 retaliatePlayerTargetId: null,
+                retaliatePlayerTargetLastAttackTick: null,
                 combatTargetId: null,
                 combatTargetLocked: false,
                 manualEngagePending: false,
@@ -314,7 +317,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             },
             alchemySkill: createCraftSkillState(),
             gatherSkill: createCraftSkillState(),
+            buildingSkill: createCraftSkillState(),
             gatherJob: null,
+            buildingJob: null,
             alchemyPresets: [],
             alchemyJob: null,
             enhancementSkill: createCraftSkillState(),
@@ -2503,9 +2508,17 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
         const normalizedTargetId = typeof targetPlayerId === 'string' && targetPlayerId.trim() ? targetPlayerId.trim() : null;
         const normalizedCombatTargetId = normalizedTargetId ? `player:${normalizedTargetId}` : null;
+        const normalizedCurrentTick = Number.isFinite(Number(currentTick))
+            ? Math.max(0, Math.trunc(Number(currentTick) || 0))
+            : 0;
         let changed = false;
         if (player.combat.retaliatePlayerTargetId !== normalizedTargetId) {
             player.combat.retaliatePlayerTargetId = normalizedTargetId;
+            changed = true;
+        }
+        const nextRetaliatePlayerTargetLastAttackTick = normalizedTargetId ? normalizedCurrentTick : null;
+        if ((player.combat.retaliatePlayerTargetLastAttackTick ?? null) !== nextRetaliatePlayerTargetLastAttackTick) {
+            player.combat.retaliatePlayerTargetLastAttackTick = nextRetaliatePlayerTargetLastAttackTick;
             changed = true;
         }
         if (normalizedTargetId
@@ -2526,6 +2539,46 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return player;
     }
+    /** clearRetaliatePlayerTarget：清除当前反击锁定的玩家目标。 */
+    clearRetaliatePlayerTarget(playerId, currentTick = 0) {
+        return this.setRetaliatePlayerTarget(playerId, null, currentTick);
+    }
+    /** clearRetaliatePlayerTargetIfExpired：超时后清理当前反击锁定的玩家目标。 */
+    clearRetaliatePlayerTargetIfExpired(playerId, currentTick, timeoutTicks = RETALIATE_PLAYER_TARGET_TIMEOUT_TICKS) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        const targetPlayerId = typeof player.combat?.retaliatePlayerTargetId === 'string' && player.combat.retaliatePlayerTargetId.trim()
+            ? player.combat.retaliatePlayerTargetId.trim()
+            : null;
+        if (!targetPlayerId) {
+            return player;
+        }
+        const normalizedCurrentTick = Number.isFinite(Number(currentTick))
+            ? Math.max(0, Math.trunc(Number(currentTick) || 0))
+            : 0;
+        const normalizedTimeoutTicks = Math.max(1, Math.trunc(Number(timeoutTicks) || RETALIATE_PLAYER_TARGET_TIMEOUT_TICKS));
+        const lastAttackTick = Number.isFinite(Number(player.combat?.retaliatePlayerTargetLastAttackTick))
+            ? Math.max(0, Math.trunc(Number(player.combat.retaliatePlayerTargetLastAttackTick) || 0))
+            : null;
+        if (lastAttackTick !== null && normalizedCurrentTick - lastAttackTick < normalizedTimeoutTicks) {
+            return player;
+        }
+        return this.clearRetaliatePlayerTarget(playerId, normalizedCurrentTick);
+    }
+    /** clearRetaliatePlayerTargetIfMatches：若当前反击目标命中指定玩家，则立即清理。 */
+    clearRetaliatePlayerTargetIfMatches(playerId, targetPlayerId, currentTick = 0) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        const normalizedTargetId = typeof targetPlayerId === 'string' && targetPlayerId.trim() ? targetPlayerId.trim() : null;
+        if (!normalizedTargetId || player.combat?.retaliatePlayerTargetId !== normalizedTargetId) {
+            return player;
+        }
+        return this.clearRetaliatePlayerTarget(playerId, currentTick);
+    }
     /**
  * activateAutoRetaliate：受怪物攻击时开启自动战斗，由自动战斗选择器接管仇恨目标。
  * @param playerId 玩家 ID。
@@ -2540,6 +2593,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.autoBattle = true;
         player.combat.retaliatePlayerTargetId = null;
+        player.combat.retaliatePlayerTargetLastAttackTick = null;
         player.combat.manualEngagePending = false;
         this.rebuildActionState(player, currentTick);
         markPlayerDirtyDomains(player, ['combat_pref']);
@@ -2995,6 +3049,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             changed = true;
         }
         player.combat.retaliatePlayerTargetId = null;
+        player.combat.retaliatePlayerTargetLastAttackTick = null;
         player.combat.combatTargetId = null;
         player.combat.combatTargetLocked = false;
         player.combat.manualEngagePending = false;
@@ -3265,7 +3320,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
             alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill),
             gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill),
+            buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
+            buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
             enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill),
@@ -3330,6 +3387,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoBattleTargetingMode: normalizePersistedAutoBattleTargetingMode(snapshot.combat?.autoBattleTargetingMode),
                 retaliatePlayerTargetId: typeof snapshot.combat?.retaliatePlayerTargetId === 'string' && snapshot.combat.retaliatePlayerTargetId.trim()
                     ? snapshot.combat.retaliatePlayerTargetId.trim()
+                    : null,
+                retaliatePlayerTargetLastAttackTick: Number.isFinite(Number(snapshot.combat?.retaliatePlayerTargetLastAttackTick))
+                    ? Math.max(0, Math.trunc(Number(snapshot.combat.retaliatePlayerTargetLastAttackTick)))
                     : null,
 
                 combatTargetId: typeof snapshot.combat?.combatTargetId === 'string' && snapshot.combat.combatTargetId.trim()
@@ -3829,6 +3889,7 @@ function cloneRuntimePlayerState(player) {
             combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
+            retaliatePlayerTargetLastAttackTick: player.combat.retaliatePlayerTargetLastAttackTick,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
@@ -3855,7 +3916,9 @@ function cloneRuntimePlayerState(player) {
         },
         alchemySkill: cloneCraftSkillState(player.alchemySkill),
         gatherSkill: cloneCraftSkillState(player.gatherSkill),
+        buildingSkill: cloneCraftSkillState(player.buildingSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
+        buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
         enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
@@ -4479,6 +4542,7 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null) {
         techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
         professions: [
             buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill),
+            buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill),
             buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill),
             buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill),
         ].filter((entry) => Boolean(entry)),
@@ -5146,7 +5210,9 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
             alchemySkill: cloneCraftSkillState(player.alchemySkill),
             gatherSkill: cloneCraftSkillState(player.gatherSkill),
+            buildingSkill: cloneCraftSkillState(player.buildingSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
+            buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
@@ -5196,6 +5262,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
+            retaliatePlayerTargetLastAttackTick: player.combat.retaliatePlayerTargetLastAttackTick,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
@@ -5324,12 +5391,48 @@ function normalizeGatherJob(value) {
     };
 }
 /**
+ * normalizeBuildingJob：规范化或转换营造 Job。
+ * @param value 参数说明。
+ * @returns 无返回值，直接更新营造 Job 相关状态。
+ */
+
+function normalizeBuildingJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || typeof value.buildingId !== 'string') {
+        return null;
+    }
+    return {
+        buildingId: String(value.buildingId),
+        buildingName: typeof value.buildingName === 'string' ? value.buildingName : String(value.buildingId),
+        instanceId: typeof value.instanceId === 'string' ? value.instanceId : '',
+        phase: value.phase === 'paused' ? 'paused' : 'building',
+        startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
+        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
+        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
+        successRate: Math.max(0, Math.min(1, Number(value.successRate) || 0)),
+        spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
+    };
+}
+/**
  * cloneGatherJob：构建采集 Job。
  * @param entry 参数说明。
  * @returns 无返回值，直接更新采集 Job 相关状态。
  */
 
 function cloneGatherJob(entry) {
+    return {
+        ...entry,
+    };
+}
+/**
+ * cloneBuildingJob：构建营造 Job。
+ * @param entry 参数说明。
+ * @returns 无返回值，直接更新营造 Job 相关状态。
+ */
+
+function cloneBuildingJob(entry) {
     return {
         ...entry,
     };

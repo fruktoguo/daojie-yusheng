@@ -532,20 +532,23 @@ function getEntityRenderLayer(kind: string | null | undefined): number {
   if (kind === 'formation') {
     return 0;
   }
-  if (kind === 'container') {
+  if (kind === 'building') {
     return 1;
   }
-  if (kind === 'npc') {
+  if (kind === 'container') {
     return 2;
   }
-  if (kind === 'monster') {
+  if (kind === 'npc') {
     return 3;
   }
-  if (kind === 'crowd') {
+  if (kind === 'monster') {
     return 4;
   }
-  if (kind === 'player') {
+  if (kind === 'crowd') {
     return 5;
+  }
+  if (kind === 'player') {
+    return 6;
   }
   return 2;
 }
@@ -1671,6 +1674,7 @@ export class TextRenderer implements IRenderer {
       const motionDy = anim.targetWY - anim.oldWY;
       const motionDistance = Math.hypot(motionDx, motionDy);
       const isMoving = motionDistance > 0.5 && motionProgress < 1;
+      const isBuilding = anim.kind === 'building';
       const travelPulse = isMoving ? Math.sin(Math.PI * motionProgress) : 0;
       const landPhase = isMoving && motionProgress > 0.62
         ? Math.max(0, Math.min(1, (motionProgress - 0.62) / 0.38))
@@ -1684,6 +1688,9 @@ export class TextRenderer implements IRenderer {
       const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
 
       ctx.save();
+      if (isBuilding) {
+        ctx.globalAlpha *= 0.58;
+      }
       if (isMoving) {
         ctx.translate(sx + renderedCellSize / 2, sy + renderedCellSize - 3);
         ctx.scale(1 + travelPulse * 0.24, 1 - travelPulse * 0.16);
@@ -1713,12 +1720,13 @@ export class TextRenderer implements IRenderer {
         const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
         const isContainer = anim.kind === 'container';
+        const isBuilding = anim.kind === 'building';
         const isFormation = anim.kind === 'formation';
-        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : isFormation ? '阵法' : '道人');
+        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : isBuilding ? '未完工建筑' : isFormation ? '阵法' : '道人');
         ctx.textBaseline = 'alphabetic';
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
-        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : isFormation ? '#9cc8ff' : '#cce7ff';
+        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : isBuilding ? '#d7e6f5' : isFormation ? '#9cc8ff' : '#cce7ff';
         const badge = anim.badge ?? monsterPresentation?.badge;
         if (!isFormation || anim.formationShowText !== false) {
           if (badge) {
@@ -1741,11 +1749,11 @@ export class TextRenderer implements IRenderer {
           }
         }
 
-        if (!isCrowd) {
+        if (!isCrowd && !isBuilding) {
           this.drawBuffRows(sx, visualSy, renderedCellSize, anim.buffs);
         }
 
-        if (!isCrowd && (anim.maxHp ?? 0) > 0) {
+        if (!isCrowd && !isBuilding && (anim.maxHp ?? 0) > 0) {
           const ratio = Math.max(0, Math.min(1, (anim.hp ?? 0) / (anim.maxHp ?? 1)));
           const barX = visualSx + 3;
           const barY = visualSy + visualCellSize - 5;

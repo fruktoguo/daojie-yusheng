@@ -3,6 +3,7 @@
     "id": "stone_wall",
     "name": "石墙",
     "layer": "structure",
+    "visualTileType": "wall",
     "allowRotate": true,
     "footprint": [
       {
@@ -22,12 +23,19 @@
     ],
     "elementVector": {
       "earth": 10
-    }
+    },
+    "maxHp": 120,
+    "stability": 6,
+    "comfort": 0,
+    "opening": "none",
+    "blocksMove": true,
+    "blocksSight": true
   },
   {
     "id": "wooden_door",
     "name": "木门",
     "layer": "structure",
+    "visualTileType": "door",
     "allowRotate": true,
     "footprint": [
       {
@@ -46,12 +54,19 @@
     ],
     "elementVector": {
       "wood": 4
-    }
+    },
+    "maxHp": 80,
+    "stability": 0,
+    "comfort": 0,
+    "opening": "door",
+    "blocksMove": false,
+    "blocksSight": false
   },
   {
     "id": "wooden_window",
     "name": "木窗",
     "layer": "structure",
+    "visualTileType": "window",
     "allowRotate": true,
     "footprint": [
       {
@@ -70,12 +85,19 @@
     ],
     "elementVector": {
       "wood": 3
-    }
+    },
+    "maxHp": 60,
+    "stability": 0,
+    "comfort": 2,
+    "opening": "window",
+    "blocksMove": true,
+    "blocksSight": false
   },
   {
     "id": "plain_floor",
     "name": "地板",
     "layer": "floor",
+    "visualTileType": "floor",
     "allowRotate": true,
     "footprint": [
       {
@@ -92,7 +114,13 @@
     "traits": [
       "floor.basic"
     ],
-    "elementVector": {}
+    "elementVector": {},
+    "maxHp": 80,
+    "stability": 2,
+    "comfort": 0,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
   },
   {
     "id": "meditation_mat",
@@ -118,7 +146,13 @@
     "elementVector": {
       "water": 8,
       "wood": 4
-    }
+    },
+    "maxHp": 40,
+    "stability": 4,
+    "comfort": 8,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
   },
   {
     "id": "wooden_bed",
@@ -143,7 +177,13 @@
     "elementVector": {
       "wood": 12,
       "earth": 4
-    }
+    },
+    "maxHp": 90,
+    "stability": 6,
+    "comfort": 16,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
   },
   {
     "id": "alchemy_furnace",
@@ -168,7 +208,13 @@
     "elementVector": {
       "fire": 20,
       "earth": 6
-    }
+    },
+    "maxHp": 150,
+    "stability": 4,
+    "comfort": -2,
+    "opening": "none",
+    "blocksMove": true,
+    "blocksSight": false
   },
   {
     "id": "storage_shelf",
@@ -193,7 +239,13 @@
     "elementVector": {
       "earth": 10,
       "metal": 5
-    }
+    },
+    "maxHp": 90,
+    "stability": 8,
+    "comfort": 0,
+    "opening": "none",
+    "blocksMove": true,
+    "blocksSight": false
   },
   {
     "id": "spirit_screen",
@@ -217,12 +269,19 @@
     ],
     "elementVector": {
       "earth": 8
-    }
+    },
+    "maxHp": 100,
+    "stability": 5,
+    "comfort": 0,
+    "opening": "none",
+    "blocksMove": true,
+    "blocksSight": true
   },
   {
     "id": "covered_corridor",
     "name": "回廊",
     "layer": "floor",
+    "visualTileType": "floor",
     "allowRotate": true,
     "footprint": [
       {
@@ -241,6 +300,12 @@
     ],
     "elementVector": {
       "wood": 5
-    }
+    },
+    "maxHp": 80,
+    "stability": 0,
+    "comfort": 4,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
   }
 ]

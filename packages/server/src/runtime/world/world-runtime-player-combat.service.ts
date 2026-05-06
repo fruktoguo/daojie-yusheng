@@ -271,6 +271,15 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
             ? this.playerRuntimeService.getPlayer(killerPlayerId)
             : null;
         if (killer && killer.playerId !== victim.playerId) {
+            if (typeof this.playerRuntimeService.clearRetaliatePlayerTargetIfMatches === 'function') {
+                this.playerRuntimeService.clearRetaliatePlayerTargetIfMatches(
+                    killer.playerId,
+                    victim.playerId,
+                    typeof deps.resolveCurrentTickForPlayerId === 'function'
+                        ? deps.resolveCurrentTickForPlayerId(killer.playerId)
+                        : 0,
+                );
+            }
             await this.applyPvPKillRewards(killer, victim, deathSite, deps);
         }
         deps.clearPendingCommand(playerId);

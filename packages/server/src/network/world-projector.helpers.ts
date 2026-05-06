@@ -44,6 +44,7 @@ import {
   type TechniqueState,
   type TechniqueUpdateEntryView,
   type VisibleBuffState,
+  type WorldBuildingPatchView,
   type WorldContainerPatchView,
   type WorldDeltaView,
   type WorldFormationPatchView,
@@ -182,6 +183,15 @@ interface ProjectorContainerLike {
   color: string;
   respawnRemainingTicks?: number;
 }
+interface ProjectorBuildingLike {
+  id: string;
+  x: number;
+  y: number;
+  name: string;
+  char: string;
+  color: string;
+  remainingTicks?: number;
+}
 interface ProjectorFormationLike {
   id: string;
   x: number;
@@ -224,6 +234,7 @@ interface ProjectorViewLike {
   localPortals: ProjectorPortalLike[];
   localGroundPiles: ProjectorGroundPileLike[];
   localContainers: ProjectorContainerLike[];
+  localBuildings?: ProjectorBuildingLike[];
   localFormations?: ProjectorFormationLike[];
 }
 interface ProjectedPlayerEntry {
@@ -275,6 +286,14 @@ interface ProjectedContainerEntry {
   ch: string;
   c: string;
   rr?: number;
+}
+interface ProjectedBuildingEntry {
+  x: number;
+  y: number;
+  n: string;
+  ch: string;
+  c: string;
+  rt?: number;
 }
 interface ProjectedFormationEntry {
   x: number;
@@ -357,6 +376,10 @@ interface ProjectorPlayerLike {
     cultivatingTechId?: string | null;
   };
   bodyTraining?: BodyTrainingState | null;
+  alchemySkill?: S2C_PanelAttrDelta['alchemySkill'];
+  buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
+  gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
+  enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
   attrs: {
     revision: number;
     stage: S2C_PanelAttrDelta['stage'];
@@ -406,6 +429,22 @@ function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialSt
   };
 }
 
+function isSameCraftSkillState(
+  left: S2C_PanelAttrDelta['alchemySkill'],
+  right: S2C_PanelAttrDelta['alchemySkill'],
+): boolean {
+  if (!left && !right) {
+    return true;
+  }
+  return Boolean(
+    left
+    && right
+    && left.level === right.level
+    && left.exp === right.exp
+    && left.expToNext === right.expToNext,
+  );
+}
+
 function toTechniqueState(entry: TechniqueUpdateEntryView): TechniqueState {
   return {
     techId: entry.techId,
@@ -438,6 +477,10 @@ interface ProjectedAttrPanelState {
   realmProgress?: number;
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
+  alchemySkill?: S2C_PanelAttrDelta['alchemySkill'];
+  buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
+  gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
+  enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
 }
 interface ProjectedActionPanelState {
   revision: number;
@@ -490,6 +533,7 @@ interface WorldStateSlice {
   portals: Map<string, ProjectedPortalEntry>;
   groundPiles: Map<string, ProjectedGroundPileEntry>;
   containers: Map<string, ProjectedContainerEntry>;
+  buildings: Map<string, ProjectedBuildingEntry>;
   formations: Map<string, ProjectedFormationEntry>;
 }
 interface PlayerStateSlice {
@@ -616,6 +660,15 @@ function buildFullWorldDelta(
         c: entry.color,
         rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }));
+    const buildings: WorldBuildingPatchView[] = Array.from(view.localBuildings ?? [], (entry) => ({
+        id: entry.id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.name,
+        ch: entry.char,
+        c: entry.color,
+        rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks),
+    }));
     const formations: WorldFormationPatchView[] = Array.from(view.localFormations ?? [], (entry) => ({
         id: entry.id,
         x: entry.x,
@@ -649,6 +702,7 @@ function buildFullWorldDelta(
         o: portals.length > 0 ? portals : undefined,
         g: ground.length > 0 ? ground : undefined,
         c: containers.length > 0 ? containers : undefined,
+        bd: buildings.length > 0 ? buildings : undefined,
         fmn: formations.length > 0 ? formations : undefined,
     };
 }
@@ -772,6 +826,14 @@ function captureWorldState(
         c: entry.color,
         rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }]);
+    const buildings: Array<[string, ProjectedBuildingEntry]> = (view.localBuildings ?? []).map((entry): [string, ProjectedBuildingEntry] => [entry.id, {
+        x: entry.x,
+        y: entry.y,
+        n: entry.name,
+        ch: entry.char,
+        c: entry.color,
+        rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks),
+    }]);
     const formations: Array<[string, ProjectedFormationEntry]> = (view.localFormations ?? []).map((entry): [string, ProjectedFormationEntry] => [entry.id, {
         x: entry.x,
         y: entry.y,
@@ -819,6 +881,7 @@ function captureWorldState(
         portals: new Map(portals),
         groundPiles: new Map(groundPiles),
         containers: new Map(containers),
+        buildings: new Map(buildings),
         formations: new Map(formations),
     };
 }
@@ -887,6 +950,10 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         realmProgress: player.realm?.progress,
         realmProgressToNext: player.realm?.progressToNext,
         realmBreakthroughReady: player.realm?.breakthroughReady,
+        alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+        buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
+        gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
+        enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     };
 }
 function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPanelState {
@@ -925,6 +992,7 @@ function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerS
         portals: worldState.portals,
         groundPiles: worldState.groundPiles,
         containers: worldState.containers,
+        buildings: worldState.buildings,
         formations: worldState.formations,
         selfRevision: playerState.selfRevision,
         self: playerState.self,
@@ -955,6 +1023,10 @@ function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView
         realmProgress: player.realm?.progress,
         realmProgressToNext: player.realm?.progressToNext,
         realmBreakthroughReady: player.realm?.breakthroughReady,
+        alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+        buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
+        gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
+        enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     };
 }
 function buildFullActionDelta(player: ProjectorPlayerLike): S2C_PanelActionDelta {
@@ -1003,6 +1075,10 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
     const realmProgressChanged = previousAttr.realmProgress !== player.realm?.progress;
     const realmProgressToNextChanged = previousAttr.realmProgressToNext !== player.realm?.progressToNext;
     const realmBreakthroughReadyChanged = previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady;
+    const alchemySkillChanged = !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill);
+    const buildingSkillChanged = !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill);
+    const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill);
+    const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill);
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -1015,7 +1091,11 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         + (lifespanYearsChanged ? 1 : 0)
         + (realmProgressChanged ? 1 : 0)
         + (realmProgressToNextChanged ? 1 : 0)
-        + (realmBreakthroughReadyChanged ? 1 : 0);
+        + (realmBreakthroughReadyChanged ? 1 : 0)
+        + (alchemySkillChanged ? 1 : 0)
+        + (buildingSkillChanged ? 1 : 0)
+        + (gatherSkillChanged ? 1 : 0)
+        + (enhancementSkillChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
         return buildFullAttrDelta(player);
     }
@@ -1034,6 +1114,10 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         realmProgress: realmProgressChanged ? player.realm?.progress : undefined,
         realmProgressToNext: realmProgressToNextChanged ? player.realm?.progressToNext : undefined,
         realmBreakthroughReady: realmBreakthroughReadyChanged ? player.realm?.breakthroughReady : undefined,
+        alchemySkill: alchemySkillChanged ? (player.alchemySkill ? { ...player.alchemySkill } : undefined) : undefined,
+        buildingSkill: buildingSkillChanged ? (player.buildingSkill ? { ...player.buildingSkill } : undefined) : undefined,
+        gatherSkill: gatherSkillChanged ? (player.gatherSkill ? { ...player.gatherSkill } : undefined) : undefined,
+        enhancementSkill: enhancementSkillChanged ? (player.enhancementSkill ? { ...player.enhancementSkill } : undefined) : undefined,
     };
 }
 function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): SelfDeltaView | null {
@@ -1114,6 +1198,10 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || previousAttr.realmProgress !== player.realm?.progress
         || previousAttr.realmProgressToNext !== player.realm?.progressToNext
         || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
+        || !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill)
+        || !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
+        || !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
+        || !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
         || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStats(player))
         || !isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
     if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
@@ -1488,6 +1576,60 @@ function diffContainerEntries(previous: Map<string, ProjectedContainerEntry>, cu
     for (const containerId of previous.keys()) {
         if (!current.has(containerId)) {
             result.push({ id: containerId, rm: 1 });
+        }
+    }
+    return result;
+}
+function diffBuildingEntries(previous: Map<string, ProjectedBuildingEntry>, current: Map<string, ProjectedBuildingEntry>): WorldBuildingPatchView[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+    const result: WorldBuildingPatchView[] = [];
+    for (const [buildingId, entry] of current) {
+        const prev = previous.get(buildingId);
+        if (!prev) {
+            result.push({
+                id: buildingId,
+                x: entry.x,
+                y: entry.y,
+                n: entry.n,
+                ch: entry.ch,
+                c: entry.c,
+                rt: entry.rt,
+            });
+            continue;
+        }
+        const delta: WorldBuildingPatchView = { id: buildingId };
+        let changed = false;
+        if (prev.x !== entry.x) {
+            delta.x = entry.x;
+            changed = true;
+        }
+        if (prev.y !== entry.y) {
+            delta.y = entry.y;
+            changed = true;
+        }
+        if (prev.n !== entry.n) {
+            delta.n = entry.n;
+            changed = true;
+        }
+        if (prev.ch !== entry.ch) {
+            delta.ch = entry.ch;
+            changed = true;
+        }
+        if (prev.c !== entry.c) {
+            delta.c = entry.c;
+            changed = true;
+        }
+        if (prev.rt !== entry.rt) {
+            delta.rt = entry.rt ?? null;
+            changed = true;
+        }
+        if (changed) {
+            result.push(delta);
+        }
+    }
+    for (const buildingId of previous.keys()) {
+        if (!current.has(buildingId)) {
+            result.push({ id: buildingId, rm: 1 });
         }
     }
     return result;
@@ -2700,6 +2842,7 @@ export {
     captureWorldState,
     combineProjectorState,
     diffContainerEntries,
+    diffBuildingEntries,
     diffFormationEntries,
     diffGroundPiles,
     diffMonsterEntries,

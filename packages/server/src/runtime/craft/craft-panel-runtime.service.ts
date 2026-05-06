@@ -1041,19 +1041,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     blocksEquipSlotChange(player, slot) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.hasActiveAlchemyJob(player) && slot === 'weapon' && this.hasEquippedFurnace(player)) {
-            return true;
-        }
-        if (this.hasActiveForgingJob(player) && slot === 'weapon' && this.hasEquippedForgingTool(player)) {
-            return true;
-        }
-        if (this.hasActiveEnhancementJob(player)) {
-            if (slot === 'weapon' && this.hasEquippedHammer(player)) {
-                return true;
-            }
-            return player.enhancementJob?.target?.source === 'equipment' && player.enhancementJob.target.slot === slot;
-        }
-        return false;
+        return Boolean(this.hasActiveEnhancementJob(player)
+            && player.enhancementJob?.target?.source === 'equipment'
+            && player.enhancementJob.target.slot === slot);
     }
     /**
  * getLockedSlotReason：读取LockedSlotReason。
@@ -1065,17 +1055,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     getLockedSlotReason(player, slot) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.hasActiveAlchemyJob(player) && slot === 'weapon' && this.hasEquippedFurnace(player)) {
-            return '炼丹进行中，暂时不能替换或卸下丹炉。';
-        }
-        if (this.hasActiveForgingJob(player) && slot === 'weapon' && this.hasEquippedForgingTool(player)) {
-            return '炼器进行中，暂时不能替换或卸下炼器工具。';
-        }
         if (!this.hasActiveEnhancementJob(player)) {
             return null;
-        }
-        if (slot === 'weapon' && this.hasEquippedHammer(player)) {
-            return '强化进行中，暂时不能替换或卸下强化锤。';
         }
         if (player.enhancementJob?.target?.source === 'equipment' && player.enhancementJob.target.slot === slot) {
             return `${player.enhancementJob.targetItemName} 强化进行中，暂时不能更换对应装备槽。`;

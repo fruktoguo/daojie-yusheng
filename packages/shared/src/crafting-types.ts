@@ -498,6 +498,30 @@ export interface PlayerGatherJob extends TechniqueActivityJobBase {
   phase: 'gathering' | 'paused';
 }
 
+/** 玩家当前营造任务的最小持久化运行态。 */
+export interface PlayerBuildingJob extends TechniqueActivityJobBase {
+/**
+ * buildingId：建筑 ID。
+ */
+
+  buildingId: string;
+  /**
+ * buildingName：建筑名称名称或显示文本。
+ */
+
+  buildingName: string;
+  /**
+ * instanceId：实例 ID。
+ */
+
+  instanceId: string;
+  /**
+ * phase：phase相关字段。
+ */
+
+  phase: 'building' | 'paused';
+}
+
 /** 单个强化目标等级的历史记录。 */
 export interface PlayerEnhancementLevelRecord {
 /**

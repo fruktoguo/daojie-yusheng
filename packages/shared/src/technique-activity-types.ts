@@ -5,7 +5,7 @@ export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gat
 export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement';
 
 /** 技艺活动通用中断原因。 */
-export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel';
+export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate';
 
 /** 技艺经验成长公共状态。 */
 export interface TechniqueSkillProgressState {

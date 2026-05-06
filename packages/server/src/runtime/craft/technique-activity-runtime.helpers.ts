@@ -69,6 +69,8 @@ function buildTechniqueActivityInterruptMessage(subjectLabel, activityLabel, pau
     ? '移动'
     : reason === 'cancel'
       ? '手动取消'
+      : reason === 'cultivate'
+        ? '打坐'
       : '出手';
   return `${normalizedSubjectLabel} 的${normalizedActivityLabel}被${reasonLabel}打断，暂歇 ${normalizedPauseTicks} 息。`;
 }

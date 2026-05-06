@@ -139,6 +139,9 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId === 'cultivation:toggle') {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             const nextActive = !player.combat.cultivationActive;
+            if (nextActive) {
+                deps.worldRuntimeCraftInterruptService?.interruptCraftForReason(playerId, player, 'cultivate', deps);
+            }
             this.playerRuntimeService.updateCombatSettings(playerId, { cultivationActive: nextActive }, currentTick);
             deps.queuePlayerNotice(playerId, nextActive ? '已恢复当前修炼' : '已停止当前修炼', 'info');
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
@@ -166,6 +169,20 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
             }, deps);
             deps.refreshPlayerContextActions(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('building:start:')) {
+            const buildingId = actionId.slice('building:start:'.length).trim();
+            if (!buildingId) {
+                throw new common_1.BadRequestException('建筑 ID 不能为空');
+            }
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startBuilding',
+                buildingId,
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
         }
         if (actionId.startsWith('sect:')) {
             return deps.worldRuntimeSectService.executeSectAction(playerId, actionId, deps);

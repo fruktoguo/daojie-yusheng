@@ -2,6 +2,8 @@
 
 const assert = require("node:assert/strict");
 
+const { computeCraftSkillExpGain } = require("@mud/shared");
+const { CraftPanelRuntimeService } = require("../runtime/craft/craft-panel-runtime.service");
 const { WorldRuntimeCraftInterruptService } = require("../runtime/world/world-runtime-craft-interrupt.service");
 const { WorldRuntimeCraftTickService } = require("../runtime/world/world-runtime-craft-tick.service");
 /**
@@ -46,7 +48,7 @@ function testInterruptCraftForReason() {
             log.push(['flushCraftMutation', playerId, panel, result.messages?.[0]?.text ?? null]);
         },
     });
-    service.interruptCraftForReason('player:1', { playerId: 'player:1', gatherJob: { remainingTicks: 2 } }, 'move', {    
+    service.interruptCraftForReason('player:1', { playerId: 'player:1', gatherJob: { remainingTicks: 2 }, buildingJob: { remainingTicks: 3 } }, 'move', {
     /**
  * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
@@ -73,6 +75,9 @@ function testInterruptCraftForReason() {
                 return { ok: true, messages: [{ text: 'gather中断', kind: 'info' }], panelChanged: false, groundDrops: [] };
             },
         },
+        interruptBuildingConstruction(playerId, reason) {
+            log.push(['interruptBuildingConstruction', playerId, reason]);
+        },
     });
     assert.deepEqual(log, [
         ['interruptTechniqueActivity', 'player:1', 'alchemy', 'move'],
@@ -81,7 +86,71 @@ function testInterruptCraftForReason() {
         ['flushCraftMutation', 'player:1', 'enhancement', 'enhancement中断'],
         ['interruptGather', 'player:1', 'move'],
         ['flushCraftMutation', 'player:1', 'gather', 'gather中断'],
+        ['interruptBuildingConstruction', 'player:1', 'move'],
     ]);
+}
+
+function testShortCraftSkillExpGain() {
+    const expToNextByLevel = (level) => Math.max(60, 60 + ((Math.max(1, Math.floor(Number(level) || 1)) - 1) * 12));
+    const lowTickAlchemyGain = computeCraftSkillExpGain({
+        skillLevel: 1,
+        targetLevel: 1,
+        baseActionTicks: 12,
+        getExpToNextByLevel: expToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    });
+    assert.equal(lowTickAlchemyGain.finalGain, 1);
+    const lowTickEnhancementGain = computeCraftSkillExpGain({
+        skillLevel: 6,
+        targetLevel: 6,
+        baseActionTicks: 5,
+        getExpToNextByLevel: expToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    });
+    assert.equal(lowTickEnhancementGain.finalGain, 1);
+}
+
+function testToolSlotsAreNoLongerLockedByCraftJobs() {
+    const service = new CraftPanelRuntimeService({
+        getItemName() { return null; },
+    }, {}, {}, {}, {});
+    const alchemyPlayer = {
+        alchemyJob: { remainingTicks: 5, jobType: 'alchemy' },
+        enhancementJob: null,
+        equipment: {
+            slots: [{
+                slot: 'weapon',
+                item: { itemId: 'equip.copper_pill_furnace', tags: ['alchemy_furnace'] },
+            }],
+        },
+    };
+    assert.equal(service.blocksEquipSlotChange(alchemyPlayer, 'weapon'), false);
+    assert.equal(service.getLockedSlotReason(alchemyPlayer, 'weapon'), null);
+    const enhancementPlayer = {
+        alchemyJob: null,
+        enhancementJob: {
+            remainingTicks: 5,
+            target: { source: 'equipment', slot: 'armor' },
+            targetItemName: '铁甲',
+        },
+        equipment: {
+            slots: [{
+                slot: 'weapon',
+                item: { itemId: 'equip.copper_enhancement_hammer', tags: ['enhancement_hammer'] },
+            }, {
+                slot: 'armor',
+                item: { itemId: 'armor_iron', name: '铁甲' },
+            }],
+        },
+    };
+    assert.equal(service.blocksEquipSlotChange(enhancementPlayer, 'weapon'), false);
+    assert.equal(service.getLockedSlotReason(enhancementPlayer, 'weapon'), null);
+    assert.equal(service.blocksEquipSlotChange(enhancementPlayer, 'armor'), true);
+    assert.equal(service.getLockedSlotReason(enhancementPlayer, 'armor'), '铁甲 强化进行中，暂时不能更换对应装备槽。');
 }
 /**
  * testAdvanceCraftJobs：执行testAdvance炼制Job相关逻辑。
@@ -179,6 +248,12 @@ async function testAdvanceCraftJobs() {
 Promise.resolve()
     .then(() => {
     testInterruptCraftForReason();
+})
+    .then(() => {
+    testShortCraftSkillExpGain();
+})
+    .then(() => {
+    testToolSlotsAreNoLongerLockedByCraftJobs();
 })
     .then(() => testAdvanceCraftJobs())
     .then(() => {

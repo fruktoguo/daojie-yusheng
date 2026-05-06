@@ -11,11 +11,20 @@ const catalog = buildings.map((building) => ({
   id: building.id,
   name: building.name,
   layer: building.placement?.layer ?? 'decoration',
+  visualTileType: building.visual?.tileType,
+  visualGlyph: building.visual?.glyph,
+  visualColor: building.visual?.color,
   allowRotate: building.placement?.allowRotate !== false,
   footprint: (building.placement?.footprint ?? []).map((cell) => ({ dx: Math.trunc(Number(cell.dx) || 0), dy: Math.trunc(Number(cell.dy) || 0) })),
   cost: (building.economy?.cost ?? []).map((entry) => ({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)) })),
   traits: Array.isArray(building.fengShui?.traits) ? building.fengShui.traits.slice() : [],
   elementVector: building.fengShui?.elementVector ?? {},
+  maxHp: Math.max(1, Math.trunc(Number(building.economy?.maxHp) || 1)),
+  stability: Math.trunc(Number(building.fengShui?.stability) || 0),
+  comfort: Math.trunc(Number(building.fengShui?.comfort) || 0),
+  opening: building.topology?.opening ?? 'none',
+  blocksMove: building.topology?.blocksMove === true,
+  blocksSight: building.topology?.blocksSight === true,
 }));
 
 fs.mkdirSync(targetDir, { recursive: true });

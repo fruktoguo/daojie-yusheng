@@ -28,8 +28,11 @@ function createService(player, log = []) {
             if (!player) {
                 throw new Error('player missing');
             }
+            if (typeof player.playerId !== 'string' || !player.playerId) {
+                player.playerId = playerId;
+            }
             return player;
-        },        
+        },
         /**
  * updateCombatSettings：处理战斗Setting并更新相关状态。
  * @param playerId 玩家 ID。
@@ -43,7 +46,7 @@ function createService(player, log = []) {
             if (player?.combat && patch.cultivationActive !== undefined) {
                 player.combat.cultivationActive = patch.cultivationActive;
             }
-        },        
+        },
         /**
  * cultivateTechnique：执行cultivate功法相关逻辑。
  * @param playerId 玩家 ID。
@@ -171,11 +174,16 @@ function createDeps(log = []) {
 
         queuePlayerNotice(playerId, message, kind) {
             log.push(['queuePlayerNotice', playerId, message, kind]);
-        },        
+        },
+        worldRuntimeCraftInterruptService: {
+            interruptCraftForReason(playerId, player, reason) {
+                log.push(['interruptCraftForReason', playerId, player?.playerId ?? null, reason]);
+            },
+        },
         /**
- * buildNpcShopView：构建并返回目标对象。
- * @param playerId 玩家 ID。
- * @param npcId npc ID。
+   * buildNpcShopView：构建并返回目标对象。
+   * @param playerId 玩家 ID。
+   * @param npcId npc ID。
  * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
@@ -426,6 +434,7 @@ function testCultivationToggle() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
+        ['interruptCraftForReason', 'player:1', 'player:1', 'cultivate'],
         ['updateCombatSettings', 'player:1', { cultivationActive: true }, 77],
         ['queuePlayerNotice', 'player:1', '已恢复当前修炼', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
@@ -454,6 +463,7 @@ function testCultivationToggleWithoutMainTechnique() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
+        ['interruptCraftForReason', 'player:1', 'player:1', 'cultivate'],
         ['updateCombatSettings', 'player:1', { cultivationActive: true }, 77],
         ['queuePlayerNotice', 'player:1', '已恢复当前修炼', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
@@ -533,6 +543,28 @@ function testNpcQuestActionDelegates() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['executeNpcQuestAction', 'player:1', 'npc_a'],
+    ]);
+}
+
+function testStartBuildingQueuesPendingCommand() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        combat: {},
+    };
+    const service = createService(player, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'building:start:building:half:1', null, deps);
+    assert.equal(result.kind, 'queued');
+    assert.equal(result.view?.instance?.instanceId, 'public:yunlai_town');
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'startBuilding',
+            buildingId: 'building:half:1',
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
 /**
@@ -628,6 +660,7 @@ async function run() {
     testNpcShopView();
     testNpcQuestActionDelegates();
     testLegacyNpcActionDelegates();
+    testStartBuildingQueuesPendingCommand();
     await testInvalidManualCastClearsPendingCommand();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-action-execution' }, null, 2));
 }

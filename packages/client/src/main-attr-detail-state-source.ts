@@ -113,6 +113,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
         ratioDivisors: options.cloneJson(detail.ratioDivisors),
         specialStats: specialStats,
         alchemySkill: options.cloneJson(detail.alchemySkill ?? player.alchemySkill),
+        buildingSkill: options.cloneJson(detail.buildingSkill ?? player.buildingSkill),
         gatherSkill: options.cloneJson(detail.gatherSkill ?? player.gatherSkill),
         enhancementSkill: options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill),
       });
@@ -128,6 +129,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       player.numericStats = options.cloneJson(detail.numericStats);
       player.ratioDivisors = options.cloneJson(detail.ratioDivisors);
       player.alchemySkill = options.cloneJson(detail.alchemySkill ?? player.alchemySkill);
+      player.buildingSkill = options.cloneJson(detail.buildingSkill ?? player.buildingSkill);
       player.gatherSkill = options.cloneJson(detail.gatherSkill ?? player.gatherSkill);
       player.enhancementSkill = options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill);
       options.attrPanel.update(attrUpdate);

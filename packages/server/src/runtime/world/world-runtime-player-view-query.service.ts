@@ -285,6 +285,9 @@ function decorateOverlayParentView(runtime, view) {
         localGroundPiles: view.localGroundPiles.concat(
             parentInstance.collectLocalGroundPiles(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
         ),
+        localBuildings: view.localBuildings.concat(
+            parentInstance.collectLocalBuildings(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
     };
 }
 

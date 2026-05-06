@@ -1153,22 +1153,18 @@
       transform: translate(-1px, -1px);
       outline: none;
     }
-    .attr-craft-icon {
-      width: 30px;
-      height: 30px;
-      justify-self: center;
-      align-self: center;
-      background-image: url('/assets/craft-icons/craft-icons-atlas.png');
-      background-repeat: no-repeat;
-      background-size: 90px 30px;
-      background-position:
-        calc(var(--craft-icon-col) * -30px)
-        calc(var(--craft-icon-row) * -30px);
-      filter: drop-shadow(0 2px 5px rgba(58, 38, 24, 0.18));
-      pointer-events: none;
-    }
     .attr-craft-label {
-      display: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-width: 0;
+      height: 24px;
+      padding: 0;
+      color: var(--ink-black);
+      font-size: var(--font-size-13);
+      font-weight: var(--font-weight-semibold);
+      line-height: 24px;
+      white-space: nowrap;
     }
     .attr-craft-level {
       display: flex;
@@ -4238,6 +4234,55 @@
     .formation-cost-card[data-formation-cost-state="insufficient"] > output {
       color: var(--stamp-red);
     }
+    .formation-effect-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 0;
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--panel-border));
+      border-radius: 8px;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--paper)), color-mix(in srgb, var(--surface-base) 84%, transparent));
+      color: var(--ink-dark);
+    }
+    .formation-effect-desc {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-13);
+      line-height: 1.55;
+    }
+    .formation-effect-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .formation-effect-list span {
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 64%, transparent);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--paper) 74%, transparent);
+    }
+    .formation-effect-list em,
+    .formation-effect-list output {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: normal;
+    }
+    .formation-effect-list em {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      margin-bottom: 4px;
+    }
+    .formation-effect-list output {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-12);
+      font-weight: 600;
+      line-height: 1.35;
+      white-space: normal;
+    }
     .formation-config-input {
       min-width: 0;
       height: 38px;
@@ -4308,6 +4353,13 @@
     }
     :root[data-color-mode="dark"] .formation-cost-card[data-formation-cost-state="insufficient"] {
       background: color-mix(in srgb, var(--stamp-red) 13%, var(--surface-base));
+    }
+    :root[data-color-mode="dark"] .formation-effect-card {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface-base)), color-mix(in srgb, var(--surface-base) 86%, transparent));
+      border-color: color-mix(in srgb, var(--accent) 28%, var(--panel-border));
+    }
+    :root[data-color-mode="dark"] .formation-effect-list span {
+      background: color-mix(in srgb, var(--surface-base) 78%, transparent);
     }
     .formation-range-preview-btn {
       width: 100%;
@@ -4497,6 +4549,9 @@
       }
       .formation-preview-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .formation-effect-list {
+        grid-template-columns: 1fr;
       }
     }
     .market-pane {
@@ -8133,34 +8188,461 @@
       justify-content: flex-end;
     }
     @media (max-width: 760px) {
+      .detail-modal.detail-modal--craft {
+        --detail-modal-padding: 4px;
+        --detail-modal-safe-gap: 4px;
+        padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
+      }
+      .detail-modal-card.detail-modal--craft {
+        width: calc(100vw - 8px);
+        height: min(92dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - 28px));
+        max-height: none;
+        padding: 10px 8px 8px;
+      }
+      .detail-modal-card.detail-modal--craft .detail-modal-head {
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+      }
+      .detail-modal-card.detail-modal--craft .detail-modal-title {
+        font-size: var(--font-size-18);
+        line-height: 1.15;
+      }
+      .detail-modal-card.detail-modal--craft .detail-modal-subtitle {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        max-width: 100%;
+        padding: 0 8px;
+        border: 1px solid rgba(111, 70, 37, 0.16);
+        background: rgba(255, 251, 244, 0.82);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: var(--font-size-11);
+      }
+      .detail-modal-card.detail-modal--craft .detail-modal-hint {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft #detail-modal-body {
+        overflow: hidden;
+      }
       .craft-workbench-shell {
         grid-template-columns: 1fr;
         grid-template-rows: auto minmax(0, 1fr);
+        gap: 8px;
       }
       .craft-workbench-sidebar {
         overflow: visible;
         padding-right: 0;
         border-right: 0;
+        gap: 8px;
+      }
+      .craft-workbench-main {
+        gap: 8px;
       }
       .craft-workbench-header {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: start;
+      }
+      .craft-profession-summary {
+        display: none;
       }
       .craft-workbench-tabs {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        overflow: visible;
+        padding: 0;
       }
       .craft-mode-tab {
         min-width: 0;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 7px 6px;
+        gap: 4px;
+        text-align: center;
+      }
+      .craft-mode-tab em {
+        font-size: var(--font-size-10);
+      }
+      .craft-queue-panel {
+        min-width: 0;
+        padding: 8px;
+        gap: 6px;
+      }
+      .craft-queue-head {
+        font-size: var(--font-size-11);
       }
       .craft-queue-list {
-        max-height: 112px;
+        max-height: 56px;
+      }
+      .craft-queue-item,
+      .craft-queue-empty {
+        padding: 6px;
+        font-size: var(--font-size-11);
+      }
+      .craft-queue-item strong {
+        font-size: var(--font-size-12);
+      }
+      .craft-workbench-content {
+        border-top: 0;
+      }
+      .craft-workbench-content .alchemy-modal-shell,
+      .craft-workbench-content .enhancement-modal-shell {
+        padding: 0;
       }
       .craft-workbench-content .alchemy-layout,
       .craft-workbench-content .enhancement-layout,
       .craft-workbench-content .enhancement-layout--single-slot {
         grid-template-columns: 1fr;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-modal-shell,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-modal-shell {
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy [data-alchemy-job-card-host="true"],
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging [data-alchemy-job-card-host="true"] {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-topbar,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-topbar {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-control-row,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-control-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-control-group,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-control-group--tabs,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-control-group,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-control-group--tabs {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        min-width: 0;
+        justify-content: flex-start;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-control-label,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-control-label {
+        font-size: var(--font-size-11);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-modal-tabs,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-category-tabs,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-modal-tabs,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-category-tabs {
+        width: 100%;
+        min-width: 0;
+        justify-self: stretch;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-tab-btn,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-category-btn,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-tab-btn,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-category-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-left: 8px;
+        padding-right: 8px;
+        font-size: var(--font-size-11);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-category-count,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-category-count {
+        min-width: 16px;
+        min-height: 16px;
+        padding: 0 4px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-layout,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-layout {
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-recipe-list,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-recipe-list {
+        max-height: 168px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-metrics,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-card,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-card {
+        display: grid;
+        grid-template-columns: minmax(88px, 0.95fr) minmax(0, 2.05fr);
+        align-items: stretch;
+        gap: 6px;
+        padding: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-head,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-head {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-title,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-title {
+        width: 100%;
+        min-width: 0;
+        font-size: var(--font-size-12);
+        line-height: 1.2;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-title > *,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-title > * {
+        min-width: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-title .item-inline-trigger,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-title .item-ref-link,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-title .item-name-inline,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-title .item-inline-trigger,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-title .item-ref-link,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-title .item-name-inline {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-mode,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-mode {
+        min-height: 20px;
+        padding: 0 6px;
+        font-size: var(--font-size-10);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-metric,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-metric {
+        gap: 3px;
+        padding: 8px 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-metric-label,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-metric-label {
+        font-size: var(--font-size-10);
+        line-height: 1.2;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-summary-metric-value,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-summary-metric-value {
+        font-size: var(--font-size-14);
+        line-height: 1.1;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-section,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-section {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding-right: 0;
+        align-content: start;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-row,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-main,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-editor,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-meta,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-main,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-editor,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-meta {
+        justify-content: flex-start;
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-name,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-owned,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-lock,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-count,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-alchemy .alchemy-ingredient-meta,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-name,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-owned,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-lock,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-count,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-forging .alchemy-ingredient-meta {
+        font-size: var(--font-size-11);
+        line-height: 1.25;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-modal-shell {
+        gap: 8px;
+        height: auto;
+        min-height: 100%;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-layout,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-layout--single-slot {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+        min-height: auto;
+        align-content: start;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-workbench {
+        order: 1;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-panel {
+        order: 2;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-metrics,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-toolbar,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-head,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-head,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-action-row,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-row,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-protection-option {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-protection-option em {
+        margin-left: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-toolbar,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-head,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-head {
+        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-head .small-btn {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-workbench-grid,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-workbench-side,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-workbench-main,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-panel {
+        gap: 8px;
+        min-height: auto;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-card,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-card,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-card,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-card,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-requirement-card {
+        padding: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-card {
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-candidate-name,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-title,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-title,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-section-title,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-action,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-name {
+        font-size: var(--font-size-12);
+        line-height: 1.25;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-toolbar-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-meta,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-subtitle,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-lines,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-empty-state,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-empty,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-entry-meta,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-detail-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-row {
+        font-size: var(--font-size-11);
+        line-height: 1.45;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-action-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-requirement-card .enhancement-protection-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-head .enhancement-protection-note {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-row {
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-row .small-btn {
+        min-width: 42px;
+        min-height: 28px;
+        padding: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-input {
+        height: 28px;
+        padding: 3px 6px;
+        font-size: var(--font-size-12);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-card {
+        display: grid;
+        grid-template-columns: minmax(90px, 0.96fr) minmax(0, 2.04fr);
+        align-items: stretch;
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-head {
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+        margin-bottom: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-rate {
+        min-width: 0;
+        padding: 2px 6px;
+        font-size: var(--font-size-11);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-metric {
+        gap: 3px;
+        padding: 8px 6px;
+        font-size: var(--font-size-10);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-metric strong {
+        font-size: var(--font-size-14);
+        line-height: 1.1;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 2px 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-row > strong {
+        justify-self: end;
+        font-size: var(--font-size-13);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-owned {
+        grid-column: 1 / -1;
+        line-height: 1.3;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-protection-option {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+        gap: 4px 8px;
+        padding: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-protection-option > input {
+        margin-top: 2px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-protection-option > em {
+        grid-column: 2;
+        font-size: var(--font-size-10);
+        line-height: 1.25;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-grid {
+        display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-empty-state {
+        min-height: 128px;
+        padding: 12px;
       }
     }
     .detail-modal-card.detail-modal--enhancement {

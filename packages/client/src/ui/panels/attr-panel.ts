@@ -37,7 +37,6 @@ import { preserveSelection } from '../selection-preserver';
 import {
   ATTR_COLORS,
   ATTR_TAB_LABELS,
-  CRAFT_ICON_ATLAS_CELLS,
   ELEMENT_COLORS,
   ATTR_ICON_ATLAS_CELLS,
   type NumericCardIconAtlasCell,
@@ -524,15 +523,6 @@ function renderAtlasIcon(key: string, className: string): string {
   return `<span class="${className}" style="--attr-icon-col:${iconCell.col};--attr-icon-row:${iconCell.row};" aria-hidden="true"></span>`;
 }
 
-/** renderCraftAtlasIcon：渲染技艺图集中的一个图标。 */
-function renderCraftAtlasIcon(key: string): string {
-  const iconCell = CRAFT_ICON_ATLAS_CELLS[key];
-  if (!iconCell) {
-    return '';
-  }
-  return `<span class="attr-craft-icon" style="--craft-icon-col:${iconCell.col};--craft-icon-row:${iconCell.row};" aria-hidden="true"></span>`;
-}
-
 /** renderAttrMiniCard：渲染属性数值宫格卡片。 */
 function renderAttrMiniCard(
   card: AttrNumericCardSnapshot,
@@ -679,10 +669,10 @@ interface AttrRadarPaneSnapshot {
 
   title: string;  
   /**
- * scale：scale相关字段。
+ * scaleLabel：scaleLabel相关字段。
  */
 
-  scale: number;  
+  scaleLabel: string;
   /**
  * paneId：paneID标识。
  */
@@ -953,6 +943,7 @@ export class AttrPanel {
       data.ratioDivisors as NumericRatioDivisors | undefined,
       data.specialStats as PlayerSpecialStats | undefined,
       data.alchemySkill,
+      data.buildingSkill,
       data.gatherSkill,
       data.enhancementSkill,
       data.numericStatBreakdowns,
@@ -986,6 +977,7 @@ export class AttrPanel {
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       alchemySkill: player.alchemySkill,
+      buildingSkill: player.buildingSkill,
       gatherSkill: player.gatherSkill,
       enhancementSkill: player.enhancementSkill,
     };
@@ -1006,6 +998,7 @@ export class AttrPanel {
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       player.alchemySkill,
+      player.buildingSkill,
       player.gatherSkill,
       player.enhancementSkill,
       this.latestData.numericStatBreakdowns,
@@ -1036,6 +1029,7 @@ export class AttrPanel {
       detail.ratioDivisors,
       undefined,
       detail.alchemySkill,
+      detail.buildingSkill,
       detail.gatherSkill,
       detail.enhancementSkill,
       detail.numericStatBreakdowns,
@@ -1093,6 +1087,7 @@ export class AttrPanel {
     ratioDivisors?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
     alchemySkill?: PlayerState['alchemySkill'],
+    buildingSkill?: PlayerState['buildingSkill'],
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
     numericStatBreakdowns?: NumericStatBreakdownMap,
@@ -1139,7 +1134,7 @@ export class AttrPanel {
           },
         }, final, numericStatBreakdowns),
         special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, final, numericStatBreakdowns),
-        craft: this.buildCraftPaneSnapshot(alchemySkill, gatherSkill, enhancementSkill),
+        craft: this.buildCraftPaneSnapshot(alchemySkill, buildingSkill, gatherSkill, enhancementSkill),
       },
     };
   }
@@ -1372,7 +1367,7 @@ export class AttrPanel {
     return {
       kind: 'radar',
       title,
-      scale,
+      scaleLabel: formatDisplayInteger(scale),
       paneId,
       areaPoints,
       rings,
@@ -1614,6 +1609,7 @@ export class AttrPanel {
 
   private buildCraftPaneSnapshot(
     alchemySkill?: PlayerState['alchemySkill'],
+    buildingSkill?: PlayerState['buildingSkill'],
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
   ): AttrPaneSnapshot {
@@ -1621,9 +1617,9 @@ export class AttrPanel {
 
     const skills = [
       this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
+      this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
       this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
       this.buildCraftSkillSnapshot('forging', '炼器', { level: 1, exp: 0, expToNext: 60 }),
-      this.buildCraftSkillSnapshot('building', '营造', { level: 1, exp: 0, expToNext: 60 }),
       this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
     ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
     if (skills.length === 0) {
@@ -1685,7 +1681,6 @@ export class AttrPanel {
       return `<div class="attr-craft-list" data-pane-kind="craft">
         ${snapshot.skills.map((skill) => `
           <section class="attr-craft-row" data-craft-skill="${escapeHtml(skill.key)}"${skill.openable ? ` data-craft-open="${escapeHtml(skill.key)}" role="button" tabindex="0"` : ''} data-tooltip-title="${escapeHtml(skill.tooltipTitle)}" data-tooltip-detail="${escapeHtml(skill.tooltipDetail)}">
-            ${renderCraftAtlasIcon(skill.key)}
             <span class="attr-craft-label" data-craft-label="true">${escapeHtml(skill.label)}</span>
             <strong class="attr-craft-level" data-craft-level="true">${escapeHtml(skill.level)}</strong>
             <div class="attr-craft-exp">
@@ -1712,7 +1707,7 @@ export class AttrPanel {
       <div class="attr-radar-shell">
         <div class="attr-radar-head">
           <div class="attr-radar-title">${snapshot.title}</div>
-          <div class="attr-radar-scale" data-radar-scale="true">刻度 ${snapshot.scale}</div>
+          <div class="attr-radar-scale" data-radar-scale="true">刻度 ${snapshot.scaleLabel}</div>
         </div>
         <div class="attr-radar-body">
           <svg class="attr-radar" viewBox="0 0 340 340" role="img" aria-label="${snapshot.title}">
@@ -1881,7 +1876,7 @@ export class AttrPanel {
       return false;
     }
     titleNode.textContent = snapshot.title;
-    scaleNode.textContent = `刻度 ${snapshot.scale}`;
+    scaleNode.textContent = `刻度 ${snapshot.scaleLabel}`;
     areaNode.setAttribute('points', snapshot.areaPoints);
     areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? '#ff8a65');
     const svgNode = pane.querySelector<SVGSVGElement>('svg.attr-radar');

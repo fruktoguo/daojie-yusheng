@@ -88,6 +88,7 @@ const EXPECTED_INTERFACES = {
     ratioDivisors: { type: 'NumericRatioDivisors', optional: false },
     numericStatBreakdowns: { type: 'NumericStatBreakdownMap', optional: false },
     alchemySkill: { type: "PlayerState['alchemySkill']", optional: true },
+    buildingSkill: { type: "PlayerState['buildingSkill']", optional: true },
     gatherSkill: { type: "PlayerState['gatherSkill']", optional: true },
     enhancementSkill: { type: "PlayerState['enhancementSkill']", optional: true },
   },

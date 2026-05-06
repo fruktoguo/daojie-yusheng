@@ -7,6 +7,9 @@ interface CraftPlayerLike {
   gatherJob?: {
     remainingTicks?: number;
   } | null;
+  buildingJob?: {
+    remainingTicks?: number;
+  } | null;
 }
 
 interface CraftPanelRuntimePort<TPlayer = CraftPlayerLike> {
@@ -22,6 +25,7 @@ interface CraftInterruptDeps<TPlayer = CraftPlayerLike> {
   worldRuntimeLootContainerService: {
     interruptGather(playerId: string, player: TPlayer, reason: string, deps: CraftInterruptDeps<TPlayer>): unknown;
   };
+  interruptBuildingConstruction?: (playerId: string, reason: string) => void;
 }
 
 @Injectable()
@@ -54,6 +58,9 @@ export class WorldRuntimeCraftInterruptService {
         'gather',
         deps,
       );
+    }
+    if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
+      deps.interruptBuildingConstruction?.(playerId, reason);
     }
   }
 }

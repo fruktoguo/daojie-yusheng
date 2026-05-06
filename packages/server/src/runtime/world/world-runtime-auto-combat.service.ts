@@ -263,6 +263,10 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (!player || player.hp <= 0) {
                 continue;
             }
+            const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
+            if (typeof this.playerRuntimeService.clearRetaliatePlayerTargetIfExpired === 'function') {
+                this.playerRuntimeService.clearRetaliatePlayerTargetIfExpired(playerId, currentTick);
+            }
             if (player.combat?.pendingSkillCast) {
                 continue;
             }
@@ -279,7 +283,6 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 continue;
             }
             if (player.combat.autoBattle && instance.isSafeZoneTile(player.x, player.y)) {
-                const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
                 this.playerRuntimeService.updateCombatSettings(playerId, { autoBattle: false }, currentTick);
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
                 deps.queuePlayerNotice(playerId, '安全区内无法发起攻击，自动战斗已停止。', 'warn');
@@ -288,7 +291,6 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             const command = this.buildAutoCombatCommand(instance, player, deps);
             if (command) {
                 if (isAutoCombatActionCommand(command)) {
-                    const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
                     if (!hasCombatActionBudget(player, currentTick)) {
                         continue;
                     }
@@ -300,7 +302,6 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 continue;
             }
             if (manualEngagePending) {
-                const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
                 this.playerRuntimeService.clearManualEngagePending(playerId);
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
             }

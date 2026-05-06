@@ -380,7 +380,7 @@
     "name": "月露草",
     "type": "material",
     "grade": "mortal",
-    "level": 1,
+    "level": 3,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -395,7 +395,7 @@
     "name": "赤火叶",
     "type": "material",
     "grade": "yellow",
-    "level": 2,
+    "level": 16,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -410,7 +410,7 @@
     "name": "青灵茎",
     "type": "material",
     "grade": "yellow",
-    "level": 2,
+    "level": 8,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -425,7 +425,7 @@
     "name": "寒莲瓣",
     "type": "material",
     "grade": "mystic",
-    "level": 3,
+    "level": 12,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -440,7 +440,7 @@
     "name": "明心花",
     "type": "material",
     "grade": "mystic",
-    "level": 3,
+    "level": 13,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -455,7 +455,7 @@
     "name": "赤芽果",
     "type": "material",
     "grade": "yellow",
-    "level": 2,
+    "level": 7,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -485,7 +485,7 @@
     "name": "疾风苇",
     "type": "material",
     "grade": "mystic",
-    "level": 3,
+    "level": 12,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -500,7 +500,7 @@
     "name": "苦心藤",
     "type": "material",
     "grade": "earth",
-    "level": 4,
+    "level": 20,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
@@ -515,7 +515,7 @@
     "name": "融阳子",
     "type": "material",
     "grade": "earth",
-    "level": 4,
+    "level": 20,
     "materialCategory": "herb",
     "materialValues": {
       "elements": {

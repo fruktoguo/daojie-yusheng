@@ -13,6 +13,8 @@ type MobilePaneId =
 /** 桌面布局拖拽目标边。 */
 type LayoutTarget = 'left' | 'right' | 'bottom';
 
+export type SidePanelLayoutCollapseState = Record<`${LayoutTarget}Collapsed`, boolean>;
+
 /** 侧边栏布局持久化状态。 */
 type SidePanelPersistedState = {
 /**
@@ -192,6 +194,50 @@ export class SidePanel {
   isVisible(): boolean {
     return this.visible;
   }  
+
+  getLayoutCollapseState(): SidePanelLayoutCollapseState {
+    return {
+      leftCollapsed: this.layoutState.leftCollapsed,
+      rightCollapsed: this.layoutState.rightCollapsed,
+      bottomCollapsed: this.layoutState.bottomCollapsed,
+    };
+  }
+
+  setLayoutCollapsed(target: LayoutTarget, collapsed: boolean, options: { persist?: boolean } = {}): void {
+    if (target === 'left') {
+      this.layoutState.leftCollapsed = collapsed;
+    } else if (target === 'right') {
+      this.layoutState.rightCollapsed = collapsed;
+    } else {
+      this.layoutState.bottomCollapsed = collapsed;
+    }
+    this.syncLayoutState(options);
+    this.onLayoutChange?.();
+  }
+
+  setLayoutCollapseState(state: Partial<SidePanelLayoutCollapseState>, options: { persist?: boolean } = {}): void {
+    if (typeof state.leftCollapsed === 'boolean') {
+      this.layoutState.leftCollapsed = state.leftCollapsed;
+    }
+    if (typeof state.rightCollapsed === 'boolean') {
+      this.layoutState.rightCollapsed = state.rightCollapsed;
+    }
+    if (typeof state.bottomCollapsed === 'boolean') {
+      this.layoutState.bottomCollapsed = state.bottomCollapsed;
+    }
+    this.syncLayoutState(options);
+    this.onLayoutChange?.();
+  }
+
+  setBuildingModeActive(active: boolean): void {
+    this.panel.dataset.buildingMode = active ? 'true' : 'false';
+    this.onLayoutChange?.();
+  }
+
+  isMobileLayoutActive(): boolean {
+    return this.mobileLayoutActive;
+  }
+
   /**
  * setVisibilityChangeCallback：写入可见性ChangeCallback。
  * @param callback (visible: boolean) => void 参数说明。
@@ -491,7 +537,7 @@ export class SidePanel {
   }
 
   /** syncLayoutState：同步布局状态。 */
-  private syncLayoutState(): void {
+  private syncLayoutState(options: { persist?: boolean } = {}): void {
     this.panel.dataset.leftCollapsed = this.layoutState.leftCollapsed ? 'true' : 'false';
     this.panel.dataset.rightCollapsed = this.layoutState.rightCollapsed ? 'true' : 'false';
     this.panel.dataset.bottomCollapsed = this.layoutState.bottomCollapsed ? 'true' : 'false';
@@ -505,7 +551,9 @@ export class SidePanel {
     this.syncToggleButton('bottom', this.layoutState.bottomCollapsed
       ? { text: '^', title: '展开下方面板' }
       : { text: 'v', title: '收起下方面板' });
-    this.persistCurrentLayoutState();
+    if (options.persist !== false) {
+      this.persistCurrentLayoutState();
+    }
   }
 
   /** syncToggleButton：同步Toggle按钮。 */

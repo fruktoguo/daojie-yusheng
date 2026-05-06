@@ -129,7 +129,7 @@ function normalizeObservationSpirit(value) {
 }
 /** 输出整数展示文本，保持观察面板与主线口径一致。 */
 function formatWholeObservation(value) {
-    return `${Math.max(0, Math.round(normalizeObservationNumber(value)))}`;
+    return (0, shared_1.formatDisplayInteger)(Math.max(0, normalizeObservationNumber(value)));
 }
 /** 输出百分比展示文本，供回复/速率等属性复用。 */
 function formatRateObservation(value) {
@@ -436,7 +436,7 @@ function buildObservationVerdict(progress, selfView) {
 }
 /** 输出“当前值/最大值”数值文本。 */
 function formatCurrentMaxObservation(current, max) {
-    return `${Math.max(0, Math.round(normalizeObservationNumber(current)))} / ${Math.max(0, Math.round(normalizeObservationNumber(max)))}`;
+    return (0, shared_1.formatDisplayCurrentMax)(Math.max(0, normalizeObservationNumber(current)), Math.max(0, normalizeObservationNumber(max)));
 }
 /** 组合可读的传送点显示名。 */
 function buildPortalDisplayName(portal, targetMapName) {

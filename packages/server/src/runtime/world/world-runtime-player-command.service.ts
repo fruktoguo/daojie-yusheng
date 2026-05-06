@@ -242,12 +242,14 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         if (player.hp <= 0 && command.kind !== 'redeemCodes') {
             return;
         }
-        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather')) {
+        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startBuilding')) {
             const pendingActivityText = command.kind === 'startEnhancement'
                 ? '吟唱中无法分心强化。'
                 : command.kind === 'startGather'
                     ? '吟唱中无法分心采集。'
-                    : '吟唱中无法分心炼丹。';
+                    : command.kind === 'startBuilding'
+                        ? '吟唱中无法分心营造。'
+                        : '吟唱中无法分心炼丹。';
             deps.queuePlayerNotice?.(playerId, pendingActivityText, 'system');
             return;
         }
@@ -310,6 +312,9 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 return;
             case 'cancelGather':
                 this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
+                return;
+            case 'startBuilding':
+                deps.dispatchStartBuildingConstruction(playerId, command.buildingId);
                 return;
             case 'redeemCodes':
                 return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);

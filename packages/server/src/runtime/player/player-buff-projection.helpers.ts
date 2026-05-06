@@ -16,6 +16,12 @@ type ProjectablePlayerBuffState = {
   combat?: {
     cultivationActive?: boolean | null;
   } | null;
+  buildingJob?: {
+    buildingName?: string | null;
+    remainingTicks?: number | null;
+    totalTicks?: number | null;
+    phase?: string | null;
+  } | null;
   techniques?: {
     cultivatingTechId?: string | null;
     techniques?: TechniqueLike[] | null;
@@ -33,7 +39,12 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
         .map((buff) => cloneVisibleBuffProjection(buff))
     : [];
   const cultivationBuff = buildCultivationBuffProjection(player);
-  const projected = cultivationBuff ? [...realBuffs, cultivationBuff] : realBuffs;
+  const buildingBuff = buildBuildingBuffProjection(player);
+  const projected = [
+    ...realBuffs,
+    ...(cultivationBuff ? [cultivationBuff] : []),
+    ...(buildingBuff ? [buildingBuff] : []),
+  ];
   projected.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
   return projected;
 }
@@ -89,4 +100,33 @@ function buildCultivationBuffDescription(techniqueName: string | null): string {
     return `${techniqueName} 正在运转，每息获得境界修为与功法经验。`;
   }
   return '正在调息修炼，每息获得境界修为与功法经验。';
+}
+
+function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
+  const job = player.buildingJob;
+  const remainingTicks = Math.max(0, Math.trunc(Number(job?.remainingTicks ?? 0) || 0));
+  if (remainingTicks <= 0) {
+    return null;
+  }
+  const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? remainingTicks) || remainingTicks || 1));
+  const buildingName = typeof job?.buildingName === 'string' && job.buildingName.trim()
+    ? job.buildingName.trim()
+    : '建筑';
+  const paused = job?.phase === 'paused';
+  return {
+    buffId: 'activity.building',
+    name: paused ? '营造暂停' : '营造中',
+    desc: paused
+      ? `${buildingName} 的营造已暂停，尚余 ${remainingTicks} 息。`
+      : `${buildingName} 正在营造，尚余 ${remainingTicks} 息。`,
+    shortMark: '筑',
+    category: 'buff',
+    visibility: 'public',
+    remainingTicks,
+    duration: totalTicks,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: 'building:construct',
+    sourceSkillName: '营造',
+  };
 }

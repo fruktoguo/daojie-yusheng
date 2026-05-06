@@ -51,4 +51,9 @@ export interface AttrDetailView {
  */
 
   enhancementSkill?: PlayerState['enhancementSkill'];
+  /**
+ * buildingSkill：营造技能相关字段。
+ */
+
+  buildingSkill?: PlayerState['buildingSkill'];
 }

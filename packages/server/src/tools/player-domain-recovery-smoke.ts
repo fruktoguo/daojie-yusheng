@@ -221,6 +221,7 @@ async function main(): Promise<void> {
       snapshot.combat.autoBattle !== true
       || snapshot.combat.autoBattleTargetingMode !== 'boss'
       || snapshot.combat.retaliatePlayerTargetId !== 'rival_alpha'
+      || snapshot.combat.retaliatePlayerTargetLastAttackTick !== 3456
       || snapshot.combat.senseQiActive !== true
       || !Array.isArray(snapshot.combat.autoBattleSkills)
       || snapshot.combat.autoBattleSkills.length !== 2
@@ -624,6 +625,7 @@ function buildSnapshot(now: number): ProjectedRecoverySnapshot {
       autoBattleStationary: false,
       autoBattleTargetingMode: 'boss',
       retaliatePlayerTargetId: 'rival_alpha',
+      retaliatePlayerTargetLastAttackTick: 3456,
       combatTargetId: null,
       combatTargetLocked: false,
       allowAoePlayerHit: false,
@@ -936,6 +938,7 @@ function normalizeComparableCombat(combat: PersistedPlayerSnapshot['combat']): R
     autoBattleStationary: combat.autoBattleStationary,
     autoBattleTargetingMode: combat.autoBattleTargetingMode ?? null,
     retaliatePlayerTargetId: combat.retaliatePlayerTargetId ?? null,
+    retaliatePlayerTargetLastAttackTick: combat.retaliatePlayerTargetLastAttackTick ?? null,
     combatTargetId: combat.combatTargetId ?? null,
     combatTargetLocked: combat.combatTargetLocked,
     allowAoePlayerHit: combat.allowAoePlayerHit,

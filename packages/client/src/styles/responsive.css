@@ -146,6 +146,12 @@
       #game-shell[data-bottom-collapsed="true"] #layout-center {
         grid-template-rows: minmax(0, 1fr);
       }
+      #game-shell[data-building-mode="true"] {
+        grid-template-rows: minmax(0, 1fr) 0;
+      }
+      #game-shell[data-building-mode="true"] #mobile-ui-shell {
+        display: none;
+      }
       #mobile-ui-shell {
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
@@ -759,6 +765,83 @@
       }
       .map-fps-metric-value {
         font-size: var(--font-size-role-body-16);
+      }
+      .building-mode-toolbar {
+        left: 6px;
+        right: 6px;
+        bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        width: auto;
+        height: min(46dvh, 340px);
+        max-height: calc(100% - 12px);
+        transform: none;
+      }
+      .building-mode-shell {
+        border-radius: 16px;
+      }
+      .building-mode-content {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 8px;
+        overflow-y: auto;
+      }
+      .building-mode-panel,
+      .building-mode-stage,
+      .building-mode-material-panel,
+      .building-mode-strength-panel {
+        padding: 10px;
+        border-radius: 12px;
+      }
+      .building-mode-material-grid {
+        grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+        overflow-y: auto;
+        padding: 4px 5px 6px 4px;
+      }
+      .building-mode-material-card {
+        min-height: 36px;
+        padding: 6px 18px 6px 6px;
+      }
+      .building-mode-strength-input-wrap {
+        padding: 8px 10px;
+      }
+      .building-mode-strength-input-wrap input {
+        font-size: 16px;
+      }
+      .building-mode-stage-head {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .building-mode-title strong,
+      .building-mode-title span {
+        white-space: normal;
+      }
+      .building-mode-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+      }
+      .building-mode-action,
+      .building-mode-exit {
+        min-height: 42px;
+        font-size: var(--font-size-role-body-12);
+      }
+      .building-mode-item-grid {
+        grid-auto-columns: minmax(44px, 48px);
+        gap: 5px;
+        padding: 4px 6px 8px 4px;
+      }
+      .building-mode-item {
+        padding: 4px;
+        border-radius: 10px;
+      }
+      .building-mode-item-label {
+        font-size: 13px;
+      }
+      .building-mode-footer {
+        padding: 0 8px 8px;
+      }
+      .building-mode-tab {
+        min-height: 40px;
+        padding: 7px 8px;
+        font-size: var(--font-size-role-body-12);
       }
       .split-tab-btn {
         border-bottom: none;

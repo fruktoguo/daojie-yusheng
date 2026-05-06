@@ -17,6 +17,9 @@
       transition: grid-template-columns 160ms ease;
     }
     #game-shell.hidden { display: none; }
+    #game-shell[data-building-mode="true"] {
+      --layout-collapsed-rail-size: 0px;
+    }
     #game-shell[data-left-collapsed="true"] {
       grid-template-columns: var(--layout-collapsed-rail-size) minmax(0, 1fr) var(--layout-right-size);
     }
@@ -149,6 +152,9 @@
     #layout-toggle-bottom {
       grid-row: 2;
       box-shadow: none;
+    }
+    #game-shell[data-building-mode="true"] .layout-collapse-toggle {
+      display: none;
     }
     #game-shell[data-left-collapsed="true"] #layout-left > .layout-section,
     #game-shell[data-right-collapsed="true"] #layout-right > .layout-section,

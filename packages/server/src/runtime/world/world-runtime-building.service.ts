@@ -2,7 +2,10 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
+exports.awardBuildingConstructionCompletion = exports.tickBuildingConstruction = exports.interruptBuildingConstruction = exports.dispatchStartBuildingConstruction = exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleStartBuildingConstruction = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
+const shared_1 = require("@mud/shared");
+
+const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
 
 function handleBuildPlaceIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
@@ -27,10 +30,16 @@ function handleBuildPlaceIntent(runtime, playerId, payload) {
     if (existing) {
         return { requestId, ok: true, building: toBuildingInstanceView(existing), duplicate: true };
     }
-    const missing = findMissingBuildingCost(context.player, compiled);
-    if (missing) {
-        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: `material_insufficient:${missing.itemId}:${missing.missing}` }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
+    const selectedMaterialItemIds = Array.isArray(payload?.selectedMaterialItemIds)
+        ? payload.selectedMaterialItemIds.map((entry) => typeof entry === 'string' ? entry.trim() : '')
+        : [];
+    const costResolution = resolveSelectedBuildingCost(context.player, compiled, selectedMaterialItemIds);
+    if (!costResolution.ok) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: costResolution.reason }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
     }
+    const buildStrength = normalizeBuildStrength(payload?.buildStrength);
+    const buildingSkillLevel = resolveBuildingSkillLevel(context.player);
+    const finalMaxHp = resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength);
     const result = context.instance.placeBuildingInstance({
         requestId,
         defId,
@@ -39,12 +48,19 @@ function handleBuildPlaceIntent(runtime, playerId, payload) {
         rotation: payload?.rotation,
         ownerPlayerId: playerId,
         ownerSectId: context.player?.sectId ?? null,
+        state: 'building',
+        hp: finalMaxHp,
+        maxHp: finalMaxHp,
+        buildStrength,
+        builderSkillLevel: buildingSkillLevel,
+        buildRemainingTicks: buildStrength,
+        activeBuilderPlayerId: null,
     });
     if (!result?.ok) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: result?.reason ?? 'build_failed' }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
     }
     try {
-        consumeBuildingCost(runtime.playerRuntimeService, playerId, compiled);
+        consumeBuildingCost(runtime.playerRuntimeService, playerId, costResolution.consumedItems);
     }
     catch (error) {
         context.instance.deconstructBuildingInstance?.(result.building?.id);
@@ -54,10 +70,133 @@ function handleBuildPlaceIntent(runtime, playerId, payload) {
         requestId,
         ok: true,
         building: toBuildingInstanceView(result.building),
-        consumedItems: buildConsumedItemViews(compiled),
+        consumedItems: costResolution.consumedItems,
     }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId, buildingId: result.building?.id ?? null });
 }
 exports.handleBuildPlaceIntent = handleBuildPlaceIntent;
+
+function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
+    const context = resolvePlayerBuildingContext(runtime, playerId);
+    const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    const result = context.instance.startBuildingConstruction?.(buildingId, playerId) ?? { ok: false, reason: 'building_start_unsupported' };
+    if (result?.ok === true) {
+        const buildingView = toBuildingInstanceView(result.building);
+        if (buildingView && canQueueBuildingNotice(runtime)) {
+            runtime.queuePlayerNotice(
+                playerId,
+                `开始建造：${resolveBuildingDisplayName(context.instance, result.building) ?? buildingView.defId}`,
+                'info',
+            );
+        }
+        return {
+            ok: true,
+            changed: result.changed !== false,
+            building: buildingView,
+        };
+    }
+    return {
+        ok: false,
+        reason: result?.reason ?? 'building_start_failed',
+    };
+}
+exports.handleStartBuildingConstruction = handleStartBuildingConstruction;
+
+function dispatchStartBuildingConstruction(runtime, playerId, buildingIdInput) {
+    const context = resolvePlayerBuildingContext(runtime, playerId);
+    const player = context.player;
+    const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    if (!buildingId) {
+        throw new Error('建筑 ID 不能为空');
+    }
+    const activeJob = player?.buildingJob;
+    if (activeJob && Number(activeJob.remainingTicks) > 0) {
+        if (activeJob.buildingId !== buildingId) {
+            throw new Error('当前已有建造任务在进行中。');
+        }
+    }
+    const result = handleStartBuildingConstruction(runtime, playerId, buildingId);
+    if (result?.ok !== true || !result.building) {
+        throw new Error(localizeStartBuildingFailure(result?.reason));
+    }
+    const buildingName = resolveBuildingDisplayName(context.instance, result.building) ?? result.building.name ?? result.building.defId ?? '建筑';
+    player.buildingJob = {
+        buildingId: result.building.id,
+        buildingName,
+        instanceId: context.instance.meta.instanceId,
+        startedAt: Date.now(),
+        totalTicks: Math.max(1, Math.trunc(Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1)),
+        remainingTicks: Math.max(1, Math.trunc(Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1)),
+        pausedTicks: 0,
+        successRate: 1,
+        spiritStoneCost: 0,
+        phase: 'building',
+    };
+    runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    runtime.refreshPlayerContextActions?.(playerId);
+}
+exports.dispatchStartBuildingConstruction = dispatchStartBuildingConstruction;
+
+function interruptBuildingConstruction(runtime, playerId, reason = 'cancel') {
+    const context = resolvePlayerBuildingContext(runtime, playerId);
+    const player = context.player;
+    const job = player?.buildingJob;
+    if (!job || Number(job.remainingTicks) <= 0) {
+        return;
+    }
+    const instanceId = typeof job.instanceId === 'string' && job.instanceId.trim()
+        ? job.instanceId.trim()
+        : context.location.instanceId;
+    const instance = runtime.getInstanceRuntime?.(instanceId) ?? context.instance;
+    instance?.stopBuildingConstruction?.(job.buildingId, playerId);
+    player.buildingJob = null;
+    runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    if (canQueueBuildingNotice(runtime)) {
+        runtime.queuePlayerNotice(playerId, buildBuildingInterruptMessage(job.buildingName, reason), 'system');
+    }
+    runtime.refreshPlayerContextActions?.(playerId);
+}
+exports.interruptBuildingConstruction = interruptBuildingConstruction;
+
+function tickBuildingConstruction(runtime, playerId) {
+    const player = runtime?.playerRuntimeService?.getPlayer?.(playerId);
+    const job = player?.buildingJob;
+    if (!player || !job || Number(job.remainingTicks) <= 0) {
+        return;
+    }
+    const instanceId = typeof job.instanceId === 'string' && job.instanceId.trim() ? job.instanceId.trim() : '';
+    const instance = instanceId ? runtime.getInstanceRuntime?.(instanceId) : null;
+    const building = instance?.buildingById?.get?.(job.buildingId);
+    if (!instance || !building) {
+        player.buildingJob = null;
+        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        if (canQueueBuildingNotice(runtime)) {
+            runtime.queuePlayerNotice(playerId, '建造目标已经不存在。', 'warn');
+        }
+        return;
+    }
+    if (building.state !== 'building' || resolveBuildingRemainingTicksForView(building) <= 0) {
+        player.buildingJob = null;
+        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        runtime.refreshPlayerContextActions?.(playerId);
+        return;
+    }
+    if (building.activeBuilderPlayerId !== playerId) {
+        player.buildingJob = null;
+        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        runtime.refreshPlayerContextActions?.(playerId);
+        return;
+    }
+    const nextRemainingTicks = resolveBuildingRemainingTicksForView(building);
+    const nextTotalTicks = Math.max(nextRemainingTicks, Math.trunc(Number(job.totalTicks) || 0), Math.trunc(Number(building.buildStrength) || 0), 1);
+    job.buildingName = resolveBuildingDisplayName(instance, building) ?? job.buildingName ?? building.defId ?? '建筑';
+    job.instanceId = instance.meta.instanceId;
+    job.totalTicks = nextTotalTicks;
+    job.remainingTicks = nextRemainingTicks;
+    job.pausedTicks = 0;
+    job.phase = 'building';
+    runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+}
+exports.tickBuildingConstruction = tickBuildingConstruction;
 
 function handleBuildDeconstructIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
@@ -98,12 +237,10 @@ function handleRoomSetRoleIntent(runtime, playerId, payload) {
     if (!requestId) {
         return { requestId: '', ok: false, reason: 'request_id_required' };
     }
-    const context = resolvePlayerBuildingContext(runtime, playerId);
-    const result = context.instance.setRoomRole?.(payload?.roomId, payload?.role);
     return {
         requestId,
-        ok: result?.ok === true,
-        reason: result?.ok === true ? undefined : result?.reason ?? 'room_set_role_failed',
+        ok: false,
+        reason: 'room_role_auto_inferred',
     };
 }
 exports.handleRoomSetRoleIntent = handleRoomSetRoleIntent;
@@ -182,32 +319,181 @@ function recordBuildingOperation(runtime, operationKey, result, meta) {
     }
     return stableResult;
 }
-function findMissingBuildingCost(player, compiled) {
+function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) {
     const itemIds = Array.isArray(compiled?.costItemIds) ? compiled.costItemIds : Array.from(compiled?.costItemIds ?? []);
     const counts = compiled?.costCounts ?? [];
+    const consumedByItemId = new Map();
     for (let index = 0; index < itemIds.length; index += 1) {
-        const itemId = itemIds[index];
+        const slotItemId = typeof itemIds[index] === 'string' ? itemIds[index] : '';
         const required = Math.max(0, Math.trunc(Number(counts[index]) || 0));
-        if (!itemId || required <= 0) {
+        if (!slotItemId || required <= 0) {
             continue;
         }
-        const owned = countPlayerInventoryItem(player, itemId);
-        if (owned < required) {
-            return { itemId, required, owned, missing: required - owned };
+        if ((0, shared_1.isGenericBuildMaterialSlotItemId)(slotItemId)) {
+            const selectedItemId = typeof selectedMaterialItemIds?.[index] === 'string' ? selectedMaterialItemIds[index].trim() : '';
+            if (!selectedItemId) {
+                return { ok: false, reason: `build_material_required:${slotItemId}:${index}` };
+            }
+            const inventoryItem = findInventoryItem(player, selectedItemId);
+            if (!inventoryItem) {
+                return { ok: false, reason: `material_insufficient:${selectedItemId}:${required}` };
+            }
+            if ((inventoryItem.type ?? 'material') !== 'material') {
+                return { ok: false, reason: `build_material_invalid:${selectedItemId}` };
+            }
+            const selectedCategory = (0, shared_1.resolveBuildMaterialCategoryKey)(inventoryItem);
+            const requiredCategory = (0, shared_1.resolveGenericBuildMaterialSlotCategory)(slotItemId);
+            if (selectedCategory !== requiredCategory) {
+                return { ok: false, reason: `build_material_category_mismatch:${selectedItemId}:${slotItemId}` };
+            }
+            consumedByItemId.set(selectedItemId, (consumedByItemId.get(selectedItemId) ?? 0) + required);
+            continue;
+        }
+        consumedByItemId.set(slotItemId, (consumedByItemId.get(slotItemId) ?? 0) + required);
+    }
+    const consumedItems = Array.from(consumedByItemId.entries())
+        .map(([itemId, count]) => ({ itemId, count: Math.max(1, Math.trunc(Number(count) || 1)) }))
+        .filter((entry) => entry.itemId && entry.count > 0);
+    for (const entry of consumedItems) {
+        const owned = countPlayerInventoryItem(player, entry.itemId);
+        if (owned < entry.count) {
+            return { ok: false, reason: `material_insufficient:${entry.itemId}:${entry.count - owned}` };
         }
     }
-    return null;
+    return {
+        ok: true,
+        consumedItems,
+    };
 }
-function consumeBuildingCost(playerRuntimeService, playerId, compiled) {
-    const itemIds = Array.isArray(compiled?.costItemIds) ? compiled.costItemIds : Array.from(compiled?.costItemIds ?? []);
-    const counts = compiled?.costCounts ?? [];
-    for (let index = 0; index < itemIds.length; index += 1) {
-        const itemId = itemIds[index];
-        const count = Math.max(0, Math.trunc(Number(counts[index]) || 0));
+function normalizeBuildStrength(value) {
+    const normalized = Math.trunc(Number(value) || 1);
+    return Math.max(1, normalized);
+}
+function resolveBuildingSkillLevel(player) {
+    return Math.max(1, Math.trunc(Number(player?.buildingSkill?.level ?? 1) || 1));
+}
+function resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength) {
+    const baseMultiplier = Math.max(0.01, Number(compiled?.maxHp ?? 1) / 100);
+    return Math.max(1, Math.trunc((0, shared_1.calculateTerrainDurability)(buildingSkillLevel, baseMultiplier) * buildStrength));
+}
+function resolveCraftSkillExpToNextByLevel(level) {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
+}
+function applyCraftSkillExp(skill, amount) {
+    if (!skill) {
+        return false;
+    }
+    let changed = false;
+    skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
+    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
+        skill.exp -= skill.expToNext;
+        skill.level += 1;
+        skill.expToNext = resolveCraftSkillExpToNextByLevel(skill.level);
+        changed = true;
+    }
+    return changed || amount > 0;
+}
+function ensureBuildingSkillState(player) {
+    const level = Math.max(1, Math.floor(Number(player?.buildingSkill?.level) || 1));
+    const state = {
+        level,
+        exp: Math.max(0, Math.floor(Number(player?.buildingSkill?.exp) || 0)),
+        expToNext: Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, Math.floor(Number(player?.buildingSkill?.expToNext) || resolveCraftSkillExpToNextByLevel(level))),
+    };
+    player.buildingSkill = state;
+    return state;
+}
+function applyBuildingSkillExp(player, buildStrength) {
+    if (!player) {
+        return 0;
+    }
+    const skill = ensureBuildingSkillState(player);
+    const gain = shared_1.computeCraftSkillExpGain({
+        skillLevel: skill.level,
+        targetLevel: skill.level,
+        baseActionTicks: normalizeBuildStrength(buildStrength),
+        getExpToNextByLevel: resolveCraftSkillExpToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    }).finalGain;
+    if (gain <= 0) {
+        return 0;
+    }
+    applyCraftSkillExp(skill, gain);
+    if (!(player.dirtyDomains instanceof Set)) {
+        player.dirtyDomains = new Set();
+    }
+    player.dirtyDomains.add('profession');
+    return gain;
+}
+function awardBuildingConstructionCompletion(runtime, building) {
+    const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
+    if (!playerId) {
+        return 0;
+    }
+    const player = runtime?.playerRuntimeService?.getPlayer?.(playerId);
+    if (!player) {
+        return 0;
+    }
+    const gainedExp = applyBuildingSkillExp(player, building?.buildStrength);
+    const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
+    if (canQueueBuildingNotice(runtime)) {
+        runtime.queuePlayerNotice(playerId, `${buildingName}已完工`, 'success');
+    }
+    return gainedExp;
+}
+exports.awardBuildingConstructionCompletion = awardBuildingConstructionCompletion;
+function buildBuildingInterruptMessage(buildingNameInput, reason) {
+    const buildingName = typeof buildingNameInput === 'string' && buildingNameInput.trim() ? buildingNameInput.trim() : '当前建筑';
+    const reasonLabel = reason === 'move'
+        ? '移动'
+        : reason === 'attack'
+            ? '出手'
+            : reason === 'cultivate'
+                ? '打坐'
+                : '手动取消';
+    return `${buildingName} 的营造被${reasonLabel}打断。`;
+}
+function localizeStartBuildingFailure(reason) {
+    switch (reason) {
+        case 'building_not_found':
+            return '目标半成品不存在';
+        case 'building_not_under_construction':
+            return '该建筑当前不可继续施工';
+        case 'building_owner_mismatch':
+            return '只能建造自己的半成品';
+        case 'player_not_found':
+            return '当前角色不存在';
+        case 'building_too_far':
+            return '需要靠近半成品后才能开始建造';
+        default:
+            return '开始建造失败';
+    }
+}
+function resolveBuildingRemainingTicksForView(building) {
+    if (Number.isFinite(Number(building?.buildRemainingTicks))) {
+        return Math.max(0, Math.trunc(Number(building.buildRemainingTicks)));
+    }
+    if (Number.isFinite(Number(building?.buildStrength))) {
+        return Math.max(1, Math.trunc(Number(building.buildStrength)));
+    }
+    return 0;
+}
+function consumeBuildingCost(playerRuntimeService, playerId, consumedItems) {
+    for (const entry of Array.isArray(consumedItems) ? consumedItems : []) {
+        const itemId = typeof entry?.itemId === 'string' ? entry.itemId : '';
+        const count = Math.max(0, Math.trunc(Number(entry?.count) || 0));
         if (itemId && count > 0) {
             playerRuntimeService.consumeInventoryItemByItemId(playerId, itemId, count);
         }
     }
+}
+function findInventoryItem(player, itemId) {
+    return Array.isArray(player?.inventory?.items)
+        ? player.inventory.items.find((entry) => entry?.itemId === itemId) ?? null
+        : null;
 }
 function countPlayerInventoryItem(player, itemId) {
     let total = 0;
@@ -217,13 +503,6 @@ function countPlayerInventoryItem(player, itemId) {
         }
     }
     return total;
-}
-function buildConsumedItemViews(compiled) {
-    const itemIds = Array.isArray(compiled?.costItemIds) ? compiled.costItemIds : Array.from(compiled?.costItemIds ?? []);
-    const counts = compiled?.costCounts ?? [];
-    return itemIds
-        .map((itemId, index) => ({ itemId, count: Math.max(0, Math.trunc(Number(counts[index]) || 0)) }))
-        .filter((entry) => entry.itemId && entry.count > 0);
 }
 function toBuildingInstanceView(building) {
     if (!building) {
@@ -239,8 +518,43 @@ function toBuildingInstanceView(building) {
         roomId: building.roomId ?? null,
         hp: building.hp,
         maxHp: building.maxHp,
+        buildStrength: building.buildStrength,
+        builderSkillLevel: building.builderSkillLevel,
+        buildCompleteTick: building.buildCompleteTick,
+        buildRemainingTicks: building.buildRemainingTicks,
+        activeBuilderPlayerId: building.activeBuilderPlayerId ?? null,
         revision: building.revision,
     };
+}
+function resolveBuildingDisplayName(instance, building) {
+    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
+        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+    return typeof compiled?.name === 'string' && compiled.name.trim()
+        ? compiled.name.trim()
+        : (typeof building?.defId === 'string' ? building.defId : null);
+}
+function resolveBuildingDisplayNameByRuntime(runtime, building) {
+    const instanceId = typeof building?.instanceId === 'string' ? building.instanceId.trim() : '';
+    if (!instanceId) {
+        return typeof building?.defId === 'string' ? building.defId : null;
+    }
+    let instance = null;
+    if (typeof runtime?.getInstanceRuntimeOrThrow === 'function') {
+        try {
+            instance = runtime.getInstanceRuntimeOrThrow(instanceId);
+        }
+        catch (_error) {
+            instance = null;
+        }
+    }
+    else if (typeof runtime?.getInstanceRuntime === 'function' && runtime?.worldRuntimeStateFacadeService) {
+        instance = runtime.getInstanceRuntime(instanceId);
+    }
+    return resolveBuildingDisplayName(instance, building);
+}
+function canQueueBuildingNotice(runtime) {
+    return typeof runtime?.queuePlayerNotice === 'function'
+        && typeof runtime?.worldRuntimeTickDispatchService?.queuePlayerNotice === 'function';
 }
 function toRoomSummaryView(room) {
     return {

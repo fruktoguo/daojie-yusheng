@@ -51,7 +51,7 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 576
+          "cost": 5158
         }
       ],
       "layers": [
@@ -239,7 +239,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 483
+          "cost": 3932
         }
       ],
       "layers": [
@@ -1518,7 +1518,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 100
+          "cost": 236
         }
       ],
       "layers": [
@@ -1646,7 +1646,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 345
+          "cost": 2808
         }
       ],
       "layers": [
@@ -2657,7 +2657,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 190
+          "cost": 1056
         }
       ],
       "layers": [
@@ -2863,7 +2863,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 190
+          "cost": 1056
         }
       ],
       "layers": [
@@ -2994,7 +2994,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 240
+          "cost": 1003
         }
       ],
       "layers": [
@@ -3142,7 +3142,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 114
+          "cost": 634
         }
       ],
       "layers": [
@@ -3262,7 +3262,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 152
+          "cost": 845
         }
       ],
       "layers": [
@@ -3382,7 +3382,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 756
+          "cost": 9010
         }
       ],
       "layers": [
@@ -3812,7 +3812,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 210
+          "cost": 725
         }
       ],
       "layers": [
@@ -4099,7 +4099,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 345
+          "cost": 2808
         }
       ],
       "layers": [
@@ -4235,7 +4235,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 190
+          "cost": 1056
         }
       ],
       "layers": [
@@ -4347,7 +4347,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 130
+          "cost": 408
         }
       ],
       "layers": [
@@ -5442,7 +5442,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 190
+          "cost": 1056
         }
       ],
       "layers": [
@@ -5951,7 +5951,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 22
+          "cost": 57
         }
       ],
       "layers": [
@@ -6045,7 +6045,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 648
+          "cost": 7723
         }
       ],
       "layers": [
@@ -6144,7 +6144,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 324
+          "cost": 3861
         }
       ],
       "layers": [
@@ -6258,7 +6258,7 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 576
+          "cost": 5158
         }
       ],
       "layers": [
@@ -6444,7 +6444,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 540
+          "cost": 6436
         }
       ],
       "layers": [
@@ -6544,7 +6544,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 24
+          "cost": 68
         }
       ],
       "layers": [
@@ -6607,7 +6607,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 211
         }
       ],
       "layers": [
@@ -6709,7 +6709,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 345
+          "cost": 2808
         }
       ],
       "layers": [
@@ -7029,7 +7029,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 345
+          "cost": 2808
         }
       ],
       "layers": [
@@ -7959,7 +7959,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 138
+          "cost": 1123
         },
         {
           "id": "skill.yi_kunlun_hollow_square",
@@ -8014,7 +8014,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 345
+          "cost": 2808
         },
         {
           "id": "skill.yi_kunlun_horizontal_wall",
@@ -8068,7 +8068,7 @@
             }
           ],
           "unlockLevel": 7,
-          "cost": 276
+          "cost": 2247
         }
       ],
       "layers": [
@@ -8401,7 +8401,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 270
+          "cost": 1365
         }
       ],
       "layers": [
@@ -8648,7 +8648,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 540
+          "cost": 6436
         }
       ],
       "layers": [
@@ -8993,7 +8993,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 306
+          "cost": 1406
         }
       ],
       "layers": [
@@ -9584,7 +9584,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 540
+          "cost": 6436
         }
       ],
       "layers": [
@@ -10369,7 +10369,7 @@
       "name": "承脉参",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 26,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -10406,7 +10406,7 @@
       "name": "赤火叶",
       "type": "material",
       "grade": "yellow",
-      "level": 2,
+      "level": 16,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -10449,7 +10449,7 @@
       "name": "赤芽果",
       "type": "material",
       "grade": "yellow",
-      "level": 2,
+      "level": 7,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -10880,7 +10880,7 @@
       "name": "寒莲瓣",
       "type": "material",
       "grade": "mystic",
-      "level": 3,
+      "level": 12,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -10916,7 +10916,7 @@
       "name": "寒髓苇",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 24,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11111,7 +11111,7 @@
       "name": "回春叶",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 22,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11169,7 +11169,7 @@
       "name": "疾风苇",
       "type": "material",
       "grade": "mystic",
-      "level": 3,
+      "level": 12,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11213,7 +11213,7 @@
       "name": "金芒棘",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 25,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11287,7 +11287,7 @@
       "name": "苦心藤",
       "type": "material",
       "grade": "earth",
-      "level": 4,
+      "level": 20,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11713,7 +11713,7 @@
       "name": "明心花",
       "type": "material",
       "grade": "mystic",
-      "level": 3,
+      "level": 13,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -11882,7 +11882,7 @@
       "name": "青灵茎",
       "type": "material",
       "grade": "yellow",
-      "level": 2,
+      "level": 8,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12020,7 +12020,7 @@
       "name": "融阳子",
       "type": "material",
       "grade": "earth",
-      "level": 4,
+      "level": 20,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12288,7 +12288,7 @@
       "name": "铁脉蒺",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 23,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12583,7 +12583,7 @@
       "name": "岩髓芝",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 25,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12619,7 +12619,7 @@
       "name": "炎穗芒",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 26,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12646,7 +12646,7 @@
       "name": "养脉叶",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 30,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12850,7 +12850,7 @@
       "name": "月井蕊",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 23,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12868,7 +12868,7 @@
       "name": "月露草",
       "type": "material",
       "grade": "mortal",
-      "level": 1,
+      "level": 3,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -12985,7 +12985,7 @@
       "name": "长脉藤",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 25,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
@@ -13191,7 +13191,7 @@
       "name": "灼心瓣",
       "type": "material",
       "grade": "yellow",
-      "level": 20,
+      "level": 27,
       "materialCategory": "herb",
       "materialValues": {
         "elements": {

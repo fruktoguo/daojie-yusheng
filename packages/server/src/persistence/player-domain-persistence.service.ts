@@ -307,7 +307,7 @@ interface AttrStateRow {
 }
 
 interface ProfessionStateRow {
-  professionType: 'alchemy' | 'gather' | 'enhancement';
+  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement';
   level: number;
   exp: number | null;
   expToNext: number | null;
@@ -349,6 +349,7 @@ interface CombatPreferencesRow {
   autoBattleStationary: boolean;
   autoBattleTargetingMode: string;
   retaliatePlayerTargetId: string | null;
+  retaliatePlayerTargetLastAttackTick: number | null;
   combatTargetId: string | null;
   combatTargetLocked: boolean;
   allowAoePlayerHit: boolean;
@@ -536,6 +537,7 @@ interface PlayerCombatPreferencesLoadRow {
   auto_battle_stationary?: unknown;
   auto_battle_targeting_mode?: unknown;
   retaliate_player_target_id?: unknown;
+  retaliate_player_target_last_attack_tick?: unknown;
   combat_target_id?: unknown;
   combat_target_locked?: unknown;
   allow_aoe_player_hit?: unknown;
@@ -1722,6 +1724,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             auto_battle_stationary,
             auto_battle_targeting_mode,
             retaliate_player_target_id,
+            retaliate_player_target_last_attack_tick,
             combat_target_id,
             combat_target_locked,
             allow_aoe_player_hit,
@@ -2910,6 +2913,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       auto_battle_stationary boolean NOT NULL DEFAULT false,
       auto_battle_targeting_mode varchar(32) NOT NULL DEFAULT 'auto',
       retaliate_player_target_id varchar(120),
+      retaliate_player_target_last_attack_tick bigint,
       combat_target_id varchar(120),
       combat_target_locked boolean NOT NULL DEFAULT false,
       allow_aoe_player_hit boolean NOT NULL DEFAULT false,
@@ -2920,6 +2924,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       targeting_rules_payload jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
+    ADD COLUMN IF NOT EXISTS retaliate_player_target_last_attack_tick bigint
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_AUTO_BATTLE_SKILL_TABLE} (
@@ -3700,6 +3708,7 @@ async function replacePlayerCombatPreferences(
         auto_battle_stationary,
         auto_battle_targeting_mode,
         retaliate_player_target_id,
+        retaliate_player_target_last_attack_tick,
         combat_target_id,
         combat_target_locked,
         allow_aoe_player_hit,
@@ -3710,7 +3719,7 @@ async function replacePlayerCombatPreferences(
         targeting_rules_payload,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         auto_battle = EXCLUDED.auto_battle,
@@ -3718,6 +3727,7 @@ async function replacePlayerCombatPreferences(
         auto_battle_stationary = EXCLUDED.auto_battle_stationary,
         auto_battle_targeting_mode = EXCLUDED.auto_battle_targeting_mode,
         retaliate_player_target_id = EXCLUDED.retaliate_player_target_id,
+        retaliate_player_target_last_attack_tick = EXCLUDED.retaliate_player_target_last_attack_tick,
         combat_target_id = EXCLUDED.combat_target_id,
         combat_target_locked = EXCLUDED.combat_target_locked,
         allow_aoe_player_hit = EXCLUDED.allow_aoe_player_hit,
@@ -3735,6 +3745,7 @@ async function replacePlayerCombatPreferences(
       row.autoBattleStationary,
       row.autoBattleTargetingMode,
       row.retaliatePlayerTargetId,
+      row.retaliatePlayerTargetLastAttackTick,
       row.combatTargetId,
       row.combatTargetLocked,
       row.allowAoePlayerHit,
@@ -4305,6 +4316,7 @@ function buildCombatPreferencesRow(snapshot: PersistedPlayerSnapshot): CombatPre
     autoBattleStationary: combat.autoBattleStationary === true,
     autoBattleTargetingMode: normalizeOptionalString(combat.autoBattleTargetingMode) ?? 'auto',
     retaliatePlayerTargetId: normalizeOptionalString(combat.retaliatePlayerTargetId),
+    retaliatePlayerTargetLastAttackTick: normalizeOptionalInteger(combat.retaliatePlayerTargetLastAttackTick),
     combatTargetId: normalizeOptionalString(combat.combatTargetId),
     combatTargetLocked: combat.combatTargetLocked === true,
     allowAoePlayerHit: combat.allowAoePlayerHit === true,
@@ -4374,6 +4386,16 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
       level: normalizeMinimumInteger(gather.level, 1, 1),
       exp: normalizeOptionalInteger(gather.exp),
       expToNext: normalizeOptionalInteger(gather.expToNext),
+    });
+  }
+
+  const building = asRecord(progression?.buildingSkill);
+  if (building) {
+    rows.push({
+      professionType: 'building',
+      level: normalizeMinimumInteger(building.level, 1, 1),
+      exp: normalizeOptionalInteger(building.exp),
+      expToNext: normalizeOptionalInteger(building.expToNext),
     });
   }
 
@@ -5049,6 +5071,7 @@ function applyProjectedCombatPreferences(
     autoBattleStationary: row.auto_battle_stationary === true,
     autoBattleTargetingMode: normalizeOptionalString(row.auto_battle_targeting_mode) ?? 'auto',
     retaliatePlayerTargetId: normalizeOptionalString(row.retaliate_player_target_id),
+    retaliatePlayerTargetLastAttackTick: normalizeOptionalInteger(row.retaliate_player_target_last_attack_tick),
     combatTargetId: normalizeOptionalString(row.combat_target_id),
     combatTargetLocked: row.combat_target_locked === true,
     allowAoePlayerHit: row.allow_aoe_player_hit === true,
@@ -5204,6 +5227,8 @@ function applyProjectedProfessions(
     };
     if (professionType === 'alchemy') {
       snapshot.progression.alchemySkill = state;
+    } else if (professionType === 'building') {
+      snapshot.progression.buildingSkill = state;
     } else if (professionType === 'gather') {
       snapshot.progression.gatherSkill = state;
     } else if (professionType === 'enhancement') {

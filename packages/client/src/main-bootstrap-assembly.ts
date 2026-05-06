@@ -258,6 +258,10 @@ type MainBootstrapAssemblyOptions = {
   >;
   buildingFengShuiStateSource: Pick<
     MainBuildingFengShuiStateSource,
+    | 'hasPendingPlacementTargeting'
+    | 'setPendingPlacementHover'
+    | 'confirmBuildPlacementTarget'
+    | 'cancelPendingPlacementTargeting'
     | 'handleBuildResult'
     | 'handleRoomSummaryPatch'
     | 'handleFengShuiOverlayPatch'
@@ -597,6 +601,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       });
     },
     onOpenRealmAction: () => {
+      options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(false);
       options.mapRuntimeBridgeSource.cancelTargeting();
       options.mapRuntimeBridgeSource.hideObserveModal();
       options.breakthroughStateSource.openBreakthroughModal();
@@ -623,7 +628,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     clearPendingSocketPing: () => options.runtimeMonitorSource.clearPendingSocketPing(),
     renderPingLatency: (latencyMs, status) => options.runtimeMonitorSource.renderPingLatency(latencyMs, status),
     hasPendingTargetedAction: () => options.targetingStateSource.hasPendingTargetedAction(),
-    cancelTargeting: (showMessage) => options.mapRuntimeBridgeSource.cancelTargeting(showMessage),
+    cancelTargeting: (showMessage) => {
+      options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(false);
+      options.mapRuntimeBridgeSource.cancelTargeting(showMessage);
+    },
     isObserveOpen: () => options.mapRuntimeBridgeSource.isObserveOpen(),
     hideObserveModal: () => options.mapRuntimeBridgeSource.hideObserveModal(),
     documentRef: options.documentRef,
@@ -642,7 +650,14 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     getVisibleTileAt: (x, y) => options.mapRuntimeBridgeSource.getVisibleTileAt(x, y),
     showToast: (message) => options.showToast(message),
     showObserveModal: (x, y) => options.mapRuntimeBridgeSource.showObserveModal(x, y),
-    cancelTargeting: () => options.mapRuntimeBridgeSource.cancelTargeting(),
+    hasPendingBuildPlacementTargeting: () => options.buildingFengShuiStateSource.hasPendingPlacementTargeting(),
+    setPendingBuildPlacementHover: (target) => options.buildingFengShuiStateSource.setPendingPlacementHover(target),
+    confirmBuildPlacementTarget: (x, y) => options.buildingFengShuiStateSource.confirmBuildPlacementTarget(x, y),
+    cancelPendingBuildPlacementTargeting: (clearTargeting) => options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(clearTargeting),
+    cancelTargeting: () => {
+      options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(false);
+      options.mapRuntimeBridgeSource.cancelTargeting();
+    },
     getPlayer: () => options.getPlayer(),
     sendAction: (actionId, target) => options.runtimeSender.sendAction(actionId, target),
     resetLootPanelManualCloseSuppression: () => options.lootPanel.resetManualCloseSuppression(),

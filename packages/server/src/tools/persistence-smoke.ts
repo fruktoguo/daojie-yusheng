@@ -957,6 +957,8 @@ async function seedNativePersistenceForToken(token) {
                 autoBattle: false,
                 autoRetaliate: true,
                 autoBattleStationary: false,
+                retaliatePlayerTargetId: null,
+                retaliatePlayerTargetLastAttackTick: null,
                 combatTargetId: null,
                 combatTargetLocked: false,
                 allowAoePlayerHit: false,

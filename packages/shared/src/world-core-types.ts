@@ -443,7 +443,7 @@ export interface Portal {
 }
 
 /** 场景实体类型。 */
-export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd' | 'formation';
+export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd' | 'formation' | 'building';
 
 /** 怪物仇恨模式。 */
 export type MonsterAggroMode = 'always' | 'retaliate' | 'day_only' | 'night_only';

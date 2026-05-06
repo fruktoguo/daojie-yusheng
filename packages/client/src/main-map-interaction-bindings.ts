@@ -245,6 +245,10 @@ type MainMapInteractionBindingsOptions = {
  */
 
   showObserveModal: (x: number, y: number) => void;
+  hasPendingBuildPlacementTargeting: () => boolean;
+  setPendingBuildPlacementHover: (target: { x?: number; y?: number } | null) => void;
+  confirmBuildPlacementTarget: (x: number, y: number) => void;
+  cancelPendingBuildPlacementTargeting: (clearTargeting?: boolean) => void;
   /**
  * cancelTargeting：cancelTargeting相关字段。
  */
@@ -412,6 +416,19 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           options.cancelTargeting();
           return;
         }
+        if (pendingTargetedAction.actionId === 'building:place') {
+          if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
+            options.showToast(`超出建造范围，最多 ${pendingTargetedAction.range} 格`);
+            return;
+          }
+          if (!options.getVisibleTileAt(target.x, target.y)) {
+            options.showToast('请选择当前视野内的目标格');
+            return;
+          }
+          options.confirmBuildPlacementTarget(target.x, target.y);
+          options.cancelTargeting();
+          return;
+        }
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
           options.showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
           return;
@@ -485,8 +502,14 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       const pendingTargetedAction = options.getPendingTargetedAction();
       if (pendingTargetedAction) {
         options.setPendingTargetedActionHover(target ? { x: target.x, y: target.y } : null);
+        if (pendingTargetedAction.actionId === 'building:place') {
+          options.setPendingBuildPlacementHover(target ? { x: target.x, y: target.y } : null);
+        }
         options.syncTargetingOverlay();
         return;
+      }
+      if (options.hasPendingBuildPlacementTargeting()) {
+        options.setPendingBuildPlacementHover(null);
       }
       options.syncSenseQiOverlay();
     },

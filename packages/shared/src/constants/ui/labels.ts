@@ -114,6 +114,7 @@ export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
   container: '容器',
   crowd: '人群',
   formation: '阵法',
+  building: '建筑',
 };
 
 /** 妖兽血脉层次中文标签 */

@@ -15,6 +15,7 @@ import {
     captureProjectorState,
     captureWorldState,
     combineProjectorState,
+    diffBuildingEntries,
     diffContainerEntries,
     diffFormationEntries,
     diffGroundPiles,
@@ -114,6 +115,7 @@ export class WorldProjectorService {
         const portalPatch = worldChanged ? diffPortalEntries(previous.portals, current.portals) : [];
         const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, current.groundPiles) : [];
         const containerPatch = worldChanged ? diffContainerEntries(previous.containers, current.containers) : [];
+        const buildingPatch = worldChanged ? diffBuildingEntries(previous.buildings, current.buildings) : [];
         const formationPatch = worldChanged ? diffFormationEntries(previous.formations, current.formations) : [];
         const selfDelta = buildSelfDelta(previous, player);
         const panelDelta = buildPanelDelta(previous, player);
@@ -124,6 +126,7 @@ export class WorldProjectorService {
             && portalPatch.length === 0
             && groundPatch.length === 0
             && containerPatch.length === 0
+            && buildingPatch.length === 0
             && formationPatch.length === 0
             && !selfDelta
             && !panelDelta
@@ -138,6 +141,7 @@ export class WorldProjectorService {
                 || portalPatch.length > 0
                 || groundPatch.length > 0
                 || containerPatch.length > 0
+                || buildingPatch.length > 0
                 || formationPatch.length > 0
                     ? {
                         t: view.tick,
@@ -149,6 +153,7 @@ export class WorldProjectorService {
                         o: portalPatch.length > 0 ? portalPatch : undefined,
                         g: groundPatch.length > 0 ? groundPatch : undefined,
                         c: containerPatch.length > 0 ? containerPatch : undefined,
+                        bd: buildingPatch.length > 0 ? buildingPatch : undefined,
                         fmn: formationPatch.length > 0 ? formationPatch : undefined,
                     }
                     : undefined,

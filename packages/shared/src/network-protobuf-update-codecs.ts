@@ -285,6 +285,10 @@ export function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknow
   if (payload.realmProgress !== undefined) wire.realmProgress = payload.realmProgress;
   if (payload.realmProgressToNext !== undefined) wire.realmProgressToNext = payload.realmProgressToNext;
   if (payload.realmBreakthroughReady !== undefined) wire.realmBreakthroughReady = payload.realmBreakthroughReady;
+  if (payload.alchemySkill !== undefined) wire.alchemySkillJson = JSON.stringify(payload.alchemySkill);
+  if (payload.buildingSkill !== undefined) wire.buildingSkillJson = JSON.stringify(payload.buildingSkill);
+  if (payload.gatherSkill !== undefined) wire.gatherSkillJson = JSON.stringify(payload.gatherSkill);
+  if (payload.enhancementSkill !== undefined) wire.enhancementSkillJson = JSON.stringify(payload.enhancementSkill);
   if (payload.lifespanYears === null) {
     wire.clearLifespanYears = true;
   } else if (payload.lifespanYears !== undefined) {
@@ -312,6 +316,10 @@ export function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdat
   if (hasOwn(wire, 'realmProgress')) payload.realmProgress = Number(wire.realmProgress ?? 0);
   if (hasOwn(wire, 'realmProgressToNext')) payload.realmProgressToNext = Number(wire.realmProgressToNext ?? 0);
   if (hasOwn(wire, 'realmBreakthroughReady')) payload.realmBreakthroughReady = Boolean(wire.realmBreakthroughReady);
+  if (typeof wire.alchemySkillJson === 'string') payload.alchemySkill = parseJson(wire.alchemySkillJson);
+  if (typeof wire.buildingSkillJson === 'string') payload.buildingSkill = parseJson(wire.buildingSkillJson);
+  if (typeof wire.gatherSkillJson === 'string') payload.gatherSkill = parseJson(wire.gatherSkillJson);
+  if (typeof wire.enhancementSkillJson === 'string') payload.enhancementSkill = parseJson(wire.enhancementSkillJson);
   if (wire.clearLifespanYears === true) {
     payload.lifespanYears = null;
   } else if (hasOwn(wire, 'lifespanYears')) {

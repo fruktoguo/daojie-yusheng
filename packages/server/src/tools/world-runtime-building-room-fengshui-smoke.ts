@@ -2,11 +2,12 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { TileType } = require("@mud/shared");
+const { TileType, calculateTerrainDurability } = require("@mud/shared");
 const { RuntimeTilePlane } = require("../runtime/map/runtime-tile-plane");
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
+const { awardBuildingConstructionCompletion } = require("../runtime/world/world-runtime-building.service");
 const { compileBuildingDefinitions } = require("../runtime/building/building-content.repository");
 const { BuildingTopologyIndex } = require("../runtime/building/building-topology-index.service");
 const {
@@ -16,6 +17,7 @@ const {
 const {
   calculateFengShuiSnapshot,
   compileFengShuiRules,
+  inferRoomRole,
 } = require("../runtime/building/fengshui-calculator.service");
 
 function main() {
@@ -34,7 +36,7 @@ function main() {
       placement: { layer: "structure", footprint: [{ dx: 0, dy: 0 }] },
       topology: { blocksMove: false, blocksSight: false, roomBoundary: 100, opening: "door" },
       visual: { tileType: TileType.Door },
-      fengShui: { elementVector: { wood: 4 }, traits: ["opening.door"] },
+      fengShui: { elementVector: { wood: 4 }, traits: ["opening.door"], qiLeak: 2 },
     },
     {
       id: "plain_floor",
@@ -63,6 +65,7 @@ function main() {
         traits: ["facility.alchemy.heat_source"],
         comfort: -2,
         stability: 4,
+        shaEmit: 3,
       },
     },
     {
@@ -124,8 +127,8 @@ function main() {
   assert.equal(detection.roomIdByCell[plane.getCellIndex(2, 2)], 1);
 
   const aggregate = createAggregate(room.id);
-  addCompiledContribution(aggregate, catalog.defById.get("spirit_wood_shelf"));
-  addCompiledContribution(aggregate, catalog.defById.get("alchemy_furnace"));
+  addCompiledContribution(aggregate, catalog.defById.get("spirit_wood_shelf"), catalog);
+  addCompiledContribution(aggregate, catalog.defById.get("alchemy_furnace"), catalog);
   aggregate.area = room.area;
   aggregate.perimeter = room.perimeter;
   aggregate.doorCount = room.doorCount;
@@ -178,10 +181,41 @@ function main() {
   assert.equal(snapshot.reasons.some((reason) => reason.code === "element.generates_function"), true);
   assert.equal(snapshot.reasons.some((reason) => reason.code === "trait.rest_comfort"), false);
 
-  addCompiledContribution(aggregate, catalog.defById.get("jade_bed_extensible"));
+  addCompiledContribution(aggregate, catalog.defById.get("jade_bed_extensible"), catalog);
   snapshot = calculateFengShuiSnapshot(room, aggregate, rules, { revision: 2, updatedAtTick: 9 });
-  assert.equal(snapshot.reasons.some((reason) => reason.code === "trait.rest_comfort"), true);
+  assert.equal(snapshot.reasons.some((reason) => reason.code === "comfort.good"), true);
   assert.ok(snapshot.score > 700);
+
+  const storageAggregate = createAggregate(room.id);
+  addCompiledContribution(storageAggregate, catalog.defById.get("spirit_wood_shelf"), catalog);
+  assert.equal(inferRoomRole(catalog, room, storageAggregate).role, "storage");
+
+  const mixedAggregate = createAggregate(room.id);
+  addCompiledContribution(mixedAggregate, catalog.defById.get("alchemy_furnace"), catalog);
+  addCompiledContribution(mixedAggregate, catalog.defById.get("jade_bed_extensible"), catalog);
+  assert.equal(inferRoomRole(catalog, room, mixedAggregate).role, "generic");
+
+  const leakingAggregate = createAggregate(room.id);
+  addCompiledContribution(leakingAggregate, catalog.defById.get("alchemy_furnace"), catalog);
+  leakingAggregate.area = room.area;
+  leakingAggregate.roofCoverage = room.roofCoverageRatio;
+  leakingAggregate.qiRaw = 1800;
+  leakingAggregate.qiLeak = 2;
+  const leakingRoom = { ...room, role: "alchemy" };
+  const leakingSnapshot = calculateFengShuiSnapshot(leakingRoom, leakingAggregate, rules, { revision: 3, updatedAtTick: 10 });
+  assert.equal(leakingSnapshot.reasons.some((reason) => reason.code === "qi.leak" && reason.delta < 0), true);
+  assert.equal(leakingSnapshot.reasons.some((reason) => reason.code === "sha.exposed" && reason.delta < 0), true);
+
+  const screenedAggregate = createAggregate(room.id);
+  addCompiledContribution(screenedAggregate, catalog.defById.get("alchemy_furnace"), catalog);
+  screenedAggregate.area = room.area;
+  screenedAggregate.roofCoverage = room.roofCoverageRatio;
+  screenedAggregate.qiRaw = 1800;
+  screenedAggregate.shaReduce = 10;
+  screenedAggregate.shaRaw = Math.max(0, screenedAggregate.shaEmit - screenedAggregate.shaReduce);
+  const screenedSnapshot = calculateFengShuiSnapshot(leakingRoom, screenedAggregate, rules, { revision: 4, updatedAtTick: 11 });
+  assert.equal(screenedSnapshot.reasons.some((reason) => reason.code === "sha.reduced" && reason.delta > 0), true);
+  assert.ok(screenedSnapshot.score > leakingSnapshot.score);
 
   const templateRepository = new MapTemplateRepository();
   templateRepository.registerRuntimeMapTemplate({
@@ -247,7 +281,7 @@ function main() {
   const runtimeRooms = instance.listRoomSummaries();
   assert.equal(runtimeRooms.length, 1);
   assert.equal(runtimeRooms[0].enclosed, true);
-  assert.equal(instance.setRoomRole(runtimeRooms[0].id, "alchemy").ok, true);
+  assert.equal(runtimeRooms[0].role, "alchemy");
   const runtimeFengShui = instance.getFengShuiSnapshotAt(2, 2);
   assert.ok(runtimeFengShui);
   assert.equal(runtimeFengShui.reasons.some((reason) => reason.code === "trait.alchemy_heat_source"), true);
@@ -346,7 +380,7 @@ function main() {
   const staticDamagedFengShui = staticInstance.getFengShuiSnapshotAt(2, 2);
   assert.ok(staticDamagedFengShui);
   assert.ok(staticDamagedFengShui.score < staticInitialFengShui.score);
-  assert.equal(staticDamagedFengShui.reasons.some((reason) => reason.code === "integrity_penalty"), true);
+  assert.equal(staticDamagedFengShui.reasons.some((reason) => reason.code === "integrity.penalty"), true);
   const brokenWall = staticInstance.damageTile(0, 1, Number.MAX_SAFE_INTEGER);
   assert.ok(brokenWall);
   assert.equal(brokenWall.destroyed, true);
@@ -380,6 +414,13 @@ function main() {
   const yunlaiRooms = yunlaiInstance.listRoomSummaries();
   assert.ok(yunlaiRooms.length >= 4);
   assert.equal(yunlaiRooms.some((room) => room.area > 256 && room.roofCoverageRatio < 60), false);
+  for (const yunlaiRoom of yunlaiRooms) {
+    const snapshot = yunlaiInstance.getFengShuiSnapshot(yunlaiRoom.id);
+    if (yunlaiRoom.role === "generic") {
+      assert.ok(snapshot.score <= 520);
+      assert.equal(snapshot.reasons.some((reason) => reason.code === "room.role.generic_cap"), true);
+    }
+  }
   const yunlaiApothecaryRoom = yunlaiInstance.getBuildingRoomFengShuiAt(40, 38)?.room;
   assert.ok(yunlaiApothecaryRoom);
   assert.ok(yunlaiApothecaryRoom.area < 256);
@@ -443,11 +484,17 @@ function main() {
     playerId: "player:building:1",
     sectId: "sect:building:1",
     hp: 100,
+    dirtyDomains: new Set(),
+    buildingSkill: {
+      level: 4,
+      exp: 0,
+      expToNext: 96,
+    },
     inventory: {
       revision: 1,
       items: [
-        { itemId: "stone", count: 4 },
-        { itemId: "wood", count: 4 },
+        { itemId: "earthbearing_stone", name: "承脉石", type: "material", materialCategory: "ore", count: 4 },
+        { itemId: "spiritwood_heart", name: "生灵木心", type: "material", materialCategory: "exotic", count: 4 },
       ],
     },
   };
@@ -470,24 +517,65 @@ function main() {
   };
   commandRuntime.getPlayerLocationOrThrow = () => ({ instanceId: commandInstance.meta.instanceId });
   commandRuntime.getInstanceRuntimeOrThrow = () => commandInstance;
+  const buildStrength = 30;
   const placeResult = WorldRuntimeService.prototype.handleBuildPlaceIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "build:req:1",
     defId: "stone_wall",
     x: 1,
     y: 1,
+    buildStrength,
+    selectedMaterialItemIds: ["earthbearing_stone"],
   });
   assert.equal(placeResult.ok, true);
   assert.equal(placeResult.building.defId, "stone_wall");
-  assert.equal(commandPlayer.inventory.items.find((entry) => entry.itemId === "stone").count, 3);
+  assert.equal(placeResult.building.state, "building");
+  assert.equal(placeResult.building.buildStrength, buildStrength);
+  assert.equal(placeResult.building.builderSkillLevel, commandPlayer.buildingSkill.level);
+  assert.equal(placeResult.building.buildRemainingTicks, buildStrength);
+  assert.equal(placeResult.building.activeBuilderPlayerId, null);
+  const commandWallCompiled = commandInstance.buildingCatalog.defById.get("stone_wall");
+  const expectedWallMaxHp = Math.max(
+    1,
+    Math.trunc(
+      calculateTerrainDurability(
+        commandPlayer.buildingSkill.level,
+        Math.max(0.01, Number(commandWallCompiled?.maxHp ?? 1) / 100),
+      ) * buildStrength,
+    ),
+  );
+  assert.equal(placeResult.building.maxHp, expectedWallMaxHp);
+  assert.equal(commandInstance.tilePlane.getTileType(commandInstance.toTileIndex(1, 1)), TileType.Floor);
+  assert.equal(commandPlayer.buildingSkill.exp, 0);
+  assert.equal(commandPlayer.inventory.items.find((entry) => entry.itemId === "earthbearing_stone").count, 3);
   const duplicatePlaceResult = WorldRuntimeService.prototype.handleBuildPlaceIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "build:req:1",
     defId: "stone_wall",
     x: 1,
     y: 1,
+    selectedMaterialItemIds: ["earthbearing_stone"],
   });
   assert.equal(duplicatePlaceResult.ok, true);
   assert.equal(duplicatePlaceResult.duplicate, true);
-  assert.equal(commandPlayer.inventory.items.find((entry) => entry.itemId === "stone").count, 3);
+  assert.equal(commandPlayer.inventory.items.find((entry) => entry.itemId === "earthbearing_stone").count, 3);
+  const startBuildResult = WorldRuntimeService.prototype.handleStartBuildingConstruction.call(
+    commandRuntime,
+    commandPlayer.playerId,
+    placeResult.building.id,
+  );
+  assert.equal(startBuildResult.ok, true);
+  assert.equal(startBuildResult.building.activeBuilderPlayerId, commandPlayer.playerId);
+  for (let index = 0; index < buildStrength - 1; index += 1) {
+    const pendingTick = commandInstance.tickOnce();
+    assert.equal(pendingTick.completedBuildings.length, 0);
+  }
+  const completionTick = commandInstance.tickOnce();
+  assert.equal(completionTick.completedBuildings.length, 1);
+  assert.equal(completionTick.completedBuildings[0].state, "active");
+  assert.equal(commandInstance.tilePlane.getTileType(commandInstance.toTileIndex(1, 1)), TileType.Wall);
+  const gainedBuildingExp = awardBuildingConstructionCompletion(commandRuntime, completionTick.completedBuildings[0]);
+  assert.ok(gainedBuildingExp > 0);
+  assert.equal(commandPlayer.buildingSkill.exp, gainedBuildingExp);
+  assert.equal(commandPlayer.dirtyDomains.has("profession"), true);
   const roomPatch = WorldRuntimeService.prototype.buildCurrentRoomSummaryPatch.call(commandRuntime, commandPlayer.playerId);
   assert.equal(roomPatch.instanceId, commandInstance.meta.instanceId);
   const observe = WorldRuntimeService.prototype.buildFengShuiObserveView.call(commandRuntime, commandPlayer.playerId, {
@@ -525,10 +613,15 @@ function createAggregate(roomId) {
     roofCoverage: 0,
     elementVector: new Int32Array(5),
     traitCounts: new Map(),
+    traitKeys: new Set(),
     comfort: 0,
     stability: 0,
     qiRaw: 0,
+    qiAffinity: 0,
+    qiLeak: 0,
     shaRaw: 0,
+    shaEmit: 0,
+    shaReduce: 0,
     integrityPenalty: 0,
     formationScore: 0,
     topologyRevision: 1,
@@ -536,15 +629,22 @@ function createAggregate(roomId) {
   };
 }
 
-function addCompiledContribution(aggregate, compiled) {
+function addCompiledContribution(aggregate, compiled, catalog) {
   for (let index = 0; index < compiled.elementVector.length; index += 1) {
     aggregate.elementVector[index] += compiled.elementVector[index];
   }
   for (const traitId of compiled.traitIds) {
     aggregate.traitCounts.set(traitId, (aggregate.traitCounts.get(traitId) ?? 0) + 1);
+    const traitKey = catalog?.traitKeysById?.[traitId];
+    if (traitKey) aggregate.traitKeys.add(traitKey);
   }
   aggregate.comfort += compiled.fengShuiContrib[0] ?? 0;
   aggregate.stability += compiled.fengShuiContrib[1] ?? 0;
+  aggregate.qiAffinity += Math.max(0, compiled.fengShuiContrib[2] ?? 0);
+  aggregate.qiLeak += Math.max(0, compiled.fengShuiContrib[3] ?? 0);
+  aggregate.shaEmit += Math.max(0, compiled.fengShuiContrib[4] ?? 0);
+  aggregate.shaReduce += Math.max(0, compiled.fengShuiContrib[5] ?? 0);
+  aggregate.shaRaw = Math.max(0, aggregate.shaEmit - aggregate.shaReduce);
 }
 
 main();

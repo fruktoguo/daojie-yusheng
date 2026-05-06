@@ -6,6 +6,7 @@ import type {
   AlchemySkillState,
   PlayerAlchemyJob,
   PlayerAlchemyPreset,
+  PlayerBuildingJob,
   PlayerEnhancementJob,
   PlayerEnhancementRecord,
   PlayerGatherJob,
@@ -122,6 +123,11 @@ export interface PlayerState {
  */
 
   retaliatePlayerTargetId?: string | null;
+  /**
+ * retaliatePlayerTargetLastAttackTick：当前反击目标最近一次主动攻击你的 tick。
+ */
+
+  retaliatePlayerTargetLastAttackTick?: number | null;
   /**
  * autoIdleCultivation：autoIdleCultivation相关字段。
  */
@@ -436,6 +442,16 @@ export interface PlayerState {
  */
 
   enhancementSkill?: AlchemySkillState;
+  /**
+ * buildingSkill：营造技能相关字段。
+ */
+
+  buildingSkill?: AlchemySkillState;
+  /**
+ * buildingJob：building Job 相关字段。
+ */
+
+  buildingJob?: PlayerBuildingJob | null;
   /**
  * enhancementSkillLevel：强化技能等级数值。
  */

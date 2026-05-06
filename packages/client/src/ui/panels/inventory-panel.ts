@@ -19,6 +19,8 @@ import {
   resolveFormationCostConfig,
   resolveFormationSetupPlan,
   resolveFormationVisual,
+  type FormationEffectKind,
+  type FormationResolvedStats,
   type FormationSetup,
   type FormationTemplate,
   type FormationRangeShape,
@@ -1254,6 +1256,19 @@ export class InventoryPanel {
           <span><em>关闭/日</em><output data-formation-stat="inactiveCost">-</output></span>
         </div>
       </div>
+      <div class="formation-effect-card ui-detail-field">
+        <div class="formation-section-heading">
+          <strong>效果介绍</strong>
+          <span data-formation-effect-kind>-</span>
+        </div>
+        <div class="formation-effect-desc" data-formation-effect-desc>-</div>
+        <div class="formation-effect-list">
+          <span><em>作用对象</em><output data-formation-effect-target>-</output></span>
+          <span><em>强度含义</em><output data-formation-effect-scaling>-</output></span>
+          <span><em>范围规则</em><output data-formation-effect-range>-</output></span>
+          <span><em>可见/通行</em><output data-formation-effect-visibility>-</output></span>
+        </div>
+      </div>
       <button class="small-btn ghost formation-range-preview-btn" type="button" data-formation-range-preview>预览范围</button>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
@@ -1314,6 +1329,7 @@ export class InventoryPanel {
     this.setFormationStatText(body, 'durationHours', stats.durationHours ?? setup.durationHours, '', 'duration');
     this.setFormationStatText(body, 'activeCost', stats.dailyActiveCost);
     this.setFormationStatText(body, 'inactiveCost', stats.dailyInactiveCost);
+    this.syncFormationEffectIntro(body, template, stats);
     const confirmButton = body.querySelector<HTMLButtonElement>('[data-formation-confirm]');
     if (confirmButton) {
       confirmButton.disabled = !hasEnoughQi || !hasEnoughStones;
@@ -1340,6 +1356,70 @@ export class InventoryPanel {
       radius: stats.radius,
       rangeHighlightColor: resolveFormationVisual(template).rangeHighlightColor,
     });
+  }
+
+  private syncFormationEffectIntro(body: HTMLElement, template: FormationTemplate, stats: FormationResolvedStats): void {
+    const meta = this.describeFormationEffect(template.effect.kind, stats);
+    this.setFormationTextContent(body, '[data-formation-effect-kind]', meta.kindLabel);
+    this.setFormationTextContent(body, '[data-formation-effect-desc]', template.desc?.trim() || meta.fallbackDesc);
+    this.setFormationTextContent(body, '[data-formation-effect-target]', meta.target);
+    this.setFormationTextContent(body, '[data-formation-effect-scaling]', meta.scaling);
+    this.setFormationTextContent(body, '[data-formation-effect-range]', this.describeFormationRange(template, stats));
+    this.setFormationTextContent(body, '[data-formation-effect-visibility]', meta.visibility);
+  }
+
+  private describeFormationEffect(kind: FormationEffectKind, stats: FormationResolvedStats): {
+    kindLabel: string;
+    fallbackDesc: string;
+    target: string;
+    scaling: string;
+    visibility: string;
+  } {
+    const effectValue = formatDisplayInteger(stats.effectValue);
+    if (kind === 'tile_aura_source') {
+      return {
+        kindLabel: '灵气增幅',
+        fallbackDesc: '持续抬升范围内地块灵气，使地块资源逐步接近阵法强度。',
+        target: '范围内地块',
+        scaling: `目标灵气 ${effectValue}，逐步抬升至强度值`,
+        visibility: '感气后可查看范围与阵眼',
+      };
+    }
+    if (kind === 'terrain_stabilizer') {
+      return {
+        kindLabel: '地脉稳固',
+        fallbackDesc: '稳固范围内地脉，抑制地块复生、消散与被拆损耗。',
+        target: '可攻击地块与临时地块',
+        scaling: `强度 ${effectValue}，越高越能降低地块受击伤害`,
+        visibility: '范围内自动生效',
+      };
+    }
+    return {
+      kindLabel: '边界封锁',
+      fallbackDesc: '在阵法边界形成阻挡，封锁通行与视线。',
+      target: '阵法边界与阵眼',
+      scaling: `强度 ${effectValue}，越高越能降低边界受击损耗`,
+      visibility: '边界可见并阻挡，归属方按规则通行',
+    };
+  }
+
+  private describeFormationRange(template: FormationTemplate, stats: FormationResolvedStats): string {
+    const radius = formatDisplayInteger(stats.radius);
+    if (template.range.shape === 'circle') {
+      return `圆形半径 ${radius}，覆盖圆内地块`;
+    }
+    if (template.range.shape === 'checkerboard') {
+      return `棋盘半径 ${radius}，只覆盖交错格`;
+    }
+    return `方形半径 ${radius}，覆盖外框内地块`;
+  }
+
+  private setFormationTextContent(body: HTMLElement, selector: string, text: string): void {
+    const node = body.querySelector<HTMLElement>(selector);
+    if (!node) {
+      return;
+    }
+    node.textContent = text;
   }
 
   private setFormationStatText(body: HTMLElement, key: string, value: number, suffix = '', format: 'integer' | 'duration' = 'integer'): void {

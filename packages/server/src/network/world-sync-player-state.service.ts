@@ -74,6 +74,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
     bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
     alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+    buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
     gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
     enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
