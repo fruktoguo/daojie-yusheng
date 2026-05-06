@@ -38,7 +38,17 @@
         },
         "topology": { "type": "object" },
         "fengShui": { "type": "object" },
-        "economy": { "type": "object" }
+        "economy": {
+          "type": "object",
+          "properties": {
+            "buildTicks": { "type": "integer", "minimum": 0 },
+            "deconstructTicks": { "type": "integer", "minimum": 0 },
+            "durabilityMultiplier": { "type": "number", "exclusiveMinimum": 0 },
+            "maxHp": { "type": "integer", "minimum": 1 },
+            "cost": { "type": "array", "items": { "type": "object" } },
+            "refund": { "type": "array", "items": { "type": "object" } }
+          }
+        }
       }
     },
     "fengShuiRule": {

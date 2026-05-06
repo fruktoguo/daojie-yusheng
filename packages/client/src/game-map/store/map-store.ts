@@ -881,7 +881,7 @@ export class MapStore {
 
   /** 读取当前视域半径（时间状态 > 玩家设置 > 默认常量）。 */
   getViewRadius(): number {
-    return this.time?.effectiveViewRange ?? this.player?.viewRange ?? VIEW_RADIUS;
+    return this.player?.viewRange ?? this.time?.effectiveViewRange ?? VIEW_RADIUS;
   }
 
   /** 获取当前地图元数据。 */
@@ -1243,6 +1243,12 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
     maxHp: typeof tile.maxHp === 'number' && Number.isFinite(tile.maxHp) ? tile.maxHp : undefined,
     hpVisible: tile.hpVisible === true ? true : undefined,
     hiddenEntrance: tile.hiddenEntrance ? { ...tile.hiddenEntrance } : undefined,
+    terrainType: typeof tile.terrainType === 'string' && tile.terrainType.length > 0 ? tile.terrainType : undefined,
+    surfaceType: typeof tile.surfaceType === 'string' && tile.surfaceType.length > 0 ? tile.surfaceType : undefined,
+    structureType: typeof tile.structureType === 'string' && tile.structureType.length > 0 ? tile.structureType : undefined,
+    interactableKinds: Array.isArray(tile.interactableKinds)
+      ? tile.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
+      : undefined,
   };
   return normalized;
 }

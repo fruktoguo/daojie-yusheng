@@ -226,6 +226,7 @@ type MainPanelDeltaStateSourceOptions = {
  */
 
     syncSenseQiOverlay: () => void;
+    syncWangQiOverlay?: () => void;
   };
 };
 
@@ -1193,6 +1194,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
       const previousCultivationActive = player?.cultivationActive ?? false;
       const previousSenseQiActive = player?.senseQiActive ?? false;
+      const previousWangQiActive = player?.wangQiActive ?? false;
       const nextAutoBattle = data.autoBattle ?? player?.autoBattle ?? false;
       const nextAutoUsePills = data.autoUsePills ?? player?.autoUsePills ?? [];
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
@@ -1210,6 +1212,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
       const nextCultivationActive = data.cultivationActive ?? player?.cultivationActive ?? false;
       const nextSenseQiActive = data.senseQiActive ?? player?.senseQiActive ?? false;
+      const nextWangQiActive = data.wangQiActive ?? player?.wangQiActive ?? false;
       const shouldRefreshActionPanel = !player
         || previousAutoBattle !== nextAutoBattle
         || !isPlainEqual(previousAutoUsePills, nextAutoUsePills)
@@ -1223,6 +1226,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
         || previousCultivationActive !== nextCultivationActive
         || previousSenseQiActive !== nextSenseQiActive
+        || previousWangQiActive !== nextWangQiActive
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {
         player.actions = mergedActions;
@@ -1245,6 +1249,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.autoSwitchCultivation = nextAutoSwitchCultivation;
         player.cultivationActive = nextCultivationActive;
         player.senseQiActive = nextSenseQiActive;
+        player.wangQiActive = nextWangQiActive;
         if (previousAllowAoePlayerHit !== nextAllowAoePlayerHit || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId) {
           options.refreshObservedDecorations();
         }
@@ -1259,6 +1264,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         options.actionStateSource.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, player ?? undefined);
       }
       options.targeting.syncSenseQiOverlay();
+      options.targeting.syncWangQiOverlay?.();
       options.syncActionsBridgeState(mergedActions, nextAutoBattle, nextAutoRetaliate);
       options.syncPlayerBridgeState(player);
     },

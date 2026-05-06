@@ -368,6 +368,11 @@ export interface ActionsUpdateView {
  */
 
   senseQiActive?: boolean;
+  /**
+ * wangQiActive：望气视角激活状态。
+ */
+
+  wangQiActive?: boolean;
 }
 
 /** 功法面板增量视图。 */
@@ -501,6 +506,11 @@ export interface PanelActionDeltaView {
  */
 
   senseQiActive?: boolean;
+  /**
+ * wangQiActive：望气视角激活状态。
+ */
+
+  wangQiActive?: boolean;
 }
 
 /** Buff 面板增量视图。 */

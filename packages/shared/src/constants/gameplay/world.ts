@@ -1,4 +1,4 @@
-import type { MapTimeConfig, TimePhaseId } from '../../types';
+import type { GameTimeState, MapTimeConfig, TimePhaseId, VisibleBuffState } from '../../types';
 
 /**
  * 地图世界常量（视野、昼夜与时间流）。
@@ -90,3 +90,102 @@ export const DEFAULT_MAP_TIME_CONFIG: MapTimeConfig = {
   },
   palette: {},
 };
+
+/** 按光照强度换算夜色层数。 */
+export function resolveDarknessStacks(lightPercent: number): number {
+  if (lightPercent >= 95) return 0;
+  if (lightPercent >= 85) return 1;
+  if (lightPercent >= 75) return 2;
+  if (lightPercent >= 65) return 3;
+  if (lightPercent >= 55) return 4;
+  return 5;
+}
+
+/** 规范化地图时间配置；GM 覆盖和模板默认值都走同一套昼夜投影。 */
+export function normalizeMapTimeConfig(input?: MapTimeConfig | null): MapTimeConfig {
+  const candidate = input ?? {};
+  return {
+    offsetTicks: candidate.offsetTicks,
+    scale: candidate.scale,
+    light: candidate.light,
+    palette: candidate.palette,
+  };
+}
+
+/** 根据地图 tick 与视野基值生成权威昼夜状态。 */
+export function resolveGameTimeState(
+  totalTicks: number,
+  baseViewRange: number,
+  inputConfig?: MapTimeConfig | null,
+  tickSpeed = 1,
+): GameTimeState {
+  const config = normalizeMapTimeConfig(inputConfig);
+  const localTimeScale = typeof config.scale === 'number' && Number.isFinite(config.scale) && config.scale >= 0
+    ? config.scale
+    : 1;
+  const timeScale = tickSpeed > 0 ? localTimeScale : 0;
+  const offsetTicks = typeof config.offsetTicks === 'number' && Number.isFinite(config.offsetTicks)
+    ? Math.round(config.offsetTicks)
+    : 0;
+  const effectiveTicks = tickSpeed > 0 ? totalTicks : 0;
+  const localTicks = ((Math.floor(effectiveTicks * timeScale) + offsetTicks) % GAME_DAY_TICKS + GAME_DAY_TICKS) % GAME_DAY_TICKS;
+  const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick)
+    ?? GAME_TIME_PHASES[GAME_TIME_PHASES.length - 1];
+  const baseLight = typeof config.light?.base === 'number' && Number.isFinite(config.light.base)
+    ? config.light.base
+    : 0;
+  const timeInfluence = typeof config.light?.timeInfluence === 'number' && Number.isFinite(config.light.timeInfluence)
+    ? config.light.timeInfluence
+    : 100;
+  const lightPercent = Math.max(0, Math.min(100, Math.round(baseLight + phase.skyLightPercent * (timeInfluence / 100))));
+  const darknessStacks = resolveDarknessStacks(lightPercent);
+  const visionMultiplier = DARKNESS_STACK_TO_VISION_MULTIPLIER[darknessStacks] ?? 0.5;
+  const palette = config.palette?.[phase.id];
+  const normalizedBaseViewRange = Math.max(1, Math.round(Number(baseViewRange) || 1));
+  return {
+    totalTicks,
+    localTicks,
+    dayLength: GAME_DAY_TICKS,
+    timeScale,
+    phase: phase.id,
+    phaseLabel: phase.label,
+    darknessStacks,
+    visionMultiplier,
+    lightPercent,
+    effectiveViewRange: Math.max(1, Math.ceil(normalizedBaseViewRange * visionMultiplier)),
+    tint: palette?.tint ?? phase.tint,
+    overlayAlpha: palette?.alpha ?? Math.max(phase.overlayAlpha, (100 - lightPercent) / 100 * 0.8),
+  };
+}
+
+/** 构建夜色视野衰减的公开减益投影；昼间无减益时返回 null。 */
+export function buildWorldDarknessBuffState(
+  timeState: Pick<GameTimeState, 'darknessStacks' | 'effectiveViewRange' | 'phaseLabel'> | null | undefined,
+  baseViewRange: number,
+): VisibleBuffState | null {
+  const stacks = Math.max(0, Math.trunc(Number(timeState?.darknessStacks ?? 0) || 0));
+  if (stacks <= 0) {
+    return null;
+  }
+  const normalizedBaseViewRange = Math.max(1, Math.round(Number(baseViewRange) || 1));
+  const effectiveViewRange = Math.max(1, Math.round(Number(timeState?.effectiveViewRange ?? normalizedBaseViewRange) || normalizedBaseViewRange));
+  const totalViewRangeDelta = effectiveViewRange - normalizedBaseViewRange;
+  return {
+    buffId: WORLD_DARKNESS_BUFF_ID,
+    name: '夜色遮目',
+    desc: `${timeState?.phaseLabel ?? '夜色'}影响神识，视野由 ${normalizedBaseViewRange} 降至 ${effectiveViewRange}。`,
+    shortMark: '夜',
+    category: 'debuff',
+    visibility: 'public',
+    remainingTicks: WORLD_DARKNESS_BUFF_DURATION + 1,
+    duration: WORLD_DARKNESS_BUFF_DURATION,
+    stacks,
+    maxStacks: Math.max(1, DARKNESS_STACK_TO_VISION_MULTIPLIER.length - 1),
+    sourceSkillId: WORLD_TIME_SOURCE_ID,
+    sourceSkillName: '昼夜',
+    stats: {
+      viewRange: totalViewRangeDelta / stacks,
+    },
+    statMode: 'flat',
+  };
+}

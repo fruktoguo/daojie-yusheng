@@ -51,6 +51,17 @@ export type BuildingSenseQiRoomInfo = {
   fengShuiLabel: string;
   score: number;
   grade: string;
+  detail?: {
+    shapeScore: number;
+    enclosureScore: number;
+    qiScore: number;
+    shaScore: number;
+    comfortScore: number;
+    elementScore: number;
+    formationScore: number;
+    integrityScore: number;
+    reasons: Array<{ code: string; delta: number; severity: string }>;
+  };
 };
 const FENGSHUI_DETAIL_MODAL_OWNER = 'building-fengshui-detail';
 const buildModeTooltip = new FloatingTooltip('floating-tooltip building-mode-tooltip');
@@ -384,7 +395,7 @@ function resolveProjectedBuildDurationTicks(buildStrength: number): number {
 }
 
 function resolveProjectedBuildMaxHp(entry: BuildingCatalogEntry, buildStrength: number, builderSkillLevel: number): number {
-  const baseMultiplier = Math.max(0.01, (Math.max(1, Math.trunc(Number(entry.maxHp) || 1))) / 100);
+  const baseMultiplier = Math.max(0.01, Number(entry.durabilityMultiplier ?? (Math.max(1, Math.trunc(Number(entry.maxHp) || 1)) / 100)));
   return Math.max(1, calculateTerrainDurability(builderSkillLevel, baseMultiplier) * resolveProjectedBuildDurationTicks(buildStrength));
 }
 
@@ -856,6 +867,23 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       }
       const room = rooms.get(cell.roomId);
       const roomLabel = room ? formatRoomRole(room.role) : `房间 ${cell.roomId.slice(0, 8)}`;
+      const detail = latestDetail?.room.id === cell.roomId
+        ? {
+          shapeScore: latestDetail.fengShui.shapeScore,
+          enclosureScore: latestDetail.fengShui.enclosureScore,
+          qiScore: latestDetail.fengShui.qiScore,
+          shaScore: latestDetail.fengShui.shaScore,
+          comfortScore: latestDetail.fengShui.comfortScore,
+          elementScore: latestDetail.fengShui.elementScore,
+          formationScore: latestDetail.fengShui.formationScore,
+          integrityScore: latestDetail.fengShui.integrityScore,
+          reasons: latestDetail.fengShui.reasons.map((reason) => ({
+            code: localizeReasonCode(reason.code),
+            delta: reason.delta,
+            severity: reason.severity,
+          })),
+        }
+        : undefined;
       return {
         roomId: cell.roomId,
         roomLabel,
@@ -866,6 +894,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
         fengShuiLabel: formatGrade(cell.grade),
         score: cell.score,
         grade: cell.grade,
+        detail,
       };
     },
 
@@ -1225,7 +1254,7 @@ function buildBuildingTooltipText(def: BuildingCatalogEntry, buildStrength: numb
     `显示：${resolveBuildingDisplayLabel(def)}`,
     `类型：${formatBuildingLayer(def.layer)}`,
     `材料：${formatMaterialSummary(def.cost)}`,
-    `基础耐久：${Math.max(0, Math.trunc(Number(def.maxHp) || 0))}`,
+    `耐久系数：${Number(def.durabilityMultiplier ?? 0) > 0 ? Number(def.durabilityMultiplier).toLocaleString('zh-CN') : Math.max(0, Math.trunc(Number(def.maxHp) || 0))}`,
     `当前建造强度：${projectedDuration}`,
     `当前完工耐久：${projectedMaxHp}`,
     `营造等级：Lv.${builderSkillLevel}`,
@@ -1315,35 +1344,83 @@ function renderFengShuiDetailBody(body: HTMLElement, data: FengShuiDetailPayload
     ['面积', String(data.room.area)],
     ['门窗', `${data.room.doorCount}/${data.room.windowCount}`],
     ['封闭', data.room.enclosed ? '完整' : '开放'],
-    ['形制', String(data.fengShui.shapeScore)],
-    ['灵气', String(data.fengShui.qiScore)],
-    ['五行', String(data.fengShui.elementScore)],
+    ['幸运', formatSignedNumber(Math.trunc(data.fengShui.score / 10))],
   ]) {
     const item = document.createElement('span');
     item.className = 'fengshui-detail-metric';
     item.textContent = `${entry[0]}：${entry[1]}`;
     metrics.appendChild(item);
   }
+  const dimensionsTitle = document.createElement('div');
+  dimensionsTitle.className = 'fengshui-detail-section-title';
+  dimensionsTitle.textContent = '分项汇总';
+  const dimensions = document.createElement('div');
+  dimensions.className = 'fengshui-detail-metrics';
+  for (const entry of [
+    ['形制', data.fengShui.shapeScore],
+    ['围合', data.fengShui.enclosureScore],
+    ['灵气', data.fengShui.qiScore],
+    ['煞气', data.fengShui.shaScore],
+    ['舒适/用途', data.fengShui.comfortScore],
+    ['五行', data.fengShui.elementScore],
+    ['阵法', data.fengShui.formationScore],
+    ['完整性', data.fengShui.integrityScore],
+  ] as const) {
+    const item = document.createElement('span');
+    item.className = `fengshui-detail-metric ${entry[1] > 0 ? 'is-good' : entry[1] < 0 ? 'is-bad' : 'is-neutral'}`;
+    item.textContent = `${entry[0]}：${formatSignedNumber(entry[1])}`;
+    dimensions.appendChild(item);
+  }
+  const reasonsTitle = document.createElement('div');
+  reasonsTitle.className = 'fengshui-detail-section-title';
+  reasonsTitle.textContent = '具体加减项';
   const reasons = document.createElement('div');
   reasons.className = 'fengshui-detail-reasons';
-  for (const reason of data.fengShui.reasons.slice(0, 12)) {
+  const visibleReasons = data.fengShui.reasons
+    .filter((reason) => reason.delta !== 0)
+    .slice()
+    .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
+    .slice(0, 16);
+  for (const reason of visibleReasons) {
     const item = document.createElement('div');
     item.className = `fengshui-detail-reason is-${reason.severity}`;
-    item.textContent = `${reason.delta >= 0 ? '+' : ''}${reason.delta} ${localizeReasonCode(reason.code)}`;
+    const value = document.createElement('span');
+    value.className = 'fengshui-detail-reason-value';
+    value.textContent = formatSignedNumber(reason.delta);
+    const label = document.createElement('span');
+    label.className = 'fengshui-detail-reason-label';
+    label.textContent = localizeReasonCode(reason.code);
+    item.replaceChildren(value, label);
     reasons.appendChild(item);
   }
-  root.replaceChildren(metrics, reasons);
+  if (visibleReasons.length === 0) {
+    const item = document.createElement('div');
+    item.className = 'fengshui-detail-reason is-info';
+    item.textContent = '暂无有效加减项';
+    reasons.appendChild(item);
+  }
+  root.replaceChildren(metrics, dimensionsTitle, dimensions, reasonsTitle, reasons);
   body.replaceChildren(root);
+}
+
+function formatSignedNumber(value: number): string {
+  const normalized = Math.trunc(Number(value) || 0);
+  return normalized > 0 ? `+${normalized}` : String(normalized);
 }
 
 function formatGrade(grade: string): string {
   return {
-    disaster: '大凶',
-    bad: '小凶',
+    calamity: '天厄',
+    disaster: '绝凶',
+    great_bad: '大凶',
+    bad: '凶',
+    minor_bad: '小凶',
     plain: '平',
     minor_good: '小吉',
+    good: '吉',
     great_good: '大吉',
-    blessed: '洞天',
+    blessed: '福地',
+    paradise: '洞天',
   }[grade] ?? grade;
 }
 

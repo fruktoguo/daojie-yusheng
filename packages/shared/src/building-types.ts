@@ -80,6 +80,7 @@ export interface BuildingDef {
   economy?: {
     buildTicks?: number;
     deconstructTicks?: number;
+    durabilityMultiplier?: number;
     maxHp?: number;
     cost?: BuildingCostEntry[];
     refund?: BuildingCostEntry[];
@@ -106,6 +107,7 @@ export interface CompiledBuildingDef {
   elementVector: Int16Array;
   traitIds: Uint16Array;
   fengShuiContrib: Int16Array;
+  durabilityMultiplier: number;
   maxHp: number;
   buildTicks: number;
   deconstructTicks: number;

@@ -150,7 +150,22 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
             return this.toggleCombatSetting(playerId, currentTick, 'autoSwitchCultivation', deps);
         }
         if (actionId === 'sense_qi:toggle') {
-            return this.toggleCombatSetting(playerId, currentTick, 'senseQiActive', deps);
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const nextActive = !player.combat.senseQiActive;
+            this.playerRuntimeService.updateCombatSettings(playerId, { senseQiActive: nextActive, wangQiActive: nextActive ? false : player.combat.wangQiActive === true }, currentTick);
+            deps.queuePlayerNotice(playerId, nextActive ? '已开启感气视角' : '已关闭感气视角', 'info');
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId === 'wang_qi:toggle') {
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (!hasEquippedItem(player, 'equip.copper_luopan')) {
+                deps.queuePlayerNotice(playerId, '需要装备铜罗盘才能望气', 'warn');
+                return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+            }
+            const nextActive = !player.combat.wangQiActive;
+            this.playerRuntimeService.updateCombatSettings(playerId, { wangQiActive: nextActive, senseQiActive: nextActive ? false : player.combat.senseQiActive === true }, currentTick);
+            deps.queuePlayerNotice(playerId, nextActive ? '已开启望气视角' : '已关闭望气视角', 'info');
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('formation:toggle:')) {
             const formationInstanceId = actionId.slice('formation:toggle:'.length).trim();
@@ -285,6 +300,10 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
     }
 };
+
+function hasEquippedItem(player, itemId) {
+    return (player?.equipment?.slots ?? []).some((entry) => entry?.item?.itemId === itemId);
+}
 exports.WorldRuntimeActionExecutionService = WorldRuntimeActionExecutionService;
 exports.WorldRuntimeActionExecutionService = WorldRuntimeActionExecutionService = __decorate([
     (0, common_1.Injectable)(),

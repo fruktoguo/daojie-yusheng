@@ -65,13 +65,13 @@ async function main(): Promise<void> {
       { resourceKey: 'tile.resource.herb', tileIndex: 21, value: 3 },
     ]);
     await service.replaceRuntimeTileCells(instanceId, [
-      { x: 3, y: 4, tileType: 'floor' },
-      { x: -2, y: 7, tileType: 'stone' },
+      { x: 3, y: 4, tileType: 'floor', terrainType: 'floor', surfaceType: 'floor', structureType: null, interactableKinds: [] },
+      { x: -2, y: 7, tileType: 'stone', terrainType: 'stone_ground', surfaceType: null, structureType: 'stone', interactableKinds: [] },
     ]);
     const runtimeTileCells = await service.loadRuntimeTileCells(instanceId);
     assert.deepEqual(runtimeTileCells, [
-      { x: 3, y: 4, tileType: 'floor' },
-      { x: -2, y: 7, tileType: 'stone' },
+      { x: 3, y: 4, tileType: 'floor', terrainType: 'floor', surfaceType: 'floor', structureType: null, interactableKinds: [] },
+      { x: -2, y: 7, tileType: 'stone', terrainType: 'stone_ground', surfaceType: null, structureType: 'stone', interactableKinds: [] },
     ]);
     await service.saveTileDamageStates(instanceId, [
       {
@@ -245,7 +245,8 @@ async function main(): Promise<void> {
       tileIndex: entry.tileIndex,
       itemPayload: entry.itemPayload,
       expireAt: entry.expireAt,
-    })), [
+    })).sort((left, right) => String((left.itemPayload as { itemId?: unknown } | null | undefined)?.itemId)
+      .localeCompare(String((right.itemPayload as { itemId?: unknown } | null | undefined)?.itemId), 'zh-Hans-CN')), [
       {
         instanceId,
         tileIndex: 18,
@@ -628,7 +629,20 @@ async function main(): Promise<void> {
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.id, 'building:stone_wall:1');
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defId, 'stone_wall');
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defHandle, 7);
-    assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.cells, [{ tileIndex: 88, x: 6, y: 8 }]);
+    assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.cells, [{
+      buildingId: 'building:stone_wall:1',
+      tileIndex: 88,
+      x: 6,
+      y: 8,
+      tileType: 'floor',
+      previousTileType: null,
+      previousTerrainType: null,
+      previousSurfaceType: null,
+      previousStructureType: null,
+      previousInteractableKinds: [],
+      blocksMove: false,
+      blocksSight: false,
+    }]);
     assert.equal(loadedBuildingRoomFengShuiState.rooms.length, 1);
     assert.equal(loadedBuildingRoomFengShuiState.rooms[0]?.id, 'room:alchemy:1');
     assert.equal(loadedBuildingRoomFengShuiState.rooms[0]?.roofCoverageRatio, 100);

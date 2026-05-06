@@ -152,6 +152,20 @@
   line-height: 1.35;
 }
 
+.fengshui-detail-metric.is-good {
+  color: var(--success-ink);
+}
+
+.fengshui-detail-metric.is-bad {
+  color: var(--stamp-red);
+}
+
+.fengshui-detail-section-title {
+  color: var(--ink-dark);
+  font-size: var(--font-size-role-title-14);
+  font-weight: 700;
+}
+
 .fengshui-detail-reasons {
   display: grid;
   gap: 6px;
@@ -168,6 +182,22 @@
   color: var(--ink-dark);
   font-size: var(--font-size-role-body-13);
   line-height: 1.35;
+}
+
+.fengshui-detail-reason {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.fengshui-detail-reason-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fengshui-detail-reason-label {
+  min-width: 0;
 }
 
 .fengshui-detail-reason.is-good {

@@ -264,6 +264,10 @@ export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
     return { hidden: true };
   }
   const wire: Record<string, unknown> = { type: tile.type };
+  if (tile.terrainType) wire.terrainType = tile.terrainType;
+  if (tile.surfaceType !== undefined && tile.surfaceType !== null) wire.surfaceType = tile.surfaceType;
+  if (tile.structureType !== undefined && tile.structureType !== null) wire.structureType = tile.structureType;
+  if (tile.interactableKinds && tile.interactableKinds.length > 0) wire.interactableKinds = tile.interactableKinds;
   if (tile.walkable !== isTileTypeWalkable(tile.type)) wire.walkable = tile.walkable;
   if (tile.blocksSight !== doesTileTypeBlockSight(tile.type)) wire.blocksSight = tile.blocksSight;
   if (tile.aura) wire.aura = tile.aura;
@@ -305,6 +309,12 @@ export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile 
     hp: hasOwn(wire, 'hp') ? Number(wire.hp ?? 0) : undefined,
     maxHp: hasOwn(wire, 'maxHp') ? Number(wire.maxHp ?? 0) : undefined,
     hpVisible: hasOwn(wire, 'hpVisible') ? Boolean(wire.hpVisible) : undefined,
+    terrainType: typeof wire.terrainType === 'string' ? wire.terrainType as NonNullable<VisibleTile>['terrainType'] : undefined,
+    surfaceType: typeof wire.surfaceType === 'string' ? wire.surfaceType as NonNullable<VisibleTile>['surfaceType'] : undefined,
+    structureType: typeof wire.structureType === 'string' ? wire.structureType as NonNullable<VisibleTile>['structureType'] : undefined,
+    interactableKinds: Array.isArray(wire.interactableKinds)
+      ? wire.interactableKinds.filter((kind): kind is string => typeof kind === 'string' && kind.length > 0) as NonNullable<VisibleTile>['interactableKinds']
+      : undefined,
     resources: Array.isArray(wire.resources)
       ? wire.resources
         .filter((resource) => resource && typeof resource === 'object')

@@ -7,6 +7,7 @@ import type { FormationRangeShape } from './formation-types';
 import type { FormationLifecycle } from './formation-types';
 import type { GridPoint } from './targeting';
 import type { NpcQuestMarker } from './world-view-types';
+import type { InteractableKind, StructureType, SurfaceType, TerrainType } from './map-layer-types';
 
 /** 地形类型。 */
 export enum TileType {
@@ -257,6 +258,14 @@ export interface Tile {
  */
 
   hiddenEntrance?: HiddenEntranceObservation;
+  /** 底层地形类型。缺省时按旧 type 兼容推断。 */
+  terrainType?: TerrainType;
+  /** 地表铺装类型。 */
+  surfaceType?: SurfaceType | null;
+  /** 地上结构类型。 */
+  structureType?: StructureType | null;
+  /** 交互对象种类。只携带短枚举，不携带对象详情。 */
+  interactableKinds?: InteractableKind[];
 }
 
 /** 玩家当前视野窗口中的格子。 */

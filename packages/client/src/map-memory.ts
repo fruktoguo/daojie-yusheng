@@ -16,7 +16,7 @@ import {
 } from '@mud/shared';
 
 /** 已探索地块的持久化字段。 */
-type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources'>;
+type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources' | 'terrainType' | 'surfaceType' | 'structureType' | 'interactableKinds'>;
 /** 已探索标记的持久化字段。 */
 type RememberedMarker = Pick<MapMinimapMarker, 'id' | 'kind' | 'x' | 'y' | 'label' | 'detail'>;
 /** 地图级地块记忆序列化结构。 */
@@ -79,12 +79,18 @@ function isTileType(value: unknown): value is TileType {
 }
 
 /** 将地块压缩为持久化记录。 */
-function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources'>): Tile {
+function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources' | 'terrainType' | 'surfaceType' | 'structureType' | 'interactableKinds'>): Tile {
   return {
     type: tile.type,
     walkable: tile.walkable,
     blocksSight: tile.blocksSight,
     aura: Math.max(0, Math.floor(tile.aura ?? 0)),
+    terrainType: typeof tile.terrainType === 'string' ? tile.terrainType : undefined,
+    surfaceType: typeof tile.surfaceType === 'string' ? tile.surfaceType : undefined,
+    structureType: typeof tile.structureType === 'string' ? tile.structureType : undefined,
+    interactableKinds: Array.isArray(tile.interactableKinds)
+      ? tile.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
+      : undefined,
     resources: tile.resources?.map((entry) => ({
       key: entry.key,
       label: entry.label,
@@ -115,6 +121,10 @@ function isSerializedRememberedTile(value: unknown): value is RememberedTile {
     && typeof candidate.walkable === 'boolean'
     && typeof candidate.blocksSight === 'boolean'
     && (typeof candidate.aura === 'number' || candidate.aura === undefined)
+    && (typeof candidate.terrainType === 'string' || candidate.terrainType === undefined)
+    && (typeof candidate.surfaceType === 'string' || candidate.surfaceType === undefined)
+    && (typeof candidate.structureType === 'string' || candidate.structureType === undefined)
+    && (candidate.interactableKinds === undefined || Array.isArray(candidate.interactableKinds))
     && (candidate.resources === undefined || isSerializedRememberedResources(candidate.resources));
 }
 
@@ -571,6 +581,10 @@ export function rememberVisibleTiles(
         && previous.walkable === nextTile.walkable
         && previous.blocksSight === nextTile.blocksSight
         && previous.aura === nextTile.aura
+        && previous.terrainType === nextTile.terrainType
+        && previous.surfaceType === nextTile.surfaceType
+        && previous.structureType === nextTile.structureType
+        && isSameRememberedStringList(previous.interactableKinds, nextTile.interactableKinds)
       ) {
         continue;
       }
@@ -608,6 +622,10 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
       && previous.walkable === nextTile.walkable
       && previous.blocksSight === nextTile.blocksSight
       && previous.aura === nextTile.aura
+      && previous.terrainType === nextTile.terrainType
+      && previous.surfaceType === nextTile.surfaceType
+      && previous.structureType === nextTile.structureType
+      && isSameRememberedStringList(previous.interactableKinds, nextTile.interactableKinds)
     ) {
       continue;
     }
@@ -619,6 +637,16 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
   if (changed) {
     persistMemory();
   }
+}
+
+function isSameRememberedStringList(left: readonly string[] | undefined, right: readonly string[] | undefined): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
 }
 
 /** 记录当前可见的小地图标记。 */

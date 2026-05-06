@@ -6,7 +6,7 @@
     "placement": { "layer": "structure", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true, "blocksSight": true, "roomBoundary": 100, "shaShield": 20 },
     "fengShui": { "elementVector": { "earth": 10 }, "traits": ["structure.wall", "material.stone"], "stability": 6 },
-    "economy": { "maxHp": 120, "cost": [{ "itemId": "stone", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 50, "maxHp": 120, "cost": [{ "itemId": "stone", "count": 1 }] }
   },
   {
     "id": "wooden_door",
@@ -15,7 +15,7 @@
     "placement": { "layer": "structure", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": false, "blocksSight": false, "roomBoundary": 100, "opening": "door" },
     "fengShui": { "elementVector": { "wood": 4 }, "traits": ["opening.door"], "qiLeak": 2 },
-    "economy": { "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 14, "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
   },
   {
     "id": "wooden_window",
@@ -24,7 +24,7 @@
     "placement": { "layer": "structure", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true, "blocksSight": false, "roomBoundary": 100, "opening": "window" },
     "fengShui": { "elementVector": { "wood": 3 }, "traits": ["opening.window"], "comfort": 2 },
-    "economy": { "maxHp": 60, "cost": [{ "itemId": "wood", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 10, "maxHp": 60, "cost": [{ "itemId": "wood", "count": 1 }] }
   },
   {
     "id": "plain_floor",
@@ -33,21 +33,21 @@
     "placement": { "layer": "floor", "footprint": [{ "dx": 0, "dy": 0 }], "allowOverlapLayers": ["structure", "furniture", "facility"] },
     "topology": { "roofCoverage": 100 },
     "fengShui": { "traits": ["floor.basic"], "stability": 2 },
-    "economy": { "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 1, "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
   },
   {
     "id": "meditation_mat",
     "name": "蒲团",
     "placement": { "layer": "furniture", "footprint": [{ "dx": 0, "dy": 0 }] },
     "fengShui": { "elementVector": { "water": 8, "wood": 4 }, "traits": ["facility.meditation", "comfort.seat"], "comfort": 8, "stability": 4 },
-    "economy": { "maxHp": 40, "cost": [{ "itemId": "cloth", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 0.4, "maxHp": 40, "cost": [{ "itemId": "cloth", "count": 1 }] }
   },
   {
     "id": "wooden_bed",
     "name": "木床",
     "placement": { "layer": "furniture", "footprint": [{ "dx": 0, "dy": 0 }] },
     "fengShui": { "elementVector": { "wood": 12, "earth": 4 }, "traits": ["comfort.rest"], "comfort": 16, "stability": 6 },
-    "economy": { "maxHp": 90, "cost": [{ "itemId": "wood", "count": 2 }] }
+    "economy": { "durabilityMultiplier": 10, "maxHp": 90, "cost": [{ "itemId": "wood", "count": 2 }] }
   },
   {
     "id": "alchemy_furnace",
@@ -55,7 +55,7 @@
     "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true },
     "fengShui": { "elementVector": { "fire": 20, "earth": 6 }, "traits": ["facility.alchemy.heat_source"], "comfort": -2, "stability": 4, "shaEmit": 3 },
-    "economy": { "maxHp": 150, "cost": [{ "itemId": "stone", "count": 2 }] }
+    "economy": { "durabilityMultiplier": 50, "maxHp": 150, "cost": [{ "itemId": "stone", "count": 2 }] }
   },
   {
     "id": "storage_shelf",
@@ -63,7 +63,7 @@
     "placement": { "layer": "furniture", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true },
     "fengShui": { "elementVector": { "earth": 10, "metal": 5 }, "traits": ["storage.shelf"], "stability": 8 },
-    "economy": { "maxHp": 90, "cost": [{ "itemId": "wood", "count": 2 }] }
+    "economy": { "durabilityMultiplier": 10, "maxHp": 90, "cost": [{ "itemId": "wood", "count": 2 }] }
   },
   {
     "id": "spirit_screen",
@@ -71,7 +71,7 @@
     "placement": { "layer": "structure", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true, "blocksSight": true, "roomBoundary": 70, "shaShield": 60 },
     "fengShui": { "elementVector": { "earth": 8 }, "traits": ["sha.screen"], "stability": 5, "shaReduce": 10 },
-    "economy": { "maxHp": 100, "cost": [{ "itemId": "stone", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 50, "maxHp": 100, "cost": [{ "itemId": "stone", "count": 1 }] }
   },
   {
     "id": "covered_corridor",
@@ -80,6 +80,6 @@
     "placement": { "layer": "floor", "footprint": [{ "dx": 0, "dy": 0 }], "allowOverlapLayers": ["furniture"] },
     "topology": { "roofCoverage": 60, "semiOutdoorLink": true },
     "fengShui": { "elementVector": { "wood": 5 }, "traits": ["semi_outdoor.corridor"], "comfort": 4 },
-    "economy": { "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
+    "economy": { "durabilityMultiplier": 1, "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
   }
 ]

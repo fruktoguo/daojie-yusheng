@@ -84,6 +84,8 @@ function createService(
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
+            tilesOriginX: 3,
+            tilesOriginY: 4,
             visibleTiles,
             visibleMinimapMarkers,
             phase: 'initial',
@@ -104,6 +106,8 @@ function createService(
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
+            tilesOriginX: 3,
+            tilesOriginY: 4,
             visibleTiles,
             visibleMinimapMarkers,
             phase: 'delta',

@@ -219,18 +219,35 @@ function buildAttrDetailNumericStatBreakdowns(player) {
 exports.buildAttrDetailNumericStatBreakdowns = buildAttrDetailNumericStatBreakdowns;
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {
+    const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
-        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0));
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0));
     const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
-        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0));
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
+        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
     if (comprehension > 0) {
         target.playerExpRate += comprehension * 100;
         target.techniqueExpRate += comprehension * 100;
     }
-    if (luck > 0) {
+    if (luck !== 0) {
         target.lootRate += luck * 100;
         target.rareLootRate += luck * 100;
     }
+}
+
+function resolveEquipmentSpecialStats(player) {
+    const result = { comprehension: 0, luck: 0 };
+    for (const entry of player?.equipment?.slots ?? []) {
+        const item = entry?.item;
+        if (!item) {
+            continue;
+        }
+        result.comprehension += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
+        result.luck += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+    }
+    return result;
 }
 
 function resolveTechniqueSpecialStatBonus(techniques) {

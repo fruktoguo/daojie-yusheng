@@ -1,8 +1,5 @@
 import { Inject, Injectable, Optional, forwardRef } from '@nestjs/common';
 import {
-  DARKNESS_STACK_TO_VISION_MULTIPLIER,
-  GAME_DAY_TICKS,
-  GAME_TIME_PHASES,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   TileType,
   getAuraLevel,
@@ -10,7 +7,9 @@ import {
   getQiResourceDisplayLabel,
   getFirstGrapheme,
   getTileTypeFromMapChar,
+  resolveTileLayerSeedFromTemplateContext,
   parseQiResourceKey,
+  resolveGameTimeState,
 } from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -90,7 +89,7 @@ export class WorldSyncMapSnapshotService {
   }
 
   buildVisibleTilesSnapshot(view, player, template) {
-    const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+    const radius = resolvePlayerEffectiveViewRange(player);
     const originX = view.self.x - radius;
     const originY = view.self.y - radius;
     const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
@@ -127,7 +126,7 @@ export class WorldSyncMapSnapshotService {
   }
 
   buildVisibleTileKeySet(view, player, template) {
-    const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+    const radius = resolvePlayerEffectiveViewRange(player);
     const originX = view.self.x - radius;
     const originY = view.self.y - radius;
     const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
@@ -303,13 +302,17 @@ export class WorldSyncMapSnapshotService {
   }
 
   buildGameTimeState(template, view, player) {
-    return buildGameTimeState(
+    const timeState = buildGameTimeState(
       template,
       view.tick,
-      Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
+      resolvePlayerBaseViewRange(player),
       this.mapRuntimeConfigService.getMapTimeConfig(view.instance.templateId),
       this.mapRuntimeConfigService.getMapTickSpeed(view.instance.templateId),
     );
+    return {
+      ...timeState,
+      effectiveViewRange: resolvePlayerEffectiveViewRange(player),
+    };
   }
 
   buildMapTickIntervalMs(mapId: string): number {
@@ -323,9 +326,7 @@ export class WorldSyncMapSnapshotService {
     }
 
     const destroyed = state.combat?.destroyed === true;
-    const tileType = destroyed
-      ? TileType.Floor
-      : (state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : TileType.Floor));
+    const tileType = state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : TileType.Floor);
     const resources = Array.isArray(state.resources)
       ? state.resources
         .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
@@ -336,6 +337,25 @@ export class WorldSyncMapSnapshotService {
     const tile: any = {
       type: tileType,
     };
+    const layerState = state.layers ?? null;
+    const terrainType = typeof layerState?.terrain === 'string' ? layerState.terrain : undefined;
+    const surfaceType = typeof layerState?.surface === 'string' ? layerState.surface : undefined;
+    const structureType = destroyed === true ? null : (typeof layerState?.structure === 'string' ? layerState.structure : undefined);
+    const interactableKinds = Array.isArray(layerState?.interactableKinds)
+      ? layerState.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
+      : undefined;
+    if (terrainType) {
+      tile.terrainType = terrainType;
+    }
+    if (surfaceType !== undefined) {
+      tile.surfaceType = surfaceType;
+    }
+    if (structureType !== undefined) {
+      tile.structureType = structureType;
+    }
+    if (interactableKinds && interactableKinds.length > 0) {
+      tile.interactableKinds = interactableKinds;
+    }
     if (aura > 0) {
       tile.aura = aura;
     }
@@ -416,8 +436,18 @@ function buildStaticTileSyncState(template, x, y) {
   if (!isInTemplateBounds(template, x, y)) {
     return null;
   }
+  const type = getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? '#');
+  const layerSeed = resolveTileLayerSeedFromTemplateContext(type, x, y, (lookupX, lookupY) => (
+    isInTemplateBounds(template, lookupX, lookupY)
+      ? getTileTypeFromMapChar(template.terrainRows?.[lookupY]?.[lookupX] ?? '#')
+      : null
+  ));
   return {
-    type: getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? '#'),
+    type,
+    terrainType: layerSeed.terrain,
+    surfaceType: layerSeed.surface,
+    structureType: layerSeed.structure,
+    interactableKinds: [...layerSeed.interactables],
   };
 }
 
@@ -490,25 +520,6 @@ function buildOverlayParentInstanceId(instance, parentTemplateId) {
   return linePreset === 'real' ? `real:${parentTemplateId}` : `public:${parentTemplateId}`;
 }
 
-function normalizeMapTimeConfig(input) {
-  const candidate = input ?? {};
-  return {
-    offsetTicks: candidate.offsetTicks,
-    scale: candidate.scale,
-    light: candidate.light,
-    palette: candidate.palette,
-  };
-}
-
-function resolveDarknessStacks(lightPercent) {
-  if (lightPercent >= 95) return 0;
-  if (lightPercent >= 85) return 1;
-  if (lightPercent >= 75) return 2;
-  if (lightPercent >= 65) return 3;
-  if (lightPercent >= 55) return 4;
-  return 5;
-}
-
 function resolveMapTickIntervalMs(tickSpeed) {
   const speed = typeof tickSpeed === 'number' && Number.isFinite(tickSpeed)
     ? Math.max(0, tickSpeed)
@@ -517,42 +528,19 @@ function resolveMapTickIntervalMs(tickSpeed) {
 }
 
 function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {
-  const config = normalizeMapTimeConfig(overrideConfig ?? template.source.time);
-  const localTimeScale = typeof config.scale === 'number' && Number.isFinite(config.scale) && config.scale >= 0
-    ? config.scale
-    : 1;
-  const timeScale = tickSpeed > 0 ? localTimeScale : 0;
-  const offsetTicks = typeof config.offsetTicks === 'number' && Number.isFinite(config.offsetTicks)
-    ? Math.round(config.offsetTicks)
-    : 0;
-  const effectiveTicks = tickSpeed > 0 ? totalTicks : 0;
-  const localTicks = ((Math.floor(effectiveTicks * timeScale) + offsetTicks) % GAME_DAY_TICKS + GAME_DAY_TICKS) % GAME_DAY_TICKS;
-  const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick)
-    ?? GAME_TIME_PHASES[GAME_TIME_PHASES.length - 1];
-  const baseLight = typeof config.light?.base === 'number' && Number.isFinite(config.light.base)
-    ? config.light.base
-    : 0;
-  const timeInfluence = typeof config.light?.timeInfluence === 'number' && Number.isFinite(config.light.timeInfluence)
-    ? config.light.timeInfluence
-    : 100;
-  const lightPercent = Math.max(0, Math.min(100, Math.round(baseLight + phase.skyLightPercent * (timeInfluence / 100))));
-  const darknessStacks = resolveDarknessStacks(lightPercent);
-  const visionMultiplier = DARKNESS_STACK_TO_VISION_MULTIPLIER[darknessStacks] ?? 0.5;
-  const palette = config.palette?.[phase.id];
-  return {
-    totalTicks,
-    localTicks,
-    dayLength: GAME_DAY_TICKS,
-    timeScale,
-    phase: phase.id,
-    phaseLabel: phase.label,
-    darknessStacks,
-    visionMultiplier,
-    lightPercent,
-    effectiveViewRange: Math.max(1, Math.ceil(Math.max(1, baseViewRange) * visionMultiplier)),
-    tint: palette?.tint ?? phase.tint,
-    overlayAlpha: palette?.alpha ?? Math.max(phase.overlayAlpha, (100 - lightPercent) / 100 * 0.8),
-  };
+  return resolveGameTimeState(totalTicks, baseViewRange, overrideConfig ?? template.source.time, tickSpeed);
+}
+
+function resolvePlayerEffectiveViewRange(player) {
+  return Math.max(1, Math.round(Number(player?.attrs?.numericStats?.viewRange) || 1));
+}
+
+function resolvePlayerBaseViewRange(player) {
+  const base = Number(player?.worldTimeBaseViewRange);
+  if (Number.isFinite(base) && base > 0) {
+    return Math.max(1, Math.round(base));
+  }
+  return resolvePlayerEffectiveViewRange(player);
 }
 
 function getBuffPresentationScale(buffs) {

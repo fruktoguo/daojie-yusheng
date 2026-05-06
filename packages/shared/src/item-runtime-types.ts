@@ -1,7 +1,7 @@
 import type { PartialElementStatGroup, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
 import type { Attributes } from './attribute-types';
-import type { TechniqueGrade } from './cultivation-types';
+import type { PlayerSpecialStats, TechniqueGrade } from './cultivation-types';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, TimePhaseId } from './world-core-types';
 
 /** 物品类型。 */
@@ -652,6 +652,11 @@ export interface ItemStack {
  */
 
   equipValueStats?: PartialNumericStats;  
+  /**
+ * equipSpecialStats：装备提供的悟性、幸运等特殊属性。
+ */
+
+  equipSpecialStats?: Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>>;
   /**
  * effects：effect相关字段。
  */

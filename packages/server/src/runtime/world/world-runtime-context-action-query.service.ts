@@ -87,6 +87,7 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         type: 'toggle',
         desc: '切换感气视角，观察地块灵气层次与变化。',
     }];
+const WANG_QI_COMPASS_ITEM_ID = 'equip.copper_luopan';
 
 /** 世界运行时上下文动作查询服务：承接 contextActions 的只读组装。 */
 let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQueryService {
@@ -166,6 +167,15 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
                 name: action.name,
                 type: action.type,
                 desc: action.desc,
+                cooldownLeft: 0,
+            });
+        }
+        if (hasEquippedItem(player, WANG_QI_COMPASS_ITEM_ID)) {
+            actions.push({
+                id: 'wang_qi:toggle',
+                name: '望气',
+                type: 'interact',
+                desc: '借铜罗盘观察房间风水，低于平衡偏红，高于平衡偏绿。',
                 cooldownLeft: 0,
             });
         }
@@ -331,6 +341,10 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         return actions;
     }
 };
+
+function hasEquippedItem(player, itemId) {
+    return (player?.equipment?.slots ?? []).some((entry) => entry?.item?.itemId === itemId);
+}
 exports.WorldRuntimeContextActionQueryService = WorldRuntimeContextActionQueryService;
 exports.WorldRuntimeContextActionQueryService = WorldRuntimeContextActionQueryService = __decorate([
     (0, common_1.Injectable)(),

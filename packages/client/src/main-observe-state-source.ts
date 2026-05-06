@@ -11,13 +11,21 @@ import {
   type PartialNumericStats,
 } from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
-import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
+import {
+  getEntityKindLabel,
+  getInteractableKindLabel,
+  getStructureTypeLabel,
+  getSurfaceTypeLabel,
+  getTerrainTypeLabel,
+  getTileTypeLabel,
+} from './domain-labels';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { createObserveModalController, type ObserveAsideCard } from './main-ui-helpers';
 import { detailModalHost } from './ui/detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayPercent } from './utils/number';
+import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -191,7 +199,13 @@ type MainObserveStateSourceOptions = {
  /**
  * senseQiActive：senseQi激活相关字段。
  */
- senseQiActive?: boolean } | null;  
+ senseQiActive?: boolean;
+ /**
+ * wangQiActive：望气激活相关字段。
+ */
+ wangQiActive?: boolean } | null;
+  getWangQiRoomInfoAt?: (x: number, y: number) => BuildingSenseQiRoomInfo | null;
+  requestWangQiFengShuiOverlay?: (x?: number, y?: number) => void;
  /**
  * getVisibleTileAt：可见TileAt相关字段。
  */
@@ -363,6 +377,68 @@ function buildObservationRows(rows: Array<{
   return rows
     .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${row.valueHtml ?? escapeHtml(row.value ?? '')}</span></div>`)
     .join('');
+}
+
+function formatSignedInteger(value: number): string {
+  const normalized = Math.trunc(Number(value) || 0);
+  return normalized > 0 ? `+${normalized}` : String(normalized);
+}
+
+function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null): string {
+  const baseRows = info
+    ? [
+      { label: '房间', value: info.roomLabel },
+      { label: '面积', value: typeof info.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(info.area))) : '未知' },
+      { label: '围合', value: typeof info.enclosed === 'boolean' ? (info.enclosed ? '封闭完整' : '连通外界') : '未知' },
+      { label: '门窗', value: `${formatDisplayInteger(Math.max(0, Math.round(info.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(info.windowCount ?? 0)))}` },
+      { label: '风水', value: `${info.fengShuiLabel} ${Math.round(info.score)}` },
+      { label: '幸运', value: formatSignedInteger(Math.trunc(Math.round(info.score) / 10)) },
+    ]
+    : [
+      { label: '房间', value: '此处不在房间内' },
+      { label: '风水', value: '平 0' },
+      { label: '幸运', value: '+0' },
+    ];
+  const detail = info?.detail;
+  const dimensionHtml = detail
+    ? `
+      <div class="observe-modal-grid">
+        ${buildObservationRows([
+          { label: '形制', value: formatSignedInteger(detail.shapeScore) },
+          { label: '围合', value: formatSignedInteger(detail.enclosureScore) },
+          { label: '灵气', value: formatSignedInteger(detail.qiScore) },
+          { label: '煞气', value: formatSignedInteger(detail.shaScore) },
+          { label: '舒适/用途', value: formatSignedInteger(detail.comfortScore) },
+          { label: '五行', value: formatSignedInteger(detail.elementScore) },
+          { label: '阵法', value: formatSignedInteger(detail.formationScore) },
+          { label: '完整性', value: formatSignedInteger(detail.integrityScore) },
+        ])}
+      </div>
+    `
+    : '<div class="observe-entity-empty">具体分项正在随望气视角刷新。</div>';
+  const visibleReasons = detail?.reasons
+    .filter((reason) => reason.delta !== 0)
+    .slice()
+    .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
+    .slice(0, 12) ?? [];
+  const reasonsHtml = detail
+    ? visibleReasons.length > 0
+      ? `<div class="fengshui-detail-reasons">${visibleReasons.map((reason) => `
+          <div class="fengshui-detail-reason is-${escapeHtml(reason.severity)}">
+            <span class="fengshui-detail-reason-value">${formatSignedInteger(reason.delta)}</span>
+            <span class="fengshui-detail-reason-label">${escapeHtml(reason.code)}</span>
+          </div>
+        `).join('')}</div>`
+      : '<div class="observe-entity-empty">暂无有效加减项。</div>'
+    : '';
+  return `
+    <section class="observe-modal-section">
+      <div class="observe-modal-section-title">房间风水</div>
+      <div class="observe-modal-grid">${buildObservationRows(baseRows)}</div>
+      ${dimensionHtml}
+      ${reasonsHtml}
+    </section>
+  `;
 }
 /**
  * formatBuffDuration：规范化或转换Buff耗时。
@@ -1061,6 +1137,11 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       options.showToast('神识仅可触及视野之内');
       return;
     }
+    const player = options.getPlayer();
+    const wangQiActive = player?.wangQiActive === true;
+    if (wangQiActive) {
+      options.requestWangQiFengShuiOverlay?.(targetX, targetY);
+    }
     const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
     const observeError = isMatchingObservedTile(targetX, targetY) ? activeObservedTileError : null;
     const groundPile = options.getVisibleGroundPileAt(targetX, targetY);
@@ -1074,10 +1155,19 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     });
     const terrainRows = [
       { label: '地貌', value: getTileTypeName(tile.type) },
+      { label: '底层地形', value: getTerrainTypeLabel(tile.terrainType, getTileTypeName(tile.type)) },
+      { label: '地表铺装', value: getSurfaceTypeLabel(tile.surfaceType, '无') },
+      { label: '地上结构', value: getStructureTypeLabel(tile.structureType, '无') },
       { label: '是否可通行', value: tile.walkable ? '可通行' : '不可通行' },
       { label: '行走消耗', value: formatTraversalCost(tile) },
       { label: '是否阻挡视线', value: tile.blocksSight ? '会阻挡' : '不会阻挡' },
     ];
+    if (Array.isArray(tile.interactableKinds) && tile.interactableKinds.length > 0) {
+      terrainRows.push({
+        label: '交互物',
+        value: tile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
+      });
+    }
     const observedTileHp = typeof observedTileDetail?.hp === 'number'
       && typeof observedTileDetail?.maxHp === 'number'
       ? { hp: observedTileDetail.hp, maxHp: observedTileDetail.maxHp }
@@ -1197,6 +1287,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       const errorHtml = observeError
         ? `<section class="observe-modal-section"><div class="observe-modal-section-title">观察回响</div><div class="observe-entity-empty">${escapeHtml(observeError)}</div></section>`
         : '';
+      const fengShuiHtml = wangQiActive
+        ? buildObservedFengShuiSectionHtml(options.getWangQiRoomInfoAt?.(targetX, targetY) ?? null)
+        : '';
       observeModalController.renderBody(`
         <div class="observe-modal-top">
           ${errorHtml}
@@ -1204,6 +1297,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             <div class="observe-modal-section-title">地块信息</div>
             <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
           </section>
+          ${fengShuiHtml}
           ${safeZoneHtml}
           ${tile.hiddenEntrance ? `
             <section class="observe-modal-section">

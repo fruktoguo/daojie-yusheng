@@ -17,6 +17,7 @@ interface MonsterInstanceLike<TMonster = unknown> {
 interface TileStateInstanceLike {
   getTileAura(x: number, y: number): unknown | null;
   getEffectiveTileType?: (x: number, y: number) => unknown;
+  getTileLayerState?: (x: number, y: number) => unknown;
   listTileResources?: (x: number, y: number) => unknown[];
   getSafeZoneAtTile(x: number, y: number): unknown;
   getContainerAtTile(x: number, y: number): unknown;
@@ -32,6 +33,7 @@ export interface RuntimeInstanceTileStateView {
   container: unknown;
   groundPile: unknown;
   combat: unknown;
+  layers?: unknown;
 }
 
 @Injectable()
@@ -59,6 +61,7 @@ export class WorldRuntimeInstanceQueryService {
     }
     return {
       tileType: typeof instance.getEffectiveTileType === 'function' ? instance.getEffectiveTileType(x, y) : undefined,
+      layers: typeof instance.getTileLayerState === 'function' ? instance.getTileLayerState(x, y) : undefined,
       aura,
       resources: instance.listTileResources?.(x, y) ?? [],
       safeZone: instance.getSafeZoneAtTile(x, y),

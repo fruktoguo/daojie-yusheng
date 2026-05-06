@@ -571,7 +571,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       qi: previous?.qi,
       maxQi: previous?.maxQi,
       respawnRemainingTicks: patch.rt === null ? null : patch.rt ?? previous?.respawnRemainingTicks,
-      respawnTotalTicks: previous?.respawnTotalTicks,
+      respawnTotalTicks: patch.tt === null ? null : patch.tt ?? previous?.respawnTotalTicks,
       npcQuestMarker: previous?.npcQuestMarker,
       observation: previous?.observation,
       buffs: previous?.buffs,

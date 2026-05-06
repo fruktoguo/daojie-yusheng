@@ -114,6 +114,7 @@ type MainRuntimeStateSourceOptions = {
  */
 
   syncSenseQiOverlay: () => void;  
+  syncWangQiOverlay?: () => void;
   /**
  * applyBootstrapToMapRuntime：BootstrapTo地图运行态引用。
  */
@@ -580,6 +581,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.syncCurrentTimeState(data.time ?? null);
       options.setLatestAttrUpdate(options.buildAttrStateFromPlayer(player));
       player.senseQiActive = player.senseQiActive === true;
+      player.wangQiActive = player.wangQiActive === true;
       player.autoBattleStationary = player.autoBattleStationary === true;
       player.allowAoePlayerHit = player.allowAoePlayerHit === true;
       player.autoIdleCultivation = player.autoIdleCultivation !== false;
@@ -598,6 +600,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.syncTargetingOverlay();
       options.applyBootstrapToMapRuntime({ ...data, self: player });
       options.syncSenseQiOverlay();
+      options.syncWangQiOverlay?.();
       options.resetObservedBaselinesFromPlayer(player);
       options.clearCurrentPath();
       options.setRuntimePathCells();

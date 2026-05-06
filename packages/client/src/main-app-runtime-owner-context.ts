@@ -17,9 +17,7 @@ import { createMainTargetingStateSource } from './main-targeting-state-source';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
-/**
- * CreateMainRuntimeOwnerContextOptions：统一结构类型，保证协议与运行时一致性。
- */
+
 type CreateMainRuntimeOwnerContextOptions = {
 /**
  * documentRef：documentRef相关字段。
@@ -68,13 +66,6 @@ type CreateMainRuntimeOwnerContextOptions = {
     showToast(message: string, kind?: ToastKind): void;
   };
 };
-/**
- * createMainRuntimeOwnerContext：构建并返回目标对象。
- * @param options CreateMainRuntimeOwnerContextOptions 选项参数。
- * @returns 无返回值，直接更新Main运行态Owner上下文相关状态。
- */
-
-
 export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerContextOptions) {
   const {
     documentRef,
@@ -186,6 +177,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getLatestEntities: () => rootRuntimeSource.getLatestEntities(),
     showToast: helpers.showToast,
     sendInspectTileRuntime: (x, y) => runtimeSender.sendInspectTileRuntime(x, y),
+    getWangQiRoomInfoAt: (x, y) => panelContext.buildingFengShuiStateSource.getSenseQiRoomInfoAt(x, y),
+    requestWangQiFengShuiOverlay: (x, y) => panelContext.buildingFengShuiStateSource.requestSenseQiFengShuiOverlay(x, y),
   });
 
   navigationStateSource = createMainNavigationStateSource({
@@ -211,12 +204,13 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getVisibleTileAt: (x, y) => mapRuntime.getVisibleTileAt(x, y),
     setTargetingOverlay: (overlay) => mapRuntime.setTargetingOverlay(overlay),
     setSenseQiOverlay: (overlay) => mapRuntime.setSenseQiOverlay(overlay),
+    setFengShuiOverlay: (overlay) => mapRuntime.setFengShuiOverlay(overlay),
     targetingBadgeEl,
     senseQiTooltip,
     getAuraLevelBaseValue: () => panelContext.breakthroughStateSource.getAuraLevelBaseValue(),
     formatAuraLevelText: (auraValue) => panelContext.breakthroughStateSource.formatAuraLevelText(auraValue),
-    getSenseQiRoomInfoAt: (x, y) => panelContext.buildingFengShuiStateSource.getSenseQiRoomInfoAt(x, y),
-    requestSenseQiFengShuiOverlay: (x, y) => panelContext.buildingFengShuiStateSource.requestSenseQiFengShuiOverlay(x, y),
+    getWangQiRoomInfoAt: (x, y) => panelContext.buildingFengShuiStateSource.getSenseQiRoomInfoAt(x, y),
+    requestWangQiFengShuiOverlay: (x, y) => panelContext.buildingFengShuiStateSource.requestSenseQiFengShuiOverlay(x, y),
     showToast: helpers.showToast,
     sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
   });
@@ -249,6 +243,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     },
     targeting: {
       syncSenseQiOverlay: () => targetingStateSource.syncSenseQiOverlay(),
+      syncWangQiOverlay: () => targetingStateSource.syncWangQiOverlay(),
     },
   });
   panelContext.setPanelDeltaStateSource(panelDeltaStateSource);
@@ -316,6 +311,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearTargetingState: () => targetingStateSource.clear(),
     syncTargetingOverlay,
     syncSenseQiOverlay: () => mapRuntimeBridgeSource.syncSenseQiOverlay(),
+    syncWangQiOverlay: () => targetingStateSource.syncWangQiOverlay(),
     applyBootstrapToMapRuntime: (data) => mapRuntime.applyBootstrap(data),
     applyMapStaticToRuntime: (data) => mapRuntime.applyMapStatic({
       mapId: data.mapId,

@@ -114,6 +114,13 @@ const STATIC_CLIENT_ACTION_DEFS: Record<string, ActionDef> = {
     desc: '切换感气视角，观察地块灵气层次与变化。',
     cooldownLeft: 0,
   },
+  'wang_qi:toggle': {
+    id: 'wang_qi:toggle',
+    name: '望气',
+    type: 'interact',
+    desc: '借铜罗盘观察房间风水，低于平衡偏红，高于平衡偏绿。',
+    cooldownLeft: 0,
+  },
 };
 
 /** 读取静态行动定义副本，避免面板状态误改常量。 */

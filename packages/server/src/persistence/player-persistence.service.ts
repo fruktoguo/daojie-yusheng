@@ -145,6 +145,7 @@ interface PlayerSnapshotCombat {
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
   senseQiActive: boolean;
+  wangQiActive?: boolean;
   autoBattleSkills: unknown[];
   autoUsePills?: unknown[];
 }
@@ -647,6 +648,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       autoIdleCultivation: combat?.autoIdleCultivation !== false,
       autoSwitchCultivation: combat?.autoSwitchCultivation === true,
       senseQiActive: combat?.senseQiActive === true,
+      wangQiActive: combat?.wangQiActive === true,
       autoBattleSkills: Array.isArray(combat?.autoBattleSkills) ? combat.autoBattleSkills : [],
     },
     pendingLogbookMessages: normalizePendingLogbookMessages(

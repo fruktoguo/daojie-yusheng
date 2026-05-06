@@ -842,6 +842,85 @@ class MapInstanceRuntime {
             visitor(this.tilePlane.getX(tileIndex), this.tilePlane.getY(tileIndex), tileIndex);
         }
     }
+    /** applyBuildingVisualTileType：按建筑 placement layer 写入地表或结构层，避免覆盖底层地形。 */
+    applyBuildingVisualTileType(cellIndex, compiled) {
+        if (!compiled?.visualTileType || cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        if (compiled.layerId === 1 && typeof this.tilePlane.setStructureTileType === 'function') {
+            return this.tilePlane.setStructureTileType(cellIndex, compiled.visualTileType);
+        }
+        if (compiled.layerId === 2 && typeof this.tilePlane.setSurfaceTileType === 'function') {
+            return this.tilePlane.setSurfaceTileType(cellIndex, compiled.visualTileType);
+        }
+        return this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
+    }
+    /** captureBuildingPreviousTileState：记录建筑投影前的完整分层，拆除时不能只靠 legacy TileType 恢复。 */
+    captureBuildingPreviousTileState(cellIndex) {
+        const tileType = this.tilePlane.getTileType(cellIndex);
+        const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(cellIndex)
+            : null;
+        if (!layerState) {
+            return { tileType };
+        }
+        if (this.tileDamageByTile.get(cellIndex)?.destroyed === true) {
+            return {
+                tileType: this.getGroundTileTypeByCellIndex(cellIndex),
+                terrainType: layerState.terrain,
+                surfaceType: layerState.surface ?? null,
+                structureType: null,
+                interactableKinds: Array.isArray(layerState.interactableKinds) ? layerState.interactableKinds.slice() : [],
+            };
+        }
+        return {
+            tileType,
+            terrainType: layerState.terrain,
+            surfaceType: layerState.surface ?? null,
+            structureType: layerState.structure ?? null,
+            interactableKinds: Array.isArray(layerState.interactableKinds) ? layerState.interactableKinds.slice() : [],
+        };
+    }
+    /** restoreBuildingPreviousTileState：按分层快照恢复建筑占用前状态，兼容旧库里只有 previousTileType 的记录。 */
+    restoreBuildingPreviousTileState(cellIndex, previousState) {
+        if (cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        if (typeof previousState === 'string') {
+            return this.tilePlane.setTileType(cellIndex, previousState);
+        }
+        const tileType = typeof previousState?.tileType === 'string' && previousState.tileType.trim()
+            ? previousState.tileType.trim()
+            : shared_1.TileType.Floor;
+        let changed = this.tilePlane.setTileType(cellIndex, tileType);
+        if (typeof previousState?.terrainType === 'string' && previousState.terrainType.trim()) {
+            changed = this.tilePlane.setTerrain(cellIndex, previousState.terrainType.trim()) || changed;
+        }
+        if (Object.prototype.hasOwnProperty.call(previousState ?? {}, 'surfaceType')) {
+            changed = this.tilePlane.setSurface(cellIndex, typeof previousState.surfaceType === 'string' && previousState.surfaceType.trim() ? previousState.surfaceType.trim() : null) || changed;
+        }
+        if (Object.prototype.hasOwnProperty.call(previousState ?? {}, 'structureType')) {
+            changed = this.tilePlane.setStructure(cellIndex, typeof previousState.structureType === 'string' && previousState.structureType.trim() ? previousState.structureType.trim() : null) || changed;
+        }
+        if (Array.isArray(previousState?.interactableKinds) && typeof this.tilePlane.setInteractableKinds === 'function') {
+            changed = this.tilePlane.setInteractableKinds(cellIndex, previousState.interactableKinds) || changed;
+        }
+        return changed;
+    }
+    /** clearTileDamageForBuildingVisualCells：玩家建筑替换旧静态结构时，清掉同格旧地块损坏状态。 */
+    clearTileDamageForBuildingVisualCells(cells) {
+        let changed = false;
+        for (const cellIndex of Array.isArray(cells) ? cells : []) {
+            if (cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
+                continue;
+            }
+            if (this.tileDamageByTile.delete(cellIndex)) {
+                this.markTileDamagePersistenceDirty(cellIndex);
+                changed = true;
+            }
+        }
+        return changed;
+    }
     /** configureBuildingRuntime：挂载建筑/风水编译配置并重建派生索引。 */
     configureBuildingRuntime(catalog, fengShuiRules = []) {
         this.buildingCatalog = catalog ?? null;
@@ -894,10 +973,14 @@ class MapInstanceRuntime {
         const wasInRoomInfluence = usesActiveTopology
             ? cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex))
             : false;
+        let clearedTileDamage = false;
         if (usesActiveTopology && compiled.visualTileType) {
             for (const cellIndex of cells) {
-                previousTileTypes.push([cellIndex, this.tilePlane.getTileType(cellIndex)]);
-                this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
+                previousTileTypes.push([cellIndex, this.captureBuildingPreviousTileState(cellIndex)]);
+            }
+            clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
+            for (const cellIndex of cells) {
+                this.applyBuildingVisualTileType(cellIndex, compiled);
             }
         }
         const building = {
@@ -956,6 +1039,9 @@ class MapInstanceRuntime {
             }
             if (previousTileTypes.length > 0) {
                 dirtyDomains.push('tile_cell');
+            }
+            if (clearedTileDamage) {
+                dirtyDomains.push('tile_damage');
             }
         }
         this.worldRevision += 1;
@@ -1051,10 +1137,8 @@ class MapInstanceRuntime {
         const changedCells = (this.buildingCellsById.get(buildingId) ?? []).slice();
         const wasInRoomInfluence = changedCells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
         const previousTileTypes = this.buildingPreviousTileTypeById.get(buildingId) ?? [];
-        for (const [cellIndex, tileType] of previousTileTypes) {
-            if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
-                this.tilePlane.setTileType(cellIndex, tileType);
-            }
+        for (const [cellIndex, previousState] of previousTileTypes) {
+            this.restoreBuildingPreviousTileState(cellIndex, previousState);
         }
         this.buildingPreviousTileTypeById.delete(buildingId);
         this.buildingById.delete(buildingId);
@@ -1251,9 +1335,28 @@ class MapInstanceRuntime {
         }
         const current = this.tileDamageByTile.get(cellIndex);
         if (current?.destroyed === true) {
-            return shared_1.TileType.Floor;
+            return this.getGroundTileTypeByCellIndex(cellIndex);
         }
         return this.tilePlane.getTileType(cellIndex);
+    }
+    /** getGroundTileTypeByCellIndex：结构被拆/毁后露出的地面，不用固定 Floor 兜底。 */
+    getGroundTileTypeByCellIndex(cellIndexInput) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
+            return shared_1.TileType.Floor;
+        }
+        const state = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(cellIndex)
+            : null;
+        if (!state) {
+            return shared_1.TileType.Floor;
+        }
+        return (0, shared_1.composeTileTypeFromLayers)(
+            state.terrain,
+            state.surface,
+            null,
+            Array.isArray(state.interactableKinds) ? state.interactableKinds : [],
+        );
     }
     /** isRoomTopologyCell：判断地块类型或动态建筑拓扑是否可能改变房间边界/覆盖。 */
     isRoomTopologyCell(cellIndexInput, tileTypeInput = null) {
@@ -1594,7 +1697,12 @@ class MapInstanceRuntime {
             return null;
         }
         const roomId = this.roomIdsByHandle[this.roomIdByCell[tileIndex]];
-        return roomId ? this.fengShuiByRoomId.get(roomId) ?? null : null;
+        return roomId && this.roomsById.has(roomId) ? this.fengShuiByRoomId.get(roomId) ?? null : null;
+    }
+    /** getFengShuiLuckAt：把当前格所在房间风水折算成临时幸运修正。 */
+    getFengShuiLuckAt(x, y) {
+        const snapshot = this.getFengShuiSnapshotAt(x, y);
+        return snapshot ? Math.trunc((Number(snapshot.score) || 0) / 10) : 0;
     }
     buildBuildingPersistenceEntries() {
         return Array.from(this.buildingById.values()).map((building) => ({
@@ -1609,7 +1717,11 @@ class MapInstanceRuntime {
             x: this.tilePlane.getX(cellIndex),
             y: this.tilePlane.getY(cellIndex),
             tileType: this.tilePlane.getTileType(cellIndex),
-            previousTileType: previousTileTypeByCell.get(cellIndex) ?? null,
+            previousTileType: resolvePreviousBuildingTileType(previousTileTypeByCell.get(cellIndex)),
+            previousTerrainType: resolvePreviousBuildingLayerValue(previousTileTypeByCell.get(cellIndex), 'terrainType'),
+            previousSurfaceType: resolvePreviousBuildingNullableLayerValue(previousTileTypeByCell.get(cellIndex), 'surfaceType'),
+            previousStructureType: resolvePreviousBuildingNullableLayerValue(previousTileTypeByCell.get(cellIndex), 'structureType'),
+            previousInteractableKinds: resolvePreviousBuildingInteractableKinds(previousTileTypeByCell.get(cellIndex)),
         }));
     }
     buildBuildingRoomFengShuiPersistenceState() {
@@ -1681,7 +1793,7 @@ class MapInstanceRuntime {
             if (compiled?.visualTileType && buildingUsesActiveTopology(building)) {
                 for (const cellIndex of cells) {
                     if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
-                        this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
+                        this.applyBuildingVisualTileType(cellIndex, compiled);
                     }
                 }
             }
@@ -1839,11 +1951,15 @@ class MapInstanceRuntime {
             return [];
         }
         const previousTileTypes = [];
+        let clearedTileDamage = false;
         const wasInRoomInfluence = cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
         if (compiled.visualTileType) {
             for (const cellIndex of cells) {
-                previousTileTypes.push([cellIndex, this.tilePlane.getTileType(cellIndex)]);
-                this.tilePlane.setTileType(cellIndex, compiled.visualTileType);
+                previousTileTypes.push([cellIndex, this.captureBuildingPreviousTileState(cellIndex)]);
+            }
+            clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
+            for (const cellIndex of cells) {
+                this.applyBuildingVisualTileType(cellIndex, compiled);
             }
         }
         if (previousTileTypes.length > 0) {
@@ -1857,15 +1973,15 @@ class MapInstanceRuntime {
             : affectsRoofTopology && wasInRoomInfluence;
         if (shouldRecalculateRooms) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'build_complete', dirtyCellCount: cells.length });
-            return ['building', 'room', 'fengshui', ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+            return ['building', 'room', 'fengshui', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
         }
         if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
             for (const cellIndex of cells) {
                 this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_complete_fengshui');
             }
-            return ['building', ...(wasInRoomInfluence ? ['fengshui'] : []), ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+            return ['building', ...(wasInRoomInfluence ? ['fengshui'] : []), ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
         }
-        return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : [])];
+        return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
     }
     /** tickOnce：推进当前地图实例的一个逻辑 tick。 */
     tickOnce() {
@@ -1960,6 +2076,7 @@ class MapInstanceRuntime {
                 y: player.y,
                 facing: player.facing,
                 buffs: player.buffs,
+                fengShuiLuck: this.getFengShuiLuckAt(player.x, player.y),
             },
             visibleTileIndices: Array.from(visibleTileIndices),
             visibleTileKeys: Array.from(visibleTileVisibility.keys),
@@ -2102,6 +2219,36 @@ class MapInstanceRuntime {
         }
         return toGroundPileView(this.groundPilesByTile.get(this.toTileIndex(x, y)) ?? null);
     }
+    /** getActiveBuildingCombatStateAtCellIndex：动态建筑优先作为地块战斗真源。 */
+    getActiveBuildingCombatStateAtCellIndex(cellIndex) {
+        const ids = this.buildingIdByCell.get(cellIndex);
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return null;
+        }
+        for (const buildingId of ids) {
+            const building = this.buildingById.get(buildingId);
+            if (!building || !buildingUsesActiveTopology(building)) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            if (!compiled?.visualTileType || compiled.layerId !== 1) {
+                continue;
+            }
+            const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || Number(compiled.maxHp) || 1));
+            const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building.hp) || maxHp)));
+            return {
+                buildingId: building.id,
+                tileType: compiled.visualTileType,
+                hp,
+                maxHp,
+                modifiedAt: Number.isFinite(Number(building.updatedAtTick)) ? Math.max(0, Math.trunc(Number(building.updatedAtTick))) : null,
+                respawnLeft: 0,
+                destroyed: hp <= 0 || building.state === 'destroyed',
+                building: true,
+            };
+        }
+        return null;
+    }
     /** getTileCombatState：读取指定地块战斗状态。 */
     getTileCombatState(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2123,6 +2270,10 @@ class MapInstanceRuntime {
                 temporary: true,
                 expiresAtTick: Math.max(0, Math.trunc(Number(temporary.expiresAtTick) || 0)),
             };
+        }
+        const buildingCombat = this.getActiveBuildingCombatStateAtCellIndex(tileIndex);
+        if (buildingCombat) {
+            return buildingCombat;
         }
         const tileType = this.getBaseTileType(x, y);
 
@@ -2203,13 +2354,51 @@ class MapInstanceRuntime {
                 temporary: true,
             };
         }
+        if (current.building === true && current.buildingId) {
+            const building = this.buildingById.get(current.buildingId);
+            if (!building || !buildingUsesActiveTopology(building)) {
+                return null;
+            }
+            const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || current.maxHp || 1));
+            const appliedDamage = Math.min(Math.max(0, Math.trunc(Number(building.hp) || maxHp)), normalizedDamage);
+            const nextHp = Math.max(0, Math.trunc(Number(building.hp) || maxHp) - appliedDamage);
+            const destroyed = nextHp <= 0;
+            if (destroyed) {
+                building.hp = 0;
+                building.state = 'destroyed';
+                building.updatedAtTick = this.tick;
+                building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                this.deconstructBuildingInstance(building.id);
+            }
+            else {
+                building.hp = nextHp;
+                building.updatedAtTick = this.tick;
+                building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                this.worldRevision += 1;
+                this.persistentRevision += 1;
+                this.markPersistenceDirtyDomains(['building']);
+                if (this.isCellInRoomInfluence(tileIndex)) {
+                    this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'building_integrity_damaged');
+                    this.markPersistenceDirtyDomains(['fengshui']);
+                }
+            }
+            return {
+                destroyed,
+                hp: nextHp,
+                maxHp,
+                appliedDamage,
+                targetType: current.tileType,
+                buildingId: building.id,
+                building: true,
+            };
+        }
 
         const appliedDamage = Math.min(current.hp, normalizedDamage);
 
         const nextHp = Math.max(0, current.hp - appliedDamage);
         const destroyed = nextHp <= 0;
         const affectsRoomTopology = destroyed === true
-            && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, shared_1.TileType.Floor);
+            && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getGroundTileTypeByCellIndex(tileIndex));
         const affectsRoomIntegrity = destroyed !== true
             && current.hp >= current.maxHp
             && this.isCellInRoomInfluence(tileIndex);
@@ -2476,6 +2665,28 @@ class MapInstanceRuntime {
             return shared_1.TileType.Floor;
         }
         return this.getEffectiveTileTypeByCellIndex(this.toTileIndex(x, y));
+    }
+    /** getTileLayerState：读取指定坐标的权威分层状态，供低频投影和诊断使用。 */
+    getTileLayerState(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return null;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        const state = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(tileIndex)
+            : null;
+        if (!state) {
+            return null;
+        }
+        if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
+            return {
+                ...state,
+                structure: null,
+                interactableKinds: Array.isArray(state.interactableKinds) ? state.interactableKinds : [],
+                legacyTileType: this.getGroundTileTypeByCellIndex(tileIndex),
+            };
+        }
+        return state;
     }
     /** getGroundPileBySourceId：按来源 ID 读取地面物品堆。 */
     getGroundPileBySourceId(sourceId) {
@@ -2835,7 +3046,7 @@ class MapInstanceRuntime {
             const x = this.tilePlane.getX(tileIndex);
             const y = this.tilePlane.getY(tileIndex);
             const tileType = this.getBaseTileType(x, y);
-            if (damage?.destroyed === true && this.shouldRecalculateRoomsForTileMutation(tileIndex, tileType, shared_1.TileType.Floor)) {
+            if (damage?.destroyed === true && this.shouldRecalculateRoomsForTileMutation(tileIndex, tileType, this.getGroundTileTypeByCellIndex(tileIndex))) {
                 topologyChangedCellCount += 1;
             }
         }
@@ -2909,12 +3120,16 @@ class MapInstanceRuntime {
             if (tileIndex >= 0) {
                 const previousTileType = this.getEffectiveTileTypeByCellIndex(tileIndex);
                 this.tilePlane.setTileType(tileIndex, tileType);
+                this.applyPersistedTileLayers(tileIndex, entry);
                 if (this.shouldRecalculateRoomsForTileMutation(tileIndex, previousTileType, tileType)) {
                     topologyChangedCellCount += 1;
                 }
                 continue;
             }
             const activated = this.activateRuntimeTile(x, y, tileType);
+            if (activated?.tileIndex >= 0) {
+                this.applyPersistedTileLayers(activated.tileIndex, entry);
+            }
             if (activated?.created === true && this.shouldRecalculateRoomsForTileMutation(activated.tileIndex, shared_1.TileType.Floor, tileType)) {
                 topologyChangedCellCount += 1;
             }
@@ -2925,6 +3140,24 @@ class MapInstanceRuntime {
         this.persistentRevision = 1;
         this.persistedRevision = 1;
         this.clearDirtyDomains();
+    }
+    /** applyPersistedTileLayers：回填动态地块的分层真源；旧数据缺字段时保留 tileType 映射结果。 */
+    applyPersistedTileLayers(tileIndex, entry) {
+        if (!entry || tileIndex < 0 || tileIndex >= this.tilePlane.getCellCount()) {
+            return;
+        }
+        if (typeof entry.terrainType === 'string' && entry.terrainType.length > 0) {
+            this.tilePlane.setTerrain(tileIndex, entry.terrainType);
+        }
+        if (Object.prototype.hasOwnProperty.call(entry, 'surfaceType')) {
+            this.tilePlane.setSurface(tileIndex, typeof entry.surfaceType === 'string' && entry.surfaceType.length > 0 ? entry.surfaceType : null);
+        }
+        if (Object.prototype.hasOwnProperty.call(entry, 'structureType')) {
+            this.tilePlane.setStructure(tileIndex, typeof entry.structureType === 'string' && entry.structureType.length > 0 ? entry.structureType : null);
+        }
+        if (Array.isArray(entry.interactableKinds) && typeof this.tilePlane.setInteractableKinds === 'function') {
+            this.tilePlane.setInteractableKinds(tileIndex, entry.interactableKinds);
+        }
     }
     /** patchTileResources：在现有地块资源上叠加差量持久化条目，不重置未覆盖资源。 */
     patchTileResources(entries) {
@@ -3378,14 +3611,35 @@ class MapInstanceRuntime {
             const x = this.tilePlane.getX(tileIndex);
             const y = this.tilePlane.getY(tileIndex);
             const tileType = this.tilePlane.getTileType(tileIndex);
+            const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+                ? this.tilePlane.getTileLayerState(tileIndex)
+                : null;
             const inTemplateBounds = x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
             if (inTemplateBounds) {
                 const staticType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
-                if (tileType === staticType) {
+                const staticSeed = (0, shared_1.resolveTileLayerSeedFromTemplateContext)(staticType, x, y, (lookupX, lookupY) => {
+                    if (lookupX < 0 || lookupY < 0 || lookupX >= this.template.width || lookupY >= this.template.height) {
+                        return null;
+                    }
+                    return (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[lookupY]?.[lookupX] ?? '#');
+                });
+                if (tileType === staticType
+                    && layerState?.terrain === staticSeed.terrain
+                    && (layerState?.surface ?? null) === staticSeed.surface
+                    && (layerState?.structure ?? null) === staticSeed.structure
+                    && areInteractableKindListsEqual(layerState?.interactableKinds, staticSeed.interactables)) {
                     continue;
                 }
             }
-            entries.push({ x, y, tileType });
+            entries.push({
+                x,
+                y,
+                tileType,
+                terrainType: layerState?.terrain,
+                surfaceType: layerState?.surface ?? null,
+                structureType: layerState?.structure ?? null,
+                interactableKinds: Array.isArray(layerState?.interactableKinds) ? layerState.interactableKinds : [],
+            });
         }
         entries.sort((left, right) => left.y - right.y || left.x - right.x || String(left.tileType).localeCompare(String(right.tileType), 'zh-Hans-CN'));
         return entries;
@@ -3977,6 +4231,7 @@ class MapInstanceRuntime {
                     ? compiled.color.trim()
                     : '#cbd5e1',
                 remainingTicks: resolveBuildingRemainingTicks(building),
+                totalTicks: Math.max(resolveBuildingRemainingTicks(building), Math.trunc(Number(building.buildStrength) || 1), 1),
             });
         }
         buildings.sort((left, right) => left.id.localeCompare(right.id, 'zh-CN'));
@@ -6030,10 +6285,67 @@ function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells) {
             ? Math.trunc(Number(cell.tileIndex))
             : instance.toTileIndex(cell?.x, cell?.y);
         if (tileIndex >= 0) {
-            previousTileTypes.push([tileIndex, previousTileType]);
+            previousTileTypes.push([tileIndex, {
+                tileType: previousTileType,
+                terrainType: normalizeOptionalLayerString(cell?.previousTerrainType ?? cell?.previous_terrain_type),
+                surfaceType: normalizeNullableLayerString(cell?.previousSurfaceType ?? cell?.previous_surface_type),
+                structureType: normalizeNullableLayerString(cell?.previousStructureType ?? cell?.previous_structure_type),
+                interactableKinds: normalizeInteractableKindList(cell?.previousInteractableKinds ?? cell?.previous_interactable_kinds),
+            }]);
         }
     }
     return previousTileTypes;
+}
+function resolvePreviousBuildingTileType(previousState) {
+    if (typeof previousState === 'string') {
+        return previousState;
+    }
+    return typeof previousState?.tileType === 'string' && previousState.tileType.trim()
+        ? previousState.tileType.trim()
+        : null;
+}
+function resolvePreviousBuildingLayerValue(previousState, key) {
+    if (!previousState || typeof previousState !== 'object') {
+        return null;
+    }
+    const value = previousState[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+function resolvePreviousBuildingNullableLayerValue(previousState, key) {
+    if (!previousState || typeof previousState !== 'object' || !Object.prototype.hasOwnProperty.call(previousState, key)) {
+        return null;
+    }
+    const value = previousState[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+function resolvePreviousBuildingInteractableKinds(previousState) {
+    return Array.isArray(previousState?.interactableKinds)
+        ? previousState.interactableKinds.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
+        : [];
+}
+function normalizeOptionalLayerString(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+function normalizeNullableLayerString(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+function normalizeInteractableKindList(value) {
+    return Array.isArray(value)
+        ? value.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
+        : [];
+}
+function areInteractableKindListsEqual(left, right) {
+    const leftList = normalizeInteractableKindList(left);
+    const rightList = normalizeInteractableKindList(right);
+    if (leftList.length !== rightList.length) {
+        return false;
+    }
+    for (let index = 0; index < leftList.length; index += 1) {
+        if (leftList[index] !== rightList[index]) {
+            return false;
+        }
+    }
+    return true;
 }
 function isIndoorSubspaceTemplate(template) {
     const source = template?.source ?? template ?? {};

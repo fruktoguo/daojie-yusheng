@@ -184,6 +184,19 @@ function describeBuffStats(
   return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
 }
 
+function describeSpecialStats(specialStats?: ItemStack['equipSpecialStats']): string[] {
+  const lines: string[] = [];
+  const comprehension = Math.trunc(Number(specialStats?.comprehension ?? 0) || 0);
+  const luck = Math.trunc(Number(specialStats?.luck ?? 0) || 0);
+  if (comprehension !== 0) {
+    lines.push(`悟性 ${comprehension > 0 ? '+' : ''}${formatDisplayInteger(comprehension)}`);
+  }
+  if (luck !== 0) {
+    lines.push(`幸运 ${luck > 0 ? '+' : ''}${formatDisplayInteger(luck)}`);
+  }
+  return lines;
+}
+
 /** getTimePhaseLabel：读取时段标签。 */
 function getTimePhaseLabel(phaseId: string): string {
   return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
@@ -592,6 +605,7 @@ export function describeEquipmentBonuses(item: ItemStack): string[] {
   const previewItem = applyEnhancementToItemStack(resolvePreviewItem(item));
   return [
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
+    ...describeSpecialStats(previewItem.equipSpecialStats),
     ...describeEquipmentUtilityBonuses(previewItem),
   ];
 }

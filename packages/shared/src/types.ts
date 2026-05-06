@@ -191,6 +191,15 @@ export {
   Direction,
   TileType,
 } from './world-core-types';
+export {
+  InteractableKind,
+  StructureType,
+  SurfaceType,
+  TerrainType,
+} from './map-layer-types';
+export type {
+  TileLayerSeed,
+} from './map-layer-types';
 export type {
   BuffCategory,
   BuffModifierMode,

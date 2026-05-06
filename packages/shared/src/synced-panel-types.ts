@@ -80,6 +80,11 @@ export interface SyncedItemStack {
 
   equipValueStats?: ItemStack['equipValueStats'];
   /**
+ * equipSpecialStats：装备特殊属性。
+ */
+
+  equipSpecialStats?: ItemStack['equipSpecialStats'];
+  /**
  * effects：effect相关字段。
  */
 

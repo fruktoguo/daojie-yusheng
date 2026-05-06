@@ -104,6 +104,16 @@ export interface PlayerState {
 
   senseQiActive?: boolean;
   /**
+ * wangQiActive：望气视角激活状态。
+ */
+
+  wangQiActive?: boolean;
+  /**
+ * fengShuiLuck：当前所在房间风水折算的临时幸运修正，不落持久真源。
+ */
+
+  fengShuiLuck?: number;
+  /**
  * autoRetaliate：autoRetaliate相关字段。
  */
 

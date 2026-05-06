@@ -140,6 +140,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             equipAttrs: template.equipAttrs ? { ...template.equipAttrs } : undefined,
             equipStats: template.equipStats ? { ...template.equipStats } : undefined,
             equipValueStats: template.equipValueStats ? { ...template.equipValueStats } : undefined,
+            equipSpecialStats: template.equipSpecialStats ? { ...template.equipSpecialStats } : undefined,
             tags: Array.isArray(template.tags) ? template.tags.slice() : undefined,
             effects: Array.isArray(template.effects) ? template.effects.map((entry) => ({ ...entry })) : undefined,
             healAmount: template.healAmount,
@@ -1940,6 +1941,7 @@ function normalizeItemTemplate(raw) {
         equipAttrs: candidate.equipAttrs ? { ...candidate.equipAttrs } : undefined,
         equipStats: candidate.equipStats ? { ...candidate.equipStats } : undefined,
         equipValueStats: candidate.equipValueStats ? { ...candidate.equipValueStats } : undefined,
+        equipSpecialStats: normalizeItemSpecialStats(candidate.equipSpecialStats),
         effects: Array.isArray(candidate.effects) ? candidate.effects.slice() : undefined,
         healAmount: Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined,
         healPercent: Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined,
@@ -2453,6 +2455,21 @@ function normalizeTechniqueLayerSpecialStats(raw) {
         const value = Number(source[key]);
         if (Number.isFinite(value) && value !== 0) {
             result[key] = value;
+        }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function normalizeItemSpecialStats(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return undefined;
+    }
+    const source = raw;
+    const result = {};
+    for (const key of ['comprehension', 'luck']) {
+        const value = Number(source[key]);
+        if (Number.isFinite(value) && value !== 0) {
+            result[key] = Math.trunc(value);
         }
     }
     return Object.keys(result).length > 0 ? result : undefined;

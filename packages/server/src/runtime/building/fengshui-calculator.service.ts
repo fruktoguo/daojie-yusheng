@@ -125,6 +125,7 @@ export class FengShuiCalculatorService {
 
 const ROOM_ROLE_MIN_CONFIDENCE = 60;
 const ROOM_ROLE_MIN_LEAD = 30;
+const FENGSHUI_FIRST_PASS_SCORE_SCALE = 3;
 
 const ROOM_ROLE_TRAIT_HINTS: ReadonlyArray<{
   trait: string;
@@ -279,6 +280,17 @@ export function calculateFengShuiSnapshot(
   }
   if (hasTrait(aggregate, 'sha.screen')) {
     shaScore += addReason(reasons, 'sha.screen', 20, 'good');
+  }
+
+  shapeScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  enclosureScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  qiScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  shaScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  comfortScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  elementScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  formationScore *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
+  for (const reason of reasons) {
+    reason.delta *= FENGSHUI_FIRST_PASS_SCORE_SCALE;
   }
 
   score += shapeScore + enclosureScore + qiScore + shaScore + comfortScore + elementScore + formationScore;

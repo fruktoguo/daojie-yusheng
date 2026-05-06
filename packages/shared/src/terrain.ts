@@ -34,6 +34,29 @@ export const MAP_CHAR_TO_TILE_TYPE: Record<string, TileType> = Object.fromEntrie
   Object.entries(TILE_TYPE_TO_MAP_CHAR).map(([type, char]) => [char, type]),
 ) as Record<string, TileType>;
 
+export const DEFAULT_TILE_DURABILITY_MULTIPLIER_BY_TYPE: Partial<Record<TileType, number>> = {
+  [TileType.Wall]: 50,
+  [TileType.Cloud]: 3,
+  [TileType.Tree]: 10,
+  [TileType.Bamboo]: 8,
+  [TileType.Cliff]: 50,
+  [TileType.Stone]: 50,
+  [TileType.SpiritOre]: 100000,
+  [TileType.BlackIronOre]: 2000,
+  [TileType.BrokenSwordHeap]: 2,
+  [TileType.Door]: 14,
+  [TileType.Window]: 10,
+  [TileType.ScreenWall]: 50,
+};
+
+export function getDefaultTileDurabilityMultiplier(type: TileType | string | undefined | null): number | null {
+  if (!type) {
+    return null;
+  }
+  const multiplier = DEFAULT_TILE_DURABILITY_MULTIPLIER_BY_TYPE[type as TileType];
+  return Number.isFinite(multiplier) && multiplier !== undefined && multiplier > 0 ? multiplier : null;
+}
+
 /** 获取地形移动消耗 */
 export function getTileTraversalCost(type: TileType): number {
   return TILE_TRAVERSAL_COST[type] ?? 400;

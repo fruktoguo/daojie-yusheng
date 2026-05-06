@@ -67,7 +67,7 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
         return {
             visibleTiles,
             visibleMinimapMarkers,
-            cacheState: buildCacheState(view, visibleTiles.byKey, visibleMinimapMarkers),
+            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers),
         };
     }    
     /**
@@ -90,10 +90,14 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
         const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
 
         const previous = this.cacheByPlayerId.get(playerId) ?? null;
+        const currentTilesOriginX = resolveVisibleTilesOriginX(view, visibleTiles.matrix);
+        const currentTilesOriginY = resolveVisibleTilesOriginY(view, visibleTiles.matrix);
 
         const mapChanged = !previous
             || previous.mapId !== view.instance.templateId
-            || previous.instanceId !== view.instance.instanceId;
+            || previous.instanceId !== view.instance.instanceId
+            || previous.tilesOriginX !== currentTilesOriginX
+            || previous.tilesOriginY !== currentTilesOriginY;
 
         const tilePatches = mapChanged
             ? []
@@ -109,7 +113,7 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
             tilePatches,
             visibleMinimapMarkerAdds: markerPatch.adds,
             visibleMinimapMarkerRemoves: markerPatch.removes,
-            cacheState: buildCacheState(view, visibleTiles.byKey, visibleMinimapMarkers),
+            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers),
         };
     }    
     /**
@@ -150,9 +154,35 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
     return {
         mapId: view.instance.templateId,
         instanceId: view.instance.instanceId,
-        visibleTiles: new Map(Array.from(visibleTiles.entries(), ([key, tile]) => [key, cloneTile(tile)])),
+        tilesOriginX: resolveVisibleTilesOriginX(view, visibleTiles.matrix),
+        tilesOriginY: resolveVisibleTilesOriginY(view, visibleTiles.matrix),
+        visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
         visibleMinimapMarkers: visibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
     };
+}
+
+function resolveVisibleTilesOriginX(view, matrix) {
+    const radius = Array.isArray(matrix) && matrix.length > 0
+        ? Math.max(0, Math.floor((matrix.length - 1) / 2))
+        : resolveRadiusFromVisibleTileKeys(view);
+    return view.self.x - radius;
+}
+
+function resolveVisibleTilesOriginY(view, matrix) {
+    const radius = Array.isArray(matrix) && matrix.length > 0
+        ? Math.max(0, Math.floor((matrix.length - 1) / 2))
+        : resolveRadiusFromVisibleTileKeys(view);
+    return view.self.y - radius;
+}
+
+function resolveRadiusFromVisibleTileKeys(view) {
+    const keys = Array.isArray(view?.visibleTileKeys) ? view.visibleTileKeys : [];
+    let maxDistance = 0;
+    for (const key of keys) {
+        const [x, y] = parseCoordKey(String(key));
+        maxDistance = Math.max(maxDistance, Math.abs(x - view.self.x), Math.abs(y - view.self.y));
+    }
+    return Math.max(1, maxDistance);
 }
 /**
  * diffVisibleTiles：判断diff可见Tile是否满足条件。
@@ -258,9 +288,28 @@ function isSameTile(left, right) {
         && left.hp === right.hp
         && left.maxHp === right.maxHp
         && left.hpVisible === right.hpVisible
+        && left.terrainType === right.terrainType
+        && left.surfaceType === right.surfaceType
+        && left.structureType === right.structureType
+        && isSameStringList(left.interactableKinds, right.interactableKinds)
         && left.hiddenEntrance?.portalId === right.hiddenEntrance?.portalId
         && left.hiddenEntrance?.portalKind === right.hiddenEntrance?.portalKind
         && left.hiddenEntrance?.portalTargetMapId === right.hiddenEntrance?.portalTargetMapId;
+}
+
+function isSameStringList(left, right) {
+  if (left === right) {
+    return true;
+  }
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isSameTileResourceList(left, right) {

@@ -16,7 +16,7 @@ import {
 } from './main-targeting-helpers';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 
-const SENSE_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS = 3000;
+const WANG_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS = 3000;
 /**
  * MainTargetingPendingAction：统一结构类型，保证协议与运行时一致性。
  */
@@ -227,6 +227,7 @@ type MainTargetingStateSourceOptions = {
  * levelBaseValue：等级Base值数值。
  */
  levelBaseValue: number } | null) => void;
+  setFengShuiOverlay?: (overlay: null) => void;
  /**
  * targetingBadgeEl：targetingBadgeEl相关字段。
  */
@@ -250,8 +251,8 @@ type MainTargetingStateSourceOptions = {
  */
 
   formatAuraLevelText: (auraValue: number) => string;
-  getSenseQiRoomInfoAt?: (x: number, y: number) => BuildingSenseQiRoomInfo | null;
-  requestSenseQiFengShuiOverlay?: (x?: number, y?: number) => void;
+  getWangQiRoomInfoAt?: (x: number, y: number) => BuildingSenseQiRoomInfo | null;
+  requestWangQiFengShuiOverlay?: (x?: number, y?: number) => void;
   /**
  * showToast：showToast相关字段。
  */
@@ -289,8 +290,11 @@ function appendSenseQiFormationLines(lines: string[], entities: readonly MainTar
   }
 }
 
-function appendSenseQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | null): void {
+function appendWangQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | null): void {
   if (!info) {
+    lines.push('房间：此处不在房间内');
+    lines.push('风水：平 0');
+    lines.push('幸运：+0');
     return;
   }
   lines.push(`房间：${info.roomLabel}`);
@@ -307,7 +311,10 @@ function appendSenseQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo |
   if (roomParts.length > 0) {
     lines.push(roomParts.join(' · '));
   }
-  lines.push(`风水：${info.fengShuiLabel} ${Math.max(0, Math.round(info.score))}`);
+  const score = Math.round(info.score);
+  const luck = Math.trunc(score / 10);
+  lines.push(`风水：${info.fengShuiLabel} ${score}`);
+  lines.push(`幸运：${luck > 0 ? `+${luck}` : String(luck)}`);
 }
 
 function isTileInsideFormationRange(entity: MainTargetingObservedEntity, x: number, y: number): boolean {
@@ -351,7 +358,19 @@ export type MainTargetingStateSource = ReturnType<typeof createMainTargetingStat
 export function createMainTargetingStateSource(options: MainTargetingStateSourceOptions) {
   let pendingTargetedAction: MainTargetingPendingAction = null;
   let hoveredMapTile: MainTargetingHoveredTile = null;
-  let lastSenseQiFengShuiOverlayRequestAt = 0;
+  let lastWangQiFengShuiOverlayRequestAt = 0;
+  let wangQiOverlayWasActive = false;
+  function showHoverTooltip(title: string, lines: string[]): void {
+    if (!hoveredMapTile) {
+      return;
+    }
+    options.senseQiTooltip.show(
+      title,
+      lines,
+      hoveredMapTile.clientX,
+      hoveredMapTile.clientY,
+    );
+  }
   /**
  * computeAffectedCells：执行AffectedCell相关逻辑。
  * @param action NonNullable<MainTargetingPendingAction> 参数说明。
@@ -446,6 +465,8 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
     clear(): void {
       pendingTargetedAction = null;
       hoveredMapTile = null;
+      options.setFengShuiOverlay?.(null);
+      wangQiOverlayWasActive = false;
     },
     /**
  * getCurrentActionDef：读取当前ActionDef。
@@ -545,6 +566,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         options.setTargetingOverlay(null);
         options.targetingBadgeEl?.classList.add('hidden');
         this.syncSenseQiOverlay();
+        this.syncWangQiOverlay();
         return;
       }
       pendingTargetedAction.range = this.resolveCurrentTargetingRange(pendingTargetedAction);
@@ -582,6 +604,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         options.targetingBadgeEl.classList.remove('hidden');
       }
       this.syncSenseQiOverlay();
+      this.syncWangQiOverlay();
     },
     /**
  * syncSenseQiOverlay：处理SenseQiOverlay并更新相关状态。
@@ -593,9 +616,22 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
-      if (!player?.senseQiActive) {
+      const wangQiActive = player?.wangQiActive === true;
+      if (!player?.senseQiActive && !wangQiActive) {
         options.setSenseQiOverlay(null);
         options.senseQiTooltip.hide();
+        return;
+      }
+      if (wangQiActive) {
+        options.setSenseQiOverlay(null);
+        if (pendingTargetedAction || !hoveredMapTile) {
+          options.senseQiTooltip.hide();
+          return;
+        }
+        const info = options.getWangQiRoomInfoAt?.(hoveredMapTile.x, hoveredMapTile.y) ?? null;
+        const lines = [`坐标 (${hoveredMapTile.x}, ${hoveredMapTile.y})`];
+        appendWangQiRoomLines(lines, info);
+        showHoverTooltip('望气视角', lines);
         return;
       }
 
@@ -604,15 +640,6 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         hoverY: hoveredMapTile?.y,
         levelBaseValue: options.getAuraLevelBaseValue(),
       });
-      const now = Date.now();
-      if (
-        options.requestSenseQiFengShuiOverlay
-        && hoveredMapTile
-        && now - lastSenseQiFengShuiOverlayRequestAt >= SENSE_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS
-      ) {
-        lastSenseQiFengShuiOverlayRequestAt = now;
-        options.requestSenseQiFengShuiOverlay(hoveredMapTile.x, hoveredMapTile.y);
-      }
 
       if (pendingTargetedAction || !hoveredMapTile) {
         options.senseQiTooltip.hide();
@@ -627,13 +654,30 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
       const lines = buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText);
       appendSenseQiFormationLines(lines, options.getLatestEntities(), hoveredMapTile.x, hoveredMapTile.y);
-      appendSenseQiRoomLines(lines, options.getSenseQiRoomInfoAt?.(hoveredMapTile.x, hoveredMapTile.y) ?? null);
-      options.senseQiTooltip.show(
-        '感气视角',
-        lines,
-        hoveredMapTile.clientX,
-        hoveredMapTile.clientY,
-      );
+      showHoverTooltip('感气视角', lines);
+    },
+    syncWangQiOverlay(): void {
+      const player = options.getPlayer();
+      if (!player?.wangQiActive) {
+        if (wangQiOverlayWasActive) {
+          options.setFengShuiOverlay?.(null);
+          wangQiOverlayWasActive = false;
+        }
+        return;
+      }
+      wangQiOverlayWasActive = true;
+      const now = Date.now();
+      if (
+        options.requestWangQiFengShuiOverlay
+        && now - lastWangQiFengShuiOverlayRequestAt >= WANG_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS
+      ) {
+        const requestX = hoveredMapTile?.x;
+        const requestY = hoveredMapTile?.y;
+        lastWangQiFengShuiOverlayRequestAt = now;
+        window.setTimeout(() => {
+          options.requestWangQiFengShuiOverlay?.(requestX, requestY);
+        }, 0);
+      }
     },
     /**
  * computeAffectedCellsForAction：执行AffectedCellForAction相关逻辑。

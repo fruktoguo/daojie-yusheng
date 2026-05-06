@@ -12320,6 +12320,18 @@
       "alchemySpeedRate": 0.2
     },
     {
+      "itemId": "equip.copper_luopan",
+      "name": "铜罗盘",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 1,
+      "desc": "凡匠铸成的小罗盘，针脚不算灵敏，却能帮人辨出屋内气机偏向。装备后可使用望气视角观察风水。",
+      "equipSlot": "accessory",
+      "equipSpecialStats": {
+        "luck": 1
+      }
+    },
+    {
       "itemId": "equip.copper_enhancement_hammer",
       "name": "铜强化锤",
       "type": "equipment",

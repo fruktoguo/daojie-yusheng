@@ -5,12 +5,16 @@ import type {
   ElementKey,
   EntityKind,
   EquipSlot,
+  InteractableKind,
   ItemType,
   MapMinimapMarkerKind,
   NumericScalarStatKey,
   SkillFormulaVar,
+  StructureType,
+  SurfaceType,
   TechniqueGrade,
   TechniqueRealm,
+  TerrainType,
   TileType,
   QuestLine,
   QuestObjectiveType,
@@ -24,6 +28,7 @@ import {
   ELEMENT_KEY_LABELS,
   ENTITY_KIND_LABELS,
   EQUIP_SLOT_LABELS,
+  INTERACTABLE_KIND_LABELS,
   ITEM_TYPE_LABELS,
   MAP_MINIMAP_MARKER_KIND_LABELS,
   NUMERIC_SCALAR_STAT_LABELS,
@@ -31,9 +36,12 @@ import {
   QUEST_OBJECTIVE_TYPE_LABELS,
   QUEST_STATUS_LABELS,
   SKILL_FORMULA_BASE_VAR_LABELS,
+  STRUCTURE_TYPE_LABELS,
+  SURFACE_TYPE_LABELS,
   TECHNIQUE_CATEGORY_LABELS,
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
+  TERRAIN_TYPE_LABELS,
   TILE_TYPE_LABELS,
 } from '@mud/shared';
 
@@ -47,6 +55,10 @@ export {
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
   TILE_TYPE_LABELS,
+  TERRAIN_TYPE_LABELS,
+  SURFACE_TYPE_LABELS,
+  STRUCTURE_TYPE_LABELS,
+  INTERACTABLE_KIND_LABELS,
   ACTION_TYPE_LABELS,
   DIRECTION_LABELS,
   QUEST_LINE_LABELS,
@@ -62,6 +74,26 @@ export {
 /** 读取地块类型的本地化标签。 */
 export function getTileTypeLabel(type: TileType, fallback = '未知地貌'): string {
   return TILE_TYPE_LABELS[type] ?? fallback;
+}
+
+/** 读取底层地形的本地化标签。 */
+export function getTerrainTypeLabel(type: TerrainType | string | null | undefined, fallback = '无'): string {
+  return type ? (TERRAIN_TYPE_LABELS as Record<string, string>)[type] ?? fallback : fallback;
+}
+
+/** 读取地表铺装的本地化标签。 */
+export function getSurfaceTypeLabel(type: SurfaceType | string | null | undefined, fallback = '无'): string {
+  return type ? (SURFACE_TYPE_LABELS as Record<string, string>)[type] ?? fallback : fallback;
+}
+
+/** 读取地上结构的本地化标签。 */
+export function getStructureTypeLabel(type: StructureType | string | null | undefined, fallback = '无'): string {
+  return type ? (STRUCTURE_TYPE_LABELS as Record<string, string>)[type] ?? fallback : fallback;
+}
+
+/** 读取交互对象种类的本地化标签。 */
+export function getInteractableKindLabel(kind: InteractableKind | string | null | undefined, fallback = '未知交互物'): string {
+  return kind ? (INTERACTABLE_KIND_LABELS as Record<string, string>)[kind] ?? fallback : fallback;
 }
 
 /** 读取实体种类的本地化标签。 */

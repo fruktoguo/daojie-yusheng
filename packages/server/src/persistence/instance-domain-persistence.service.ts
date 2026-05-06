@@ -228,15 +228,21 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 y bigint,
                 tile_type varchar(80),
                 previous_tile_type varchar(80),
+                previous_terrain_type varchar(80),
+                previous_surface_type varchar(80),
+                previous_structure_type varchar(80),
+                previous_interactable_kinds text[],
                 blocks_move boolean,
                 blocks_sight boolean
               )
             )
             INSERT INTO ${INSTANCE_BUILDING_CELL_TABLE}(
               instance_id, building_id, tile_index, x, y, tile_type, previous_tile_type,
+              previous_terrain_type, previous_surface_type, previous_structure_type, previous_interactable_kinds,
               blocks_move, blocks_sight, updated_at
             )
             SELECT $1, building_id, tile_index, x, y, tile_type, previous_tile_type,
+              previous_terrain_type, previous_surface_type, previous_structure_type, COALESCE(previous_interactable_kinds, '{}'::text[]),
               blocks_move, blocks_sight, now()
             FROM incoming
             ON CONFLICT (instance_id, tile_index) DO UPDATE SET
@@ -245,6 +251,10 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               y = EXCLUDED.y,
               tile_type = EXCLUDED.tile_type,
               previous_tile_type = EXCLUDED.previous_tile_type,
+              previous_terrain_type = EXCLUDED.previous_terrain_type,
+              previous_surface_type = EXCLUDED.previous_surface_type,
+              previous_structure_type = EXCLUDED.previous_structure_type,
+              previous_interactable_kinds = EXCLUDED.previous_interactable_kinds,
               blocks_move = EXCLUDED.blocks_move,
               blocks_sight = EXCLUDED.blocks_sight,
               updated_at = now()
@@ -623,7 +633,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
 
   async replaceRuntimeTileCells(
     instanceId: string,
-    entries: Array<{ x: number; y: number; tileType: string }>,
+    entries: Array<{
+      x: number;
+      y: number;
+      tileType: string;
+      terrainType?: string | null;
+      surfaceType?: string | null;
+      structureType?: string | null;
+      interactableKinds?: string[] | null;
+    }>,
   ): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -642,6 +660,12 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         x: Math.trunc(Number(entry.x)),
         y: Math.trunc(Number(entry.y)),
         tileType: entry.tileType.trim(),
+        terrainType: normalizeOptionalString(entry.terrainType),
+        surfaceType: normalizeOptionalString(entry.surfaceType),
+        structureType: normalizeOptionalString(entry.structureType),
+        interactableKinds: Array.isArray(entry.interactableKinds)
+          ? entry.interactableKinds.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
+          : [],
       }));
     const client = await this.pool.connect();
     try {
@@ -656,15 +680,32 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               x,
               y,
               tile_type,
+              terrain_type,
+              surface_type,
+              structure_type,
+              interactable_kinds,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, now())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
             ON CONFLICT (instance_id, x, y)
             DO UPDATE SET
               tile_type = EXCLUDED.tile_type,
+              terrain_type = EXCLUDED.terrain_type,
+              surface_type = EXCLUDED.surface_type,
+              structure_type = EXCLUDED.structure_type,
+              interactable_kinds = EXCLUDED.interactable_kinds,
               updated_at = now()
           `,
-          [normalizedInstanceId, entry.x, entry.y, entry.tileType],
+          [
+            normalizedInstanceId,
+            entry.x,
+            entry.y,
+            entry.tileType,
+            entry.terrainType,
+            entry.surfaceType,
+            entry.structureType,
+            entry.interactableKinds,
+          ],
         );
       }
       await client.query('COMMIT');
@@ -676,7 +717,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
-  async loadRuntimeTileCells(instanceId: string): Promise<Array<{ x: number; y: number; tileType: string }>> {
+  async loadRuntimeTileCells(instanceId: string): Promise<Array<{
+    x: number;
+    y: number;
+    tileType: string;
+    terrainType?: string | null;
+    surfaceType?: string | null;
+    structureType?: string | null;
+    interactableKinds?: string[];
+  }>> {
     if (!this.pool || !this.enabled) {
       return [];
     }
@@ -686,7 +735,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
     const result = await this.pool.query(
       `
-        SELECT x, y, tile_type
+        SELECT x, y, tile_type, terrain_type, surface_type, structure_type, interactable_kinds
         FROM ${INSTANCE_TILE_CELL_TABLE}
         WHERE instance_id = $1
         ORDER BY y ASC, x ASC
@@ -698,6 +747,12 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           x: normalizeNullableInteger(row.x) ?? 0,
           y: normalizeNullableInteger(row.y) ?? 0,
           tileType: typeof row.tile_type === 'string' ? row.tile_type : '',
+          terrainType: normalizeOptionalString(row.terrain_type),
+          surfaceType: normalizeOptionalString(row.surface_type),
+          structureType: normalizeOptionalString(row.structure_type),
+          interactableKinds: Array.isArray(row.interactable_kinds)
+            ? row.interactable_kinds.filter((kind: unknown): kind is string => typeof kind === 'string' && kind.length > 0)
+            : [],
         })).filter((entry) => entry.tileType.length > 0)
       : [];
   }
@@ -2817,10 +2872,18 @@ async function ensureInstanceTileCellTable(pool: Pool): Promise<void> {
         x bigint NOT NULL,
         y bigint NOT NULL,
         tile_type varchar(64) NOT NULL,
+        terrain_type varchar(64),
+        surface_type varchar(64),
+        structure_type varchar(64),
+        interactable_kinds text[] NOT NULL DEFAULT '{}',
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, x, y)
       )
     `);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_CELL_TABLE} ADD COLUMN IF NOT EXISTS terrain_type varchar(64)`);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_CELL_TABLE} ADD COLUMN IF NOT EXISTS surface_type varchar(64)`);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_CELL_TABLE} ADD COLUMN IF NOT EXISTS structure_type varchar(64)`);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_CELL_TABLE} ADD COLUMN IF NOT EXISTS interactable_kinds text[] NOT NULL DEFAULT '{}'`);
     await ensureBigintColumns(client, INSTANCE_TILE_CELL_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_cell_instance_idx
@@ -3261,6 +3324,10 @@ async function ensureInstanceBuildingCellTable(pool: Pool): Promise<void> {
         y bigint NOT NULL,
         tile_type varchar(80) NOT NULL DEFAULT 'floor',
         previous_tile_type varchar(80) NULL,
+        previous_terrain_type varchar(80) NULL,
+        previous_surface_type varchar(80) NULL,
+        previous_structure_type varchar(80) NULL,
+        previous_interactable_kinds text[] NOT NULL DEFAULT '{}',
         blocks_move boolean NOT NULL DEFAULT false,
         blocks_sight boolean NOT NULL DEFAULT false,
         updated_at timestamptz NOT NULL DEFAULT now(),
@@ -3270,6 +3337,22 @@ async function ensureInstanceBuildingCellTable(pool: Pool): Promise<void> {
     await client.query(`
       ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
       ADD COLUMN IF NOT EXISTS previous_tile_type varchar(80) NULL
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
+      ADD COLUMN IF NOT EXISTS previous_terrain_type varchar(80) NULL
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
+      ADD COLUMN IF NOT EXISTS previous_surface_type varchar(80) NULL
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
+      ADD COLUMN IF NOT EXISTS previous_structure_type varchar(80) NULL
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
+      ADD COLUMN IF NOT EXISTS previous_interactable_kinds text[] NOT NULL DEFAULT '{}'
     `);
     await client.query(`
       ALTER TABLE ${INSTANCE_BUILDING_CELL_TABLE}
@@ -3561,6 +3644,17 @@ function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeOptionalString(value: unknown): string | null {
+  const normalized = normalizeRequiredString(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim())
+    : [];
+}
+
 function normalizeNullableInteger(value: unknown): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -3640,6 +3734,10 @@ function normalizeBuildingCellPersistenceRows(value: unknown): Record<string, un
       y,
       tile_type: normalizeRequiredString(cellSource.tileType) || normalizeRequiredString(cellSource.tile_type) || 'floor',
       previous_tile_type: normalizeRequiredString(cellSource.previousTileType) || normalizeRequiredString(cellSource.previous_tile_type) || null,
+      previous_terrain_type: normalizeRequiredString(cellSource.previousTerrainType) || normalizeRequiredString(cellSource.previous_terrain_type) || null,
+      previous_surface_type: normalizeRequiredString(cellSource.previousSurfaceType) || normalizeRequiredString(cellSource.previous_surface_type) || null,
+      previous_structure_type: normalizeRequiredString(cellSource.previousStructureType) || normalizeRequiredString(cellSource.previous_structure_type) || null,
+      previous_interactable_kinds: normalizeStringArray(cellSource.previousInteractableKinds ?? cellSource.previous_interactable_kinds),
       blocks_move: cellSource.blocksMove === true || cellSource.blocks_move === true,
       blocks_sight: cellSource.blocksSight === true || cellSource.blocks_sight === true,
     });
@@ -3802,6 +3900,10 @@ function projectBuildingCellPersistenceRow(row: Record<string, unknown>): Record
     y: normalizeIntegerWithFallback(row.y, 0),
     tileType: normalizeRequiredString(row.tile_type) || 'floor',
     previousTileType: normalizeRequiredString(row.previous_tile_type) || null,
+    previousTerrainType: normalizeRequiredString(row.previous_terrain_type) || null,
+    previousSurfaceType: normalizeRequiredString(row.previous_surface_type) || null,
+    previousStructureType: normalizeRequiredString(row.previous_structure_type) || null,
+    previousInteractableKinds: normalizeStringArray(row.previous_interactable_kinds),
     blocksMove: row.blocks_move === true,
     blocksSight: row.blocks_sight === true,
   };

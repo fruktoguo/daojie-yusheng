@@ -137,6 +137,10 @@ message VisibleTileCellPayload {
   optional string hiddenEntranceTitle = 11;
   optional string hiddenEntranceDesc = 12;
   repeated TileRuntimeResourcePayload resources = 13;
+  optional string terrainType = 14;
+  optional string surfaceType = 15;
+  optional string structureType = 16;
+  repeated string interactableKinds = 17;
 }
 
 message PointPayload {
@@ -213,6 +217,7 @@ message ActionsUpdatePayload {
   optional bool clearCombatTargetingRules = 16;
   optional string retaliatePlayerTargetId = 17;
   optional bool clearRetaliatePlayerTargetId = 18;
+  optional bool wangQiActive = 19;
 }
 
 message ActionUpdateEntryPayload {

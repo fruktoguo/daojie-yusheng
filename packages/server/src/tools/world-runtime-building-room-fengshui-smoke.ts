@@ -7,7 +7,6 @@ const { RuntimeTilePlane } = require("../runtime/map/runtime-tile-plane");
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
-const { awardBuildingConstructionCompletion } = require("../runtime/world/world-runtime-building.service");
 const { compileBuildingDefinitions } = require("../runtime/building/building-content.repository");
 const { BuildingTopologyIndex } = require("../runtime/building/building-topology-index.service");
 const {
@@ -177,8 +176,10 @@ function main() {
   let snapshot = calculateFengShuiSnapshot(room, aggregate, rules, { revision: 1, updatedAtTick: 8 });
   assert.equal(snapshot.primaryElement, "wood");
   assert.equal(snapshot.functionElement, "fire");
-  assert.equal(snapshot.grade, "great_good");
+  assert.equal(snapshot.grade, "blessed");
   assert.equal(snapshot.reasons.some((reason) => reason.code === "element.generates_function"), true);
+  assert.equal(snapshot.reasons.find((reason) => reason.code === "element.generates_function")?.delta, 135);
+  assert.equal(snapshot.reasons.find((reason) => reason.code === "shell.closed")?.delta, 240);
   assert.equal(snapshot.reasons.some((reason) => reason.code === "trait.rest_comfort"), false);
 
   addCompiledContribution(aggregate, catalog.defById.get("jade_bed_extensible"), catalog);
@@ -386,17 +387,85 @@ function main() {
   assert.equal(brokenWall.destroyed, true);
   assert.equal(staticInstance.listRoomSummaries().length, 0);
   assert.equal(staticInstance.getFengShuiSnapshotAt(2, 2), null);
-  const brokenWallTileIndex = staticInstance.toTileIndex(0, 1);
-  const brokenWallState = staticInstance.tileDamageByTile.get(brokenWallTileIndex);
-  assert.ok(brokenWallState);
-  brokenWallState.respawnLeft = 1;
-  assert.equal(staticInstance.advanceTileRecovery(() => false), true);
-  const restoredRooms = staticInstance.listRoomSummaries();
-  assert.equal(restoredRooms.length, 1);
-  assert.ok(staticInstance.getFengShuiSnapshotAt(2, 2));
-
+  staticTemplateRepository.registerRuntimeMapTemplate({
+    id: "static_outdoor_wall_ground_smoke",
+    name: "静态室外墙地面烟测",
+    width: 3,
+    height: 3,
+    routeDomain: "system",
+    tiles: [",,,", ",#,", ",,,"],
+    spawnPoint: { x: 1, y: 1 },
+    portals: [],
+    npcs: [],
+    monsters: [],
+    safeZones: [],
+    landmarks: [],
+    containers: [],
+    auras: [],
+  });
+  const outdoorWallInstance = new MapInstanceRuntime({
+    instanceId: "real:static_outdoor_wall_ground_smoke",
+    template: staticTemplateRepository.getOrThrow("static_outdoor_wall_ground_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "静态室外墙地面烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  assert.equal(outdoorWallInstance.getTileLayerState(1, 1)?.terrain, "grass");
+  assert.equal(outdoorWallInstance.damageTile(1, 1, Number.MAX_SAFE_INTEGER).destroyed, true);
+  assert.equal(outdoorWallInstance.getEffectiveTileType(1, 1), TileType.Grass);
+  assert.equal(outdoorWallInstance.getTileLayerState(1, 1)?.legacyTileType, TileType.Grass);
   const yunlaiRepository = new MapTemplateRepository();
   yunlaiRepository.loadAll();
+  const yunlaiReplaceWallInstance = new MapInstanceRuntime({
+    instanceId: "real:yunlai_replace_static_wall_smoke",
+    template: yunlaiRepository.getOrThrow("yunlai_town"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "云来镇替换静态墙烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  yunlaiReplaceWallInstance.configureBuildingRuntime(catalog, rules);
+  const replaceX = 14;
+  const replaceY = 43;
+  const replaceTileIndex = yunlaiReplaceWallInstance.toTileIndex(replaceX, replaceY);
+  assert.equal(yunlaiReplaceWallInstance.getTileLayerState(replaceX, replaceY)?.legacyTileType, TileType.Wall);
+  assert.equal(yunlaiReplaceWallInstance.damageTile(replaceX, replaceY, Number.MAX_SAFE_INTEGER).destroyed, true);
+  const demolishedGroundType = yunlaiReplaceWallInstance.getEffectiveTileType(replaceX, replaceY);
+  assert.notEqual(demolishedGroundType, TileType.Wall);
+  assert.equal(yunlaiReplaceWallInstance.getTileLayerState(replaceX, replaceY)?.structure, null);
+  const replacement = yunlaiReplaceWallInstance.placeBuildingInstance({
+    requestId: "build:req:replace-static-wall",
+    defId: "stone_wall",
+    x: replaceX,
+    y: replaceY,
+    state: "building",
+    buildStrength: 1,
+    buildRemainingTicks: 1,
+    ownerPlayerId: "player:replace-wall",
+  });
+  assert.equal(replacement.ok, true);
+  yunlaiReplaceWallInstance.playersById.set("player:replace-wall", { playerId: "player:replace-wall", x: replaceX, y: replaceY - 1 });
+  assert.equal(yunlaiReplaceWallInstance.startBuildingConstruction(replacement.building.id, "player:replace-wall").ok, true);
+  const replaceCompletionTick = yunlaiReplaceWallInstance.tickOnce();
+  assert.equal(replaceCompletionTick.completedBuildings.length, 1);
+  assert.equal(yunlaiReplaceWallInstance.tileDamageByTile.has(replaceTileIndex), false);
+  assert.equal(yunlaiReplaceWallInstance.getEffectiveTileType(replaceX, replaceY), TileType.Wall);
+  assert.equal(yunlaiReplaceWallInstance.getTileLayerState(replaceX, replaceY)?.legacyTileType, TileType.Wall);
+  assert.equal(yunlaiReplaceWallInstance.deconstructBuildingInstance(replacement.building.id).ok, true);
+  assert.equal(yunlaiReplaceWallInstance.getEffectiveTileType(replaceX, replaceY), demolishedGroundType);
   const yunlaiInstance = new MapInstanceRuntime({
     instanceId: "real:yunlai_room_guard_smoke",
     template: yunlaiRepository.getOrThrow("yunlai_town"),
@@ -418,7 +487,9 @@ function main() {
     const snapshot = yunlaiInstance.getFengShuiSnapshot(yunlaiRoom.id);
     if (yunlaiRoom.role === "generic") {
       assert.ok(snapshot.score <= 520);
-      assert.equal(snapshot.reasons.some((reason) => reason.code === "room.role.generic_cap"), true);
+      if (snapshot.score === 300) {
+        assert.equal(snapshot.grade, "minor_good");
+      }
     }
   }
   const yunlaiApothecaryRoom = yunlaiInstance.getBuildingRoomFengShuiAt(40, 38)?.room;
@@ -514,9 +585,14 @@ function main() {
       item.count -= count;
       commandPlayer.inventory.revision += 1;
     },
+    bumpPersistentRevision(player) {
+      player.persistentRevision = (player.persistentRevision ?? 0) + 1;
+    },
   };
   commandRuntime.getPlayerLocationOrThrow = () => ({ instanceId: commandInstance.meta.instanceId });
   commandRuntime.getInstanceRuntimeOrThrow = () => commandInstance;
+  commandRuntime.getInstanceRuntime = () => commandInstance;
+  commandRuntime.refreshPlayerContextActions = () => {};
   const buildStrength = 30;
   const placeResult = WorldRuntimeService.prototype.handleBuildPlaceIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "build:req:1",
@@ -534,12 +610,13 @@ function main() {
   assert.equal(placeResult.building.buildRemainingTicks, buildStrength);
   assert.equal(placeResult.building.activeBuilderPlayerId, null);
   const commandWallCompiled = commandInstance.buildingCatalog.defById.get("stone_wall");
+  assert.equal(commandWallCompiled?.durabilityMultiplier, 50);
   const expectedWallMaxHp = Math.max(
     1,
     Math.trunc(
       calculateTerrainDurability(
         commandPlayer.buildingSkill.level,
-        Math.max(0.01, Number(commandWallCompiled?.maxHp ?? 1) / 100),
+        Math.max(0.01, Number(commandWallCompiled?.durabilityMultiplier ?? 1)),
       ) * buildStrength,
     ),
   );
@@ -564,17 +641,35 @@ function main() {
   );
   assert.equal(startBuildResult.ok, true);
   assert.equal(startBuildResult.building.activeBuilderPlayerId, commandPlayer.playerId);
+  WorldRuntimeService.prototype.dispatchStartBuildingConstruction.call(commandRuntime, commandPlayer.playerId, placeResult.building.id);
+  assert.equal(commandPlayer.buildingJob.remainingTicks, buildStrength);
+  let previousBuildingExp = commandPlayer.buildingSkill.exp;
   for (let index = 0; index < buildStrength - 1; index += 1) {
     const pendingTick = commandInstance.tickOnce();
     assert.equal(pendingTick.completedBuildings.length, 0);
+    WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+    assert.ok(commandPlayer.buildingSkill.exp > previousBuildingExp);
+    assert.equal(commandPlayer.buildingJob.remainingTicks, buildStrength - index - 1);
+    previousBuildingExp = commandPlayer.buildingSkill.exp;
   }
   const completionTick = commandInstance.tickOnce();
+  WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
   assert.equal(completionTick.completedBuildings.length, 1);
   assert.equal(completionTick.completedBuildings[0].state, "active");
+  assert.ok(commandPlayer.buildingSkill.exp > previousBuildingExp);
+  const finalBuildingExp = commandPlayer.buildingSkill.exp;
+  assert.equal(commandPlayer.buildingJob, null);
   assert.equal(commandInstance.tilePlane.getTileType(commandInstance.toTileIndex(1, 1)), TileType.Wall);
-  const gainedBuildingExp = awardBuildingConstructionCompletion(commandRuntime, completionTick.completedBuildings[0]);
-  assert.ok(gainedBuildingExp > 0);
-  assert.equal(commandPlayer.buildingSkill.exp, gainedBuildingExp);
+  const completedWallCombat = commandInstance.getTileCombatState(1, 1);
+  assert.equal(completedWallCombat?.building, true);
+  assert.equal(completedWallCombat?.hp, expectedWallMaxHp);
+  assert.equal(completedWallCombat?.maxHp, expectedWallMaxHp);
+  const damagedBuiltWall = commandInstance.damageTile(1, 1, 10);
+  assert.equal(damagedBuiltWall?.building, true);
+  assert.equal(damagedBuiltWall?.hp, expectedWallMaxHp - 10);
+  assert.equal(commandInstance.tileDamageByTile.has(commandInstance.toTileIndex(1, 1)), false);
+  WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(commandPlayer.buildingSkill.exp, finalBuildingExp);
   assert.equal(commandPlayer.dirtyDomains.has("profession"), true);
   const roomPatch = WorldRuntimeService.prototype.buildCurrentRoomSummaryPatch.call(commandRuntime, commandPlayer.playerId);
   assert.equal(roomPatch.instanceId, commandInstance.meta.instanceId);

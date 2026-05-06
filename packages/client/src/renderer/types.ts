@@ -195,6 +195,8 @@ export interface IRenderer {
  */
 
       maxHp?: number;      
+      respawnRemainingTicks?: RenderEntity['respawnRemainingTicks'];
+      respawnTotalTicks?: RenderEntity['respawnTotalTicks'];
       /**
  * npcQuestMarker：NPC任务Marker相关字段。
  */

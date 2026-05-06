@@ -1,5 +1,5 @@
 import type { ElementKey, NumericScalarStatKey } from '../../numeric';
-import { Direction, TechniqueRealm, TileType } from '../../types';
+import { Direction, InteractableKind, StructureType, SurfaceType, TechniqueRealm, TerrainType, TileType } from '../../types';
 import { HOUSE_DECOR_TILE_LABELS } from '../gameplay/house-terrain';
 import type {
   ActionType,
@@ -50,6 +50,57 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.BlackIronOre]: '玄铁矿',
   [TileType.BrokenSwordHeap]: '断剑堆',
   ...HOUSE_DECOR_TILE_LABELS,
+};
+
+/** 底层地形中文标签。 */
+export const TERRAIN_TYPE_LABELS: Record<TerrainType, string> = {
+  [TerrainType.Floor]: '地基',
+  [TerrainType.Grass]: '草地',
+  [TerrainType.Hill]: '山地',
+  [TerrainType.Cliff]: '山崖',
+  [TerrainType.Mud]: '泥地',
+  [TerrainType.Swamp]: '沼泽',
+  [TerrainType.ColdBog]: '寒沼',
+  [TerrainType.MoltenPool]: '熔池',
+  [TerrainType.Water]: '水域',
+  [TerrainType.Cloud]: '云障',
+  [TerrainType.CloudFloor]: '云地',
+  [TerrainType.Void]: '虚空',
+  [TerrainType.StoneGround]: '石地',
+};
+
+/** 地表铺装中文标签。 */
+export const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
+  [SurfaceType.Floor]: '地板',
+  [SurfaceType.Road]: '大路',
+  [SurfaceType.Trail]: '小路',
+  [SurfaceType.Veranda]: '回廊',
+};
+
+/** 地上结构中文标签。 */
+export const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
+  [StructureType.Wall]: '墙体',
+  [StructureType.Door]: '门扉',
+  [StructureType.Window]: '窗户',
+  [StructureType.BrokenWindow]: '破窗',
+  [StructureType.HouseEave]: '屋檐',
+  [StructureType.HouseCorner]: '屋角',
+  [StructureType.ScreenWall]: '影壁',
+  [StructureType.Tree]: '树木',
+  [StructureType.Bamboo]: '竹林',
+  [StructureType.Stone]: '岩石',
+  [StructureType.SpiritOre]: '灵石矿',
+  [StructureType.BlackIronOre]: '玄铁矿',
+  [StructureType.BrokenSwordHeap]: '断剑堆',
+};
+
+/** 交互对象中文标签。 */
+export const INTERACTABLE_KIND_LABELS: Record<InteractableKind, string> = {
+  [InteractableKind.Portal]: '传送阵',
+  [InteractableKind.Stairs]: '楼梯',
+  [InteractableKind.Container]: '箱子',
+  [InteractableKind.Formation]: '阵法',
+  [InteractableKind.Mechanism]: '机关',
 };
 
 /** 六维属性中文标签 */

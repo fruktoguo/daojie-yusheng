@@ -34,6 +34,7 @@ export * from './path-codec';
 export * from './targeting';
 export * from './target-ref';
 export * from './terrain';
+export * from './map-layer-types';
 export * from './craft-duration';
 export * from './craft-skill';
 export * from './craft-success';

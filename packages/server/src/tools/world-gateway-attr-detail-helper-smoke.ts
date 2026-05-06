@@ -811,7 +811,7 @@ function testTieguPercentBuffDoesNotCompileRateStats() {
 
 function testSpecialStatsAffectOnlyConfiguredRates() {
     const service = new PlayerAttributesService();
-    const createPlayer = (comprehension, luck) => ({
+    const createPlayer = (comprehension, luck, fengShuiLuck = 0) => ({
         realm: {
             stage: 0,
             realmLv: 1,
@@ -824,6 +824,7 @@ function testSpecialStatsAffectOnlyConfiguredRates() {
         selfRevision: 1,
         comprehension,
         luck,
+        fengShuiLuck,
         runtimeBonuses: [],
         techniques: { techniques: [] },
         bodyTraining: { level: 0 },
@@ -833,12 +834,20 @@ function testSpecialStatsAffectOnlyConfiguredRates() {
     });
     const basePlayer = createPlayer(0, 0);
     const specialPlayer = createPlayer(3, 4);
+    const fengShuiPlayer = createPlayer(0, 0, 50);
+    const badFengShuiPlayer = createPlayer(0, 0, -30);
     service.recalculate(basePlayer);
     service.recalculate(specialPlayer);
+    service.recalculate(fengShuiPlayer);
+    service.recalculate(badFengShuiPlayer);
     assert.equal(specialPlayer.attrs.numericStats.playerExpRate - basePlayer.attrs.numericStats.playerExpRate, 300);
     assert.equal(specialPlayer.attrs.numericStats.techniqueExpRate - basePlayer.attrs.numericStats.techniqueExpRate, 300);
     assert.equal(specialPlayer.attrs.numericStats.lootRate - basePlayer.attrs.numericStats.lootRate, 400);
     assert.equal(specialPlayer.attrs.numericStats.rareLootRate - basePlayer.attrs.numericStats.rareLootRate, 400);
+    assert.equal(fengShuiPlayer.attrs.numericStats.lootRate - basePlayer.attrs.numericStats.lootRate, 5000);
+    assert.equal(fengShuiPlayer.attrs.numericStats.rareLootRate - basePlayer.attrs.numericStats.rareLootRate, 5000);
+    assert.equal(badFengShuiPlayer.attrs.numericStats.lootRate - basePlayer.attrs.numericStats.lootRate, -3000);
+    assert.equal(badFengShuiPlayer.attrs.numericStats.rareLootRate - basePlayer.attrs.numericStats.rareLootRate, -3000);
     assert.equal(specialPlayer.attrs.numericStats.hit - basePlayer.attrs.numericStats.hit, 0);
     assert.equal(specialPlayer.attrs.numericStats.dodge - basePlayer.attrs.numericStats.dodge, 0);
     assert.equal(specialPlayer.attrs.numericStats.crit - basePlayer.attrs.numericStats.crit, 0);

@@ -187,6 +187,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handlePortalClickTarget'
     | 'clearCurrentPath'
     | 'syncSenseQiOverlay'
+    | 'syncWangQiOverlay'
     | 'setHoveredMapTile'
     | 'bindKeyboardInput'
   >;
@@ -672,6 +673,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     clearCurrentPath: () => options.mapRuntimeBridgeSource.clearCurrentPath(),
     syncTargetingOverlay: options.syncTargetingOverlay,
     syncSenseQiOverlay: () => options.mapRuntimeBridgeSource.syncSenseQiOverlay(),
+    syncWangQiOverlay: () => options.mapRuntimeBridgeSource.syncWangQiOverlay?.(),
     setHoveredMapTile: (value) => options.mapRuntimeBridgeSource.setHoveredMapTile(value),
   });
 

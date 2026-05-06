@@ -496,6 +496,7 @@ export interface WorldBuildingPatchView {
   ch?: string;
   c?: string;
   rt?: number | null;
+  tt?: number | null;
   rm?: 1;
 }
 

@@ -303,6 +303,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     syncSenseQiOverlay: () => void;    
+    syncWangQiOverlay?: () => void;
     /**
  * setHoveredMapTile：Hovered地图Tile相关字段。
  */
@@ -679,6 +680,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
     syncSenseQiOverlay(): void {
       options.targeting.syncSenseQiOverlay();
+    },
+    syncWangQiOverlay(): void {
+      options.targeting.syncWangQiOverlay?.();
     },    
     /**
  * isWithinDisplayedMemoryBounds：判断WithinDisplayedMemoryBound是否满足条件。

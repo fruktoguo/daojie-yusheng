@@ -301,6 +301,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoIdleCultivation: true,
                 autoSwitchCultivation: false,
                 senseQiActive: false,
+                wangQiActive: false,
                 autoBattleSkills: [],
                 cultivationActive: false,
                 lastActiveTick: 0,
@@ -932,30 +933,40 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.ensurePlayer(playerId, sessionId);
 
-        let changed = false;
+        let anchorChanged = false;
+        let selfChanged = false;
         if (player.instanceId !== view.instance.instanceId) {
             player.instanceId = view.instance.instanceId;
-            changed = true;
+            anchorChanged = true;
         }
         if (player.templateId !== view.instance.templateId) {
             player.templateId = view.instance.templateId;
-            changed = true;
+            anchorChanged = true;
         }
         if (player.x !== view.self.x) {
             player.x = view.self.x;
-            changed = true;
+            anchorChanged = true;
         }
         if (player.y !== view.self.y) {
             player.y = view.self.y;
-            changed = true;
+            anchorChanged = true;
         }
         if (player.facing !== view.self.facing) {
             player.facing = view.self.facing;
-            changed = true;
+            anchorChanged = true;
         }
-        if (changed) {
+        const nextFengShuiLuck = Math.trunc(Number(view.self.fengShuiLuck ?? 0) || 0);
+        if (Math.trunc(Number(player.fengShuiLuck ?? 0) || 0) !== nextFengShuiLuck) {
+            player.fengShuiLuck = nextFengShuiLuck;
+            selfChanged = true;
+            this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['attr']);
+        }
+        if (anchorChanged) {
             markPlayerDirtyDomains(player, ['world_anchor', 'position_checkpoint']);
             this.bumpPersistentRevision(player);
+        }
+        if (anchorChanged || selfChanged) {
             player.selfRevision += 1;
         }
         return player;
@@ -2376,6 +2387,16 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         if (input.senseQiActive !== undefined && player.combat.senseQiActive !== input.senseQiActive) {
             player.combat.senseQiActive = input.senseQiActive;
+            if (input.senseQiActive === true) {
+                player.combat.wangQiActive = false;
+            }
+            changed = true;
+        }
+        if (input.wangQiActive !== undefined && player.combat.wangQiActive !== input.wangQiActive) {
+            player.combat.wangQiActive = input.wangQiActive;
+            if (input.wangQiActive === true) {
+                player.combat.senseQiActive = false;
+            }
             changed = true;
         }
         let cultivationActiveChanged = false;
@@ -3408,6 +3429,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoSwitchCultivation: snapshot.combat?.autoSwitchCultivation === true,
 
                 senseQiActive: snapshot.combat?.senseQiActive === true,
+                wangQiActive: snapshot.combat?.wangQiActive === true,
                 autoBattleSkills: normalizePersistedAutoBattleSkills(snapshot.combat?.autoBattleSkills),
 
                 cultivationActive: snapshot.combat?.cultivationActive === true
@@ -3896,6 +3918,7 @@ function cloneRuntimePlayerState(player) {
             autoIdleCultivation: player.combat.autoIdleCultivation,
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
             senseQiActive: player.combat.senseQiActive,
+            wangQiActive: player.combat.wangQiActive === true,
             autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
             cultivationActive: player.combat.cultivationActive,
             lastActiveTick: player.combat.lastActiveTick,
@@ -5269,6 +5292,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             autoIdleCultivation: player.combat.autoIdleCultivation,
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
             senseQiActive: player.combat.senseQiActive,
+            wangQiActive: player.combat.wangQiActive === true,
             autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
         },
         pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),

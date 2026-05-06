@@ -209,6 +209,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         }
         applyPercentBonuses(numericStats, buffStatPercentBonuses.buff);
         applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
+        applyWorldTimeVisionModifier(numericStats, player);
         roundNumericStats(numericStats);
         return {
             stage,
@@ -505,18 +506,36 @@ function accumulateAttrPercentBonus(target, key, value) {
 }
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {
+    const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
-        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0));
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0));
     const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
-        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0));
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
+        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
     if (comprehension > 0) {
         target.playerExpRate += comprehension * 100;
         target.techniqueExpRate += comprehension * 100;
     }
-    if (luck > 0) {
+    if (luck !== 0) {
         target.lootRate += luck * 100;
         target.rareLootRate += luck * 100;
     }
+}
+
+function resolveEquipmentSpecialStats(player) {
+    const result = { comprehension: 0, luck: 0 };
+    for (const entry of player?.equipment?.slots ?? []) {
+        const item = entry?.item;
+        if (!item) {
+            continue;
+        }
+        const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
+        result.comprehension += Math.max(0, Math.trunc(Number(enhancedItem.equipSpecialStats?.comprehension ?? 0) || 0));
+        result.luck += Math.max(0, Math.trunc(Number(enhancedItem.equipSpecialStats?.luck ?? 0) || 0));
+    }
+    return result;
 }
 /**
  * applyPercentBonuses：处理PercentBonuse并更新相关状态。
@@ -626,6 +645,26 @@ function applyRealmNumericScaling(target, realmLv) {
         }
         target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
     }
+}
+
+function applyWorldTimeVisionModifier(target, player) {
+    const baseViewRange = Math.max(1, Math.round(Number(target.viewRange) || 1));
+    player.worldTimeBaseViewRange = baseViewRange;
+    const multiplier = Number(player?.worldTime?.visionMultiplier);
+    if (!Number.isFinite(multiplier) || multiplier >= 1) {
+        if (player.worldTime) {
+            player.worldTime = {
+                ...player.worldTime,
+                effectiveViewRange: baseViewRange,
+            };
+        }
+        return;
+    }
+    target.viewRange = Math.max(1, Math.ceil(baseViewRange * Math.max(0, multiplier)));
+    player.worldTime = {
+        ...player.worldTime,
+        effectiveViewRange: target.viewRange,
+    };
 }
 /**
  * resolveItemStats：规范化或转换道具Stat。

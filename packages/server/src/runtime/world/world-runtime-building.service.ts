@@ -2,7 +2,7 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.awardBuildingConstructionCompletion = exports.tickBuildingConstruction = exports.interruptBuildingConstruction = exports.dispatchStartBuildingConstruction = exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleStartBuildingConstruction = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
+exports.awardBuildingConstructionCompletion = exports.notifyBuildingConstructionCompletion = exports.awardBuildingConstructionProgress = exports.tickBuildingConstruction = exports.interruptBuildingConstruction = exports.dispatchStartBuildingConstruction = exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleStartBuildingConstruction = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
 const shared_1 = require("@mud/shared");
 
 const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
@@ -174,7 +174,13 @@ function tickBuildingConstruction(runtime, playerId) {
         }
         return;
     }
-    if (building.state !== 'building' || resolveBuildingRemainingTicksForView(building) <= 0) {
+    const previousRemainingTicks = Math.max(0, Math.trunc(Number(job.remainingTicks) || 0));
+    const nextRemainingTicks = resolveBuildingRemainingTicksForView(building);
+    const progressedTicks = Math.max(0, previousRemainingTicks - nextRemainingTicks);
+    if (progressedTicks > 0) {
+        awardBuildingConstructionProgress(runtime, playerId, progressedTicks);
+    }
+    if (building.state !== 'building' || nextRemainingTicks <= 0) {
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
         runtime.refreshPlayerContextActions?.(playerId);
@@ -186,7 +192,6 @@ function tickBuildingConstruction(runtime, playerId) {
         runtime.refreshPlayerContextActions?.(playerId);
         return;
     }
-    const nextRemainingTicks = resolveBuildingRemainingTicksForView(building);
     const nextTotalTicks = Math.max(nextRemainingTicks, Math.trunc(Number(job.totalTicks) || 0), Math.trunc(Number(building.buildStrength) || 0), 1);
     job.buildingName = resolveBuildingDisplayName(instance, building) ?? job.buildingName ?? building.defId ?? '建筑';
     job.instanceId = instance.meta.instanceId;
@@ -373,7 +378,7 @@ function resolveBuildingSkillLevel(player) {
     return Math.max(1, Math.trunc(Number(player?.buildingSkill?.level ?? 1) || 1));
 }
 function resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength) {
-    const baseMultiplier = Math.max(0.01, Number(compiled?.maxHp ?? 1) / 100);
+    const baseMultiplier = Math.max(0.01, Number(compiled?.durabilityMultiplier ?? (Number(compiled?.maxHp ?? 1) / 100)));
     return Math.max(1, Math.trunc((0, shared_1.calculateTerrainDurability)(buildingSkillLevel, baseMultiplier) * buildStrength));
 }
 function resolveCraftSkillExpToNextByLevel(level) {
@@ -428,8 +433,8 @@ function applyBuildingSkillExp(player, buildStrength) {
     player.dirtyDomains.add('profession');
     return gain;
 }
-function awardBuildingConstructionCompletion(runtime, building) {
-    const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
+function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks = 1) {
+    const playerId = normalizeBuildingRequestId(playerIdInput);
     if (!playerId) {
         return 0;
     }
@@ -437,12 +442,24 @@ function awardBuildingConstructionCompletion(runtime, building) {
     if (!player) {
         return 0;
     }
-    const gainedExp = applyBuildingSkillExp(player, building?.buildStrength);
-    const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
-    if (canQueueBuildingNotice(runtime)) {
-        runtime.queuePlayerNotice(playerId, `${buildingName}已完工`, 'success');
+    const gainedExp = applyBuildingSkillExp(player, progressTicks);
+    if (gainedExp > 0) {
+        runtime?.playerRuntimeService?.bumpPersistentRevision?.(player);
     }
     return gainedExp;
+}
+exports.awardBuildingConstructionProgress = awardBuildingConstructionProgress;
+function notifyBuildingConstructionCompletion(runtime, building) {
+    const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
+    const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
+    if (playerId && canQueueBuildingNotice(runtime)) {
+        runtime.queuePlayerNotice(playerId, `${buildingName}已完工`, 'success');
+    }
+    return 0;
+}
+exports.notifyBuildingConstructionCompletion = notifyBuildingConstructionCompletion;
+function awardBuildingConstructionCompletion(runtime, building) {
+    return notifyBuildingConstructionCompletion(runtime, building);
 }
 exports.awardBuildingConstructionCompletion = awardBuildingConstructionCompletion;
 function buildBuildingInterruptMessage(buildingNameInput, reason) {

@@ -13,12 +13,17 @@ export type RoomRole =
   | 'formation_core';
 
 export type FengShuiGrade =
+  | 'calamity'
   | 'disaster'
+  | 'great_bad'
   | 'bad'
+  | 'minor_bad'
   | 'plain'
   | 'minor_good'
+  | 'good'
   | 'great_good'
-  | 'blessed';
+  | 'blessed'
+  | 'paradise';
 
 export type FengShuiReasonSeverity = 'info' | 'good' | 'warning' | 'bad';
 

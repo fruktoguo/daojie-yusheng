@@ -2,7 +2,7 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeTilePlane = exports.TILE_FLAG_DAMAGEABLE = exports.TILE_FLAG_SAFE_ZONE = exports.TILE_FLAG_BLOCKS_SIGHT = exports.TILE_FLAG_WALKABLE = void 0;
+exports.RuntimeTilePlane = exports.TILE_FLAG_HAS_INTERACTABLE = exports.TILE_FLAG_HAS_STRUCTURE = exports.TILE_FLAG_HAS_SURFACE = exports.TILE_FLAG_DAMAGEABLE = exports.TILE_FLAG_SAFE_ZONE = exports.TILE_FLAG_BLOCKS_SIGHT = exports.TILE_FLAG_WALKABLE = void 0;
 
 const shared_1 = require("@mud/shared");
 
@@ -14,6 +14,12 @@ exports.TILE_FLAG_WALKABLE = 1 << 0;
 exports.TILE_FLAG_BLOCKS_SIGHT = 1 << 1;
 exports.TILE_FLAG_SAFE_ZONE = 1 << 2;
 exports.TILE_FLAG_DAMAGEABLE = 1 << 3;
+exports.TILE_FLAG_HAS_SURFACE = 1 << 4;
+exports.TILE_FLAG_HAS_STRUCTURE = 1 << 5;
+exports.TILE_FLAG_HAS_INTERACTABLE = 1 << 6;
+
+const INTERACTABLE_FLAG_PORTAL = 1 << 0;
+const INTERACTABLE_FLAG_STAIRS = 1 << 1;
 
 /** RuntimeTilePlane：运行时稀疏坐标地块平面，热路径以 cell index 读写。 */
 class RuntimeTilePlane {
@@ -25,6 +31,11 @@ class RuntimeTilePlane {
     cellX;
     cellY;
     tileTypeByCell;
+    terrainTypeByCell;
+    surfaceTypeByCell;
+    structureTypeByCell;
+    interactableFlagsByCell;
+    layerRevisionByCell;
     flagsByCell;
     cellCount = 0;
     minX = 0;
@@ -37,6 +48,11 @@ class RuntimeTilePlane {
         this.cellX = new Int32Array(cellCapacity);
         this.cellY = new Int32Array(cellCapacity);
         this.tileTypeByCell = new Array(cellCapacity);
+        this.terrainTypeByCell = new Array(cellCapacity);
+        this.surfaceTypeByCell = new Array(cellCapacity);
+        this.structureTypeByCell = new Array(cellCapacity);
+        this.interactableFlagsByCell = new Uint8Array(cellCapacity);
+        this.layerRevisionByCell = new Uint32Array(cellCapacity);
         this.flagsByCell = new Uint16Array(cellCapacity);
         const indexCapacity = nextPowerOfTwo(Math.max(DEFAULT_COORD_INDEX_CAPACITY, initialIndexCapacity));
         this.slotX = new Int32Array(indexCapacity);
@@ -53,7 +69,15 @@ class RuntimeTilePlane {
             const row = template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
             for (let x = 0; x < width; x += 1) {
                 const tileType = (0, shared_1.getTileTypeFromMapChar)(row[x] ?? '#');
-                plane.activateCell(x, y, tileType, buildDefaultTileFlags(tileType));
+                const seed = (0, shared_1.resolveTileLayerSeedFromTemplateContext)(tileType, x, y, (lookupX, lookupY) => {
+                    if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
+                        return null;
+                    }
+                    const lookupRow = template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
+                    return (0, shared_1.getTileTypeFromMapChar)(lookupRow[lookupX] ?? '#');
+                });
+                const cellIndex = plane.activateCell(x, y, tileType, buildDefaultTileFlags(tileType));
+                plane.applyLayerSeed(cellIndex, seed);
             }
         }
         return plane;
@@ -94,8 +118,7 @@ class RuntimeTilePlane {
         this.cellCount += 1;
         this.cellX[cellIndex] = normalizedX;
         this.cellY[cellIndex] = normalizedY;
-        this.tileTypeByCell[cellIndex] = normalizeTileType(tileType);
-        this.flagsByCell[cellIndex] = Math.max(0, Math.trunc(Number(flags) || 0));
+        this.applyLegacyTileSeed(cellIndex, tileType, flags);
         this.insertCoord(normalizedX, normalizedY, cellIndex);
         if (this.cellCount === 1) {
             this.minX = normalizedX;
@@ -128,10 +151,128 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        const normalized = normalizeTileType(tileType);
-        this.tileTypeByCell[cellIndex] = normalized;
-        this.flagsByCell[cellIndex] = buildDefaultTileFlags(normalized);
+        this.applyLegacyTileSeed(cellIndex, tileType);
         return true;
+    }
+
+    setStructureTileType(cellIndex, tileType) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        if (!seed.structure) {
+            return this.setTileType(cellIndex, tileType);
+        }
+        this.structureTypeByCell[cellIndex] = seed.structure;
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    setSurfaceTileType(cellIndex, tileType) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        if (!seed.surface) {
+            return this.setTileType(cellIndex, tileType);
+        }
+        this.surfaceTypeByCell[cellIndex] = seed.surface;
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    getTerrainType(cellIndex) {
+        return this.terrainTypeByCell[cellIndex] ?? shared_1.TerrainType.Floor;
+    }
+
+    getTerrain(cellIndex) {
+        return this.getTerrainType(cellIndex);
+    }
+
+    setTerrainType(cellIndex, terrainType) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        this.terrainTypeByCell[cellIndex] = (0, shared_1.normalizeTerrainType)(terrainType);
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    setTerrain(cellIndex, terrainType) {
+        return this.setTerrainType(cellIndex, terrainType);
+    }
+
+    getSurfaceType(cellIndex) {
+        return this.surfaceTypeByCell[cellIndex] ?? null;
+    }
+
+    getSurface(cellIndex) {
+        return this.getSurfaceType(cellIndex);
+    }
+
+    setSurfaceType(cellIndex, surfaceType) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        this.surfaceTypeByCell[cellIndex] = (0, shared_1.normalizeSurfaceType)(surfaceType);
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    setSurface(cellIndex, surfaceType) {
+        return this.setSurfaceType(cellIndex, surfaceType);
+    }
+
+    getStructureType(cellIndex) {
+        return this.structureTypeByCell[cellIndex] ?? null;
+    }
+
+    getStructure(cellIndex) {
+        return this.getStructureType(cellIndex);
+    }
+
+    setStructureType(cellIndex, structureType) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        this.structureTypeByCell[cellIndex] = (0, shared_1.normalizeStructureType)(structureType);
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    setStructure(cellIndex, structureType) {
+        return this.setStructureType(cellIndex, structureType);
+    }
+
+    getInteractableFlags(cellIndex) {
+        return this.interactableFlagsByCell[cellIndex] ?? 0;
+    }
+
+    setInteractableKinds(cellIndex, interactables) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return false;
+        }
+        this.interactableFlagsByCell[cellIndex] = buildInteractableFlags(interactables);
+        this.recomposeCell(cellIndex);
+        return true;
+    }
+
+    getLayerRevision(cellIndex) {
+        return this.layerRevisionByCell[cellIndex] ?? 0;
+    }
+
+    getTileLayerState(cellIndex) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) {
+            return null;
+        }
+        return {
+            terrain: this.getTerrainType(cellIndex),
+            surface: this.getSurfaceType(cellIndex),
+            structure: this.getStructureType(cellIndex),
+            interactableKinds: readInteractables(this.getInteractableFlags(cellIndex)),
+            interactableFlags: this.getInteractableFlags(cellIndex),
+            legacyTileType: this.getTileType(cellIndex),
+        };
     }
 
     getFlags(cellIndex) {
@@ -144,6 +285,10 @@ class RuntimeTilePlane {
         }
         this.flagsByCell[cellIndex] = Math.max(0, Math.trunc(Number(flags) || 0));
         return true;
+    }
+
+    getCompositeFlags(cellIndex) {
+        return this.getFlags(cellIndex);
     }
 
     isWalkable(cellIndex) {
@@ -212,17 +357,67 @@ class RuntimeTilePlane {
         const nextX = new Int32Array(nextCapacity);
         const nextY = new Int32Array(nextCapacity);
         const nextTileType = new Array(nextCapacity);
+        const nextTerrainType = new Array(nextCapacity);
+        const nextSurfaceType = new Array(nextCapacity);
+        const nextStructureType = new Array(nextCapacity);
+        const nextInteractableFlags = new Uint8Array(nextCapacity);
+        const nextLayerRevision = new Uint32Array(nextCapacity);
         const nextFlags = new Uint16Array(nextCapacity);
         nextX.set(this.cellX);
         nextY.set(this.cellY);
         for (let index = 0; index < this.tileTypeByCell.length; index += 1) {
             nextTileType[index] = this.tileTypeByCell[index];
+            nextTerrainType[index] = this.terrainTypeByCell[index];
+            nextSurfaceType[index] = this.surfaceTypeByCell[index];
+            nextStructureType[index] = this.structureTypeByCell[index];
         }
+        nextInteractableFlags.set(this.interactableFlagsByCell);
+        nextLayerRevision.set(this.layerRevisionByCell);
         nextFlags.set(this.flagsByCell);
         this.cellX = nextX;
         this.cellY = nextY;
         this.tileTypeByCell = nextTileType;
+        this.terrainTypeByCell = nextTerrainType;
+        this.surfaceTypeByCell = nextSurfaceType;
+        this.structureTypeByCell = nextStructureType;
+        this.interactableFlagsByCell = nextInteractableFlags;
+        this.layerRevisionByCell = nextLayerRevision;
         this.flagsByCell = nextFlags;
+    }
+
+    applyLegacyTileSeed(cellIndex, tileType, explicitFlags = undefined) {
+        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        this.applyLayerSeed(cellIndex, seed, explicitFlags);
+    }
+
+    applyLayerSeed(cellIndex, seed, explicitFlags = undefined) {
+        this.terrainTypeByCell[cellIndex] = seed.terrain;
+        this.surfaceTypeByCell[cellIndex] = seed.surface;
+        this.structureTypeByCell[cellIndex] = seed.structure;
+        this.interactableFlagsByCell[cellIndex] = buildInteractableFlags(seed.interactables);
+        this.recomposeCell(cellIndex, explicitFlags);
+    }
+
+    recomposeCell(cellIndex, explicitFlags = undefined) {
+        const interactables = readInteractables(this.interactableFlagsByCell[cellIndex] ?? 0);
+        const tileType = (0, shared_1.composeTileTypeFromLayers)(
+            this.terrainTypeByCell[cellIndex],
+            this.surfaceTypeByCell[cellIndex],
+            this.structureTypeByCell[cellIndex],
+            interactables,
+        );
+        this.tileTypeByCell[cellIndex] = tileType;
+        const preservedFlags = Number.isFinite(Number(explicitFlags))
+            ? Math.max(0, Math.trunc(Number(explicitFlags) || 0))
+            : this.flagsByCell[cellIndex] ?? 0;
+        this.flagsByCell[cellIndex] = buildLayerTileFlags(
+            this.terrainTypeByCell[cellIndex],
+            this.surfaceTypeByCell[cellIndex],
+            this.structureTypeByCell[cellIndex],
+            this.interactableFlagsByCell[cellIndex] ?? 0,
+            preservedFlags,
+        );
+        this.layerRevisionByCell[cellIndex] = ((this.layerRevisionByCell[cellIndex] ?? 0) + 1) >>> 0;
     }
 }
 exports.RuntimeTilePlane = RuntimeTilePlane;
@@ -230,31 +425,60 @@ export { RuntimeTilePlane };
 
 function buildDefaultTileFlags(tileType) {
     const normalized = normalizeTileType(tileType);
-    let flags = 0;
-    if ((0, shared_1.isTileTypeWalkable)(normalized)) {
+    const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalized);
+    return buildLayerTileFlags(seed.terrain, seed.surface, seed.structure, buildInteractableFlags(seed.interactables), 0);
+}
+
+function buildLayerTileFlags(terrainType, surfaceType, structureType, interactableFlags, preservedFlags = 0) {
+    let flags = preservedFlags & exports.TILE_FLAG_SAFE_ZONE;
+    if ((0, shared_1.isTerrainTypeWalkable)(terrainType) && !(0, shared_1.doesStructureTypeBlockMove)(structureType)) {
         flags |= exports.TILE_FLAG_WALKABLE;
     }
-    if ((0, shared_1.doesTileTypeBlockSight)(normalized)) {
+    if ((0, shared_1.doesTerrainTypeBlockSight)(terrainType) || (0, shared_1.doesStructureTypeBlockSight)(structureType)) {
         flags |= exports.TILE_FLAG_BLOCKS_SIGHT;
     }
-    if (isDamageableTile(normalized)) {
+    if ((0, shared_1.isStructureTypeDamageable)(structureType) || isDamageableTerrainType(terrainType)) {
         flags |= exports.TILE_FLAG_DAMAGEABLE;
+    }
+    if ((0, shared_1.normalizeSurfaceType)(surfaceType)) {
+        flags |= exports.TILE_FLAG_HAS_SURFACE;
+    }
+    if ((0, shared_1.normalizeStructureType)(structureType)) {
+        flags |= exports.TILE_FLAG_HAS_STRUCTURE;
+    }
+    if (interactableFlags > 0) {
+        flags |= exports.TILE_FLAG_HAS_INTERACTABLE;
     }
     return flags;
 }
 
-function isDamageableTile(tileType) {
-    return tileType === shared_1.TileType.Wall
-        || tileType === shared_1.TileType.Cloud
-        || tileType === shared_1.TileType.Tree
-        || tileType === shared_1.TileType.Bamboo
-        || tileType === shared_1.TileType.Cliff
-        || tileType === shared_1.TileType.Stone
-        || tileType === shared_1.TileType.SpiritOre
-        || tileType === shared_1.TileType.BlackIronOre
-        || tileType === shared_1.TileType.BrokenSwordHeap
-        || tileType === shared_1.TileType.Door
-        || tileType === shared_1.TileType.Window;
+function isDamageableTerrainType(terrainType) {
+    const terrain = (0, shared_1.normalizeTerrainType)(terrainType);
+    return terrain === shared_1.TerrainType.Cliff || terrain === shared_1.TerrainType.Cloud;
+}
+
+function buildInteractableFlags(interactables) {
+    let flags = 0;
+    if (Array.isArray(interactables)) {
+        if (interactables.includes(shared_1.InteractableKind.Portal)) {
+            flags |= INTERACTABLE_FLAG_PORTAL;
+        }
+        if (interactables.includes(shared_1.InteractableKind.Stairs)) {
+            flags |= INTERACTABLE_FLAG_STAIRS;
+        }
+    }
+    return flags;
+}
+
+function readInteractables(flags) {
+    const result = [];
+    if ((flags & INTERACTABLE_FLAG_PORTAL) !== 0) {
+        result.push(shared_1.InteractableKind.Portal);
+    }
+    if ((flags & INTERACTABLE_FLAG_STAIRS) !== 0) {
+        result.push(shared_1.InteractableKind.Stairs);
+    }
+    return result;
 }
 
 function normalizeTileType(tileType) {

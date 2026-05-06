@@ -302,6 +302,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
 
             autoSwitchCultivation: row.autoSwitchCultivation === true,
             senseQiActive: false,
+            wangQiActive: false,
             autoBattleSkills: normalizeAutoBattleSkills(row.autoBattleSkills),
         },
     };

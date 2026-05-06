@@ -328,8 +328,11 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
 
       const player = options.getPlayer();
       const baseViewRange = Math.max(1, Math.round(player?.viewRange ?? VIEW_RADIUS));
-      if (currentTimeState) {
-        return Math.max(1, Math.ceil(baseViewRange * currentTimeState.visionMultiplier));
+      if (player?.viewRange !== undefined) {
+        return baseViewRange;
+      }
+      if (currentTimeState?.effectiveViewRange !== undefined) {
+        return Math.max(1, Math.round(currentTimeState.effectiveViewRange));
       }
       return baseViewRange;
     },    

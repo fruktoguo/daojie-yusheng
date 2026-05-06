@@ -34,12 +34,17 @@ export const FENGSHUI_CONTROLS: Record<Exclude<FiveElement, 'neutral'>, Exclude<
 };
 
 export const FENGSHUI_GRADE_THRESHOLDS: ReadonlyArray<{ grade: FengShuiGrade; minScore: number }> = [
-  { grade: 'blessed', minScore: 850 },
-  { grade: 'great_good', minScore: 700 },
-  { grade: 'minor_good', minScore: 550 },
-  { grade: 'plain', minScore: 350 },
-  { grade: 'bad', minScore: 200 },
-  { grade: 'disaster', minScore: 0 },
+  { grade: 'paradise', minScore: 900 },
+  { grade: 'blessed', minScore: 750 },
+  { grade: 'great_good', minScore: 600 },
+  { grade: 'good', minScore: 400 },
+  { grade: 'minor_good', minScore: 200 },
+  { grade: 'plain', minScore: 0 },
+  { grade: 'minor_bad', minScore: -200 },
+  { grade: 'bad', minScore: -400 },
+  { grade: 'great_bad', minScore: -600 },
+  { grade: 'disaster', minScore: -800 },
+  { grade: 'calamity', minScore: -1000 },
 ] as const;
 
 export const FENGSHUI_DEFAULT_FUNCTION_ELEMENT_BY_ROOM_ROLE: Record<RoomRole, FiveElement> = {
@@ -55,6 +60,6 @@ export const FENGSHUI_DEFAULT_FUNCTION_ELEMENT_BY_ROOM_ROLE: Record<RoomRole, Fi
   formation_core: 'neutral',
 };
 
-export const FENGSHUI_SCORE_MIN = 0;
+export const FENGSHUI_SCORE_MIN = -1000;
 export const FENGSHUI_SCORE_MAX = 1000;
-export const FENGSHUI_BASE_SCORE = 500;
+export const FENGSHUI_BASE_SCORE = 0;

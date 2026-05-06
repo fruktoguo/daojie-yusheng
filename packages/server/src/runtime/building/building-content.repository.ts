@@ -13,6 +13,7 @@ import {
   BUILDING_TOPOLOGY_SEMI_OUTDOOR_LINK,
   BUILDING_VISUAL_LAYER_ID_BY_KEY,
   FENGSHUI_ELEMENT_INDEX,
+  getDefaultTileDurabilityMultiplier,
   type BuildingDef,
   type CompiledBuildingCatalog,
   type CompiledBuildingDef,
@@ -74,6 +75,9 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       : [];
     const traitIds = traitKeys.map((trait) => resolveTraitId(trait, traitIdsByKey, traitKeysById));
     const cost = Array.isArray(definition.economy?.cost) ? definition.economy.cost : [];
+    const visualTileType = typeof definition.visual?.tileType === 'string' && definition.visual.tileType.length > 0
+      ? definition.visual.tileType
+      : undefined;
     const compiled: CompiledBuildingDef = {
       handle: defs.length + 1,
       id,
@@ -81,9 +85,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       revision: clampInt(definition.revision, 1, Number.MAX_SAFE_INTEGER),
       layerId,
       visualLayerId: BUILDING_VISUAL_LAYER_ID_BY_KEY[definition.visual?.layer ?? 'terrain'] ?? 1,
-      visualTileType: typeof definition.visual?.tileType === 'string' && definition.visual.tileType.length > 0
-        ? definition.visual.tileType
-        : undefined,
+      visualTileType,
       glyph: normalizeOptionalText(definition.visual?.glyph) || undefined,
       color: normalizeOptionalText(definition.visual?.color) || undefined,
       allowRotate: definition.placement?.allowRotate !== false,
@@ -104,6 +106,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
         clampInt(definition.fengShui?.shaReduce, -32768, 32767),
         clampInt(definition.fengShui?.integrityWeight, -32768, 32767),
       ]),
+      durabilityMultiplier: resolveBuildingDurabilityMultiplier(definition, visualTileType),
       maxHp: clampInt(definition.economy?.maxHp, 1, Number.MAX_SAFE_INTEGER, BUILDING_DEFAULT_MAX_HP),
       buildTicks: clampInt(definition.economy?.buildTicks, 0, Number.MAX_SAFE_INTEGER, BUILDING_DEFAULT_BUILD_TICKS),
       deconstructTicks: clampInt(
@@ -209,4 +212,20 @@ function clampInt(value: unknown, min: number, max: number, fallback = 0): numbe
     return fallback;
   }
   return Math.max(min, Math.min(max, Math.trunc(numeric)));
+}
+
+function resolveBuildingDurabilityMultiplier(definition: BuildingDef, visualTileType: string | undefined): number {
+  const configured = Number(definition.economy?.durabilityMultiplier);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  const tileDefault = getDefaultTileDurabilityMultiplier(visualTileType);
+  if (tileDefault !== null) {
+    return tileDefault;
+  }
+  const legacyMaxHp = Number(definition.economy?.maxHp);
+  if (Number.isFinite(legacyMaxHp) && legacyMaxHp > 0) {
+    return Math.max(0.01, legacyMaxHp / 100);
+  }
+  return Math.max(0.01, BUILDING_DEFAULT_MAX_HP / 100);
 }

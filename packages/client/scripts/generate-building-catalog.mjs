@@ -19,6 +19,9 @@ const catalog = buildings.map((building) => ({
   cost: (building.economy?.cost ?? []).map((entry) => ({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)) })),
   traits: Array.isArray(building.fengShui?.traits) ? building.fengShui.traits.slice() : [],
   elementVector: building.fengShui?.elementVector ?? {},
+  durabilityMultiplier: Number.isFinite(Number(building.economy?.durabilityMultiplier))
+    ? Number(building.economy.durabilityMultiplier)
+    : undefined,
   maxHp: Math.max(1, Math.trunc(Number(building.economy?.maxHp) || 1)),
   stability: Math.trunc(Number(building.fengShui?.stability) || 0),
   comfort: Math.trunc(Number(building.fengShui?.comfort) || 0),

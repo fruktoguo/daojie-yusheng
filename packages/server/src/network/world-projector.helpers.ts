@@ -191,6 +191,7 @@ interface ProjectorBuildingLike {
   char: string;
   color: string;
   remainingTicks?: number;
+  totalTicks?: number;
 }
 interface ProjectorFormationLike {
   id: string;
@@ -294,6 +295,7 @@ interface ProjectedBuildingEntry {
   ch: string;
   c: string;
   rt?: number;
+  tt?: number;
 }
 interface ProjectedFormationEntry {
   x: number;
@@ -352,6 +354,7 @@ interface ProjectorPlayerLike {
   combatExp: number;
   comprehension?: number;
   luck?: number;
+  fengShuiLuck?: number;
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears?: number | null;
@@ -407,6 +410,7 @@ interface ProjectorPlayerLike {
     autoSwitchCultivation?: boolean;
     cultivationActive?: boolean;
     senseQiActive?: boolean;
+    wangQiActive?: boolean;
   };
   buffs: {
     revision: number;
@@ -417,16 +421,35 @@ interface ProjectorPlayerLike {
 
 function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
+  const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
   return {
     foundation: player.foundation,
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
     bodyTrainingLevel: Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0)),
     combatExp: player.combatExp,
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0)),
     luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0)),
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
+      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0),
   };
+}
+
+function resolveEquipmentSpecialStats(player: ProjectorPlayerLike): Partial<PlayerSpecialStats> {
+  const result: Partial<PlayerSpecialStats> = { comprehension: 0, luck: 0 };
+  for (const entry of player.equipment?.slots ?? []) {
+    const item = entry?.item;
+    if (!item) {
+      continue;
+    }
+    result.comprehension = Math.max(0, Math.trunc(Number(result.comprehension ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
+    result.luck = Math.max(0, Math.trunc(Number(result.luck ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+  }
+  return result;
 }
 
 function isSameCraftSkillState(
@@ -499,6 +522,7 @@ interface ProjectedActionPanelState {
   autoSwitchCultivation?: boolean;
   cultivationActive?: boolean;
   senseQiActive?: boolean;
+  wangQiActive?: boolean;
 }
 type ProjectedAttrDeltaView = S2C_PanelAttrDelta;
 interface ProjectedPanelState {
@@ -668,6 +692,7 @@ function buildFullWorldDelta(
         ch: entry.char,
         c: entry.color,
         rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks),
+        tt: normalizeOptionalNonNegativeInteger(entry.totalTicks),
     }));
     const formations: WorldFormationPatchView[] = Array.from(view.localFormations ?? [], (entry) => ({
         id: entry.id,
@@ -833,6 +858,7 @@ function captureWorldState(
         ch: entry.char,
         c: entry.color,
         rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks),
+        tt: normalizeOptionalNonNegativeInteger(entry.totalTicks),
     }]);
     const formations: Array<[string, ProjectedFormationEntry]> = (view.localFormations ?? []).map((entry): [string, ProjectedFormationEntry] => [entry.id, {
         x: entry.x,
@@ -974,6 +1000,7 @@ function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPa
         autoSwitchCultivation: player.combat.autoSwitchCultivation,
         cultivationActive: player.combat.cultivationActive,
         senseQiActive: player.combat.senseQiActive,
+        wangQiActive: player.combat.wangQiActive === true,
     };
 }
 function captureBuffPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['buff'] {
@@ -1231,7 +1258,8 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || previousAction.autoIdleCultivation !== player.combat.autoIdleCultivation
         || previousAction.autoSwitchCultivation !== player.combat.autoSwitchCultivation
         || previousAction.cultivationActive !== player.combat.cultivationActive
-        || previousAction.senseQiActive !== player.combat.senseQiActive;
+        || previousAction.senseQiActive !== player.combat.senseQiActive
+        || previousAction.wangQiActive !== (player.combat.wangQiActive === true);
     if (actionTopLevelChanged) {
         const actionDeltaBase = delta.act ?? { r: player.actions.revision };
         delta.act = {
@@ -1251,6 +1279,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
             cultivationActive: player.combat.cultivationActive,
             senseQiActive: player.combat.senseQiActive,
+            wangQiActive: player.combat.wangQiActive === true,
         };
     }
     const currentBuffs = projectVisiblePlayerBuffs(player);
@@ -1594,6 +1623,7 @@ function diffBuildingEntries(previous: Map<string, ProjectedBuildingEntry>, curr
                 ch: entry.ch,
                 c: entry.c,
                 rt: entry.rt,
+                tt: entry.tt,
             });
             continue;
         }
@@ -1621,6 +1651,10 @@ function diffBuildingEntries(previous: Map<string, ProjectedBuildingEntry>, curr
         }
         if (prev.rt !== entry.rt) {
             delta.rt = entry.rt ?? null;
+            changed = true;
+        }
+        if (prev.tt !== entry.tt) {
+            delta.tt = entry.tt ?? null;
             changed = true;
         }
         if (changed) {
@@ -1944,6 +1978,7 @@ function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemS
         && isSameAttributes(left.equipAttrs, right.equipAttrs)
         && isSamePartialNumericStats(left.equipStats, right.equipStats)
         && isSamePartialNumericStats(left.equipValueStats, right.equipValueStats)
+        && isSameItemSpecialStats(left.equipSpecialStats, right.equipSpecialStats)
         && isSameEquipmentEffectList(left.effects, right.effects)
         && left.healAmount === right.healAmount
         && left.healPercent === right.healPercent
@@ -1968,6 +2003,7 @@ function cloneSyncedItemStack(source: SyncedItemStack): SyncedItemStack {
         equipAttrs: source.equipAttrs ? clonePartialAttributes(source.equipAttrs) : undefined,
         equipStats: clonePartialNumericStats(source.equipStats),
         equipValueStats: clonePartialNumericStats(source.equipValueStats),
+        equipSpecialStats: source.equipSpecialStats ? { ...source.equipSpecialStats } : undefined,
         materialValues: cloneMaterialValues(source.materialValues),
         effects: source.effects?.map((entry) => cloneEquipmentEffectDef(entry)),
         consumeBuffs: source.consumeBuffs?.map((entry) => cloneConsumableBuffDef(entry)),
@@ -1975,6 +2011,11 @@ function cloneSyncedItemStack(source: SyncedItemStack): SyncedItemStack {
         mapUnlockIds: source.mapUnlockIds?.slice(),
         tileResourceGains: source.tileResourceGains?.map((entry) => ({ ...entry })),
     };
+}
+
+function isSameItemSpecialStats(left: SyncedItemStack['equipSpecialStats'], right: SyncedItemStack['equipSpecialStats']) {
+    return Math.trunc(Number(left?.comprehension ?? 0) || 0) === Math.trunc(Number(right?.comprehension ?? 0) || 0)
+        && Math.trunc(Number(left?.luck ?? 0) || 0) === Math.trunc(Number(right?.luck ?? 0) || 0);
 }
 function isSameTileResourceGainList(
     left: SyncedItemStack['tileResourceGains'],

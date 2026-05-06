@@ -24,6 +24,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     online: true,
     inWorld: true,
     senseQiActive: player.combat.senseQiActive,
+    wangQiActive: player.combat.wangQiActive === true,
     autoRetaliate: player.combat.autoRetaliate,
     autoBattleStationary: player.combat.autoBattleStationary,
     allowAoePlayerHit: player.combat.allowAoePlayerHit,
@@ -105,16 +106,33 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
 
 function resolvePlayerSpecialStats(player) {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques?.techniques ?? []);
+  const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
   return {
     foundation: Math.max(0, Math.trunc(Number(player.foundation ?? 0) || 0)),
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
     bodyTrainingLevel: Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0)),
     combatExp: Math.max(0, Math.trunc(Number(player.combatExp ?? 0) || 0)),
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0)),
     luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0)),
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
+      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0),
   };
+}
+
+function resolveEquipmentSpecialStats(player) {
+  const result = { comprehension: 0, luck: 0 };
+  for (const entry of player?.equipment?.slots ?? []) {
+    const item = entry?.item;
+    if (!item) {
+      continue;
+    }
+    result.comprehension += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
+    result.luck += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+  }
+  return result;
 }
 
 function normalizeActionEntry(entry) {

@@ -363,6 +363,7 @@ type MainMapInteractionBindingsOptions = {
  */
 
   syncSenseQiOverlay: () => void;
+  syncWangQiOverlay?: () => void;
   /**
  * setHoveredMapTile：Hovered地图Tile相关字段。
  */
@@ -512,6 +513,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         options.setPendingBuildPlacementHover(null);
       }
       options.syncSenseQiOverlay();
+      options.syncWangQiOverlay?.();
     },
   });
 }

@@ -1981,6 +1981,7 @@
       "recipeId": "forging.copper_forging_tool"
     }
   ],
+  "equip.copper_luopan": [],
   "equip.copper_pill_furnace": [
     {
       "kind": "shop",

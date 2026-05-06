@@ -4,6 +4,7 @@ import {
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
   CULTIVATION_REALM_EXP_PER_TICK,
+  buildWorldDarknessBuffState,
   type VisibleBuffState,
 } from '@mud/shared';
 
@@ -29,6 +30,14 @@ type ProjectablePlayerBuffState = {
   buffs?: {
     buffs?: VisibleBuffState[] | null;
   } | null;
+  attrs?: {
+    numericStats?: {
+      viewRange?: number | null;
+    } | null;
+  } | null;
+  viewRange?: number | null;
+  worldTime?: Parameters<typeof buildWorldDarknessBuffState>[0] | null;
+  worldTimeBaseViewRange?: number | null;
 };
 
 /** 返回客户端可见的玩家 Buff 投影；修炼状态只在投影层合成，不写回运行时 Buff 真源。 */
@@ -40,10 +49,12 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
     : [];
   const cultivationBuff = buildCultivationBuffProjection(player);
   const buildingBuff = buildBuildingBuffProjection(player);
+  const darknessBuff = buildDarknessBuffProjection(player);
   const projected = [
     ...realBuffs,
     ...(cultivationBuff ? [cultivationBuff] : []),
     ...(buildingBuff ? [buildingBuff] : []),
+    ...(darknessBuff ? [darknessBuff] : []),
   ];
   projected.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
   return projected;
@@ -129,4 +140,9 @@ function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): Visibl
     sourceSkillId: 'building:construct',
     sourceSkillName: '营造',
   };
+}
+
+function buildDarknessBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
+  const baseViewRange = Number(player.worldTimeBaseViewRange ?? player.attrs?.numericStats?.viewRange ?? player.viewRange ?? 1);
+  return buildWorldDarknessBuffState(player.worldTime, baseViewRange);
 }

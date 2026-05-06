@@ -1730,7 +1730,11 @@ export class ActionPanel {
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
-    const executeLabel = action.id === 'sect:manage' ? '打开' : '执行';
+    const executeLabel = action.id === 'sect:manage'
+      ? '打开'
+      : action.id === 'wang_qi:toggle'
+        ? (this.previewPlayer?.wangQiActive === true ? '关闭' : '开启')
+        : '执行';
 
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}" data-action-card="${action.id}" role="button" tabindex="0"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>

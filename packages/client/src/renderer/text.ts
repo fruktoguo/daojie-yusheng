@@ -613,40 +613,35 @@ function colorWithAlpha(color: string | undefined, alpha: number): string {
   return value;
 }
 
-function getFengShuiOverlayFill(grade: FengShuiOverlayState['cells'][number]['grade']): string {
-  switch (grade) {
-    case 'blessed':
-      return 'rgba(34, 197, 94, 0.30)';
-    case 'great_good':
-      return 'rgba(20, 184, 166, 0.28)';
-    case 'minor_good':
-      return 'rgba(132, 204, 22, 0.24)';
-    case 'bad':
-      return 'rgba(245, 158, 11, 0.27)';
-    case 'disaster':
-      return 'rgba(220, 38, 38, 0.34)';
-    case 'plain':
-    default:
-      return 'rgba(148, 163, 184, 0.20)';
+function getFengShuiOverlayFill(cell: FengShuiOverlayState['cells'][number]): string {
+  const score = Math.max(-1000, Math.min(1000, Math.trunc(Number(cell.score) || 0)));
+  const strength = Math.min(1, Math.abs(score) / 1000);
+  if (score === 0) {
+    return 'rgba(148, 163, 184, 0.08)';
   }
+  const alpha = 0.10 + strength * 0.32;
+  if (score > 0) {
+    const red = Math.round(80 - strength * 46);
+    const green = Math.round(150 + strength * 74);
+    const blue = Math.round(96 - strength * 40);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
+  }
+  const red = Math.round(180 + strength * 58);
+  const green = Math.round(92 - strength * 50);
+  const blue = Math.round(72 - strength * 34);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
 }
 
-function getFengShuiOverlayStroke(grade: FengShuiOverlayState['cells'][number]['grade']): string {
-  switch (grade) {
-    case 'blessed':
-      return 'rgba(74, 222, 128, 0.88)';
-    case 'great_good':
-      return 'rgba(45, 212, 191, 0.82)';
-    case 'minor_good':
-      return 'rgba(163, 230, 53, 0.76)';
-    case 'bad':
-      return 'rgba(251, 191, 36, 0.84)';
-    case 'disaster':
-      return 'rgba(248, 113, 113, 0.92)';
-    case 'plain':
-    default:
-      return 'rgba(203, 213, 225, 0.68)';
+function getFengShuiOverlayStroke(cell: FengShuiOverlayState['cells'][number]): string {
+  const score = Math.max(-1000, Math.min(1000, Math.trunc(Number(cell.score) || 0)));
+  const strength = Math.min(1, Math.abs(score) / 1000);
+  if (score === 0) {
+    return 'rgba(203, 213, 225, 0.34)';
   }
+  const alpha = 0.42 + strength * 0.50;
+  return score > 0
+    ? `rgba(74, 222, 128, ${alpha.toFixed(3)})`
+    : `rgba(248, 113, 113, ${alpha.toFixed(3)})`;
 }
 
 /** 浮动文字实例。 */
@@ -1229,11 +1224,15 @@ export class TextRenderer implements IRenderer {
             ctx.lineWidth = 2;
             ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
           }
+          if (tile && this.fengShuiOverlay && isVisible) {
+            ctx.fillStyle = 'rgba(8, 6, 5, 0.34)';
+            ctx.fillRect(sx, sy, cellSize, cellSize);
+          }
           const fengShuiCell = this.fengShuiCellByKey.get(key);
           if (fengShuiCell) {
-            ctx.fillStyle = getFengShuiOverlayFill(fengShuiCell.grade);
+            ctx.fillStyle = getFengShuiOverlayFill(fengShuiCell);
             ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-            ctx.strokeStyle = getFengShuiOverlayStroke(fengShuiCell.grade);
+            ctx.strokeStyle = getFengShuiOverlayStroke(fengShuiCell);
             ctx.lineWidth = 1;
             ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
           }
@@ -1770,6 +1769,20 @@ export class TextRenderer implements IRenderer {
                   ? '#c18b46'
                   : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
+        }
+
+        if (isBuilding && (anim.respawnTotalTicks ?? 0) > 0) {
+          const remaining = Math.max(0, Math.trunc(Number(anim.respawnRemainingTicks) || 0));
+          const total = Math.max(1, Math.trunc(Number(anim.respawnTotalTicks) || 1));
+          const ratio = Math.max(0, Math.min(1, 1 - (remaining / total)));
+          const barX = visualSx + 3;
+          const barY = visualSy + visualCellSize - 5;
+          const barW = visualCellSize - 6;
+          const barH = Math.max(3, Math.round(visualCellSize * 0.08));
+          ctx.fillStyle = 'rgba(6, 18, 30, 0.58)';
+          ctx.fillRect(barX, barY, barW, barH);
+          ctx.fillStyle = '#7dd3fc';
+          ctx.fillRect(barX, barY, Math.max(0, barW * ratio), barH);
         }
 
         if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {

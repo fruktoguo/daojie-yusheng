@@ -53,7 +53,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
             if (steps <= 0) {
                 continue;
             }
-            instanceStepPlans.push({ instance, steps });
+            instanceStepPlans.push({ instance, steps, speed });
             plannedLogicalTicks += steps;
         }
         if (plannedLogicalTicks <= 0) {
@@ -74,7 +74,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         const blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
-        for (const { instance, steps } of instanceStepPlans) {
+        for (const { instance, steps, speed } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
                 deps.tick += 1;
                 totalLogicalTicks += 1;
@@ -104,7 +104,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
                     for (const building of result.completedBuildings) {
-                        (0, world_runtime_building_service_1.awardBuildingConstructionCompletion)(deps, building);
+                        (0, world_runtime_building_service_1.notifyBuildingConstructionCompletion)(deps, building);
                     }
                 }
                 for (const transfer of result.transfers) {
@@ -115,6 +115,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                 }
                 const currentPlayerIds = instance.listPlayerIds();
                 if (currentPlayerIds.length > 0) {
+                    syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed);
                     const cultivationAuraMultiplierByPlayerId = buildCultivationAuraMultiplierByPlayerId(instance, currentPlayerIds, deps.playerRuntimeService);
                     deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
@@ -161,6 +162,40 @@ exports.WorldRuntimeInstanceTickOrchestrationService = WorldRuntimeInstanceTickO
 exports.WorldRuntimeInstanceTickOrchestrationService = WorldRuntimeInstanceTickOrchestrationService = __decorate([
     (0, common_1.Injectable)()
 ], WorldRuntimeInstanceTickOrchestrationService);
+
+function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService, tickSpeed = 1) {
+    if (!playerRuntimeService || typeof playerRuntimeService.getPlayer !== 'function') {
+        return;
+    }
+    const timeState = (0, shared_1.resolveGameTimeState)(
+        instance.tick,
+        1,
+        instance.template?.source?.time,
+        tickSpeed,
+    );
+    for (const playerId of playerIds) {
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            continue;
+        }
+        if (isSameWorldTimeVisionState(player.worldTime, timeState)) {
+            continue;
+        }
+        player.worldTime = timeState;
+        if (typeof playerRuntimeService.playerAttributesService?.recalculate === 'function') {
+            playerRuntimeService.playerAttributesService.recalculate(player);
+        }
+    }
+}
+
+function isSameWorldTimeVisionState(left, right) {
+    return Boolean(left)
+        && left.phase === right.phase
+        && left.phaseLabel === right.phaseLabel
+        && left.darknessStacks === right.darknessStacks
+        && left.visionMultiplier === right.visionMultiplier
+        && left.lightPercent === right.lightPercent;
+}
 
 export { WorldRuntimeInstanceTickOrchestrationService };
 

@@ -736,6 +736,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && shallowEqualRecord(left.equipAttrs, right.equipAttrs)
     && shallowEqualRecord(left.equipStats, right.equipStats)
     && shallowEqualRecord(left.equipValueStats, right.equipValueStats)
+    && shallowEqualRecord(left.equipSpecialStats, right.equipSpecialStats)
     && shallowEqualArray(left.effects, right.effects)
     && left.healAmount === right.healAmount
     && left.healPercent === right.healPercent
