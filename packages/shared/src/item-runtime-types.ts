@@ -653,6 +653,11 @@ export interface ItemStack {
 
   equipValueStats?: PartialNumericStats;  
   /**
+ * equipBaselinePercents：装备基准值占比源配置，冷路径编译为 equipStats。
+ */
+
+  equipBaselinePercents?: PartialNumericStats;
+  /**
  * equipSpecialStats：装备提供的悟性、幸运等特殊属性。
  */
 

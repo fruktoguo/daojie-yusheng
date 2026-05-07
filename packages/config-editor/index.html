@@ -598,6 +598,10 @@
       background: rgba(6, 15, 13, 0.34);
     }
 
+    .monster-stat-grid > .monster-element-card {
+      grid-column: 1 / -1;
+    }
+
     .monster-stat-card .map-field input,
     .monster-element-card .map-field input,
     .monster-drop-row .map-field input,
@@ -1102,7 +1106,7 @@
                 <div class="monster-editor-column editable">
                   <div class="monster-column-head">
                     <div class="monster-column-title">可编辑配置</div>
-                    <div class="monster-column-subtitle">左侧只放会保存回模板的数据。`attrs / statPercents / equipment / skills / valueStats` 都在这里维护，右侧只读预览真实生效结果。</div>
+                    <div class="monster-column-subtitle">左侧只保存怪物倾向和行为配置；六维与基础属性都按 100% 基准动态换算，右侧实时预览实际结果。</div>
                   </div>
 
                   <div class="monster-form-grid">
@@ -1162,8 +1166,8 @@
                     </label>
 
                     <label class="map-field">
-                      <span>视野范围</span>
-                      <input id="monster-view-range" type="number" min="0" step="1" />
+                      <span>实际视野预览</span>
+                      <input id="monster-view-range" type="number" min="0" step="1" readonly />
                     </label>
                     <label class="map-field">
                       <span>重生秒数</span>
@@ -1178,8 +1182,8 @@
                   <div class="editor-section">
                     <div class="editor-section-head">
                       <div>
-                        <div class="editor-section-title">六维属性</div>
-                        <div class="editor-note">优先级最高的怪物真源字段。当前大部分怪物都用这一组属性，保存时会原样写回模板。</div>
+                        <div class="editor-section-title">六维倾向</div>
+                        <div class="editor-note">这里写的是百分比倾向，不是实际六维。六项都为 100% 时就是均衡怪物；保存时会自动省略 100%。</div>
                       </div>
                     </div>
                     <div id="monster-attrs-editor" class="monster-stat-section"></div>
@@ -1188,8 +1192,8 @@
                   <div class="editor-section">
                     <div class="editor-section-head">
                       <div>
-                        <div class="editor-section-title">数值倍率</div>
-                        <div class="editor-note">这是 `statPercents`，会在六维和装备换算出的基础面板上继续乘区修正。</div>
+                        <div class="editor-section-title">基础属性倾向</div>
+                        <div class="editor-note">这里写的是百分比倾向，不是实际属性。实际属性由等级基准、品阶、层级、六维乘区和倾向一起动态计算。</div>
                       </div>
                     </div>
                     <div id="monster-stat-percents-editor" class="monster-stat-section"></div>
@@ -1215,11 +1219,11 @@
                     <textarea id="monster-skills" class="editor-textarea" spellcheck="false" placeholder="skill.predator_pounce"></textarea>
                   </div>
 
-                  <div class="editor-section">
+                  <div class="editor-section hidden">
                     <div class="editor-section-head">
                       <div>
                         <div class="editor-section-title">基准数值</div>
-                        <div class="editor-note">这是 `valueStats` 模式的真源；只有模板未直接配置 `attrs` 时，它才会参与推导真实怪物属性。</div>
+                        <div class="editor-note">旧 valueStats 入口已停用，怪物现在统一使用倾向百分比。</div>
                       </div>
                     </div>
                     <div id="monster-value-stats-editor" class="monster-stat-section"></div>
@@ -1240,7 +1244,7 @@
                 <div class="monster-editor-column preview">
                   <div class="monster-column-head">
                     <div class="monster-column-title">实际数值预览</div>
-                    <div class="monster-column-subtitle">右侧只读显示当前模板在服务端同公式下的实际结果。这里不参与保存，用来校对编辑器与真实怪物是否一致。</div>
+                    <div class="monster-column-subtitle">右侧只读显示当前表单实时计算出的实际结果，不读取生成 JSON；改等级、品阶、层级或倾向会立即重算。</div>
                   </div>
 
                   <div class="monster-preview-grid">
@@ -1266,15 +1270,15 @@
 
                   <div class="note-card">
                     <div class="editor-section-title">预览说明</div>
-                    <div class="editor-note">右侧数值会随着左侧等级、六维、倍率、装备、技能和 `valueStats` 实时重算。</div>
-                    <div class="editor-note">这里展示的是和服务端同链路推导出的结果，包括自动补全的推导六维与完整 `numericStats`。</div>
+                    <div class="editor-note">右侧数值会随着左侧等级、品阶、血脉层级、六维倾向和基础属性倾向实时重算。</div>
+                    <div class="editor-note">这里展示的是和服务端同公式推导出的结果，包括自动补全的实际六维与完整 `numericStats`。</div>
                   </div>
 
                   <div class="editor-section">
                     <div class="editor-section-head">
                       <div>
                         <div class="editor-section-title">实际六维</div>
-                        <div class="editor-note">如果模板没有直接写 `attrs`，这里会展示服务端按当前模板推导出的六维结果。</div>
+                        <div class="editor-note">这里展示当前倾向按等级基准、品阶、层级和低级削弱换算后的实际六维。</div>
                       </div>
                     </div>
                     <div id="monster-resolved-attrs-preview" class="monster-computed-section"></div>

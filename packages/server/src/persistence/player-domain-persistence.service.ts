@@ -12,7 +12,6 @@ import {
   type InventoryItemTemplateRepository,
 } from './inventory-item-persistence';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
-import { ensureBigintColumnsWithClient, ensureDoubleColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -41,13 +40,15 @@ const PLAYER_OFFLINE_GAIN_SESSION_TABLE = 'player_offline_gain_session';
 const PLAYER_OFFLINE_GAIN_REPORT_TABLE = 'player_offline_gain_report';
 const PLAYER_STATISTIC_DAY_TOTAL_TABLE = 'player_statistic_day_total';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const PERSISTED_SAFE_INTEGER_MAX = Number.MAX_SAFE_INTEGER;
 const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_WORLD_ANCHOR_TABLE]: ['respawn_x', 'respawn_y', 'last_safe_x', 'last_safe_y'],
   [PLAYER_POSITION_CHECKPOINT_TABLE]: ['x', 'y', 'facing'],
-  [PLAYER_PROGRESSION_CORE_TABLE]: ['bone_age_base_years', 'lifespan_years'],
+  [PLAYER_VITALS_TABLE]: ['hp', 'max_hp', 'qi', 'max_qi'],
+  [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'root_foundation', 'combat_exp', 'bone_age_base_years', 'lifespan_years'],
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['level'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
-  [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'realm_lv'],
+  [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'exp', 'exp_to_next', 'realm_lv'],
   [PLAYER_PERSISTENT_BUFF_STATE_TABLE]: [
     'realm_lv',
     'remaining_ticks',
@@ -57,7 +58,7 @@ const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
     'sustain_ticks_elapsed',
   ],
   [PLAYER_AUTO_BATTLE_SKILL_TABLE]: ['auto_battle_order'],
-  [PLAYER_PROFESSION_STATE_TABLE]: ['level'],
+  [PLAYER_PROFESSION_STATE_TABLE]: ['level', 'exp', 'exp_to_next'],
   [PLAYER_ACTIVE_JOB_TABLE]: ['paused_ticks', 'total_ticks', 'remaining_ticks'],
   [PLAYER_ENHANCEMENT_RECORD_TABLE]: [
     'highest_level',
@@ -65,23 +66,6 @@ const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
     'initial_target_level',
     'desired_target_level',
     'protection_start_level',
-  ],
-} as const;
-const PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
-  [PLAYER_VITALS_TABLE]: ['hp', 'max_hp', 'qi', 'max_qi'],
-  [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'root_foundation', 'combat_exp'],
-  [PLAYER_BODY_TRAINING_STATE_TABLE]: ['exp', 'exp_to_next'],
-  [PLAYER_TECHNIQUE_STATE_TABLE]: ['exp', 'exp_to_next'],
-  [PLAYER_PROFESSION_STATE_TABLE]: ['exp', 'exp_to_next'],
-  [PLAYER_STATISTIC_DAY_TOTAL_TABLE]: [
-    'spirit_gained',
-    'spirit_lost',
-    'progress_gained',
-    'progress_lost',
-    'technique_gained',
-    'technique_lost',
-    'profession_gained',
-    'profession_lost',
   ],
 } as const;
 
@@ -2104,13 +2088,13 @@ export async function savePlayerSnapshotProjectionWithClient(
   const placementX = normalizeIntegerWithFallback(placement.x, 0);
   const placementY = normalizeIntegerWithFallback(placement.y, 0);
   const placementFacing = normalizeIntegerWithFallback(placement.facing, 1);
-  const vitalsHp = normalizeMinimumNumber(vitals?.hp, 0, 0);
-  const vitalsMaxHp = normalizeMinimumNumber(vitals?.maxHp, 1, 1);
-  const vitalsQi = normalizeMinimumNumber(vitals?.qi, 0, 0);
-  const vitalsMaxQi = normalizeMinimumNumber(vitals?.maxQi, 0, 0);
-  const foundation = normalizeMinimumNumber(progression?.foundation, 0, 0);
-  const rootFoundation = normalizeMinimumNumber(progression?.rootFoundation, 0, 0);
-  const combatExp = normalizeMinimumNumber(progression?.combatExp, 0, 0);
+  const vitalsHp = normalizeMinimumInteger(vitals?.hp, 0, 0);
+  const vitalsMaxHp = normalizeMinimumInteger(vitals?.maxHp, 1, 1);
+  const vitalsQi = normalizeMinimumInteger(vitals?.qi, 0, 0);
+  const vitalsMaxQi = normalizeMinimumInteger(vitals?.maxQi, 0, 0);
+  const foundation = normalizeMinimumInteger(progression?.foundation, 0, 0);
+  const rootFoundation = normalizeMinimumInteger(progression?.rootFoundation, 0, 0);
+  const combatExp = normalizeMinimumInteger(progression?.combatExp, 0, 0);
   const boneAgeBaseYears = normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0);
   const lifeElapsedTicks = normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0);
 
@@ -2367,19 +2351,19 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
 
   if (rawDomains.has('vitals')) {
     await replacePlayerVitals(client, normalizedPlayerId, {
-      hp: normalizeMinimumNumber(snapshot.vitals?.hp, 0, 0),
-      maxHp: normalizeMinimumNumber(snapshot.vitals?.maxHp, 1, 1),
-      qi: normalizeMinimumNumber(snapshot.vitals?.qi, 0, 0),
-      maxQi: normalizeMinimumNumber(snapshot.vitals?.maxQi, 0, 0),
+      hp: normalizeMinimumInteger(snapshot.vitals?.hp, 0, 0),
+      maxHp: normalizeMinimumInteger(snapshot.vitals?.maxHp, 1, 1),
+      qi: normalizeMinimumInteger(snapshot.vitals?.qi, 0, 0),
+      maxQi: normalizeMinimumInteger(snapshot.vitals?.maxQi, 0, 0),
     });
     watermarkPatch.vitals_version = versionSeed;
   }
 
   if (rawDomains.has('progression')) {
     await replacePlayerProgressionCore(client, normalizedPlayerId, {
-      foundation: normalizeMinimumNumber(progression?.foundation, 0, 0),
-      rootFoundation: normalizeMinimumNumber(progression?.rootFoundation, 0, 0),
-      combatExp: normalizeMinimumNumber(progression?.combatExp, 0, 0),
+      foundation: normalizeMinimumInteger(progression?.foundation, 0, 0),
+      rootFoundation: normalizeMinimumInteger(progression?.rootFoundation, 0, 0),
+      combatExp: normalizeMinimumInteger(progression?.combatExp, 0, 0),
       boneAgeBaseYears: normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0),
       lifeElapsedTicks: normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0),
       lifespanYears: normalizeOptionalInteger(progression?.lifespanYears),
@@ -2642,10 +2626,10 @@ async function replacePlayerVitals(
     `,
     [
       playerId,
-      normalizeMinimumNumber(row.hp, 0, 0),
-      normalizeMinimumNumber(row.maxHp, 1, 1),
-      normalizeMinimumNumber(row.qi, 0, 0),
-      normalizeMinimumNumber(row.maxQi, 0, 0),
+      normalizeMinimumInteger(row.hp, 0, 0),
+      normalizeMinimumInteger(row.maxHp, 1, 1),
+      normalizeMinimumInteger(row.qi, 0, 0),
+      normalizeMinimumInteger(row.maxQi, 0, 0),
     ],
   );
 }
@@ -2680,9 +2664,9 @@ async function replacePlayerProgressionCore(
     `,
     [
       playerId,
-      normalizeMinimumNumber(row.foundation, 0, 0),
-      normalizeMinimumNumber(row.rootFoundation, 0, 0),
-      normalizeMinimumNumber(row.combatExp, 0, 0),
+      normalizeMinimumInteger(row.foundation, 0, 0),
+      normalizeMinimumInteger(row.rootFoundation, 0, 0),
+      normalizeMinimumInteger(row.combatExp, 0, 0),
       normalizeMinimumInteger(row.boneAgeBaseYears, 18, 0),
       normalizeMinimumInteger(row.lifeElapsedTicks, 0, 0),
       normalizeOptionalInteger(row.lifespanYears),
@@ -2759,19 +2743,19 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_VITALS_TABLE} (
       player_id varchar(100) PRIMARY KEY,
-      hp double precision NOT NULL,
-      max_hp double precision NOT NULL,
-      qi double precision NOT NULL,
-      max_qi double precision NOT NULL,
+      hp bigint NOT NULL,
+      max_hp bigint NOT NULL,
+      qi bigint NOT NULL,
+      max_qi bigint NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_PROGRESSION_CORE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
-      foundation double precision NOT NULL DEFAULT 0,
-      root_foundation double precision NOT NULL DEFAULT 0,
-      combat_exp double precision NOT NULL DEFAULT 0,
+      foundation bigint NOT NULL DEFAULT 0,
+      root_foundation bigint NOT NULL DEFAULT 0,
+      combat_exp bigint NOT NULL DEFAULT 0,
       bone_age_base_years bigint NOT NULL DEFAULT 18,
       life_elapsed_ticks bigint NOT NULL DEFAULT 0,
       lifespan_years bigint,
@@ -2780,7 +2764,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   `);
   await client.query(`
     ALTER TABLE ${PLAYER_PROGRESSION_CORE_TABLE}
-    ADD COLUMN IF NOT EXISTS root_foundation double precision NOT NULL DEFAULT 0
+    ADD COLUMN IF NOT EXISTS root_foundation bigint NOT NULL DEFAULT 0
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ATTR_STATE_TABLE} (
@@ -2798,8 +2782,8 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_BODY_TRAINING_STATE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
       level bigint NOT NULL DEFAULT 0,
-      exp double precision NOT NULL DEFAULT 0,
-      exp_to_next double precision NOT NULL DEFAULT 1,
+      exp numeric NOT NULL DEFAULT 0,
+      exp_to_next numeric NOT NULL DEFAULT 1,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
@@ -2873,8 +2857,8 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       player_id varchar(100) NOT NULL,
       tech_id varchar(120) NOT NULL,
       level bigint NOT NULL DEFAULT 1,
-      exp double precision,
-      exp_to_next double precision,
+      exp bigint,
+      exp_to_next bigint,
       realm_lv bigint,
       skills_enabled boolean NOT NULL DEFAULT true,
       raw_payload jsonb NOT NULL,
@@ -2979,8 +2963,8 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       player_id varchar(100) NOT NULL,
       profession_type varchar(32) NOT NULL,
       level bigint NOT NULL,
-      exp double precision,
-      exp_to_next double precision,
+      exp bigint,
+      exp_to_next bigint,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, profession_type)
     )
@@ -3112,14 +3096,14 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_STATISTIC_DAY_TOTAL_TABLE} (
       player_id varchar(100) NOT NULL,
       day_key varchar(16) NOT NULL,
-      spirit_gained double precision NOT NULL DEFAULT 0,
-      spirit_lost double precision NOT NULL DEFAULT 0,
-      progress_gained double precision NOT NULL DEFAULT 0,
-      progress_lost double precision NOT NULL DEFAULT 0,
-      technique_gained double precision NOT NULL DEFAULT 0,
-      technique_lost double precision NOT NULL DEFAULT 0,
-      profession_gained double precision NOT NULL DEFAULT 0,
-      profession_lost double precision NOT NULL DEFAULT 0,
+      spirit_gained bigint NOT NULL DEFAULT 0,
+      spirit_lost bigint NOT NULL DEFAULT 0,
+      progress_gained bigint NOT NULL DEFAULT 0,
+      progress_lost bigint NOT NULL DEFAULT 0,
+      technique_gained bigint NOT NULL DEFAULT 0,
+      technique_lost bigint NOT NULL DEFAULT 0,
+      profession_gained bigint NOT NULL DEFAULT 0,
+      profession_lost bigint NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, day_key)
@@ -3130,7 +3114,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     ON ${PLAYER_STATISTIC_DAY_TOTAL_TABLE}(player_id, day_key DESC)
   `);
   await ensurePlayerDomainBigintColumnsWithClient(client);
-  await ensurePlayerDomainDoubleColumnsWithClient(client);
+  await ensurePlayerBodyTrainingNumericColumnsWithClient(client);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_RECOVERY_WATERMARK_TABLE} (
       player_id varchar(100) PRIMARY KEY,
@@ -3246,11 +3230,23 @@ async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Pro
 }
 
 async function ensurePlayerDomainBigintColumnsWithClient(client: PoolClient): Promise<void> {
-  await ensureBigintColumnsWithClient(client, PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE);
+  for (const [tableName, columns] of Object.entries(PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE)) {
+    for (const column of columns) {
+      await client.query(`
+        ALTER TABLE ${tableName}
+        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+      `);
+    }
+  }
 }
 
-async function ensurePlayerDomainDoubleColumnsWithClient(client: PoolClient): Promise<void> {
-  await ensureDoubleColumnsWithClient(client, PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE);
+async function ensurePlayerBodyTrainingNumericColumnsWithClient(client: PoolClient): Promise<void> {
+  for (const column of ['exp', 'exp_to_next']) {
+    await client.query(`
+      ALTER TABLE ${PLAYER_BODY_TRAINING_STATE_TABLE}
+      ALTER COLUMN ${column} TYPE numeric USING ${column}::numeric
+    `);
+  }
 }
 
 async function replacePlayerInventoryItems(
@@ -4225,8 +4221,8 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
     rows.push({
       techId,
       level: normalizeMinimumInteger(normalized?.level, 1, 1),
-      exp: normalizeOptionalNumber(normalized?.exp),
-      expToNext: normalizeOptionalNumber(normalized?.expToNext),
+      exp: normalizeOptionalInteger(normalized?.exp),
+      expToNext: normalizeOptionalInteger(normalized?.expToNext),
       realmLv: normalizeOptionalInteger(normalized?.realmLv),
       skillsEnabled: normalized?.skillsEnabled !== false,
       rawPayload: { ...normalized, techId },
@@ -4389,8 +4385,8 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
     rows.push({
       professionType: 'alchemy',
       level: normalizeMinimumInteger(alchemy.level, 1, 1),
-      exp: normalizeOptionalNumber(alchemy.exp),
-      expToNext: normalizeOptionalNumber(alchemy.expToNext),
+      exp: normalizeOptionalInteger(alchemy.exp),
+      expToNext: normalizeOptionalInteger(alchemy.expToNext),
     });
   }
 
@@ -4399,8 +4395,8 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
     rows.push({
       professionType: 'gather',
       level: normalizeMinimumInteger(gather.level, 1, 1),
-      exp: normalizeOptionalNumber(gather.exp),
-      expToNext: normalizeOptionalNumber(gather.expToNext),
+      exp: normalizeOptionalInteger(gather.exp),
+      expToNext: normalizeOptionalInteger(gather.expToNext),
     });
   }
 
@@ -4409,8 +4405,8 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
     rows.push({
       professionType: 'building',
       level: normalizeMinimumInteger(building.level, 1, 1),
-      exp: normalizeOptionalNumber(building.exp),
-      expToNext: normalizeOptionalNumber(building.expToNext),
+      exp: normalizeOptionalInteger(building.exp),
+      expToNext: normalizeOptionalInteger(building.expToNext),
     });
   }
 
@@ -4423,8 +4419,8 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
   rows.push({
     professionType: 'enhancement',
     level: enhancementLevel,
-    exp: normalizeOptionalNumber(enhancement?.exp),
-    expToNext: normalizeOptionalNumber(enhancement?.expToNext),
+    exp: normalizeOptionalInteger(enhancement?.exp),
+    expToNext: normalizeOptionalInteger(enhancement?.expToNext),
   });
 
   return rows;
@@ -4995,8 +4991,8 @@ function applyProjectedTechniques(
         ...(rawPayload ?? {}),
         techId,
         level: normalizeMinimumInteger(rawPayload?.level ?? row.level, 1, 1),
-        exp: normalizeOptionalNumber(rawPayload?.exp ?? row.exp) ?? 0,
-        expToNext: normalizeOptionalNumber(rawPayload?.expToNext ?? row.exp_to_next) ?? 0,
+        exp: normalizeOptionalInteger(rawPayload?.exp ?? row.exp) ?? 0,
+        expToNext: normalizeOptionalInteger(rawPayload?.expToNext ?? row.exp_to_next) ?? 0,
         realmLv: normalizeOptionalInteger(rawPayload?.realmLv ?? row.realm_lv) ?? undefined,
         skillsEnabled: rawPayload?.skillsEnabled !== false && row.skills_enabled !== false,
       };
@@ -5143,10 +5139,10 @@ function applyProjectedVitals(
     return;
   }
   snapshot.vitals = {
-    hp: normalizeMinimumNumber(row.hp, snapshot.vitals.hp, 0),
-    maxHp: normalizeMinimumNumber(row.max_hp, snapshot.vitals.maxHp, 1),
-    qi: normalizeMinimumNumber(row.qi, snapshot.vitals.qi, 0),
-    maxQi: normalizeMinimumNumber(row.max_qi, snapshot.vitals.maxQi, 0),
+    hp: normalizeMinimumInteger(row.hp, snapshot.vitals.hp, 0),
+    maxHp: normalizeMinimumInteger(row.max_hp, snapshot.vitals.maxHp, 1),
+    qi: normalizeMinimumInteger(row.qi, snapshot.vitals.qi, 0),
+    maxQi: normalizeMinimumInteger(row.max_qi, snapshot.vitals.maxQi, 0),
   };
 }
 
@@ -5157,17 +5153,17 @@ function applyProjectedProgressionCore(
   if (!row) {
     return;
   }
-  snapshot.progression.foundation = normalizeMinimumNumber(
+  snapshot.progression.foundation = normalizeMinimumInteger(
     row.foundation,
     snapshot.progression.foundation,
     0,
   );
-  snapshot.progression.rootFoundation = normalizeMinimumNumber(
+  snapshot.progression.rootFoundation = normalizeMinimumInteger(
     row.root_foundation,
     snapshot.progression.rootFoundation,
     0,
   );
-  snapshot.progression.combatExp = normalizeMinimumNumber(
+  snapshot.progression.combatExp = normalizeMinimumInteger(
     row.combat_exp,
     snapshot.progression.combatExp,
     0,
@@ -5237,8 +5233,8 @@ function applyProjectedProfessions(
     }
     const state = {
       level: normalizeMinimumInteger(row.level, 1, 1),
-      exp: normalizeOptionalNumber(row.exp),
-      expToNext: normalizeOptionalNumber(row.exp_to_next),
+      exp: normalizeOptionalInteger(row.exp),
+      expToNext: normalizeOptionalInteger(row.exp_to_next),
     };
     if (professionType === 'alchemy') {
       snapshot.progression.alchemySkill = state;
@@ -5496,7 +5492,17 @@ function normalizeOptionalInteger(value: unknown): number | null {
     return null;
   }
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  const integer = Math.trunc(numeric);
+  if (integer > PERSISTED_SAFE_INTEGER_MAX) {
+    return PERSISTED_SAFE_INTEGER_MAX;
+  }
+  if (integer < -PERSISTED_SAFE_INTEGER_MAX) {
+    return -PERSISTED_SAFE_INTEGER_MAX;
+  }
+  return integer;
 }
 
 function normalizeOptionalNumber(value: unknown): number | null {
@@ -5516,17 +5522,17 @@ function normalizeIntegerWithFallback(value: unknown, fallback: unknown): number
   return normalizedFallback ?? 0;
 }
 
-function normalizeNumberWithFallback(value: unknown, fallback: unknown): number {
-  const normalized = normalizeOptionalNumber(value);
-  if (normalized != null) {
-    return normalized;
-  }
-  const normalizedFallback = normalizeOptionalNumber(fallback);
-  return normalizedFallback ?? 0;
-}
-
 function normalizeMinimumInteger(value: unknown, fallback: unknown, minimum: number): number {
   return Math.max(minimum, normalizeIntegerWithFallback(value, fallback));
+}
+
+function normalizeNumberWithFallback(value: unknown, fallback: unknown): number {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    return Math.trunc(numeric);
+  }
+  const numericFallback = Number(fallback);
+  return Number.isFinite(numericFallback) ? Math.trunc(numericFallback) : 0;
 }
 
 function normalizeMinimumNumber(value: unknown, fallback: unknown, minimum: number): number {
@@ -5650,24 +5656,24 @@ function normalizePlayerStatisticPeriodTotal(value: unknown): PlayerStatisticPer
 }
 
 function normalizeStatisticAmountRecord(record: Record<string, unknown> | null): { gained: number; lost: number; net: number } {
-  const gained = normalizeMinimumNumber(record?.gained ?? record?.amount ?? record?.count, 0, 0);
-  const lost = normalizeMinimumNumber(record?.lost, 0, 0);
+  const gained = normalizeMinimumInteger(record?.gained ?? record?.amount ?? record?.count, 0, 0);
+  const lost = normalizeMinimumInteger(record?.lost, 0, 0);
   const numericNet = Number(record?.net ?? gained - lost);
   return {
     gained,
     lost,
-    net: Number.isFinite(numericNet) ? numericNet : gained - lost,
+    net: Number.isFinite(numericNet) ? Math.trunc(numericNet) : gained - lost,
   };
 }
 
 function normalizeStatisticExpAmountRecord(record: Record<string, unknown> | null): { gained: number; lost: number; net: number } {
-  const gained = normalizeMinimumNumber(record?.expGained ?? record?.expGain, 0, 0);
-  const lost = normalizeMinimumNumber(record?.expLost, 0, 0);
+  const gained = normalizeMinimumInteger(record?.expGained ?? record?.expGain, 0, 0);
+  const lost = normalizeMinimumInteger(record?.expLost, 0, 0);
   const numericNet = Number(record?.netExp ?? gained - lost);
   return {
     gained,
     lost,
-    net: Number.isFinite(numericNet) ? numericNet : gained - lost,
+    net: Number.isFinite(numericNet) ? Math.trunc(numericNet) : gained - lost,
   };
 }
 

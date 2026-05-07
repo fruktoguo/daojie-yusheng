@@ -81,8 +81,6 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     monsterDropsByMonsterId = new Map();
     /** 妖兽运行时模板表，用于生成世界刷怪数据。 */
     monsterRuntimeTemplates = new Map();
-    /** 怪物数值基准表，启动期读取后用于倾向公式编译。 */
-    monsterRealmBaselines = loadMonsterRealmBaselines();
     /** 每张地图上的妖兽运行时状态缓存。 */
     monsterRuntimeStatesByMapId = new Map();
     /** 起始背包条目列表。 */
@@ -1228,17 +1226,26 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return null;
         }
 
-        const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, this.monsterRealmBaselines);
+        const tier = normalizeMonsterTier(raw.tier ?? (0, shared_1.inferMonsterTierFromName)(name));
 
-        const tier = resolved.tier;
+        const grade = normalizeTechniqueGrade(raw.grade);
 
-        const grade = resolved.grade;
+        const level = typeof raw.level === 'number' && Number.isFinite(raw.level)
+            ? Math.max(1, Math.trunc(raw.level))
+            : undefined;
 
-        const level = resolved.level;
+        const attrs = (0, shared_1.normalizeMonsterAttrs)((raw.attrs && typeof raw.attrs === 'object' ? raw.attrs : undefined));
 
-        const attrs = resolved.resolvedAttrs;
+        const numericStats = (0, shared_1.resolveMonsterNumericStatsFromAttributes)({
+            attrs,
+            level,
+            grade,
+            tier,
 
-        const numericStats = resolved.computedStats;
+            statPercents: (0, shared_1.normalizeMonsterStatPercents)((raw.statPercents && typeof raw.statPercents === 'object'
+                ? raw.statPercents
+                : undefined)),
+        });
 
         const maxHp = normalizeMonsterMaxHp(raw.maxHp, raw.hp, attrs, numericStats);
         if (maxHp <= 0) {
@@ -1434,40 +1441,6 @@ function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
         }
     }
     return 0;
-}
-/**
- * loadMonsterRealmBaselines：启动期读取怪物公式使用的境界基准。
- * @returns 境界基准配置。
- */
-
-function loadMonsterRealmBaselines() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const filePath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
-    try {
-        if (!fs.existsSync(filePath)) {
-            return { version: 1, levels: [] };
-        }
-        const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        const levels = Array.isArray(raw?.levels)
-            ? raw.levels
-                .map((entry) => ({
-                    realmLv: Number(entry?.realmLv),
-                    singleAttr: Number(entry?.singleAttr),
-                    singleBaseStatValue: Number.isFinite(Number(entry?.singleBaseStatValue))
-                        ? Number(entry.singleBaseStatValue)
-                        : undefined,
-                }))
-                .filter((entry) => Number.isFinite(entry.realmLv) && Number.isFinite(entry.singleAttr))
-            : [];
-        return {
-            version: Number.isFinite(Number(raw?.version)) ? Number(raw.version) : 1,
-            levels,
-        };
-    }
-    catch {
-        return { version: 1, levels: [] };
-    }
 }
 /**
  * normalizeMonsterRespawnTicks：规范化或转换怪物重生tick。
@@ -1948,6 +1921,10 @@ function normalizeItemTemplate(raw) {
     const synthesizedTileAuraGainAmount = normalizedTileAuraGainAmount
         ?? normalizedTileResourceGains?.find((entry) => entry.resourceKey === defaultTileAuraResourceKey)?.amount;
     const materialCategory = normalizeMaterialCategory(candidate.materialCategory);
+    const compiledEquipBaselineStats = (0, shared_1.compileEquipmentBaselinePercentsToActualStats)(candidate.equipBaselinePercents, {
+        grade: candidate.grade,
+        level: candidate.level,
+    });
     return {
         itemId: candidate.itemId,
 
@@ -1966,8 +1943,8 @@ function normalizeItemTemplate(raw) {
             ? candidate.equipSlot
             : undefined,
         equipAttrs: candidate.equipAttrs ? { ...candidate.equipAttrs } : undefined,
-        equipStats: candidate.equipStats ? { ...candidate.equipStats } : undefined,
-        equipValueStats: candidate.equipValueStats ? { ...candidate.equipValueStats } : undefined,
+        equipStats: compiledEquipBaselineStats ?? (candidate.equipStats ? { ...candidate.equipStats } : undefined),
+        equipValueStats: compiledEquipBaselineStats ? undefined : (candidate.equipValueStats ? { ...candidate.equipValueStats } : undefined),
         equipSpecialStats: normalizeItemSpecialStats(candidate.equipSpecialStats),
         effects: Array.isArray(candidate.effects) ? candidate.effects.slice() : undefined,
         healAmount: Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined,

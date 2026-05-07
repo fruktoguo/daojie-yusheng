@@ -10340,9 +10340,9 @@
       "level": 3,
       "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
       "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 1.5,
-        "techniqueExpPerTick": 5
+      "equipStats": {
+        "maxQi": 64,
+        "techniqueExpPerTick": 6
       }
     },
     {
@@ -10502,10 +10502,10 @@
       "level": 19,
       "desc": "枪锋烫得发暗，最适合一口气捅进人还没稳住的空门。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 15,
-        "spellAtk": 12,
-        "crit": 6
+      "equipStats": {
+        "physAtk": 17,
+        "spellAtk": 16,
+        "crit": 12
       }
     },
     {
@@ -10583,10 +10583,10 @@
       "level": 4,
       "desc": "剑脊嵌着未熄的残纹，挥动时像是在拖着半截旧阵。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 9,
-        "spellAtk": 6,
-        "hit": 3
+      "equipStats": {
+        "physAtk": 12,
+        "spellAtk": 10,
+        "hit": 8
       }
     },
     {
@@ -10641,35 +10641,14 @@
       "level": 29,
       "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
       "equipSlot": "accessory",
-      "equipAttrs": {
-        "strength": 2
-      },
-      "equipValueStats": {
-        "maxQi": 6.5,
-        "maxQiOutputPerTick": 8,
-        "spellAtk": 8,
-        "resolvePower": 7
-      },
-      "effects": [
-        {
-          "effectId": "sealed-path-march",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 7,
-            "techniqueExpPerTick": 14
-          }
-        }
-      ]
+      "equipStats": {
+        "maxQi": 104,
+        "spellAtk": 15,
+        "resolvePower": 15,
+        "maxQiOutputPerTick": 15,
+        "realmExpPerTick": 2,
+        "techniqueExpPerTick": 10
+      }
     },
     {
       "itemId": "equip.mountainseal_plate",
@@ -10679,12 +10658,6 @@
       "level": 29,
       "desc": "甲心像压着半座山印，硬碰硬时最能把人往死里钉。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 13,
-        "physDef": 21,
-        "spellDef": 13,
-        "resolvePower": 11
-      },
       "effects": [
         {
           "effectId": "mountainseal-hold",
@@ -10705,7 +10678,13 @@
             "resolvePower": 8
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "maxHp": 175,
+        "physDef": 24,
+        "spellDef": 19,
+        "resolvePower": 19
+      }
     },
     {
       "itemId": "blade_pattern_crystal",
@@ -10734,16 +10713,6 @@
       "level": 29,
       "desc": "埋在门阙下多年的古刃，拔出来时还带着一股压门镇路的狠意。",
       "equipSlot": "weapon",
-      "equipAttrs": {
-        "talent": 2
-      },
-      "equipValueStats": {
-        "physAtk": 32,
-        "spellAtk": 11,
-        "hit": 9,
-        "breakPower": 9,
-        "crit": 5
-      },
       "effects": [
         {
           "effectId": "geng-gate-break",
@@ -10766,7 +10735,14 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "physAtk": 23,
+        "spellAtk": 18,
+        "hit": 16,
+        "crit": 15,
+        "breakPower": 16
+      }
     },
     {
       "itemId": "map.ancient_ruins",
@@ -10807,11 +10783,11 @@
       "level": 29,
       "desc": "刀脊里压着多股细气，挥起来像把几路劲同时并成一股。",
       "equipSlot": "weapon",
-      "equipValueStats": {
+      "equipStats": {
         "physAtk": 24,
         "spellAtk": 24,
-        "hit": 5,
-        "maxQiOutputPerTick": 5
+        "hit": 15,
+        "maxQiOutputPerTick": 15
       }
     },
     {
@@ -10850,30 +10826,12 @@
       "level": 19,
       "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
       "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 4.5,
-        "qiRegenRate": 0.5,
-        "maxQiOutputPerTick": 6
-      },
-      "effects": [
-        {
-          "effectId": "returnbreath-cultivate",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "techniqueExpPerTick": 7
-          }
-        }
-      ]
+      "equipStats": {
+        "maxQi": 84,
+        "maxQiOutputPerTick": 14,
+        "qiRegenRate": 11,
+        "techniqueExpPerTick": 8
+      }
     },
     {
       "itemId": "mat.frost_lotus_petal",
@@ -10937,10 +10895,10 @@
       "level": 19,
       "desc": "细尺里封着一缕寒汐潮气，出手时更容易把气机引到对方脉门上。",
       "equipSlot": "weapon",
-      "equipValueStats": {
+      "equipStats": {
         "spellAtk": 18,
-        "hit": 6,
-        "cooldownSpeed": 5
+        "hit": 14,
+        "cooldownSpeed": 13
       }
     },
     {
@@ -10976,36 +10934,15 @@
       "level": 29,
       "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
       "equipSlot": "accessory",
-      "equipAttrs": {
-        "strength": 2
-      },
-      "equipValueStats": {
-        "maxQi": 6.5,
-        "maxQiOutputPerTick": 8,
-        "physDef": 7,
-        "resolvePower": 11,
-        "spellDef": 8
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-core-cultivate",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 7,
-            "techniqueExpPerTick": 14
-          }
-        }
-      ]
+      "equipStats": {
+        "maxQi": 91,
+        "physDef": 13,
+        "spellDef": 15,
+        "resolvePower": 15,
+        "maxQiOutputPerTick": 13,
+        "realmExpPerTick": 2,
+        "techniqueExpPerTick": 10
+      }
     },
     {
       "itemId": "map.deepvein_ridge",
@@ -11051,32 +10988,14 @@
       "level": 23,
       "desc": "贴身佩着时，真气会不自觉绕着经脉走得更稳。",
       "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 3.5,
-        "physDef": 6,
-        "resolvePower": 8,
-        "maxQiOutputPerTick": 5
-      },
-      "effects": [
-        {
-          "effectId": "shieldvein-breathe",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 5,
-            "techniqueExpPerTick": 7
-          }
-        }
-      ]
+      "equipStats": {
+        "maxQi": 75,
+        "physDef": 11,
+        "resolvePower": 12,
+        "maxQiOutputPerTick": 11,
+        "realmExpPerTick": 2,
+        "techniqueExpPerTick": 6
+      }
     },
     {
       "itemId": "map.wildlands",
@@ -11141,10 +11060,10 @@
       "level": 29,
       "desc": "靴底留着旧阵步纹，踩在乱流甬道里比寻常鞋更容易抢回步点。",
       "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 25,
-        "dodge": 5,
-        "cooldownSpeed": 5
+      "equipStats": {
+        "dodge": 19,
+        "cooldownSpeed": 21,
+        "moveSpeed": 28
       }
     },
     {
@@ -11252,10 +11171,10 @@
       "level": 21,
       "desc": "用净潮水精反复浸过的法衣，最擅长把杂气挡在衣外。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxQi": 6,
-        "spellDef": 14,
-        "resolvePower": 6
+      "equipStats": {
+        "maxQi": 98,
+        "spellDef": 19,
+        "resolvePower": 16
       }
     },
     {
@@ -11343,10 +11262,10 @@
       "level": 3,
       "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 10,
-        "breakPower": 4,
-        "hit": 2
+      "equipStats": {
+        "physAtk": 12,
+        "hit": 8,
+        "breakPower": 9
       }
     },
     {
@@ -11374,11 +11293,6 @@
       "level": 25,
       "desc": "披摆里缝了不少碎刃片，转身时总能带出一点险劲。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 7,
-        "dodge": 5,
-        "spellDef": 7
-      },
       "effects": [
         {
           "effectId": "cleft-cloak-shift",
@@ -11400,7 +11314,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "maxHp": 195,
+        "spellDef": 24,
+        "dodge": 22
+      }
     },
     {
       "itemId": "map.cleft_blade_plain",
@@ -11418,10 +11337,6 @@
       "level": 19,
       "desc": "鞋底尽是旧裂纹，踩在碎刃和砂地上反而不容易打滑。",
       "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 28,
-        "dodge": 4
-      },
       "effects": [
         {
           "effectId": "scar-tread-step",
@@ -11443,7 +11358,11 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "dodge": 15,
+        "moveSpeed": 23
+      }
     },
     {
       "itemId": "equip.ridgecleft_halberd",
@@ -11453,11 +11372,6 @@
       "level": 29,
       "desc": "戟锋像从山脊豁口里抽出来的一截石铁，砸出去就带裂地声。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 29,
-        "hit": 8,
-        "breakPower": 11
-      },
       "effects": [
         {
           "effectId": "ridgecleft-smash",
@@ -11479,7 +11393,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "physAtk": 28,
+        "hit": 19,
+        "breakPower": 21
+      }
     },
     {
       "itemId": "spirit_ridge_sigil",
@@ -11546,11 +11465,11 @@
       "level": 23,
       "desc": "甲面像小型岩垣一样一层层垒起，硬挡很出色。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 10,
+      "equipStats": {
+        "maxHp": 140,
         "physDef": 18,
-        "spellDef": 8,
-        "resolvePower": 6
+        "spellDef": 14,
+        "resolvePower": 13
       }
     },
     {
@@ -11561,11 +11480,6 @@
       "level": 26,
       "desc": "戒心里封着一粒炉心赤晶，真正开打时会把人的火劲再往上顶半截。",
       "equipSlot": "accessory",
-      "equipValueStats": {
-        "spellAtk": 8,
-        "crit": 4,
-        "maxQiOutputPerTick": 8
-      },
       "effects": [
         {
           "effectId": "furnace-red-burst",
@@ -11586,7 +11500,12 @@
             "breakPower": 5
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "spellAtk": 24,
+        "crit": 17,
+        "maxQiOutputPerTick": 23
+      }
     },
     {
       "itemId": "furnace_red_crystal",
@@ -11615,11 +11534,6 @@
       "level": 23,
       "desc": "刀身每一寸都被重新开锋，狠是够狠，就是不太讲后劲。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 24,
-        "hit": 7,
-        "crit": 6
-      },
       "effects": [
         {
           "effectId": "full-edge-pursue",
@@ -11641,7 +11555,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "physAtk": 20,
+        "hit": 14,
+        "crit": 15
+      }
     },
     {
       "itemId": "equip.gate_headcloth",
@@ -11651,10 +11570,6 @@
       "level": 2,
       "desc": "值夜门丁常用的厚布头巾，夜里守门的人比白日看得更细。",
       "equipSlot": "head",
-      "equipValueStats": {
-        "resolvePower": 2,
-        "hpRegenRate": 0.25
-      },
       "effects": [
         {
           "effectId": "night-watch",
@@ -11676,11 +11591,14 @@
             ]
           },
           "valueStats": {
-            "hit": 2,
-            "viewRange": 1
+            "hit": 2
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "resolvePower": 12,
+        "hpRegenRate": 8
+      }
     },
     {
       "itemId": "pill.clear_eye_elixir",
@@ -11918,33 +11836,11 @@
       "level": 19,
       "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
       "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 2
-      },
-      "equipValueStats": {
-        "spellDef": 9,
-        "viewRange": 1,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "verdant-crown-study",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "techniqueExpPerTick": 7
-          }
-        }
-      ]
+      "equipStats": {
+        "spellDef": 15,
+        "resolvePower": 12,
+        "techniqueExpPerTick": 9
+      }
     },
     {
       "itemId": "verdant_vine",
@@ -12041,11 +11937,6 @@
       "level": 23,
       "desc": "戴久了会让人下意识压低呼吸，适合在乱刃间找空门。",
       "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 6,
-        "crit": 6,
-        "viewRange": 1
-      },
       "effects": [
         {
           "effectId": "sand-ghost-haze",
@@ -12065,7 +11956,11 @@
             "hit": 4
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "dodge": 21,
+        "crit": 21
+      }
     },
     {
       "itemId": "root_seed.divine",
@@ -12140,24 +12035,6 @@
           }
         },
         {
-          "effectId": "soul-devour-growth",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "stats": {
-            "realmExpPerTick": 4,
-            "techniqueExpPerTick": 5
-          }
-        },
-        {
           "effectId": "soul-devour-feast",
           "type": "timed_buff",
           "trigger": "on_kill",
@@ -12174,12 +12051,15 @@
             "color": "#8a3f2d",
             "statMode": "flat",
             "valueStats": {
-              "qiRegenRate": 0.5,
-              "techniqueExpPerTick": 6
+              "qiRegenRate": 0.5
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "realmExpPerTick": 2,
+        "techniqueExpPerTick": 5
+      }
     },
     {
       "itemId": "valley_core",
@@ -12312,12 +12192,12 @@
       "tags": [
         "forging_tool"
       ],
-      "equipValueStats": {
-        "physAtk": 3,
-        "resolvePower": 1
-      },
       "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2
+      "alchemySpeedRate": 0.2,
+      "equipStats": {
+        "physAtk": 12,
+        "resolvePower": 8
+      }
     },
     {
       "itemId": "equip.copper_luopan",
@@ -12342,12 +12222,12 @@
       "tags": [
         "enhancement_hammer"
       ],
-      "equipValueStats": {
-        "physAtk": 4,
-        "hit": 1
-      },
       "enhancementSuccessRate": 0.01,
-      "enhancementSpeedRate": 0.2
+      "enhancementSpeedRate": 0.2,
+      "equipStats": {
+        "physAtk": 12,
+        "hit": 8
+      }
     },
     {
       "itemId": "equip.copper_pill_furnace",
@@ -12360,12 +12240,12 @@
       "tags": [
         "alchemy_furnace"
       ],
-      "equipValueStats": {
-        "qiRegenRate": 1,
-        "resolvePower": 1
-      },
       "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2
+      "alchemySpeedRate": 0.2,
+      "equipStats": {
+        "resolvePower": 10,
+        "qiRegenRate": 10
+      }
     },
     {
       "itemId": "equip.copper_array_plate",
@@ -12378,9 +12258,9 @@
       "tags": [
         "array_plate"
       ],
-      "equipValueStats": {
-        "resolvePower": 1,
-        "spellAtk": 3
+      "equipStats": {
+        "spellAtk": 12,
+        "resolvePower": 8
       }
     },
     {
@@ -12394,9 +12274,8 @@
       "tags": [
         "building_hammer"
       ],
-      "equipValueStats": {
-        "physAtk": 4,
-        "block": 1
+      "equipStats": {
+        "physAtk": 16
       }
     },
     {
@@ -12460,11 +12339,6 @@
       "level": 3,
       "desc": "矿灯虽然熄了，旧灯罩仍能帮人摸清黑暗里的轮廓。",
       "equipSlot": "head",
-      "equipValueStats": {
-        "viewRange": 1,
-        "resolvePower": 2,
-        "maxHp": 1.33
-      },
       "effects": [
         {
           "effectId": "mine-sight",
@@ -12481,11 +12355,14 @@
             ]
           },
           "valueStats": {
-            "viewRange": 1,
             "hit": 2
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "maxHp": 115,
+        "resolvePower": 15
+      }
     },
     {
       "itemId": "minor_qi_pill",
@@ -12679,11 +12556,6 @@
       "level": 19,
       "desc": "藤芯削成的细杖，挥出去时像在牵着周身经脉一同舒展开。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "spellAtk": 18,
-        "maxQi": 3,
-        "qiRegenRate": 0.5
-      },
       "effects": [
         {
           "effectId": "vineguide-sustain",
@@ -12705,7 +12577,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "maxQi": 101,
+        "spellAtk": 18,
+        "qiRegenRate": 14
+      }
     },
     {
       "itemId": "demon_wolf_bone",
@@ -12749,10 +12626,10 @@
       "level": 3,
       "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxQi": 2.25,
-        "spellDef": 4,
-        "qiRegenRate": 0.4
+      "equipStats": {
+        "maxQi": 55,
+        "spellDef": 10,
+        "qiRegenRate": 7
       }
     },
     {
@@ -12808,14 +12685,6 @@
       "level": 25,
       "desc": "面甲内侧覆着一层细土膜，能把心火和浮气一起压下去。",
       "equipSlot": "head",
-      "equipAttrs": {
-        "constitution": 2
-      },
-      "equipValueStats": {
-        "spellDef": 8,
-        "resolvePower": 8,
-        "viewRange": 1
-      },
       "effects": [
         {
           "effectId": "yuetown-mask-ground",
@@ -12836,7 +12705,11 @@
             "resolvePower": 5
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "spellDef": 27,
+        "resolvePower": 27
+      }
     },
     {
       "itemId": "moonwell_frost_sand",
@@ -12901,10 +12774,6 @@
       "level": 2,
       "desc": "鞋跟窄而硬，踩沟跃坎时比寻常鞋更利索。",
       "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 14,
-        "hit": 2
-      },
       "effects": [
         {
           "effectId": "runner-step",
@@ -12927,7 +12796,11 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "hit": 8,
+        "moveSpeed": 12
+      }
     },
     {
       "itemId": "cloud_puff",
@@ -13018,15 +12891,6 @@
       "level": 29,
       "desc": "盔壁很厚，像把半圈矮城墙扣在了头上。",
       "equipSlot": "head",
-      "equipAttrs": {
-        "constitution": 2
-      },
-      "equipValueStats": {
-        "maxHp": 4.5,
-        "physDef": 8,
-        "resolvePower": 10,
-        "hit": 3
-      },
       "effects": [
         {
           "effectId": "mount-guard-wall",
@@ -13047,7 +12911,13 @@
             "physDef": 5
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "maxHp": 175,
+        "physDef": 24,
+        "hit": 15,
+        "resolvePower": 24
+      }
     },
     {
       "itemId": "stabilizing_pellet",
@@ -13066,11 +12936,11 @@
       "level": 4,
       "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
       "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 3.5,
-        "physDef": 7,
-        "spellDef": 5,
-        "resolvePower": 3
+      "equipStats": {
+        "maxHp": 78,
+        "physDef": 11,
+        "spellDef": 9,
+        "resolvePower": 8
       }
     },
     {
@@ -13134,11 +13004,6 @@
       "level": 23,
       "desc": "鞋尖很薄，专为追着对手步点补刀。",
       "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 30,
-        "hit": 4,
-        "crit": 3
-      },
       "effects": [
         {
           "effectId": "chasing-edge-rush",
@@ -13160,7 +13025,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "hit": 14,
+        "crit": 15,
+        "moveSpeed": 20
+      }
     },
     {
       "itemId": "equip.fallrock_maul",
@@ -13170,11 +13040,6 @@
       "level": 23,
       "desc": "举起来慢，落下去却像整块坡石滚下来。",
       "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 24,
-        "breakPower": 10,
-        "hit": 6
-      },
       "effects": [
         {
           "effectId": "fallrock-burst",
@@ -13196,7 +13061,12 @@
             }
           }
         }
-      ]
+      ],
+      "equipStats": {
+        "physAtk": 20,
+        "hit": 14,
+        "breakPower": 15
+      }
     },
     {
       "itemId": "mat.scorchheart_petal",
@@ -15076,11 +14946,11 @@
           "level": 4,
           "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
           "equipSlot": "body",
-          "equipValueStats": {
-            "maxHp": 3.5,
-            "physDef": 7,
-            "spellDef": 5,
-            "resolvePower": 3
+          "equipStats": {
+            "maxHp": 78,
+            "physDef": 11,
+            "spellDef": 9,
+            "resolvePower": 8
           },
           "count": 1
         }
@@ -15746,10 +15616,6 @@
           "level": 2,
           "desc": "鞋跟窄而硬，踩沟跃坎时比寻常鞋更利索。",
           "equipSlot": "legs",
-          "equipValueStats": {
-            "moveSpeed": 14,
-            "hit": 2
-          },
           "effects": [
             {
               "effectId": "runner-step",
@@ -15773,6 +15639,10 @@
               }
             }
           ],
+          "equipStats": {
+            "hit": 8,
+            "moveSpeed": 12
+          },
           "count": 1
         },
         {
@@ -15783,9 +15653,9 @@
           "level": 3,
           "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
           "equipSlot": "accessory",
-          "equipValueStats": {
-            "maxQi": 1.5,
-            "techniqueExpPerTick": 5
+          "equipStats": {
+            "maxQi": 64,
+            "techniqueExpPerTick": 6
           },
           "count": 1
         },
@@ -15797,10 +15667,10 @@
           "level": 3,
           "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。",
           "equipSlot": "body",
-          "equipValueStats": {
-            "maxQi": 2.25,
-            "spellDef": 4,
-            "qiRegenRate": 0.4
+          "equipStats": {
+            "maxQi": 55,
+            "spellDef": 10,
+            "qiRegenRate": 7
           },
           "count": 1
         }
@@ -16514,30 +16384,12 @@
           "level": 19,
           "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
           "equipSlot": "accessory",
-          "equipValueStats": {
-            "maxQi": 4.5,
-            "qiRegenRate": 0.5,
-            "maxQiOutputPerTick": 6
+          "equipStats": {
+            "maxQi": 84,
+            "maxQiOutputPerTick": 14,
+            "qiRegenRate": 11,
+            "techniqueExpPerTick": 8
           },
-          "effects": [
-            {
-              "effectId": "returnbreath-cultivate",
-              "type": "progress_boost",
-              "statMode": "flat",
-              "conditions": {
-                "mode": "all",
-                "items": [
-                  {
-                    "type": "is_cultivating",
-                    "value": true
-                  }
-                ]
-              },
-              "valueStats": {
-                "techniqueExpPerTick": 7
-              }
-            }
-          ],
           "count": 1
         },
         {
@@ -17320,33 +17172,11 @@
           "level": 19,
           "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
           "equipSlot": "head",
-          "equipAttrs": {
-            "spirit": 2
+          "equipStats": {
+            "spellDef": 15,
+            "resolvePower": 12,
+            "techniqueExpPerTick": 9
           },
-          "equipValueStats": {
-            "spellDef": 9,
-            "viewRange": 1,
-            "resolvePower": 5
-          },
-          "effects": [
-            {
-              "effectId": "verdant-crown-study",
-              "type": "progress_boost",
-              "statMode": "flat",
-              "conditions": {
-                "mode": "all",
-                "items": [
-                  {
-                    "type": "is_cultivating",
-                    "value": true
-                  }
-                ]
-              },
-              "valueStats": {
-                "techniqueExpPerTick": 7
-              }
-            }
-          ],
           "count": 1
         }
       ],
@@ -17644,11 +17474,6 @@
           "level": 26,
           "desc": "戒心里封着一粒炉心赤晶，真正开打时会把人的火劲再往上顶半截。",
           "equipSlot": "accessory",
-          "equipValueStats": {
-            "spellAtk": 8,
-            "crit": 4,
-            "maxQiOutputPerTick": 8
-          },
           "effects": [
             {
               "effectId": "furnace-red-burst",
@@ -17670,6 +17495,11 @@
               }
             }
           ],
+          "equipStats": {
+            "spellAtk": 24,
+            "crit": 17,
+            "maxQiOutputPerTick": 23
+          },
           "count": 1
         }
       ],
@@ -17765,24 +17595,6 @@
               }
             },
             {
-              "effectId": "soul-devour-growth",
-              "type": "progress_boost",
-              "statMode": "flat",
-              "conditions": {
-                "mode": "all",
-                "items": [
-                  {
-                    "type": "is_cultivating",
-                    "value": true
-                  }
-                ]
-              },
-              "stats": {
-                "realmExpPerTick": 4,
-                "techniqueExpPerTick": 5
-              }
-            },
-            {
               "effectId": "soul-devour-feast",
               "type": "timed_buff",
               "trigger": "on_kill",
@@ -17799,12 +17611,15 @@
                 "color": "#8a3f2d",
                 "statMode": "flat",
                 "valueStats": {
-                  "qiRegenRate": 0.5,
-                  "techniqueExpPerTick": 6
+                  "qiRegenRate": 0.5
                 }
               }
             }
           ],
+          "equipStats": {
+            "realmExpPerTick": 2,
+            "techniqueExpPerTick": 5
+          },
           "count": 1
         }
       ],

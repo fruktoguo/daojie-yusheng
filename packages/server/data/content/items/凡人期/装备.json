@@ -19,10 +19,6 @@
     "level": 2,
     "desc": "值夜门丁常用的厚布头巾，夜里守门的人比白日看得更细。",
     "equipSlot": "head",
-    "equipValueStats": {
-      "resolvePower": 2,
-      "hpRegenRate": 0.25
-    },
     "effects": [
       {
         "effectId": "night-watch",
@@ -44,11 +40,14 @@
           ]
         },
         "valueStats": {
-          "hit": 2,
-          "viewRange": 1
+          "hit": 2
         }
       }
-    ]
+    ],
+    "equipBaselinePercents": {
+      "resolvePower": 110,
+      "hpRegenRate": 70
+    }
   },
   {
     "itemId": "equip.trench_runner_boots",
@@ -58,10 +57,6 @@
     "level": 2,
     "desc": "鞋跟窄而硬，踩沟跃坎时比寻常鞋更利索。",
     "equipSlot": "legs",
-    "equipValueStats": {
-      "moveSpeed": 14,
-      "hit": 2
-    },
     "effects": [
       {
         "effectId": "runner-step",
@@ -84,7 +79,11 @@
           }
         }
       }
-    ]
+    ],
+    "equipBaselinePercents": {
+      "hit": 70,
+      "moveSpeed": 110
+    }
   },
   {
     "itemId": "equip.herb_mist_robe",
@@ -94,10 +93,10 @@
     "level": 3,
     "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。",
     "equipSlot": "body",
-    "equipValueStats": {
-      "maxQi": 2.25,
-      "spellDef": 4,
-      "qiRegenRate": 0.4
+    "equipBaselinePercents": {
+      "maxQi": 60,
+      "spellDef": 85,
+      "qiRegenRate": 65
     }
   },
   {
@@ -108,9 +107,9 @@
     "level": 3,
     "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
     "equipSlot": "accessory",
-    "equipValueStats": {
-      "maxQi": 1.5,
-      "techniqueExpPerTick": 5
+    "equipBaselinePercents": {
+      "maxQi": 70,
+      "techniqueExpPerTick": 110
     }
   },
   {
@@ -121,10 +120,10 @@
     "level": 3,
     "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。",
     "equipSlot": "weapon",
-    "equipValueStats": {
-      "physAtk": 10,
-      "breakPower": 4,
-      "hit": 2
+    "equipBaselinePercents": {
+      "physAtk": 85,
+      "hit": 60,
+      "breakPower": 65
     }
   },
   {
@@ -135,11 +134,6 @@
     "level": 3,
     "desc": "矿灯虽然熄了，旧灯罩仍能帮人摸清黑暗里的轮廓。",
     "equipSlot": "head",
-    "equipValueStats": {
-      "viewRange": 1,
-      "resolvePower": 2,
-      "maxHp": 1.33
-    },
     "effects": [
       {
         "effectId": "mine-sight",
@@ -156,11 +150,14 @@
           ]
         },
         "valueStats": {
-          "viewRange": 1,
           "hit": 2
         }
       }
-    ]
+    ],
+    "equipBaselinePercents": {
+      "maxHp": 70,
+      "resolvePower": 110
+    }
   },
   {
     "itemId": "equip.broken_rune_blade",
@@ -170,10 +167,10 @@
     "level": 4,
     "desc": "剑脊嵌着未熄的残纹，挥动时像是在拖着半截旧阵。",
     "equipSlot": "weapon",
-    "equipValueStats": {
-      "physAtk": 9,
-      "spellAtk": 6,
-      "hit": 3
+    "equipBaselinePercents": {
+      "physAtk": 85,
+      "spellAtk": 70,
+      "hit": 55
     }
   },
   {
@@ -184,11 +181,11 @@
     "level": 4,
     "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
     "equipSlot": "body",
-    "equipValueStats": {
-      "maxHp": 3.5,
-      "physDef": 7,
-      "spellDef": 5,
-      "resolvePower": 3
+    "equipBaselinePercents": {
+      "maxHp": 45,
+      "physDef": 75,
+      "spellDef": 65,
+      "resolvePower": 55
     }
   },
   {
@@ -233,24 +230,6 @@
         }
       },
       {
-        "effectId": "soul-devour-growth",
-        "type": "progress_boost",
-        "statMode": "flat",
-        "conditions": {
-          "mode": "all",
-          "items": [
-            {
-              "type": "is_cultivating",
-              "value": true
-            }
-          ]
-        },
-        "stats": {
-          "realmExpPerTick": 4,
-          "techniqueExpPerTick": 5
-        }
-      },
-      {
         "effectId": "soul-devour-feast",
         "type": "timed_buff",
         "trigger": "on_kill",
@@ -267,12 +246,15 @@
           "color": "#8a3f2d",
           "statMode": "flat",
           "valueStats": {
-            "qiRegenRate": 0.5,
-            "techniqueExpPerTick": 6
+            "qiRegenRate": 0.5
           }
         }
       }
-    ]
+    ],
+    "equipBaselinePercents": {
+      "realmExpPerTick": 105,
+      "techniqueExpPerTick": 75
+    }
   },
   {
     "itemId": "equip.copper_pill_furnace",
@@ -285,12 +267,12 @@
     "tags": [
       "alchemy_furnace"
     ],
-    "equipValueStats": {
-      "qiRegenRate": 1,
-      "resolvePower": 1
-    },
     "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2
+    "alchemySpeedRate": 0.2,
+    "equipBaselinePercents": {
+      "resolvePower": 90,
+      "qiRegenRate": 90
+    }
   },
   {
     "itemId": "equip.copper_enhancement_hammer",
@@ -303,12 +285,12 @@
     "tags": [
       "enhancement_hammer"
     ],
-    "equipValueStats": {
-      "physAtk": 4,
-      "hit": 1
-    },
     "enhancementSuccessRate": 0.01,
-    "enhancementSpeedRate": 0.2
+    "enhancementSpeedRate": 0.2,
+    "equipBaselinePercents": {
+      "physAtk": 110,
+      "hit": 70
+    }
   },
   {
     "itemId": "equip.copper_forging_tool",
@@ -321,12 +303,12 @@
     "tags": [
       "forging_tool"
     ],
-    "equipValueStats": {
-      "physAtk": 3,
-      "resolvePower": 1
-    },
     "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2
+    "alchemySpeedRate": 0.2,
+    "equipBaselinePercents": {
+      "physAtk": 110,
+      "resolvePower": 70
+    }
   },
   {
     "itemId": "equip.copper_building_hammer",
@@ -339,9 +321,8 @@
     "tags": [
       "building_hammer"
     ],
-    "equipValueStats": {
-      "physAtk": 4,
-      "block": 1
+    "equipBaselinePercents": {
+      "physAtk": 150
     }
   },
   {
@@ -355,9 +336,9 @@
     "tags": [
       "array_plate"
     ],
-    "equipValueStats": {
-      "resolvePower": 1,
-      "spellAtk": 3
+    "equipBaselinePercents": {
+      "spellAtk": 110,
+      "resolvePower": 70
     }
   }
 ]

@@ -366,6 +366,64 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
   return Object.keys(actual).length > 0 ? actual : undefined;
 }
 
+/** 装备基准占比的等级基础值：0 级为 8，每级增加 0.5。 */
+export const EQUIPMENT_BASELINE_BASE_VALUE = 8;
+
+/** 装备基准占比的每级成长值。 */
+export const EQUIPMENT_BASELINE_VALUE_PER_LEVEL = 0.5;
+
+/** 装备基准占比的品阶指数倍率。 */
+export const EQUIPMENT_BASELINE_GRADE_MULTIPLIER = 1.2;
+
+/** 装备基准占比中，每 1 基准对应的特殊实际值。 */
+export const EQUIPMENT_BASELINE_STAT_POINTS_PER_VALUE_OVERRIDE: Partial<Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>> = {
+  realmExpPerTick: 0.1,
+  techniqueExpPerTick: 0.5,
+};
+
+/** 计算装备等级基准量化值。 */
+export function getEquipmentBaselineValue(level?: number): number {
+  const normalizedLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level ?? 0)) : 0;
+  return EQUIPMENT_BASELINE_BASE_VALUE + normalizedLevel * EQUIPMENT_BASELINE_VALUE_PER_LEVEL;
+}
+
+/** 计算装备品阶倍率。 */
+export function getEquipmentBaselineGradeMultiplier(grade?: TechniqueGrade): number {
+  const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal'));
+  return EQUIPMENT_BASELINE_GRADE_MULTIPLIER ** gradeIndex;
+}
+
+/** 把装备“基准值占比”源配置编译为运行时实际数值。 */
+export function compileEquipmentBaselinePercentsToActualStats(
+  baselinePercents?: PartialNumericStats,
+  context: { grade?: TechniqueGrade; level?: number } = {},
+): PartialNumericStats | undefined {
+  if (!baselinePercents) {
+    return undefined;
+  }
+
+  const baselineValue = getEquipmentBaselineValue(context.level);
+  const gradeMultiplier = getEquipmentBaselineGradeMultiplier(context.grade);
+  const stats: PartialNumericStats = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    if (key === 'viewRange') {
+      continue;
+    }
+    const percent = baselinePercents[key];
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || percent === 0) {
+      continue;
+    }
+    const pointsPerValue = EQUIPMENT_BASELINE_STAT_POINTS_PER_VALUE_OVERRIDE[key]
+      ?? NUMERIC_STAT_POINTS_PER_VALUE[key];
+    const actualValue = Math.round(baselineValue * gradeMultiplier * (percent / 100) * pointsPerValue);
+    if (actualValue !== 0) {
+      stats[key] = actualValue;
+    }
+  }
+
+  return Object.keys(stats).length > 0 ? stats : undefined;
+}
+
 /** 按配置值口径计算 value_stats 的价值。 */
 export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericStats): ValueSummary {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

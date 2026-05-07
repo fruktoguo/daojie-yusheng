@@ -7,6 +7,8 @@ import {
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
+  getBodyTrainingExpToNext,
+  normalizeBodyTrainingState,
 } from '@mud/shared';
 
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
@@ -974,6 +976,20 @@ function testInfuseBodyTrainingDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['body_training', 'progression', 'attr'], ['snapshot']);
 }
 
+function testBodyTrainingHugeExpStaysPersistable(): void {
+  const expToNext = getBodyTrainingExpToNext(523);
+  assert.ok(expToNext > 1e45, `expected high-level body training expToNext to keep numeric scale, got ${expToNext}`);
+
+  const normalized = normalizeBodyTrainingState({
+    level: 523,
+    exp: 2.4123185340782668e45,
+    expToNext: 2.4123185340782668e45,
+  });
+  assert.equal(normalized.level, 523);
+  assert.ok(normalized.exp > 1e45, `expected high-level body training exp to stay visible, got ${normalized.exp}`);
+  assert.equal(normalized.expToNext, expToNext);
+}
+
 function testApplyTemporaryBuffDirtyDomain(): void {
   const playerId = 'player:apply-buff';
   const service = createHydratedService(playerId);
@@ -1357,6 +1373,7 @@ testLogbookDirtyDomain();
   testEquipItemSplitsStackedEquipment();
   testBodyTrainingRecalculateDirtyDomain();
   testInfuseBodyTrainingDirtyDomain();
+  testBodyTrainingHugeExpStaysPersistable();
   testApplyTemporaryBuffDirtyDomain();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();

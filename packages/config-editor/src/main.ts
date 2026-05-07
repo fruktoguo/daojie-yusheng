@@ -466,34 +466,34 @@ const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
   accessory: '饰品',
 };
 
-const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: NumericScalarStatKey[] }> = [
+const MONSTER_TENDENCY_STAT_GROUPS: Array<{ title: string; note: string; keys: NumericScalarStatKey[] }> = [
   {
-    title: '生存与攻防',
-    note: '基础战斗面板，直接决定怪物的血量、攻击、防御和命中闪避。',
+    title: '生存与攻防倾向',
+    note: '100% 表示使用当前等级、品阶和层级的基准值；留空或 100% 保存时都会按默认处理。',
     keys: ['maxHp', 'maxQi', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge'],
   },
   {
-    title: '暴击与对抗',
-    note: '控制暴击、免爆以及破招、化解这类对抗属性。',
+    title: '暴击与对抗倾向',
+    note: '控制暴击、免爆以及破招、化解这类对抗属性的偏科程度。',
     keys: ['crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower'],
   },
   {
-    title: '回复与节奏',
-    note: '控制回复、冷却、视野和移动等持续战斗表现。',
-    keys: ['maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed', 'viewRange', 'moveSpeed'],
+    title: '回复、视野与移动倾向',
+    note: '视野、回血和回灵只按自身倾向换算；移动和灵力输出仍吃六维与品阶公式。',
+    keys: ['maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'viewRange', 'moveSpeed'],
   },
   {
-    title: '额外倍率',
-    note: '保留给特殊怪物使用，通常不用每项都配置。',
-    keys: ['auraCostReduce', 'auraPowerRate', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'lootRate', 'rareLootRate'],
+    title: '成长速度倾向',
+    note: '用于修为速度和功法速度的基础属性预览。',
+    keys: ['realmExpPerTick', 'techniqueExpPerTick'],
   },
 ];
 
 const MONSTER_COMPUTED_STAT_GROUPS: Array<{ title: string; keys: NumericScalarStatKey[] }> = [
-  ...MONSTER_VALUE_STAT_GROUPS.map((group) => ({ title: group.title, keys: group.keys })),
+  ...MONSTER_TENDENCY_STAT_GROUPS.map((group) => ({ title: group.title.replace('倾向', ''), keys: group.keys })),
   {
     title: '其余属性',
-    keys: NUMERIC_SCALAR_STAT_KEYS.filter((key) => !MONSTER_VALUE_STAT_GROUPS.some((group) => group.keys.includes(key))),
+    keys: NUMERIC_SCALAR_STAT_KEYS.filter((key) => !MONSTER_TENDENCY_STAT_GROUPS.some((group) => group.keys.includes(key))),
   },
 ];
 
@@ -1523,20 +1523,22 @@ function buildMonsterScalarStatInput(key: NumericScalarStatKey, value: number | 
 }
 
 function buildMonsterAttrInput(key: (typeof ATTR_KEYS)[number], value: number | undefined): string {
+  const displayValue = value ?? 100;
   return `
     <div class="monster-stat-card">
       <label class="map-field">
         <span>
           <span>${escapeHtml(ATTR_KEY_LABELS[key])}</span>
-          <span class="monster-stat-suffix">${escapeHtml(key)}</span>
+          <span class="monster-stat-suffix">${escapeHtml(key)} %</span>
         </span>
-        <input data-attr-key="${escapeHtml(key)}" type="number" min="0" step="1" value="${escapeHtml(stringifyOptionalNumber(value))}" />
+        <input data-attr-key="${escapeHtml(key)}" type="number" min="0" step="1" value="${escapeHtml(String(displayValue))}" placeholder="100" />
       </label>
     </div>
   `;
 }
 
 function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number | undefined): string {
+  const displayValue = value ?? 100;
   return `
     <div class="monster-stat-card">
       <label class="map-field">
@@ -1544,7 +1546,7 @@ function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number |
           <span>${escapeHtml(NUMERIC_SCALAR_STAT_LABELS[key])}</span>
           <span class="monster-stat-suffix">${escapeHtml(key)} %</span>
         </span>
-        <input data-stat-percent-key="${escapeHtml(key)}" type="number" min="0" step="any" value="${escapeHtml(stringifyOptionalNumber(value))}" />
+        <input data-stat-percent-key="${escapeHtml(key)}" type="number" min="0" step="1" value="${escapeHtml(String(displayValue))}" placeholder="100" />
       </label>
     </div>
   `;
@@ -1556,7 +1558,7 @@ function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
     <div class="monster-stat-section">
       <div class="monster-group-head">
         <div class="monster-group-title">六维倾向</div>
-        <div class="monster-group-note">这里填写六维倾向百分比；留空按 100% 均衡处理。</div>
+        <div class="monster-group-note">这里填写六维倾向百分比；100% 表示当前等级的均衡基准，保存时会省略 100%。</div>
       </div>
       <div class="monster-stat-grid">
         ${ATTR_KEYS.map((key) => buildMonsterAttrInput(key, attrs?.[key])).join('')}
@@ -1571,10 +1573,20 @@ function renderMonsterStatPercentsEditor(statPercents?: NumericStatPercentages):
     <div class="monster-stat-section">
       <div class="monster-group-head">
         <div class="monster-group-title">基础数值倾向</div>
-        <div class="monster-group-note">这里填写基础数值倾向百分比；留空按 100% 均衡处理。</div>
+        <div class="monster-group-note">这里填写基础数值倾向百分比；右侧实际面板会随着这里的数值即时重算。</div>
       </div>
       <div class="monster-stat-grid">
-        ${NUMERIC_SCALAR_STAT_KEYS.map((key) => buildMonsterStatPercentInput(key, statPercents?.[key])).join('')}
+        ${MONSTER_TENDENCY_STAT_GROUPS.map((group) => `
+          <div class="monster-element-card">
+            <div class="monster-group-head">
+              <div class="monster-group-title">${escapeHtml(group.title)}</div>
+              <div class="monster-group-note">${escapeHtml(group.note)}</div>
+            </div>
+            <div class="monster-stat-grid">
+              ${group.keys.map((key) => buildMonsterStatPercentInput(key, statPercents?.[key])).join('')}
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
@@ -1630,19 +1642,10 @@ function buildMonsterElementStatInputs(groupKey: 'elementDamageBonus' | 'element
   `;
 }
 
-/** 渲染怪物基础数值、额外倍率和五行增减的编辑区。 */
+/** 新怪物公式不再使用 valueStats，保留空渲染以兼容旧 DOM 入口。 */
 function renderMonsterValueStatsEditor(stats?: PartialNumericStats): void {
-  monsterValueStatsEditorEl.innerHTML = MONSTER_VALUE_STAT_GROUPS.map((group) => `
-    <div class="monster-stat-section">
-      <div class="monster-group-head">
-        <div class="monster-group-title">${escapeHtml(group.title)}</div>
-        <div class="monster-group-note">${escapeHtml(group.note)}</div>
-      </div>
-      <div class="monster-stat-grid">
-        ${group.keys.map((key) => buildMonsterScalarStatInput(key, stats?.[key])).join('')}
-      </div>
-    </div>
-  `).join('') + buildMonsterElementStatInputs('elementDamageBonus', stats) + buildMonsterElementStatInputs('elementDamageReduce', stats);
+  void stats;
+  monsterValueStatsEditorEl.innerHTML = '';
 }
 
 /** 只读展示怪物经过推导后的六维结果。 */
@@ -1876,12 +1879,15 @@ function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
     if (!key) {
       continue;
     }
-    const value = readOptionalDecimalInput(input.value, `六维属性 ${ATTR_KEY_LABELS[key]}`);
+    const value = readOptionalDecimalInput(input.value, `六维倾向 ${ATTR_KEY_LABELS[key]}`);
     if (value === undefined) {
       continue;
     }
+    if (Math.round(value) === 100) {
+      continue;
+    }
     attrs ??= {};
-    attrs[key] = Math.max(0, Math.floor(value));
+    attrs[key] = Math.max(0, Math.round(value));
   }
   return attrs;
 }
@@ -1894,12 +1900,15 @@ function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined
     if (!key) {
       continue;
     }
-    const value = readOptionalDecimalInput(input.value, `数值倍率 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
+    const value = readOptionalDecimalInput(input.value, `基础数值倾向 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
     if (value === undefined) {
       continue;
     }
+    if (Math.round(value) === 100) {
+      continue;
+    }
     statPercents ??= {};
-    statPercents[key] = Math.max(0, value);
+    statPercents[key] = Math.max(0, Math.round(value));
   }
   return statPercents;
 }

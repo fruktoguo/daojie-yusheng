@@ -35,6 +35,8 @@ import {
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
 
+const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
+
 /** 创建全零六维属性对象 */
 export function createZeroAttributes(): Attributes {
   return {
@@ -253,19 +255,27 @@ export function shouldWarnTechniqueLearningDifficulty(
 
 /** 获取当前炼体层数升到下一层所需经验 */
 export function getBodyTrainingExpToNext(level: number): number {
-  const normalizedLevel = Math.max(0, Math.floor(level));
-  return Math.max(1, Math.round(BODY_TRAINING_EXP_BASE * (BODY_TRAINING_EXP_GROWTH_RATE ** normalizedLevel)));
+  const normalizedLevel = normalizeBodyTrainingInteger(level, 0);
+  const rawExpToNext = BODY_TRAINING_EXP_BASE * (BODY_TRAINING_EXP_GROWTH_RATE ** normalizedLevel);
+  if (!Number.isFinite(rawExpToNext) || rawExpToNext >= BODY_TRAINING_FINITE_NUMBER_MAX) {
+    return BODY_TRAINING_FINITE_NUMBER_MAX;
+  }
+  return Math.max(1, Math.round(rawExpToNext));
 }
 
 /** 规范化炼体状态，并把超额经验滚入后续层数 */
 export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | null): BodyTrainingState {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  let level = Math.max(0, Math.floor(Number(state?.level ?? 0) || 0));
-  let exp = Math.max(0, Math.floor(Number(state?.exp ?? 0) || 0));
+  let level = normalizeBodyTrainingInteger(state?.level, 0);
+  let exp = normalizeBodyTrainingInteger(state?.exp, 0);
   let expToNext = getBodyTrainingExpToNext(level);
 
   while (expToNext > 0 && exp >= expToNext) {
+    if (level >= BODY_TRAINING_FINITE_NUMBER_MAX) {
+      exp = Math.min(exp, Math.max(0, expToNext - 1));
+      break;
+    }
     exp -= expToNext;
     level += 1;
     /** expToNext：exp To新版。 */
@@ -277,6 +287,14 @@ export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | 
     exp,
     expToNext,
   };
+}
+
+function normalizeBodyTrainingInteger(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(BODY_TRAINING_FINITE_NUMBER_MAX, Math.max(0, Math.floor(numeric)));
 }
 
 /** 计算炼体累计提供的全六维百分比加成 */

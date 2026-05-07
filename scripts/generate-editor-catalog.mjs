@@ -58,6 +58,7 @@ const MATERIAL_CATEGORY_TAGS = {
 const sharedModule = await import(pathToFileURL(path.join(resolveWorkspacePackageDir(sharedName), 'dist/index.js')).href);
 const {
   calculateTechniqueSkillQiCost,
+  compileEquipmentBaselinePercentsToActualStats,
   scaleTechniqueExp,
 } = sharedModule;
 
@@ -216,8 +217,26 @@ function loadItems(itemsDir) {
       return Array.isArray(entries) ? entries : [];
     })
     .filter((item) => typeof item?.itemId === 'string' && typeof item?.name === 'string' && typeof item?.type === 'string')
-    .map((item) => ({ ...item }))
+    .map((item) => normalizeItemEquipmentBaseline({ ...item }))
     .sort((left, right) => sortByNameThenId(left.name, right.name, left.itemId, right.itemId));
+}
+
+function normalizeItemEquipmentBaseline(item) {
+  if (!item || item.type !== 'equipment' || !item.equipBaselinePercents) {
+    return item;
+  }
+  const equipStats = compileEquipmentBaselinePercentsToActualStats(item.equipBaselinePercents, {
+    grade: item.grade,
+    level: item.level,
+  });
+  if (equipStats) {
+    item.equipStats = equipStats;
+  } else {
+    delete item.equipStats;
+  }
+  delete item.equipValueStats;
+  delete item.equipBaselinePercents;
+  return item;
 }
 
 function applyDerivedMaterialTags(items, herbMaterialItemIds, exoticMaterialItemIds) {
