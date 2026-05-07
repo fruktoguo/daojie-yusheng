@@ -211,6 +211,81 @@ function calculateBodyTrainingPercent(level, bodyTrainingConfig) {
   return level * levelMultiplier * percentPerLevel;
 }
 
+function normalizeBaseStatEnhancementAnchors(baseStatConfig) {
+  const anchors = Array.isArray(baseStatConfig?.enhancementAnchors)
+    ? baseStatConfig.enhancementAnchors
+    : [];
+  return anchors
+    .map((anchor, index) => ({
+      index,
+      level: positiveNumber(anchor.level, 0),
+      enhanceLevel: positiveNumber(anchor.enhanceLevel, 0),
+    }))
+    .filter((anchor) => anchor.level > 0)
+    .sort((left, right) => left.level - right.level || left.index - right.index);
+}
+
+function calculateExpectedEnhanceLevel(level, baseStatConfig) {
+  const anchors = normalizeBaseStatEnhancementAnchors(baseStatConfig);
+  if (anchors.length === 0) {
+    return 0;
+  }
+  if (level <= anchors[0].level) {
+    return anchors[0].enhanceLevel;
+  }
+  for (let index = 1; index < anchors.length; index += 1) {
+    const previous = anchors[index - 1];
+    const current = anchors[index];
+    if (level <= current.level) {
+      const span = current.level - previous.level;
+      if (span <= 0) {
+        return current.enhanceLevel;
+      }
+      return lerp(previous.enhanceLevel, current.enhanceLevel, (level - previous.level) / span);
+    }
+  }
+  return anchors[anchors.length - 1].enhanceLevel;
+}
+
+function normalizeBaseStatStageDeltas(baseStatConfig) {
+  const stages = Array.isArray(baseStatConfig?.realmStageDeltas)
+    ? baseStatConfig.realmStageDeltas
+    : [];
+  return stages
+    .map((stage, index) => ({
+      index,
+      levelFrom: positiveInteger(stage.levelFrom, 0),
+      value: finiteNumber(stage.value, 0),
+    }))
+    .filter((stage) => stage.levelFrom > 0)
+    .sort((left, right) => left.levelFrom - right.levelFrom || left.index - right.index);
+}
+
+function calculateBaseStatStageDelta(level, baseStatConfig) {
+  const stages = normalizeBaseStatStageDeltas(baseStatConfig);
+  let value = 0;
+  for (const stage of stages) {
+    if (level >= stage.levelFrom) {
+      value = stage.value;
+    }
+  }
+  return value;
+}
+
+function calculateSingleBaseStatValue(level, baseStatConfig) {
+  if (!baseStatConfig?.enabled) {
+    return undefined;
+  }
+  const mortalBaseValue = finiteNumber(baseStatConfig.mortalBaseValue, 0);
+  const levelBaseValue = finiteNumber(baseStatConfig.levelBaseValue, 8);
+  const levelGrowth = finiteNumber(baseStatConfig.levelGrowth, 0.5);
+  const enhancementGrowthRate = finiteNumber(baseStatConfig.enhancementGrowthRate, 0.1);
+  const levelPool = levelBaseValue + Math.max(0, level - 1) * levelGrowth;
+  const expectedEnhanceLevel = calculateExpectedEnhanceLevel(level, baseStatConfig);
+  const enhancedPool = levelPool * ((1 + enhancementGrowthRate) ** expectedEnhanceLevel);
+  return mortalBaseValue + calculateBaseStatStageDelta(level, baseStatConfig) + enhancedPool;
+}
+
 function normalizeRealmStageConfigs(realmBaseConfig) {
   if (!realmBaseConfig?.enabled || !Array.isArray(realmBaseConfig.stages)) {
     return [];
@@ -333,10 +408,15 @@ function buildBaselineConfig(config, bands, rows, configPath) {
     version: 1,
     levels: rows.map((row) => {
       const singleAttr = roundNumber(row.expectedOneAttr, digits);
-      return {
+      const entry = {
         realmLv: row.level,
         singleAttr,
       };
+      const singleBaseStatValue = calculateSingleBaseStatValue(row.level, config.baseStatBaseline);
+      if (singleBaseStatValue !== undefined) {
+        entry.singleBaseStatValue = roundNumber(singleBaseStatValue, digits);
+      }
+      return entry;
     }),
   };
 }
@@ -407,6 +487,7 @@ function buildMarkdown(config, bands, rows, configPath) {
 - \`bandCurve.postDecays\`：区间终点后的外推边际衰减点。
 - \`rootFoundation\`：根基上限公式、期望比例、每点百分比。
 - \`bodyTraining\`：炼体等级倍率、每层百分比。
+- \`baseStatBaseline\`：写入 \`singleBaseStatValue\` 的普通基础属性单项量化基准。
 - \`gradeBands[]\`：每个品阶的等级区间、无衰减上限、衰减跨度，也可单独覆盖 \`bandCurve\` 参数。
 
 也可以临时指定：
@@ -470,7 +551,9 @@ realmAttrs(L) = sum(当前阶段及以前所有 stage.attrBonus)
 realmOneAttr(L) = sum(realmAttrs(L) 六项) / 6
 \`\`\`
 
-因为服务端基准配置只保存一个 \`singleAttr\`，而境界基础六维本身有偏科，所以这里统一折算为六维平均单项值。
+服务端基准配置中的 \`singleAttr\` 保存六维单项基准值。因为境界基础六维本身有偏科，所以这里统一折算为六维平均单项值。
+
+同一个基准配置还会写入 \`singleBaseStatValue\`，表示每个普通基础属性的单项量化基准值；该字段来自 \`baseStatBaseline\`，不参与本文六维计算表。
 
 ## 根基与炼体公式
 

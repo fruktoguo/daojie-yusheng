@@ -36,34 +36,32 @@
       "head": "equip.mount_guard_helm",
       "legs": "equip.returnarray_boots"
     },
-    "attrs": {
-      "constitution": 86,
-      "spirit": 43,
-      "perception": 129,
-      "talent": 71,
-      "strength": 10,
-      "meridians": 12
-    },
-    "statPercents": {
-      "maxHp": 100,
-      "maxQi": 37,
-      "physAtk": 84,
-      "spellAtk": 29,
-      "physDef": 71,
-      "spellDef": 58,
-      "hit": 79,
-      "dodge": 82,
-      "crit": 75,
-      "breakPower": 82,
-      "resolvePower": 56,
-      "maxQiOutputPerTick": 45,
-      "viewRange": 100,
-      "moveSpeed": 164.88
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 94,
+      "spirit": 47,
+      "perception": 141,
+      "talent": 78,
+      "strength": 109,
+      "meridians": 131
+    },
+    "statTendency": {
+      "maxQi": 51,
+      "physAtk": 117,
+      "spellAtk": 40,
+      "physDef": 99,
+      "spellDef": 81,
+      "hit": 110,
+      "dodge": 114,
+      "crit": 104,
+      "breakPower": 114,
+      "resolvePower": 78,
+      "maxQiOutputPerTick": 63,
+      "moveSpeed": 229
+    }
   },
   {
     "id": "m_blood_crow",
@@ -96,34 +94,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 53,
-      "spirit": 88,
-      "perception": 139,
-      "talent": 53,
-      "strength": 12,
-      "meridians": 10
-    },
-    "statPercents": {
-      "maxHp": 100,
-      "maxQi": 71,
-      "physAtk": 53,
-      "spellAtk": 73,
-      "physDef": 47,
-      "spellDef": 53,
-      "hit": 92,
-      "dodge": 101,
-      "crit": 79,
-      "breakPower": 50,
-      "resolvePower": 53,
-      "maxQiOutputPerTick": 84,
-      "viewRange": 100,
-      "moveSpeed": 184.88
-    },
     "skills": [
       "skill.plume_shot",
       "skill.echo_screech"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 58,
+      "spirit": 95,
+      "perception": 151,
+      "talent": 58,
+      "strength": 130,
+      "meridians": 108
+    },
+    "statTendency": {
+      "maxQi": 91,
+      "physAtk": 68,
+      "spellAtk": 93,
+      "physDef": 60,
+      "spellDef": 68,
+      "hit": 117,
+      "dodge": 129,
+      "crit": 101,
+      "breakPower": 64,
+      "resolvePower": 68,
+      "maxQiOutputPerTick": 107,
+      "moveSpeed": 236
+    }
   },
   {
     "id": "m_valley_alpha",
@@ -171,35 +167,33 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 138,
-      "spirit": 69,
-      "perception": 207,
-      "talent": 113,
-      "strength": 17,
-      "meridians": 19
-    },
-    "statPercents": {
-      "maxHp": 120,
-      "maxQi": 49,
-      "physAtk": 102,
-      "spellAtk": 41,
-      "physDef": 87,
-      "spellDef": 73,
-      "hit": 95,
-      "dodge": 99,
-      "crit": 92,
-      "breakPower": 99,
-      "resolvePower": 70,
-      "maxQiOutputPerTick": 58,
-      "viewRange": 100,
-      "moveSpeed": 165.52
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 93,
+      "spirit": 47,
+      "perception": 140,
+      "talent": 76,
+      "strength": 115,
+      "meridians": 129
+    },
+    "statTendency": {
+      "maxQi": 57,
+      "physAtk": 119,
+      "spellAtk": 48,
+      "physDef": 101,
+      "spellDef": 85,
+      "hit": 111,
+      "dodge": 115,
+      "crit": 107,
+      "breakPower": 115,
+      "resolvePower": 82,
+      "maxQiOutputPerTick": 68,
+      "moveSpeed": 193
+    }
   },
   {
     "id": "m_valley_serpent",
@@ -225,34 +219,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 77,
-      "spirit": 89,
-      "perception": 136,
-      "talent": 64,
-      "strength": 15,
-      "meridians": 11
-    },
-    "statPercents": {
-      "maxHp": 110,
-      "maxQi": 63,
-      "physAtk": 71,
-      "spellAtk": 71,
-      "physDef": 56,
-      "spellDef": 62,
-      "hit": 83,
-      "dodge": 91,
-      "crit": 71,
-      "breakPower": 68,
-      "resolvePower": 56,
-      "maxQiOutputPerTick": 78,
-      "viewRange": 100,
-      "moveSpeed": 149.2
-    },
     "skills": [
       "skill.venom_fang",
       "skill.miasma_spray"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 74,
+      "spirit": 85,
+      "perception": 130,
+      "talent": 61,
+      "strength": 144,
+      "meridians": 106
+    },
+    "statTendency": {
+      "maxQi": 82,
+      "physAtk": 93,
+      "spellAtk": 93,
+      "physDef": 73,
+      "spellDef": 81,
+      "hit": 108,
+      "dodge": 119,
+      "crit": 93,
+      "breakPower": 89,
+      "resolvePower": 73,
+      "maxQiOutputPerTick": 102,
+      "moveSpeed": 195
+    }
   },
   {
     "id": "m_valley_emperor",
@@ -306,35 +298,33 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 134,
-      "spirit": 67,
-      "perception": 201,
-      "talent": 110,
-      "strength": 16,
-      "meridians": 19
-    },
-    "statPercents": {
-      "maxHp": 130,
-      "maxQi": 51,
-      "physAtk": 106,
-      "spellAtk": 42,
-      "physDef": 90,
-      "spellDef": 75,
-      "hit": 99,
-      "dodge": 103,
-      "crit": 95,
-      "breakPower": 103,
-      "resolvePower": 73,
-      "maxQiOutputPerTick": 60,
-      "viewRange": 100,
-      "moveSpeed": 165.84
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 93,
+      "spirit": 47,
+      "perception": 140,
+      "talent": 77,
+      "strength": 111,
+      "meridians": 132
+    },
+    "statTendency": {
+      "maxQi": 58,
+      "physAtk": 120,
+      "spellAtk": 47,
+      "physDef": 102,
+      "spellDef": 85,
+      "hit": 112,
+      "dodge": 116,
+      "crit": 107,
+      "breakPower": 116,
+      "resolvePower": 82,
+      "maxQiOutputPerTick": 68,
+      "moveSpeed": 187
+    }
   },
   {
     "id": "m_soul_wolf_ancestor",
@@ -381,34 +371,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 160,
-      "spirit": 80,
-      "perception": 240,
-      "talent": 131,
-      "strength": 19,
-      "meridians": 22
-    },
-    "statPercents": {
-      "maxHp": 140,
-      "maxQi": 58,
-      "physAtk": 115,
-      "spellAtk": 49,
-      "physDef": 99,
-      "spellDef": 84,
-      "hit": 108,
-      "dodge": 112,
-      "crit": 104,
-      "breakPower": 112,
-      "resolvePower": 81,
-      "maxQiOutputPerTick": 67,
-      "viewRange": 100,
-      "moveSpeed": 166.16
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.soul_wail"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 94,
+      "spirit": 47,
+      "perception": 141,
+      "talent": 77,
+      "strength": 112,
+      "meridians": 129
+    },
+    "statTendency": {
+      "maxQi": 60,
+      "physAtk": 119,
+      "spellAtk": 51,
+      "physDef": 103,
+      "spellDef": 87,
+      "hit": 112,
+      "dodge": 116,
+      "crit": 108,
+      "breakPower": 116,
+      "resolvePower": 84,
+      "maxQiOutputPerTick": 70,
+      "moveSpeed": 173
+    }
   }
 ]

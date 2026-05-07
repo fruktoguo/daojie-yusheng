@@ -10,6 +10,7 @@ const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const schema_bigint_migration_1 = require("../persistence/schema-bigint-migration");
 const world_gateway_1 = require("../network/world.gateway");
 const world_player_auth_service_1 = require("../network/world-player-auth.service");
 const world_client_event_service_1 = require("../network/world-client-event.service");
@@ -5179,12 +5180,12 @@ async function ensureLegacyCompatSchema() {
         y bigint NOT NULL DEFAULT 5,
         facing int NOT NULL DEFAULT 1,
         "viewRange" bigint NOT NULL DEFAULT 8,
-        hp bigint NOT NULL DEFAULT 100,
-        "maxHp" bigint NOT NULL DEFAULT 100,
-        qi bigint NOT NULL DEFAULT 0,
+        hp double precision NOT NULL DEFAULT 100,
+        "maxHp" double precision NOT NULL DEFAULT 100,
+        qi double precision NOT NULL DEFAULT 0,
         dead boolean NOT NULL DEFAULT false,
-        foundation bigint NOT NULL DEFAULT 0,
-        "combatExp" bigint NOT NULL DEFAULT 0,
+        foundation double precision NOT NULL DEFAULT 0,
+        "combatExp" double precision NOT NULL DEFAULT 0,
         "playerKillCount" bigint NOT NULL DEFAULT 0,
         "monsterKillCount" bigint NOT NULL DEFAULT 0,
         "eliteMonsterKillCount" bigint NOT NULL DEFAULT 0,
@@ -5226,11 +5227,11 @@ async function ensureLegacyCompatSchema() {
         "updatedAt" timestamptz NOT NULL DEFAULT now()
       )
     `);
-        for (const column of ['x', 'y', '"viewRange"', 'hp', '"maxHp"', 'qi', '"boneAgeBaseYears"', '"lifespanYears"']) {
-            await pool.query(`
-        ALTER TABLE players
-        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-      `);
+        for (const column of ['x', 'y', 'viewRange', 'boneAgeBaseYears', 'lifespanYears']) {
+            await (0, schema_bigint_migration_1.ensureBigintColumnType)(pool, 'players', column);
+        }
+        for (const column of ['hp', 'maxHp', 'qi', 'foundation', 'combatExp']) {
+            await (0, schema_bigint_migration_1.ensureDoubleColumnType)(pool, 'players', column);
         }
     }
     finally {

@@ -20,6 +20,7 @@ const pg_1 = require("pg");
 const shared_1 = require("@mud/shared");
 
 const env_alias_1 = require("../config/env-alias");
+const schema_bigint_migration_1 = require("./schema-bigint-migration");
 
 const MARKET_ORDER_TABLE = 'server_market_order';
 const MARKET_TRADE_TABLE = 'server_market_trade_history';
@@ -640,18 +641,9 @@ async function ensureMarketTables(pool) {
             updated_at timestamptz NOT NULL DEFAULT now()
           )
         `);
-        await client.query(`
-          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
-          ALTER COLUMN slot_index TYPE bigint USING slot_index::bigint
-        `);
-        await client.query(`
-          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
-          ALTER COLUMN count TYPE bigint USING count::bigint
-        `);
-        await client.query(`
-          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
-          ALTER COLUMN enhance_level TYPE bigint USING enhance_level::bigint
-        `);
+        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'slot_index');
+        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'count');
+        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'enhance_level');
         await client.query(`
           CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
           ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)

@@ -28,34 +28,32 @@
       "weapon": "equip.broken_rune_blade",
       "body": "equip.herb_mist_robe"
     },
-    "attrs": {
-      "constitution": 20,
-      "spirit": 4,
-      "perception": 8,
-      "talent": 13,
-      "strength": 1,
-      "meridians": 1
-    },
-    "statPercents": {
-      "maxHp": 10,
-      "maxQi": 11,
-      "physAtk": 32,
-      "spellAtk": 6,
-      "physDef": 41,
-      "spellDef": 34,
-      "hit": 25,
-      "dodge": 19,
-      "crit": 20,
-      "breakPower": 38,
-      "resolvePower": 31,
-      "maxQiOutputPerTick": 11,
-      "viewRange": 100,
-      "moveSpeed": 78
-    },
     "skills": [
       "skill.brutal_ram",
       "skill.predator_pounce"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 185,
+      "spirit": 37,
+      "perception": 74,
+      "talent": 120,
+      "strength": 92,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 38,
+      "physAtk": 111,
+      "spellAtk": 21,
+      "physDef": 142,
+      "spellDef": 118,
+      "hit": 87,
+      "dodge": 66,
+      "crit": 69,
+      "breakPower": 132,
+      "resolvePower": 108,
+      "maxQiOutputPerTick": 38,
+      "moveSpeed": 271
+    }
   },
   {
     "id": "m_swamp_lizard",
@@ -87,34 +85,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 23,
-      "spirit": 12,
-      "perception": 23,
-      "talent": 18,
-      "strength": 3,
-      "meridians": 3
-    },
-    "statPercents": {
-      "maxHp": 20,
-      "maxQi": 22,
-      "physAtk": 33,
-      "spellAtk": 23,
-      "physDef": 36,
-      "spellDef": 39,
-      "hit": 37,
-      "dodge": 36,
-      "crit": 32,
-      "breakPower": 31,
-      "resolvePower": 34,
-      "maxQiOutputPerTick": 26,
-      "viewRange": 100,
-      "moveSpeed": 108.32
-    },
     "skills": [
       "skill.venom_fang",
       "skill.miasma_spray"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 102,
+      "spirit": 53,
+      "perception": 102,
+      "talent": 79,
+      "strength": 132,
+      "meridians": 132
+    },
+    "statTendency": {
+      "maxQi": 58,
+      "physAtk": 87,
+      "spellAtk": 60,
+      "physDef": 94,
+      "spellDef": 102,
+      "hit": 97,
+      "dodge": 94,
+      "crit": 84,
+      "breakPower": 81,
+      "resolvePower": 89,
+      "maxQiOutputPerTick": 68,
+      "moveSpeed": 284
+    }
   },
   {
     "id": "m_wild_bandit",
@@ -147,33 +143,28 @@
       "body": "equip.herb_mist_robe",
       "legs": "equip.trench_runner_boots"
     },
-    "attrs": {
-      "constitution": 22,
-      "spirit": 9,
-      "perception": 19,
-      "talent": 18,
-      "strength": 3,
-      "meridians": 3
-    },
-    "statPercents": {
-      "maxHp": 20,
-      "maxQi": 16,
-      "physAtk": 36,
-      "spellAtk": 12,
-      "physDef": 34,
-      "spellDef": 27,
-      "hit": 34,
-      "dodge": 29,
-      "crit": 30,
-      "breakPower": 34,
-      "resolvePower": 32,
-      "maxQiOutputPerTick": 20,
-      "viewRange": 100,
-      "moveSpeed": 102.32
-    },
     "skills": [
       "skill.cloud_blade"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 103,
+      "spirit": 42,
+      "perception": 89,
+      "talent": 84,
+      "strength": 141,
+      "meridians": 141
+    },
+    "statTendency": {
+      "maxQi": 47,
+      "physAtk": 106,
+      "spellAtk": 35,
+      "spellDef": 80,
+      "dodge": 86,
+      "crit": 89,
+      "resolvePower": 95,
+      "maxQiOutputPerTick": 59,
+      "moveSpeed": 302
+    }
   },
   {
     "id": "m_mire_spider",
@@ -207,34 +198,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 39,
-      "spirit": 30,
-      "perception": 68,
-      "talent": 31,
-      "strength": 8,
-      "meridians": 8
-    },
-    "statPercents": {
-      "maxHp": 30,
-      "maxQi": 27,
-      "physAtk": 49,
-      "spellAtk": 30,
-      "physDef": 30,
-      "spellDef": 29,
-      "hit": 49,
-      "dodge": 54,
-      "crit": 47,
-      "breakPower": 54,
-      "resolvePower": 31,
-      "maxQiOutputPerTick": 32,
-      "viewRange": 100,
-      "moveSpeed": 152.64
-    },
     "skills": [
       "skill.venom_fang",
       "skill.miasma_spray"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 71,
+      "spirit": 55,
+      "perception": 125,
+      "talent": 57,
+      "strength": 146,
+      "meridians": 146
+    },
+    "statTendency": {
+      "maxQi": 55,
+      "physAtk": 101,
+      "spellAtk": 62,
+      "physDef": 62,
+      "spellDef": 60,
+      "hit": 101,
+      "dodge": 111,
+      "crit": 96,
+      "breakPower": 111,
+      "resolvePower": 64,
+      "maxQiOutputPerTick": 66,
+      "moveSpeed": 313
+    }
   },
   {
     "id": "m_gale_bone_king",
@@ -275,35 +264,33 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 53,
-      "spirit": 53,
-      "perception": 110,
-      "talent": 46,
-      "strength": 11,
-      "meridians": 9
-    },
-    "statPercents": {
-      "maxHp": 40,
-      "maxQi": 35,
-      "physAtk": 41,
-      "spellAtk": 37,
-      "physDef": 30,
-      "spellDef": 31,
-      "hit": 53,
-      "dodge": 63,
-      "crit": 48,
-      "breakPower": 41,
-      "resolvePower": 34,
-      "maxQiOutputPerTick": 40,
-      "viewRange": 100,
-      "moveSpeed": 158.96
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 69,
+      "spirit": 69,
+      "perception": 143,
+      "talent": 59,
+      "strength": 143,
+      "meridians": 117
+    },
+    "statTendency": {
+      "maxQi": 69,
+      "physAtk": 80,
+      "spellAtk": 73,
+      "physDef": 59,
+      "spellDef": 61,
+      "hit": 104,
+      "dodge": 124,
+      "crit": 94,
+      "breakPower": 80,
+      "resolvePower": 67,
+      "maxQiOutputPerTick": 78,
+      "moveSpeed": 312
+    }
   },
   {
     "id": "m_dust_vulture",
@@ -336,33 +323,30 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 22,
-      "spirit": 22,
-      "perception": 44,
-      "talent": 19,
-      "strength": 5,
-      "meridians": 4
-    },
-    "statPercents": {
-      "maxHp": 30,
-      "maxQi": 27,
-      "physAtk": 34,
-      "spellAtk": 30,
-      "physDef": 23,
-      "spellDef": 24,
-      "hit": 44,
-      "dodge": 54,
-      "crit": 39,
-      "breakPower": 34,
-      "resolvePower": 26,
-      "maxQiOutputPerTick": 32,
-      "viewRange": 100,
-      "moveSpeed": 158.64
-    },
     "skills": [
       "skill.plume_shot",
       "skill.echo_screech"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 67,
+      "spirit": 67,
+      "perception": 134,
+      "talent": 58,
+      "strength": 152,
+      "meridians": 122
+    },
+    "statTendency": {
+      "maxQi": 62,
+      "physAtk": 78,
+      "spellAtk": 68,
+      "physDef": 53,
+      "spellDef": 55,
+      "dodge": 123,
+      "crit": 89,
+      "breakPower": 78,
+      "resolvePower": 59,
+      "maxQiOutputPerTick": 73,
+      "moveSpeed": 362
+    }
   }
 ]

@@ -7,21 +7,12 @@
     "grade": "spirit",
     "tier": "demon_king",
     "level": 43,
-    "expMultiplier": 3,
+    "expMultiplier": 10,
     "count": 1,
     "maxAlive": 1,
     "radius": 2,
     "aggroRange": 10,
-    "viewRange": 11,
     "respawnSec": 120,
-    "attrs": {
-      "constitution": 2000,
-      "spirit": 2000,
-      "perception": 2000,
-      "talent": 2000,
-      "strength": 100,
-      "meridians": 100
-    },
     "initialBuffs": [
       {
         "buffId": "buff.huanling_zhenren_wounded",
@@ -34,21 +25,21 @@
         "stacks": 1,
         "maxStacks": 1,
         "stats": {
-          "maxHp": -500,
-          "maxQi": -500,
-          "physAtk": -500,
-          "spellAtk": -500,
-          "physDef": -500,
-          "spellDef": -500,
-          "hit": -500,
-          "dodge": -500,
-          "crit": -500,
-          "critDamage": -500,
-          "breakPower": -500,
-          "resolvePower": -500,
-          "maxQiOutputPerTick": -500,
-          "qiRegenRate": -500,
-          "hpRegenRate": -500
+          "maxHp": -2000,
+          "maxQi": -2000,
+          "physAtk": -2000,
+          "spellAtk": -2000,
+          "physDef": -2000,
+          "spellDef": -2000,
+          "hit": -2000,
+          "dodge": -2000,
+          "crit": -2000,
+          "critDamage": -2000,
+          "breakPower": -2000,
+          "resolvePower": -2000,
+          "maxQiOutputPerTick": -2000,
+          "qiRegenRate": -2000,
+          "hpRegenRate": -2000
         },
         "statMode": "percent",
         "shortMark": "伤",
@@ -221,6 +212,14 @@
         "chance": 1
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 120,
+      "spirit": 120,
+      "perception": 120,
+      "talent": 120,
+      "strength": 60,
+      "meridians": 60
+    }
   }
 ]

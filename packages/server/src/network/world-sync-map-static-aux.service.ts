@@ -90,14 +90,9 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
         const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
 
         const previous = this.cacheByPlayerId.get(playerId) ?? null;
-        const currentTilesOriginX = resolveVisibleTilesOriginX(view, visibleTiles.matrix);
-        const currentTilesOriginY = resolveVisibleTilesOriginY(view, visibleTiles.matrix);
-
         const mapChanged = !previous
             || previous.mapId !== view.instance.templateId
-            || previous.instanceId !== view.instance.instanceId
-            || previous.tilesOriginX !== currentTilesOriginX
-            || previous.tilesOriginY !== currentTilesOriginY;
+            || previous.instanceId !== view.instance.instanceId;
 
         const tilePatches = mapChanged
             ? []
@@ -200,7 +195,7 @@ function diffVisibleTiles(previous, current) {
         const prev = previous?.get(key) ?? null;
         if (!prev || !isSameTile(prev, tile)) {
             const [x, y] = parseCoordKey(key);
-            patches.push({ x, y, tile: cloneTile(tile) });
+            patches.push({ x, y, tile: cloneTilePatch(tile) });
         }
     }
     if (previous) {
@@ -213,6 +208,43 @@ function diffVisibleTiles(previous, current) {
         }
     }
     return patches;
+}
+
+function cloneTilePatch(source) {
+    const tile = {
+        type: source.type,
+    };
+    if (Number.isFinite(source.aura) && source.aura > 0) {
+        tile.aura = source.aura;
+    }
+    const resources = cloneCompactTileResources(source.resources);
+    if (resources && resources.length > 0) {
+        tile.resources = resources;
+    }
+    if (source.hpVisible === true && Number.isFinite(source.hp) && Number.isFinite(source.maxHp)) {
+        tile.hp = source.hp;
+        tile.maxHp = source.maxHp;
+        tile.hpVisible = true;
+    }
+    return tile;
+}
+
+function cloneCompactTileResources(resources) {
+    if (!Array.isArray(resources) || resources.length === 0) {
+        return undefined;
+    }
+    const compact = [];
+    for (const resource of resources) {
+        if (!resource || typeof resource.key !== 'string' || resource.key === 'aura.refined.neutral') {
+            continue;
+        }
+        const level = Number(resource.level);
+        compact.push({
+            key: resource.key,
+            ...(Number.isFinite(level) ? { level } : {}),
+        });
+    }
+    return compact.length > 0 ? compact : undefined;
 }
 /**
  * parseCoordKey：规范化或转换CoordKey。

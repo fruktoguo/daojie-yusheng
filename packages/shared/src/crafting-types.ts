@@ -3,7 +3,7 @@
  */
 import type { TechniqueActivityJobBase } from './technique-activity-types';
 import type { TechniqueGrade } from './cultivation-types';
-import type { EquipSlot, ItemStack } from './item-runtime-types';
+import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 
 /** 制造型技艺任务的启动排队策略。 */
 export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
@@ -599,6 +599,77 @@ export interface PlayerEnhancementRecord {
 }
 
 /** 可作为强化保护材料的候选项。 */
+export interface SyncedEnhancementItemView {
+/**
+ * itemId：道具ID标识。
+ */
+
+  itemId: string;
+  /**
+ * name：名称名称或显示文本。
+ */
+
+  name?: string;
+  /**
+ * type：type相关字段。
+ */
+
+  type?: ItemType;
+  /**
+ * count：数量或计量字段。
+ */
+
+  count?: number;
+  /**
+ * grade：grade相关字段。
+ */
+
+  grade?: TechniqueGrade;
+  /**
+ * level：等级数值。
+ */
+
+  level?: number;
+  /**
+ * equipSlot：装备槽位。
+ */
+
+  equipSlot?: EquipSlot;
+  /**
+ * enhanceLevel：强化等级。
+ */
+
+  enhanceLevel?: number;
+}
+
+export interface SyncedEnhancementJobView extends Omit<PlayerEnhancementJob, 'item'> {
+/**
+ * item：强化面板只需要道具摘要，完整装备详情走背包/装备详情源。
+ */
+
+  item?: SyncedEnhancementItemView;
+}
+
+/** 强化面板运行态增量。 */
+export interface SyncedEnhancementPanelPatch {
+/**
+ * enhancementSkillLevel：强化技能等级数值。
+ */
+
+  enhancementSkillLevel?: number;
+  /**
+ * job：活跃强化任务；null 表示任务已清空。
+ */
+
+  job?: SyncedEnhancementJobView | null;
+  /**
+ * queue：制造任务队列快照。
+ */
+
+  queue?: CraftQueueItemView[];
+}
+
+/** 可作为强化保护材料的候选项。 */
 export interface SyncedEnhancementProtectionCandidate {
 /**
  * ref：ref相关字段。
@@ -609,7 +680,7 @@ export interface SyncedEnhancementProtectionCandidate {
  * item：道具相关字段。
  */
 
-  item: ItemStack;
+  item: SyncedEnhancementItemView;
 }
 
 /** 强化材料需求的展示视图。 */
@@ -647,7 +718,7 @@ export interface SyncedEnhancementCandidateView {
  * item：道具相关字段。
  */
 
-  item: ItemStack;  
+  item: SyncedEnhancementItemView;  
   /**
  * currentLevel：current等级数值。
  */
@@ -726,7 +797,7 @@ export interface SyncedEnhancementPanelState {
  * job：job相关字段。
  */
 
-  job: PlayerEnhancementJob | null;
+  job: SyncedEnhancementJobView | null;
   /**
  * queue：制造任务队列快照。
  */

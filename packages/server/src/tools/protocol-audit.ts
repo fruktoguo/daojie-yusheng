@@ -1443,32 +1443,40 @@ async function craftPanelCase(runtime) {
     }) || null;
   }
   var desiredTargetLevel = Math.min(20, (enhancementCandidate.nextLevel || 1) + 1);
+  var getEnhancementRuntimeState = function (payload) {
+    return payload?.statePatch ?? payload?.state ?? null;
+  };
   await emitAndWait(socket, C2S.StartEnhancement, {
     target: enhancementCandidate.ref,
     targetLevel: desiredTargetLevel,
     protection: protectionCandidate ? protectionCandidate.ref : undefined,
     protectionStartLevel: protectionCandidate ? enhancementCandidate.nextLevel : undefined,
   }, S2C.EnhancementPanel, function (payload) {
+    var state = getEnhancementRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.job
-      && payload.state.job.targetItemId === "equip.geng_gate_blade"
-      && payload.state.job.desiredTargetLevel === desiredTargetLevel
-      && payload.state.job.protectionUsed === Boolean(protectionCandidate);
+      && state
+      && state.job
+      && state.job.targetItemId === "equip.geng_gate_blade"
+      && state.job.desiredTargetLevel === desiredTargetLevel
+      && state.job.protectionUsed === Boolean(protectionCandidate)
+      && (!payload.statePatch || (!("candidates" in payload.statePatch) && !("records" in payload.statePatch)));
   }, 5000);
   await emitAndWait(socket, C2S.Move, { d: Direction.South }, S2C.EnhancementPanel, function (payload) {
+    var state = getEnhancementRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.job
-      && payload.state.job.targetItemId === "equip.geng_gate_blade"
-      && payload.state.job.phase === "paused"
-      && payload.state.job.pausedTicks > 0;
+      && state
+      && state.job
+      && state.job.targetItemId === "equip.geng_gate_blade"
+      && state.job.phase === "paused"
+      && state.job.pausedTicks > 0
+      && (!payload.statePatch || (!("candidates" in payload.statePatch) && !("records" in payload.statePatch)));
   }, 5000);
   await emitAndWait(socket, C2S.CancelEnhancement, {}, S2C.EnhancementPanel, function (payload) {
+    var state = getEnhancementRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.hammerItemId === "equip.copper_enhancement_hammer"
-      && payload.state.job === null;
+      && state
+      && (payload.statePatch || payload.state?.hammerItemId === "equip.copper_enhancement_hammer")
+      && state.job === null;
   }, 5000);
 }
 /**

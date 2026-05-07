@@ -25,10 +25,11 @@ import {
   PLAYER_REALM_ORDER,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
   resolvePlayerRealmNumericTemplate,
+  TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay';
 import { ELEMENT_KEYS } from './constants/gameplay/attributes';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
-import { compileValueStatsToActualStats } from './value';
+import { compileValueStatsToActualStats, NUMERIC_STAT_POINTS_PER_VALUE } from './value';
 import type {
   Attributes,
   NumericStatPercentages,
@@ -41,6 +42,25 @@ import type { NumericScalarStatKey } from './numeric';
 
 /** 怪物战斗模型：next 侧统一按 value_stats 运行时数值口径结算。 */
 export type MonsterCombatModel = 'value_stats';
+
+/** 怪物六维倾向百分比，缺省字段按 100% 处理。 */
+export type MonsterAttrTendency = Partial<Record<keyof Attributes, number>>;
+
+/** 怪物基础数值倾向百分比，缺省字段按 100% 处理。 */
+export type MonsterStatTendency = NumericStatPercentages;
+
+/** 境界等级对应的怪物数值基准。 */
+export interface MonsterRealmBaselineRecord {
+  realmLv: number;
+  singleAttr: number;
+  singleBaseStatValue?: number;
+}
+
+/** 怪物数值基准配置。 */
+export interface MonsterRealmBaselineConfig {
+  version?: number;
+  levels?: MonsterRealmBaselineRecord[];
+}
 
 /** 怪物指数成长的数值键，随等级按指数曲线放大。 */
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
@@ -107,6 +127,21 @@ export interface MonsterFormulaInput {
  */
 
   tier?: MonsterTier;
+  /**
+ * attrTendency：六维倾向百分比。
+ */
+
+  attrTendency?: MonsterAttrTendency;
+  /**
+ * statTendency：基础数值倾向百分比。
+ */
+
+  statTendency?: MonsterStatTendency;
+  /**
+ * baselines：境界等级基准。
+ */
+
+  baselines?: MonsterRealmBaselineConfig;
 }
 
 /** 怪物模板掉落项：保留物品基础信息和掉率。 */
@@ -184,10 +219,20 @@ export interface MonsterTemplateConfiguredRecord {
 
   attrs?: Partial<Attributes>;  
   /**
+ * attrTendency：六维倾向百分比。
+ */
+
+  attrTendency?: MonsterAttrTendency;  
+  /**
  * statPercents：statPercent相关字段。
  */
 
   statPercents?: NumericStatPercentages;  
+  /**
+ * statTendency：基础数值倾向百分比。
+ */
+
+  statTendency?: MonsterStatTendency;  
   /**
  * initialBuffs：initialBuff相关字段。
  */
@@ -365,7 +410,7 @@ export interface MonsterTemplateEditorItem {
 }
 
 /** 怪物模板来源口径，用来区分 value_stats 和属性驱动。 */
-export type MonsterTemplateSourceMode = 'value_stats' | 'attributes';
+export type MonsterTemplateSourceMode = 'value_stats' | 'attributes' | 'tendency';
 
 /** 解析后的怪物模板记录，已经补齐默认值并计算出运行时数值。 */
 export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfiguredRecord {
@@ -390,10 +435,20 @@ export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfigured
 
   attrs?: Attributes;  
   /**
+ * attrTendency：六维倾向百分比。
+ */
+
+  attrTendency?: MonsterAttrTendency;  
+  /**
  * statPercents：statPercent相关字段。
  */
 
   statPercents?: NumericStatPercentages;  
+  /**
+ * statTendency：基础数值倾向百分比。
+ */
+
+  statTendency?: MonsterStatTendency;  
   /**
  * initialBuffs：initialBuff相关字段。
  */
@@ -420,10 +475,20 @@ export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfigured
 
   resolvedAttrs: Attributes;  
   /**
+ * resolvedAttrTendency：解析后的六维倾向百分比。
+ */
+
+  resolvedAttrTendency?: MonsterAttrTendency;  
+  /**
  * resolvedStatPercents：resolvedStatPercent相关字段。
  */
 
   resolvedStatPercents?: NumericStatPercentages;  
+  /**
+ * resolvedStatTendency：解析后的基础数值倾向百分比。
+ */
+
+  resolvedStatTendency?: MonsterStatTendency;  
   /**
  * combatModel：战斗Model相关字段。
  */
@@ -512,6 +577,68 @@ type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' 
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
 /** 怪物默认生命回复速度。 */
 const MONSTER_BASE_HP_REGEN_RATE = 5;
+/** 怪物倾向百分比默认值。 */
+const MONSTER_DEFAULT_TENDENCY_PERCENT = 100;
+/** 怪物基础视野，配置倾向 100% 时为 8。 */
+const MONSTER_TENDENCY_VIEW_RANGE_BASE = 8;
+/** 怪物基础回复，配置倾向 100% 时为 50。 */
+const MONSTER_TENDENCY_REGEN_BASE = 50;
+/** 1-30 级怪物额外削弱倍率。 */
+const MONSTER_LOW_LEVEL_NERF_MULTIPLIER = 0.7;
+/** 怪物品阶倍率基数。 */
+const MONSTER_GRADE_MULTIPLIER_BASE = 1.2;
+/** 怪物血脉层级基础倍率。 */
+const MONSTER_TIER_BASE_RATIOS: Record<MonsterTier, number> = {
+  mortal_blood: 0.5,
+  variant: 0.8,
+  demon_king: 1,
+};
+/** 怪物血脉层级生命额外倍率。 */
+const MONSTER_TIER_HP_MULTIPLIERS: Record<MonsterTier, number> = {
+  mortal_blood: 1,
+  variant: 2,
+  demon_king: 10,
+};
+/** 按倾向公式计算的基础数值键。 */
+const MONSTER_TENDENCY_NUMERIC_KEYS = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'antiCrit',
+  'critDamage',
+  'breakPower',
+  'resolvePower',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+  'viewRange',
+  'moveSpeed',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
+] as const satisfies readonly NumericScalarStatKey[];
+/** 六维对各基础数值的乘区影响。 */
+const MONSTER_TENDENCY_STAT_ATTR_WEIGHTS: Partial<Record<NumericScalarStatKey, Partial<Record<keyof Attributes, number>>>> = {
+  maxHp: { constitution: 1, talent: 1 },
+  maxQi: { talent: 1, meridians: 1 },
+  physAtk: { constitution: 1, strength: 1 },
+  spellAtk: { spirit: 1, meridians: 1 },
+  physDef: { constitution: 1 },
+  spellDef: { spirit: 1 },
+  hit: { spirit: 1 },
+  dodge: { perception: 1 },
+  crit: { strength: 1 },
+  antiCrit: { perception: 1 },
+  breakPower: { strength: 1 },
+  resolvePower: { talent: 1 },
+  maxQiOutputPerTick: { meridians: 1 },
+  moveSpeed: { perception: 0.5 },
+};
 
 /** 将怪物等级收敛为至少 1 的整数。 */
 function normalizeMonsterLevel(level?: number): number {
@@ -713,6 +840,142 @@ export function normalizeMonsterStatPercents(statPercents: NumericStatPercentage
     result[key] = Math.max(0, Number(value));
   }
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** 将六维倾向百分比收敛为合法数值。 */
+export function normalizeMonsterAttrTendency(tendency: MonsterAttrTendency | undefined): MonsterAttrTendency | undefined {
+  if (!tendency) {
+    return undefined;
+  }
+  const result: MonsterAttrTendency = {};
+  for (const key of ATTR_KEYS) {
+    const value = tendency[key];
+    if (!Number.isFinite(value)) {
+      continue;
+    }
+    result[key] = Math.max(0, Math.round(Number(value)));
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** 将基础数值倾向百分比收敛为合法数值。 */
+export function normalizeMonsterStatTendency(tendency: MonsterStatTendency | undefined): MonsterStatTendency | undefined {
+  if (!tendency) {
+    return undefined;
+  }
+  const result: MonsterStatTendency = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const value = tendency[key];
+    if (!Number.isFinite(value)) {
+      continue;
+    }
+    result[key] = Math.max(0, Math.round(Number(value)));
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** 读取倾向百分比，未配置时按 100% 处理。 */
+function getMonsterTendencyPercent(tendency: Record<string, number | undefined> | undefined, key: string): number {
+  const value = tendency?.[key];
+  return Number.isFinite(value) ? Math.max(0, Number(value)) : MONSTER_DEFAULT_TENDENCY_PERCENT;
+}
+
+/** 按等级读取怪物基准值。 */
+function resolveMonsterRealmBaseline(level: number | undefined, baselines?: MonsterRealmBaselineConfig): MonsterRealmBaselineRecord {
+  const normalizedLevel = normalizeMonsterLevel(level);
+  const entries = Array.isArray(baselines?.levels) ? baselines.levels : [];
+  const exact = entries.find((entry) => Math.floor(entry.realmLv) === normalizedLevel);
+  if (exact && Number.isFinite(exact.singleAttr)) {
+    return exact;
+  }
+  const nearest = entries
+    .filter((entry) => Number.isFinite(entry.realmLv) && Number.isFinite(entry.singleAttr))
+    .sort((left, right) => Math.abs(left.realmLv - normalizedLevel) - Math.abs(right.realmLv - normalizedLevel))[0];
+  if (nearest) {
+    return nearest;
+  }
+  return {
+    realmLv: normalizedLevel,
+    singleAttr: normalizedLevel,
+    singleBaseStatValue: normalizedLevel,
+  };
+}
+
+/** 读取怪物品阶指数倍率。 */
+function getMonsterGradeMultiplier(grade: TechniqueGrade | undefined): number {
+  const index = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal'));
+  return MONSTER_GRADE_MULTIPLIER_BASE ** index;
+}
+
+/** 读取 1-30 级怪物额外削弱倍率。 */
+function getMonsterLowLevelNerf(level: number | undefined): number {
+  return normalizeMonsterLevel(level) <= 30 ? MONSTER_LOW_LEVEL_NERF_MULTIPLIER : 1;
+}
+
+/** 根据已计算六维求某个基础属性的六维乘区。 */
+export function getMonsterSixDimStatMultiplier(statKey: NumericScalarStatKey, attrs: Attributes): number {
+  const weights = MONSTER_TENDENCY_STAT_ATTR_WEIGHTS[statKey];
+  if (!weights) {
+    return 1;
+  }
+  let weightedAttrs = 0;
+  for (const key of ATTR_KEYS) {
+    weightedAttrs += (attrs[key] ?? 0) * (weights[key] ?? 0);
+  }
+  return 1 + weightedAttrs / 100;
+}
+
+/** 按倾向百分比计算怪物六维实际值。 */
+export function resolveMonsterAttrsFromTendency(input: MonsterFormulaInput): Attributes {
+  const level = normalizeMonsterLevel(input.level);
+  const baseline = resolveMonsterRealmBaseline(level, input.baselines);
+  const tier = normalizeMonsterTier(input.tier);
+  const multiplier = (baseline.singleAttr ?? level)
+    * (MONSTER_TIER_BASE_RATIOS[tier] ?? 0.5)
+    * getMonsterGradeMultiplier(input.grade)
+    * getMonsterLowLevelNerf(level);
+  const tendency = normalizeMonsterAttrTendency(input.attrTendency);
+  const attrs = createMonsterAttributes();
+  for (const key of ATTR_KEYS) {
+    attrs[key] = Math.max(0, Math.round(multiplier * getMonsterTendencyPercent(tendency, key) / 100));
+  }
+  return attrs;
+}
+
+/** 按倾向百分比计算怪物基础数值实际值。 */
+export function resolveMonsterNumericStatsFromTendency(input: MonsterFormulaInput): NumericStats {
+  const level = normalizeMonsterLevel(input.level);
+  const baseline = resolveMonsterRealmBaseline(level, input.baselines);
+  const tier = normalizeMonsterTier(input.tier);
+  const attrs = input.attrs ? normalizeMonsterAttrs(input.attrs) : resolveMonsterAttrsFromTendency(input);
+  const tendency = normalizeMonsterStatTendency(input.statTendency);
+  const baseStatValue = Number.isFinite(baseline.singleBaseStatValue)
+    ? Number(baseline.singleBaseStatValue)
+    : Number(baseline.singleAttr ?? level);
+  const commonMultiplier = baseStatValue
+    * getRealmAttributeMultiplier(level)
+    * (MONSTER_TIER_BASE_RATIOS[tier] ?? 0.5)
+    * getMonsterGradeMultiplier(input.grade)
+    * getMonsterLowLevelNerf(level);
+  const stats = createNumericStats();
+  for (const key of MONSTER_TENDENCY_NUMERIC_KEYS) {
+    const percent = getMonsterTendencyPercent(tendency, key);
+    if (key === 'viewRange') {
+      stats[key] = Math.max(0, Math.round(MONSTER_TENDENCY_VIEW_RANGE_BASE * percent / 100));
+      continue;
+    }
+    if (key === 'hpRegenRate' || key === 'qiRegenRate') {
+      stats[key] = Math.max(0, Math.round(MONSTER_TENDENCY_REGEN_BASE * percent / 100));
+      continue;
+    }
+    const statValue = commonMultiplier
+      * percent / 100
+      * getMonsterSixDimStatMultiplier(key, attrs)
+      * (NUMERIC_STAT_POINTS_PER_VALUE[key] ?? 1);
+    stats[key] = Math.max(0, Math.round(statValue));
+  }
+  stats.maxHp = Math.max(1, Math.round(stats.maxHp * (MONSTER_TIER_HP_MULTIPLIERS[tier] ?? 1)));
+  return stats;
 }
 
 /** 把属性换算成只作用于生命、灵力和攻击的百分比加成。 */
@@ -1126,21 +1389,45 @@ function resolveMonsterTemplateEquipmentSlots(
 export function resolveMonsterTemplateRecord(
   rawMonster: MonsterTemplateConfiguredRecord | Record<string, unknown>,
   itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
+  baselines?: MonsterRealmBaselineConfig,
 ): MonsterTemplateResolvedRecord {
   const monster = rawMonster as MonsterTemplateConfiguredRecord & Record<string, unknown>;
   const attrsInput = monster.attrs as Partial<Attributes> | undefined;
+  const attrTendencyInput = monster.attrTendency as MonsterAttrTendency | undefined;
   const statPercentsInput = monster.statPercents as NumericStatPercentages | undefined;
+  const statTendencyInput = monster.statTendency as MonsterStatTendency | undefined;
   const level = Number.isFinite(monster.level) ? Math.max(1, Math.floor(Number(monster.level))) : undefined;
   const grade = isTechniqueGrade(monster.grade) ? monster.grade : 'mortal';
   const tier = normalizeMonsterTier(monster.tier ?? inferMonsterTierFromName(typeof monster.name === 'string' ? monster.name : undefined));
   const valueStats = normalizeMonsterConfigStats(monster.valueStats);
   const attrs = attrsInput ? normalizeMonsterAttrs(attrsInput) : undefined;
+  const resolvedAttrTendency = normalizeMonsterAttrTendency(attrTendencyInput);
   const resolvedStatPercents = normalizeMonsterStatPercents(statPercentsInput);
+  const resolvedStatTendency = normalizeMonsterStatTendency(statTendencyInput);
   const equipmentRefs = normalizeMonsterTemplateEquipmentRefs(monster.equipment);
   const equipment = resolveMonsterTemplateEquipmentSlots(equipmentRefs, itemLookup);
-  const sourceMode: MonsterTemplateSourceMode = attrsInput ? 'attributes' : 'value_stats';
-  const resolvedAttrs = attrs ?? createMonsterAttributes();
-  const computedStats = sourceMode === 'attributes'
+  const sourceMode: MonsterTemplateSourceMode = valueStats
+    ? 'value_stats'
+    : (attrsInput ? 'attributes' : 'tendency');
+  const resolvedAttrs = sourceMode === 'tendency'
+    ? resolveMonsterAttrsFromTendency({
+        attrTendency: resolvedAttrTendency,
+        level,
+        grade,
+        tier,
+        baselines,
+      })
+    : (attrs ?? createMonsterAttributes());
+  const computedStats = sourceMode === 'tendency'
+    ? resolveMonsterNumericStatsFromTendency({
+        attrs: resolvedAttrs,
+        statTendency: resolvedStatTendency,
+        level,
+        grade,
+        tier,
+        baselines,
+      })
+    : sourceMode === 'attributes'
     ? resolveMonsterNumericStatsFromAttributes({
         attrs: resolvedAttrs,
         equipment,
@@ -1164,13 +1451,17 @@ export function resolveMonsterTemplateRecord(
     tier,
     valueStats,
     attrs,
+    attrTendency: resolvedAttrTendency,
     statPercents: normalizeMonsterStatPercents(statPercentsInput),
+    statTendency: resolvedStatTendency,
     initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs : undefined,
     equipment: equipmentRefs,
     skills: normalizeMonsterTemplateSkillIds(monster.skills),
     computedStats,
     resolvedAttrs,
+    resolvedAttrTendency,
     resolvedStatPercents,
+    resolvedStatTendency,
     combatModel: 'value_stats',
     sourceMode,
     hp: Math.max(1, Math.round(computedStats.maxHp || 1)),

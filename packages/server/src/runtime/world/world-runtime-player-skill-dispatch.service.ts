@@ -26,7 +26,13 @@ const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-plan
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
-const { formatCombatActionClause, formatCombatDamageBreakdown } = world_runtime_observation_helpers_1;
+const {
+    formatCombatActionClause,
+    formatCombatDamageBreakdown,
+    formatCombatResolutionOutcome,
+    formatCombatResolutionFloatText,
+    getCombatResolutionFloatColor,
+} = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
     if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
@@ -70,6 +76,53 @@ function resolveSkillDamageElement(skill) {
         ? skill.effects.find((effect) => effect?.type === 'damage')
         : null;
     return typeof damageEffect?.element === 'string' ? damageEffect.element : undefined;
+}
+function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
+    const firstRoll = Array.isArray(result?.damageRolls)
+        ? result.damageRolls.find((entry) => entry && typeof entry === 'object')
+        : null;
+    if (firstRoll) {
+        return {
+            ...firstRoll,
+            rawDamage: Number.isFinite(Number(firstRoll.rawDamage))
+                ? Number(firstRoll.rawDamage)
+                : Math.max(0, Math.round(Number(result?.totalRawDamage ?? result?.totalDamage) || 0)),
+            damage: Number.isFinite(Number(firstRoll.damage))
+                ? Number(firstRoll.damage)
+                : Math.max(0, Math.round(Number(result?.totalDamage) || 0)),
+            damageKind: firstRoll.damageKind ?? result?.damageKind ?? fallbackDamageKind,
+            element: firstRoll.element ?? result?.damageElement ?? fallbackElement,
+        };
+    }
+    return {
+        hit: Math.max(0, Math.round(Number(result?.totalDamage) || 0)) > 0,
+        rawDamage: Math.max(0, Math.round(Number(result?.totalRawDamage ?? result?.totalDamage) || 0)),
+        damage: Math.max(0, Math.round(Number(result?.totalDamage) || 0)),
+        crit: result?.crit === true,
+        dodged: result?.dodged === true,
+        resolved: result?.resolved === true,
+        broken: result?.broken === true,
+        damageKind: result?.damageKind ?? fallbackDamageKind,
+        element: result?.damageElement ?? fallbackElement,
+    };
+}
+function pushCombatResolutionFloat(deps, instanceId, x, y, resolution, fallbackColor) {
+    const text = formatCombatResolutionFloatText(resolution);
+    if (!text) {
+        return;
+    }
+    if (typeof deps.pushCombatTextFloatEffect === 'function') {
+        deps.pushCombatTextFloatEffect(
+            instanceId,
+            x,
+            y,
+            text,
+            getCombatResolutionFloatColor(resolution, fallbackColor),
+            920,
+        );
+        return;
+    }
+    deps.pushActionLabelEffect?.(instanceId, x, y, text, { durationMs: 920 });
 }
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
@@ -925,14 +978,21 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, options);
                 castIndex += 1;
+                const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
+                pushCombatResolutionFloat(deps, attacker.instanceId, monster.x, monster.y, primaryRoll, effectColor);
                 if (result.totalDamage <= 0) {
+                    deps.queuePlayerNotice?.(
+                        attacker.playerId,
+                        `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        'combat',
+                    );
                     continue;
                 }
                 deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, result.totalDamage, effectColor);
                 deps.queuePlayerNotice?.(
                     attacker.playerId,
-                    `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                    `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                     'combat',
                 );
                 const outcome = instance.applyDamageToMonster(monster.runtimeId, result.totalDamage, attacker.playerId);
@@ -949,17 +1009,31 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const distance = chebyshevDistance(attacker.x, attacker.y, targetPlayer.x, targetPlayer.y);
                 const result = this.playerCombatService.castSkill(attacker, targetPlayer, skillId, currentTick, distance, options);
                 castIndex += 1;
+                const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetPlayer.x, targetPlayer.y, effectColor);
+                pushCombatResolutionFloat(deps, attacker.instanceId, targetPlayer.x, targetPlayer.y, primaryRoll, effectColor);
                 if (result.totalDamage > 0) {
                     deps.pushDamageFloatEffect(attacker.instanceId, targetPlayer.x, targetPlayer.y, result.totalDamage, effectColor);
                     deps.queuePlayerNotice?.(
                         attacker.playerId,
-                        `${formatCombatActionClause('你', targetPlayer.name ?? targetPlayer.playerId, skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                        `${formatCombatActionClause('你', targetPlayer.name ?? targetPlayer.playerId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                         'combat',
                     );
                     deps.queuePlayerNotice?.(
                         targetPlayer.playerId,
-                        `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, damageKind, damageElement)} 伤害`,
+                        `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        'combat',
+                    );
+                }
+                else {
+                    deps.queuePlayerNotice?.(
+                        attacker.playerId,
+                        `${formatCombatActionClause('你', targetPlayer.name ?? targetPlayer.playerId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        'combat',
+                    );
+                    deps.queuePlayerNotice?.(
+                        targetPlayer.playerId,
+                        `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                         'combat',
                     );
                 }

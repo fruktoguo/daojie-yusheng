@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName } from '../../auth/account-validation';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { ensureBigintColumnType } from '../../persistence/schema-bigint-migration';
 /**
  * AuthConflictKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -1108,10 +1109,7 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
-    await client.query(`
-      ALTER TABLE ${PLAYER_AUTH_TABLE}
-      ALTER COLUMN total_online_seconds TYPE bigint USING total_online_seconds::bigint
-    `);
+    await ensureBigintColumnType(client, PLAYER_AUTH_TABLE, 'total_online_seconds');
     await client.query(`
       ALTER TABLE ${PLAYER_AUTH_TABLE}
       ADD COLUMN IF NOT EXISTS register_ip varchar(64),

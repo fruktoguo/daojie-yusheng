@@ -28,6 +28,9 @@ const {
     createTileCombatNumericStats,
     createTileCombatRatioDivisors,
     formatCombatDamageBreakdown,
+    formatCombatResolutionOutcome,
+    formatCombatResolutionFloatText,
+    getCombatResolutionFloatColor,
     formatCombatActionClause,
 } = world_runtime_observation_helpers_1;
 
@@ -61,6 +64,30 @@ function formatAuraDamage(value) {
         return amount.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
     }
     return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
+}
+function pushCombatResolutionFloat(deps, instanceId, x, y, resolution, fallbackColor) {
+    const text = formatCombatResolutionFloatText(resolution);
+    if (!text) {
+        return;
+    }
+    if (typeof deps.pushCombatTextFloatEffect === 'function') {
+        deps.pushCombatTextFloatEffect(
+            instanceId,
+            x,
+            y,
+            text,
+            getCombatResolutionFloatColor(resolution, fallbackColor),
+            920,
+        );
+        return;
+    }
+    deps.pushActionLabelEffect?.(
+        instanceId,
+        x,
+        y,
+        text,
+        { durationMs: 920 },
+    );
 }
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
@@ -181,11 +208,12 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (resolvedDamage.damage > 0) {
             deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
         }
+        pushCombatResolutionFloat(deps, attacker.instanceId, monster.x, monster.y, resolvedDamage, effectColor);
         const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
         if (outcome?.defeated) {
             await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
         }
-        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
     }
     /**
  * dispatchBasicAttackToPlayer：判断BasicAttackTo玩家是否满足条件。
@@ -221,6 +249,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (resolvedDamage.damage > 0) {
             deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
         }
+        pushCombatResolutionFloat(deps, attacker.instanceId, target.x, target.y, resolvedDamage, effectColor);
         this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
         const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
@@ -229,8 +258,8 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (updated.hp <= 0) {
             await deps.handlePlayerDefeat(updated.playerId, attacker.playerId);
         }
-        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-        deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
+        deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
     }
     /**
  * dispatchBasicAttackToTile：判断BasicAttackToTile是否满足条件。

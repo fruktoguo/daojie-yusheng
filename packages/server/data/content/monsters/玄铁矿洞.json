@@ -37,33 +37,29 @@
       "body": "equip.rift_guard_armor",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 69,
-      "spirit": 45,
-      "perception": 63,
-      "talent": 57,
-      "strength": 9,
-      "meridians": 7
-    },
-    "statPercents": {
-      "maxHp": 70,
-      "maxQi": 41,
-      "physAtk": 59,
-      "spellAtk": 37,
-      "physDef": 60,
-      "spellDef": 54,
-      "hit": 58,
-      "dodge": 48,
-      "crit": 48,
-      "breakPower": 56,
-      "resolvePower": 56,
-      "maxQiOutputPerTick": 44,
-      "viewRange": 100,
-      "moveSpeed": 113.92
-    },
     "skills": [
       "skill.core_smash"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 105,
+      "spirit": 68,
+      "perception": 96,
+      "talent": 87,
+      "strength": 137,
+      "meridians": 107
+    },
+    "statTendency": {
+      "maxQi": 73,
+      "physAtk": 105,
+      "spellAtk": 66,
+      "physDef": 107,
+      "spellDef": 96,
+      "hit": 103,
+      "dodge": 85,
+      "crit": 85,
+      "maxQiOutputPerTick": 78,
+      "moveSpeed": 203
+    }
   },
   {
     "id": "m_crystal_bat",
@@ -96,34 +92,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 33,
-      "spirit": 51,
-      "perception": 87,
-      "talent": 33,
-      "strength": 9,
-      "meridians": 6
-    },
-    "statPercents": {
-      "maxHp": 60,
-      "maxQi": 46,
-      "physAtk": 43,
-      "spellAtk": 46,
-      "physDef": 36,
-      "spellDef": 38,
-      "hit": 63,
-      "dodge": 77,
-      "crit": 56,
-      "breakPower": 38,
-      "resolvePower": 38,
-      "maxQiOutputPerTick": 52,
-      "viewRange": 100,
-      "moveSpeed": 179.6
-    },
     "skills": [
       "skill.plume_shot",
       "skill.echo_screech"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 56,
+      "spirit": 86,
+      "perception": 147,
+      "talent": 56,
+      "strength": 153,
+      "meridians": 102
+    },
+    "statTendency": {
+      "maxQi": 77,
+      "physAtk": 72,
+      "spellAtk": 77,
+      "physDef": 61,
+      "spellDef": 64,
+      "hit": 106,
+      "dodge": 130,
+      "crit": 94,
+      "breakPower": 64,
+      "resolvePower": 64,
+      "maxQiOutputPerTick": 88,
+      "moveSpeed": 302
+    }
   },
   {
     "id": "m_tunnel_stalker",
@@ -156,34 +150,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 60,
-      "spirit": 50,
-      "perception": 119,
-      "talent": 57,
-      "strength": 13,
-      "meridians": 11
-    },
-    "statPercents": {
-      "maxHp": 80,
-      "maxQi": 54,
-      "physAtk": 73,
-      "spellAtk": 57,
-      "physDef": 51,
-      "spellDef": 47,
-      "hit": 83,
-      "dodge": 85,
-      "crit": 77,
-      "breakPower": 68,
-      "resolvePower": 49,
-      "maxQiOutputPerTick": 65,
-      "viewRange": 100,
-      "moveSpeed": 174.24
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 68,
+      "spirit": 57,
+      "perception": 136,
+      "talent": 65,
+      "strength": 148,
+      "meridians": 126
+    },
+    "statTendency": {
+      "maxQi": 73,
+      "physAtk": 99,
+      "spellAtk": 77,
+      "physDef": 69,
+      "spellDef": 64,
+      "hit": 113,
+      "dodge": 115,
+      "crit": 105,
+      "breakPower": 92,
+      "resolvePower": 67,
+      "maxQiOutputPerTick": 88,
+      "moveSpeed": 237
+    }
   },
   {
     "id": "m_ore_colossus",
@@ -248,34 +240,32 @@
       "body": "equip.rift_guard_armor",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 175,
-      "spirit": 50,
-      "perception": 40,
-      "talent": 120,
-      "strength": 8,
-      "meridians": 8
-    },
-    "statPercents": {
-      "maxHp": 90,
-      "maxQi": 34,
-      "physAtk": 72,
-      "spellAtk": 31,
-      "physDef": 109,
-      "spellDef": 102,
-      "hit": 58,
-      "dodge": 36,
-      "crit": 43,
-      "breakPower": 67,
-      "resolvePower": 93,
-      "maxQiOutputPerTick": 38,
-      "viewRange": 100,
-      "moveSpeed": 60.56
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 193,
+      "spirit": 55,
+      "perception": 44,
+      "talent": 132,
+      "strength": 88,
+      "meridians": 88
+    },
+    "statTendency": {
+      "maxQi": 55,
+      "physAtk": 116,
+      "spellAtk": 50,
+      "physDef": 176,
+      "spellDef": 165,
+      "hit": 94,
+      "dodge": 58,
+      "crit": 69,
+      "breakPower": 108,
+      "resolvePower": 150,
+      "maxQiOutputPerTick": 61,
+      "moveSpeed": 98
+    }
   },
   {
     "id": "m_iron_devour_lord",
@@ -335,34 +325,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 222,
-      "spirit": 63,
-      "perception": 51,
-      "talent": 153,
-      "strength": 10,
-      "meridians": 10
-    },
-    "statPercents": {
-      "maxHp": 100,
-      "maxQi": 40,
-      "physAtk": 80,
-      "spellAtk": 36,
-      "physDef": 119,
-      "spellDef": 111,
-      "hit": 65,
-      "dodge": 42,
-      "crit": 49,
-      "breakPower": 74,
-      "resolvePower": 102,
-      "maxQiOutputPerTick": 44,
-      "viewRange": 100,
-      "moveSpeed": 60.88
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 193,
+      "spirit": 55,
+      "perception": 45,
+      "talent": 133,
+      "strength": 87,
+      "meridians": 87
+    },
+    "statTendency": {
+      "maxQi": 58,
+      "physAtk": 117,
+      "spellAtk": 52,
+      "physDef": 174,
+      "spellDef": 162,
+      "hit": 95,
+      "dodge": 61,
+      "crit": 71,
+      "breakPower": 108,
+      "resolvePower": 149,
+      "maxQiOutputPerTick": 64,
+      "moveSpeed": 89
+    }
   }
 ]

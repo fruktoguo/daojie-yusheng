@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { ensureBigintColumnType } from './schema-bigint-migration';
 
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
@@ -397,10 +398,7 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS dead_letter_event_topic_idx
     ON ${DEAD_LETTER_EVENT_TABLE}(topic, failed_at DESC)
   `);
-  await pool.query(`
-    ALTER TABLE ${DEAD_LETTER_EVENT_TABLE}
-    ALTER COLUMN attempt_count TYPE bigint USING attempt_count::bigint
-  `);
+  await ensureBigintColumnType(pool, DEAD_LETTER_EVENT_TABLE, 'attempt_count');
 }
 
 async function ensureOutboxConsumerDedupeTable(pool: Pool): Promise<void> {

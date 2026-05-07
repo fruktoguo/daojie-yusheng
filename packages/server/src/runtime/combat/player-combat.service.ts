@@ -194,6 +194,10 @@ let PlayerCombatService = class PlayerCombatService {
         handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
 
         let totalDamage = 0;
+        let totalRawDamage = 0;
+        let primaryDamageKind = null;
+        let primaryDamageElement = undefined;
+        const damageRolls = [];
 
         let hitCount = 0;
         for (const effect of resolved.skill.effects) {
@@ -205,9 +209,15 @@ let PlayerCombatService = class PlayerCombatService {
                     targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
                 })));
 
-                const damage = resolveDamage(attacker, target, effect, baseDamage);
-                if (damage > 0) {
-                    totalDamage += damage;
+                const damageRoll = resolveDamage(attacker, target, effect, baseDamage);
+                damageRolls.push(damageRoll);
+                totalRawDamage += Math.max(0, Math.round(damageRoll.rawDamage ?? 0));
+                if (!primaryDamageKind) {
+                    primaryDamageKind = damageRoll.damageKind;
+                    primaryDamageElement = damageRoll.element;
+                }
+                if (damageRoll.damage > 0) {
+                    totalDamage += damageRoll.damage;
                     hitCount += 1;
                 }
                 continue;
@@ -225,7 +235,15 @@ let PlayerCombatService = class PlayerCombatService {
             skillId: resolved.skill.id,
             qiCost,
             totalDamage,
+            totalRawDamage,
             hitCount,
+            damageKind: primaryDamageKind ?? undefined,
+            damageElement: primaryDamageElement,
+            damageRolls,
+            crit: damageRolls.some((entry) => entry.crit),
+            dodged: damageRolls.length > 0 && damageRolls.every((entry) => entry.dodged),
+            resolved: damageRolls.some((entry) => entry.resolved),
+            broken: damageRolls.some((entry) => entry.broken),
         };
     }
 };
@@ -407,7 +425,11 @@ function resolveDamage(attacker, target, effect, baseDamage) {
         element: effect.element,
         damageMultiplier: 1,
     });
-    return resolved.damage;
+    return {
+        ...resolved,
+        damageKind,
+        element: effect.element,
+    };
 }
 /**
  * inferDamageKind：执行inferDamageKind相关逻辑。

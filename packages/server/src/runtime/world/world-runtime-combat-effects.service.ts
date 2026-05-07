@@ -62,6 +62,29 @@ export class WorldRuntimeCombatEffectsService {
     });
   }
 
+  pushCombatTextFloatEffect(
+    instanceId: string,
+    x: number,
+    y: number,
+    text: string,
+    color?: string,
+    durationMs?: number,
+  ): void {
+    const normalizedText = typeof text === 'string' ? text.trim() : '';
+    if (!normalizedText) {
+      return;
+    }
+    this.pushCombatEffect(instanceId, {
+      type: 'float',
+      x,
+      y,
+      text: normalizedText,
+      color,
+      variant: 'action',
+      durationMs,
+    });
+  }
+
   pushAttackEffect(instanceId: string, fromX: number, fromY: number, toX: number, toY: number, color?: string): void {
     this.pushCombatEffect(instanceId, {
       type: 'attack',

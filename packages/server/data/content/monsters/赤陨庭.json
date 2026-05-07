@@ -11,31 +11,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 15,
-    "attrs": {
-      "constitution": 184,
-      "spirit": 176,
-      "perception": 292,
-      "talent": 172,
-      "strength": 24,
-      "meridians": 28
-    },
-    "statPercents": {
-      "maxHp": 200,
-      "maxQi": 84,
-      "physAtk": 118,
-      "spellAtk": 128,
-      "physDef": 92,
-      "spellDef": 102,
-      "hit": 134,
-      "dodge": 156,
-      "crit": 136,
-      "breakPower": 104,
-      "resolvePower": 94,
-      "maxQiOutputPerTick": 126,
-      "moveSpeed": 178
-    },
     "skills": [
       "skill.plume_shot",
       "skill.echo_screech"
@@ -82,7 +58,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 82,
+      "spirit": 79,
+      "perception": 130,
+      "talent": 77,
+      "strength": 107,
+      "meridians": 125
+    },
+    "statTendency": {
+      "maxQi": 69,
+      "physAtk": 98,
+      "spellAtk": 106,
+      "physDef": 76,
+      "spellDef": 84,
+      "hit": 111,
+      "dodge": 129,
+      "crit": 112,
+      "breakPower": 86,
+      "resolvePower": 78,
+      "maxQiOutputPerTick": 104,
+      "moveSpeed": 147
+    }
   },
   {
     "id": "m_ember_whelp",
@@ -96,31 +94,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 16,
-    "attrs": {
-      "constitution": 244,
-      "spirit": 156,
-      "perception": 304,
-      "talent": 196,
-      "strength": 26,
-      "meridians": 26
-    },
-    "statPercents": {
-      "maxHp": 230,
-      "maxQi": 80,
-      "physAtk": 132,
-      "spellAtk": 112,
-      "physDef": 102,
-      "spellDef": 96,
-      "hit": 140,
-      "dodge": 150,
-      "crit": 132,
-      "breakPower": 126,
-      "resolvePower": 98,
-      "maxQiOutputPerTick": 112,
-      "moveSpeed": 176
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.brutal_ram"
@@ -167,7 +141,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 103,
+      "spirit": 66,
+      "perception": 128,
+      "talent": 83,
+      "strength": 110,
+      "meridians": 110
+    },
+    "statTendency": {
+      "maxQi": 66,
+      "physAtk": 109,
+      "spellAtk": 92,
+      "physDef": 84,
+      "spellDef": 79,
+      "hit": 115,
+      "dodge": 124,
+      "crit": 109,
+      "breakPower": 104,
+      "resolvePower": 81,
+      "maxQiOutputPerTick": 92,
+      "moveSpeed": 145
+    }
   },
   {
     "id": "m_ember_lizard",
@@ -181,31 +177,7 @@
     "maxAlive": 3,
     "radius": 5,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 18,
-    "attrs": {
-      "constitution": 292,
-      "spirit": 192,
-      "perception": 364,
-      "talent": 248,
-      "strength": 34,
-      "meridians": 32
-    },
-    "statPercents": {
-      "maxHp": 260,
-      "maxQi": 61.6,
-      "physAtk": 106.4,
-      "spellAtk": 86.8,
-      "physDef": 75.6,
-      "spellDef": 71.4,
-      "hit": 107.8,
-      "dodge": 112,
-      "crit": 100.8,
-      "breakPower": 103.6,
-      "resolvePower": 72.8,
-      "maxQiOutputPerTick": 86.8,
-      "moveSpeed": 127.4
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.core_smash"
@@ -271,7 +243,28 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "spirit": 66,
+      "perception": 124,
+      "talent": 85,
+      "strength": 116,
+      "meridians": 109
+    },
+    "statTendency": {
+      "maxQi": 66,
+      "physAtk": 115,
+      "spellAtk": 94,
+      "physDef": 82,
+      "spellDef": 77,
+      "hit": 116,
+      "dodge": 121,
+      "crit": 109,
+      "breakPower": 112,
+      "resolvePower": 78,
+      "maxQiOutputPerTick": 94,
+      "moveSpeed": 137
+    }
   },
   {
     "id": "m_ember_attendant",
@@ -285,31 +278,7 @@
     "maxAlive": 2,
     "radius": 5,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 20,
-    "attrs": {
-      "constitution": 336,
-      "spirit": 216,
-      "perception": 388,
-      "talent": 296,
-      "strength": 36,
-      "meridians": 36
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 94,
-      "physAtk": 166,
-      "spellAtk": 132,
-      "physDef": 116,
-      "spellDef": 110,
-      "hit": 160,
-      "dodge": 164,
-      "crit": 148,
-      "breakPower": 160,
-      "resolvePower": 108,
-      "maxQiOutputPerTick": 132,
-      "moveSpeed": 188
-    },
     "skills": [
       "skill.core_smash",
       "skill.void_burst"
@@ -357,7 +326,29 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 103,
+      "spirit": 66,
+      "perception": 119,
+      "talent": 91,
+      "strength": 111,
+      "meridians": 110
+    },
+    "statTendency": {
+      "maxQi": 67,
+      "physAtk": 119,
+      "spellAtk": 94,
+      "physDef": 83,
+      "spellDef": 79,
+      "hit": 114,
+      "dodge": 117,
+      "crit": 106,
+      "breakPower": 114,
+      "resolvePower": 77,
+      "maxQiOutputPerTick": 94,
+      "moveSpeed": 134
+    }
   },
   {
     "id": "m_ember_bone_patrol",
@@ -371,31 +362,7 @@
     "maxAlive": 8,
     "radius": 8,
     "aggroRange": 9,
-    "viewRange": 12,
     "respawnSec": 24,
-    "attrs": {
-      "constitution": 385,
-      "spirit": 255,
-      "perception": 470,
-      "talent": 315,
-      "strength": 45,
-      "meridians": 42
-    },
-    "statPercents": {
-      "maxHp": 250,
-      "maxQi": 77.3,
-      "physAtk": 139.4,
-      "spellAtk": 102.5,
-      "physDef": 94.1,
-      "spellDef": 87.4,
-      "hit": 127.7,
-      "dodge": 132.7,
-      "crit": 122.6,
-      "breakPower": 132.7,
-      "resolvePower": 89,
-      "maxQiOutputPerTick": 105.8,
-      "moveSpeed": 147.8
-    },
     "skills": [
       "skill.liyan_duanxi",
       "skill.chiyao_fenmai"
@@ -445,7 +412,29 @@
         "chance": 0.01
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 101,
+      "spirit": 67,
+      "perception": 123,
+      "talent": 82,
+      "strength": 117,
+      "meridians": 110
+    },
+    "statTendency": {
+      "maxQi": 68,
+      "physAtk": 123,
+      "spellAtk": 91,
+      "physDef": 83,
+      "spellDef": 77,
+      "hit": 113,
+      "dodge": 117,
+      "crit": 108,
+      "breakPower": 117,
+      "resolvePower": 79,
+      "maxQiOutputPerTick": 93,
+      "moveSpeed": 131
+    }
   },
   {
     "id": "m_ember_flame_guard",
@@ -459,31 +448,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 9,
-    "viewRange": 12,
     "respawnSec": 26,
-    "attrs": {
-      "constitution": 470,
-      "spirit": 290,
-      "perception": 545,
-      "talent": 380,
-      "strength": 52,
-      "meridians": 48
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 96.7,
-      "physAtk": 177.4,
-      "spellAtk": 137,
-      "physDef": 118.9,
-      "spellDef": 112.9,
-      "hit": 165.4,
-      "dodge": 173.4,
-      "crit": 153.2,
-      "breakPower": 167.3,
-      "resolvePower": 112.9,
-      "maxQiOutputPerTick": 137,
-      "moveSpeed": 193.6
-    },
     "skills": [
       "skill.liyan_duanxi",
       "skill.chiyao_fenmai"
@@ -551,7 +516,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 105,
+      "spirit": 65,
+      "perception": 122,
+      "talent": 85,
+      "strength": 116,
+      "meridians": 107
+    },
+    "statTendency": {
+      "maxQi": 66,
+      "physAtk": 122,
+      "spellAtk": 94,
+      "physDef": 82,
+      "spellDef": 78,
+      "hit": 114,
+      "dodge": 119,
+      "crit": 105,
+      "breakPower": 115,
+      "resolvePower": 78,
+      "maxQiOutputPerTick": 94,
+      "moveSpeed": 133
+    }
   },
   {
     "id": "m_ember_furnace_lord",
@@ -565,31 +552,7 @@
     "maxAlive": 1,
     "radius": 4,
     "aggroRange": 8,
-    "viewRange": 9,
     "respawnSec": 90,
-    "attrs": {
-      "constitution": 732,
-      "spirit": 444,
-      "perception": 672,
-      "talent": 528,
-      "strength": 72,
-      "meridians": 66
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 93.5,
-      "physAtk": 160.6,
-      "spellAtk": 130.5,
-      "physDef": 111.2,
-      "spellDef": 105.8,
-      "hit": 149.9,
-      "dodge": 148.1,
-      "crit": 137.6,
-      "breakPower": 151.7,
-      "resolvePower": 104,
-      "maxQiOutputPerTick": 130.5,
-      "moveSpeed": 164.1
-    },
     "skills": [
       "skill.liyan_duanxi",
       "skill.chiyao_fenmai",
@@ -634,6 +597,28 @@
         "count": 1
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 117,
+      "spirit": 71,
+      "perception": 107,
+      "talent": 84,
+      "strength": 115,
+      "meridians": 106
+    },
+    "statTendency": {
+      "maxQi": 71,
+      "physAtk": 121,
+      "spellAtk": 99,
+      "physDef": 84,
+      "spellDef": 80,
+      "hit": 113,
+      "dodge": 112,
+      "crit": 104,
+      "breakPower": 115,
+      "resolvePower": 79,
+      "maxQiOutputPerTick": 99,
+      "moveSpeed": 124
+    }
   }
 ]

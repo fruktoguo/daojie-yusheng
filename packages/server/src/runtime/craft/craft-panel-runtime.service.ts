@@ -160,6 +160,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         this.ensureCraftSkills(player);
         return this.craftPanelEnhancementQueryService.buildEnhancementPanelPayload(player, this.enhancementConfigs);
     }
+    /** 读取强化面板运行态增量，高频刷新不重复下发候选与历史。 */
+    buildEnhancementPanelPatchPayload(player) {
+        this.ensureCraftSkills(player);
+        return this.craftPanelEnhancementQueryService.buildEnhancementPanelPatchPayload(player);
+    }
     /** 按 activity kind 统一返回技艺面板载荷。 */
     buildTechniqueActivityPanelPayload(player, kind, knownCatalogVersion) {
         if (kind === 'alchemy') {
@@ -172,6 +177,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             return this.buildEnhancementPanelPayload(player);
         }
         return null;
+    }
+    /** 按 activity kind 统一返回技艺面板运行态增量。 */
+    buildTechniqueActivityPanelPatchPayload(player, kind) {
+        if (kind === 'enhancement') {
+            return this.buildEnhancementPanelPatchPayload(player);
+        }
+        return this.buildTechniqueActivityPanelPayload(player, kind);
     }
     /** 判断玩家当前是否有炼丹任务在进行。 */
     hasActiveAlchemyJob(player) {

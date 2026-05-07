@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 import { normalizeMonsterTier } from '@mud/shared';
+import { ensureBigintColumnType, ensureDoubleColumnType } from './schema-bigint-migration';
 
 const INSTANCE_TILE_RESOURCE_STATE_TABLE = 'instance_tile_resource_state';
 const INSTANCE_TILE_CELL_TABLE = 'instance_tile_cell';
@@ -46,10 +47,10 @@ const INSTANCE_ROOM_CELL_LOCK_KEY = 3018;
 const INSTANCE_BUILDING_AUDIT_LOG_LOCK_KEY = 3019;
 const INSTANCE_BUILDING_OPERATION_IDEMPOTENCY_LOCK_KEY = 3020;
 const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
-  [INSTANCE_TILE_RESOURCE_STATE_TABLE]: ['tile_index', 'value'],
+  [INSTANCE_TILE_RESOURCE_STATE_TABLE]: ['tile_index'],
   [INSTANCE_TILE_CELL_TABLE]: ['x', 'y'],
-  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['tile_index', 'x', 'y', 'hp', 'max_hp', 'respawn_left_ticks'],
-  [INSTANCE_TEMPORARY_TILE_STATE_TABLE]: ['tile_index', 'x', 'y', 'hp', 'max_hp', 'expires_at_tick', 'created_at_ms', 'modified_at_ms'],
+  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['tile_index', 'x', 'y', 'respawn_left_ticks'],
+  [INSTANCE_TEMPORARY_TILE_STATE_TABLE]: ['tile_index', 'x', 'y', 'expires_at_tick', 'created_at_ms', 'modified_at_ms'],
   [INSTANCE_GROUND_ITEM_TABLE]: ['tile_index'],
   [INSTANCE_CONTAINER_ENTRY_TABLE]: ['entry_index'],
     [INSTANCE_MONSTER_RUNTIME_STATE_TABLE]: [
@@ -57,12 +58,10 @@ const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
     'tile_index',
     'x',
     'y',
-    'hp',
-    'max_hp',
     'respawn_left',
       'respawn_ticks',
     ],
-  [INSTANCE_BUILDING_STATE_TABLE]: ['x', 'y', 'hp', 'max_hp', 'created_at_tick', 'updated_at_tick', 'revision'],
+  [INSTANCE_BUILDING_STATE_TABLE]: ['x', 'y', 'created_at_tick', 'updated_at_tick', 'revision'],
   [INSTANCE_BUILDING_CELL_TABLE]: ['tile_index', 'x', 'y'],
   [INSTANCE_ROOM_STATE_TABLE]: ['min_x', 'min_y', 'max_x', 'max_y', 'area', 'perimeter', 'door_count', 'window_count', 'revision', 'updated_at_tick'],
   [INSTANCE_ROOM_CELL_TABLE]: ['tile_index', 'x', 'y', 'edge_flags'],
@@ -70,7 +69,6 @@ const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
     'score',
     'shape_score',
     'enclosure_score',
-    'qi_score',
     'sha_score',
     'comfort_score',
     'integrity_score',
@@ -80,6 +78,14 @@ const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
     'updated_at_tick',
   ],
   } as const;
+const INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
+  [INSTANCE_TILE_RESOURCE_STATE_TABLE]: ['value'],
+  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['hp', 'max_hp'],
+  [INSTANCE_TEMPORARY_TILE_STATE_TABLE]: ['hp', 'max_hp'],
+  [INSTANCE_MONSTER_RUNTIME_STATE_TABLE]: ['hp', 'max_hp'],
+  [INSTANCE_BUILDING_STATE_TABLE]: ['hp', 'max_hp'],
+  [INSTANCE_FENGSHUI_STATE_TABLE]: ['qi_score'],
+} as const;
 
 @Injectable()
 export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleDestroy {
@@ -180,8 +186,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 owner_player_id varchar(100),
                 owner_sect_id varchar(100),
                 room_id varchar(160),
-                hp bigint,
-                max_hp bigint,
+                hp double precision,
+                max_hp double precision,
                 state varchar(40),
                 created_at_tick bigint,
                 updated_at_tick bigint,
@@ -359,7 +365,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 function_element varchar(20),
                 shape_score bigint,
                 enclosure_score bigint,
-                qi_score bigint,
+                qi_score double precision,
                 sha_score bigint,
                 comfort_score bigint,
                 integrity_score bigint,
@@ -469,7 +475,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       .map((entry) => ({
         resourceKey: entry.resourceKey.trim(),
         tileIndex: Math.trunc(entry.tileIndex),
-        value: Math.max(0, Math.trunc(entry.value)),
+        value: Math.max(0, entry.value),
       }));
     const client = await this.pool.connect();
     try {
@@ -525,7 +531,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       .map((entry) => ({
         resourceKey: entry.resourceKey.trim(),
         tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
-        value: Math.max(0, Math.trunc(Number(entry.value))),
+        value: Math.max(0, normalizeNumberWithFallback(entry.value, 0)),
       }));
     const normalizedDeletes = (Array.isArray(deletes) ? deletes : [])
       .filter((entry) => Boolean(entry)
@@ -570,7 +576,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           `
             WITH incoming AS (
               SELECT resource_key, tile_index, value
-              FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint, value bigint)
+              FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint, value double precision)
             )
             INSERT INTO ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(
               instance_id,
@@ -784,8 +790,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
             x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
             y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
-            hp: Math.max(0, Math.trunc(Number(entry.hp) || 0)),
-            maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+            hp: Math.max(0, normalizeNumberWithFallback(entry.hp, 0)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(entry.maxHp, 1)),
             destroyed: entry.destroyed === true,
             respawnLeft: Math.max(0, Math.trunc(Number(entry.respawnLeft) || 0)),
             modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
@@ -899,8 +905,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
             x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
             y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
-            hp: Math.max(0, Math.trunc(Number(entry.hp) || 0)),
-            maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+            hp: Math.max(0, normalizeNumberWithFallback(entry.hp, 0)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(entry.maxHp, 1)),
             destroyed: entry.destroyed === true,
             respawnLeft: Math.max(0, Math.trunc(Number(entry.respawnLeft) || 0)),
             modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
@@ -941,8 +947,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 tile_index bigint,
                 x bigint,
                 y bigint,
-                hp bigint,
-                max_hp bigint,
+                hp double precision,
+                max_hp double precision,
                 destroyed boolean,
                 respawn_left_ticks bigint,
                 modified_at_ms bigint
@@ -1038,8 +1044,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
           x: normalizeNullableInteger(row.x),
           y: normalizeNullableInteger(row.y),
-          hp: Math.max(0, normalizeNullableInteger(row.hp) ?? 0),
-          maxHp: Math.max(1, normalizeNullableInteger(row.max_hp) ?? 1),
+          hp: Math.max(0, normalizeNullableNumber(row.hp) ?? 0),
+          maxHp: Math.max(1, normalizeNullableNumber(row.max_hp) ?? 1),
           destroyed: row.destroyed === true,
           respawnLeft: Math.max(0, normalizeNullableInteger(row.respawn_left_ticks) ?? 0),
           modifiedAt: Number.isFinite(Number(row.modified_at_ms)) ? Math.max(0, Math.trunc(Number(row.modified_at_ms))) : 0,
@@ -1078,8 +1084,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
             y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
             tileType: typeof entry.tileType === 'string' && entry.tileType.trim() ? entry.tileType.trim() : 'stone',
-            hp: Math.max(1, Math.trunc(Number(entry.hp) || 1)),
-            maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+            hp: Math.max(1, normalizeNumberWithFallback(entry.hp, 1)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(entry.maxHp, 1)),
             expiresAtTick: Math.max(1, Math.trunc(Number(entry.expiresAtTick) || 1)),
             ownerPlayerId: normalizeRequiredString(entry.ownerPlayerId),
             sourceSkillId: normalizeRequiredString(entry.sourceSkillId),
@@ -1185,8 +1191,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           x: normalizeNullableInteger(row.x),
           y: normalizeNullableInteger(row.y),
           tileType: typeof row.tile_type === 'string' && row.tile_type.length > 0 ? row.tile_type : 'stone',
-          hp: Math.max(1, normalizeNullableInteger(row.hp) ?? 1),
-          maxHp: Math.max(1, normalizeNullableInteger(row.max_hp) ?? 1),
+          hp: Math.max(1, normalizeNullableNumber(row.hp) ?? 1),
+          maxHp: Math.max(1, normalizeNullableNumber(row.max_hp) ?? 1),
           expiresAtTick: Math.max(1, normalizeNullableInteger(row.expires_at_tick) ?? 1),
           ownerPlayerId: typeof row.owner_player_id === 'string' ? row.owner_player_id : null,
           sourceSkillId: typeof row.source_skill_id === 'string' ? row.source_skill_id : null,
@@ -2019,8 +2025,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           Math.trunc(Number(input.tileIndex ?? 0)),
           Math.trunc(Number(input.x ?? 0)),
           Math.trunc(Number(input.y ?? 0)),
-          Math.max(0, Math.trunc(Number(input.hp ?? 0))),
-          Math.max(1, Math.trunc(Number(input.maxHp ?? 1))),
+          Math.max(0, normalizeNumberWithFallback(input.hp, 0)),
+          Math.max(1, normalizeNumberWithFallback(input.maxHp, 1)),
           input.alive === true,
           Number.isFinite(input.respawnLeft) ? Math.max(0, Math.trunc(Number(input.respawnLeft))) : null,
           Number.isFinite(input.respawnTicks) ? Math.max(0, Math.trunc(Number(input.respawnTicks))) : null,
@@ -2091,8 +2097,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             tileIndex: Math.max(0, Math.trunc(Number(entry?.tileIndex) || 0)),
             x: Math.trunc(Number(entry?.x) || 0),
             y: Math.trunc(Number(entry?.y) || 0),
-            hp: Math.max(0, Math.trunc(Number(entry?.hp) || 0)),
-            maxHp: Math.max(1, Math.trunc(Number(entry?.maxHp) || 1)),
+            hp: Math.max(0, normalizeNumberWithFallback(entry?.hp, 0)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(entry?.maxHp, 1)),
             alive: entry?.alive === true,
             respawnLeft: Number.isFinite(Number(entry?.respawnLeft)) ? Math.max(0, Math.trunc(Number(entry.respawnLeft))) : null,
             respawnTicks: Number.isFinite(Number(entry?.respawnTicks)) ? Math.max(0, Math.trunc(Number(entry.respawnTicks))) : null,
@@ -2133,8 +2139,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               tile_index bigint,
               x bigint,
               y bigint,
-              hp bigint,
-              max_hp bigint,
+              hp double precision,
+              max_hp double precision,
               alive boolean,
               respawn_left bigint,
               respawn_ticks bigint,
@@ -2300,8 +2306,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
           x: normalizeNullableInteger(row.x) ?? 0,
           y: normalizeNullableInteger(row.y) ?? 0,
-          hp: normalizeNullableInteger(row.hp) ?? 0,
-          maxHp: normalizeNullableInteger(row.max_hp) ?? 0,
+          hp: normalizeNullableNumber(row.hp) ?? 0,
+          maxHp: normalizeNullableNumber(row.max_hp) ?? 0,
           alive: row.alive === true,
           respawnLeft: normalizeNullableInteger(row.respawn_left),
           respawnTicks: normalizeNullableInteger(row.respawn_ticks),
@@ -2597,8 +2603,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             tileIndex: Math.max(0, Math.trunc(Number(entry?.tileIndex) || 0)),
             x: Math.trunc(Number(entry?.x) || 0),
             y: Math.trunc(Number(entry?.y) || 0),
-            hp: Math.max(0, Math.trunc(Number(entry?.hp) || 0)),
-            maxHp: Math.max(1, Math.trunc(Number(entry?.maxHp) || 1)),
+            hp: Math.max(0, normalizeNumberWithFallback(entry?.hp, 0)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(entry?.maxHp, 1)),
             alive: entry?.alive === true,
             respawnLeft: Number.isFinite(Number(entry?.respawnLeft)) ? Math.max(0, Math.trunc(Number(entry.respawnLeft))) : null,
             respawnTicks: Number.isFinite(Number(entry?.respawnTicks)) ? Math.max(0, Math.trunc(Number(entry.respawnTicks))) : null,
@@ -2649,8 +2655,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 tile_index bigint,
                 x bigint,
                 y bigint,
-                hp bigint,
-                max_hp bigint,
+                hp double precision,
+                max_hp double precision,
                 alive boolean,
                 respawn_left bigint,
                 respawn_ticks bigint,
@@ -2841,12 +2847,13 @@ async function ensureInstanceTileResourceStateTable(pool: Pool): Promise<void> {
         instance_id varchar(100) NOT NULL,
         resource_key varchar(100) NOT NULL,
         tile_index bigint NOT NULL,
-        value bigint NOT NULL DEFAULT 0,
+        value double precision NOT NULL DEFAULT 0,
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, resource_key, tile_index)
       )
     `);
     await ensureBigintColumns(client, INSTANCE_TILE_RESOURCE_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_TILE_RESOURCE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_resource_state_instance_idx
       ON ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(instance_id, resource_key, tile_index)
@@ -2910,8 +2917,8 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
         tile_index bigint NOT NULL,
         x bigint,
         y bigint,
-        hp bigint NOT NULL DEFAULT 0,
-        max_hp bigint NOT NULL DEFAULT 1,
+        hp double precision NOT NULL DEFAULT 0,
+        max_hp double precision NOT NULL DEFAULT 1,
         destroyed boolean NOT NULL DEFAULT false,
         respawn_left_ticks bigint NOT NULL DEFAULT 0,
         modified_at_ms bigint NOT NULL DEFAULT 0,
@@ -2922,6 +2929,7 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
     await client.query(`ALTER TABLE ${INSTANCE_TILE_DAMAGE_STATE_TABLE} ADD COLUMN IF NOT EXISTS x bigint`);
     await client.query(`ALTER TABLE ${INSTANCE_TILE_DAMAGE_STATE_TABLE} ADD COLUMN IF NOT EXISTS y bigint`);
     await ensureBigintColumns(client, INSTANCE_TILE_DAMAGE_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_TILE_DAMAGE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_damage_state_instance_idx
       ON ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(instance_id, tile_index)
@@ -2948,8 +2956,8 @@ async function ensureInstanceTemporaryTileStateTable(pool: Pool): Promise<void> 
         x bigint,
         y bigint,
         tile_type varchar(64) NOT NULL DEFAULT 'stone',
-        hp bigint NOT NULL DEFAULT 1,
-        max_hp bigint NOT NULL DEFAULT 1,
+        hp double precision NOT NULL DEFAULT 1,
+        max_hp double precision NOT NULL DEFAULT 1,
         expires_at_tick bigint NOT NULL DEFAULT 1,
         owner_player_id varchar(100),
         source_skill_id varchar(160),
@@ -2960,6 +2968,7 @@ async function ensureInstanceTemporaryTileStateTable(pool: Pool): Promise<void> 
       )
     `);
     await ensureBigintColumns(client, INSTANCE_TEMPORARY_TILE_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_TEMPORARY_TILE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_temporary_tile_state_instance_idx
       ON ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}(instance_id, tile_index)
@@ -3167,8 +3176,8 @@ async function ensureInstanceMonsterRuntimeStateTable(pool: Pool): Promise<void>
         tile_index bigint NOT NULL,
         x bigint NOT NULL,
         y bigint NOT NULL,
-        hp bigint NOT NULL DEFAULT 0,
-        max_hp bigint NOT NULL DEFAULT 0,
+        hp double precision NOT NULL DEFAULT 0,
+        max_hp double precision NOT NULL DEFAULT 0,
         alive boolean NOT NULL DEFAULT true,
         respawn_left bigint NULL,
         respawn_ticks bigint NULL,
@@ -3178,6 +3187,7 @@ async function ensureInstanceMonsterRuntimeStateTable(pool: Pool): Promise<void>
       )
     `);
     await ensureBigintColumns(client, INSTANCE_MONSTER_RUNTIME_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_MONSTER_RUNTIME_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_monster_runtime_state_instance_idx
       ON ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE}(instance_id, monster_tier, monster_runtime_id)
@@ -3280,8 +3290,8 @@ async function ensureInstanceBuildingStateTable(pool: Pool): Promise<void> {
         owner_player_id varchar(100) NULL,
         owner_sect_id varchar(100) NULL,
         room_id varchar(160) NULL,
-        hp bigint NOT NULL DEFAULT 1,
-        max_hp bigint NOT NULL DEFAULT 1,
+        hp double precision NOT NULL DEFAULT 1,
+        max_hp double precision NOT NULL DEFAULT 1,
         state varchar(40) NOT NULL DEFAULT 'active',
         created_at_tick bigint NOT NULL DEFAULT 0,
         updated_at_tick bigint NOT NULL DEFAULT 0,
@@ -3292,6 +3302,7 @@ async function ensureInstanceBuildingStateTable(pool: Pool): Promise<void> {
       )
     `);
     await ensureBigintColumns(client, INSTANCE_BUILDING_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_BUILDING_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_building_state_instance_room_idx
       ON ${INSTANCE_BUILDING_STATE_TABLE}(instance_id, room_id)
@@ -3480,7 +3491,7 @@ async function ensureInstanceFengShuiStateTable(pool: Pool): Promise<void> {
         function_element varchar(20) NOT NULL DEFAULT 'neutral',
         shape_score bigint NOT NULL DEFAULT 0,
         enclosure_score bigint NOT NULL DEFAULT 0,
-        qi_score bigint NOT NULL DEFAULT 0,
+        qi_score double precision NOT NULL DEFAULT 0,
         sha_score bigint NOT NULL DEFAULT 0,
         comfort_score bigint NOT NULL DEFAULT 0,
         integrity_score bigint NOT NULL DEFAULT 0,
@@ -3494,6 +3505,7 @@ async function ensureInstanceFengShuiStateTable(pool: Pool): Promise<void> {
       )
     `);
     await ensureBigintColumns(client, INSTANCE_FENGSHUI_STATE_TABLE);
+    await ensureDoubleColumns(client, INSTANCE_FENGSHUI_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_fengshui_state_instance_grade_idx
       ON ${INSTANCE_FENGSHUI_STATE_TABLE}(instance_id, grade)
@@ -3593,10 +3605,13 @@ async function acquireInstanceDomainLock(client: any, instanceId: string): Promi
 
 async function ensureBigintColumns(client: any, tableName: keyof typeof INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE): Promise<void> {
   for (const column of INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE[tableName]) {
-    await client.query(`
-      ALTER TABLE ${tableName}
-      ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-    `);
+    await ensureBigintColumnType(client, tableName, column);
+  }
+}
+
+async function ensureDoubleColumns(client: any, tableName: keyof typeof INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE): Promise<void> {
+  for (const column of INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE[tableName]) {
+    await ensureDoubleColumnType(client, tableName, column);
   }
 }
 
@@ -3663,6 +3678,15 @@ function normalizeNullableInteger(value: unknown): number | null {
   return Math.trunc(parsed);
 }
 
+function normalizeNullableNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeNumberWithFallback(value: unknown, fallback: unknown): number {
+  return normalizeNullableNumber(value) ?? normalizeNullableNumber(fallback) ?? 0;
+}
+
 function normalizeBuildingPersistenceRow(value: unknown): Record<string, unknown> {
   const source = toRecord(value);
   const buildingId = normalizeRequiredString(source.id) || normalizeRequiredString(source.buildingId);
@@ -3702,8 +3726,8 @@ function normalizeBuildingPersistenceRow(value: unknown): Record<string, unknown
     owner_player_id: normalizeRequiredString(source.ownerPlayerId) || normalizeRequiredString(source.owner_player_id) || null,
     owner_sect_id: normalizeRequiredString(source.ownerSectId) || normalizeRequiredString(source.owner_sect_id) || null,
     room_id: normalizeRequiredString(source.roomId) || normalizeRequiredString(source.room_id) || null,
-    hp: Math.max(0, normalizeIntegerWithFallback(source.hp, 0)),
-    max_hp: Math.max(1, normalizeIntegerWithFallback(source.maxHp ?? source.max_hp, 1)),
+    hp: Math.max(0, normalizeNumberWithFallback(source.hp, 0)),
+    max_hp: Math.max(1, normalizeNumberWithFallback(source.maxHp ?? source.max_hp, 1)),
     state: normalizeRequiredString(source.state) || 'active',
     created_at_tick: Math.max(0, normalizeIntegerWithFallback(source.createdAtTick ?? source.created_at_tick, 0)),
     updated_at_tick: Math.max(0, normalizeIntegerWithFallback(source.updatedAtTick ?? source.updated_at_tick, 0)),
@@ -3859,7 +3883,7 @@ function normalizeFengShuiPersistenceRow(value: unknown): Record<string, unknown
     function_element: normalizeRequiredString(source.functionElement) || normalizeRequiredString(source.function_element) || 'neutral',
     shape_score: normalizeIntegerWithFallback(source.shapeScore ?? source.shape_score, 0),
     enclosure_score: normalizeIntegerWithFallback(source.enclosureScore ?? source.enclosure_score, 0),
-    qi_score: normalizeIntegerWithFallback(source.qiScore ?? source.qi_score, 0),
+    qi_score: normalizeNumberWithFallback(source.qiScore ?? source.qi_score, 0),
     sha_score: normalizeIntegerWithFallback(source.shaScore ?? source.sha_score, 0),
     comfort_score: normalizeIntegerWithFallback(source.comfortScore ?? source.comfort_score, 0),
     integrity_score: normalizeIntegerWithFallback(source.integrityScore ?? source.integrity_score, 0),
@@ -3883,8 +3907,8 @@ function projectBuildingPersistenceRow(row: Record<string, unknown>): Record<str
     ownerPlayerId: normalizeRequiredString(row.owner_player_id) || null,
     ownerSectId: normalizeRequiredString(row.owner_sect_id) || null,
     roomId: normalizeRequiredString(row.room_id) || null,
-    hp: Math.max(0, normalizeIntegerWithFallback(row.hp, 0)),
-    maxHp: Math.max(1, normalizeIntegerWithFallback(row.max_hp, 1)),
+    hp: Math.max(0, normalizeNumberWithFallback(row.hp, 0)),
+    maxHp: Math.max(1, normalizeNumberWithFallback(row.max_hp, 1)),
     state: normalizeRequiredString(row.state) || 'active',
     createdAtTick: Math.max(0, normalizeIntegerWithFallback(row.created_at_tick, 0)),
     updatedAtTick: Math.max(0, normalizeIntegerWithFallback(row.updated_at_tick, 0)),
@@ -3953,7 +3977,7 @@ function projectFengShuiPersistenceRow(row: Record<string, unknown>): Record<str
     functionElement: normalizeRequiredString(row.function_element) || 'neutral',
     shapeScore: normalizeIntegerWithFallback(row.shape_score, 0),
     enclosureScore: normalizeIntegerWithFallback(row.enclosure_score, 0),
-    qiScore: normalizeIntegerWithFallback(row.qi_score, 0),
+    qiScore: normalizeNumberWithFallback(row.qi_score, 0),
     shaScore: normalizeIntegerWithFallback(row.sha_score, 0),
     comfortScore: normalizeIntegerWithFallback(row.comfort_score, 0),
     integrityScore: normalizeIntegerWithFallback(row.integrity_score, 0),

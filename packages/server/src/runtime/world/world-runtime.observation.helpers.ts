@@ -96,6 +96,55 @@ function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRa
 function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {
     return `原始 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(rawDamage)))} - 实际 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(actualDamage)))} - ${formatCombatDamageType(damageKind, element)}`;
 }
+/** 提取玩家需要直接看见的战斗判定标签。 */
+function getCombatResolutionLabels(resolution) {
+    const labels = [];
+    if (resolution?.dodged) {
+        labels.push('闪避');
+    }
+    if (resolution?.broken) {
+        labels.push('破招');
+    }
+    if (resolution?.resolved) {
+        labels.push('拆招');
+    }
+    if (resolution?.crit) {
+        labels.push('暴击');
+    }
+    return labels;
+}
+/** 生成战斗判定结果文案，避免 0 伤害被误读成没有结算。 */
+function formatCombatResolutionOutcome(resolution, damageKind, element) {
+    const labels = getCombatResolutionLabels(resolution);
+    if (resolution?.dodged) {
+        return labels.length > 0
+            ? `被闪避，未造成伤害（${labels.join('、')}）`
+            : '被闪避，未造成伤害';
+    }
+    const suffix = labels.length > 0 ? `（${labels.join('、')}）` : '';
+    return `造成 ${formatCombatDamageBreakdown(resolution?.rawDamage ?? 0, resolution?.damage ?? 0, damageKind, element)} 伤害${suffix}`;
+}
+/** 地图浮字使用短标签，日志里再展示完整伤害明细。 */
+function formatCombatResolutionFloatText(resolution) {
+    const labels = getCombatResolutionLabels(resolution);
+    return labels.join(' · ');
+}
+/** 按最高优先级挑选判定浮字颜色。 */
+function getCombatResolutionFloatColor(resolution, fallbackColor) {
+    if (resolution?.dodged) {
+        return '#7dd3fc';
+    }
+    if (resolution?.crit) {
+        return '#facc15';
+    }
+    if (resolution?.broken) {
+        return '#fb923c';
+    }
+    if (resolution?.resolved) {
+        return '#67e8f9';
+    }
+    return fallbackColor;
+}
 /** 生成“攻击/施展技能”类的动作描述语句。 */
 function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
     return actionLabel === '攻击'
@@ -472,6 +521,10 @@ exports.createTileCombatNumericStats = createTileCombatNumericStats;
 exports.createTileCombatRatioDivisors = createTileCombatRatioDivisors;
 exports.computeResolvedDamage = computeResolvedDamage;
 exports.formatCombatDamageBreakdown = formatCombatDamageBreakdown;
+exports.getCombatResolutionLabels = getCombatResolutionLabels;
+exports.formatCombatResolutionOutcome = formatCombatResolutionOutcome;
+exports.formatCombatResolutionFloatText = formatCombatResolutionFloatText;
+exports.getCombatResolutionFloatColor = getCombatResolutionFloatColor;
 exports.formatCombatActionClause = formatCombatActionClause;
 exports.formatCombatDamageType = formatCombatDamageType;
 exports.cloneVisibleBuff = cloneVisibleBuff;
@@ -498,6 +551,10 @@ export {
     createTileCombatRatioDivisors,
     computeResolvedDamage,
     formatCombatDamageBreakdown,
+    getCombatResolutionLabels,
+    formatCombatResolutionOutcome,
+    formatCombatResolutionFloatText,
+    getCombatResolutionFloatColor,
     formatCombatActionClause,
     formatCombatDamageType,
     cloneVisibleBuff,

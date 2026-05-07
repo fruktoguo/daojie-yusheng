@@ -37,6 +37,10 @@ const MAPS_DIR = path.join(SERVER_DATA_DIR, 'maps');
  */
 const CONTENT_DIR = path.join(SERVER_DATA_DIR, 'content');
 /**
+ * 怪物倾向公式使用的境界基准配置。
+ */
+const REALM_ATTR_BASELINES_PATH = path.join(CONTENT_DIR, 'realm-attr-baselines.json');
+/**
  * 本地 API 默认监听端口。
  */
 const API_PORT = Number(process.env.CONFIG_EDITOR_API_PORT || 3101);
@@ -342,6 +346,27 @@ function buildEditorItemLookup() {
   return new Map(listEditorItems().map((item) => [item.itemId, item]));
 }
 
+function loadMonsterRealmBaselines() {
+  if (!fs.existsSync(REALM_ATTR_BASELINES_PATH)) {
+    return { version: 1, levels: [] };
+  }
+  const raw = JSON.parse(fs.readFileSync(REALM_ATTR_BASELINES_PATH, 'utf-8'));
+  return {
+    version: Number.isFinite(Number(raw?.version)) ? Number(raw.version) : 1,
+    levels: Array.isArray(raw?.levels)
+      ? raw.levels
+          .map((entry) => ({
+            realmLv: Number(entry?.realmLv),
+            singleAttr: Number(entry?.singleAttr),
+            singleBaseStatValue: Number.isFinite(Number(entry?.singleBaseStatValue))
+              ? Number(entry.singleBaseStatValue)
+              : undefined,
+          }))
+          .filter((entry) => Number.isFinite(entry.realmLv) && Number.isFinite(entry.singleAttr))
+      : [],
+  };
+}
+
 /**
  * 校验怪物模板的必填字段、掉落完整性和 ID 唯一性。
  */
@@ -365,12 +390,6 @@ function validateMonsterTemplate(monster, currentKey) {
     throw new Error(`怪物 ${monster.id} 的仇恨模式非法`);
   }
 
-  const hasValueStats = monster.valueStats && typeof monster.valueStats === 'object' && !Array.isArray(monster.valueStats) && Object.keys(monster.valueStats).length > 0;
-  const hasAttrs = monster.attrs && typeof monster.attrs === 'object' && !Array.isArray(monster.attrs) && Object.keys(monster.attrs).length > 0;
-  const hasLegacy = Number.isFinite(monster.hp) || Number.isFinite(monster.maxHp) || Number.isFinite(monster.attack);
-  if (!hasValueStats && !hasAttrs && !hasLegacy) {
-    throw new Error(`怪物 ${monster.id} 至少需要配置 attrs、valueStats 或旧 hp/attack`);
-  }
   if (monster.equipment && (typeof monster.equipment !== 'object' || Array.isArray(monster.equipment))) {
     throw new Error(`怪物 ${monster.id} 的装备配置非法`);
   }
@@ -415,13 +434,15 @@ function serializeMonsterTemplate(existing, monster) {
   next.count = monster.count;
   next.maxAlive = monster.maxAlive;
   next.aggroRange = monster.aggroRange;
-  next.viewRange = monster.viewRange;
+  delete next.viewRange;
   next.aggroMode = monster.aggroMode;
   assignOptional(next, 'respawnTicks', monster.respawnTicks);
   assignOptional(next, 'expMultiplier', shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? monster.expMultiplier : undefined);
-  assignOptional(next, 'valueStats', monster.valueStats && Object.keys(monster.valueStats).length > 0 ? monster.valueStats : undefined);
-  assignOptional(next, 'attrs', monster.attrs && Object.keys(monster.attrs).length > 0 ? monster.attrs : undefined);
-  assignOptional(next, 'statPercents', monster.statPercents && Object.keys(monster.statPercents).length > 0 ? monster.statPercents : undefined);
+  assignOptional(next, 'attrTendency', monster.attrTendency && Object.keys(monster.attrTendency).length > 0 ? monster.attrTendency : undefined);
+  assignOptional(next, 'statTendency', monster.statTendency && Object.keys(monster.statTendency).length > 0 ? monster.statTendency : undefined);
+  delete next.valueStats;
+  delete next.attrs;
+  delete next.statPercents;
   assignOptional(next, 'equipment', monster.equipment && Object.keys(monster.equipment).length > 0 ? monster.equipment : undefined);
   assignOptional(next, 'skills', Array.isArray(monster.skills) && monster.skills.length > 0 ? monster.skills : undefined);
   next.drops = Array.isArray(monster.drops) ? monster.drops.map((drop) => normalizeMonsterDrop(drop)) : [];
@@ -430,13 +451,13 @@ function serializeMonsterTemplate(existing, monster) {
   delete next.combatModel;
   delete next.sourceMode;
   delete next.resolvedAttrs;
+  delete next.resolvedAttrTendency;
   delete next.resolvedStatPercents;
+  delete next.resolvedStatTendency;
 
-  if ((monster.attrs && Object.keys(monster.attrs).length > 0) || (monster.valueStats && Object.keys(monster.valueStats).length > 0)) {
-    delete next.hp;
-    delete next.maxHp;
-    delete next.attack;
-  }
+  delete next.hp;
+  delete next.maxHp;
+  delete next.attack;
 
   return next;
 }
@@ -470,6 +491,7 @@ function parseMonsterEntryKey(key) {
 function listMonsterTemplates() {
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
   const itemLookup = buildEditorItemLookup();
+  const baselines = loadMonsterRealmBaselines();
   const result = [];
   for (const filePath of collectJsonFiles(monstersDir)) {
     const relativePath = path.relative(CONTENT_DIR, filePath).replaceAll(path.sep, '/');
@@ -485,7 +507,7 @@ function listMonsterTemplates() {
         key: createMonsterEntryKey(relativePath, index),
         filePath: relativePath,
         index,
-        monster: resolveMonsterTemplateRecord(entry, itemLookup),
+        monster: resolveMonsterTemplateRecord(entry, itemLookup, baselines),
       });
     });
   }
@@ -548,8 +570,9 @@ function saveMonsterTemplateEntry(key, rawMonster) {
     throw new Error('目标怪物模板不存在');
   }
   const itemLookup = buildEditorItemLookup();
-  const previousMonster = resolveMonsterTemplateRecord(entries[index], itemLookup);
-  const monster = resolveMonsterTemplateRecord(rawMonster, itemLookup);
+  const baselines = loadMonsterRealmBaselines();
+  const previousMonster = resolveMonsterTemplateRecord(entries[index], itemLookup, baselines);
+  const monster = resolveMonsterTemplateRecord(rawMonster, itemLookup, baselines);
   validateMonsterTemplate(monster, key);
   entries[index] = serializeMonsterTemplate(entries[index], monster);
   fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
@@ -709,13 +732,14 @@ function saveTechniqueTemplateEntry(key, technique) {
 function loadMonsterTemplates() {
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
   const itemLookup = buildEditorItemLookup();
+  const baselines = loadMonsterRealmBaselines();
   const templates = new Map();
   for (const filePath of collectJsonFiles(monstersDir)) {
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') continue;
-      templates.set(entry.id, resolveMonsterTemplateRecord(entry, itemLookup));
+      templates.set(entry.id, resolveMonsterTemplateRecord(entry, itemLookup, baselines));
     }
   }
   return templates;

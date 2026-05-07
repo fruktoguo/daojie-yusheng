@@ -11,31 +11,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 15,
-    "attrs": {
-      "constitution": 192,
-      "spirit": 244,
-      "perception": 272,
-      "talent": 188,
-      "strength": 28,
-      "meridians": 22
-    },
-    "statPercents": {
-      "maxHp": 200,
-      "maxQi": 118,
-      "physAtk": 96,
-      "spellAtk": 124,
-      "physDef": 96,
-      "spellDef": 112,
-      "hit": 132,
-      "dodge": 152,
-      "crit": 124,
-      "breakPower": 94,
-      "resolvePower": 108,
-      "maxQiOutputPerTick": 136,
-      "moveSpeed": 172
-    },
     "skills": [
       "skill.plume_shot",
       "skill.frost_plume"
@@ -88,7 +64,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 82,
+      "spirit": 105,
+      "perception": 117,
+      "talent": 81,
+      "strength": 120,
+      "meridians": 95
+    },
+    "statTendency": {
+      "maxQi": 97,
+      "physAtk": 79,
+      "spellAtk": 102,
+      "physDef": 79,
+      "spellDef": 92,
+      "hit": 108,
+      "dodge": 125,
+      "crit": 102,
+      "breakPower": 77,
+      "resolvePower": 89,
+      "maxQiOutputPerTick": 111,
+      "moveSpeed": 141
+    }
   },
   {
     "id": "m_cold_marsh_wraith",
@@ -102,31 +100,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 16,
-    "attrs": {
-      "constitution": 220,
-      "spirit": 276,
-      "perception": 296,
-      "talent": 208,
-      "strength": 30,
-      "meridians": 24
-    },
-    "statPercents": {
-      "maxHp": 230,
-      "maxQi": 128,
-      "physAtk": 102,
-      "spellAtk": 128,
-      "physDef": 102,
-      "spellDef": 118,
-      "hit": 138,
-      "dodge": 158,
-      "crit": 128,
-      "breakPower": 98,
-      "resolvePower": 112,
-      "maxQiOutputPerTick": 142,
-      "moveSpeed": 174
-    },
     "skills": [
       "skill.echo_screech",
       "skill.predator_pounce"
@@ -173,7 +147,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 86,
+      "spirit": 108,
+      "perception": 115,
+      "talent": 81,
+      "strength": 117,
+      "meridians": 93
+    },
+    "statTendency": {
+      "maxQi": 101,
+      "physAtk": 80,
+      "spellAtk": 101,
+      "physDef": 80,
+      "spellDef": 93,
+      "hit": 108,
+      "dodge": 124,
+      "crit": 101,
+      "breakPower": 77,
+      "resolvePower": 88,
+      "maxQiOutputPerTick": 112,
+      "moveSpeed": 137
+    }
   },
   {
     "id": "m_cold_pattern_guard",
@@ -187,31 +183,7 @@
     "maxAlive": 3,
     "radius": 5,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 18,
-    "attrs": {
-      "constitution": 284,
-      "spirit": 332,
-      "perception": 304,
-      "talent": 264,
-      "strength": 36,
-      "meridians": 28
-    },
-    "statPercents": {
-      "maxHp": 260,
-      "maxQi": 96.6,
-      "physAtk": 81.2,
-      "spellAtk": 99.4,
-      "physDef": 82.6,
-      "spellDef": 95.2,
-      "hit": 102.2,
-      "dodge": 103.6,
-      "crit": 91,
-      "breakPower": 78.4,
-      "resolvePower": 86.8,
-      "maxQiOutputPerTick": 109.2,
-      "moveSpeed": 109.2
-    },
     "skills": [
       "skill.core_smash",
       "skill.frost_plume"
@@ -277,7 +249,28 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 93,
+      "spirit": 109,
+      "talent": 87,
+      "strength": 119,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 102,
+      "physAtk": 86,
+      "spellAtk": 105,
+      "physDef": 87,
+      "spellDef": 101,
+      "hit": 108,
+      "dodge": 109,
+      "crit": 96,
+      "breakPower": 83,
+      "resolvePower": 92,
+      "maxQiOutputPerTick": 115,
+      "moveSpeed": 115
+    }
   },
   {
     "id": "m_cold_mirror_shade",
@@ -291,31 +284,7 @@
     "maxAlive": 2,
     "radius": 5,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 20,
-    "attrs": {
-      "constitution": 308,
-      "spirit": 412,
-      "perception": 376,
-      "talent": 276,
-      "strength": 40,
-      "meridians": 32
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 154,
-      "physAtk": 114,
-      "spellAtk": 166,
-      "physDef": 122,
-      "spellDef": 152,
-      "hit": 154,
-      "dodge": 170,
-      "crit": 138,
-      "breakPower": 108,
-      "resolvePower": 128,
-      "maxQiOutputPerTick": 182,
-      "moveSpeed": 178
-    },
     "skills": [
       "skill.echo_screech",
       "skill.nether_chain"
@@ -351,7 +320,29 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 88,
+      "spirit": 118,
+      "perception": 108,
+      "talent": 79,
+      "strength": 115,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 105,
+      "physAtk": 77,
+      "spellAtk": 113,
+      "physDef": 83,
+      "spellDef": 103,
+      "hit": 105,
+      "dodge": 116,
+      "crit": 94,
+      "breakPower": 73,
+      "resolvePower": 87,
+      "maxQiOutputPerTick": 124,
+      "moveSpeed": 121
+    }
   },
   {
     "id": "m_cold_moonscale",
@@ -365,31 +356,7 @@
     "maxAlive": 8,
     "radius": 8,
     "aggroRange": 9,
-    "viewRange": 12,
     "respawnSec": 24,
-    "attrs": {
-      "constitution": 385,
-      "spirit": 455,
-      "perception": 490,
-      "talent": 335,
-      "strength": 48,
-      "meridians": 38
-    },
-    "statPercents": {
-      "maxHp": 250,
-      "maxQi": 122.6,
-      "physAtk": 102.5,
-      "spellAtk": 124.3,
-      "physDef": 100.8,
-      "spellDef": 119.3,
-      "hit": 127.7,
-      "dodge": 147.8,
-      "crit": 119.3,
-      "breakPower": 97.4,
-      "resolvePower": 105.8,
-      "maxQiOutputPerTick": 142.8,
-      "moveSpeed": 152.9
-    },
     "skills": [
       "skill.hanxi_ximai",
       "skill.xuanjin_huilan",
@@ -440,7 +407,29 @@
         "chance": 0.01
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 92,
+      "spirit": 108,
+      "perception": 116,
+      "talent": 80,
+      "strength": 114,
+      "meridians": 90
+    },
+    "statTendency": {
+      "maxQi": 101,
+      "physAtk": 84,
+      "spellAtk": 102,
+      "physDef": 83,
+      "spellDef": 98,
+      "hit": 105,
+      "dodge": 121,
+      "crit": 98,
+      "breakPower": 80,
+      "resolvePower": 87,
+      "maxQiOutputPerTick": 117,
+      "moveSpeed": 125
+    }
   },
   {
     "id": "m_cold_bridge_patrol",
@@ -454,31 +443,7 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 10,
-    "viewRange": 12,
     "respawnSec": 28,
-    "attrs": {
-      "constitution": 455,
-      "spirit": 560,
-      "perception": 435,
-      "talent": 405,
-      "strength": 55,
-      "meridians": 42
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 163.3,
-      "physAtk": 125,
-      "spellAtk": 173.4,
-      "physDef": 129,
-      "spellDef": 165.4,
-      "hit": 159.2,
-      "dodge": 173.4,
-      "crit": 141.1,
-      "breakPower": 112.9,
-      "resolvePower": 143.2,
-      "maxQiOutputPerTick": 189.5,
-      "moveSpeed": 167.3
-    },
     "skills": [
       "skill.hanxi_ximai",
       "skill.xuanjin_huilan",
@@ -547,7 +512,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 97,
+      "spirit": 119,
+      "perception": 92,
+      "talent": 86,
+      "strength": 117,
+      "meridians": 89
+    },
+    "statTendency": {
+      "maxQi": 106,
+      "physAtk": 81,
+      "spellAtk": 113,
+      "physDef": 84,
+      "spellDef": 108,
+      "hit": 104,
+      "dodge": 113,
+      "crit": 92,
+      "breakPower": 74,
+      "resolvePower": 93,
+      "maxQiOutputPerTick": 123,
+      "moveSpeed": 109
+    }
   },
   {
     "id": "m_cold_abyss_drake",
@@ -561,31 +548,7 @@
     "maxAlive": 1,
     "radius": 4,
     "aggroRange": 8,
-    "viewRange": 9,
     "respawnSec": 40,
-    "attrs": {
-      "constitution": 738,
-      "spirit": 858,
-      "perception": 594,
-      "talent": 564,
-      "strength": 78,
-      "meridians": 63
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 155.3,
-      "physAtk": 107.6,
-      "spellAtk": 160.6,
-      "physDef": 120,
-      "spellDef": 164.1,
-      "hit": 142.9,
-      "dodge": 155.3,
-      "crit": 127,
-      "breakPower": 102.3,
-      "resolvePower": 130.5,
-      "maxQiOutputPerTick": 172.9,
-      "moveSpeed": 142.9
-    },
     "skills": [
       "skill.hanxi_ximai",
       "skill.xuanjin_huilan",
@@ -630,6 +593,28 @@
         "count": 1
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 106,
+      "spirit": 124,
+      "perception": 86,
+      "talent": 81,
+      "strength": 112,
+      "meridians": 91
+    },
+    "statTendency": {
+      "maxQi": 111,
+      "physAtk": 77,
+      "spellAtk": 115,
+      "physDef": 86,
+      "spellDef": 117,
+      "hit": 102,
+      "dodge": 111,
+      "crit": 91,
+      "breakPower": 73,
+      "resolvePower": 93,
+      "maxQiOutputPerTick": 123,
+      "moveSpeed": 102
+    }
   }
 ]

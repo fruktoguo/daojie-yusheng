@@ -327,6 +327,10 @@ let WorldRuntimeTickDispatchService = class WorldRuntimeTickDispatchService {
 
     pushDamageFloatEffect(instanceId, x, y, damage, color, deps) {
         deps.worldRuntimeCombatEffectsService.pushDamageFloatEffect(instanceId, x, y, damage, color);
+    }
+    /** 推送战斗判定短浮字，例如闪避、破招、拆招、暴击。 */
+    pushCombatTextFloatEffect(instanceId, x, y, text, color, deps, durationMs = undefined) {
+        deps.worldRuntimeCombatEffectsService.pushCombatTextFloatEffect(instanceId, x, y, text, color, durationMs);
     }    
     /**
  * pushAttackEffect：处理AttackEffect并更新相关状态。

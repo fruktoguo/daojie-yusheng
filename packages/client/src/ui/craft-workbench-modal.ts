@@ -326,15 +326,42 @@ export class CraftWorkbenchModal {
   }
 
   updateEnhancement(data: S2C_EnhancementPanel): void {
-    this.enhancementPanel = data;
-    if (typeof data.state?.enhancementSkillLevel === 'number') {
-      this.enhancementSkillLevel = Math.max(1, Math.floor(data.state.enhancementSkillLevel));
+    this.enhancementPanel = this.mergeEnhancementPanel(data);
+    if (typeof this.enhancementPanel.state?.enhancementSkillLevel === 'number') {
+      this.enhancementSkillLevel = Math.max(1, Math.floor(this.enhancementPanel.state.enhancementSkillLevel));
     }
     this.ensureEnhancementSelection();
     if (this.activeMode === 'enhancement') {
       this.loading = false;
       this.render();
     }
+  }
+
+  private mergeEnhancementPanel(data: S2C_EnhancementPanel): S2C_EnhancementPanel {
+    const patch = data.statePatch;
+    if (!patch) {
+      return data;
+    }
+    const baseState = data.state ?? this.enhancementPanel?.state ?? {
+      enhancementSkillLevel: this.enhancementSkillLevel,
+      candidates: [],
+      records: [],
+      job: null,
+      queue: [],
+    };
+    return {
+      ...this.enhancementPanel,
+      ...data,
+      state: {
+        ...baseState,
+        enhancementSkillLevel: typeof patch.enhancementSkillLevel === 'number'
+          ? Math.max(1, Math.floor(patch.enhancementSkillLevel))
+          : baseState.enhancementSkillLevel,
+        job: Object.prototype.hasOwnProperty.call(patch, 'job') ? (patch.job ?? null) : baseState.job,
+        queue: patch.queue ?? baseState.queue,
+      },
+      statePatch: undefined,
+    };
   }
 
   clear(): void {
@@ -1838,7 +1865,7 @@ export class CraftWorkbenchModal {
             <div class="enhancement-preview-card">
               <div class="enhancement-preview-title">当前属性</div>
               <div class="enhancement-preview-lines">
-                <div>${escapeHtml(getItemTypeLabel(selected.item.type) || '装备')}</div>
+                <div>${escapeHtml(selected.item.type ? getItemTypeLabel(selected.item.type) : '装备')}</div>
                 <div>等级 Lv ${formatDisplayInteger(Number(selected.item.level) || 1)}</div>
                 <div>当前强化 +${formatDisplayInteger(selected.currentLevel)}</div>
               </div>

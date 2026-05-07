@@ -3,315 +3,393 @@
   "levels": [
     {
       "realmLv": 1,
-      "singleAttr": 19.2
+      "singleAttr": 19.2,
+      "singleBaseStatValue": 9.98
     },
     {
       "realmLv": 2,
-      "singleAttr": 24.05
+      "singleAttr": 24.05,
+      "singleBaseStatValue": 10.72
     },
     {
       "realmLv": 3,
-      "singleAttr": 29.32
+      "singleAttr": 29.32,
+      "singleBaseStatValue": 11.5
     },
     {
       "realmLv": 4,
-      "singleAttr": 35.08
+      "singleAttr": 35.08,
+      "singleBaseStatValue": 12.31
     },
     {
       "realmLv": 5,
-      "singleAttr": 41.44
+      "singleAttr": 41.44,
+      "singleBaseStatValue": 13.17
     },
     {
       "realmLv": 6,
-      "singleAttr": 54.62
+      "singleAttr": 54.62,
+      "singleBaseStatValue": 14.46
     },
     {
       "realmLv": 7,
-      "singleAttr": 62.79
+      "singleAttr": 62.79,
+      "singleBaseStatValue": 15.4
     },
     {
       "realmLv": 8,
-      "singleAttr": 71.89
+      "singleAttr": 71.89,
+      "singleBaseStatValue": 16.38
     },
     {
       "realmLv": 9,
-      "singleAttr": 107.72
+      "singleAttr": 107.72,
+      "singleBaseStatValue": 17.83
     },
     {
       "realmLv": 10,
-      "singleAttr": 128
+      "singleAttr": 128,
+      "singleBaseStatValue": 18.9
     },
     {
       "realmLv": 11,
-      "singleAttr": 150.07
+      "singleAttr": 150.07,
+      "singleBaseStatValue": 20.02
     },
     {
       "realmLv": 12,
-      "singleAttr": 189.11
+      "singleAttr": 189.11,
+      "singleBaseStatValue": 22.36
     },
     {
       "realmLv": 13,
-      "singleAttr": 216.36
+      "singleAttr": 216.36,
+      "singleBaseStatValue": 23.58
     },
     {
       "realmLv": 14,
-      "singleAttr": 246.15
+      "singleAttr": 246.15,
+      "singleBaseStatValue": 24.86
     },
     {
       "realmLv": 15,
-      "singleAttr": 278.73
+      "singleAttr": 278.73,
+      "singleBaseStatValue": 26.19
     },
     {
       "realmLv": 16,
-      "singleAttr": 339.86
+      "singleAttr": 339.86,
+      "singleBaseStatValue": 29.56
     },
     {
       "realmLv": 17,
-      "singleAttr": 380.5
+      "singleAttr": 380.5,
+      "singleBaseStatValue": 31.02
     },
     {
       "realmLv": 18,
-      "singleAttr": 424.77
+      "singleAttr": 424.77,
+      "singleBaseStatValue": 32.54
     },
     {
       "realmLv": 19,
-      "singleAttr": 590.52
+      "singleAttr": 590.52,
+      "singleBaseStatValue": 35.55
     },
     {
       "realmLv": 20,
-      "singleAttr": 677.31
+      "singleAttr": 677.31,
+      "singleBaseStatValue": 36.83
     },
     {
       "realmLv": 21,
-      "singleAttr": 771.6
+      "singleAttr": 771.6,
+      "singleBaseStatValue": 38.14
     },
     {
       "realmLv": 22,
-      "singleAttr": 873.79
+      "singleAttr": 873.79,
+      "singleBaseStatValue": 39.48
     },
     {
       "realmLv": 23,
-      "singleAttr": 1070.74
+      "singleAttr": 1070.74,
+      "singleBaseStatValue": 43.04
     },
     {
       "realmLv": 24,
-      "singleAttr": 1196.04
+      "singleAttr": 1196.04,
+      "singleBaseStatValue": 44.46
     },
     {
       "realmLv": 25,
-      "singleAttr": 1509.66
+      "singleAttr": 1509.66,
+      "singleBaseStatValue": 45.91
     },
     {
       "realmLv": 26,
-      "singleAttr": 1719.09
+      "singleAttr": 1719.09,
+      "singleBaseStatValue": 47.4
     },
     {
       "realmLv": 27,
-      "singleAttr": 2085.99
+      "singleAttr": 2085.99,
+      "singleBaseStatValue": 51.62
     },
     {
       "realmLv": 28,
-      "singleAttr": 2341.59
+      "singleAttr": 2341.59,
+      "singleBaseStatValue": 53.19
     },
     {
       "realmLv": 29,
-      "singleAttr": 2617.95
+      "singleAttr": 2617.95,
+      "singleBaseStatValue": 54.8
     },
     {
       "realmLv": 30,
-      "singleAttr": 2916.2
+      "singleAttr": 2916.2,
+      "singleBaseStatValue": 56.45
     },
     {
       "realmLv": 31,
-      "singleAttr": 3877.47
+      "singleAttr": 3877.47,
+      "singleBaseStatValue": 62.04
     },
     {
       "realmLv": 32,
-      "singleAttr": 4329.99
+      "singleAttr": 4329.99,
+      "singleBaseStatValue": 64.17
     },
     {
       "realmLv": 33,
-      "singleAttr": 4813.55
+      "singleAttr": 4813.55,
+      "singleBaseStatValue": 66.37
     },
     {
       "realmLv": 34,
-      "singleAttr": 5329.82
+      "singleAttr": 5329.82,
+      "singleBaseStatValue": 68.65
     },
     {
       "realmLv": 35,
-      "singleAttr": 6114.92
+      "singleAttr": 6114.92,
+      "singleBaseStatValue": 75.38
     },
     {
       "realmLv": 36,
-      "singleAttr": 6714.54
+      "singleAttr": 6714.54,
+      "singleBaseStatValue": 77.83
     },
     {
       "realmLv": 37,
-      "singleAttr": 7376.11
+      "singleAttr": 7376.11,
+      "singleBaseStatValue": 80.36
     },
     {
       "realmLv": 38,
-      "singleAttr": 8077.17
+      "singleAttr": 8077.17,
+      "singleBaseStatValue": 82.98
     },
     {
       "realmLv": 39,
-      "singleAttr": 9224.75
+      "singleAttr": 9224.75,
+      "singleBaseStatValue": 91.52
     },
     {
       "realmLv": 40,
-      "singleAttr": 10030.62
+      "singleAttr": 10030.62,
+      "singleBaseStatValue": 94.33
     },
     {
       "realmLv": 41,
-      "singleAttr": 10875.53
+      "singleAttr": 10875.53,
+      "singleBaseStatValue": 97.24
     },
     {
       "realmLv": 42,
-      "singleAttr": 11760.2
+      "singleAttr": 11760.2,
+      "singleBaseStatValue": 100.24
     },
     {
       "realmLv": 43,
-      "singleAttr": 12667.58
+      "singleAttr": 12667.58,
+      "singleBaseStatValue": 102.99
     },
     {
       "realmLv": 44,
-      "singleAttr": 13617.36
+      "singleAttr": 13617.36,
+      "singleBaseStatValue": 105.81
     },
     {
       "realmLv": 45,
-      "singleAttr": 14611.03
+      "singleAttr": 14611.03,
+      "singleBaseStatValue": 108.71
     },
     {
       "realmLv": 46,
-      "singleAttr": 15650.08
+      "singleAttr": 15650.08,
+      "singleBaseStatValue": 111.7
     },
     {
       "realmLv": 47,
-      "singleAttr": 16735.97
+      "singleAttr": 16735.97,
+      "singleBaseStatValue": 114.77
     },
     {
       "realmLv": 48,
-      "singleAttr": 17870.17
+      "singleAttr": 17870.17,
+      "singleBaseStatValue": 117.92
     },
     {
       "realmLv": 49,
-      "singleAttr": 19054.12
+      "singleAttr": 19054.12,
+      "singleBaseStatValue": 121.17
     },
     {
       "realmLv": 50,
-      "singleAttr": 20289.3
+      "singleAttr": 20289.3,
+      "singleBaseStatValue": 124.5
     },
     {
       "realmLv": 51,
-      "singleAttr": 21577.15
+      "singleAttr": 21577.15,
+      "singleBaseStatValue": 127.93
     },
     {
       "realmLv": 52,
-      "singleAttr": 22919.15
+      "singleAttr": 22919.15,
+      "singleBaseStatValue": 131.46
     },
     {
       "realmLv": 53,
-      "singleAttr": 24377.55
+      "singleAttr": 24377.55,
+      "singleBaseStatValue": 135.08
     },
     {
       "realmLv": 54,
-      "singleAttr": 25892.1
+      "singleAttr": 25892.1,
+      "singleBaseStatValue": 138.8
     },
     {
       "realmLv": 55,
-      "singleAttr": 27401.59
+      "singleAttr": 27401.59,
+      "singleBaseStatValue": 142.63
     },
     {
       "realmLv": 56,
-      "singleAttr": 28968.82
+      "singleAttr": 28968.82,
+      "singleBaseStatValue": 146.56
     },
     {
       "realmLv": 57,
-      "singleAttr": 30595.52
+      "singleAttr": 30595.52,
+      "singleBaseStatValue": 150.6
     },
     {
       "realmLv": 58,
-      "singleAttr": 32283.34
+      "singleAttr": 32283.34,
+      "singleBaseStatValue": 154.75
     },
     {
       "realmLv": 59,
-      "singleAttr": 34032.66
+      "singleAttr": 34032.66,
+      "singleBaseStatValue": 159.02
     },
     {
       "realmLv": 60,
-      "singleAttr": 35837.39
+      "singleAttr": 35837.39,
+      "singleBaseStatValue": 163.4
     },
     {
       "realmLv": 61,
-      "singleAttr": 37697.44
+      "singleAttr": 37697.44,
+      "singleBaseStatValue": 167.9
     },
     {
       "realmLv": 62,
-      "singleAttr": 39613.93
+      "singleAttr": 39613.93,
+      "singleBaseStatValue": 172.52
     },
     {
       "realmLv": 63,
-      "singleAttr": 41587.98
+      "singleAttr": 41587.98,
+      "singleBaseStatValue": 177.27
     },
     {
       "realmLv": 64,
-      "singleAttr": 48270.71
+      "singleAttr": 48270.71,
+      "singleBaseStatValue": 182.15
     },
     {
       "realmLv": 65,
-      "singleAttr": 51372.71
+      "singleAttr": 51372.71,
+      "singleBaseStatValue": 187.16
     },
     {
       "realmLv": 66,
-      "singleAttr": 54600.6
+      "singleAttr": 54600.6,
+      "singleBaseStatValue": 192.31
     },
     {
       "realmLv": 67,
-      "singleAttr": 58166.88
+      "singleAttr": 58166.88,
+      "singleBaseStatValue": 197.59
     },
     {
       "realmLv": 68,
-      "singleAttr": 61861.18
+      "singleAttr": 61861.18,
+      "singleBaseStatValue": 199.68
     },
     {
       "realmLv": 69,
-      "singleAttr": 65688.2
+      "singleAttr": 65688.2,
+      "singleBaseStatValue": 201.77
     },
     {
       "realmLv": 70,
-      "singleAttr": 69652.38
+      "singleAttr": 69652.38,
+      "singleBaseStatValue": 203.85
     },
     {
       "realmLv": 71,
-      "singleAttr": 73757.99
+      "singleAttr": 73757.99,
+      "singleBaseStatValue": 205.94
     },
     {
       "realmLv": 72,
-      "singleAttr": 78009.18
+      "singleAttr": 78009.18,
+      "singleBaseStatValue": 208.03
     },
     {
       "realmLv": 73,
-      "singleAttr": 82410.02
+      "singleAttr": 82410.02,
+      "singleBaseStatValue": 210.12
     },
     {
       "realmLv": 74,
-      "singleAttr": 86964.49
+      "singleAttr": 86964.49,
+      "singleBaseStatValue": 212.21
     },
     {
       "realmLv": 75,
-      "singleAttr": 91617.78
+      "singleAttr": 91617.78,
+      "singleBaseStatValue": 214.3
     },
     {
       "realmLv": 76,
-      "singleAttr": 96430.53
+      "singleAttr": 96430.53,
+      "singleBaseStatValue": 216.39
     },
     {
       "realmLv": 77,
-      "singleAttr": 101406.61
+      "singleAttr": 101406.61,
+      "singleBaseStatValue": 218.47
     },
     {
       "realmLv": 78,
-      "singleAttr": 106549.85
+      "singleAttr": 106549.85,
+      "singleBaseStatValue": 220.56
     }
   ]
 }

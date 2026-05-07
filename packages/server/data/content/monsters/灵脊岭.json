@@ -24,35 +24,32 @@
       "body": "equip.mountainseal_plate",
       "legs": "equip.returnarray_boots"
     },
-    "attrs": {
-      "constitution": 124,
-      "spirit": 53,
-      "perception": 145,
-      "talent": 104,
-      "strength": 12,
-      "meridians": 14
-    },
-    "statPercents": {
-      "maxHp": 120,
-      "maxQi": 50,
-      "physAtk": 98,
-      "spellAtk": 40,
-      "physDef": 98,
-      "spellDef": 75,
-      "hit": 94,
-      "dodge": 85,
-      "crit": 88,
-      "breakPower": 94,
-      "resolvePower": 75,
-      "maxQiOutputPerTick": 63,
-      "viewRange": 100,
-      "moveSpeed": 161.52
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 109,
+      "spirit": 46,
+      "perception": 127,
+      "talent": 91,
+      "strength": 105,
+      "meridians": 122
+    },
+    "statTendency": {
+      "maxQi": 59,
+      "physAtk": 115,
+      "spellAtk": 47,
+      "physDef": 115,
+      "spellDef": 88,
+      "hit": 110,
+      "crit": 103,
+      "breakPower": 110,
+      "resolvePower": 88,
+      "maxQiOutputPerTick": 74,
+      "moveSpeed": 190
+    }
   },
   {
     "id": "m_frost_crane",
@@ -85,35 +82,32 @@
       "body": "equip.mountainseal_plate",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 84,
-      "spirit": 142,
-      "perception": 176,
-      "talent": 84,
-      "strength": 21,
-      "meridians": 16
-    },
-    "statPercents": {
-      "maxHp": 130,
-      "maxQi": 99,
-      "physAtk": 75,
-      "spellAtk": 92,
-      "physDef": 72,
-      "spellDef": 82,
-      "hit": 111,
-      "dodge": 117,
-      "crit": 91,
-      "breakPower": 69,
-      "resolvePower": 75,
-      "maxQiOutputPerTick": 115,
-      "viewRange": 100,
-      "moveSpeed": 179.84
-    },
     "skills": [
       "skill.plume_shot",
       "skill.echo_screech",
       "skill.frost_plume"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 59,
+      "perception": 123,
+      "talent": 59,
+      "strength": 147,
+      "meridians": 112
+    },
+    "statTendency": {
+      "maxQi": 101,
+      "physAtk": 76,
+      "spellAtk": 94,
+      "physDef": 73,
+      "spellDef": 84,
+      "hit": 113,
+      "dodge": 119,
+      "crit": 93,
+      "breakPower": 70,
+      "resolvePower": 76,
+      "maxQiOutputPerTick": 117,
+      "moveSpeed": 183
+    }
   },
   {
     "id": "m_ridge_ghost",
@@ -160,34 +154,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 116,
-      "spirit": 206,
-      "perception": 173,
-      "talent": 116,
-      "strength": 26,
-      "meridians": 20
-    },
-    "statPercents": {
-      "maxHp": 140,
-      "maxQi": 115,
-      "physAtk": 74,
-      "spellAtk": 111,
-      "physDef": 79,
-      "spellDef": 115,
-      "hit": 111,
-      "dodge": 97,
-      "crit": 97,
-      "breakPower": 79,
-      "resolvePower": 104,
-      "maxQiOutputPerTick": 131,
-      "viewRange": 100,
-      "moveSpeed": 126.16
-    },
     "skills": [
       "skill.soul_wail",
       "skill.nether_chain"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 65,
+      "spirit": 115,
+      "perception": 97,
+      "talent": 65,
+      "strength": 146,
+      "meridians": 112
+    },
+    "statTendency": {
+      "maxQi": 111,
+      "physAtk": 72,
+      "spellAtk": 107,
+      "physDef": 77,
+      "spellDef": 111,
+      "hit": 107,
+      "dodge": 94,
+      "crit": 94,
+      "breakPower": 77,
+      "resolvePower": 101,
+      "maxQiOutputPerTick": 127,
+      "moveSpeed": 122
+    }
   },
   {
     "id": "m_spine_gate_lord",
@@ -228,34 +220,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 250,
-      "spirit": 268,
-      "perception": 197,
-      "talent": 215,
-      "strength": 35,
-      "meridians": 25
-    },
-    "statPercents": {
-      "maxHp": 160,
-      "maxQi": 141,
-      "physAtk": 104,
-      "spellAtk": 133,
-      "physDef": 133,
-      "spellDef": 138,
-      "hit": 130,
-      "dodge": 99,
-      "crit": 111,
-      "breakPower": 101,
-      "resolvePower": 130,
-      "maxQiOutputPerTick": 163,
-      "viewRange": 100,
-      "moveSpeed": 112.8
-    },
     "skills": [
       "skill.predator_pounce",
       "skill.rending_claw",
       "skill.brutal_ram"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 98,
+      "spirit": 105,
+      "perception": 77,
+      "talent": 85,
+      "strength": 137,
+      "meridians": 98
+    },
+    "statTendency": {
+      "maxQi": 113,
+      "physAtk": 83,
+      "spellAtk": 107,
+      "physDef": 107,
+      "spellDef": 111,
+      "hit": 104,
+      "dodge": 79,
+      "crit": 89,
+      "breakPower": 81,
+      "resolvePower": 104,
+      "maxQiOutputPerTick": 131,
+      "moveSpeed": 90
+    }
   }
 ]

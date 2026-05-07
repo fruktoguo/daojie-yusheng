@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { hostname } from 'node:os';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { ensureBigintColumnType } from './schema-bigint-migration';
 
 const NODE_REGISTRY_TABLE = 'node_registry';
 
@@ -207,14 +208,8 @@ async function ensureNodeRegistryTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_NODE_REGISTRY_TABLE_SQL);
-    await client.query(`
-      ALTER TABLE ${NODE_REGISTRY_TABLE}
-      ALTER COLUMN port TYPE bigint USING port::bigint
-    `);
-    await client.query(`
-      ALTER TABLE ${NODE_REGISTRY_TABLE}
-      ALTER COLUMN capacity_weight TYPE bigint USING capacity_weight::bigint
-    `);
+    await ensureBigintColumnType(client, NODE_REGISTRY_TABLE, 'port');
+    await ensureBigintColumnType(client, NODE_REGISTRY_TABLE, 'capacity_weight');
     await client.query(CREATE_NODE_REGISTRY_STATUS_INDEX_SQL);
     await client.query('COMMIT');
   } catch (error) {

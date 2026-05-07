@@ -7,7 +7,7 @@
   "realmBaseAttrs": {
     "enabled": true,
     "mode": "average",
-    "description": "按当前运行时境界基础六维口径累计 attrBonus。由于基准配置只保存单项 singleAttr，这里把累计六维加成折算为六维平均单项值。",
+    "description": "按当前运行时境界基础六维口径累计 attrBonus。基准配置里的 singleAttr 保存六维单项值，这里把累计六维加成折算为六维平均单项值。",
     "stages": [
       {
         "stage": "Mortal",
@@ -108,6 +108,35 @@
     "enabled": true,
     "levelMultiplier": 1.5,
     "percentPerLevel": 1
+  },
+  "baseStatBaseline": {
+    "enabled": true,
+    "description": "每个普通基础属性的单项量化基准值。只纳入基础战斗/功能属性；自动恢复、修炼/经验、视野、射程/范围/行动次数、元素增减伤不纳入。",
+    "includedStatCount": 20,
+    "mortalBaseValue": 1.9791666667,
+    "levelBaseValue": 8,
+    "levelGrowth": 0.5,
+    "enhancementGrowthRate": 0.1,
+    "enhancementAnchors": [
+      { "level": 1, "enhanceLevel": 0 },
+      { "level": 18, "enhanceLevel": 5 },
+      { "level": 30, "enhanceLevel": 7 },
+      { "level": 42, "enhanceLevel": 10 },
+      { "level": 67, "enhanceLevel": 15 }
+    ],
+    "realmStageDeltas": [
+      { "levelFrom": 1, "label": "凡俗境", "value": 0 },
+      { "levelFrom": 6, "label": "淬体境", "value": 0.4041666667 },
+      { "levelFrom": 9, "label": "锻骨境", "value": 0.8375 },
+      { "levelFrom": 12, "label": "通脉境", "value": 2.0066666667 },
+      { "levelFrom": 16, "label": "先天境", "value": 3.9833333333 },
+      { "levelFrom": 19, "label": "练气前期", "value": 5.7566666667 },
+      { "levelFrom": 23, "label": "练气中期", "value": 7.9316666667 },
+      { "levelFrom": 27, "label": "练气后期", "value": 10.6208333333 },
+      { "levelFrom": 31, "label": "筑基前期", "value": 14.1566666667 },
+      { "levelFrom": 35, "label": "筑基中期", "value": 18.5191666667 },
+      { "levelFrom": 39, "label": "筑基后期", "value": 24.3416666667 }
+    ]
   },
   "gradeBands": [
     {

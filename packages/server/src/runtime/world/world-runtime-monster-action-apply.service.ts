@@ -29,7 +29,53 @@ const world_runtime_observation_helpers_1 = require("./world-runtime.observation
 const {
     formatCombatDamageBreakdown,
     formatCombatActionClause,
+    formatCombatResolutionOutcome,
+    formatCombatResolutionFloatText,
+    getCombatResolutionFloatColor,
 } = world_runtime_observation_helpers_1;
+function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
+    const firstRoll = Array.isArray(result?.damageRolls)
+        ? result.damageRolls.find((entry) => entry && typeof entry === 'object')
+        : null;
+    if (firstRoll) {
+        return {
+            ...firstRoll,
+            rawDamage: Number.isFinite(Number(firstRoll.rawDamage))
+                ? Number(firstRoll.rawDamage)
+                : Math.max(0, Math.round(Number(result?.totalRawDamage ?? result?.totalDamage) || 0)),
+            damage: Number.isFinite(Number(firstRoll.damage))
+                ? Number(firstRoll.damage)
+                : Math.max(0, Math.round(Number(result?.totalDamage) || 0)),
+            damageKind: firstRoll.damageKind ?? result?.damageKind ?? fallbackDamageKind,
+            element: firstRoll.element ?? result?.damageElement ?? fallbackElement,
+        };
+    }
+    return {
+        hit: Math.max(0, Math.round(Number(result?.totalDamage) || 0)) > 0,
+        rawDamage: Math.max(0, Math.round(Number(result?.totalRawDamage ?? result?.totalDamage) || 0)),
+        damage: Math.max(0, Math.round(Number(result?.totalDamage) || 0)),
+        crit: result?.crit === true,
+        dodged: result?.dodged === true,
+        resolved: result?.resolved === true,
+        broken: result?.broken === true,
+        damageKind: result?.damageKind ?? fallbackDamageKind,
+        element: result?.damageElement ?? fallbackElement,
+    };
+}
+function pushCombatResolutionFloat(effectsService, instanceId, x, y, resolution, fallbackColor) {
+    const text = formatCombatResolutionFloatText(resolution);
+    if (!text) {
+        return;
+    }
+    effectsService.pushCombatTextFloatEffect(
+        instanceId,
+        x,
+        y,
+        text,
+        getCombatResolutionFloatColor(resolution, fallbackColor),
+        920,
+    );
+}
 
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
 let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApplyService {
@@ -182,6 +228,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
         this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, '攻击');
         this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
+        pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage, effectColor);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
         let updated = player;
         if (resolvedDamage.damage > 0) {
@@ -189,10 +236,17 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage.damage, effectColor);
             deps.queuePlayerNotice?.(
                 action.targetPlayerId,
-                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`,
+                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
                 'combat',
             );
             this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
+        }
+        else {
+            deps.queuePlayerNotice?.(
+                action.targetPlayerId,
+                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                'combat',
+            );
         }
         this.playerRuntimeService.recordActivity(action.targetPlayerId, currentTick, {
             interruptCultivation: true,
@@ -268,14 +322,23 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
             }
             this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
+            const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
+            pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, primaryRoll, effectColor);
             if (result.totalDamage > 0) {
                 this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, result.totalDamage, effectColor);
                 deps.queuePlayerNotice?.(
                     player.playerId,
-                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, result.totalDamage, result.damageKind ?? 'spell')} 伤害`,
+                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
                     'combat',
                 );
                 this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
+            }
+            else {
+                deps.queuePlayerNotice?.(
+                    player.playerId,
+                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                    'combat',
+                );
             }
             this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
                 interruptCultivation: true,

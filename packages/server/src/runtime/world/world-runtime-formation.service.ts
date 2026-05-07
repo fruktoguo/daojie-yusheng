@@ -8,6 +8,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const pg_1 = require("pg");
 const env_alias_1 = require("../../config/env-alias");
+const schema_bigint_migration_1 = require("../../persistence/schema-bigint-migration");
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -15,13 +16,15 @@ const BOUNDARY_BARRIER_EFFECT_KIND = 'boundary_barrier';
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
 const INSTANCE_FORMATION_STATE_BIGINT_COLUMNS = [
     'spirit_stone_count',
-    'qi_cost',
     'x',
     'y',
     'eye_x',
     'eye_y',
     'created_at_ms',
     'updated_at_ms',
+];
+const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
+    'qi_cost',
 ];
 const TERRAIN_DAMAGE_REDUCTION_DENOMINATOR = 100000;
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
@@ -1186,7 +1189,7 @@ async function ensureInstanceFormationStateTable(pool) {
             disk_tier varchar(32) NOT NULL,
             disk_multiplier double precision NOT NULL DEFAULT 1,
             spirit_stone_count bigint NOT NULL DEFAULT 0,
-            qi_cost bigint NOT NULL DEFAULT 0,
+            qi_cost double precision NOT NULL DEFAULT 0,
             x bigint NOT NULL,
             y bigint NOT NULL,
             eye_instance_id varchar(100) NOT NULL,
@@ -1206,10 +1209,10 @@ async function ensureInstanceFormationStateTable(pool) {
         ADD COLUMN IF NOT EXISTS lifecycle varchar(32) NOT NULL DEFAULT 'deployed'
     `);
     for (const column of INSTANCE_FORMATION_STATE_BIGINT_COLUMNS) {
-        await pool.query(`
-            ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
-            ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-        `);
+        await (0, schema_bigint_migration_1.ensureBigintColumnType)(pool, INSTANCE_FORMATION_STATE_TABLE, column);
+    }
+    for (const column of INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS) {
+        await (0, schema_bigint_migration_1.ensureDoubleColumnType)(pool, INSTANCE_FORMATION_STATE_TABLE, column);
     }
     await pool.query(`
         CREATE INDEX IF NOT EXISTS instance_formation_state_instance_idx

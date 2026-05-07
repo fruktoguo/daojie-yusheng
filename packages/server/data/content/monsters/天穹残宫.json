@@ -31,33 +31,31 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 125,
-      "spirit": 112,
-      "perception": 214,
-      "talent": 108,
-      "strength": 24,
-      "meridians": 18
-    },
-    "statPercents": {
-      "maxHp": 150,
-      "maxQi": 95,
-      "physAtk": 98,
-      "spellAtk": 109,
-      "physDef": 72,
-      "spellDef": 79,
-      "hit": 126,
-      "dodge": 105,
-      "crit": 101,
-      "breakPower": 98,
-      "resolvePower": 79,
-      "maxQiOutputPerTick": 145,
-      "viewRange": 100,
-      "moveSpeed": 140.48
-    },
     "skills": [
       "skill.starfall_spear"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 77,
+      "spirit": 69,
+      "perception": 131,
+      "talent": 66,
+      "strength": 147,
+      "meridians": 110
+    },
+    "statTendency": {
+      "maxQi": 91,
+      "physAtk": 94,
+      "spellAtk": 105,
+      "physDef": 69,
+      "spellDef": 76,
+      "hit": 121,
+      "dodge": 101,
+      "crit": 97,
+      "breakPower": 94,
+      "resolvePower": 76,
+      "maxQiOutputPerTick": 139,
+      "moveSpeed": 135
+    }
   },
   {
     "id": "m_sky_puppet",
@@ -91,34 +89,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 213,
-      "spirit": 157,
-      "perception": 101,
-      "talent": 143,
-      "strength": 20,
-      "meridians": 11
-    },
-    "statPercents": {
-      "maxHp": 160,
-      "maxQi": 80,
-      "physAtk": 77,
-      "spellAtk": 80,
-      "physDef": 136,
-      "spellDef": 129,
-      "hit": 92,
-      "dodge": 65,
-      "crit": 75,
-      "breakPower": 84,
-      "resolvePower": 125,
-      "maxQiOutputPerTick": 95,
-      "viewRange": 100,
-      "moveSpeed": 86.8
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 138,
+      "spirit": 102,
+      "perception": 66,
+      "talent": 93,
+      "strength": 130,
+      "meridians": 71
+    },
+    "statTendency": {
+      "maxQi": 85,
+      "physAtk": 82,
+      "spellAtk": 85,
+      "physDef": 145,
+      "spellDef": 138,
+      "hit": 98,
+      "dodge": 69,
+      "crit": 80,
+      "breakPower": 90,
+      "resolvePower": 133,
+      "maxQiOutputPerTick": 101,
+      "moveSpeed": 93
+    }
   },
   {
     "id": "m_star_devourer",
@@ -160,34 +156,32 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 158,
-      "spirit": 141,
-      "perception": 269,
-      "talent": 136,
-      "strength": 30,
-      "meridians": 23
-    },
-    "statPercents": {
-      "maxHp": 170,
-      "maxQi": 108,
-      "physAtk": 112,
-      "spellAtk": 124,
-      "physDef": 84,
-      "spellDef": 92,
-      "hit": 142,
-      "dodge": 119,
-      "crit": 115,
-      "breakPower": 112,
-      "resolvePower": 92,
-      "maxQiOutputPerTick": 162,
-      "viewRange": 100,
-      "moveSpeed": 141.12
-    },
     "skills": [
       "skill.star_maw",
       "skill.void_burst"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 77,
+      "spirit": 68,
+      "perception": 131,
+      "talent": 66,
+      "strength": 146,
+      "meridians": 112
+    },
+    "statTendency": {
+      "maxQi": 92,
+      "physAtk": 96,
+      "spellAtk": 106,
+      "physDef": 72,
+      "spellDef": 79,
+      "hit": 121,
+      "dodge": 102,
+      "crit": 98,
+      "breakPower": 96,
+      "resolvePower": 79,
+      "maxQiOutputPerTick": 139,
+      "moveSpeed": 121
+    }
   },
   {
     "id": "m_fallen_palace_lord",
@@ -237,7 +231,6 @@
     "count": 1,
     "maxAlive": 1,
     "aggroRange": 6,
-    "viewRange": 6,
     "aggroMode": "always",
     "equipment": {
       "weapon": "equip.ember_scorch_spear",
@@ -246,32 +239,30 @@
       "legs": "equip.returnarray_boots",
       "accessory": "equip.deepvein_core"
     },
-    "attrs": {
-      "constitution": 281,
-      "spirit": 301,
-      "perception": 222,
-      "talent": 242,
-      "strength": 40,
-      "meridians": 28
-    },
-    "statPercents": {
-      "maxHp": 180,
-      "maxQi": 156,
-      "physAtk": 116,
-      "spellAtk": 148,
-      "physDef": 148,
-      "spellDef": 153,
-      "hit": 145,
-      "dodge": 112,
-      "crit": 124,
-      "breakPower": 113,
-      "resolvePower": 145,
-      "maxQiOutputPerTick": 180,
-      "viewRange": 100,
-      "moveSpeed": 113.44
-    },
     "skills": [
       "skill.starfall_spear"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 98,
+      "spirit": 105,
+      "perception": 77,
+      "talent": 84,
+      "strength": 139,
+      "meridians": 97
+    },
+    "statTendency": {
+      "maxQi": 113,
+      "physAtk": 84,
+      "spellAtk": 107,
+      "physDef": 107,
+      "spellDef": 111,
+      "hit": 105,
+      "dodge": 81,
+      "crit": 90,
+      "breakPower": 82,
+      "resolvePower": 105,
+      "maxQiOutputPerTick": 131,
+      "moveSpeed": 82
+    }
   }
 ]

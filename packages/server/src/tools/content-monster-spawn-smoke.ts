@@ -6,6 +6,7 @@ import { ContentTemplateRepository } from '../content/content-template.repositor
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { buildMonsterObservation } from '../runtime/world/world-runtime.observation.helpers';
+import { formatDisplayCurrentMax, formatDisplayInteger } from '@mud/shared';
 
 const verdantMapIds = [
   'verdant_vine_vale_01_entry',
@@ -140,11 +141,11 @@ function assertHuanlingZhenrenInitialWoundedBuff(
   assert.equal(monster.qi, monster.maxQi, 'monster runtime should start with full qi');
   const observation = buildMonsterObservation(Number.MAX_SAFE_INTEGER, monster);
   assert.ok(
-    observation.lines.some((line) => line.label === '灵力' && line.value === `${monster.qi} / ${monster.maxQi}`),
+    observation.lines.some((line) => line.label === '灵力' && line.value === formatDisplayCurrentMax(monster.qi, monster.maxQi)),
     'monster observation should expose current/max qi',
   );
   assert.ok(
-    observation.lines.some((line) => line.label === '免爆' && line.value === `${monster.numericStats.antiCrit}`),
+    observation.lines.some((line) => line.label === '免爆' && line.value === formatDisplayInteger(monster.numericStats.antiCrit)),
     'monster observation should expose resolved antiCrit',
   );
   assert.ok(monster.maxHp < spawn.maxHp, 'wounded debuff should suppress monster maxHp through percent stat mode');

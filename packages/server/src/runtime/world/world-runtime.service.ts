@@ -1092,6 +1092,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         pushDamageFloatEffect(instanceId, x, y, damage, color) {
         this.worldRuntimeTickDispatchService.pushDamageFloatEffect(instanceId, x, y, damage, color, this);
     }
+        pushCombatTextFloatEffect(instanceId, x, y, text, color, durationMs = undefined) {
+        this.worldRuntimeTickDispatchService.pushCombatTextFloatEffect(instanceId, x, y, text, color, this, durationMs);
+    }
         pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) {
         this.worldRuntimeTickDispatchService.pushAttackEffect(instanceId, fromX, fromY, toX, toY, color, this);
     }

@@ -30,34 +30,32 @@
       "body": "equip.rift_guard_armor",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 113,
-      "spirit": 50,
-      "perception": 36,
-      "talent": 78,
-      "strength": 8,
-      "meridians": 6
-    },
-    "statPercents": {
-      "maxHp": 80,
-      "maxQi": 39,
-      "physAtk": 57,
-      "spellAtk": 39,
-      "physDef": 95,
-      "spellDef": 88,
-      "hit": 54,
-      "dodge": 34,
-      "crit": 41,
-      "breakPower": 51,
-      "resolvePower": 82,
-      "maxQiOutputPerTick": 44,
-      "viewRange": 100,
-      "moveSpeed": 64.24
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 163,
+      "spirit": 72,
+      "perception": 52,
+      "talent": 112,
+      "strength": 115,
+      "meridians": 86
+    },
+    "statTendency": {
+      "maxQi": 68,
+      "physAtk": 99,
+      "spellAtk": 68,
+      "physDef": 166,
+      "spellDef": 153,
+      "hit": 94,
+      "dodge": 59,
+      "crit": 71,
+      "breakPower": 89,
+      "resolvePower": 143,
+      "maxQiOutputPerTick": 77,
+      "moveSpeed": 112
+    }
   },
   {
     "id": "m_bone_owl",
@@ -96,34 +94,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 59,
-      "spirit": 80,
-      "perception": 126,
-      "talent": 56,
-      "strength": 14,
-      "meridians": 11
-    },
-    "statPercents": {
-      "maxHp": 90,
-      "maxQi": 69,
-      "physAtk": 56,
-      "spellAtk": 63,
-      "physDef": 47,
-      "spellDef": 55,
-      "hit": 85,
-      "dodge": 88,
-      "crit": 71,
-      "breakPower": 49,
-      "resolvePower": 53,
-      "maxQiOutputPerTick": 77,
-      "viewRange": 100,
-      "moveSpeed": 178.56
-    },
     "skills": [
       "skill.echo_screech",
       "skill.soul_wail"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 62,
+      "spirit": 84,
+      "perception": 132,
+      "talent": 59,
+      "strength": 147,
+      "meridians": 116
+    },
+    "statTendency": {
+      "maxQi": 93,
+      "physAtk": 75,
+      "spellAtk": 85,
+      "physDef": 63,
+      "spellDef": 74,
+      "hit": 114,
+      "dodge": 118,
+      "crit": 96,
+      "breakPower": 66,
+      "resolvePower": 71,
+      "maxQiOutputPerTick": 104,
+      "moveSpeed": 240
+    }
   },
   {
     "id": "m_rune_watcher",
@@ -177,34 +173,32 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 106,
-      "spirit": 151,
-      "perception": 106,
-      "talent": 106,
-      "strength": 19,
-      "meridians": 15
-    },
-    "statPercents": {
-      "maxHp": 100,
-      "maxQi": 91,
-      "physAtk": 62,
-      "spellAtk": 85,
-      "physDef": 93,
-      "spellDef": 108,
-      "hit": 93,
-      "dodge": 62,
-      "crit": 73,
-      "breakPower": 62,
-      "resolvePower": 90,
-      "maxQiOutputPerTick": 105,
-      "viewRange": 100,
-      "moveSpeed": 110.88
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 79,
+      "spirit": 112,
+      "perception": 79,
+      "talent": 78,
+      "strength": 141,
+      "meridians": 111
+    },
+    "statTendency": {
+      "maxQi": 106,
+      "physAtk": 72,
+      "spellAtk": 99,
+      "physDef": 108,
+      "spellDef": 125,
+      "hit": 108,
+      "dodge": 72,
+      "crit": 85,
+      "breakPower": 72,
+      "resolvePower": 104,
+      "maxQiOutputPerTick": 122,
+      "moveSpeed": 129
+    }
   },
   {
     "id": "m_stele_arbiter",
@@ -257,34 +251,31 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 156,
-      "spirit": 195,
-      "perception": 120,
-      "talent": 146,
-      "strength": 23,
-      "meridians": 18
-    },
-    "statPercents": {
-      "maxHp": 110,
-      "maxQi": 106,
-      "physAtk": 72,
-      "spellAtk": 100,
-      "physDef": 114,
-      "spellDef": 124,
-      "hit": 105,
-      "dodge": 72,
-      "crit": 84,
-      "breakPower": 72,
-      "resolvePower": 106,
-      "maxQiOutputPerTick": 124,
-      "viewRange": 100,
-      "moveSpeed": 115.2
-    },
     "skills": [
       "skill.core_smash",
       "skill.guardian_quake"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 91,
+      "spirit": 114,
+      "perception": 70,
+      "talent": 85,
+      "strength": 135,
+      "meridians": 105
+    },
+    "statTendency": {
+      "maxQi": 107,
+      "physAtk": 72,
+      "physDef": 115,
+      "spellDef": 125,
+      "hit": 106,
+      "dodge": 72,
+      "crit": 84,
+      "breakPower": 72,
+      "resolvePower": 107,
+      "maxQiOutputPerTick": 125,
+      "moveSpeed": 116
+    }
   },
   {
     "id": "m_ghost_scribe",
@@ -324,33 +315,31 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.soul_devour_token"
     },
-    "attrs": {
-      "constitution": 64,
-      "spirit": 113,
-      "perception": 95,
-      "talent": 64,
-      "strength": 14,
-      "meridians": 11
-    },
-    "statPercents": {
-      "maxHp": 90,
-      "maxQi": 83,
-      "physAtk": 51,
-      "spellAtk": 79,
-      "physDef": 55,
-      "spellDef": 83,
-      "hit": 79,
-      "dodge": 69,
-      "crit": 69,
-      "breakPower": 55,
-      "resolvePower": 74,
-      "maxQiOutputPerTick": 95,
-      "viewRange": 100,
-      "moveSpeed": 124.56
-    },
     "skills": [
       "skill.soul_wail",
       "skill.nether_chain"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 66,
+      "spirit": 116,
+      "perception": 97,
+      "talent": 65,
+      "strength": 143,
+      "meridians": 113
+    },
+    "statTendency": {
+      "maxQi": 109,
+      "physAtk": 67,
+      "spellAtk": 103,
+      "physDef": 72,
+      "spellDef": 109,
+      "hit": 103,
+      "dodge": 90,
+      "crit": 90,
+      "breakPower": 72,
+      "resolvePower": 97,
+      "maxQiOutputPerTick": 124,
+      "moveSpeed": 163
+    }
   }
 ]

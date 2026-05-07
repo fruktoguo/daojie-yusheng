@@ -73,7 +73,8 @@ const EXPECTED_INTERFACES = {
     error: { type: 'string', optional: true },
   },
   S2C_EnhancementPanel: {
-    state: { type: 'SyncedEnhancementPanelState | null', optional: false },
+    state: { type: 'SyncedEnhancementPanelState | null', optional: true },
+    statePatch: { type: 'SyncedEnhancementPanelPatch', optional: true },
     error: { type: 'string', optional: true },
   },
   S2C_MailDetail: {

@@ -37,6 +37,7 @@ import {
   type TechniqueLayerDef,
 } from '@mud/shared';
 import { GmMapEditor } from '../../../packages/client/src/gm-map-editor';
+import monsterRealmBaselines from '../../server/data/content/realm-attr-baselines.json';
 
 /** 编辑器顶部页签的标识，决定当前显示地图、怪物、功法、文件还是服务状态。 */
 type PageId = 'maps' | 'monsters' | 'skills' | 'files' | 'service';
@@ -447,6 +448,7 @@ const PLAYER_REALM_STAGE_SORT_ORDER = PLAYER_REALM_ORDER.reduce<Record<PlayerRea
 const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], string> = {
   value_stats: 'valueStats 推导模式',
   attributes: 'attrs / statPercents 模式',
+  tendency: '倾向百分比模式',
 };
 
 const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
@@ -1548,13 +1550,13 @@ function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number |
   `;
 }
 
-/** 渲染怪物六维的直接编辑区，留空时会交给服务端推导。 */
+/** 渲染怪物六维倾向百分比编辑区。 */
 function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
   monsterAttrsEditorEl.innerHTML = `
     <div class="monster-stat-section">
       <div class="monster-group-head">
-        <div class="monster-group-title">六维属性</div>
-        <div class="monster-group-note">这里是怪物模板直接配置的六维；为空时，服务端会按旧模板或 valueStats 推导。</div>
+        <div class="monster-group-title">六维倾向</div>
+        <div class="monster-group-note">这里填写六维倾向百分比；留空按 100% 均衡处理。</div>
       </div>
       <div class="monster-stat-grid">
         ${ATTR_KEYS.map((key) => buildMonsterAttrInput(key, attrs?.[key])).join('')}
@@ -1563,13 +1565,13 @@ function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
   `;
 }
 
-/** 渲染怪物数值倍率编辑区，作为六维推导后的修正层。 */
+/** 渲染怪物基础数值倾向百分比编辑区。 */
 function renderMonsterStatPercentsEditor(statPercents?: NumericStatPercentages): void {
   monsterStatPercentsEditorEl.innerHTML = `
     <div class="monster-stat-section">
       <div class="monster-group-head">
-        <div class="monster-group-title">数值倍率</div>
-        <div class="monster-group-note">按百分比作用在六维换算后的基础面板上；留空时，valueStats 模式会自动推导。</div>
+        <div class="monster-group-title">基础数值倾向</div>
+        <div class="monster-group-note">这里填写基础数值倾向百分比；留空按 100% 均衡处理。</div>
       </div>
       <div class="monster-stat-grid">
         ${NUMERIC_SCALAR_STAT_KEYS.map((key) => buildMonsterStatPercentInput(key, statPercents?.[key])).join('')}
@@ -1795,11 +1797,11 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   monsterRadiusEl.value = String(monster.radius);
   monsterExpMultiplierEl.value = String(monster.expMultiplier);
   monsterAggroRangeEl.value = String(monster.aggroRange);
-  monsterViewRangeEl.value = String(monster.viewRange);
+  monsterViewRangeEl.value = String(monster.computedStats.viewRange || monster.viewRange);
   monsterRespawnSecEl.value = String(monster.respawnSec);
   monsterRespawnTicksEl.value = monster.respawnTicks === undefined ? '' : String(monster.respawnTicks);
-  renderMonsterAttrsEditor(monster.attrs);
-  renderMonsterStatPercentsEditor(monster.statPercents);
+  renderMonsterAttrsEditor(monster.attrTendency);
+  renderMonsterStatPercentsEditor(monster.statTendency);
   renderMonsterEquipmentEditor(monster.equipment);
   monsterSkillsEl.value = monster.skills.join('\n');
   renderMonsterValueStatsEditor(monster.valueStats);
@@ -1866,7 +1868,7 @@ function readOptionalDecimalInput(raw: string, label: string): number | undefine
   return parsed;
 }
 
-/** 从六维编辑区收集怪物属性，并过滤掉空输入。 */
+/** 从六维编辑区收集怪物倾向百分比，并过滤掉空输入。 */
 function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
   let attrs: Partial<Attributes> | undefined;
   for (const input of Array.from(monsterAttrsEditorEl.querySelectorAll<HTMLInputElement>('[data-attr-key]'))) {
@@ -1884,7 +1886,7 @@ function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
   return attrs;
 }
 
-/** 从数值倍率编辑区收集怪物百分比修正。 */
+/** 从数值倍率编辑区收集怪物基础数值倾向百分比。 */
 function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined {
   let statPercents: NumericStatPercentages | undefined;
   for (const input of Array.from(monsterStatPercentsEditorEl.querySelectorAll<HTMLInputElement>('[data-stat-percent-key]'))) {
@@ -2007,7 +2009,6 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
   const statPercents = readMonsterStatPercentsFromEditor();
   const equipment = readMonsterEquipmentFromEditor();
   const skills = readMonsterSkillsFromEditor();
-  const valueStats = readMonsterValueStatsFromEditor();
   const drops = readMonsterDropsFromEditor();
   const nextDraft = resolveMonsterTemplateRecord({
     id: monsterIdEl.value.trim(),
@@ -2016,18 +2017,16 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
     color: monsterColorEl.value.trim(),
     grade: monsterGradeEl.value as TechniqueGrade,
     tier: monsterTierEl.value as MonsterTier,
-    attrs,
-    statPercents,
+    attrTendency: attrs,
+    statTendency: statPercents,
     equipment,
     skills,
-    valueStats,
     level: readOptionalInteger(monsterLevelEl),
     count: readRequiredInteger(monsterCountEl),
     maxAlive: readRequiredInteger(monsterMaxAliveEl),
     radius: readRequiredInteger(monsterRadiusEl),
     expMultiplier: readRequiredNumber(monsterExpMultiplierEl),
     aggroRange: readRequiredInteger(monsterAggroRangeEl),
-    viewRange: readRequiredInteger(monsterViewRangeEl),
     aggroMode: monsterAggroModeEl.value as MonsterAggroMode,
     respawnSec: readRequiredInteger(monsterRespawnSecEl),
     respawnTicks: readOptionalInteger(monsterRespawnTicksEl),
@@ -2035,7 +2034,7 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
     hp: currentMonsterDraft?.hp,
     maxHp: currentMonsterDraft?.maxHp,
     attack: currentMonsterDraft?.attack,
-  }, editorItemById);
+  }, editorItemById, monsterRealmBaselines);
   monsterHpEl.value = String(nextDraft.hp);
   monsterMaxHpEl.value = String(nextDraft.maxHp);
   monsterAttackEl.value = String(nextDraft.attack);

@@ -11,7 +11,6 @@
     "maxAlive": 5,
     "radius": 6,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 15,
     "equipment": {
       "weapon": {
@@ -26,29 +25,6 @@
         "itemId": "equip.scar_tread_boots",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 236,
-      "spirit": 108,
-      "perception": 276,
-      "talent": 192,
-      "strength": 24,
-      "meridians": 22
-    },
-    "statPercents": {
-      "maxHp": 200,
-      "maxQi": 72,
-      "physAtk": 144,
-      "spellAtk": 62,
-      "physDef": 122,
-      "spellDef": 96,
-      "hit": 138,
-      "dodge": 146,
-      "crit": 134,
-      "breakPower": 142,
-      "resolvePower": 96,
-      "maxQiOutputPerTick": 82,
-      "moveSpeed": 168
     },
     "skills": [
       "skill.predator_pounce",
@@ -85,7 +61,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 111,
+      "spirit": 51,
+      "perception": 130,
+      "talent": 91,
+      "strength": 113,
+      "meridians": 104
+    },
+    "statTendency": {
+      "maxQi": 62,
+      "physAtk": 123,
+      "spellAtk": 53,
+      "physDef": 104,
+      "spellDef": 82,
+      "hit": 118,
+      "dodge": 125,
+      "crit": 115,
+      "breakPower": 122,
+      "resolvePower": 82,
+      "maxQiOutputPerTick": 70,
+      "moveSpeed": 144
+    }
   },
   {
     "id": "m_cleft_sand_soldier",
@@ -99,7 +97,6 @@
     "maxAlive": 4,
     "radius": 6,
     "aggroRange": 6,
-    "viewRange": 7,
     "respawnSec": 16,
     "equipment": {
       "weapon": {
@@ -114,29 +111,6 @@
         "itemId": "equip.chasing_edge_boots",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 312,
-      "spirit": 132,
-      "perception": 228,
-      "talent": 264,
-      "strength": 26,
-      "meridians": 20
-    },
-    "statPercents": {
-      "maxHp": 230,
-      "maxQi": 74,
-      "physAtk": 136,
-      "spellAtk": 66,
-      "physDef": 154,
-      "spellDef": 120,
-      "hit": 132,
-      "dodge": 108,
-      "crit": 120,
-      "breakPower": 148,
-      "resolvePower": 126,
-      "maxQiOutputPerTick": 80,
-      "moveSpeed": 106
     },
     "skills": [
       "skill.brutal_ram",
@@ -167,7 +141,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 134,
+      "spirit": 57,
+      "perception": 98,
+      "talent": 113,
+      "strength": 112,
+      "meridians": 86
+    },
+    "statTendency": {
+      "maxQi": 65,
+      "physAtk": 119,
+      "spellAtk": 58,
+      "physDef": 135,
+      "spellDef": 105,
+      "hit": 116,
+      "dodge": 95,
+      "crit": 105,
+      "breakPower": 130,
+      "resolvePower": 110,
+      "maxQiOutputPerTick": 70,
+      "moveSpeed": 93
+    }
   },
   {
     "id": "m_cleft_blade_sprite",
@@ -181,7 +177,6 @@
     "maxAlive": 4,
     "radius": 7,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 18,
     "equipment": {
       "weapon": {
@@ -200,29 +195,6 @@
         "itemId": "equip.furnace_red_ring",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 288,
-      "spirit": 156,
-      "perception": 376,
-      "talent": 280,
-      "strength": 32,
-      "meridians": 28
-    },
-    "statPercents": {
-      "maxHp": 260,
-      "maxQi": 60.2,
-      "physAtk": 109.2,
-      "spellAtk": 54.6,
-      "physDef": 89.6,
-      "spellDef": 75.6,
-      "hit": 110.6,
-      "dodge": 113.4,
-      "crit": 102.2,
-      "breakPower": 110.6,
-      "resolvePower": 78.4,
-      "maxQiOutputPerTick": 72.8,
-      "moveSpeed": 127.4
     },
     "skills": [
       "skill.predator_pounce",
@@ -284,7 +256,29 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 101,
+      "spirit": 55,
+      "perception": 133,
+      "talent": 99,
+      "strength": 113,
+      "meridians": 99
+    },
+    "statTendency": {
+      "maxQi": 65,
+      "physAtk": 119,
+      "spellAtk": 59,
+      "physDef": 97,
+      "spellDef": 82,
+      "hit": 120,
+      "dodge": 123,
+      "crit": 111,
+      "breakPower": 120,
+      "resolvePower": 85,
+      "maxQiOutputPerTick": 79,
+      "moveSpeed": 138
+    }
   },
   {
     "id": "m_cleft_banner_general",
@@ -298,7 +292,6 @@
     "maxAlive": 3,
     "radius": 7,
     "aggroRange": 7,
-    "viewRange": 8,
     "respawnSec": 20,
     "equipment": {
       "weapon": {
@@ -317,29 +310,6 @@
         "itemId": "equip.furnace_red_ring",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 376,
-      "spirit": 184,
-      "perception": 352,
-      "talent": 352,
-      "strength": 36,
-      "meridians": 32
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 92,
-      "physAtk": 168,
-      "spellAtk": 88,
-      "physDef": 152,
-      "spellDef": 132,
-      "hit": 160,
-      "dodge": 136,
-      "crit": 152,
-      "breakPower": 170,
-      "resolvePower": 138,
-      "maxQiOutputPerTick": 110,
-      "moveSpeed": 154
     },
     "skills": [
       "skill.rending_claw",
@@ -371,7 +341,28 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 116,
+      "spirit": 57,
+      "perception": 109,
+      "talent": 108,
+      "strength": 111,
+      "meridians": 99
+    },
+    "statTendency": {
+      "maxQi": 67,
+      "physAtk": 122,
+      "spellAtk": 64,
+      "physDef": 110,
+      "spellDef": 96,
+      "hit": 116,
+      "dodge": 99,
+      "crit": 110,
+      "breakPower": 123,
+      "maxQiOutputPerTick": 80,
+      "moveSpeed": 112
+    }
   },
   {
     "id": "m_cleft_stele_puppet",
@@ -385,36 +376,12 @@
     "maxAlive": 8,
     "radius": 8,
     "aggroRange": 9,
-    "viewRange": 12,
     "respawnSec": 24,
     "equipment": {
       "weapon": "equip.full_edge_blade",
       "head": "equip.sand_ghost_mask",
       "body": "equip.cleft_blade_cloak",
       "accessory": "equip.furnace_red_ring"
-    },
-    "attrs": {
-      "constitution": 495,
-      "spirit": 225,
-      "perception": 320,
-      "talent": 470,
-      "strength": 42,
-      "meridians": 32
-    },
-    "statPercents": {
-      "maxHp": 250,
-      "maxQi": 79,
-      "physAtk": 124.3,
-      "spellAtk": 72.2,
-      "physDef": 139.4,
-      "spellDef": 122.6,
-      "hit": 121,
-      "dodge": 99.1,
-      "crit": 110.9,
-      "breakPower": 127.7,
-      "resolvePower": 132.7,
-      "maxQiOutputPerTick": 90.7,
-      "moveSpeed": 80.6
     },
     "skills": [
       "skill.genghua_ningfeng",
@@ -447,7 +414,29 @@
         "chance": 0.01
       }
     ],
-    "aggroMode": "always"
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 132,
+      "spirit": 60,
+      "perception": 85,
+      "talent": 126,
+      "strength": 112,
+      "meridians": 85
+    },
+    "statTendency": {
+      "maxQi": 73,
+      "physAtk": 115,
+      "spellAtk": 67,
+      "physDef": 129,
+      "spellDef": 113,
+      "hit": 112,
+      "dodge": 91,
+      "crit": 102,
+      "breakPower": 118,
+      "resolvePower": 122,
+      "maxQiOutputPerTick": 84,
+      "moveSpeed": 74
+    }
   },
   {
     "id": "m_cleft_iron_guard",
@@ -461,7 +450,6 @@
     "maxAlive": 4,
     "radius": 5,
     "aggroRange": 10,
-    "viewRange": 12,
     "respawnSec": 28,
     "equipment": {
       "weapon": {
@@ -480,29 +468,6 @@
         "itemId": "equip.furnace_red_ring",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 590,
-      "spirit": 275,
-      "perception": 405,
-      "talent": 535,
-      "strength": 50,
-      "meridians": 42
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 98.8,
-      "physAtk": 173.4,
-      "spellAtk": 96.7,
-      "physDef": 175.4,
-      "spellDef": 153.2,
-      "hit": 163.3,
-      "dodge": 135.1,
-      "crit": 151.2,
-      "breakPower": 175.4,
-      "resolvePower": 169.3,
-      "maxQiOutputPerTick": 115,
-      "moveSpeed": 108.8
     },
     "skills": [
       "skill.genghua_ningfeng",
@@ -546,7 +511,29 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 130,
+      "spirit": 61,
+      "perception": 89,
+      "talent": 118,
+      "strength": 110,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 69,
+      "physAtk": 121,
+      "spellAtk": 68,
+      "physDef": 123,
+      "spellDef": 107,
+      "hit": 114,
+      "dodge": 94,
+      "crit": 106,
+      "breakPower": 123,
+      "resolvePower": 118,
+      "maxQiOutputPerTick": 80,
+      "moveSpeed": 76
+    }
   },
   {
     "id": "m_cleft_gate_lord",
@@ -560,7 +547,6 @@
     "maxAlive": 1,
     "radius": 2,
     "aggroRange": 10,
-    "viewRange": 10,
     "respawnSec": 45,
     "equipment": {
       "weapon": {
@@ -579,29 +565,6 @@
         "itemId": "equip.sealed_path_token",
         "count": 1
       }
-    },
-    "attrs": {
-      "constitution": 894,
-      "spirit": 408,
-      "perception": 552,
-      "talent": 744,
-      "strength": 72,
-      "meridians": 60
-    },
-    "statPercents": {
-      "maxHp": 290,
-      "maxQi": 102.3,
-      "physAtk": 148.1,
-      "spellAtk": 91.7,
-      "physDef": 165.8,
-      "spellDef": 146.4,
-      "hit": 149.9,
-      "dodge": 125.3,
-      "crit": 139.3,
-      "breakPower": 155.3,
-      "resolvePower": 160.6,
-      "maxQiOutputPerTick": 107.6,
-      "moveSpeed": 98.8
     },
     "skills": [
       "skill.genghua_ningfeng",
@@ -639,6 +602,28 @@
         "type": "skill_book",
         "count": 1
       }
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 137,
+      "spirit": 62,
+      "perception": 85,
+      "talent": 114,
+      "strength": 110,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 77,
+      "physAtk": 112,
+      "spellAtk": 69,
+      "physDef": 125,
+      "spellDef": 110,
+      "hit": 113,
+      "dodge": 95,
+      "crit": 105,
+      "breakPower": 117,
+      "resolvePower": 121,
+      "maxQiOutputPerTick": 81,
+      "moveSpeed": 75
+    }
   }
 ]

@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
@@ -673,14 +674,7 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
 }
 
 async function ensureMailBigintColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
-  for (const [tableName, columns] of Object.entries(MAIL_BIGINT_COLUMNS_BY_TABLE)) {
-    for (const column of columns) {
-      await client.query(`
-        ALTER TABLE ${tableName}
-        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-      `);
-    }
-  }
+  await ensureBigintColumnsWithClient(client, MAIL_BIGINT_COLUMNS_BY_TABLE);
 }
 
 async function archiveExpiredMailRows(

@@ -5,6 +5,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { buildPersistedInventoryItemRawPayload } from './inventory-item-persistence';
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
+import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -3213,14 +3214,7 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
 }
 
 async function ensureDurableOperationBigintColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
-  for (const [tableName, columns] of Object.entries(DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE)) {
-    for (const column of columns) {
-      await client.query(`
-        ALTER TABLE ${tableName}
-        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-      `);
-    }
-  }
+  await ensureBigintColumnsWithClient(client, DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE);
 }
 
 async function ensurePlayerPresenceColumnsWithClient(client: import('pg').PoolClient): Promise<void> {

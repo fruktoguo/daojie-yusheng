@@ -76,7 +76,9 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         if (!socket || !player || !this.worldClientEventService.prefersMainline(socket)) {
             return;
         }
-        const payload = this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
+        const payload = panel === 'enhancement' && player.enhancementJob && typeof this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload === 'function'
+            ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
+            : this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
         (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(socket, panel, payload);
     }    
     /**

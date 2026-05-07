@@ -59,6 +59,21 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
         };
     }    
     /**
+ * buildEnhancementPanelPatchPayload：构建强化面板运行态增量。
+ * @param player 玩家对象。
+ * @returns 只包含高频刷新需要的任务状态。
+ */
+
+    buildEnhancementPanelPatchPayload(player) {
+        return {
+            statePatch: {
+                enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
+                job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
+                queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
+            },
+        };
+    }    
+    /**
  * buildEnhancementPanelState：构建并返回目标对象。
  * @param player 玩家对象。
  * @param enhancementConfigs 参数说明。
@@ -144,7 +159,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
         const totalSpeedRate = computeEnhancementToolSpeedRate(hammer?.enhancementSpeedRate, enhancementSkillLevel, item.level);
         return {
             ref,
-            item: cloneItem(item),
+            item: summarizeEnhancementItem(item),
             currentLevel,
             nextLevel,
             spiritStoneCost: getEnhancementSpiritStoneCost(item.level, requirements.length > 0),
@@ -229,7 +244,7 @@ function buildProtectionCandidates(player, ref, item, config) {
         }
         candidates.push({
             ref: { source: 'inventory', slotIndex },
-            item: cloneItem(entry),
+            item: summarizeEnhancementItem(entry),
         });
     });
     return candidates;
@@ -268,6 +283,24 @@ function cloneItem(item) {
         consumeBuffs: Array.isArray(item.consumeBuffs) ? item.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
         effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
         tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
+    };
+}
+/**
+ * summarizeEnhancementItem：强化面板只同步可见摘要，完整详情由背包/装备详情链路负责。
+ * @param item 道具。
+ * @returns 强化面板道具摘要。
+ */
+
+function summarizeEnhancementItem(item) {
+    return {
+        itemId: item.itemId,
+        name: item.name,
+        type: item.type,
+        count: Math.max(0, Math.floor(Number(item.count) || 0)),
+        grade: item.grade,
+        level: Math.max(1, Math.floor(Number(item.level) || 1)),
+        equipSlot: item.equipSlot,
+        enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
     };
 }
 /**
@@ -313,7 +346,7 @@ function cloneEnhancementJob(entry) {
     return {
         ...entry,
         target: entry.target ? { ...entry.target } : entry.target,
-        item: cloneItem(entry.item),
+        item: entry.item ? summarizeEnhancementItem(entry.item) : undefined,
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
 }

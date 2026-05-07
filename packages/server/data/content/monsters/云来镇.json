@@ -22,33 +22,30 @@
       "head": "equip.gate_headcloth",
       "legs": "equip.trench_runner_boots"
     },
-    "attrs": {
-      "constitution": 10,
-      "spirit": 5,
-      "perception": 20,
-      "talent": 8,
-      "strength": 2,
-      "meridians": 2
-    },
-    "statPercents": {
-      "maxHp": 10,
-      "maxQi": 13,
-      "physAtk": 33,
-      "spellAtk": 8,
-      "physDef": 22,
-      "spellDef": 17,
-      "hit": 35,
-      "dodge": 41,
-      "crit": 34,
-      "breakPower": 28,
-      "resolvePower": 20,
-      "maxQiOutputPerTick": 14,
-      "viewRange": 100,
-      "moveSpeed": 155
-    },
     "skills": [
       "skill.predator_pounce"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 72,
+      "spirit": 36,
+      "perception": 145,
+      "talent": 58,
+      "strength": 145,
+      "meridians": 144
+    },
+    "statTendency": {
+      "maxQi": 37,
+      "physAtk": 94,
+      "spellAtk": 23,
+      "physDef": 63,
+      "spellDef": 49,
+      "dodge": 117,
+      "crit": 97,
+      "breakPower": 80,
+      "resolvePower": 57,
+      "maxQiOutputPerTick": 40,
+      "moveSpeed": 443
+    }
   },
   {
     "id": "m_town_rat_refuse",
@@ -73,33 +70,30 @@
       "head": "equip.gate_headcloth",
       "legs": "equip.trench_runner_boots"
     },
-    "attrs": {
-      "constitution": 10,
-      "spirit": 5,
-      "perception": 20,
-      "talent": 8,
-      "strength": 2,
-      "meridians": 2
-    },
-    "statPercents": {
-      "maxHp": 10,
-      "maxQi": 13,
-      "physAtk": 33,
-      "spellAtk": 8,
-      "physDef": 22,
-      "spellDef": 17,
-      "hit": 35,
-      "dodge": 41,
-      "crit": 34,
-      "breakPower": 28,
-      "resolvePower": 20,
-      "maxQiOutputPerTick": 14,
-      "viewRange": 100,
-      "moveSpeed": 155
-    },
     "skills": [
       "skill.predator_pounce"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 72,
+      "spirit": 36,
+      "perception": 145,
+      "talent": 58,
+      "strength": 145,
+      "meridians": 144
+    },
+    "statTendency": {
+      "maxQi": 37,
+      "physAtk": 94,
+      "spellAtk": 23,
+      "physDef": 63,
+      "spellDef": 49,
+      "dodge": 117,
+      "crit": 97,
+      "breakPower": 80,
+      "resolvePower": 57,
+      "maxQiOutputPerTick": 40,
+      "moveSpeed": 443
+    }
   },
   {
     "id": "m_gate_thug",
@@ -125,33 +119,28 @@
       "body": "equip.herb_mist_robe",
       "legs": "equip.trench_runner_boots"
     },
-    "attrs": {
-      "constitution": 22,
-      "spirit": 9,
-      "perception": 19,
-      "talent": 18,
-      "strength": 3,
-      "meridians": 3
-    },
-    "statPercents": {
-      "maxHp": 20,
-      "maxQi": 16,
-      "physAtk": 36,
-      "spellAtk": 12,
-      "physDef": 34,
-      "spellDef": 27,
-      "hit": 34,
-      "dodge": 29,
-      "crit": 30,
-      "breakPower": 34,
-      "resolvePower": 32,
-      "maxQiOutputPerTick": 20,
-      "viewRange": 100,
-      "moveSpeed": 102.32
-    },
     "skills": [
       "skill.houtu_chengyuan"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 103,
+      "spirit": 42,
+      "perception": 89,
+      "talent": 84,
+      "strength": 141,
+      "meridians": 141
+    },
+    "statTendency": {
+      "maxQi": 47,
+      "physAtk": 106,
+      "spellAtk": 35,
+      "spellDef": 80,
+      "dodge": 86,
+      "crit": 89,
+      "resolvePower": 95,
+      "maxQiOutputPerTick": 59,
+      "moveSpeed": 302
+    }
   },
   {
     "id": "m_night_blade",
@@ -192,32 +181,30 @@
       "legs": "equip.trench_runner_boots",
       "accessory": "equip.gather_qi_pendant"
     },
-    "attrs": {
-      "constitution": 28,
-      "spirit": 17,
-      "perception": 44,
-      "talent": 22,
-      "strength": 5,
-      "meridians": 5
-    },
-    "statPercents": {
-      "maxHp": 30,
-      "maxQi": 26,
-      "physAtk": 50,
-      "spellAtk": 26,
-      "physDef": 30,
-      "spellDef": 26,
-      "hit": 48,
-      "dodge": 46,
-      "crit": 46,
-      "breakPower": 50,
-      "resolvePower": 30,
-      "maxQiOutputPerTick": 29,
-      "viewRange": 100,
-      "moveSpeed": 148.64
-    },
     "skills": [
       "skill.cloud_blade"
-    ]
+    ],
+    "attrTendency": {
+      "constitution": 80,
+      "spirit": 48,
+      "perception": 125,
+      "talent": 63,
+      "strength": 142,
+      "meridians": 142
+    },
+    "statTendency": {
+      "maxQi": 56,
+      "physAtk": 108,
+      "spellAtk": 56,
+      "physDef": 65,
+      "spellDef": 56,
+      "hit": 104,
+      "dodge": 99,
+      "crit": 99,
+      "breakPower": 108,
+      "resolvePower": 65,
+      "maxQiOutputPerTick": 63,
+      "moveSpeed": 321
+    }
   }
 ]
