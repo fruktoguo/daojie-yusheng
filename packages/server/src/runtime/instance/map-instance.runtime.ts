@@ -866,11 +866,8 @@ class MapInstanceRuntime {
         }
         if (this.tileDamageByTile.get(cellIndex)?.destroyed === true) {
             return {
-                tileType: this.getGroundTileTypeByCellIndex(cellIndex),
-                terrainType: layerState.terrain,
-                surfaceType: layerState.surface ?? null,
+                ...this.getDestroyedTileLayerStateByCellIndex(cellIndex, layerState),
                 structureType: null,
-                interactableKinds: Array.isArray(layerState.interactableKinds) ? layerState.interactableKinds.slice() : [],
             };
         }
         return {
@@ -958,6 +955,12 @@ class MapInstanceRuntime {
             }
             if (compiled.layerId === 1 && this.buildingTopologyIndex?.structureHandleByCell?.[cellIndex] > 0) {
                 return { ok: false, reason: 'structure_overlap', x: cellX, y: cellY };
+            }
+            if (this.hasBuildingLayerOverlapAtCell(cellIndex, compiled.layerId)) {
+                return { ok: false, reason: 'building_layer_overlap', x: cellX, y: cellY };
+            }
+            if (!(0, shared_1.isTileTypeWalkable)(this.getEffectiveTileTypeByCellIndex(cellIndex))) {
+                return { ok: false, reason: 'tile_not_clear', x: cellX, y: cellY };
             }
             cells.push(cellIndex);
         }
@@ -1225,6 +1228,35 @@ class MapInstanceRuntime {
         }
         return true;
     }
+    /** hasBuildingLayerOverlapAtCell：建造前检查同一建筑层是否已有未销毁建筑，包括半成品。 */
+    hasBuildingLayerOverlapAtCell(cellIndexInput, layerIdInput) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        const layerId = Math.max(0, Math.trunc(Number(layerIdInput) || 0));
+        const catalog = this.buildingCatalog;
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || layerId <= 0 || !catalog?.defByHandle) {
+            return false;
+        }
+        const candidateIds = new Set(this.buildingIdByCell.get(cellIndex) ?? []);
+        for (const [buildingId, cells] of this.buildingCellsById.entries()) {
+            if (candidateIds.has(buildingId)) {
+                continue;
+            }
+            if (Array.isArray(cells) && cells.includes(cellIndex)) {
+                candidateIds.add(buildingId);
+            }
+        }
+        for (const buildingId of candidateIds) {
+            const building = this.buildingById.get(buildingId);
+            if (!building || building.state === 'destroyed') {
+                continue;
+            }
+            const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
+            if (compiled?.layerId === layerId) {
+                return true;
+            }
+        }
+        return false;
+    }
     /** rebuildBuildingTopologyCells：只重建受影响 cell 的拓扑聚合。 */
     rebuildBuildingTopologyCells(cellIndices) {
         const catalog = this.buildingCatalog;
@@ -1335,7 +1367,7 @@ class MapInstanceRuntime {
         }
         const current = this.tileDamageByTile.get(cellIndex);
         if (current?.destroyed === true) {
-            return this.getGroundTileTypeByCellIndex(cellIndex);
+            return this.getDestroyedTileLayerStateByCellIndex(cellIndex).tileType;
         }
         return this.tilePlane.getTileType(cellIndex);
     }
@@ -1357,6 +1389,38 @@ class MapInstanceRuntime {
             null,
             Array.isArray(state.interactableKinds) ? state.interactableKinds : [],
         );
+    }
+    /** getDestroyedTileLayerStateByCellIndex：摧毁地块必须投影为真正可通行、无遮挡的地面。 */
+    getDestroyedTileLayerStateByCellIndex(cellIndexInput, layerStateInput = null) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        const state = layerStateInput
+            ?? (Number.isFinite(cellIndex) && cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount() && typeof this.tilePlane.getTileLayerState === 'function'
+                ? this.tilePlane.getTileLayerState(cellIndex)
+                : null);
+        if (!state) {
+            return {
+                tileType: shared_1.TileType.Floor,
+                terrainType: shared_1.TerrainType.Floor,
+                surfaceType: shared_1.SurfaceType.Floor,
+                interactableKinds: [],
+            };
+        }
+        const interactableKinds = Array.isArray(state.interactableKinds) ? state.interactableKinds.slice() : [];
+        const groundTileType = (0, shared_1.composeTileTypeFromLayers)(state.terrain, state.surface ?? null, null, interactableKinds);
+        if ((0, shared_1.isTileTypeWalkable)(groundTileType) && !(0, shared_1.doesTileTypeBlockSight)(groundTileType)) {
+            return {
+                tileType: groundTileType,
+                terrainType: state.terrain,
+                surfaceType: state.surface ?? null,
+                interactableKinds,
+            };
+        }
+        return {
+            tileType: shared_1.TileType.Floor,
+            terrainType: shared_1.TerrainType.Floor,
+            surfaceType: shared_1.SurfaceType.Floor,
+            interactableKinds: [],
+        };
     }
     /** isRoomTopologyCell：判断地块类型或动态建筑拓扑是否可能改变房间边界/覆盖。 */
     isRoomTopologyCell(cellIndexInput, tileTypeInput = null) {
@@ -2398,7 +2462,7 @@ class MapInstanceRuntime {
         const nextHp = Math.max(0, current.hp - appliedDamage);
         const destroyed = nextHp <= 0;
         const affectsRoomTopology = destroyed === true
-            && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getGroundTileTypeByCellIndex(tileIndex));
+            && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getDestroyedTileLayerStateByCellIndex(tileIndex).tileType);
         const affectsRoomIntegrity = destroyed !== true
             && current.hp >= current.maxHp
             && this.isCellInRoomInfluence(tileIndex);
@@ -2679,11 +2743,14 @@ class MapInstanceRuntime {
             return null;
         }
         if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
+            const destroyedState = this.getDestroyedTileLayerStateByCellIndex(tileIndex, state);
             return {
                 ...state,
+                terrain: destroyedState.terrainType,
+                surface: destroyedState.surfaceType,
                 structure: null,
-                interactableKinds: Array.isArray(state.interactableKinds) ? state.interactableKinds : [],
-                legacyTileType: this.getGroundTileTypeByCellIndex(tileIndex),
+                interactableKinds: destroyedState.interactableKinds,
+                legacyTileType: destroyedState.tileType,
             };
         }
         return state;
@@ -3046,7 +3113,7 @@ class MapInstanceRuntime {
             const x = this.tilePlane.getX(tileIndex);
             const y = this.tilePlane.getY(tileIndex);
             const tileType = this.getBaseTileType(x, y);
-            if (damage?.destroyed === true && this.shouldRecalculateRoomsForTileMutation(tileIndex, tileType, this.getGroundTileTypeByCellIndex(tileIndex))) {
+            if (damage?.destroyed === true && this.shouldRecalculateRoomsForTileMutation(tileIndex, tileType, this.getDestroyedTileLayerStateByCellIndex(tileIndex).tileType)) {
                 topologyChangedCellCount += 1;
             }
         }

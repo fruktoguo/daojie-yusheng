@@ -71,8 +71,11 @@ let WorldSyncService = class WorldSyncService {
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
+        const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(binding.playerId, socket, view, player, { deferMapChanged: true });
         this.emitEnvelope(socket, envelope);
-        this.emitAuxDeltaSync(binding.playerId, socket, view, player);
+        if (!auxEmittedBeforeEnvelope) {
+            this.emitAuxDeltaSync(binding.playerId, socket, view, player);
+        }
         this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
         this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
@@ -89,8 +92,11 @@ let WorldSyncService = class WorldSyncService {
             this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
             const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
             const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
+            const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(binding.playerId, socket, view, player, { deferMapChanged: true });
             this.emitEnvelope(socket, envelope);
-            this.emitAuxDeltaSync(binding.playerId, socket, view, player);
+            if (!auxEmittedBeforeEnvelope) {
+                this.emitAuxDeltaSync(binding.playerId, socket, view, player);
+            }
             this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
             this.emitPendingNotices(binding.playerId, socket);
             this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
@@ -127,8 +133,8 @@ let WorldSyncService = class WorldSyncService {
     emitAuxInitialSync(playerId, socket, view, player) {
         this.worldSyncAuxStateService.emitAuxInitialSync(playerId, socket, view, player);
     }    
-    emitAuxDeltaSync(playerId, socket, view, player) {
-        this.worldSyncAuxStateService.emitAuxDeltaSync(playerId, socket, view, player);
+    emitAuxDeltaSync(playerId, socket, view, player, options = undefined) {
+        return this.worldSyncAuxStateService.emitAuxDeltaSync(playerId, socket, view, player, options);
     }    
     emitPendingNotices(playerId, socket) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

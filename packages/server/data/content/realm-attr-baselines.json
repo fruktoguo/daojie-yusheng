@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "levels": [
+    {
+      "realmLv": 1,
+      "singleAttr": 19.2
+    },
+    {
+      "realmLv": 2,
+      "singleAttr": 24.05
+    },
+    {
+      "realmLv": 3,
+      "singleAttr": 29.32
+    },
+    {
+      "realmLv": 4,
+      "singleAttr": 35.08
+    },
+    {
+      "realmLv": 5,
+      "singleAttr": 41.44
+    },
+    {
+      "realmLv": 6,
+      "singleAttr": 54.62
+    },
+    {
+      "realmLv": 7,
+      "singleAttr": 62.79
+    },
+    {
+      "realmLv": 8,
+      "singleAttr": 71.89
+    },
+    {
+      "realmLv": 9,
+      "singleAttr": 107.72
+    },
+    {
+      "realmLv": 10,
+      "singleAttr": 128
+    },
+    {
+      "realmLv": 11,
+      "singleAttr": 150.07
+    },
+    {
+      "realmLv": 12,
+      "singleAttr": 189.11
+    },
+    {
+      "realmLv": 13,
+      "singleAttr": 216.36
+    },
+    {
+      "realmLv": 14,
+      "singleAttr": 246.15
+    },
+    {
+      "realmLv": 15,
+      "singleAttr": 278.73
+    },
+    {
+      "realmLv": 16,
+      "singleAttr": 339.86
+    },
+    {
+      "realmLv": 17,
+      "singleAttr": 380.5
+    },
+    {
+      "realmLv": 18,
+      "singleAttr": 424.77
+    },
+    {
+      "realmLv": 19,
+      "singleAttr": 590.52
+    },
+    {
+      "realmLv": 20,
+      "singleAttr": 677.31
+    },
+    {
+      "realmLv": 21,
+      "singleAttr": 771.6
+    },
+    {
+      "realmLv": 22,
+      "singleAttr": 873.79
+    },
+    {
+      "realmLv": 23,
+      "singleAttr": 1070.74
+    },
+    {
+      "realmLv": 24,
+      "singleAttr": 1196.04
+    },
+    {
+      "realmLv": 25,
+      "singleAttr": 1509.66
+    },
+    {
+      "realmLv": 26,
+      "singleAttr": 1719.09
+    },
+    {
+      "realmLv": 27,
+      "singleAttr": 2085.99
+    },
+    {
+      "realmLv": 28,
+      "singleAttr": 2341.59
+    },
+    {
+      "realmLv": 29,
+      "singleAttr": 2617.95
+    },
+    {
+      "realmLv": 30,
+      "singleAttr": 2916.2
+    },
+    {
+      "realmLv": 31,
+      "singleAttr": 3877.47
+    },
+    {
+      "realmLv": 32,
+      "singleAttr": 4329.99
+    },
+    {
+      "realmLv": 33,
+      "singleAttr": 4813.55
+    },
+    {
+      "realmLv": 34,
+      "singleAttr": 5329.82
+    },
+    {
+      "realmLv": 35,
+      "singleAttr": 6114.92
+    },
+    {
+      "realmLv": 36,
+      "singleAttr": 6714.54
+    },
+    {
+      "realmLv": 37,
+      "singleAttr": 7376.11
+    },
+    {
+      "realmLv": 38,
+      "singleAttr": 8077.17
+    },
+    {
+      "realmLv": 39,
+      "singleAttr": 9224.75
+    },
+    {
+      "realmLv": 40,
+      "singleAttr": 10030.62
+    },
+    {
+      "realmLv": 41,
+      "singleAttr": 10875.53
+    },
+    {
+      "realmLv": 42,
+      "singleAttr": 11760.2
+    },
+    {
+      "realmLv": 43,
+      "singleAttr": 12667.58
+    },
+    {
+      "realmLv": 44,
+      "singleAttr": 13617.36
+    },
+    {
+      "realmLv": 45,
+      "singleAttr": 14611.03
+    },
+    {
+      "realmLv": 46,
+      "singleAttr": 15650.08
+    },
+    {
+      "realmLv": 47,
+      "singleAttr": 16735.97
+    },
+    {
+      "realmLv": 48,
+      "singleAttr": 17870.17
+    },
+    {
+      "realmLv": 49,
+      "singleAttr": 19054.12
+    },
+    {
+      "realmLv": 50,
+      "singleAttr": 20289.3
+    },
+    {
+      "realmLv": 51,
+      "singleAttr": 21577.15
+    },
+    {
+      "realmLv": 52,
+      "singleAttr": 22919.15
+    },
+    {
+      "realmLv": 53,
+      "singleAttr": 24377.55
+    },
+    {
+      "realmLv": 54,
+      "singleAttr": 25892.1
+    },
+    {
+      "realmLv": 55,
+      "singleAttr": 27401.59
+    },
+    {
+      "realmLv": 56,
+      "singleAttr": 28968.82
+    },
+    {
+      "realmLv": 57,
+      "singleAttr": 30595.52
+    },
+    {
+      "realmLv": 58,
+      "singleAttr": 32283.34
+    },
+    {
+      "realmLv": 59,
+      "singleAttr": 34032.66
+    },
+    {
+      "realmLv": 60,
+      "singleAttr": 35837.39
+    },
+    {
+      "realmLv": 61,
+      "singleAttr": 37697.44
+    },
+    {
+      "realmLv": 62,
+      "singleAttr": 39613.93
+    },
+    {
+      "realmLv": 63,
+      "singleAttr": 41587.98
+    },
+    {
+      "realmLv": 64,
+      "singleAttr": 48270.71
+    },
+    {
+      "realmLv": 65,
+      "singleAttr": 51372.71
+    },
+    {
+      "realmLv": 66,
+      "singleAttr": 54600.6
+    },
+    {
+      "realmLv": 67,
+      "singleAttr": 58166.88
+    },
+    {
+      "realmLv": 68,
+      "singleAttr": 61861.18
+    },
+    {
+      "realmLv": 69,
+      "singleAttr": 65688.2
+    },
+    {
+      "realmLv": 70,
+      "singleAttr": 69652.38
+    },
+    {
+      "realmLv": 71,
+      "singleAttr": 73757.99
+    },
+    {
+      "realmLv": 72,
+      "singleAttr": 78009.18
+    },
+    {
+      "realmLv": 73,
+      "singleAttr": 82410.02
+    },
+    {
+      "realmLv": 74,
+      "singleAttr": 86964.49
+    },
+    {
+      "realmLv": 75,
+      "singleAttr": 91617.78
+    },
+    {
+      "realmLv": 76,
+      "singleAttr": 96430.53
+    },
+    {
+      "realmLv": 77,
+      "singleAttr": 101406.61
+    },
+    {
+      "realmLv": 78,
+      "singleAttr": 106549.85
+    }
+  ]
+}

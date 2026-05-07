@@ -1,0 +1,178 @@
+{
+  "reportDate": "2026-05-07",
+  "outputPath": "docs/数值分析/境界等级基准期望六维公式.md",
+  "baselineOutputPath": "packages/server/data/content/realm-attr-baselines.json",
+  "maxRealmLevel": 78,
+  "baseAttrPerKey": 10,
+  "realmBaseAttrs": {
+    "enabled": true,
+    "mode": "average",
+    "description": "按当前运行时境界基础六维口径累计 attrBonus。由于基准配置只保存单项 singleAttr，这里把累计六维加成折算为六维平均单项值。",
+    "stages": [
+      {
+        "stage": "Mortal",
+        "label": "凡俗境",
+        "levelFrom": 1,
+        "levelTo": 5,
+        "attrBonus": {}
+      },
+      {
+        "stage": "BodyTempering",
+        "label": "淬体境",
+        "levelFrom": 6,
+        "levelTo": 8,
+        "attrBonus": { "constitution": 12, "spirit": 2, "perception": 4, "talent": 4, "strength": 8 }
+      },
+      {
+        "stage": "BoneForging",
+        "label": "锻骨境",
+        "levelFrom": 9,
+        "levelTo": 11,
+        "attrBonus": { "constitution": 8, "spirit": 2, "perception": 4, "talent": 8, "strength": 8 }
+      },
+      {
+        "stage": "Meridian",
+        "label": "通脉境",
+        "levelFrom": 12,
+        "levelTo": 15,
+        "attrBonus": { "constitution": 4, "spirit": 8, "perception": 10, "talent": 6, "strength": 6, "meridians": 18 }
+      },
+      {
+        "stage": "Innate",
+        "label": "先天境",
+        "levelFrom": 16,
+        "levelTo": 18,
+        "attrBonus": { "constitution": 6, "spirit": 18, "perception": 12, "talent": 12, "strength": 8, "meridians": 12 }
+      },
+      {
+        "stage": "QiRefining",
+        "label": "练气前期",
+        "levelFrom": 19,
+        "levelTo": 22,
+        "attrBonus": { "constitution": 10, "spirit": 25, "perception": 8, "talent": 15, "strength": 5, "meridians": 30 }
+      },
+      {
+        "stage": "QiRefiningMiddle",
+        "label": "练气中期",
+        "levelFrom": 23,
+        "levelTo": 26,
+        "attrBonus": { "constitution": 25, "spirit": 25, "perception": 22, "talent": 25, "strength": 23, "meridians": 25 }
+      },
+      {
+        "stage": "QiRefiningLate",
+        "label": "练气后期",
+        "levelFrom": 27,
+        "levelTo": 30,
+        "attrBonus": { "constitution": 35, "spirit": 20, "perception": 40, "talent": 30, "strength": 42, "meridians": 15 }
+      },
+      {
+        "stage": "Foundation",
+        "label": "筑基前期",
+        "levelFrom": 31,
+        "levelTo": 34,
+        "attrBonus": { "constitution": 25, "spirit": 20, "perception": 12, "talent": 35, "strength": 15, "meridians": 30 }
+      },
+      {
+        "stage": "FoundationMiddle",
+        "label": "筑基中期",
+        "levelFrom": 35,
+        "levelTo": 38,
+        "attrBonus": { "constitution": 35, "spirit": 30, "perception": 28, "talent": 35, "strength": 30, "meridians": 35 }
+      },
+      {
+        "stage": "FoundationLate",
+        "label": "筑基后期",
+        "levelFrom": 39,
+        "levelTo": 42,
+        "attrBonus": { "constitution": 40, "spirit": 50, "perception": 60, "talent": 30, "strength": 55, "meridians": 35 }
+      }
+    ]
+  },
+  "roundDigits": 2,
+  "bandCurve": {
+    "startFreeLimitRatio": 0.2,
+    "midProgress": 0.5,
+    "midDecay": 0,
+    "endDecay": 0.5,
+    "postDecays": [0.7, 0.9],
+    "capAfterPostDecays": true
+  },
+  "rootFoundation": {
+    "enabled": true,
+    "capFormula": "triangular",
+    "capMultiplier": 1,
+    "expectationRatio": 0.6,
+    "percentPerPoint": 1
+  },
+  "bodyTraining": {
+    "enabled": true,
+    "levelMultiplier": 1.5,
+    "percentPerLevel": 1
+  },
+  "gradeBands": [
+    {
+      "grade": "mortal",
+      "label": "凡阶",
+      "startLevel": 1,
+      "endLevel": 18,
+      "freeLimit": 44,
+      "decaySpan": 35.2
+    },
+    {
+      "grade": "yellow",
+      "label": "黄阶",
+      "startLevel": 9,
+      "endLevel": 30,
+      "freeLimit": 64,
+      "decaySpan": 51.2
+    },
+    {
+      "grade": "mystic",
+      "label": "玄阶",
+      "startLevel": 19,
+      "endLevel": 42,
+      "freeLimit": 140,
+      "decaySpan": 112
+    },
+    {
+      "grade": "earth",
+      "label": "地阶",
+      "startLevel": 25,
+      "endLevel": 54,
+      "freeLimit": 220,
+      "decaySpan": 176
+    },
+    {
+      "grade": "heaven",
+      "label": "天阶",
+      "startLevel": 31,
+      "endLevel": 86,
+      "freeLimit": 440,
+      "decaySpan": 352
+    },
+    {
+      "grade": "spirit",
+      "label": "灵阶",
+      "startLevel": 64,
+      "endLevel": 110,
+      "freeLimit": 880,
+      "decaySpan": 704
+    },
+    {
+      "grade": "saint",
+      "label": "圣阶",
+      "startLevel": 98,
+      "endLevel": 134,
+      "freeLimit": 1760,
+      "decaySpan": 1408
+    },
+    {
+      "grade": "emperor",
+      "label": "帝阶",
+      "startLevel": 122,
+      "endLevel": 158,
+      "freeLimit": 3520,
+      "decaySpan": 2816
+    }
+  ]
+}

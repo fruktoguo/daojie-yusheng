@@ -122,6 +122,10 @@ interface WorldDeltaMapPatchSyncOptions {
   visibleMinimapMarkerRemoves?: WorldDeltaView['vmr'];
 }
 
+interface EmitAuxDeltaSyncOptions {
+  deferMapChanged?: boolean;
+}
+
 @Injectable()
 export class WorldSyncAuxStateService {
   private readonly protocolAuxStateByPlayerId = new Map<string, ProtocolAuxState>();
@@ -214,11 +218,15 @@ export class WorldSyncAuxStateService {
     socket: SocketLike,
     view: PlayerView,
     player: RuntimePlayer,
-  ): void {
+    options: EmitAuxDeltaSyncOptions = {},
+  ): boolean {
     const previous = this.protocolAuxStateByPlayerId.get(playerId) ?? null;
     if (!previous) {
+      if (options.deferMapChanged === true) {
+        return false;
+      }
       this.emitAuxInitialSync(playerId, socket, view, player);
-      return;
+      return true;
     }
 
     const template = this.templateRepository.getOrThrow(view.instance.templateId);
@@ -231,6 +239,10 @@ export class WorldSyncAuxStateService {
       this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player),
     );
     const shouldEmitTimeSync = !isSameTimeSyncState(previous.time, currentTimeSyncState);
+
+    if (mapChanged && options.deferMapChanged === true) {
+      return false;
+    }
 
     if (mapChanged) {
       const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
@@ -299,6 +311,7 @@ export class WorldSyncAuxStateService {
       threatArrows: cloneThreatArrows(currentThreatArrows),
       lootWindow: cloneLootWindow(lootWindow),
     });
+    return true;
   }
 
   private buildTimeSyncState(mapId: string, time: GameTimeState): TimeSyncState {

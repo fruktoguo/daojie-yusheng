@@ -261,6 +261,9 @@ function main() {
       assert.equal(instance.placeBuildingInstance({ defId: "plain_floor", x, y }).ok, true);
     }
   }
+  const duplicateFloor = instance.placeBuildingInstance({ defId: "plain_floor", x: 2, y: 2 });
+  assert.equal(duplicateFloor.ok, false);
+  assert.equal(duplicateFloor.reason, "building_layer_overlap");
   const wallIds = [];
   for (let x = 0; x < 5; x += 1) {
     const top = instance.placeBuildingInstance({ defId: x === 2 ? "wooden_door" : "stone_wall", x, y: 0 });
@@ -421,6 +424,44 @@ function main() {
   assert.equal(outdoorWallInstance.damageTile(1, 1, Number.MAX_SAFE_INTEGER).destroyed, true);
   assert.equal(outdoorWallInstance.getEffectiveTileType(1, 1), TileType.Grass);
   assert.equal(outdoorWallInstance.getTileLayerState(1, 1)?.legacyTileType, TileType.Grass);
+  staticTemplateRepository.registerRuntimeMapTemplate({
+    id: "static_stone_build_block_smoke",
+    name: "静态石块建造阻挡烟测",
+    width: 3,
+    height: 3,
+    routeDomain: "system",
+    tiles: ["...", ".o.", "..."],
+    spawnPoint: { x: 0, y: 0 },
+    portals: [],
+    npcs: [],
+    monsters: [],
+    safeZones: [],
+    landmarks: [],
+    containers: [],
+    auras: [],
+  });
+  const staticStoneBuildInstance = new MapInstanceRuntime({
+    instanceId: "real:static_stone_build_block_smoke",
+    template: staticTemplateRepository.getOrThrow("static_stone_build_block_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "静态石块建造阻挡烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  staticStoneBuildInstance.configureBuildingRuntime(catalog, rules);
+  const blockedByStone = staticStoneBuildInstance.placeBuildingInstance({ defId: "stone_wall", x: 1, y: 1 });
+  assert.equal(blockedByStone.ok, false);
+  assert.equal(blockedByStone.reason, "tile_not_clear");
+  assert.equal(staticStoneBuildInstance.damageTile(1, 1, Number.MAX_SAFE_INTEGER).destroyed, true);
+  assert.equal(staticStoneBuildInstance.getEffectiveTileType(1, 1), TileType.Floor);
+  const buildAfterStoneDestroyed = staticStoneBuildInstance.placeBuildingInstance({ defId: "stone_wall", x: 1, y: 1 });
+  assert.equal(buildAfterStoneDestroyed.ok, true);
   const yunlaiRepository = new MapTemplateRepository();
   yunlaiRepository.loadAll();
   const yunlaiReplaceWallInstance = new MapInstanceRuntime({

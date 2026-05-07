@@ -2191,6 +2191,40 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }
     /**
+ * translateActionCooldownReadyTicks：跨地图传送时平移动作冷却tick坐标。
+ * @param player 玩家对象。
+ * @param fromTick 源地图当前tick。
+ * @param toTick 目标地图当前tick。
+ * @returns 无返回值，直接更新动作冷却tick相关状态。
+ */
+
+    translateActionCooldownReadyTicks(player, fromTick, toTick) {
+        const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+        if (!cooldowns) {
+            return;
+        }
+        const normalizedFromTick = Math.max(0, Math.trunc(Number(fromTick) || 0));
+        const normalizedToTick = Math.max(0, Math.trunc(Number(toTick) || 0));
+        let changed = false;
+        for (const [actionId, readyTickInput] of Object.entries(cooldowns)) {
+            const readyTick = Math.max(0, Math.trunc(Number(readyTickInput) || 0));
+            const remainingTicks = readyTick - normalizedFromTick;
+            if (remainingTicks <= 0) {
+                delete cooldowns[actionId];
+                changed = true;
+                continue;
+            }
+            const nextReadyTick = normalizedToTick + remainingTicks;
+            if (nextReadyTick !== readyTick) {
+                cooldowns[actionId] = nextReadyTick;
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.rebuildActionState(player, normalizedToTick);
+        }
+    }
+    /**
  * updateAutoBattleSkills：处理AutoBattle技能并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。

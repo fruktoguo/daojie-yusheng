@@ -538,18 +538,31 @@ try_start_existing_service_container() {
 # 校验当前配置的数据库是否已经能在本地 PostgreSQL 容器内通过账号密码访问。
 local_postgres_current_database_is_usable() {
   local postgres_container_id="$1"
+  local timeout_seconds="${2:-0}"
   if [[ -z "$postgres_container_id" || -z "${DB_USERNAME:-}" || -z "${DB_DATABASE:-}" ]]; then
     return 1
   fi
 
+  local elapsed=0
   local probe_output=""
-  probe_output="$(
-    docker exec -e "PGPASSWORD=${DB_PASSWORD:-}" "$postgres_container_id" \
-      psql -h 127.0.0.1 -p 5432 -U "$DB_USERNAME" -d "$DB_DATABASE" -Atqc 'select 1;' 2>/dev/null \
-      | tr -d '[:space:]' || true
-  )"
+  while true; do
+    probe_output="$(
+      docker exec -e "PGPASSWORD=${DB_PASSWORD:-}" "$postgres_container_id" \
+        psql -h 127.0.0.1 -p 5432 -U "$DB_USERNAME" -d "$DB_DATABASE" -Atqc 'select 1;' 2>/dev/null \
+        | tr -d '[:space:]' || true
+    )"
 
-  [[ "$probe_output" == "1" ]]
+    if [[ "$probe_output" == "1" ]]; then
+      return 0
+    fi
+
+    if (( elapsed >= timeout_seconds )); then
+      return 1
+    fi
+
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
 }
 
 # 校验主线本地 PostgreSQL 容器是否仍然停留在旧的初始化账号上。
@@ -580,7 +593,7 @@ ensure_local_postgres_env_matches() {
     return 0
   fi
 
-  if local_postgres_current_database_is_usable "$postgres_container_id"; then
+  if local_postgres_current_database_is_usable "$postgres_container_id" "${LOCAL_POSTGRES_DRIFT_PROBE_TIMEOUT_SECONDS:-30}"; then
     echo "==> 现有本地 PostgreSQL 初始化配置与当前配置不一致，但当前目标库 ${DB_DATABASE} 已可用，继续复用现有容器"
     return 0
   fi
@@ -653,6 +666,10 @@ ensure_local_infra() {
   local needs_postgres=0
 # 记录needsredis。
   local needs_redis=0
+# 记录是否恢复了已有 PostgreSQL 容器。
+  local restored_postgres=0
+# 记录是否恢复了已有 Redis 容器。
+  local restored_redis=0
 # 记录services。
   local services=()
 
@@ -691,6 +708,7 @@ ensure_local_infra() {
     if try_start_existing_service_container "postgres" "PostgreSQL"; then
 # 记录needspostgres。
       needs_postgres=0
+      restored_postgres=1
     fi
   fi
 
@@ -698,6 +716,7 @@ ensure_local_infra() {
     if try_start_existing_service_container "redis" "Redis"; then
 # 记录needsredis。
       needs_redis=0
+      restored_redis=1
     fi
   fi
 
@@ -707,6 +726,13 @@ ensure_local_infra() {
 
   if (( needs_redis == 1 )); then
     guard_conflicting_service_container "redis" "Redis"
+  fi
+
+  if (( restored_postgres == 1 )); then
+    wait_for_service_healthy postgres "PostgreSQL"
+  fi
+  if (( restored_redis == 1 )); then
+    wait_for_service_healthy redis "Redis"
   fi
 
 # 记录services。

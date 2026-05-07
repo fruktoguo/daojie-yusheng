@@ -103,6 +103,32 @@ async function main(): Promise<void> {
   player.y = 7;
   player.facing = 1;
   player.attrs.numericStats.moveSpeed = 18;
+  const skillId = 'skill.transfer.cooldown';
+  player.techniques.techniques = [
+    {
+      techId: 'tech.transfer.cooldown',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      name: '传送冷却测试',
+      grade: null,
+      category: 'arts',
+      skills: [
+        {
+          id: skillId,
+          name: '传送冷却术',
+          desc: '',
+          cooldown: 30,
+          range: 1,
+          requiresTarget: true,
+        },
+      ],
+    },
+  ] as never;
+  runtime.rebuildActionState(player, 100);
+  runtime.setSkillCooldownReadyTick(playerId, skillId, 130, 100);
 
   const beforeDirtyDomains = runtime.listDirtyPlayerDomains().get(playerId) ?? new Set<string>();
   assert.equal(beforeDirtyDomains.has('world_anchor'), false);
@@ -113,12 +139,14 @@ async function main(): Promise<void> {
   const logs: Array<[string, ...unknown[]]> = [];
   const playerLocations = new Map<string, { instanceId: string; sessionId: string }>();
   const source = {
+    tick: 100,
     disconnectPlayer(id: string) {
       logs.push(['disconnectPlayer', id]);
     },
   };
   const target = {
     meta: { instanceId: 'public:transfer_target_map' },
+    tick: 7,
     connectPlayer(payload: unknown) {
       logs.push(['connectPlayer', payload]);
     },
@@ -182,6 +210,8 @@ async function main(): Promise<void> {
   assert.equal(updatedPlayer?.x, 41);
   assert.equal(updatedPlayer?.y, 12);
   assert.equal(updatedPlayer?.facing, 3);
+  assert.equal(updatedPlayer?.combat.cooldownReadyTickBySkillId[skillId], 37);
+  assert.equal(updatedPlayer?.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 30);
   assert.ok((updatedPlayer?.persistentRevision ?? 0) > beforePersistentRevision);
   assert.ok((updatedPlayer?.selfRevision ?? 0) > beforeSelfRevision);
 

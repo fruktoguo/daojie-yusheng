@@ -119,6 +119,8 @@ function createSnapshotService(instance: MapInstanceRuntime, tileStateFactory?: 
           return tileStateFactory(x, y);
         }
         return {
+          tileType: instance.getEffectiveTileType(x, y),
+          layers: instance.getTileLayerState(x, y),
           aura: 0,
           resources: [],
           combat: instance.getTileCombatState(x, y),
@@ -283,6 +285,25 @@ function testDestroyedTileBecomesPathReachable() {
 
   const pathAfterDestroy = findPathPointsOnMap(instance, 'player:smoke', 0, 0, [{ x: 1, y: 0 }]);
   assert.deepEqual(pathAfterDestroy, [{ x: 1, y: 0 }]);
+}
+
+function testDestroyedStoneTurnsIntoWalkableGroundProjection() {
+  const template = createStoneTemplate(1);
+  const instance = createInstance(template);
+  const snapshotService = createSnapshotService(instance);
+  const destroyed = instance.damageTile(1, 0, Number.MAX_SAFE_INTEGER);
+
+  assert.equal(destroyed?.destroyed, true);
+  assert.equal(instance.getTileCombatState(1, 0)?.destroyed, true);
+  assert.equal(instance.getEffectiveTileType(1, 0), TileType.Floor);
+  assert.equal(instance.isWalkable(1, 0), true);
+  assert.equal(instance.isTileSightBlocked(1, 0), false);
+
+  const tile = snapshotService.buildTileSyncState(template, 'instance:tile-smoke', 1, 0);
+  assert.equal(tile?.type, TileType.Floor);
+  assert.equal(tile?.terrainType, 'floor');
+  assert.equal(tile?.structureType, null);
+  assert.equal(tile?.hpVisible, undefined);
 }
 
 function testDestroyedTileRecoveryRespectsStabilizerAndHydrates() {
@@ -510,6 +531,7 @@ testObservationMissingNumericValuesRenderAsZero();
 testObservationLargeValuesUseChineseUnits();
 testDestroyedTileTurnsIntoFloorProjection();
 testDestroyedTileBecomesPathReachable();
+testDestroyedStoneTurnsIntoWalkableGroundProjection();
 testDestroyedTileRecoveryRespectsStabilizerAndHydrates();
 testDestroyedTileDoesNotRespawnUnderUnit();
 testSpecialTerrainRestoreSpeedMatchesMain();

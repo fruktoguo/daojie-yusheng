@@ -158,7 +158,7 @@ export function resolveGameTimeState(
   };
 }
 
-/** 构建夜色视野衰减的公开减益投影；昼间无减益时返回 null。 */
+/** 构建夜色视野衰减的观察减益投影；昼间无减益时返回 null。 */
 export function buildWorldDarknessBuffState(
   timeState: Pick<GameTimeState, 'darknessStacks' | 'effectiveViewRange' | 'phaseLabel'> | null | undefined,
   baseViewRange: number,
@@ -176,7 +176,7 @@ export function buildWorldDarknessBuffState(
     desc: `${timeState?.phaseLabel ?? '夜色'}影响神识，视野由 ${normalizedBaseViewRange} 降至 ${effectiveViewRange}。`,
     shortMark: '夜',
     category: 'debuff',
-    visibility: 'public',
+    visibility: 'observe_only',
     remainingTicks: WORLD_DARKNESS_BUFF_DURATION + 1,
     duration: WORLD_DARKNESS_BUFF_DURATION,
     stacks,
