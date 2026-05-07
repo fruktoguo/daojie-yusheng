@@ -1,10 +1,10 @@
 FROM node:20-alpine AS builder
-RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
+RUN corepack enable
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY scripts scripts
 COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
@@ -15,7 +15,7 @@ RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server compile
 
 FROM node:20-alpine
 RUN apk add --no-cache postgresql-client
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable
 WORKDIR /app
 COPY --from=builder /app/pnpm-workspace.yaml /app/package.json ./
 COPY --from=builder /app/tsconfig.base.json ./tsconfig.base.json

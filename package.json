@@ -1,6 +1,7 @@
 {
   "name": "daojie-yusheng",
   "private": true,
+  "packageManager": "pnpm@10.29.1",
   "scripts": {
     "build": "pnpm run build:packages && pnpm run proof:release-gates",
     "build:packages": "pnpm run build:client && pnpm run build:server && pnpm run build:config-editor",
