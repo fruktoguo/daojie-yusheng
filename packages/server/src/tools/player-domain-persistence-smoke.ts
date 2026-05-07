@@ -977,6 +977,11 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
         exp: 4,
         expToNext: 10,
       },
+      buildingSkill: {
+        level: 1,
+        exp: 0,
+        expToNext: 10,
+      },
       gatherJob: null,
       alchemyPresets: [
         {
