@@ -522,7 +522,7 @@ async function testCompleteAlchemy() {
     assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:alchemy');
     assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 17);
     assert.equal(durableCalls[0]?.expectedJobRunId, 'job:alchemy:complete:1');
-    assert.equal(durableCalls[0]?.expectedJobVersion, 8);
+    assert.equal(durableCalls[0]?.expectedJobVersion, 7);
     assert.equal(durableCalls[0]?.nextInventoryItems?.[0]?.itemId, 'qi_pill');
     assert.equal(durableCalls[0]?.nextInventoryItems?.[0]?.count, 1);
     resolveDurable();

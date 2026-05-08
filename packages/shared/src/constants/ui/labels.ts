@@ -32,6 +32,7 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.BrokenWindow]: '破窗',
   [TileType.Portal]: '传送阵',
   [TileType.Stairs]: '楼梯',
+  [TileType.StoneStairs]: '石梯',
   [TileType.Grass]: '草地',
   [TileType.Hill]: '山地',
   [TileType.Cliff]: '山崖',
@@ -75,6 +76,7 @@ export const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
   [SurfaceType.Road]: '大路',
   [SurfaceType.Trail]: '小路',
   [SurfaceType.Veranda]: '回廊',
+  [SurfaceType.StoneStairs]: '石梯',
 };
 
 /** 地上结构中文标签。 */

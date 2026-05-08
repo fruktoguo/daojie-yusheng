@@ -1,4 +1,5 @@
 import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
+import { t } from '../../ui/i18n';
 
 /** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {
@@ -72,7 +73,29 @@ export interface TutorialFlowTopic {
   tips?: string[];
 }
 
-export const TUTORIAL_TOPICS: TutorialTopic[] = [
+function tutorialText(key: string, _fallback?: string): string {
+  return t(key);
+}
+
+function tutorialKeySegment(id: string): string {
+  return id.replaceAll('_', '-');
+}
+
+function localizeTutorialTopic(prefix: string, topic: TutorialTopic): TutorialTopic {
+  const keySegment = tutorialKeySegment(topic.id);
+  return {
+    ...topic,
+    label: tutorialText(`${prefix}.${keySegment}.label`, topic.label),
+    summary: tutorialText(`${prefix}.${keySegment}.summary`, topic.summary),
+    sections: topic.sections.map((section, sectionIndex) => ({
+      title: tutorialText(`${prefix}.${keySegment}.section.${sectionIndex}.title`, section.title),
+      items: section.items.map((item, itemIndex) => tutorialText(`${prefix}.${keySegment}.section.${sectionIndex}.item.${itemIndex}`, item)),
+    })),
+    tips: topic.tips?.map((tip, tipIndex) => tutorialText(`${prefix}.${keySegment}.tip.${tipIndex}`, tip)),
+  };
+}
+
+const TUTORIAL_TOPIC_DEFS: TutorialTopic[] = [
   {
     id: 'basics',
     label: '起步',
@@ -388,9 +411,11 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
   },
 ];
 
-export const TUTORIAL_MECHANIC_TOPICS: TutorialTopic[] = SHARED_TUTORIAL_MECHANIC_TOPICS;
+export const TUTORIAL_TOPICS: TutorialTopic[] = TUTORIAL_TOPIC_DEFS.map((topic) => localizeTutorialTopic('tutorial.topic', topic));
 
-export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
+export const TUTORIAL_MECHANIC_TOPICS: TutorialTopic[] = SHARED_TUTORIAL_MECHANIC_TOPICS.map((topic) => localizeTutorialTopic('tutorial.mechanic', topic));
+
+const TUTORIAL_FLOW_TOPIC_DEFS: TutorialFlowTopic[] = [
   {
     id: 'how-to-play',
     label: '游戏怎么玩',
@@ -600,3 +625,5 @@ export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
     ],
   },
 ];
+
+export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = TUTORIAL_FLOW_TOPIC_DEFS.map((topic) => localizeTutorialTopic('tutorial.flow', topic));

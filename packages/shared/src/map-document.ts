@@ -18,6 +18,7 @@ import {
   GmMapResourceNodePlacementRecord,
   GmMapResourceRecord,
   GmMapSafeZoneRecord,
+  GmMapTileEffectRecord,
   GmMapSummary,
 } from './api-contracts';
 import { parseQiResourceKey } from './qi';
@@ -39,7 +40,7 @@ import { QuestLine, QuestObjectiveType } from './quest-types';
 import { TechniqueGrade } from './cultivation-types';
 
 /** 允许出现在地图文档里的地块字符全集。 */
-const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);
+const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', '梯', ...HOUSE_DECOR_TILE_MAP_CHARS]);
 
 /** 深拷贝地图文档，供编辑器本地草稿保存或回滚使用。 */
 function clone<T>(value: T): T {
@@ -165,6 +166,35 @@ function normalizeEditableResourceNodeGroupRecord(raw: unknown): GmMapResourceNo
         .map((placement) => normalizeEditableResourceNodePlacementRecord(placement))
         .filter((placement): placement is GmMapResourceNodePlacementRecord => Boolean(placement))
       : [],
+  };
+}
+
+/** 清洗地块效果区域，冷路径转成运行时可直接查表的矩形。 */
+function normalizeEditableTileEffectRecord(raw: unknown): GmMapTileEffectRecord | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const effect = raw as Partial<GmMapTileEffectRecord>;
+  if (!Number.isFinite(effect.x) || !Number.isFinite(effect.y)) {
+    return undefined;
+  }
+  const movementCost = Number.isFinite(effect.movementCost)
+    ? Math.max(1, Math.floor(Number(effect.movementCost)))
+    : undefined;
+  const qiDrainPerTick = Number.isFinite(effect.qiDrainPerTick)
+    ? Math.max(0, Math.floor(Number(effect.qiDrainPerTick)))
+    : undefined;
+  if (movementCost === undefined && qiDrainPerTick === undefined) {
+    return undefined;
+  }
+  return {
+    id: normalizeOptionalTrimmedString(effect.id),
+    x: Math.trunc(Number(effect.x)),
+    y: Math.trunc(Number(effect.y)),
+    width: Math.max(1, Math.floor(Number(effect.width) || 1)),
+    height: Math.max(1, Math.floor(Number(effect.height) || 1)),
+    movementCost,
+    qiDrainPerTick,
   };
 }
 
@@ -520,6 +550,13 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
  */
  safeZones: unknown[] }).safeZones
     : [];
+  const tileEffects = Array.isArray((source as {
+    tileEffects?: unknown[];
+  }).tileEffects)
+    ? (source as {
+      tileEffects: unknown[];
+    }).tileEffects
+    : [];
   const resourceNodeGroups = Array.isArray((source as {
     /**
  * resourceNodeGroups：resourceNodeGroup相关字段。
@@ -665,6 +702,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       y: Number((zone as GmMapSafeZoneRecord).y ?? 0),
       radius: Number((zone as GmMapSafeZoneRecord).radius ?? 0),
     })),
+    tileEffects: tileEffects
+      .map((effect) => normalizeEditableTileEffectRecord(effect))
+      .filter((effect): effect is GmMapTileEffectRecord => Boolean(effect)),
     resourceNodeGroups: resourceNodeGroups
       .map((group) => normalizeEditableResourceNodeGroupRecord(group))
       .filter((group): group is GmMapResourceNodeGroupRecord => Boolean(group)),
@@ -931,6 +971,26 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (error) return error;
     if (!Number.isInteger(zone.radius) || zone.radius < 0) {
       return `${label} 的半径必须为非负整数`;
+    }
+  }
+
+  for (let index = 0; index < (document.tileEffects?.length ?? 0); index += 1) {
+    const effect = document.tileEffects![index]!;
+    const label = `地块效果 ${effect.id || index + 1}`;
+    const error = ensurePointInBounds(effect.x, effect.y, label);
+    if (error) return error;
+    if (!Number.isInteger(effect.width) || effect.width <= 0 || !Number.isInteger(effect.height) || effect.height <= 0) {
+      return `${label} 的宽高必须为正整数`;
+    }
+    const maxX = effect.x + effect.width - 1;
+    const maxY = effect.y + effect.height - 1;
+    const boundsError = ensurePointInBounds(maxX, maxY, `${label} 的右下角`);
+    if (boundsError) return boundsError;
+    if (effect.movementCost !== undefined && (!Number.isInteger(effect.movementCost) || effect.movementCost <= 0)) {
+      return `${label} 的移动消耗必须为正整数`;
+    }
+    if (effect.qiDrainPerTick !== undefined && (!Number.isInteger(effect.qiDrainPerTick) || effect.qiDrainPerTick < 0)) {
+      return `${label} 的每息灵力消耗必须为非负整数`;
     }
   }
 

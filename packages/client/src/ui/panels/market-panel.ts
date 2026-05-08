@@ -46,6 +46,7 @@ import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../const
 import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
+import { t } from '../i18n';
 
 /** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: unknown): string {
@@ -277,7 +278,7 @@ const MARKET_TECHNIQUE_FILTERS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { id: 'all', label: '全部功法' },
+  { id: 'all', label: t('market.filter.technique-all', undefined) },
   { id: 'arts', label: getTechniqueCategoryLabel('arts') },
   { id: 'internal', label: getTechniqueCategoryLabel('internal') },
   { id: 'divine', label: getTechniqueCategoryLabel('divine') },
@@ -622,37 +623,37 @@ export class MarketPanel {
     preserveSelection(this.pane, () => {
       patchElementHtml(this.pane, `
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">坊市</div>
+          <div class="panel-section-title">${escapeHtml(t('market.pane.title', undefined))}</div>
           <div class="market-pane-copy ui-form-copy">${escapeHtml(MARKET_PANE_HINT)}</div>
           <div class="market-pane-stats">
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(listedCount)}</strong><span>可见盘面</span></div>
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(orderCount)}</strong><span>我的挂单</span></div>
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(storageCount)}</strong><span>托管物品</span></div>
+            <div class="market-pane-stat"><strong>${formatDisplayInteger(listedCount)}</strong><span>${escapeHtml(t('market.pane.stat.listed', undefined))}</span></div>
+            <div class="market-pane-stat"><strong>${formatDisplayInteger(orderCount)}</strong><span>${escapeHtml(t('market.pane.stat.orders', undefined))}</span></div>
+            <div class="market-pane-stat"><strong>${formatDisplayInteger(storageCount)}</strong><span>${escapeHtml(t('market.pane.stat.storage', undefined))}</span></div>
           </div>
-          <button class="small-btn" data-market-open type="button">打开坊市</button>
+          <button class="small-btn" data-market-open type="button">${escapeHtml(t('market.pane.open', undefined))}</button>
         </div>
         <div class="panel-section market-pane auction-pane ui-surface-pane ui-surface-pane--stack">
           <div class="market-pane-headline">
-            <div class="panel-section-title">拍卖简报</div>
-            <button class="small-btn ghost" data-auction-open="participate" type="button">打开拍卖行</button>
+            <div class="panel-section-title">${escapeHtml(t('market.auction.summary.title', undefined))}</div>
+            <button class="small-btn ghost" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
           </div>
-          <div class="market-pane-copy ui-form-copy">竞价、关注和寄拍集中在独立拍卖行界面处理，简报只显示当前可参与状态。</div>
+          <div class="market-pane-copy ui-form-copy">${escapeHtml(t('market.auction.summary.copy', undefined))}</div>
           <div class="auction-pane-cards">
             <button class="auction-pane-card ui-surface-card ui-surface-card--compact" data-auction-open="participate" type="button">
-              <span>参与拍卖</span>
+              <span>${escapeHtml(t('market.auction.card.participate', undefined))}</span>
               <strong>${formatDisplayInteger(auctionStats.activeLots)}</strong>
-              <small>${formatDisplayInteger(auctionStats.myBids)} 件正在竞价</small>
+              <small>${escapeHtml(t('market.auction.card.my-bids', { count: formatDisplayInteger(auctionStats.myBids) }))}</small>
             </button>
             <button class="auction-pane-card ui-surface-card ui-surface-card--compact" data-auction-open="mine" type="button">
-              <span>我的寄拍</span>
+              <span>${escapeHtml(t('market.auction.card.mine', undefined))}</span>
               <strong>${formatDisplayInteger(auctionStats.myConsignments)}</strong>
-              <small>${formatDisplayInteger(auctionStats.storageCount)} 件待结算</small>
+              <small>${escapeHtml(t('market.auction.card.storage-count', { count: formatDisplayInteger(auctionStats.storageCount) }))}</small>
             </button>
           </div>
           <div class="auction-pane-feed">
             ${auctionStats.feed.length > 0
               ? auctionStats.feed.map((entry) => `<div class="auction-pane-feed-row"><span>${escapeHtml(entry.status)}</span><strong>${escapeHtml(entry.name)}</strong><small>${escapeHtml(entry.meta)}</small></div>`).join('')
-              : '<div class="empty-hint">暂无拍卖动态。</div>'}
+              : `<div class="empty-hint">${escapeHtml(t('market.auction.feed.empty', undefined))}</div>`}
           </div>
         </div>
       `);
@@ -716,14 +717,14 @@ export class MarketPanel {
       ownerId: MarketPanel.MODAL_OWNER,
       size: 'full',
       variantClass: 'detail-modal--market',
-      title: '坊市',
-      subtitle: '天下修士互通有无',
+      title: t('market.title', undefined),
+      subtitle: t('market.subtitle', undefined),
       renderBody: (body: HTMLElement) => {
         patchElementHtml(
           body,
           marketUpdate
             ? this.renderModalBody(marketUpdate)
-            : '<div class="empty-hint">坊市行情查探中...</div>',
+            : `<div class="empty-hint">${escapeHtml(t('market.loading', undefined))}</div>`,
         );
       },
       onClose: () => {
@@ -922,14 +923,14 @@ export class MarketPanel {
       ownerId: MarketPanel.AUCTION_MODAL_OWNER,
       size: 'full',
       variantClass: 'detail-modal--market detail-modal--auction-house',
-      title: '拍卖行',
-      subtitle: '竞价拍品与寄拍管理',
+      title: t('auction.title', undefined),
+      subtitle: t('auction.subtitle', undefined),
       renderBody: (body: HTMLElement) => {
         patchElementHtml(
           body,
           marketUpdate
             ? this.renderAuctionModalBody(marketUpdate)
-            : '<div class="empty-hint">拍卖行行情查探中...</div>',
+            : `<div class="empty-hint">${escapeHtml(t('auction.loading', undefined))}</div>`,
         );
       },
       onClose: () => {
@@ -960,8 +961,8 @@ export class MarketPanel {
     return `
       <div class="auction-house-shell">
         <div class="auction-house-tabs" role="tablist" aria-label="拍卖行分栏">
-          <button class="auction-house-tab ${this.auctionTab === 'participate' ? 'active' : ''}" data-auction-tab="participate" type="button">参与拍卖</button>
-          <button class="auction-house-tab ${this.auctionTab === 'mine' ? 'active' : ''}" data-auction-tab="mine" type="button">我的寄拍</button>
+          <button class="auction-house-tab ${this.auctionTab === 'participate' ? 'active' : ''}" data-auction-tab="participate" type="button">${escapeHtml(t('auction.tab.participate', undefined))}</button>
+          <button class="auction-house-tab ${this.auctionTab === 'mine' ? 'active' : ''}" data-auction-tab="mine" type="button">${escapeHtml(t('auction.tab.mine', undefined))}</button>
         </div>
         ${this.renderAuctionSummaryCards(update)}
         ${this.auctionTab === 'participate'
@@ -977,9 +978,9 @@ export class MarketPanel {
     return `
       <div class="auction-house-summary">
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
-          <span>正在拍卖</span>
+          <span>${escapeHtml(t('auction.summary.active', undefined))}</span>
           <strong>${formatDisplayInteger(summary.activeLots)}</strong>
-          <small>${formatDisplayInteger(summary.buyoutLots)} 件可一口价</small>
+          <small>${escapeHtml(t('auction.summary.buyout', { count: formatDisplayInteger(summary.buyoutLots) }))}</small>
         </div>
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
           <span>成交总额</span>
@@ -1013,20 +1014,20 @@ export class MarketPanel {
             <div class="market-list-toolbar-actions">
               <button class="small-btn ghost" data-auction-page="${pagination.page - 1}" type="button" ${pagination.page <= 1 ? 'disabled' : ''}>上一页</button>
               <button class="small-btn ghost" data-auction-page="${pagination.page + 1}" type="button" ${pagination.page >= pagination.totalPages ? 'disabled' : ''}>下一页</button>
-              <button class="small-btn ghost" data-auction-refresh type="button">刷新列表</button>
+              <button class="small-btn ghost" data-auction-refresh type="button">${escapeHtml(t('market.auction.refresh', undefined))}</button>
             </div>
           </div>
           <div class="auction-list-head">
-            <span>物品</span>
-            <span>品质</span>
-            <span>当前价</span>
-            <span>一口价</span>
-            <span>剩余时间</span>
+            <span>${escapeHtml(t('market.auction.head.item', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.quality', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.current-price', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.buyout-price', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.remaining-time', undefined))}</span>
           </div>
           <div class="auction-list ui-scroll-panel">
             ${lots.length > 0
               ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '')).join('')
-              : '<div class="empty-hint">当前筛选下暂无可参与拍品。</div>'}
+              : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.participate', undefined))}</div>`}
           </div>
         </div>
         <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
@@ -1046,13 +1047,13 @@ export class MarketPanel {
     return `
       <div class="auction-house-board auction-house-board--mine">
         <div class="auction-consign-overview ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">寄拍状态</div>
+          <div class="panel-section-title">${escapeHtml(t('market.auction.mine.title', undefined))}</div>
           <div class="auction-status-strip">
-            <span class="auction-status-pill active">寄拍中 ${formatDisplayInteger(consigningCount)}</span>
-            <span class="auction-status-pill sold">已成交 ${formatDisplayInteger(soldCount)}</span>
-            <span class="auction-status-pill failed">流拍 ${formatDisplayInteger(failedCount)}</span>
+            <span class="auction-status-pill active">${escapeHtml(t('market.auction.mine.status.consigning', { count: formatDisplayInteger(consigningCount) }))}</span>
+            <span class="auction-status-pill sold">${escapeHtml(t('market.auction.mine.status.sold', { count: formatDisplayInteger(soldCount) }))}</span>
+            <span class="auction-status-pill failed">${escapeHtml(t('market.auction.mine.status.failed', { count: formatDisplayInteger(failedCount) }))}</span>
           </div>
-          <div class="market-pane-copy">撤回寄拍会按托管与背包规则返还剩余物品。</div>
+          <div class="market-pane-copy">${escapeHtml(t('market.auction.mine.copy', undefined))}</div>
         </div>
         <div class="auction-list-panel ui-surface-pane ui-surface-pane--stack">
           <div class="auction-list-toolbar ui-action-row">
@@ -1060,19 +1061,19 @@ export class MarketPanel {
             <div class="market-list-toolbar-actions">
               <button class="small-btn ghost" data-auction-page="${pagination.page - 1}" type="button" ${pagination.page <= 1 ? 'disabled' : ''}>上一页</button>
               <button class="small-btn ghost" data-auction-page="${pagination.page + 1}" type="button" ${pagination.page >= pagination.totalPages ? 'disabled' : ''}>下一页</button>
-              <button class="small-btn ghost" data-auction-refresh type="button">刷新列表</button>
+              <button class="small-btn ghost" data-auction-refresh type="button">${escapeHtml(t('market.auction.refresh', undefined))}</button>
             </div>
           </div>
           <div class="auction-list-head auction-list-head--mine">
-            <span>物品</span>
-            <span>状态</span>
-            <span>寄拍价</span>
-            <span>剩余</span>
+            <span>${escapeHtml(t('market.auction.head.item', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.status', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.list-price', undefined))}</span>
+            <span>${escapeHtml(t('market.auction.head.remaining', undefined))}</span>
           </div>
           <div class="auction-list ui-scroll-panel">
             ${lots.length > 0
               ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '', true)).join('')
-              : '<div class="empty-hint">当前没有寄拍中的物品。</div>'}
+              : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.mine', undefined))}</div>`}
           </div>
         </div>
         <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
@@ -1085,7 +1086,7 @@ export class MarketPanel {
   /** 渲染拍卖行筛选栏。 */
   private renderAuctionFilterRail(): string {
     const categories: Array<{ id: MarketCategoryFilter; label: string; count: number }> = [
-      { id: 'all', label: '全部分类', count: this.getAuctionCategoryCount('all', 0) },
+      { id: 'all', label: t('auction.filter.all', undefined), count: this.getAuctionCategoryCount('all', 0) },
       ...ITEM_TYPES.map((type) => ({
         id: type,
         label: getItemTypeLabel(type),
@@ -1095,8 +1096,8 @@ export class MarketPanel {
     return `
       <aside class="auction-filter-rail ui-surface-pane ui-surface-pane--stack">
         <label class="auction-search-field">
-          <span>搜索拍品</span>
-          <input class="ui-search-input" data-auction-search id="auction-search-input" type="search" value="${escapeHtmlAttr(this.auctionSearchQuery)}" placeholder="输入物品名称" />
+          <span>${escapeHtml(t('auction.filter.search', undefined))}</span>
+          <input class="ui-search-input" data-auction-search id="auction-search-input" type="search" value="${escapeHtmlAttr(this.auctionSearchQuery)}" placeholder="${escapeHtmlAttr(t('auction.filter.placeholder', undefined))}" />
         </label>
         <div class="auction-filter-group">
           <div class="market-list-toolbar-meta">分类</div>
@@ -1109,7 +1110,7 @@ export class MarketPanel {
             `).join('')}
           </div>
         </div>
-        <div class="auction-filter-note">拍卖行交易收取 5% 手续费，最低 100 灵石。</div>
+        <div class="auction-filter-note">${escapeHtml(t('auction.filter.note', undefined))}</div>
       </aside>
     `;
   }
@@ -1119,7 +1120,7 @@ export class MarketPanel {
     const buyoutText = lot.buyoutPrice === null ? '--' : this.formatMarketUnitPrice(lot.buyoutPrice);
     const remainingSeconds = this.getAuctionRemainingSeconds(lot);
     const mineRibbon = mine
-      ? '<span class="auction-lot-ribbon" aria-hidden="true"><span>我的寄拍</span></span>'
+      ? `<span class="auction-lot-ribbon" aria-hidden="true"><span>${escapeHtml(t('auction.ribbon.mine', undefined))}</span></span>`
       : '';
     return `
       <button
@@ -1144,7 +1145,7 @@ export class MarketPanel {
   /** 渲染拍品详情。 */
   private renderAuctionDetailPanel(lot: AuctionLotView | null, update: S2C_MarketUpdate, tab: AuctionHouseTab): string {
     if (!lot) {
-      return '<div class="empty-hint">请选择左侧拍品。</div>';
+      return `<div class="empty-hint">${escapeHtml(t('auction.empty.select-lot', undefined))}</div>`;
     }
     const listedEntry = this.findListingVariantByKey(lot.itemKey, update) ?? this.buildMarketListingFromAuctionLot(lot);
     const buyConflict = this.findConflictingOwnOrder(lot.itemKey, 'buy');
@@ -1159,7 +1160,7 @@ export class MarketPanel {
           <div class="market-book-subtitle">${escapeHtml(lot.qualityLabel)} · ${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.statusLabel)}</div>
         </div>
         <div class="auction-countdown">
-          <span>剩余时间</span>
+          <span>${escapeHtml(t('auction.countdown', undefined))}</span>
           <strong data-auction-countdown="${escapeHtmlAttr(lot.id)}">${escapeHtml(this.formatAuctionRemaining(this.getAuctionRemainingSeconds(lot)))}</strong>
         </div>
       </div>
@@ -1170,7 +1171,7 @@ export class MarketPanel {
           <small>${formatDisplayInteger(lot.bidCount)} 次出价</small>
         </div>
         <div class="auction-price-card ui-surface-card ui-surface-card--compact">
-          <span>一口价</span>
+          <span>${escapeHtml(t('market.trade.buyout-confirm.price', undefined))}</span>
           <strong>${lot.buyoutPrice === null ? '--' : this.formatMarketUnitPrice(lot.buyoutPrice)}</strong>
           <small>${escapeHtml(update.currencyItemName)}</small>
         </div>
@@ -1183,18 +1184,18 @@ export class MarketPanel {
       ${tab === 'participate'
         ? `
           <div class="auction-bid-actions">
-            <button class="small-btn" data-auction-action="bid" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBid ? '' : 'disabled'}>出价</button>
-            <button class="small-btn ghost" data-auction-action="buyout" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBuyout ? '' : 'disabled'}>一口价</button>
+            <button class="small-btn" data-auction-action="bid" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBid ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.bid', undefined))}</button>
+            <button class="small-btn ghost" data-auction-action="buyout" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBuyout ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.buyout', undefined))}</button>
           </div>
-          ${buyConflict ? '<div class="market-action-hint market-action-hint--error">你已经对这件物品发起竞价，不能重复出价。</div>' : ''}
-          <div class="market-action-hint">出价按当前价加一档起拍；一口价会先确认再尝试立即成交。</div>
+          ${buyConflict ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.auction.hint.repeat-bid', undefined))}</div>` : ''}
+          <div class="market-action-hint">${escapeHtml(t('market.auction.hint.bid-and-buyout', undefined))}</div>
           ${this.renderAuctionBidHistory(lot, update.currencyItemName)}
         `
         : `
           <div class="auction-bid-actions">
-            <button class="small-btn ghost" data-auction-cancel="${escapeHtmlAttr(lot.orderId ?? '')}" type="button" ${lot.orderId ? '' : 'disabled'}>撤回寄拍</button>
+            <button class="small-btn ghost" data-auction-cancel="${escapeHtmlAttr(lot.orderId ?? '')}" type="button" ${lot.orderId ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.cancel-consign', undefined))}</button>
           </div>
-          <div class="market-action-hint">剩余数量 ${formatDisplayCountBadge(lot.remainingQuantity ?? 0)}，撤回后会按坊市托管与背包规则返还。</div>
+          <div class="market-action-hint">${escapeHtml(t('market.auction.hint.remaining', { count: formatDisplayCountBadge(lot.remainingQuantity ?? 0) }))}</div>
         `}
     `;
   }
@@ -1204,16 +1205,16 @@ export class MarketPanel {
     const rows = Array.isArray(lot.bids) ? lot.bids.slice(0, 6) : [];
     return `
       <div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-        <div class="market-book-column-title">出价记录</div>
+        <div class="market-book-column-title">${escapeHtml(t('auction.bid-history.title', undefined))}</div>
         ${rows.length > 0
             ? rows.map((level, index) => `
               <div class="auction-bid-row">
-                <span>${escapeHtml(level.bidderLabel || `匿名修士 ${formatDisplayInteger(index + 1)}`)}</span>
+                <span>${escapeHtml(level.bidderLabel || t('auction.bidder.anonymous', { index: formatDisplayInteger(index + 1) }))}</span>
                 <strong>${this.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</strong>
                 <small>${escapeHtml(this.formatAuctionBidTime(level.createdAtMs))}</small>
               </div>
             `).join('')
-            : '<div class="empty-hint">暂无出价记录。</div>'}
+            : `<div class="empty-hint">${escapeHtml(t('auction.bid-history.empty', undefined))}</div>`}
       </div>
     `;
   }
@@ -1352,7 +1353,7 @@ export class MarketPanel {
     return `
       <div class="market-modal-shell market-modal-shell--wide ui-workspace-shell">
         <aside class="market-side-tabs ui-workspace-rail">
-          <div class="market-side-tabs-title ui-workspace-rail-title">坊市分栏</div>
+          <div class="market-side-tabs-title ui-workspace-rail-title">${escapeHtml(t('market.side-tabs.title', undefined))}</div>
           <div class="ui-workspace-rail-tabs">${tabs}</div>
         </aside>
         <div class="market-modal-content market-modal-content--wide">
@@ -1372,7 +1373,7 @@ export class MarketPanel {
 
     const listedItems = this.getVisibleListedItems(update);
     if (listedItems.length === 0) {
-      return '<div class="empty-hint">当前分类下暂时没有物品。</div>';
+      return `<div class="empty-hint">${escapeHtml(t('market.empty.category', undefined))}</div>`;
     }
     const groups = this.getVisibleListingGroups(update);
     const pagination = this.getPaginationState(groups);
@@ -1491,30 +1492,30 @@ export class MarketPanel {
       <div class="market-book-columns">
         <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
           <div class="market-book-column-head">
-            <div class="market-book-column-title">挂售</div>
-            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>挂售</button>
+            <div class="market-book-column-title">${escapeHtml(t('market.book.column.sell', undefined))}</div>
+            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>${escapeHtml(t('market.book.action.sell', undefined))}</button>
           </div>
-          ${sellConflict ? '<div class="market-action-hint">你已在求购这件物品，不能再挂售。</div>' : ''}
+          ${sellConflict ? `<div class="market-action-hint">${escapeHtml(t('market.trade.hint.conflict-sell', undefined))}</div>` : ''}
           ${showOrderBook
-            ? this.renderPriceLevels(book?.sells ?? [], currencyName, '暂无售单。', {
+            ? this.renderPriceLevels(book?.sells ?? [], currencyName, t('market.book.empty.sell', undefined), {
               kind: 'buy',
-              label: '购买',
+              label: t('market.book.action.buy', undefined),
               confirmPurchase: true,
               disabled: Boolean(buyConflict),
             })
-            : this.renderBookLoading('卖盘查探中...')}
+            : this.renderBookLoading(t('market.book.loading.sell', undefined))}
         </div>
         <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
           <div class="market-book-column-head">
-            <div class="market-book-column-title">求购</div>
-            <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
+            <div class="market-book-column-title">${escapeHtml(t('market.book.column.buy', undefined))}</div>
+            <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>${escapeHtml(t('market.book.action.buy-request', undefined))}</button>
           </div>
-          ${buyConflict ? '<div class="market-action-hint">你已在挂售这件物品，不能再求购。</div>' : ''}
-          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, '暂无求购。', {
+          ${buyConflict ? `<div class="market-action-hint">${escapeHtml(t('market.trade.hint.conflict-buy', undefined))}</div>` : ''}
+          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, t('market.book.empty.buy', undefined), {
             kind: 'sell',
-            label: '出售',
+            label: t('market.book.action.sell-request', undefined),
             disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
-          }) : this.renderBookLoading('买盘查探中...')}
+          }) : this.renderBookLoading(t('market.book.loading.buy', undefined))}
         </div>
       </div>
     `;
@@ -1525,7 +1526,7 @@ export class MarketPanel {
     if (item.type === 'skill_book') {
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
       if (techniqueId && this.player?.techniques.some((technique) => technique.techId === techniqueId)) {
-        return { label: '已学', kind: 'learned' };
+        return { label: t('market.status.learned', undefined), kind: 'learned' };
       }
     }
     const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
@@ -1535,7 +1536,7 @@ export class MarketPanel {
         : [];
     const unlockedMinimapIds = new Set(this.player?.unlockedMinimapIds ?? []);
     if (mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId))) {
-      return { label: '已阅', kind: 'unlocked' };
+      return { label: t('market.status.unlocked', undefined), kind: 'unlocked' };
     }
     return null;
   }
@@ -1543,7 +1544,7 @@ export class MarketPanel {
   /** 右侧未选中具体盘口时的占位说明。 */
   private renderMarketBrowsePlaceholder(group: MarketListingGroupView | null, browsingEnhancementVariants: boolean): string {
     if (!group) {
-      return '<div class="empty-hint">请选择左侧物品。</div>';
+      return `<div class="empty-hint">${escapeHtml(t('market.empty.select-item', undefined))}</div>`;
     }
     const referenceEntry = this.getGroupReferenceEntry(group);
     const titleClass = `market-item-title${referenceEntry ? ' market-item-title--interactive' : ''}`;
@@ -1554,20 +1555,24 @@ export class MarketPanel {
         <div class="market-book-header">
           <div>
             <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
-            <div class="market-book-subtitle">该装备支持强化，请先从左侧选择要交易的强化等级。</div>
+            <div class="market-book-subtitle">${escapeHtml(t('market.book.subtitle.enhance-select', undefined))}</div>
           </div>
         </div>
-        <div class="empty-hint">选定具体强化等级后，这里会显示该等级的挂售、求购和快捷交易入口。</div>
+        <div class="empty-hint">${escapeHtml(t('market.book.empty.enhance-level', undefined))}</div>
       `;
     }
     return `
       <div class="market-book-header">
         <div>
           <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
-          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(group.item.type))} · 点击左侧物品查看具体盘面</div>
+          <div class="market-book-subtitle">${escapeHtml(t('market.book.subtitle.group', {
+            typeLabel: getItemTypeLabel(group.item.type),
+          }))}</div>
         </div>
       </div>
-      <div class="empty-hint">${group.canEnhance ? '该装备有强化等级区分，点击左侧条目后会先进入强化等级列表。' : '点击左侧物品后，这里会显示当前挂售、求购和快捷交易入口。'}</div>
+      <div class="empty-hint">${group.canEnhance
+        ? escapeHtml(t('market.book.group.hint.enhance', undefined))
+        : escapeHtml(t('market.book.group.hint.normal', undefined))}</div>
     `;
   }
 
@@ -1635,18 +1640,18 @@ export class MarketPanel {
       <div class="market-my-orders">
         <div class="market-my-orders-grid">
           <div class="market-my-orders-column ui-surface-pane ui-surface-pane--stack">
-            <div class="panel-section-title">我的求购</div>
-            ${buyOrders.length > 0 ? buyOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : '<div class="empty-hint">当前没有求购挂单。</div>'}
+            <div class="panel-section-title">${escapeHtml(t('market.my-orders.buy', undefined))}</div>
+            ${buyOrders.length > 0 ? buyOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : `<div class="empty-hint">${escapeHtml(t('market.my-orders.empty.buy', undefined))}</div>`}
           </div>
           <div class="market-my-orders-column ui-surface-pane ui-surface-pane--stack">
-            <div class="panel-section-title">我的挂售</div>
-            ${sellOrders.length > 0 ? sellOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : '<div class="empty-hint">当前没有挂售单。</div>'}
+            <div class="panel-section-title">${escapeHtml(t('market.my-orders.sell', undefined))}</div>
+            ${sellOrders.length > 0 ? sellOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : `<div class="empty-hint">${escapeHtml(t('market.my-orders.empty.sell', undefined))}</div>`}
           </div>
         </div>
         <div class="market-storage-card ui-surface-pane ui-surface-pane--stack">
           <div class="market-storage-head">
-            <div class="panel-section-title">坊市托管仓</div>
-            <button class="small-btn" data-market-claim-storage type="button" ${storage.items.length > 0 ? '' : 'disabled'}>全部领取</button>
+            <div class="panel-section-title">${escapeHtml(t('market.storage.title', undefined))}</div>
+            <button class="small-btn" data-market-claim-storage type="button" ${storage.items.length > 0 ? '' : 'disabled'}>${escapeHtml(t('market.storage.claim-all', undefined))}</button>
           </div>
           ${this.renderStorage(storage)}
         </div>
@@ -1660,7 +1665,7 @@ export class MarketPanel {
 
     const history = this.tradeHistory;
     if (this.tradeHistoryLoading && !history) {
-      return '<div class="empty-hint">交易记录调阅中...</div>';
+      return `<div class="empty-hint">${escapeHtml(t('market.history.loading', undefined))}</div>`;
     }
     const records = history?.records ?? [];
     const page = history?.page ?? this.tradeHistoryPage;
@@ -1683,12 +1688,12 @@ export class MarketPanel {
               <div class="market-trade-history-item ui-surface-card ui-surface-card--compact">
                 <div class="market-trade-history-head">
                   <span class="market-order-name">${escapeHtml(record.itemName)}</span>
-                  <span class="market-order-side ${record.side === 'buy' ? 'buy' : 'sell'}">${record.side === 'buy' ? '购入' : '售出'}</span>
+                  <span class="market-order-side ${record.side === 'buy' ? 'buy' : 'sell'}">${escapeHtml(record.side === 'buy' ? t('market.history.side.buy', undefined) : t('market.history.side.sell', undefined))}</span>
                 </div>
                 <div class="market-order-meta">数量 ${formatDisplayCountBadge(record.quantity)} · 单价 ${this.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</div>
               </div>
             `).join('')
-            : `<div class="empty-hint">${this.tradeHistoryLoading ? '交易记录调阅中...' : '尚无交易往来。'}</div>`}
+            : `<div class="empty-hint">${escapeHtml(this.tradeHistoryLoading ? t('market.history.loading', undefined) : t('market.history.empty', undefined))}</div>`}
         </div>
       </div>
     `;
@@ -1700,10 +1705,10 @@ export class MarketPanel {
       <div class="market-order-card ui-surface-card ui-surface-card--compact">
         <div class="market-order-card-head">
           <span class="market-order-name">${escapeHtml(this.getMarketDisplayName(order.item))}</span>
-          <span class="market-order-side ${order.side === 'buy' ? 'buy' : 'sell'}">${order.side === 'buy' ? '求购' : '挂售'}</span>
+          <span class="market-order-side ${order.side === 'buy' ? 'buy' : 'sell'}">${escapeHtml(order.side === 'buy' ? t('market.order.side.buy', undefined) : t('market.order.side.sell', undefined))}</span>
         </div>
         <div class="market-order-meta">剩余 ${formatDisplayCountBadge(order.remainingQuantity)} · 单价 ${this.formatMarketUnitPrice(order.unitPrice)} ${escapeHtml(currencyName)}</div>
-        <button class="small-btn ghost" data-market-cancel-order="${order.id}" type="button">取消订单</button>
+        <button class="small-btn ghost" data-market-cancel-order="${order.id}" type="button">${escapeHtml(t('market.order.cancel', undefined))}</button>
       </div>
     `;
   }
@@ -1713,7 +1718,7 @@ export class MarketPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (storage.items.length === 0) {
-      return '<div class="empty-hint">托管仓空空如也。</div>';
+      return `<div class="empty-hint">${escapeHtml(t('market.storage.empty', undefined))}</div>`;
     }
     return `
       <div class="market-storage-list">
@@ -1792,28 +1797,41 @@ export class MarketPanel {
       || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
     const hints: string[] = [];
     if (isAuctionBid) {
-      hints.push(`<div class="market-action-hint">最低加价为 ${escapeHtml(this.formatMarketUnitPrice(minUnitPrice))} ${escapeHtml(currencyName)}，价格只按坊市档位递增或递减。</div>`);
+      hints.push(`<div class="market-action-hint">${escapeHtml(t('market.trade.hint.min-bid', {
+        unitPrice: this.formatMarketUnitPrice(minUnitPrice),
+        currencyName,
+      }))}</div>`);
     }
     if (!isAuctionBid && quantityStep > 1) {
-      hints.push(`<div class="market-action-hint">当前单价下必须按 ${formatDisplayInteger(quantityStep)} 件的倍数交易，${escapeHtml(currencyName)} x1 可买 ${formatDisplayInteger(quantityStep)} 件。</div>`);
+      hints.push(`<div class="market-action-hint">${escapeHtml(t('market.trade.hint.quantity-step', {
+        quantityStep: formatDisplayInteger(quantityStep),
+        currencyName,
+      }))}</div>`);
     }
     if (conflictOrder) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? '你已在挂售这件物品，不能再求购。' : '你已在求购这件物品，不能再挂售。')}</div>`);
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy'
+        ? t('market.trade.hint.conflict-buy', undefined)
+        : t('market.trade.hint.conflict-sell', undefined))}</div>`);
     }
     if (insufficientStepQuantity) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? `当前 ${currencyName} 或数量上限不足以按该单价成交至少 ${quantityStep} 件。` : `当前持有数量不足 ${quantityStep} 件，不能按该单价挂售。`)}</div>`);
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy
+        ? t('market.trade.hint.insufficient-step.buy', { currencyName, quantityStep: formatDisplayInteger(quantityStep) })
+        : t('market.trade.hint.insufficient-step.sell', { quantityStep: formatDisplayInteger(quantityStep) }))}</div>`);
     }
     if (insufficientCurrency && totalCost !== null) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(totalCost)}。</div>`);
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.trade.hint.insufficient-currency', {
+        currencyName,
+        totalCost: formatDisplayInteger(totalCost),
+      }))}</div>`);
     }
     const nextDecreasePrice = this.getNextTradeDialogPrice(dialog.unitPrice, 'decrease', null, minUnitPrice);
     const nextHalfPrice = this.getNextTradeDialogPrice(dialog.unitPrice, 'half', null, minUnitPrice);
     return {
       dialog,
       source,
-      title: isAuctionBid ? '拍卖加价' : (isBuy ? '发起求购' : '发起挂售'),
-      actionLabel: isAuctionBid ? '确认加价' : (isBuy ? '确认求购' : '确认挂售'),
-      totalLabel: isAuctionBid ? '出价占用' : (dialog.kind === 'buy' ? '总价' : '总额'),
+      title: isAuctionBid ? t('market.trade.title.bid', undefined) : (isBuy ? t('market.trade.title.buy', undefined) : t('market.trade.title.sell', undefined)),
+      actionLabel: isAuctionBid ? t('market.trade.action.bid', undefined) : (isBuy ? t('market.trade.action.buy', undefined) : t('market.trade.action.sell', undefined)),
+      totalLabel: isAuctionBid ? t('market.trade.total.bid', undefined) : (dialog.kind === 'buy' ? t('market.trade.total.buy', undefined) : t('market.trade.total.sell', undefined)),
       quantityStep,
       inputMax,
       totalText: totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${currencyName}`,
@@ -1872,7 +1890,7 @@ export class MarketPanel {
             : ''}
           <div class="market-trade-dialog-section">
             <div class="market-trade-dialog-field">
-              <span>单价</span>
+              <span>${escapeHtml(t('market.trade.field.unit-price', undefined))}</span>
               <div class="market-price-control-row">
                 <div class="market-price-control-side">
                   <button class="small-btn ghost" data-market-price-action="half" type="button" ${state.priceActionDisabled.half ? 'disabled' : ''}>÷2</button>
@@ -1893,7 +1911,7 @@ export class MarketPanel {
             ${state.showQuantityControls
               ? `
                 <div class="market-trade-dialog-field">
-                  <span>数量</span>
+                  <span>${escapeHtml(t('market.trade.field.quantity', undefined))}</span>
                   <div class="market-quantity-row">
                     <button class="small-btn ghost" data-market-quantity-action="one" type="button">1</button>
                     <input
@@ -1911,7 +1929,7 @@ export class MarketPanel {
                       data-market-quantity-action="max"
                       type="button"
                       ${state.maxButtonDisabled ? 'disabled' : ''}
-                    >最大</button>
+                    >${escapeHtml(t('market.trade.action.max', undefined))}</button>
                   </div>
                 </div>
               `
@@ -2132,7 +2150,9 @@ export class MarketPanel {
       myConsignments: summary.myConsignments,
       storageCount: summary.storageCount,
       feed: lots.slice(0, 3).map((lot) => ({
-        status: lot.buyoutPrice === null ? '竞价' : '可一口',
+        status: lot.buyoutPrice === null
+          ? t('market.auction.feed.status.bid', undefined)
+          : t('market.auction.feed.status.buyout', undefined),
         name: lot.itemName,
         meta: `${this.formatMarketUnitPrice(lot.currentPrice)} ${update.currencyItemName}`,
       })),
@@ -2522,7 +2542,7 @@ export class MarketPanel {
  * count：数量或计量字段。
  */
  count: number }> = [
-      { id: 'all', label: '全部', count: this.getMarketCategoryCount('all', listedItems.length) },
+      { id: 'all', label: t('market.filter.all', undefined), count: this.getMarketCategoryCount('all', listedItems.length) },
       ...ITEM_TYPES.map((type) => ({
         id: type,
         label: getItemTypeLabel(type),
@@ -2558,7 +2578,7 @@ export class MarketPanel {
  count: number }> = [
       {
         id: 'all',
-        label: '全部装备',
+        label: t('market.filter.equipment-all', undefined),
         count: this.getMarketEquipmentSlotCount('all', listedItems.filter((item) => item.item.type === 'equipment').length),
       },
       ...EQUIP_SLOTS.map((slot) => ({
@@ -3045,10 +3065,10 @@ export class MarketPanel {
     this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
     confirmModalHost.open({
       ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
-      title: '确认一口价',
+      title: t('auction.action.buyout', undefined),
       subtitle: this.getMarketDisplayName(entry.item),
       bodyHtml: this.renderAuctionBuyoutConfirmBody(lot, currencyItemName, quantity, unitPrice, totalCost, insufficientCurrency),
-      confirmLabel: '确认一口价',
+      confirmLabel: t('auction.action.buyout', undefined),
       confirmDisabled: insufficientCurrency || totalCost === null,
       onConfirm: () => {
         this.buyConfirmState = null;
@@ -3068,38 +3088,46 @@ export class MarketPanel {
     const maxReservedCost = this.getMarketTradeTotalCost(quantity, unitPrice);
     const summary = estimate.immediateQuantity > 0
       ? estimate.pendingQuantity > 0
-        ? `预计先按当前卖盘成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件，剩余 ${formatDisplayInteger(estimate.pendingQuantity)} 件会继续挂为求购单。`
-        : `预计会按当前卖盘直接成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件。`
-      : '当前无法保证立刻成交，确认后会按当前单价挂出求购单。';
+        ? t('market.trade.buy-confirm.summary.split', {
+          immediateQuantity: formatDisplayInteger(estimate.immediateQuantity),
+          pendingQuantity: formatDisplayInteger(estimate.pendingQuantity),
+        })
+        : t('market.trade.buy-confirm.summary.direct', {
+          immediateQuantity: formatDisplayInteger(estimate.immediateQuantity),
+        })
+      : t('market.trade.buy-confirm.summary.pending', undefined);
     return `
       <div class="market-trade-dialog-section">
         <div class="market-trade-dialog-field">
-          <span>购买数量</span>
+          <span>${escapeHtml(t('market.trade.buy-confirm.quantity', undefined))}</span>
           <div class="market-price-display">
             <strong>${formatDisplayInteger(quantity)}</strong>
-            <span>单价 ${this.formatMarketUnitPrice(unitPrice)} ${escapeHtml(currencyName)}</span>
+            <span>${escapeHtml(t('market.trade.buy-confirm.unit-price', {
+              unitPrice: this.formatMarketUnitPrice(unitPrice),
+              currencyName,
+            }))}</span>
           </div>
         </div>
         <div class="market-trade-dialog-total">
-          <span>最高占用</span>
+          <span>${escapeHtml(t('market.trade.buy-confirm.max-reserved', undefined))}</span>
           <strong>${maxReservedCost === null ? '--' : `${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}`}</strong>
         </div>
       </div>
       <div class="market-trade-dialog-section">
         <div class="market-trade-dialog-field">
-          <span>撮合预估</span>
+          <span>${escapeHtml(t('market.trade.buy-confirm.estimate', undefined))}</span>
           <div class="market-price-display">
             <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
-            <span>预计立即成交</span>
+            <span>${escapeHtml(t('market.trade.buy-confirm.immediate', undefined))}</span>
           </div>
         </div>
         <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
-          <span>剩余挂单</span>
-          <strong>${formatDisplayInteger(estimate.pendingQuantity)} 件</strong>
+          <span>${escapeHtml(t('market.trade.buy-confirm.pending', undefined))}</span>
+          <strong>${escapeHtml(t('market.trade.buy-confirm.pending-count', { count: formatDisplayInteger(estimate.pendingQuantity) }))}</strong>
         </div>
       </div>
       <div class="market-action-hint">${escapeHtml(summary)}</div>
-      <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">若卖盘成交价低于你的出价，差额会按现有撮合规则退回。</div>
+      <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">${escapeHtml(t('market.trade.buy-confirm.refund-hint', undefined))}</div>
     `;
   }
 
@@ -3122,22 +3150,24 @@ export class MarketPanel {
           </div>
         </div>
         <div class="market-trade-dialog-total">
-          <span>拍品编号</span>
+          <span>${escapeHtml(t('market.trade.buyout-confirm.lot-no', undefined))}</span>
           <strong>${escapeHtml(lot.lotNo)}</strong>
         </div>
       </div>
       <div class="market-trade-dialog-section">
         <div class="market-trade-dialog-total">
-          <span>成交数量</span>
-          <strong>${formatDisplayInteger(quantity)} 件</strong>
+          <span>${escapeHtml(t('market.trade.buyout-confirm.quantity', undefined))}</span>
+          <strong>${escapeHtml(t('market.trade.buyout-confirm.quantity-value', { count: formatDisplayInteger(quantity) }))}</strong>
         </div>
         <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
-          <span>本次支付</span>
+          <span>${escapeHtml(t('market.trade.buyout-confirm.total', undefined))}</span>
           <strong>${totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${escapeHtml(currencyName)}`}</strong>
         </div>
       </div>
       <div class="market-action-hint ${insufficientCurrency ? 'market-action-hint--error' : ''}">
-        ${escapeHtml(insufficientCurrency ? `${currencyName}不足，无法按一口价成交。` : '确认后会按一口价发起立即成交，不再进入加价输入。')}
+        ${escapeHtml(insufficientCurrency
+          ? t('market.trade.buyout-confirm.insufficient', { currencyName })
+          : t('market.trade.buyout-confirm.ready', undefined))}
       </div>
     `;
   }
@@ -3405,10 +3435,10 @@ export class MarketPanel {
     this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
     confirmModalHost.open({
       ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
-      title: '确认购买',
+      title: t('auction.action.buy', undefined),
       subtitle: itemName,
       bodyHtml: this.renderBuyConfirmBody(entry, this.marketUpdate?.currencyItemName ?? '', quantity, unitPrice),
-      confirmLabel: '确认购买',
+      confirmLabel: t('auction.action.buy', undefined),
       onConfirm: () => {
         const latest = this.buyConfirmState;
         const latestEntry = latest ? this.resolveMarketTooltipEntry(latest.itemKey) : null;
@@ -3708,9 +3738,9 @@ export class MarketPanel {
       title,
       lines: [
         ...tooltip.lines,
-        renderPlainTooltipLine('强化估算', estimate.costLine),
-        renderPlainTooltipLine('期望次数', estimate.attemptsLine),
-        renderPlainTooltipLine('期望时间', estimate.timeLine),
+        renderPlainTooltipLine(t('market.enhance.title', undefined), estimate.costLine),
+        renderPlainTooltipLine(t('market.enhance.attempts', undefined), estimate.attemptsLine),
+        renderPlainTooltipLine(t('market.enhance.time', undefined), estimate.timeLine),
       ],
     };
   }
@@ -3785,12 +3815,12 @@ export class MarketPanel {
     const usesMarketBasePrice = baseUnitPrice !== undefined;
     const expectedProtectionCost = strategy.expectedProtectionCost ?? 0;
     const expectedTotalCost = strategy.expectedSpiritStones + expectedProtectionCost;
-    const protectionStartText = strategy.protectionStartLevel === null ? '无保护' : `+${strategy.protectionStartLevel}`;
+    const protectionStartText = strategy.protectionStartLevel === null ? t('market.enhance.no-protection', undefined) : `+${strategy.protectionStartLevel}`;
     const zeroPriceText = baseUnitPrice !== undefined
       ? this.formatMarketUnitPrice(baseUnitPrice)
       : basePricePending
-        ? '查探中'
-        : '暂无';
+        ? t('market.enhance.pending', undefined)
+        : t('market.enhance.none', undefined);
     const baseTicksPerAttempt = this.computeEnhancementJobBaseTicks(itemLevel);
     const expectedBaseDurationTicks = strategy.expectedAttempts * baseTicksPerAttempt;
     const costLine = `总灵石 ${this.formatEnhancementEstimateCost(expectedTotalCost)} · 强化消耗 ${this.formatEnhancementEstimateCost(strategy.expectedSpiritStones)} · 保护消耗 ${this.formatEnhancementEstimateCost(expectedProtectionCost)} · +0价格 ${zeroPriceText}`;

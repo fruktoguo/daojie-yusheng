@@ -26,6 +26,7 @@ import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
 import { createMainWorldSummaryStateSource } from './main-world-summary-state-source';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
+import { getCraftOpenActionId } from './constants/ui/action';
 import { openWorldMigrationModal } from './ui/world-migration-modal';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
@@ -160,6 +161,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     onOpenCraftSkill: (key) => key === 'building'
       ? buildingFengShuiStateSource.openBuildingPanel()
       : techniqueActivityOpeners[key as keyof typeof techniqueActivityOpeners]?.(),
+    onBindCraftSkill: (key) => { const actionId = getCraftOpenActionId(key); if (actionId) actionPanel.toggleShortcutBinding(actionId); },
+    getCraftSkillBindLabel: (key) => { const actionId = getCraftOpenActionId(key); return actionId ? actionPanel.getShortcutBindLabel(actionId) : '绑定键'; },
   });
   const questStateSource = createMainQuestStateSource({
     questPanel,

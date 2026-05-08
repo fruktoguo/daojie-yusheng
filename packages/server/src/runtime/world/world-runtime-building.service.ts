@@ -4,8 +4,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.awardBuildingConstructionCompletion = exports.notifyBuildingConstructionCompletion = exports.awardBuildingConstructionProgress = exports.tickBuildingConstruction = exports.interruptBuildingConstruction = exports.dispatchStartBuildingConstruction = exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleStartBuildingConstruction = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
 const shared_1 = require("@mud/shared");
-
-const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
+const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
 
 function handleBuildPlaceIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
@@ -381,44 +380,46 @@ function resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength)
     const baseMultiplier = Math.max(0.01, Number(compiled?.durabilityMultiplier ?? (Number(compiled?.maxHp ?? 1) / 100)));
     return Math.max(1, Math.trunc((0, shared_1.calculateTerrainDurability)(buildingSkillLevel, baseMultiplier) * buildStrength));
 }
-function resolveCraftSkillExpToNextByLevel(level) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
-    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
-}
-function applyCraftSkillExp(skill, amount) {
+function applyCraftSkillExp(source, skill, amount) {
     if (!skill) {
         return false;
     }
     let changed = false;
+    const currentExpToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+    if (skill.expToNext !== currentExpToNext) {
+        skill.expToNext = currentExpToNext;
+        changed = true;
+    }
     skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
         skill.exp -= skill.expToNext;
         skill.level += 1;
-        skill.expToNext = resolveCraftSkillExpToNextByLevel(skill.level);
+        skill.expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
         changed = true;
     }
     return changed || amount > 0;
 }
-function ensureBuildingSkillState(player) {
+function ensureBuildingSkillState(source, player) {
     const level = Math.max(1, Math.floor(Number(player?.buildingSkill?.level) || 1));
+    const expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level, craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT);
     const state = {
         level,
         exp: Math.max(0, Math.floor(Number(player?.buildingSkill?.exp) || 0)),
-        expToNext: Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, Math.floor(Number(player?.buildingSkill?.expToNext) || resolveCraftSkillExpToNextByLevel(level))),
+        expToNext,
     };
     player.buildingSkill = state;
     return state;
 }
-function applyBuildingSkillExp(player, buildStrength) {
+function applyBuildingSkillExp(source, player, buildStrength) {
     if (!player) {
         return 0;
     }
-    const skill = ensureBuildingSkillState(player);
+    const skill = ensureBuildingSkillState(source, player);
     const gain = shared_1.computeCraftSkillExpGain({
         skillLevel: skill.level,
         targetLevel: skill.level,
         baseActionTicks: normalizeBuildStrength(buildStrength),
-        getExpToNextByLevel: resolveCraftSkillExpToNextByLevel,
+        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
         successCount: 1,
         failureCount: 0,
         successMultiplier: 1,
@@ -426,7 +427,7 @@ function applyBuildingSkillExp(player, buildStrength) {
     if (gain <= 0) {
         return 0;
     }
-    applyCraftSkillExp(skill, gain);
+    applyCraftSkillExp(source, skill, gain);
     if (!(player.dirtyDomains instanceof Set)) {
         player.dirtyDomains = new Set();
     }
@@ -442,7 +443,7 @@ function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks
     if (!player) {
         return 0;
     }
-    const gainedExp = applyBuildingSkillExp(player, progressTicks);
+    const gainedExp = applyBuildingSkillExp(runtime?.playerRuntimeService, player, progressTicks);
     if (gainedExp > 0) {
         runtime?.playerRuntimeService?.bumpPersistentRevision?.(player);
     }

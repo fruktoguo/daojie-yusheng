@@ -1,4 +1,6 @@
 /** MarketModalTab：坊市弹窗分页标签。 */
+import { t } from '../../ui/i18n';
+
 export type MarketModalTab = 'market' | 'my-orders' | 'trade-history';
 
 export const MARKET_MODAL_TABS: Array<{
@@ -10,11 +12,13 @@ export const MARKET_MODAL_TABS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { id: 'market', label: '市场' },
-  { id: 'my-orders', label: '我的交易' },
-  { id: 'trade-history', label: '交易记录' },
+  { id: 'market', label: t('market.tab.market', undefined) },
+  { id: 'my-orders', label: t('market.tab.my-orders', undefined) },
+  { id: 'trade-history', label: t('market.tab.trade-history', undefined) },
 ];
 
 /** MARKET_PANE_HINT：坊市面板提示语。 */
-export const MARKET_PANE_HINT = '坊市支持匿名挂售、求购与自动撮合，成交物会优先尝试进入背包，放不下时转入托管仓。';
-
+export const MARKET_PANE_HINT = t(
+  'market.pane.hint',
+  undefined,
+);

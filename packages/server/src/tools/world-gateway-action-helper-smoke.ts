@@ -99,15 +99,20 @@ function createGateway(log = [], playerId = 'player:1') {
                 log.push(['emitDeltaSync', inputPlayerId, client.id]);
             },
         },
+        playerPersistenceFlushService: {
+            async flushPlayer(inputPlayerId) {
+                log.push(['flushPlayer', inputPlayerId]);
+            },
+        },
     };
 }
 
-function testWorldMigrateDelegatesToExecuteAction() {
+async function testWorldMigrateDelegatesToExecuteAction() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
     const client = createClient(log);
 
-    helper.handleUseAction(client, { actionId: 'world:migrate', target: 'real' });
+    await helper.handleUseAction(client, { actionId: 'world:migrate', target: 'real' });
 
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
@@ -115,12 +120,12 @@ function testWorldMigrateDelegatesToExecuteAction() {
     ]);
 }
 
-function testTargetedSkillStillUsesCastSkillPath() {
+async function testTargetedSkillStillUsesCastSkillPath() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
     const client = createClient(log);
 
-    helper.handleUseAction(client, { actionId: 'skill.fireball', target: 'tile:11,12' });
+    await helper.handleUseAction(client, { actionId: 'skill.fireball', target: 'tile:11,12' });
 
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
@@ -128,24 +133,70 @@ function testTargetedSkillStillUsesCastSkillPath() {
     ]);
 }
 
-function testBodyTrainingStillUsesExecuteAction() {
+async function testBodyTrainingStillUsesExecuteAction() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
     const client = createClient(log);
 
-    helper.handleUseAction(client, { actionId: 'body_training:infuse', target: '12' });
+    await helper.handleUseAction(client, { actionId: 'body_training:infuse', target: '12' });
 
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
         ['executeAction', 'player:1', 'body_training:infuse', '12', true],
     ]);
 }
-function testReturnToSpawnUsesDedicatedCommand() {
+
+async function testAutoRootFoundationCarriesToggleTargetToExecuteAction() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
     const client = createClient(log);
 
-    helper.handleUseAction(client, { actionId: 'travel:return_spawn' });
+    await helper.handleUseAction(client, { actionId: 'realm:auto_refine_root_foundation', target: '1' });
+
+    assert.deepEqual(log, [
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['executeAction', 'player:1', 'realm:auto_refine_root_foundation', '1', true],
+        ['flushPlayer', 'player:1'],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
+    ]);
+}
+
+async function testAutoRootFoundationOnActionFlushesCurrentSocketSync() {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    await helper.handleUseAction(client, { actionId: 'realm:auto_refine_root_foundation:on' });
+
+    assert.deepEqual(log, [
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['executeAction', 'player:1', 'realm:auto_refine_root_foundation:on', '', true],
+        ['flushPlayer', 'player:1'],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
+    ]);
+}
+
+async function testAutoRootFoundationOffActionFlushesCurrentSocketSync() {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    await helper.handleUseAction(client, { actionId: 'realm:auto_refine_root_foundation:off' });
+
+    assert.deepEqual(log, [
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['executeAction', 'player:1', 'realm:auto_refine_root_foundation:off', '', true],
+        ['flushPlayer', 'player:1'],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
+    ]);
+}
+
+async function testReturnToSpawnUsesDedicatedCommand() {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    await helper.handleUseAction(client, { actionId: 'travel:return_spawn' });
 
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
@@ -153,12 +204,12 @@ function testReturnToSpawnUsesDedicatedCommand() {
     ]);
 }
 
-function testPortalTravelFlushesCurrentSocketSync() {
+async function testPortalTravelFlushesCurrentSocketSync() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
     const client = createClient(log);
 
-    helper.handleUseAction(client, { actionId: 'portal:travel' });
+    await helper.handleUseAction(client, { actionId: 'portal:travel' });
 
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
@@ -180,11 +231,20 @@ function testDedicatedPortalEventFlushesCurrentSocketSync() {
     ]);
 }
 
-testWorldMigrateDelegatesToExecuteAction();
-testTargetedSkillStillUsesCastSkillPath();
-testBodyTrainingStillUsesExecuteAction();
-testReturnToSpawnUsesDedicatedCommand();
-testPortalTravelFlushesCurrentSocketSync();
-testDedicatedPortalEventFlushesCurrentSocketSync();
+async function run() {
+    await testWorldMigrateDelegatesToExecuteAction();
+    await testTargetedSkillStillUsesCastSkillPath();
+    await testBodyTrainingStillUsesExecuteAction();
+    await testAutoRootFoundationCarriesToggleTargetToExecuteAction();
+    await testAutoRootFoundationOnActionFlushesCurrentSocketSync();
+    await testAutoRootFoundationOffActionFlushesCurrentSocketSync();
+    await testReturnToSpawnUsesDedicatedCommand();
+    await testPortalTravelFlushesCurrentSocketSync();
+    testDedicatedPortalEventFlushesCurrentSocketSync();
+    console.log(JSON.stringify({ ok: true, case: 'world-gateway-action-helper' }, null, 2));
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-gateway-action-helper' }, null, 2));
+run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

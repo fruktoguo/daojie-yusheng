@@ -70,6 +70,9 @@ interface WorldGatewayActionDeps {
   worldSyncService?: {
     emitDeltaSync(playerId: string, socketOverride?: Socket): void;
   };
+  playerPersistenceFlushService?: {
+    flushPlayer(playerId: string): Promise<void>;
+  };
 }
 
 /** 世界 socket 小型 action helper：收敛 redeem / portal / cultivate / cast skill 入口。 */
@@ -77,7 +80,10 @@ export class WorldGatewayActionHelper {
   constructor(private readonly gateway: WorldGatewayActionDeps) {}
 
   private isDirectRuntimeAction(actionId: string): boolean {
-    return actionId === 'body_training:infuse' || actionId === 'world:migrate';
+    return actionId === 'body_training:infuse'
+      || actionId === 'world:migrate'
+      || actionId === 'realm:auto_refine_root_foundation'
+      || actionId.startsWith('realm:auto_refine_root_foundation:');
   }
 
   handleRedeemCodes(
@@ -87,10 +93,10 @@ export class WorldGatewayActionHelper {
     this.executeRedeemCodes(client, payload);
   }
 
-  handleUseAction(
+  async handleUseAction(
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.UseAction>,
-  ): void {
+  ): Promise<void> {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
       return;
@@ -98,17 +104,17 @@ export class WorldGatewayActionHelper {
 
     this.gateway.worldClientEventService.markProtocol(client, 'mainline');
     try {
-      this.handleProtocolAction(client, playerId, payload);
+      await this.handleProtocolAction(client, playerId, payload);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
     }
   }
 
-  private handleProtocolAction(
+  private async handleProtocolAction(
     client: Socket,
     playerId: string,
     payload: ClientToServerEventPayload<typeof C2S.UseAction>,
-  ): void {
+  ): Promise<void> {
     const actionId = this.resolveActionId(payload);
     if (actionId === 'debug:reset_spawn') {
       this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueResetPlayerSpawn(playerId, this.gateway.worldRuntimeService);
@@ -180,6 +186,10 @@ export class WorldGatewayActionHelper {
         playerId,
         this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, actionId, target, this.gateway.worldRuntimeService),
       );
+      if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
+        await this.gateway.playerPersistenceFlushService?.flushPlayer(playerId);
+        this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
+      }
       return;
     }
 

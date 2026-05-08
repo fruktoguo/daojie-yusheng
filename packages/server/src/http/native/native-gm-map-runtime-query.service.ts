@@ -233,8 +233,16 @@ interface RuntimeInstanceLike {
 
 interface InternalRuntimeInstanceLike {
   getTileAura(x: number, y: number): number | undefined;
+  getEffectiveTileType?(x: number, y: number): unknown;
+  getTileLayerState?(x: number, y: number): unknown;
+  isInBounds?(x: number, y: number): boolean;
   listTileResources?(x: number, y: number): Array<{ resourceKey: string; value: number; sourceValue?: number }> | undefined;
   listMonsters(): RuntimeMonsterLike[];
+  tilePlane?: {
+    getCellCount?(): number;
+    getX?(cellIndex: number): number;
+    getY?(cellIndex: number): number;
+  };
   listBuildingSummaries?(): unknown[];
   listRoomSummaries?(): unknown[];
   fengShuiByRoomId?: Map<string, unknown>;
@@ -409,11 +417,12 @@ interface RuntimeMapConfigServiceLike {
 
 
 interface LegacyRuntimeTileInput {
-/**
+  /**
  * mapChar：地图Char相关字段。
  */
 
   mapChar?: unknown;  
+  tileType?: unknown;
   /**
  * aura：aura相关字段。
  */
@@ -707,13 +716,16 @@ export class NativeGmMapRuntimeQueryService {
     const template = this.mapTemplateRepository.getOrThrow(mapId);
     const clampedW = Math.min(20, Math.max(1, Math.trunc(Number(w) || 20)));
     const clampedH = Math.min(20, Math.max(1, Math.trunc(Number(h) || 20)));
-    const startX = clamp(Math.trunc(Number(x) || 0), 0, Math.max(0, template.width - 1));
-    const startY = clamp(Math.trunc(Number(y) || 0), 0, Math.max(0, template.height - 1));
-    const endX = Math.min(template.width, startX + clampedW);
-    const endY = Math.min(template.height, startY + clampedH);
+    const requestedStartX = Math.trunc(Number(x) || 0);
+    const requestedStartY = Math.trunc(Number(y) || 0);
     const internalInstance = this.worldRuntimeService.getInstanceRuntime?.(instanceId)
       ?? this.worldRuntimeService.instances?.get(instanceId)
       ?? null;
+    const runtimeBounds = resolveRuntimeTileBounds(internalInstance, template);
+    const runtimeStartX = clamp(requestedStartX, 0, Math.max(0, runtimeBounds.width - 1));
+    const runtimeStartY = clamp(requestedStartY, 0, Math.max(0, runtimeBounds.height - 1));
+    const endX = Math.min(runtimeBounds.width, runtimeStartX + clampedW);
+    const endY = Math.min(runtimeBounds.height, runtimeStartY + clampedH);
     const tiles: Array<Array<{    
     /**
  * type：type相关字段。
@@ -732,7 +744,7 @@ export class NativeGmMapRuntimeQueryService {
  */
  resources?: LegacyAuraResource[] }>> = [];
 
-    for (let row = startY; row < endY; row += 1) {
+    for (let row = runtimeStartY; row < endY; row += 1) {
       const line: Array<{      
       /**
  * type：type相关字段。
@@ -751,13 +763,14 @@ export class NativeGmMapRuntimeQueryService {
  */
  resources?: LegacyAuraResource[] }> = [];
       const terrainRow = template.source.tiles[row] ?? '';
-      for (let column = startX; column < endX; column += 1) {
+      for (let column = runtimeStartX; column < endX; column += 1) {
         const aura =
           internalInstance?.getTileAura(column, row)
           ?? template.baseAuraByTile[getTileIndex(column, row, template.width)]
           ?? 0;
+        const tileType = resolveRuntimeTileType(internalInstance, column, row, terrainRow[column] ?? '#');
         const tile = projectLegacyRuntimeTile({
-          mapChar: terrainRow[column] ?? '#',
+          tileType,
           aura,
           resources: internalInstance?.listTileResources?.(column, row),
         });
@@ -775,7 +788,7 @@ export class NativeGmMapRuntimeQueryService {
     const entities = [];
     if (runtimeInstance) {
       for (const entry of runtimeInstance.players) {
-        if (!isInRect(entry.x, entry.y, startX, startY, endX, endY)) {
+        if (!isInRect(entry.x, entry.y, runtimeStartX, runtimeStartY, endX, endY)) {
           continue;
         }
 
@@ -800,7 +813,7 @@ export class NativeGmMapRuntimeQueryService {
 
     if (internalInstance) {
       for (const monster of internalInstance.listMonsters()) {
-        if (!isInRect(monster.x, monster.y, startX, startY, endX, endY)) {
+        if (!isInRect(monster.x, monster.y, runtimeStartX, runtimeStartY, endX, endY)) {
           continue;
         }
 
@@ -823,7 +836,7 @@ export class NativeGmMapRuntimeQueryService {
     }
 
     for (const npc of template.npcs) {
-      if (!isInRect(npc.x, npc.y, startX, startY, endX, endY)) {
+      if (!isInRect(npc.x, npc.y, runtimeStartX, runtimeStartY, endX, endY)) {
         continue;
       }
 
@@ -839,7 +852,7 @@ export class NativeGmMapRuntimeQueryService {
     }
 
     for (const container of template.containers) {
-      if (!isInRect(container.x, container.y, startX, startY, endX, endY)) {
+      if (!isInRect(container.x, container.y, runtimeStartX, runtimeStartY, endX, endY)) {
         continue;
       }
 
@@ -858,7 +871,7 @@ export class NativeGmMapRuntimeQueryService {
       ? this.worldRuntimeService.worldRuntimeFormationService.listRuntimeFormations(instanceId)
       : [];
     for (const formation of formations) {
-      if (!isInRect(formation.x, formation.y, startX, startY, endX, endY)) {
+      if (!isInRect(formation.x, formation.y, runtimeStartX, runtimeStartY, endX, endY)) {
         continue;
       }
       entities.push({
@@ -901,8 +914,8 @@ export class NativeGmMapRuntimeQueryService {
       destroyAt: typeof runtimeInstance.destroyAt === 'string' ? runtimeInstance.destroyAt : null,
       playerCount: Number.isFinite(runtimeInstance.playerCount) ? Number(runtimeInstance.playerCount) : runtimeInstance.players.length,
       worldRevision: Number.isFinite(runtimeInstance.worldRevision) ? Number(runtimeInstance.worldRevision) : 0,
-      width: template.width,
-      height: template.height,
+      width: runtimeBounds.width,
+      height: runtimeBounds.height,
       tiles,
       entities,
       time: buildLegacyTimeState(
@@ -917,6 +930,58 @@ export class NativeGmMapRuntimeQueryService {
       tickPaused: this.runtimeMapConfigService.isMapPaused(mapId),
     };
   }
+}
+
+function resolveRuntimeTileBounds(
+  internalInstance: InternalRuntimeInstanceLike | null,
+  template: MapTemplateLike,
+): { width: number; height: number } {
+  let width = Math.max(1, Math.trunc(Number(template.width) || 1));
+  let height = Math.max(1, Math.trunc(Number(template.height) || 1));
+  const plane = internalInstance?.tilePlane;
+  const count = typeof plane?.getCellCount === 'function'
+    ? Math.max(0, Math.trunc(Number(plane.getCellCount()) || 0))
+    : 0;
+  if (count <= 0 || typeof plane?.getX !== 'function' || typeof plane?.getY !== 'function') {
+    return { width, height };
+  }
+  for (let cellIndex = 0; cellIndex < count; cellIndex += 1) {
+    const x = Math.trunc(Number(plane.getX(cellIndex)));
+    const y = Math.trunc(Number(plane.getY(cellIndex)));
+    if (Number.isFinite(x) && x >= 0) {
+      width = Math.max(width, x + 1);
+    }
+    if (Number.isFinite(y) && y >= 0) {
+      height = Math.max(height, y + 1);
+    }
+  }
+  return { width, height };
+}
+
+function resolveRuntimeTileType(
+  internalInstance: InternalRuntimeInstanceLike | null,
+  x: number,
+  y: number,
+  fallbackMapChar: string,
+): ReturnType<typeof getTileTypeFromMapChar> {
+  if (internalInstance) {
+    const inRuntimeBounds = typeof internalInstance.isInBounds === 'function'
+      ? internalInstance.isInBounds(x, y) === true
+      : true;
+    if (inRuntimeBounds) {
+      const effective = internalInstance.getEffectiveTileType?.(x, y);
+      if (typeof effective === 'string' && effective.length > 0) {
+        return effective as ReturnType<typeof getTileTypeFromMapChar>;
+      }
+      const layerState = internalInstance.getTileLayerState?.(x, y);
+      if (isRecord(layerState)
+        && typeof layerState.legacyTileType === 'string'
+        && layerState.legacyTileType.length > 0) {
+        return layerState.legacyTileType as ReturnType<typeof getTileTypeFromMapChar>;
+      }
+    }
+  }
+  return getTileTypeFromMapChar(fallbackMapChar[0] ?? '#');
 }
 /**
  * projectLegacyRuntimeTile：执行projectLegacy运行态Tile相关逻辑。
@@ -946,6 +1011,13 @@ function projectLegacyRuntimeTile(input: LegacyRuntimeTileInput): LegacyRuntimeT
     aura,
     resources: resources.length > 0 ? resources : [buildLegacyAuraResource(aura)],
   };
+
+  if (typeof input?.tileType === 'string' && input.tileType.length > 0) {
+    const tileType = input.tileType as ReturnType<typeof getTileTypeFromMapChar>;
+    projection.type = tileType;
+    projection.walkable = isTileTypeWalkable(tileType);
+    return projection;
+  }
 
   if (typeof input?.mapChar === 'string') {
     const tileType = getTileTypeFromMapChar(input.mapChar[0] ?? '#');

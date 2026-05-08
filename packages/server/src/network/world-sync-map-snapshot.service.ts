@@ -337,6 +337,7 @@ export class WorldSyncMapSnapshotService {
     const tile: any = {
       type: tileType,
     };
+    applyTileEffectProjection(tile, template, x, y, tileType);
     const layerState = state.layers ?? null;
     const terrainType = typeof layerState?.terrain === 'string' ? layerState.terrain : undefined;
     const surfaceType = typeof layerState?.surface === 'string' ? layerState.surface : undefined;
@@ -442,13 +443,30 @@ function buildStaticTileSyncState(template, x, y) {
       ? getTileTypeFromMapChar(template.terrainRows?.[lookupY]?.[lookupX] ?? '#')
       : null
   ));
-  return {
+  const tile = {
     type,
     terrainType: layerSeed.terrain,
     surfaceType: layerSeed.surface,
     structureType: layerSeed.structure,
     interactableKinds: [...layerSeed.interactables],
   };
+  applyTileEffectProjection(tile, template, x, y, type);
+  return tile;
+}
+
+function applyTileEffectProjection(tile, template, x, y, tileType) {
+  if (!isInTemplateBounds(template, x, y)) {
+    return;
+  }
+  const tileIndex = getTileIndex(x, y, template.width);
+  const movementCost = template.movementCostOverrideByTile?.[tileIndex] ?? 0;
+  if (Number.isFinite(movementCost) && movementCost > 0) {
+    tile.movementCost = Math.max(1, Math.trunc(movementCost));
+  }
+  const qiDrainPerTick = template.qiDrainByTile?.[tileIndex] ?? 0;
+  if (Number.isFinite(qiDrainPerTick) && qiDrainPerTick > 0) {
+    tile.qiDrainPerTick = Math.max(0, Math.trunc(qiDrainPerTick));
+  }
 }
 
 function isInTemplateBounds(template, x, y) {

@@ -18,6 +18,7 @@ import { getLocalItemTemplate } from './content/local-templates';
 import { patchElementChildren } from './ui/dom-patch';
 import { detailModalHost } from './ui/detail-modal-host';
 import { FloatingTooltip } from './ui/floating-tooltip';
+import { t } from './ui/i18n';
 import type { SidePanel, SidePanelLayoutCollapseState } from './ui/side-panel';
 
 type MainBuildingFengShuiStateSourceOptions = {
@@ -674,13 +675,13 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       onPlace: () => {
         const player = options.getPlayer();
         if (!player || !activeDefId) {
-          options.showToast('当前不在可建造世界', 'warn');
+          options.showToast(t('building.toast.not-buildable-world'), 'warn');
           return;
         }
         const latestMaterialSlots = buildMaterialSlots(player, selectedEntry, selectedMaterialItemIdsBySlot);
         const pendingSlot = latestMaterialSlots.find((slot) => slot.selectionRequired && !slot.ready);
         if (pendingSlot) {
-          options.showToast(`请先选择${pendingSlot.requirement.label}`, 'warn');
+          options.showToast(t('building.toast.select-requirement', { label: pendingSlot.requirement.label }), 'warn');
           return;
         }
         pendingPlacementIntent = {
@@ -772,7 +773,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       pendingPlacementIntent = null;
       pendingPlacementHover = null;
       options.setBuildPreviewOverlay(null);
-      options.showToast('已提交建造意图', 'system');
+      options.showToast(t('building.toast.submitted'), 'system');
       syncActiveBuildMode(true);
     },
 

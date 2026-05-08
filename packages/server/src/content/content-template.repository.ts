@@ -83,6 +83,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     monsterRuntimeTemplates = new Map();
     /** 每张地图上的妖兽运行时状态缓存。 */
     monsterRuntimeStatesByMapId = new Map();
+    /** 妖兽倾向数值基准，启动期读取后供运行时模板解析直用。 */
+    monsterRealmBaselines = undefined;
     /** 起始背包条目列表。 */
     starterInventoryEntries = [];
     /** 模块初始化时加载全部内容模板。 */
@@ -545,6 +547,10 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             if (!template) {
                 continue;
             }
+            const resolvedStats = resolveMonsterRuntimeTemplateStats(template, {
+                level: state.level,
+                tier: state.tier,
+            });
             spawns.push({
                 runtimeId: state.runtimeId,
                 monsterId,
@@ -555,8 +561,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 spawnKey: typeof state.spawnKey === 'string' && state.spawnKey.trim()
                     ? state.spawnKey.trim()
                     : buildMonsterSpawnKey(mapId, monsterId, Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x, Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y),
-                hp: Math.max(0, Math.min(state.hp, template.maxHp)),
-                maxHp: template.maxHp,
+                hp: Math.max(0, Math.min(state.hp, resolvedStats.maxHp)),
+                maxHp: resolvedStats.maxHp,
                 respawnTicks: Number.isFinite(Number(state.respawnTicks))
                     ? Math.max(1, Math.trunc(Number(state.respawnTicks)))
                     : template.respawnTicks,
@@ -566,12 +572,13 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 name: template.name,
                 char: template.char,
                 color: template.color,
-                level: template.level,
-                tier: template.tier,
-                expMultiplier: template.expMultiplier,
-                baseAttrs: cloneMonsterAttributes(template.attrs),
-                baseNumericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
+                level: resolvedStats.level,
+                tier: resolvedStats.tier,
+                expMultiplier: resolvedStats.expMultiplier,
+                baseAttrs: cloneMonsterAttributes(resolvedStats.attrs),
+                baseNumericStats: (0, shared_1.cloneNumericStats)(resolvedStats.numericStats),
                 ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+                statFormula: cloneMonsterStatFormula(template.statFormula),
                 initialBuffs: template.initialBuffs?.map((entry) => ({ ...entry })),
                 skills: template.skills.map((entry) => cloneSkill(entry)),
                 aggroRange: template.aggroRange,
@@ -664,6 +671,12 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                     respawnTicks,
                     facing: shared_1.Direction.South,
                     wanderRadius,
+                    level: Number.isFinite(rawSpawn.level)
+                        ? Math.max(1, Math.trunc(Number(rawSpawn.level)))
+                        : undefined,
+                    tier: typeof rawSpawn.tier === 'string' && rawSpawn.tier.trim()
+                        ? rawSpawn.tier.trim()
+                        : undefined,
                 });
             }
         }
@@ -750,6 +763,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         this.monsterDropsByMonsterId.clear();
         this.monsterRuntimeTemplates.clear();
         this.monsterRuntimeStatesByMapId.clear();
+        this.monsterRealmBaselines = undefined;
         this.starterInventoryEntries = [];
         resetMapDocumentFileIndex();
 
@@ -805,6 +819,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 .map((entry) => normalizeStarterInventoryEntry(entry))
                 .filter((entry) => Boolean(entry))
             : [];
+        this.monsterRealmBaselines = loadMonsterRealmBaselines();
         this.loadMonsterDrops();
         this.logger.log(`已加载 ${this.itemTemplates.size} 个物品模板、${this.techniqueTemplates.size} 个功法、${this.monsterDropsByMonsterId.size} 张妖兽掉落表和 ${this.starterInventoryEntries.length} 条初始物品记录`);
     }
@@ -1226,26 +1241,15 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return null;
         }
 
-        const tier = normalizeMonsterTier(raw.tier ?? (0, shared_1.inferMonsterTierFromName)(name));
+        const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, this.monsterRealmBaselines);
 
-        const grade = normalizeTechniqueGrade(raw.grade);
+        const tier = resolved.tier;
 
-        const level = typeof raw.level === 'number' && Number.isFinite(raw.level)
-            ? Math.max(1, Math.trunc(raw.level))
-            : undefined;
+        const level = resolved.level ?? 1;
 
-        const attrs = (0, shared_1.normalizeMonsterAttrs)((raw.attrs && typeof raw.attrs === 'object' ? raw.attrs : undefined));
+        const attrs = cloneMonsterAttributes(resolved.resolvedAttrs);
 
-        const numericStats = (0, shared_1.resolveMonsterNumericStatsFromAttributes)({
-            attrs,
-            level,
-            grade,
-            tier,
-
-            statPercents: (0, shared_1.normalizeMonsterStatPercents)((raw.statPercents && typeof raw.statPercents === 'object'
-                ? raw.statPercents
-                : undefined)),
-        });
+        const numericStats = (0, shared_1.cloneNumericStats)(resolved.computedStats);
 
         const maxHp = normalizeMonsterMaxHp(raw.maxHp, raw.hp, attrs, numericStats);
         if (maxHp <= 0) {
@@ -1256,7 +1260,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             name,
             char,
             color,
-            level: level ?? 1,
+            level,
             tier,
             maxHp,
             count: Number.isFinite(raw.count)
@@ -1270,7 +1274,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             attrs,
             numericStats,
             ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors),
-            expMultiplier: (0, shared_1.resolveMonsterExpMultiplier)(raw.expMultiplier, tier),
+            expMultiplier: resolved.expMultiplier,
+            statFormula: createMonsterStatFormula(raw, this.monsterRealmBaselines),
             initialBuffs: normalizeMonsterInitialBuffs(raw.initialBuffs),
             skills: this.normalizeMonsterSkills(raw.skills, id),
             aggroRange: normalizeMonsterAggroRange(raw.aggroRange, raw.radius, numericStats.viewRange),
@@ -1443,6 +1448,149 @@ function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
     return 0;
 }
 /**
+ * loadMonsterRealmBaselines：启动期读取妖兽倾向数值基准。
+ * @returns 妖兽等级基准配置。
+ */
+
+function loadMonsterRealmBaselines() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const baselinesPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
+    if (!fs.existsSync(baselinesPath)) {
+        return undefined;
+    }
+    const parsed = JSON.parse(fs.readFileSync(baselinesPath, 'utf-8'));
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.levels)) {
+        return undefined;
+    }
+    return parsed;
+}
+/**
+ * createMonsterStatFormula：保存妖兽属性公式输入，供运行时按当前等级重算。
+ * @param raw 原始妖兽配置。
+ * @param baselines 妖兽等级基准。
+ * @returns 妖兽属性公式输入。
+ */
+
+function createMonsterStatFormula(raw, baselines) {
+    return {
+        raw: cloneMonsterFormulaRaw(raw),
+        baselines: cloneMonsterRealmBaselines(baselines),
+    };
+}
+/**
+ * resolveMonsterRuntimeTemplateStats：按当前覆盖项动态计算妖兽真实基础属性。
+ * @param template 妖兽运行时模板。
+ * @param overrides 动态覆盖项。
+ * @returns 妖兽当前基础属性。
+ */
+
+function resolveMonsterRuntimeTemplateStats(template, overrides = {}) {
+    const formula = template.statFormula;
+    if (!formula?.raw) {
+        return {
+            level: template.level,
+            tier: template.tier,
+            expMultiplier: template.expMultiplier,
+            attrs: cloneMonsterAttributes(template.attrs),
+            numericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
+            maxHp: template.maxHp,
+        };
+    }
+    const raw = cloneMonsterFormulaRaw(formula.raw);
+    if (Number.isFinite(Number(overrides.level))) {
+        raw.level = Math.max(1, Math.trunc(Number(overrides.level)));
+    }
+    if (typeof overrides.tier === 'string' && overrides.tier.trim()) {
+        raw.tier = overrides.tier.trim();
+    }
+    const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, formula.baselines);
+    const attrs = cloneMonsterAttributes(resolved.resolvedAttrs);
+    const numericStats = (0, shared_1.cloneNumericStats)(resolved.computedStats);
+    return {
+        level: resolved.level ?? template.level,
+        tier: resolved.tier,
+        expMultiplier: resolved.expMultiplier,
+        attrs,
+        numericStats,
+        maxHp: normalizeMonsterMaxHp(raw.maxHp, raw.hp, attrs, numericStats),
+    };
+}
+/**
+ * cloneMonsterStatFormula：克隆妖兽公式输入。
+ * @param source 来源公式。
+ * @returns 克隆后的公式。
+ */
+
+function cloneMonsterStatFormula(source) {
+    if (!source?.raw) {
+        return undefined;
+    }
+    return {
+        raw: cloneMonsterFormulaRaw(source.raw),
+        baselines: cloneMonsterRealmBaselines(source.baselines),
+    };
+}
+/**
+ * cloneMonsterFormulaRaw：只克隆影响妖兽属性公式的配置字段。
+ * @param raw 原始配置。
+ * @returns 公式配置。
+ */
+
+function cloneMonsterFormulaRaw(raw) {
+    return {
+        id: typeof raw?.id === 'string' ? raw.id : '',
+        name: typeof raw?.name === 'string' ? raw.name : '',
+        char: typeof raw?.char === 'string' ? raw.char : '',
+        color: typeof raw?.color === 'string' ? raw.color : '',
+        grade: raw?.grade,
+        tier: raw?.tier,
+        level: raw?.level,
+        expMultiplier: raw?.expMultiplier,
+        valueStats: clonePlainValue(raw?.valueStats),
+        attrs: clonePlainValue(raw?.attrs),
+        attrTendency: clonePlainValue(raw?.attrTendency),
+        statPercents: clonePlainValue(raw?.statPercents),
+        statTendency: clonePlainValue(raw?.statTendency),
+    };
+}
+/**
+ * cloneMonsterRealmBaselines：克隆妖兽等级基准配置。
+ * @param source 来源基准。
+ * @returns 克隆后的基准。
+ */
+
+function cloneMonsterRealmBaselines(source) {
+    if (!source || typeof source !== 'object') {
+        return undefined;
+    }
+    return {
+        version: source.version,
+        levels: Array.isArray(source.levels)
+            ? source.levels.map((entry) => ({ ...entry }))
+            : undefined,
+    };
+}
+/**
+ * clonePlainValue：克隆 JSON 风格配置值。
+ * @param value 来源值。
+ * @returns 克隆值。
+ */
+
+function clonePlainValue(value) {
+    if (Array.isArray(value)) {
+        return value.map((entry) => clonePlainValue(entry));
+    }
+    if (value && typeof value === 'object') {
+        const result = {};
+        for (const [key, entry] of Object.entries(value)) {
+            result[key] = clonePlainValue(entry);
+        }
+        return result;
+    }
+    return value;
+}
+/**
  * normalizeMonsterRespawnTicks：规范化或转换怪物重生tick。
  * @param respawnTicks 参数说明。
  * @param respawnSec 参数说明。
@@ -1602,6 +1750,16 @@ function normalizeMonsterRuntimeStateRecord(raw) {
         respawnTicks: typeof entry.respawnTicks === 'number' && Number.isFinite(entry.respawnTicks)
             ? Math.max(1, Math.trunc(entry.respawnTicks))
             : undefined,
+        level: typeof entry.level === 'number' && Number.isFinite(entry.level)
+            ? Math.max(1, Math.trunc(entry.level))
+            : (typeof entry.monsterLevel === 'number' && Number.isFinite(entry.monsterLevel)
+                ? Math.max(1, Math.trunc(entry.monsterLevel))
+                : undefined),
+        tier: typeof entry.tier === 'string' && entry.tier.trim()
+            ? entry.tier.trim()
+            : (typeof entry.monsterTier === 'string' && entry.monsterTier.trim()
+                ? entry.monsterTier.trim()
+                : undefined),
 
         facing: typeof entry.facing === 'number' && Number.isFinite(entry.facing)
             ? Math.trunc(entry.facing)

@@ -284,6 +284,8 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         const portalIndexByTile = new Int32Array(size);
         const safeZoneMask = new Uint8Array(size);
         const baseAuraByTile = new Int32Array(size);
+        const movementCostOverrideByTile = new Int32Array(size);
+        const qiDrainByTile = new Int32Array(size);
         const baseTileResourceEntryByKey = new Map();
         portalIndexByTile.fill(-1);
         for (let y = 0; y < height; y += 1) {
@@ -298,6 +300,39 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         const safeZones = normalizeSafeZones(document.safeZones, width, height);
         for (const safeZone of safeZones) {
             fillSafeZoneMask(safeZoneMask, width, height, safeZone);
+        }
+        for (const effect of document.tileEffects ?? []) {
+            if (!effect
+                || !Number.isInteger(effect.x)
+                || !Number.isInteger(effect.y)
+                || !Number.isInteger(effect.width)
+                || !Number.isInteger(effect.height)) {
+                continue;
+            }
+            const minX = Math.max(0, Math.trunc(effect.x));
+            const minY = Math.max(0, Math.trunc(effect.y));
+            const maxX = Math.min(width - 1, minX + Math.max(1, Math.trunc(effect.width)) - 1);
+            const maxY = Math.min(height - 1, minY + Math.max(1, Math.trunc(effect.height)) - 1);
+            const movementCost = Number.isFinite(effect.movementCost)
+                ? Math.max(1, Math.trunc(effect.movementCost))
+                : null;
+            const qiDrainPerTick = Number.isFinite(effect.qiDrainPerTick)
+                ? Math.max(0, Math.trunc(effect.qiDrainPerTick))
+                : null;
+            if (movementCost === null && qiDrainPerTick === null) {
+                continue;
+            }
+            for (let y = minY; y <= maxY; y += 1) {
+                for (let x = minX; x <= maxX; x += 1) {
+                    const tileIndex = getTileIndex(x, y, width);
+                    if (movementCost !== null) {
+                        movementCostOverrideByTile[tileIndex] = movementCost;
+                    }
+                    if (qiDrainPerTick !== null) {
+                        qiDrainByTile[tileIndex] = qiDrainPerTick;
+                    }
+                }
+            }
         }
         const landmarks = normalizeLandmarks(expandResourceNodeGroupLandmarks(document, resourceNodeById), width, height);
         const containers = landmarks
@@ -421,6 +456,8 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             safeZoneMask,
             walkableMask,
             blocksSightMask,
+            movementCostOverrideByTile,
+            qiDrainByTile,
             baseAuraByTile,
             baseTileResourceEntries: Array.from(baseTileResourceEntryByKey.values()).sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex),
             source: document,

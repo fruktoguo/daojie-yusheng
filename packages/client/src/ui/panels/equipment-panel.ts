@@ -12,6 +12,7 @@ import { getItemDisplayMeta } from '../item-display';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 import { patchElementHtml } from '../dom-patch';
+import { t } from '../i18n';
 
 /** formatEffectCondition：格式化效果条件。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
@@ -38,33 +39,39 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
       case 'stat_aura':
       case 'progress_boost': {
         const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
-        return `特效:${effectParts.join(' / ') || '无数值变化'}${conditionText}`;
+        return t('equipment.effect.stat-aura', { effects: effectParts.join(' / ') || t('equipment.effect.no-value-change', undefined), condition: conditionText });
       }
       case 'periodic_cost': {
         const modeLabel = effect.mode === 'flat'
           ? `${formatDisplayInteger(effect.value)}`
           : effect.mode === 'max_ratio_bp'
-            ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-            : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
-        const triggerLabel = effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息';
-        return `代价:${triggerLabel}损失 ${modeLabel}${conditionText}`;
+            ? t('equipment.effect.max-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp', undefined) : t('equipment.resource.qi', undefined) })
+            : t('equipment.effect.current-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp', undefined) : t('equipment.resource.qi', undefined) });
+        const triggerLabel = effect.trigger === 'on_cultivation_tick' ? t('equipment.trigger.cultivation-tick', undefined) : t('equipment.trigger.tick', undefined);
+        return t('equipment.effect.periodic-cost', { trigger: triggerLabel, mode: modeLabel, condition: conditionText });
       }
       case 'timed_buff': {
         const triggerMap: Record<string, string> = {
-          on_equip: '装备时',
-          on_unequip: '卸下时',
-          on_tick: '每息',
-          on_move: '移动后',
-          on_attack: '攻击后',
-          on_hit: '受击后',
-          on_kill: '击杀后',
-          on_skill_cast: '施法后',
-          on_cultivation_tick: '修炼时',
-          on_time_segment_changed: '时段切换时',
-          on_enter_map: '入图时',
+          on_equip: t('equipment.trigger.on-equip', undefined),
+          on_unequip: t('equipment.trigger.on-unequip', undefined),
+          on_tick: t('equipment.trigger.on-tick', undefined),
+          on_move: t('equipment.trigger.on-move', undefined),
+          on_attack: t('equipment.trigger.on-attack', undefined),
+          on_hit: t('equipment.trigger.on-hit', undefined),
+          on_kill: t('equipment.trigger.on-kill', undefined),
+          on_skill_cast: t('equipment.trigger.on-skill-cast', undefined),
+          on_cultivation_tick: t('equipment.trigger.on-cultivation-tick', undefined),
+          on_time_segment_changed: t('equipment.trigger.on-time-segment-changed', undefined),
+          on_enter_map: t('equipment.trigger.on-enter-map', undefined),
         };
         const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
-        return `触发:${triggerMap[effect.trigger] ?? effect.trigger}获得 ${effect.buff.name} ${effect.buff.duration}息${conditionText}${buffParts.length > 0 ? `，效果:${buffParts.join(' / ')}` : ''}`;
+        return t('equipment.effect.timed-buff', {
+          trigger: triggerMap[effect.trigger] ?? effect.trigger,
+          buffName: effect.buff.name,
+          duration: effect.buff.duration,
+          condition: conditionText,
+          effects: buffParts.length > 0 ? t('equipment.effect.timed-buff-effects', { effects: buffParts.join(' / ') }) : '',
+        });
       }
       default:
         return '';
@@ -76,12 +83,12 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
 function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!item) return '暂无词条';
+  if (!item) return t('equipment.empty.affixes', undefined);
   const previewItem = resolvePreviewItem(item);
   const bonusParts = describeEquipmentBonuses(previewItem);
   const effectParts = formatItemEffects(item);
   const parts = [...bonusParts, ...effectParts];
-  return parts.length > 0 ? parts.join(' / ') : '暂无词条';
+  return parts.length > 0 ? parts.join(' / ') : t('equipment.empty.affixes', undefined);
 }
 
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
@@ -203,7 +210,7 @@ export class EquipmentPanel {
       const hasItem = !!item;
       hasAnyEquipment ||= hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
-      const metaText = item ? formatItemBonuses(item) : '尚未装备';
+      const metaText = item ? formatItemBonuses(item) : t('equipment.empty.slot-meta', undefined);
       const signature = this.buildSlotSignature(slot, hasItem, itemName, metaText);
       if (this.slotSignatures.get(slot) === signature) {
         continue;
@@ -218,7 +225,7 @@ export class EquipmentPanel {
       slotView.name.textContent = getEquipSlotLabel(slot);
       slotView.item.textContent = itemName;
       slotView.item.hidden = !hasItem;
-      slotView.empty.textContent = '未着';
+      slotView.empty.textContent = t('equipment.empty.slot-short', undefined);
       slotView.empty.hidden = hasItem;
       slotView.meta.textContent = metaText;
       slotView.action.hidden = !hasItem;
@@ -248,12 +255,12 @@ export class EquipmentPanel {
 
       const titleEl = document.createElement('div');
       titleEl.className = 'panel-section-title';
-      titleEl.textContent = '装备栏';
+      titleEl.textContent = t('equipment.title', undefined);
       sectionEl.append(titleEl);
 
       const emptyStateEl = document.createElement('div');
       emptyStateEl.className = 'empty-hint';
-      emptyStateEl.textContent = '尚未装备任何物品';
+      emptyStateEl.textContent = t('equipment.empty.all', undefined);
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
 
@@ -287,16 +294,16 @@ export class EquipmentPanel {
 
     const empty = document.createElement('span');
     empty.className = 'equip-slot-empty';
-    empty.textContent = '未着';
+    empty.textContent = t('equipment.empty.slot-short', undefined);
 
     const meta = document.createElement('span');
     meta.className = 'equip-slot-meta';
-    meta.textContent = '尚未装备';
+    meta.textContent = t('equipment.empty.slot-meta', undefined);
 
     const action = document.createElement('button');
     action.className = 'small-btn';
     action.type = 'button';
-    action.textContent = '卸下';
+    action.textContent = t('equipment.action.unequip', undefined);
     action.hidden = true;
     action.disabled = true;
     action.dataset.unequip = slot;

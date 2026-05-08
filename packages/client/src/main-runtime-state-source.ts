@@ -586,6 +586,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       player.allowAoePlayerHit = player.allowAoePlayerHit === true;
       player.autoIdleCultivation = player.autoIdleCultivation !== false;
       player.autoSwitchCultivation = player.autoSwitchCultivation === true;
+      player.autoRootFoundation = player.autoRootFoundation === true;
       player.cultivationActive = player.cultivationActive === true;
       options.normalizeBootstrapPlayer(player);
 

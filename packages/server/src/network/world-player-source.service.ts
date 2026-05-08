@@ -301,6 +301,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
             autoIdleCultivation: row.autoIdleCultivation !== false,
 
             autoSwitchCultivation: row.autoSwitchCultivation === true,
+            autoRootFoundation: row.autoRootFoundation === true,
             senseQiActive: false,
             wangQiActive: false,
             autoBattleSkills: normalizeAutoBattleSkills(row.autoBattleSkills),

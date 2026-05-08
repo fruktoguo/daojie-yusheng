@@ -8,6 +8,7 @@ import {
 import { detailModalHost } from './detail-modal-host';
 import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
+import { t } from './i18n';
 
 /** TutorialOperationHint：教程操作提示。 */
 interface TutorialOperationHint {
@@ -29,42 +30,42 @@ interface TutorialOperationHint {
 }
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
-  { label: '点击地图格子', path: '地图区域->目标格子' },
-  { label: '简易教程', path: '左上角外链区->简易教程' },
-  { label: '境界/突破按钮', path: '左上角角色状态区->突破' },
-  { label: '闲置自动修炼', path: '右下角行动栏->开关->闲置自动修炼' },
-  { label: '修满自动切换', path: '右下角行动栏->开关->修满自动切换' },
-  { label: '当前修炼', path: '右下角行动栏->开关->当前修炼' },
-  { label: '强制攻击', path: '右下角行动栏->行动->强制攻击->执行' },
-  { label: '自动战斗', path: '右下角行动栏->开关->自动战斗' },
-  { label: '自动反击', path: '右下角行动栏->开关->自动反击' },
-  { label: '原地战斗', path: '右下角行动栏->开关->原地战斗' },
-  { label: '全体攻击', path: '右下角行动栏->开关->全体攻击' },
-  { label: '感气视角', path: '右下角行动栏->开关->感气视角' },
-  { label: '打开坊市', path: '右侧卷轴区->坊市->打开坊市' },
-  { label: '前往目标', path: '右侧卷轴区->任务->任务详情->前往目标' },
-  { label: '前往交付', path: '右侧卷轴区->任务->任务详情->前往交付' },
-  { label: '全部拿取', path: '拾取弹层->全部拿取' },
-  { label: '设为主修', path: '右侧卷轴区->功法->对应功法->设为主修' },
-  { label: 'GitHub', path: '左上角外链区->GitHub' },
-  { label: '取消键', path: '键盘->Esc' },
-  { label: '观察', path: '右下角行动栏->行动->观察->执行' },
-  { label: '拿取', path: '右下角行动栏->行动->拿取->执行' },
-  { label: '执行', path: '右下角行动栏->对应条目->执行' },
-  { label: '功法', path: '右侧卷轴区->功法' },
-  { label: '背包', path: '右侧卷轴区->背包' },
-  { label: '装备', path: '右侧卷轴区->装备' },
-  { label: '任务', path: '右侧卷轴区->任务' },
-  { label: '坊市', path: '右侧卷轴区->坊市' },
-  { label: '技能', path: '右下角行动栏->技能' },
-  { label: '对话', path: '右下角行动栏->对话' },
-  { label: '行动', path: '右下角行动栏->行动' },
-  { label: '开关', path: '右下角行动栏->开关' },
-  { label: '突破', path: '左上角角色状态区->突破' },
-  { label: '设置', path: '左上角操作区->设置' },
-  { label: '意见', path: '左上角操作区->意见' },
-  { label: '史书', path: '左上角操作区->史书' },
-  { label: 'QQ', path: '左上角外链区->QQ' },
+  { label: t('tutorial.hint.click-map-tile.label', undefined), path: t('tutorial.hint.click-map-tile.path', undefined) },
+  { label: t('tutorial.hint.simple-tutorial.label', undefined), path: t('tutorial.hint.simple-tutorial.path', undefined) },
+  { label: t('tutorial.hint.breakthrough-button.label', undefined), path: t('tutorial.hint.breakthrough-button.path', undefined) },
+  { label: t('tutorial.hint.auto-idle-cultivation.label', undefined), path: t('tutorial.hint.auto-idle-cultivation.path', undefined) },
+  { label: t('tutorial.hint.auto-switch-cultivation.label', undefined), path: t('tutorial.hint.auto-switch-cultivation.path', undefined) },
+  { label: t('tutorial.hint.current-cultivation.label', undefined), path: t('tutorial.hint.current-cultivation.path', undefined) },
+  { label: t('tutorial.hint.force-attack.label', undefined), path: t('tutorial.hint.force-attack.path', undefined) },
+  { label: t('tutorial.hint.auto-battle.label', undefined), path: t('tutorial.hint.auto-battle.path', undefined) },
+  { label: t('tutorial.hint.auto-retaliate.label', undefined), path: t('tutorial.hint.auto-retaliate.path', undefined) },
+  { label: t('tutorial.hint.stationary-battle.label', undefined), path: t('tutorial.hint.stationary-battle.path', undefined) },
+  { label: t('tutorial.hint.allow-aoe-hit.label', undefined), path: t('tutorial.hint.allow-aoe-hit.path', undefined) },
+  { label: t('tutorial.hint.sense-qi.label', undefined), path: t('tutorial.hint.sense-qi.path', undefined) },
+  { label: t('tutorial.hint.open-market.label', undefined), path: t('tutorial.hint.open-market.path', undefined) },
+  { label: t('tutorial.hint.go-target.label', undefined), path: t('tutorial.hint.go-target.path', undefined) },
+  { label: t('tutorial.hint.go-submit.label', undefined), path: t('tutorial.hint.go-submit.path', undefined) },
+  { label: t('tutorial.hint.take-all.label', undefined), path: t('tutorial.hint.take-all.path', undefined) },
+  { label: t('tutorial.hint.set-cultivate.label', undefined), path: t('tutorial.hint.set-cultivate.path', undefined) },
+  { label: 'GitHub', path: t('tutorial.hint.github.path', undefined) },
+  { label: t('tutorial.hint.cancel-key.label', undefined), path: t('tutorial.hint.cancel-key.path', undefined) },
+  { label: t('tutorial.hint.observe.label', undefined), path: t('tutorial.hint.observe.path', undefined) },
+  { label: t('tutorial.hint.take.label', undefined), path: t('tutorial.hint.take.path', undefined) },
+  { label: t('tutorial.hint.execute.label', undefined), path: t('tutorial.hint.execute.path', undefined) },
+  { label: t('tutorial.hint.technique.label', undefined), path: t('tutorial.hint.technique.path', undefined) },
+  { label: t('tutorial.hint.inventory.label', undefined), path: t('tutorial.hint.inventory.path', undefined) },
+  { label: t('tutorial.hint.equipment.label', undefined), path: t('tutorial.hint.equipment.path', undefined) },
+  { label: t('tutorial.hint.quest.label', undefined), path: t('tutorial.hint.quest.path', undefined) },
+  { label: t('tutorial.hint.market.label', undefined), path: t('tutorial.hint.market.path', undefined) },
+  { label: t('tutorial.hint.skill.label', undefined), path: t('tutorial.hint.skill.path', undefined) },
+  { label: t('tutorial.hint.dialog.label', undefined), path: t('tutorial.hint.dialog.path', undefined) },
+  { label: t('tutorial.hint.action.label', undefined), path: t('tutorial.hint.action.path', undefined) },
+  { label: t('tutorial.hint.toggle.label', undefined), path: t('tutorial.hint.toggle.path', undefined) },
+  { label: t('tutorial.hint.breakthrough.label', undefined), path: t('tutorial.hint.breakthrough.path', undefined) },
+  { label: t('tutorial.hint.settings.label', undefined), path: t('tutorial.hint.settings.path', undefined) },
+  { label: t('tutorial.hint.suggestion.label', undefined), path: t('tutorial.hint.suggestion.path', undefined) },
+  { label: t('tutorial.hint.changelog.label', undefined), path: t('tutorial.hint.changelog.path', undefined) },
+  { label: 'QQ', path: t('tutorial.hint.qq.path', undefined) },
 ];
 
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
@@ -83,9 +84,9 @@ const TUTORIAL_MAIN_TABS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { id: 'operations', label: '入门' },
-  { id: 'mechanics', label: '法则' },
-  { id: 'flow', label: '指引' },
+  { id: 'operations', label: t('tutorial.main-tab.operations', undefined) },
+  { id: 'mechanics', label: t('tutorial.main-tab.mechanics', undefined) },
+  { id: 'flow', label: t('tutorial.main-tab.flow', undefined) },
 ];
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
@@ -185,9 +186,9 @@ export class TutorialPanel {
       ownerId: TutorialPanel.MODAL_OWNER,
       size: 'wide',
       variantClass: 'detail-modal--tutorial',
-      title: '简易教程',
-      subtitle: '初涉仙途指引，迷途时可回此翻阅。',
-      hint: '点击空白处关闭',
+      title: t('tutorial.panel.title', undefined),
+      subtitle: t('tutorial.panel.subtitle', undefined),
+      hint: t('tutorial.panel.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
       },
@@ -205,7 +206,7 @@ export class TutorialPanel {
   private renderBody(body: HTMLElement): void {
     patchElementHtml(body, `
       <div class="tutorial-modal-body">
-        <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="简易教程分类">
+        <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="${escapeHtml(t('tutorial.panel.main-tabs.aria', undefined))}">
           ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
         </div>
         <div class="tutorial-modal-main-panes">
@@ -216,7 +217,7 @@ export class TutorialPanel {
             aria-hidden="${this.activeMainTabId === 'operations' ? 'false' : 'true'}"
           >
             <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="入门目录">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="${escapeHtml(t('tutorial.panel.operations-tabs.aria', undefined))}">
                 ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
               </div>
               <div class="tutorial-modal-content ui-split-panel-content">
@@ -231,7 +232,7 @@ export class TutorialPanel {
             aria-hidden="${this.activeMainTabId === 'mechanics' ? 'false' : 'true'}"
           >
             <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="法则目录">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="${escapeHtml(t('tutorial.panel.mechanics-tabs.aria', undefined))}">
                 ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicTab(topic)).join('')}
               </div>
               <div class="tutorial-modal-content ui-split-panel-content">
@@ -295,7 +296,7 @@ export class TutorialPanel {
         aria-hidden="${active ? 'false' : 'true'}"
       >
         <div class="tutorial-pane-hero">
-          <div class="tutorial-pane-kicker">简明说明</div>
+          <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.operations', undefined))}</div>
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
         <div class="tutorial-pane-sections">
@@ -310,7 +311,7 @@ export class TutorialPanel {
         </div>
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
-            <div class="tutorial-section-title">小提醒</div>
+            <div class="tutorial-section-title">${escapeHtml(t('tutorial.panel.tip-title', undefined))}</div>
             <ul class="tutorial-section-list tutorial-section-list--tips">
               ${topic.tips.map((tip) => `<li>${renderTutorialRichText(tip)}</li>`).join('')}
             </ul>
@@ -347,7 +348,7 @@ export class TutorialPanel {
         aria-hidden="${active ? 'false' : 'true'}"
       >
         <div class="tutorial-pane-hero">
-          <div class="tutorial-pane-kicker">核心机制</div>
+          <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.mechanics', undefined))}</div>
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
         <div class="tutorial-pane-sections">
@@ -362,7 +363,7 @@ export class TutorialPanel {
         </div>
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
-            <div class="tutorial-section-title">小提醒</div>
+            <div class="tutorial-section-title">${escapeHtml(t('tutorial.panel.tip-title', undefined))}</div>
             <ul class="tutorial-section-list tutorial-section-list--tips">
               ${topic.tips.map((tip) => `<li>${renderTutorialRichText(tip)}</li>`).join('')}
             </ul>
@@ -376,13 +377,13 @@ export class TutorialPanel {
   private renderFlowGuide(): string {
     return `
       <div class="tutorial-pane-hero tutorial-pane-hero--flow">
-        <div class="tutorial-pane-kicker">指引</div>
+        <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.flow', undefined))}</div>
         <div class="tutorial-pane-summary">
-          常惑按景分列。困于何处，便切何处观之，无需通览。
+          ${renderTutorialRichText(t('tutorial.panel.flow.summary', undefined))}
         </div>
       </div>
       <div class="tutorial-flow-shell ui-split-panel-shell">
-        <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="指引目录">
+        <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="${escapeHtml(t('tutorial.panel.flow-tabs.aria', undefined))}">
           ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowTab(topic)).join('')}
         </div>
         <div class="tutorial-flow-content ui-split-panel-content">
@@ -434,7 +435,7 @@ export class TutorialPanel {
         </div>
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
-            <div class="tutorial-section-title">小提醒</div>
+            <div class="tutorial-section-title">${escapeHtml(t('tutorial.panel.tip-title', undefined))}</div>
             <ul class="tutorial-section-list tutorial-section-list--tips">
               ${topic.tips.map((tip) => `<li>${renderTutorialRichText(tip)}</li>`).join('')}
             </ul>

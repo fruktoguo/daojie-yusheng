@@ -16,6 +16,10 @@ interface MapTemplateSummaryLike {
  */
 
   name: string;  
+  mapGroupId?: string;
+  mapGroupName?: string;
+  mapGroupOrder?: number;
+  mapGroupMemberOrder?: number;
   /**
  * width：width相关字段。
  */
@@ -26,6 +30,7 @@ interface MapTemplateSummaryLike {
  */
 
   height: number;  
+  routeDomain?: string;
   /**
  * source：来源相关字段。
  */
@@ -98,8 +103,13 @@ export class NativeGmMapQueryService {
         .map((template) => ({
           id: template.id,
           name: template.name,
+          mapGroupId: template.mapGroupId,
+          mapGroupName: template.mapGroupName,
+          mapGroupOrder: template.mapGroupOrder,
+          mapGroupMemberOrder: template.mapGroupMemberOrder,
           width: template.width,
           height: template.height,
+          routeDomain: template.routeDomain,
           description: template.source.description,
           dangerLevel: template.source.dangerLevel,
           recommendedRealm: template.source.recommendedRealm,

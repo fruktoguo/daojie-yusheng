@@ -1,4 +1,5 @@
 import type { GmManagedPlayerSummary, GmStateRes } from '@mud/shared';
+import { t } from '../../ui/i18n';
 /**
  * PlayerListElements：统一结构类型，保证协议与运行时一致性。
  */
@@ -73,7 +74,14 @@ function createElementFromHtml<T extends Element>(html: string): T {
 
 /** renderPlayerPageMeta：渲染玩家分页元数据。 */
 function renderPlayerPageMeta(elements: PlayerListElements, data: GmStateRes): void {
-  elements.playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
+  elements.playerPageMetaEl.textContent = t(
+    'gm.player-list.page-meta',
+    {
+      page: data.playerPage.page,
+      totalPages: data.playerPage.totalPages,
+      total: data.playerPage.total,
+    },
+  );
   elements.playerPrevPageBtn.disabled = data.playerPage.page <= 1;
   elements.playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
 }
@@ -97,7 +105,7 @@ export function renderGmPlayerListSection(
   if (filtered.length === 0) {
     if (lastStructureKey !== 'empty') {
       elements.playerListEl.replaceChildren(
-        createElementFromHtml<HTMLDivElement>('<div class="empty-hint">没有符合筛选条件的角色。</div>'),
+        createElementFromHtml<HTMLDivElement>(`<div class="empty-hint">${t('gm.player-list.empty', undefined)}</div>`),
       );
     }
     renderPlayerPageMeta(elements, data);

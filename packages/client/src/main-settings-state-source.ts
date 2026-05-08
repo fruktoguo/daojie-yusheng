@@ -4,6 +4,7 @@ import {
   PlayerState,
 } from '@mud/shared';
 import { SettingsPanel } from './ui/panels/settings-panel';
+import { t } from './ui/i18n';
 /**
  * PendingRedeemCodesRequest：统一结构类型，保证协议与运行时一致性。
  */
@@ -150,10 +151,10 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
 
   const requestRedeemCodes = (codes: string[]): Promise<AccountRedeemCodesRes> => {
     if (!options.isSocketConnected()) {
-      return Promise.reject(new Error('气机未通，稍后再试'));
+      return Promise.reject(new Error(t('settings.error.not-connected')));
     }
     if (pendingRedeemCodesRequest) {
-      return Promise.reject(new Error('尚有兑换未竟，稍候'));
+      return Promise.reject(new Error(t('settings.error.redeem-busy')));
     }
     return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
       const timeoutId = window.setTimeout(() => {
@@ -161,7 +162,7 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
           return;
         }
         pendingRedeemCodesRequest = null;
-        reject(new Error('兑换未有回音，请稍后查看行囊'));
+        reject(new Error(t('settings.error.redeem-timeout')));
       }, REDEEM_RESULT_TIMEOUT_MS);
       pendingRedeemCodesRequest = { resolve, reject, timeoutId };
       options.sendRedeemCodes(codes);
@@ -175,18 +176,18 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
     getCurrentRoleName: () => options.getPlayer()?.name ?? '',
     onDisplayNameUpdated: (displayName) => {
       applyLocalDisplayName(displayName);
-      options.showToast(`显示名称已改为 ${displayName}`);
+      options.showToast(t('settings.toast.display-name-updated', { displayName }));
     },
     onRoleNameUpdated: (roleName) => {
       applyLocalRoleName(roleName);
-      options.showToast(`角色名称已改为 ${roleName}`);
+      options.showToast(t('settings.toast.role-name-updated', { roleName }));
     },
     redeemCodes: requestRedeemCodes,
     onLogout: () => {
       options.closeSettingsPanel();
       options.disconnectSocket();
       options.resetGameState();
-      options.logout('已退出登录');
+      options.logout(t('settings.logout.done'));
     },
   });
 

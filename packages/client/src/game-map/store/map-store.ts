@@ -1227,6 +1227,8 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
     return null;
   }
   const type = tile.type ?? TileType.Floor;
+  const movementCost = tile.movementCost;
+  const qiDrainPerTick = tile.qiDrainPerTick;
   const resources = Array.isArray(tile.resources) && tile.resources.length > 0
     ? tile.resources.map((entry) => ({ ...entry }))
     : undefined;
@@ -1236,6 +1238,8 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
     walkable: typeof tile.walkable === 'boolean' ? tile.walkable : isTileTypeWalkable(type),
     blocksSight: typeof tile.blocksSight === 'boolean' ? tile.blocksSight : doesTileTypeBlockSight(type),
     aura: Number.isFinite(tile.aura) ? tile.aura : 0,
+    movementCost: typeof movementCost === 'number' && Number.isFinite(movementCost) && movementCost > 0 ? Math.trunc(movementCost) : undefined,
+    qiDrainPerTick: typeof qiDrainPerTick === 'number' && Number.isFinite(qiDrainPerTick) && qiDrainPerTick > 0 ? Math.trunc(qiDrainPerTick) : undefined,
     occupiedBy: typeof tile.occupiedBy === 'string' && tile.occupiedBy.length > 0 ? tile.occupiedBy : null,
     modifiedAt: typeof tile.modifiedAt === 'number' && Number.isFinite(tile.modifiedAt) ? tile.modifiedAt : null,
     resources,

@@ -4,6 +4,7 @@
  */
 import { preserveSelection } from './selection-preserver';
 import { patchElementChildren, patchElementHtml } from './dom-patch';
+import { t } from './i18n';
 import {
   applyModalFrameClasses,
   buildModalCardClassList,
@@ -174,7 +175,7 @@ class DetailModalHost {
     this.title.textContent = options.title;
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
-    this.hint.textContent = options.hint ?? '点击空白处关闭';
+    this.hint.textContent = options.hint ?? t('modal.detail.close-hint', undefined);
     const renderSignal = this.prepareBodyRenderSignal();
     preserveSelection(this.body, () => {
       if (typeof options.renderBody === 'function') {
@@ -225,7 +226,7 @@ class DetailModalHost {
       this.subtitle.classList.toggle('hidden', !options.subtitle);
     }
     if (options.hint !== undefined) {
-      this.hint.textContent = options.hint || '点击空白处关闭';
+      this.hint.textContent = options.hint || t('modal.detail.close-hint', undefined);
     }
     if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
       const renderSignal = this.prepareBodyRenderSignal();

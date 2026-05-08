@@ -23,6 +23,12 @@ export const BASE_MOVE_POINTS_PER_TICK = MOVE_POINT_UNIT;
 /** 最大可累积移动点数 */
 export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 8;
 
+/** 移速软衰减起点 */
+export const MOVE_SPEED_SOFT_CAP = MOVE_POINT_UNIT * 5;
+
+/** 移速软衰减后每翻倍提供的有效移速增量 */
+export const MOVE_SPEED_SOFT_CAP_LOG_GAIN = MOVE_POINT_UNIT * 3;
+
 /** 各地形类型的移动消耗 */
 export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   floor: 100,
@@ -35,6 +41,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   ...HOUSE_DECOR_TILE_TRAVERSAL_COST,
   portal: 100,
   stairs: 100,
+  stone_stairs: 100,
   grass: 80,
   hill: 120,
   cliff: 400,
@@ -66,6 +73,7 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   ...HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR,
   portal: 'P',
   stairs: 'S',
+  stone_stairs: '梯',
   grass: ',',
   hill: '^',
   cliff: '崖',

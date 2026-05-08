@@ -32,6 +32,7 @@ interface PersistedAuthRow {
  */
 
   player_id?: unknown;  
+  player_no?: unknown;
   /**
  * pending_role_name：pendingrole名称名称或显示文本。
  */
@@ -114,6 +115,7 @@ interface AuthRecordCandidate {
  */
 
   playerId?: unknown;  
+  playerNo?: unknown;
   /**
  * playerName：玩家名称名称或显示文本。
  */
@@ -258,6 +260,8 @@ export interface NativePlayerAuthUser {
  */
 
   playerId: string;  
+  /** 玩家可见数字编号，按注册顺序分配。 */
+  playerNo: number | null;
   /**
  * playerName：玩家名称名称或显示文本。
  */
@@ -300,12 +304,15 @@ export interface NativePlayerAuthUser {
 }
 
 const PLAYER_AUTH_TABLE = 'server_player_auth';
+const PLAYER_AUTH_PLAYER_NO_SEQUENCE = 'server_player_auth_player_no_seq';
+const PLAYER_AUTH_PLAYER_NO_START = 1;
 
 const CREATE_PLAYER_AUTH_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_AUTH_TABLE} (
     user_id varchar(100) PRIMARY KEY,
     username varchar(80) NOT NULL UNIQUE,
     player_id varchar(100) NOT NULL UNIQUE,
+    player_no bigint UNIQUE,
     pending_role_name varchar(120) NOT NULL,
     display_name varchar(32),
     password_hash text NOT NULL,
@@ -334,6 +341,26 @@ const CREATE_PLAYER_AUTH_ROLE_INDEX_SQL = `
 const CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS server_player_auth_display_idx
   ON ${PLAYER_AUTH_TABLE}(display_name)
+`;
+
+const CREATE_PLAYER_AUTH_PLAYER_NO_SEQUENCE_SQL = `
+  CREATE SEQUENCE IF NOT EXISTS ${PLAYER_AUTH_PLAYER_NO_SEQUENCE}
+  START WITH ${PLAYER_AUTH_PLAYER_NO_START}
+  INCREMENT BY 1
+  NO MINVALUE
+  NO MAXVALUE
+  CACHE 1
+`;
+
+const ADD_PLAYER_AUTH_PLAYER_NO_COLUMN_SQL = `
+  ALTER TABLE ${PLAYER_AUTH_TABLE}
+  ADD COLUMN IF NOT EXISTS player_no bigint
+`;
+
+const CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS server_player_auth_player_no_idx
+  ON ${PLAYER_AUTH_TABLE}(player_no)
+  WHERE player_no IS NOT NULL
 `;
 
 /** 主线玩家鉴权存储：维护账号索引、唯一性检查和持久化读写。 */
@@ -411,6 +438,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         user_id,
         username,
         player_id,
+        player_no,
         pending_role_name,
         display_name,
         password_hash,
@@ -451,17 +479,28 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async saveUser(user: AuthRecordCandidate): Promise<NativePlayerAuthUser> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const normalized = normalizeAuthRecord(user);
+    let normalized = normalizeAuthRecord(user);
     if (!normalized) {
       throw new BadRequestException('账号记录无效');
     }
+    const previous = this.usersById.get(normalized.id) ?? null;
+    if (normalized.playerNo === null && previous?.playerNo !== null && previous?.playerNo !== undefined) {
+      normalized = {
+        ...normalized,
+        playerNo: previous.playerNo,
+      };
+    }
 
     if (this.pool && this.enabled) {
-      await this.pool.query(`
+      const saved = await this.pool.query<{ player_no?: unknown }>(`
+        WITH input_player_no AS (
+          SELECT COALESCE($4::bigint, nextval('${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass)) AS value
+        )
         INSERT INTO ${PLAYER_AUTH_TABLE}(
           user_id,
           username,
           player_id,
+          player_no,
           pending_role_name,
           display_name,
           password_hash,
@@ -480,11 +519,34 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           updated_at,
           payload
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11::timestamptz, $12, $13, $14, $15::timestamptz, $16, $17, $18::timestamptz, now(), $19::jsonb)
+        SELECT
+          $1,
+          $2,
+          $3,
+          input_player_no.value,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9::timestamptz,
+          $10,
+          $11,
+          $12::timestamptz,
+          $13,
+          $14,
+          $15,
+          $16::timestamptz,
+          $17,
+          $18,
+          $19::timestamptz,
+          now(),
+          jsonb_set($20::jsonb, '{playerNo}', to_jsonb(input_player_no.value), true)
+        FROM input_player_no
         ON CONFLICT (user_id)
         DO UPDATE SET
           username = EXCLUDED.username,
           player_id = EXCLUDED.player_id,
+          player_no = COALESCE(${PLAYER_AUTH_TABLE}.player_no, EXCLUDED.player_no),
           pending_role_name = EXCLUDED.pending_role_name,
           display_name = EXCLUDED.display_name,
           password_hash = EXCLUDED.password_hash,
@@ -501,11 +563,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           banned_by = EXCLUDED.banned_by,
           created_at = EXCLUDED.created_at,
           updated_at = now(),
-          payload = EXCLUDED.payload
+          payload = jsonb_set(EXCLUDED.payload, '{playerNo}', to_jsonb(COALESCE(${PLAYER_AUTH_TABLE}.player_no, EXCLUDED.player_no)), true)
+        RETURNING player_no
       `, [
         normalized.id,
         normalized.username,
         normalized.playerId,
+        normalized.playerNo,
         normalized.pendingRoleName,
         normalized.displayName,
         normalized.passwordHash,
@@ -523,6 +587,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         normalized.createdAt,
         JSON.stringify(toPersistedUser(normalized)),
       ]);
+      const persistedPlayerNo = normalizeOptionalPlayerNo(saved.rows[0]?.player_no);
+      if (persistedPlayerNo !== null) {
+        normalized = {
+          ...normalized,
+          playerNo: persistedPlayerNo,
+        };
+      }
     }
 
     this.replaceUser(normalized);
@@ -542,6 +613,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         user_id,
         username,
         player_id,
+        player_no,
         pending_role_name,
         display_name,
         password_hash,
@@ -826,6 +898,7 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     displayName: normalizeOptionalDisplayName(row.display_name),
     pendingRoleName,
     playerId,
+    playerNo: normalizeOptionalPlayerNo(row.player_no),
     playerName: pendingRoleName,
     passwordHash,
     totalOnlineSeconds: normalizeNonNegativeIntegerLike(row.total_online_seconds, 0),
@@ -861,6 +934,7 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
   const userId = normalizeRequiredString(raw.userId ?? raw.id ?? fallbackKey);
   const username = normalizeUsername(raw.username).trim();
   const playerId = normalizeRequiredString(raw.playerId) || buildFallbackPlayerId(userId);
+  const playerNo = normalizeOptionalPlayerNo(raw.playerNo);
   const pendingRoleName = normalizeRoleName(raw.playerName ?? raw.pendingRoleName) || buildDefaultRoleName(username);
   const passwordHash = typeof raw.passwordHash === 'string' ? raw.passwordHash : '';
   if (!userId || !username || !playerId || !pendingRoleName || !passwordHash) {
@@ -876,6 +950,7 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     displayName: normalizeOptionalDisplayName(raw.displayName),
     pendingRoleName,
     playerId,
+    playerNo,
     playerName: pendingRoleName,
     passwordHash,
     totalOnlineSeconds: normalizeNonNegativeIntegerLike(raw.totalOnlineSeconds, 0),
@@ -914,6 +989,7 @@ function toPersistedUser(user: NativePlayerAuthUser): Omit<NativePlayerAuthUser,
     username: user.username,
     displayName: user.displayName,
     playerId: user.playerId,
+    playerNo: user.playerNo,
     playerName: user.pendingRoleName,
     pendingRoleName: user.pendingRoleName,
     passwordHash: user.passwordHash,
@@ -953,6 +1029,20 @@ function cloneUser(user: NativePlayerAuthUser): NativePlayerAuthUser {
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOptionalPlayerNo(value: unknown): number | null {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'bigint'
+      ? Number(value)
+      : typeof value === 'string' && value.trim()
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
 }
 /**
  * normalizeOptionalDisplayName：判断Optional显示名称是否满足条件。
@@ -1109,6 +1199,10 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
+    await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_SEQUENCE_SQL);
+    await client.query(ADD_PLAYER_AUTH_PLAYER_NO_COLUMN_SQL);
+    await normalizeOffsetPlayerNoWithClient(client);
+    await backfillPlayerNoWithClient(client);
     await ensureBigintColumnType(client, PLAYER_AUTH_TABLE, 'total_online_seconds');
     await client.query(`
       ALTER TABLE ${PLAYER_AUTH_TABLE}
@@ -1124,6 +1218,8 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
     `);
     await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL);
+    await syncPlayerNoSequenceWithClient(client);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -1131,4 +1227,68 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+async function backfillPlayerNoWithClient(client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }): Promise<void> {
+  await client.query(`
+    WITH base AS (
+      SELECT COALESCE(MAX(player_no), ${PLAYER_AUTH_PLAYER_NO_START - 1}) AS max_player_no
+      FROM ${PLAYER_AUTH_TABLE}
+    ),
+    numbered AS (
+      SELECT
+        user_id,
+        (base.max_player_no + row_number() OVER (ORDER BY created_at ASC, user_id ASC))::bigint AS next_player_no
+      FROM ${PLAYER_AUTH_TABLE}
+      CROSS JOIN base
+      WHERE player_no IS NULL
+    )
+    UPDATE ${PLAYER_AUTH_TABLE} auth
+    SET
+      player_no = numbered.next_player_no,
+      payload = jsonb_set(auth.payload, '{playerNo}', to_jsonb(numbered.next_player_no), true)
+    FROM numbered
+    WHERE auth.user_id = numbered.user_id
+  `);
+}
+
+async function normalizeOffsetPlayerNoWithClient(client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }): Promise<void> {
+  await client.query(`
+    WITH stats AS (
+      SELECT
+        COUNT(*)::bigint AS total_count,
+        COUNT(player_no)::bigint AS numbered_count,
+        MIN(player_no) AS min_player_no
+      FROM ${PLAYER_AUTH_TABLE}
+    ),
+    renumbered AS (
+      SELECT
+        auth.user_id,
+        row_number() OVER (ORDER BY auth.created_at ASC, auth.user_id ASC)::bigint AS next_player_no
+      FROM ${PLAYER_AUTH_TABLE} auth
+      CROSS JOIN stats
+      WHERE stats.total_count > 0
+        AND stats.total_count = stats.numbered_count
+        AND stats.min_player_no >= 100001
+    )
+    UPDATE ${PLAYER_AUTH_TABLE} auth
+    SET
+      player_no = renumbered.next_player_no,
+      payload = jsonb_set(auth.payload, '{playerNo}', to_jsonb(renumbered.next_player_no), true)
+    FROM renumbered
+    WHERE auth.user_id = renumbered.user_id
+  `);
+}
+
+async function syncPlayerNoSequenceWithClient(client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }): Promise<void> {
+  await client.query(`
+    SELECT setval(
+      '${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass,
+      GREATEST(
+        COALESCE((SELECT MAX(player_no) FROM ${PLAYER_AUTH_TABLE}), ${PLAYER_AUTH_PLAYER_NO_START - 1}),
+        ${PLAYER_AUTH_PLAYER_NO_START - 1}
+      ),
+      true
+    )
+  `);
 }

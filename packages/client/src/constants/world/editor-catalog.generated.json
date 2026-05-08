@@ -10608,6 +10608,22 @@
       ]
     },
     {
+      "itemId": "equip.copper_array_plate",
+      "name": "凡品阵盘",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "薄铜盘上刻着最浅的定向灵纹，可承载入门阵法演算。",
+      "equipSlot": "weapon",
+      "tags": [
+        "array_plate"
+      ],
+      "equipStats": {
+        "spellAtk": 12,
+        "resolvePower": 8
+      }
+    },
+    {
       "itemId": "formation_disk.mortal",
       "name": "凡品阵盘",
       "type": "consumable",
@@ -12245,22 +12261,6 @@
       "equipStats": {
         "resolvePower": 10,
         "qiRegenRate": 10
-      }
-    },
-    {
-      "itemId": "equip.copper_array_plate",
-      "name": "铜纹阵盘",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "薄铜盘上刻着最浅的定向灵纹，可承载入门阵法演算。",
-      "equipSlot": "weapon",
-      "tags": [
-        "array_plate"
-      ],
-      "equipStats": {
-        "spellAtk": 12,
-        "resolvePower": 8
       }
     },
     {

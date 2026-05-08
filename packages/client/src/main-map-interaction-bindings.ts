@@ -1,5 +1,6 @@
 import { encodeTileTargetRef, isPointInRange, type ActionDef, type TargetingShape, type Tile } from '@mud/shared';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
+import { t } from './ui/i18n';
 /**
  * PendingTargetedAction：统一结构类型，保证协议与运行时一致性。
  */
@@ -395,12 +396,12 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       if (pendingTargetedAction) {
         pendingTargetedAction.range = options.resolveCurrentTargetingRange(pendingTargetedAction);
         if (pendingTargetedAction.actionId !== 'client:observe' && !options.isPointInsideCurrentMap(target.x, target.y)) {
-          options.showToast('窗外投影当前仅支持观察');
+          options.showToast(t('map-interaction.toast.projection-observe-only'));
           return;
         }
         if (pendingTargetedAction.actionId === 'client:observe') {
           if (!options.getVisibleTileAt(target.x, target.y)) {
-            options.showToast('神识仅可触及视野之内');
+            options.showToast(t('map-interaction.toast.sense-visible-only'));
             return;
           }
           options.showObserveModal(target.x, target.y);
@@ -409,7 +410,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         if (pendingTargetedAction.actionId === 'loot:open') {
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-          options.showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
+          options.showToast(t('map-interaction.toast.loot-out-of-range', { range: pendingTargetedAction.range }));
           return;
           }
           options.resetLootPanelManualCloseSuppression();
@@ -419,11 +420,11 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         if (pendingTargetedAction.actionId === 'building:place') {
           if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-            options.showToast(`超出建造范围，最多 ${pendingTargetedAction.range} 格`);
+            options.showToast(t('map-interaction.toast.build-out-of-range', { range: pendingTargetedAction.range }));
             return;
           }
           if (!options.getVisibleTileAt(target.x, target.y)) {
-            options.showToast('请选择当前视野内的目标格');
+            options.showToast(t('map-interaction.toast.select-visible-tile'));
             return;
           }
           options.confirmBuildPlacementTarget(target.x, target.y);
@@ -431,16 +432,16 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           return;
         }
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-          options.showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
+          options.showToast(t('map-interaction.toast.cast-out-of-range', { range: pendingTargetedAction.range }));
           return;
         }
         if (!options.hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
-          options.showToast('此处无可用之目标');
+          options.showToast(t('map-interaction.toast.no-target'));
           return;
         }
         const targetRef = options.resolveTargetRefForAction(pendingTargetedAction, target);
         if (!targetRef) {
-          options.showToast('此术需有指向之目标');
+          options.showToast(t('map-interaction.toast.target-required'));
           return;
         }
         const action = options.getCurrentActionDef(pendingTargetedAction.actionId);
@@ -454,7 +455,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       }
 
       if (!options.isPointInsideCurrentMap(target.x, target.y)) {
-        options.showToast('窗外投影当前仅支持观察');
+        options.showToast(t('map-interaction.toast.projection-observe-only'));
         return;
       }
       if (clickedMonster) {
@@ -463,12 +464,12 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (!options.isWithinDisplayedMemoryBounds(target.x, target.y)) {
-        options.showToast('仅可察视当前可见之地');
+        options.showToast(t('map-interaction.toast.inspect-visible-only'));
         return;
       }
       const knownTile = options.getKnownTileAt(target.x, target.y);
       if (!knownTile) {
-        options.showToast('未知之地，未可踏足');
+        options.showToast(t('map-interaction.toast.unknown-tile'));
         return;
       }
       if (clickedNpc && options.handleNpcClickTarget(clickedNpc)) {
@@ -486,7 +487,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (!knownTile.walkable) {
-        options.showToast('此地无法抵达');
+        options.showToast(t('map-interaction.toast.unreachable'));
         return;
       }
       options.planPathTo(target);

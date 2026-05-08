@@ -1,6 +1,7 @@
 /** 页面布局与多组标签页控制器 */
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
 import { getViewportScale, shouldUseMobileUi } from './responsive-viewport';
+import { t } from './i18n';
 
 /** 移动端挂载位标识。 */
 type MobilePaneId =
@@ -543,14 +544,14 @@ export class SidePanel {
     this.panel.dataset.bottomCollapsed = this.layoutState.bottomCollapsed ? 'true' : 'false';
 
     this.syncToggleButton('left', this.layoutState.leftCollapsed
-      ? { text: '>', title: '展开左侧区域' }
-      : { text: '<', title: '收起左侧区域' });
+      ? { text: '>', title: t('side-panel.toggle.left.expand') }
+      : { text: '<', title: t('side-panel.toggle.left.collapse') });
     this.syncToggleButton('right', this.layoutState.rightCollapsed
-      ? { text: '<', title: '展开右侧区域' }
-      : { text: '>', title: '收起右侧区域' });
+      ? { text: '<', title: t('side-panel.toggle.right.expand') }
+      : { text: '>', title: t('side-panel.toggle.right.collapse') });
     this.syncToggleButton('bottom', this.layoutState.bottomCollapsed
-      ? { text: '^', title: '展开下方面板' }
-      : { text: 'v', title: '收起下方面板' });
+      ? { text: '^', title: t('side-panel.toggle.bottom.expand') }
+      : { text: 'v', title: t('side-panel.toggle.bottom.collapse') });
     if (options.persist !== false) {
       this.persistCurrentLayoutState();
     }

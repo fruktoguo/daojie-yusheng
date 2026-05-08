@@ -99,9 +99,33 @@ function main() {
 
   const runtimeTileEntries = instance.buildRuntimeTilePersistenceEntries();
   assert.deepEqual(runtimeTileEntries, [
-    { x: 3, y: 1, tileType: TileType.Floor },
-    { x: 4, y: 1, tileType: TileType.Floor },
-    { x: 5, y: 1, tileType: TileType.Stone },
+    {
+      x: 3,
+      y: 1,
+      tileType: TileType.Floor,
+      terrainType: "floor",
+      surfaceType: "floor",
+      structureType: null,
+      interactableKinds: [],
+    },
+    {
+      x: 4,
+      y: 1,
+      tileType: TileType.Floor,
+      terrainType: "floor",
+      surfaceType: "floor",
+      structureType: null,
+      interactableKinds: [],
+    },
+    {
+      x: 5,
+      y: 1,
+      tileType: TileType.Stone,
+      terrainType: "stone_ground",
+      surfaceType: null,
+      structureType: "stone",
+      interactableKinds: [],
+    },
   ]);
   const restored = new MapInstanceRuntime({
     instanceId: "public:sparse_smoke_restored",
@@ -212,6 +236,18 @@ function main() {
   const blockedRecoveryState = instance.getTileCombatState(8, 1);
   assert.equal(blockedRecoveryState.destroyed, true);
   assert.ok(blockedRecoveryState.respawnLeft > 0);
+
+  assert.equal(instance.activateRuntimeTile(9, 1, TileType.Floor).created, true);
+  const boostedAura = instance.addTileResource('aura.refined.neutral', 9, 1, 250000);
+  assert.equal(boostedAura, 250000);
+  assert.equal(instance.advanceTileResourceFlow(), true);
+  assert.ok(instance.getTileResource('aura.refined.neutral', 9, 1) < boostedAura);
+
+  assert.equal(instance.activateRuntimeTile(10, 1, TileType.Floor, { aura: 250000 }).created, true);
+  const drainedAura = instance.addTileResource('aura.refined.neutral', 10, 1, -200000);
+  assert.equal(drainedAura, 50000);
+  assert.equal(instance.advanceTileResourceFlow(), true);
+  assert.ok(instance.getTileResource('aura.refined.neutral', 10, 1) > drainedAura);
 
   console.log("world-runtime-sparse-map-smoke passed");
 }

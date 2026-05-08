@@ -7,6 +7,7 @@ import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
 import { patchElementChildren } from '../dom-patch';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
+import { t } from '../i18n';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -126,8 +127,8 @@ export class LootPanel {
       ownerId: LootPanel.MODAL_OWNER,
       variantClass: useHerbVariant ? 'detail-modal--herb-gather' : 'detail-modal--loot',
       title,
-      subtitle: `坐标 (${tileX}, ${tileY})`,
-      hint: '点击空白处关闭',
+      subtitle: t('loot.modal.subtitle.coords', { x: tileX, y: tileY }),
+      hint: t('common.modal.click-blank-close', undefined),
       renderBody: (body) => {
         this.renderBody(body, sources);
       },
@@ -150,11 +151,11 @@ export class LootPanel {
       titleNode.textContent = title;
     }
     if (subtitleNode) {
-      subtitleNode.textContent = `坐标 (${tileX}, ${tileY})`;
+      subtitleNode.textContent = t('loot.modal.subtitle.coords', { x: tileX, y: tileY });
       subtitleNode.classList.remove('hidden');
     }
     if (hintNode) {
-      hintNode.textContent = '点击空白处关闭';
+      hintNode.textContent = t('common.modal.click-blank-close', undefined);
     }
     for (const node of [document.getElementById('detail-modal'), document.getElementById('detail-modal-card')]) {
       if (!(node instanceof HTMLElement)) {
@@ -267,20 +268,20 @@ export class LootPanel {
     const herbGrade = extras.herb?.grade;
     const gradeLabel = getTechniqueGradeLabel((isHerb ? herbGrade : source.grade) ?? '', (isHerb ? herbGrade : source.grade) ?? '');
     if (isHerb) {
-      return `草药采集${gradeLabel ? ` · ${gradeLabel}` : ''}`;
+      return t('loot.source.herb-gather', { grade: gradeLabel ? ` · ${gradeLabel}` : '' });
     }
     if (source.kind === 'ground') {
-      return '直接拾取';
+      return t('loot.source.ground', undefined);
     }
-    return `容器搜索${gradeLabel ? ` · ${gradeLabel}` : ''}`;
+    return t('loot.source.container-search', { grade: gradeLabel ? ` · ${gradeLabel}` : '' });
   }
 
   /** getSearchHeading：读取搜索态标题。 */
   private getSearchHeading(source: LootWindowState['sources'][number]): string {
     if (readLootHerbExtras(source).variant === 'herb') {
-      return '采集中';
+      return t('loot.search.heading.herb', undefined);
     }
-    return this.isHarvestSource(source) ? '连续采摘中' : '搜索中';
+    return this.isHarvestSource(source) ? t('loot.search.heading.harvest', undefined) : t('loot.search.heading.search', undefined);
   }
 
   /** createSourceSection：创建 source section。 */
@@ -300,14 +301,14 @@ export class LootPanel {
     );
     const actions = createElement('div', 'loot-source-actions');
     if (source.items.length > 0 && !harvestSource && !isHerb) {
-      const takeAllButton = createElement('button', 'small-btn', '全部拿取');
+      const takeAllButton = createElement('button', 'small-btn', t('loot.action.take-all', undefined));
       takeAllButton.type = 'button';
       takeAllButton.dataset.lootTakeAll = 'true';
       takeAllButton.dataset.sourceId = source.sourceId;
       actions.append(takeAllButton);
     }
     if (!isHerb && source.search && source.search.remainingTicks > 0) {
-      const stopButton = createElement('button', `small-btn ${harvestSource ? 'danger' : 'ghost'}`, harvestSource ? '停止采集' : '停止搜索');
+      const stopButton = createElement('button', `small-btn ${harvestSource ? 'danger' : 'ghost'}`, harvestSource ? t('loot.action.stop-gather', undefined) : t('loot.action.stop-search', undefined));
       stopButton.type = 'button';
       stopButton.dataset.lootStopHarvest = 'true';
       stopButton.dataset.sourceId = source.sourceId;
@@ -349,16 +350,16 @@ export class LootPanel {
     }
     meta.append(
       createElement('span', '', `LV ${formatDisplayInteger(extras.herb.level ?? 1)}`),
-      createElement('span', '', `采集 ${formatDisplayInteger(extras.herb.gatherTicks ?? 0)} 息`),
-      createElement('span', '', `存量 ${formatDisplayInteger(totalCount)} 朵`),
+      createElement('span', '', t('loot.herb.gather-ticks', { ticks: formatDisplayInteger(extras.herb.gatherTicks ?? 0) })),
+      createElement('span', '', t('loot.herb.stock-count', { count: formatDisplayInteger(totalCount) })),
       createElement('span', '', respawnRemainingTicks !== undefined
-        ? `回生 ${formatDisplayInteger(Math.max(1, respawnRemainingTicks))} 息`
-        : extras.destroyed ? '回生中' : '可采集'),
+        ? t('loot.herb.respawn-ticks', { ticks: formatDisplayInteger(Math.max(1, respawnRemainingTicks)) })
+        : extras.destroyed ? t('loot.herb.respawning', undefined) : t('loot.herb.available', undefined)),
     );
     summary.append(meta);
     if (harvesting) {
       const actions = createElement('div', 'herb-gather-summary-actions');
-      const stopButton = createElement('button', 'small-btn danger', '停止采集');
+      const stopButton = createElement('button', 'small-btn danger', t('loot.action.stop-gather', undefined));
       stopButton.type = 'button';
       stopButton.dataset.lootCancelGather = 'true';
       stopButton.dataset.sourceId = source.sourceId;
@@ -379,7 +380,7 @@ export class LootPanel {
     const copy = createElement('div', 'loot-search-copy');
     copy.append(
       createElement('strong', '', this.getSearchHeading(source)),
-      createElement('span', '', `${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息`),
+      createElement('span', '', t('loot.search.progress', { elapsed: formatDisplayInteger(source.search.elapsedTicks), total: formatDisplayInteger(source.search.totalTicks) })),
     );
     const bar = createElement('div', 'loot-search-bar');
     const fill = createElement('span', 'loot-search-fill');
@@ -397,20 +398,20 @@ export class LootPanel {
     const isHerb = readLootHerbExtras(source).variant === 'herb';
     const harvesting = Boolean(source.search && source.search.remainingTicks > 0);
     if (source.items.length <= 0) {
-      return createElement('div', 'loot-source-empty', source.emptyText ?? '这里什么都没有。');
+      return createElement('div', 'loot-source-empty', source.emptyText ?? t('loot.empty.none', undefined));
     }
     const grid = createElement('div', `inventory-grid ${isHerb ? 'herb-gather-grid' : 'loot-item-grid'}`);
     for (const entry of source.items) {
       const cell = createElement('div', isHerb ? 'herb-gather-card' : 'inventory-cell');
       const head = createElement('div', 'inventory-cell-head');
       head.append(
-        createElement('span', 'inventory-cell-type', isHerb ? '当前库存' : source.kind === 'ground' ? '地面' : '容器'),
+        createElement('span', 'inventory-cell-type', isHerb ? t('loot.item.type.current-stock', undefined) : source.kind === 'ground' ? t('loot.item.type.ground', undefined) : t('loot.item.type.container', undefined)),
         createElement('span', 'inventory-cell-count', formatDisplayCountBadge(entry.item.count)),
       );
-      const name = createElement('div', 'inventory-cell-name', isHerb ? '点击开始连续采摘' : entry.item.name);
-      name.title = isHerb ? '点击开始连续采摘当前草药' : entry.item.name;
+      const name = createElement('div', 'inventory-cell-name', isHerb ? t('loot.herb.start-hint', undefined) : entry.item.name);
+      name.title = isHerb ? t('loot.herb.start-title', undefined) : entry.item.name;
       const actions = createElement('div', 'inventory-cell-actions');
-      const button = createElement('button', 'small-btn', isHerb ? (harvesting ? '连续采摘中' : '开始采摘') : '拿取');
+      const button = createElement('button', 'small-btn', isHerb ? (harvesting ? t('loot.action.gathering', undefined) : t('loot.action.start-gather', undefined)) : t('loot.action.take', undefined));
       button.type = 'button';
       if (isHerb) {
         button.dataset.lootStartGather = 'true';

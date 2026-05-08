@@ -8,6 +8,7 @@ import { createMainRuntimeMonitorSource } from './main-runtime-monitor-source';
 import { createMainPanelContext } from './main-app-panel-context';
 import { createMainRuntimeOwnerContext } from './main-app-runtime-owner-context';
 import type { InitializeMainAppOptions, ToastKind } from './main-app-assembly-types';
+import { t } from './ui/i18n';
 /**
  * createMainAppRuntimeContext：构建并返回目标对象。
  * @param options InitializeMainAppOptions 选项参数。
@@ -57,7 +58,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
       syncEstimatedServerTickInterval,
       showToast: (message) => showToast(message),
       onBeforeVersionReload: () => {
-        showToast('天道有变，即将重启...');
+        showToast(t('runtime.toast.restart-soon'));
       },
     },
     {

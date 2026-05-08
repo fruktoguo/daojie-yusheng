@@ -17,6 +17,7 @@ export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
   [TileType.BrokenWindow]: '#8f969a',
   [TileType.Portal]: '#69458f',
   [TileType.Stairs]: '#9b7438',
+  [TileType.StoneStairs]: '#8b735d',
   [TileType.Grass]: '#79915d',
   [TileType.Hill]: '#8c7358',
   [TileType.Cliff]: '#514842',

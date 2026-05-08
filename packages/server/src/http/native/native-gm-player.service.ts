@@ -37,6 +37,7 @@ interface ManagedAccountEntryLike {
  */
 
   username?: string;  
+  playerNo?: number | null;
   /**
  * createdAt：createdAt相关字段。
  */
@@ -327,6 +328,7 @@ export class NativeGmPlayerService {
       if (section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
         this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmUpdatePlayer({
           playerId,
+          instanceId: typeof snapshot.instanceId === 'string' ? snapshot.instanceId : undefined,
           mapId: typeof snapshot.mapId === 'string' ? snapshot.mapId : runtime.templateId,
           x: Number.isFinite(snapshot.x) ? snapshot.x : runtime.x,
           y: Number.isFinite(snapshot.y) ? snapshot.y : runtime.y,
@@ -1641,6 +1643,7 @@ export class NativeGmPlayerService {
 
     return {
       id: player.id,
+      playerNo: account?.playerNo ?? null,
       name: roleName,
       roleName,
       displayName,
@@ -1723,6 +1726,7 @@ export class NativeGmPlayerService {
 
     return {
       id: player.id,
+      playerNo: account?.playerNo ?? null,
       name: roleName,
       roleName,
       displayName,
@@ -2004,6 +2008,7 @@ function buildManagedAccountView(account, online) {
 
   return {
     userId: account.userId,
+    playerNo: normalizeOptionalPlayerNo(account.playerNo),
     username: account.username,
     createdAt: typeof account.createdAt === 'string' && account.createdAt ? account.createdAt : new Date(0).toISOString(),
     totalOnlineSeconds,
@@ -2016,6 +2021,20 @@ function buildManagedAccountView(account, online) {
     lastLoginIp: account.lastLoginIp ?? undefined,
     lastLoginDeviceId: account.lastLoginDeviceId ?? undefined,
   };
+}
+
+function normalizeOptionalPlayerNo(value: unknown): number | null {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'bigint'
+      ? Number(value)
+      : typeof value === 'string' && value.trim()
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
 }
 
 function resolveManagedPlayerName(player, account, fallback: string): string {

@@ -371,6 +371,42 @@ function getResolvedSkillTargetKey(target) {
     return `tile:${target.x}:${target.y}`;
 }
 
+function isCellInList(cells, x, y) {
+    return cells.some((cell) => cell.x === x && cell.y === y);
+}
+
+function isResolvedSkillTargetInsideCells(attacker, target, cells, instance, playerRuntimeService, deps) {
+    if (!target || cells.length === 0) {
+        return false;
+    }
+    if (target.kind === 'self') {
+        return isCellInList(cells, attacker.x, attacker.y);
+    }
+    if (target.kind === 'tile' || target.kind === 'formation_boundary') {
+        return isCellInList(cells, target.x, target.y);
+    }
+    if (target.kind === 'monster') {
+        const monster = instance.getMonster(target.monsterId);
+        return Boolean(monster?.alive && isCellInList(cells, monster.x, monster.y));
+    }
+    if (target.kind === 'player') {
+        const player = playerRuntimeService.getPlayer(target.playerId);
+        return Boolean(
+            player
+            && player.instanceId === attacker.instanceId
+            && player.hp > 0
+            && isCellInList(cells, player.x, player.y),
+        );
+    }
+    if (target.kind === 'formation') {
+        const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+            ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, target.formationId)
+            : null;
+        return Boolean(formation && isCellInList(cells, formation.x, formation.y));
+    }
+    return false;
+}
+
 function ensurePlayerSkillActionEnabled(player, skillId) {
     const action = player.actions?.actions?.find((entry) => entry.id === skillId && entry.type === 'skill');
     if (!action) {
@@ -862,7 +898,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             seen.add(key);
             targets.push(target);
         };
-        if (primaryTarget) {
+        if (primaryTarget && isResolvedSkillTargetInsideCells(attacker, primaryTarget, cells, instance, this.playerRuntimeService, deps)) {
             pushTarget(primaryTarget);
         }
         if (isSelfBuffNoTargetSkill(skill)) {
@@ -982,6 +1018,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
                 pushCombatResolutionFloat(deps, attacker.instanceId, monster.x, monster.y, primaryRoll, effectColor);
                 if (result.totalDamage <= 0) {
+                    instance.applyDamageToMonster(monster.runtimeId, 0, attacker.playerId);
                     deps.queuePlayerNotice?.(
                         attacker.playerId,
                         `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,

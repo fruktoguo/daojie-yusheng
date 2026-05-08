@@ -6,6 +6,8 @@ import {
   BASE_MOVE_POINTS_PER_TICK,
   MAX_STORED_MOVE_POINTS,
   MOVE_POINT_UNIT,
+  MOVE_SPEED_SOFT_CAP,
+  MOVE_SPEED_SOFT_CAP_LOG_GAIN,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_REGEN_RATE_PER_TICK,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -20,6 +22,8 @@ export {
   BASE_MOVE_POINTS_PER_TICK,
   MAX_STORED_MOVE_POINTS,
   MOVE_POINT_UNIT,
+  MOVE_SPEED_SOFT_CAP,
+  MOVE_SPEED_SOFT_CAP_LOG_GAIN,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_REGEN_RATE_PER_TICK,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -81,6 +85,7 @@ export function isTileTypeWalkable(type: TileType): boolean {
     type === TileType.Door ||
     type === TileType.Portal ||
     type === TileType.Stairs ||
+    type === TileType.StoneStairs ||
     type === TileType.Grass ||
     type === TileType.Hill ||
     type === TileType.Mud ||
@@ -107,8 +112,18 @@ export function doesTileTypeBlockSight(type: TileType): boolean {
 }
 
 /** 根据移速属性计算每 tick 实际移动点数 */
+export function getEffectiveMoveSpeed(moveSpeed: number): number {
+  const raw = Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0;
+  return raw <= MOVE_SPEED_SOFT_CAP ? raw : MOVE_SPEED_SOFT_CAP + MOVE_SPEED_SOFT_CAP_LOG_GAIN * Math.log2(raw / MOVE_SPEED_SOFT_CAP);
+}
+
 export function getMovePointsPerTick(moveSpeed: number): number {
-  return Math.max(1, BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? moveSpeed : 0));
+  return Math.max(1, Math.round(BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0)));
+}
+
+export function getMaxStoredMovePoints(moveSpeed: number, requiredMovePoints = 0): number {
+  const required = Number.isFinite(requiredMovePoints) ? Math.max(0, Math.trunc(requiredMovePoints)) : 0;
+  return Math.max(MAX_STORED_MOVE_POINTS, getMovePointsPerTick(moveSpeed), required);
 }
 
 /** 地形耐久度材质类型 */

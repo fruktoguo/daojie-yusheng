@@ -307,6 +307,20 @@ export interface SyncedAlchemyPanelState {
   queue?: CraftQueueItemView[];
 }
 
+/** 炼制/炼器面板运行态增量。 */
+export interface SyncedAlchemyPanelPatch {
+/**
+ * job：活跃炼制/炼器任务；null 表示任务已清空。
+ */
+
+  job?: PlayerAlchemyJob | null;
+  /**
+ * queue：制造任务队列快照。
+ */
+
+  queue?: CraftQueueItemView[];
+}
+
 /** 强化目标引用，指向背包槽位或装备槽位。 */
 export interface EnhancementTargetRef {
 /**
@@ -667,6 +681,11 @@ export interface SyncedEnhancementPanelPatch {
  */
 
   queue?: CraftQueueItemView[];
+  /**
+ * records：本次运行态相关的强化记录增量；高频包只携带当前任务关联记录。
+ */
+
+  records?: PlayerEnhancementRecord[];
 }
 
 /** 可作为强化保护材料的候选项。 */

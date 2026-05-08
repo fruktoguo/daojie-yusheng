@@ -23,6 +23,7 @@ export enum SurfaceType {
   Road = 'road',
   Trail = 'trail',
   Veranda = 'veranda',
+  StoneStairs = 'stone_stairs',
 }
 
 /** 地上结构：墙、门、窗、树、矿等占据结构层的对象。 */
@@ -76,6 +77,7 @@ const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
   [TileType.Veranda]: seed(TerrainType.Floor, SurfaceType.Veranda, null, TileType.Veranda),
   [TileType.Portal]: seed(TerrainType.Floor, SurfaceType.Floor, null, TileType.Portal, [InteractableKind.Portal]),
   [TileType.Stairs]: seed(TerrainType.Floor, SurfaceType.Floor, null, TileType.Stairs, [InteractableKind.Stairs]),
+  [TileType.StoneStairs]: seed(TerrainType.StoneGround, SurfaceType.StoneStairs, null, TileType.StoneStairs),
   [TileType.Grass]: seed(TerrainType.Grass, null, null, TileType.Grass),
   [TileType.Hill]: seed(TerrainType.Hill, null, null, TileType.Hill),
   [TileType.Cliff]: seed(TerrainType.Cliff, null, null, TileType.Cliff),
@@ -307,6 +309,7 @@ function tileTypeFromSurfaceType(surface: SurfaceType): TileType {
     case SurfaceType.Road: return TileType.Road;
     case SurfaceType.Trail: return TileType.Trail;
     case SurfaceType.Veranda: return TileType.Veranda;
+    case SurfaceType.StoneStairs: return TileType.StoneStairs;
     case SurfaceType.Floor:
     default:
       return TileType.Floor;

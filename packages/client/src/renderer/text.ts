@@ -61,6 +61,7 @@ import { buildCanvasFont } from '../constants/ui/text';
 import { getEntityBadgeClassName, getMonsterPresentation } from '../monster-presentation';
 import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
+import { t as translateUi } from '../ui/i18n';
 
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
@@ -1640,7 +1641,7 @@ export class TextRenderer implements IRenderer {
           oldWY: localPlayerY as number,
           targetWX: localPlayerX as number,
           targetWY: localPlayerY as number,
-          char: localPlayerChar || '我',
+          char: localPlayerChar || translateUi('map-render.local-player-char', undefined),
           color: '#fff4dc',
           kind: 'player',
         },
@@ -1721,7 +1722,21 @@ export class TextRenderer implements IRenderer {
         const isContainer = anim.kind === 'container';
         const isBuilding = anim.kind === 'building';
         const isFormation = anim.kind === 'formation';
-        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : isBuilding ? '未完工建筑' : isFormation ? '阵法' : '道人');
+        const label = monsterPresentation?.label ?? anim.name ?? (
+          isCrowd
+            ? translateUi('map-render.entity.crowd', undefined)
+            : isMonster
+              ? translateUi('map-render.entity.monster', undefined)
+              : isPlayer
+                ? translateUi('map-render.entity.player', undefined)
+                : isContainer
+                  ? translateUi('map-render.entity.container', undefined)
+                  : isBuilding
+                    ? translateUi('map-render.entity.building', undefined)
+                    : isFormation
+                      ? translateUi('map-render.entity.formation', undefined)
+                      : translateUi('map-render.entity.npc', undefined)
+        );
         ctx.textBaseline = 'alphabetic';
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
@@ -1789,7 +1804,7 @@ export class TextRenderer implements IRenderer {
           ctx.textBaseline = 'top';
           ctx.font = buildCanvasFont('label', renderedCellSize * 0.22);
           this.drawOutlinedText(
-            `回生 ${this.formatRespawnCountdown(anim.respawnRemainingTicks)}`,
+            translateUi('map-render.respawn-countdown', { countdown: this.formatRespawnCountdown(anim.respawnRemainingTicks) }),
             sx + renderedCellSize / 2,
             visualSy + visualCellSize + 1,
             '#e7d5a7',
@@ -2010,7 +2025,7 @@ export class TextRenderer implements IRenderer {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     if (minutes <= 0) {
-      return `${Math.max(1, seconds)}息`;
+      return translateUi('map-render.seconds', { seconds: Math.max(1, seconds) });
     }
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
@@ -2141,7 +2156,7 @@ export class TextRenderer implements IRenderer {
     const badges = overflow > 0
       ? [...displayed.slice(0, Math.max(0, visibleLimit - 1)), {
           buffId: '__overflow__',
-          name: `其余 ${overflow} 项`,
+          name: translateUi('map-render.buff.overflow', { count: overflow }),
           shortMark: `+${overflow}`,
           category: 'buff' as const,
           visibility: 'public' as const,
@@ -3314,10 +3329,10 @@ export class TextRenderer implements IRenderer {
       ? [...pile.items.slice(0, GROUND_ITEM_ICON_POSITIONS.length - 1), {
           itemKey: `${pile.sourceId}:overflow`,
           itemId: '',
-          name: `其余 ${hiddenCount} 种`,
+          name: translateUi('map-render.ground.overflow', { count: hiddenCount }),
           type: 'material' as const,
           count: hiddenCount,
-          groundLabel: '余',
+          groundLabel: translateUi('map-render.ground.overflow-mark', undefined),
         }]
       : pile.items.slice(0, iconCount);
 

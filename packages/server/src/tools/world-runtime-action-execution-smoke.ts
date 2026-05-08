@@ -47,6 +47,13 @@ function createService(player, log = []) {
                 player.combat.cultivationActive = patch.cultivationActive;
             }
         },
+        updateAutoRootFoundation(playerId, enabled, tick) {
+            log.push(['updateAutoRootFoundation', playerId, enabled, tick]);
+            if (player?.combat) {
+                player.combat.autoRootFoundation = enabled === true;
+            }
+            return player;
+        },
         /**
  * cultivateTechnique：执行cultivate功法相关逻辑。
  * @param playerId 玩家 ID。
@@ -316,6 +323,86 @@ function testToggleAutoBattle() {
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
         ['updateCombatSettings', 'player:1', { autoBattle: true }, 77],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testAutoRootFoundationToggleUsesImmediateRuntimeCheck() {
+    const log = [];
+    const service = createService({
+        combat: {
+            autoRootFoundation: false,
+        },
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'realm:auto_refine_root_foundation', '1', deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['updateAutoRootFoundation', 'player:1', true, 77],
+        ['queuePlayerNotice', 'player:1', '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。', 'info'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testAutoRootFoundationOnActionUsesImmediateRuntimeCheck() {
+    const log = [];
+    const service = createService({
+        combat: {
+            autoRootFoundation: false,
+        },
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'realm:auto_refine_root_foundation:on', undefined, deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['updateAutoRootFoundation', 'player:1', true, 77],
+        ['queuePlayerNotice', 'player:1', '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。', 'info'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testAutoRootFoundationOffKeepsExplicitFalse() {
+    const log = [];
+    const service = createService({
+        combat: {
+            autoRootFoundation: true,
+        },
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'realm:auto_refine_root_foundation', '0', deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['updateAutoRootFoundation', 'player:1', false, 77],
+        ['queuePlayerNotice', 'player:1', '已关闭自动凝练根基。', 'info'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testAutoRootFoundationOffActionKeepsExplicitFalse() {
+    const log = [];
+    const service = createService({
+        combat: {
+            autoRootFoundation: true,
+        },
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'realm:auto_refine_root_foundation:off', undefined, deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['updateAutoRootFoundation', 'player:1', false, 77],
+        ['queuePlayerNotice', 'player:1', '已关闭自动凝练根基。', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
@@ -651,6 +738,10 @@ async function run() {
     testBreakthroughQueuesPendingCommand();
     testBodyTrainingInfuse();
     testToggleAutoBattle();
+    testAutoRootFoundationToggleUsesImmediateRuntimeCheck();
+    testAutoRootFoundationOnActionUsesImmediateRuntimeCheck();
+    testAutoRootFoundationOffKeepsExplicitFalse();
+    testAutoRootFoundationOffActionKeepsExplicitFalse();
     testWorldMigrationSwitchesToRealLine();
     testWorldMigrationRejectsPeacefulWhenShaBuffActive();
     testWorldMigrationRejectsBacklashWhenReturningPeaceful();

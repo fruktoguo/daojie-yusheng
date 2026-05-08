@@ -144,6 +144,7 @@ interface PlayerSnapshotCombat {
   allowAoePlayerHit: boolean;
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
+  autoRootFoundation?: boolean;
   senseQiActive: boolean;
   wangQiActive?: boolean;
   autoBattleSkills: unknown[];
@@ -647,6 +648,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       allowAoePlayerHit: combat?.allowAoePlayerHit === true,
       autoIdleCultivation: combat?.autoIdleCultivation !== false,
       autoSwitchCultivation: combat?.autoSwitchCultivation === true,
+      autoRootFoundation: combat?.autoRootFoundation === true,
       senseQiActive: combat?.senseQiActive === true,
       wangQiActive: combat?.wangQiActive === true,
       autoBattleSkills: Array.isArray(combat?.autoBattleSkills) ? combat.autoBattleSkills : [],

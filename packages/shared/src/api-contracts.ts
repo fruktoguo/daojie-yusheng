@@ -374,6 +374,8 @@ export interface GmManagedPlayerSummary {
  */
 
   id: string;
+  /** 玩家可见数字编号，按注册顺序分配。 */
+  playerNo?: number | null;
   /**
  * name：名称名称或显示文本。
  */
@@ -483,6 +485,8 @@ export interface GmManagedAccountRecord {
  */
 
   userId: string;
+  /** 玩家可见数字编号，按注册顺序分配。 */
+  playerNo?: number | null;
   /**
  * username：username名称或显示文本。
  */
@@ -1602,13 +1606,19 @@ export type GmPlayerUpdateSection =
   | 'items'
   | 'quests';
 
+/** GM 更新玩家快照。 */
+export type GmUpdatePlayerSnapshot = Partial<PlayerState> & {
+  /** 在线玩家位置迁移时可选的目标实例 ID。 */
+  instanceId?: string;
+};
+
 /** GM 更新玩家请求。 */
 export interface GmUpdatePlayerReq {
 /**
  * snapshot：快照状态或数据块。
  */
 
-  snapshot: Partial<PlayerState>;
+  snapshot: GmUpdatePlayerSnapshot;
   /**
  * section：section相关字段。
  */
@@ -1888,6 +1898,45 @@ export interface GmMapSafeZoneRecord {
  */
 
   radius: number;
+}
+
+/** GM 地图地块效果区域记录。 */
+export interface GmMapTileEffectRecord {
+  /**
+ * id：ID标识。
+ */
+
+  id?: string;
+  /**
+ * x：x相关字段。
+ */
+
+  x: number;
+  /**
+ * y：y相关字段。
+ */
+
+  y: number;
+  /**
+ * width：width相关字段。
+ */
+
+  width: number;
+  /**
+ * height：height相关字段。
+ */
+
+  height: number;
+  /**
+ * movementCost：覆盖地块移动消耗。
+ */
+
+  movementCost?: number;
+  /**
+ * qiDrainPerTick：每息灵力消耗。
+ */
+
+  qiDrainPerTick?: number;
 }
 
 /** GM 地图资源节点布点记录。 */
@@ -2618,6 +2667,11 @@ export interface GmMapDocument {
 
   safeZones?: GmMapSafeZoneRecord[];
   /**
+ * tileEffects：地块移动消耗与环境消耗区域。
+ */
+
+  tileEffects?: GmMapTileEffectRecord[];
+  /**
  * resourceNodeGroups：资源节点分组布点。
  */
 
@@ -2665,6 +2719,11 @@ export interface GmMapSummary {
  */
 
   height: number;
+  /**
+ * routeDomain：路线Domain相关字段。
+ */
+
+  routeDomain?: MapRouteDomain;
   /**
  * description：description相关字段。
  */

@@ -1,5 +1,5 @@
 import type { AccountRedeemCodesRes } from './api-contracts';
-import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
+import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
@@ -348,6 +348,11 @@ export interface AlchemyPanelSyncView {
  */
 
   catalog?: AlchemyRecipeCatalogEntry[];  
+  /**
+ * statePatch：炼制/炼器面板运行态增量；高频刷新不携带目录和预设。
+ */
+
+  statePatch?: SyncedAlchemyPanelPatch;
   /**
  * error：error相关字段。
  */

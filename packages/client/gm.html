@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>道劫余生 · 监察司</title>
+  <title data-i18n="gm.daojie-yusheng-gm.title">道劫余生 · 监察司</title>
   <link rel="icon" type="image/png" href="/logo.png" />
   <style>
     :root {
@@ -1734,17 +1734,17 @@
 <body>
   <div id="login-overlay" class="login-overlay">
     <div class="login-box">
-      <div class="login-stamp">禁</div>
-      <img class="login-logo" src="/logo.png" alt="道劫余生" />
-      <div class="login-title">监察司</div>
-      <div class="login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
+      <div class="login-stamp" data-i18n="gm.login-stamp-stamp-forbidden">禁</div>
+      <img class="login-logo" src="/logo.png" data-i18n-alt="gm.login-logo-daojie-yusheng.alt" alt="道劫余生" />
+      <div class="login-title" data-i18n="gm.login-title-inspector-office">监察司</div>
+      <div class="login-subtitle" data-i18n="gm.login-subtitle-login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
       <form id="gm-login-form">
         <div class="form-group">
-          <label for="gm-password">GM 密码</label>
-          <input id="gm-password" type="password" placeholder="输入 GM 管理密码" autocomplete="current-password" />
+          <label for="gm-password" data-i18n="gm.gm-password">GM 密码</label>
+          <input id="gm-password" type="password" data-i18n-placeholder="gm.password.placeholder" placeholder="输入 GM 管理密码" autocomplete="current-password" />
         </div>
         <div class="login-actions">
-          <button id="login-submit" class="action-btn primary" type="submit">入司</button>
+          <button id="login-submit" class="action-btn primary" type="submit" data-i18n="gm.login-submit">入司</button>
         </div>
       </form>
       <div id="login-error" class="login-error"></div>
@@ -1753,245 +1753,245 @@
 
   <main id="gm-shell" class="hidden">
     <div class="shell-bar">
-      <div class="shell-brand">道劫余生 · 监察司</div>
+      <div class="shell-brand" data-i18n="gm.shell-brand-daojie-yusheng-gm">道劫余生 · 监察司</div>
       <div class="shell-tabs">
-        <button class="shell-tab active" id="gm-tab-server" data-gm-tab="server" type="button">服务器信息</button>
-        <button class="shell-tab" id="gm-tab-redeem" data-gm-tab="redeem" type="button">兑换码</button>
-        <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button">玩家管理</button>
-        <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button">世界管理</button>
-        <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button">快捷指令</button>
+        <button class="shell-tab active" id="gm-tab-server" data-gm-tab="server" type="button" data-i18n="gm.tab-server">服务器信息</button>
+        <button class="shell-tab" id="gm-tab-redeem" data-gm-tab="redeem" type="button" data-i18n="gm.tab-redeem">兑换码</button>
+        <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button" data-i18n="gm.tab-players">玩家管理</button>
+        <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button" data-i18n="gm.tab-world">世界管理</button>
+        <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button" data-i18n="gm.tab-shortcuts">快捷指令</button>
         <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
-        <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button">建议反馈</button>
+        <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button" data-i18n="gm.tab-suggestions">建议反馈</button>
       </div>
     </div>
 
     <!-- ===== 服务器信息 ===== -->
     <section id="server-workspace" class="layout-section" style="flex:1; min-height:0;">
-      <div class="panel-stamp">司</div>
+      <div class="panel-stamp" data-i18n="gm.panel-stamp-stamp-office">司</div>
       <div class="section-head">
-        <div class="shell-title">道劫余生</div>
-        <div class="shell-subtitle">全服监察总览</div>
+        <div class="shell-title" data-i18n="gm.shell-title-daojie-yusheng">道劫余生</div>
+        <div class="shell-subtitle" data-i18n="gm.shell-subtitle-server-overview-subtitle">全服监察总览</div>
       </div>
       <div class="section-body">
         <div class="workspace-tabs">
-          <button class="workspace-tab active" id="server-subtab-overview" type="button">总览</button>
-          <button class="workspace-tab" id="server-subtab-traffic" type="button">流量统计</button>
-          <button class="workspace-tab" id="server-subtab-cpu" type="button">CPU 信息</button>
-          <button class="workspace-tab" id="server-subtab-memory" type="button">内存信息</button>
-          <button class="workspace-tab" id="server-subtab-database" type="button">数据库</button>
-          <button class="workspace-tab" id="server-subtab-logs" type="button">日志</button>
+          <button class="workspace-tab active" id="server-subtab-overview" type="button" data-i18n="gm.server-subtab-overview">总览</button>
+          <button class="workspace-tab" id="server-subtab-traffic" type="button" data-i18n="gm.server-subtab-traffic">流量统计</button>
+          <button class="workspace-tab" id="server-subtab-cpu" type="button" data-i18n="gm.server-subtab-cpu">CPU 信息</button>
+          <button class="workspace-tab" id="server-subtab-memory" type="button" data-i18n="gm.server-subtab-memory">内存信息</button>
+          <button class="workspace-tab" id="server-subtab-database" type="button" data-i18n="gm.server-subtab-database">数据库</button>
+          <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
           <div class="summary-grid">
-            <div class="summary-card"><div class="panel-title">角色总数</div><div id="summary-total" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.total-players">角色总数</div><div id="summary-total" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.online-count">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.offline-hanging">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.offline-count">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
           </div>
           <div class="summary-grid">
-            <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">和平模式</div><div id="summary-peace-mode" class="panel-value">关闭</div></div>
-            <div class="summary-card"><div class="panel-title">最近单图 tick</div><div id="summary-tick" class="panel-value">0 ms</div></div>
-            <div class="summary-card"><div class="panel-title">tick 占窗</div><div id="summary-tick-window" class="panel-value">0%</div></div>
-            <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.bots">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.peace-mode">和平模式</div><div id="summary-peace-mode" class="panel-value" data-i18n="gm.summary-peace-mode">关闭</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.latest-map-tick">最近单图 tick</div><div id="summary-tick" class="panel-value" data-i18n="gm.summary-tick">0 ms</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.tick-window">tick 占窗</div><div id="summary-tick-window" class="panel-value">0%</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.cpu-pressure">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
           </div>
           <div class="summary-grid">
-            <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
-            <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
-            <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
-            <div class="summary-card"><div class="panel-title">寻路队列</div><div id="summary-path-queue" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">寻路线程</div><div id="summary-path-workers" class="panel-value">0 / 0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.memory-usage">内存占用</div><div id="summary-memory" class="panel-value" data-i18n="gm.summary-memory">0 MB</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.total-inbound">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.total-outbound">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.path-queue">寻路队列</div><div id="summary-path-queue" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.path-workers">寻路线程</div><div id="summary-path-workers" class="panel-value">0 / 0</div></div>
           </div>
           <div class="button-row" style="margin-bottom: 12px;">
-            <button id="toggle-peace-mode" class="small-btn" type="button">切换和平模式</button>
-            <div class="editor-note">开启后会立刻关闭所有玩家的全体攻击，并允许玩家在任意位置重叠。</div>
+            <button id="toggle-peace-mode" class="small-btn" type="button" data-i18n="gm.toggle-peace-mode">切换和平模式</button>
+            <div class="editor-note" data-i18n="gm.editor-note-peace-mode-note">开启后会立刻关闭所有玩家的全体攻击，并允许玩家在任意位置重叠。</div>
           </div>
           <div class="summary-grid">
-            <div class="summary-card"><div class="panel-title">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title" data-i18n="gm.path-cancelled">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
           </div>
           <div class="button-row" style="margin-bottom: 12px;">
             <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
-            <button id="spawn-bots" class="small-btn" type="button">在选中角色附近生傀儡</button>
-            <button id="remove-all-bots" class="small-btn danger" type="button">移除全部机器人</button>
+            <button id="spawn-bots" class="small-btn" type="button" data-i18n="gm.spawn-bots">在选中角色附近生傀儡</button>
+            <button id="remove-all-bots" class="small-btn danger" type="button" data-i18n="gm.remove-all-bots">移除全部机器人</button>
           </div>
           <div class="button-row" style="margin-bottom: 12px;">
-            <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
-            <button id="logout" class="small-btn" type="button">退出管理台</button>
+            <button id="refresh-state" class="small-btn" type="button" data-i18n="gm.refresh-state">立即刷新</button>
+            <button id="logout" class="small-btn" type="button" data-i18n="gm.logout">退出管理台</button>
           </div>
           <div id="status-bar" class="status-bar" role="status" aria-live="polite" aria-atomic="true"></div>
           <div id="status-toast" class="status-toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
           <div class="note-card">
-            在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
-            默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
+            <span data-i18n="gm.overview.online-save-note">在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。</span><br />
+            <span data-i18n="gm.overview.snapshot-save-note">默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。</span>
           </div>
           <div class="editor-section" style="margin-top: 12px;">
-            <div class="editor-section-head"><div><div class="editor-section-title">GM 密码</div><div class="editor-section-note">修改后立即生效，当前登录态不受影响。</div></div></div>
+            <div class="editor-section-head"><div><div class="editor-section-title" data-i18n="gm.gm-password">GM 密码</div><div class="editor-section-note" data-i18n="gm.editor-section-note-gm-password-note">修改后立即生效，当前登录态不受影响。</div></div></div>
             <form id="gm-password-form">
               <div class="editor-grid compact">
-                <label class="editor-field"><span>当前密码</span><input id="gm-password-current" type="password" autocomplete="current-password" /></label>
-                <label class="editor-field"><span>新密码</span><input id="gm-password-next" type="password" autocomplete="new-password" /></label>
+                <label class="editor-field"><span data-i18n="gm.current-password">当前密码</span><input id="gm-password-current" type="password" autocomplete="current-password" /></label>
+                <label class="editor-field"><span data-i18n="gm.new-password">新密码</span><input id="gm-password-next" type="password" autocomplete="new-password" /></label>
               </div>
-              <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button></div>
+              <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit" data-i18n="gm.password-save">修改 GM 密码</button></div>
             </form>
           </div>
           <div class="network-breakdown" style="margin-top: 12px;">
             <div class="network-breakdown-head">
-              <div class="panel-title">寻路调度摘要</div>
-              <button id="reset-pathfinding-stats" class="small-btn danger" type="button">重置寻路统计</button>
+              <div class="panel-title" data-i18n="gm.pathfinding-summary">寻路调度摘要</div>
+              <button id="reset-pathfinding-stats" class="small-btn danger" type="button" data-i18n="gm.reset-pathfinding-stats">重置寻路统计</button>
             </div>
-            <div id="pathfinding-reset-meta" class="network-breakdown-subtitle">寻路统计区间尚未开始。</div>
+            <div id="pathfinding-reset-meta" class="network-breakdown-subtitle" data-i18n="gm.pathfinding-reset-meta">寻路统计区间尚未开始。</div>
             <div class="stats-grid">
               <div class="stats-card">
-                <div class="stats-card-label">平均排队</div>
-                <div id="pathfinding-avg-queue-ms" class="stats-card-value">0 ms</div>
-                <div id="pathfinding-queue-note" class="stats-card-note">峰值 0 ms · 队列峰值 0</div>
+                <div class="stats-card-label" data-i18n="gm.avg-queue">平均排队</div>
+                <div id="pathfinding-avg-queue-ms" class="stats-card-value" data-i18n="gm.summary-tick">0 ms</div>
+                <div id="pathfinding-queue-note" class="stats-card-note" data-i18n="gm.pathfinding-queue-note">峰值 0 ms · 队列峰值 0</div>
               </div>
               <div class="stats-card">
-                <div class="stats-card-label">平均计算</div>
-                <div id="pathfinding-avg-run-ms" class="stats-card-value">0 ms</div>
-                <div id="pathfinding-run-note" class="stats-card-note">峰值 0 ms · 已完成 0</div>
+                <div class="stats-card-label" data-i18n="gm.avg-run">平均计算</div>
+                <div id="pathfinding-avg-run-ms" class="stats-card-value" data-i18n="gm.summary-tick">0 ms</div>
+                <div id="pathfinding-run-note" class="stats-card-note" data-i18n="gm.pathfinding-run-note">峰值 0 ms · 已完成 0</div>
               </div>
               <div class="stats-card">
-                <div class="stats-card-label">平均展开</div>
+                <div class="stats-card-label" data-i18n="gm.avg-expanded">平均展开</div>
                 <div id="pathfinding-avg-expanded-nodes" class="stats-card-value">0</div>
-                <div id="pathfinding-expanded-note" class="stats-card-note">峰值 0 · 成功 0</div>
+                <div id="pathfinding-expanded-note" class="stats-card-note" data-i18n="gm.pathfinding-expanded-note">峰值 0 · 成功 0</div>
               </div>
               <div class="stats-card">
-                <div class="stats-card-label">淘汰与过期</div>
+                <div class="stats-card-label" data-i18n="gm.drop-expire">淘汰与过期</div>
                 <div id="pathfinding-drop-total" class="stats-card-value">0</div>
-                <div id="pathfinding-drop-note" class="stats-card-note">等待丢弃 0 · 结果过期 0</div>
+                <div id="pathfinding-drop-note" class="stats-card-note" data-i18n="gm.pathfinding-drop-note">等待丢弃 0 · 结果过期 0</div>
               </div>
             </div>
-            <div id="pathfinding-failure-list" class="network-breakdown-list"><div class="empty-hint">当前还没有寻路失败记录。</div></div>
+            <div id="pathfinding-failure-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-pathfinding-failures">当前还没有寻路失败记录。</div></div>
           </div>
         </div>
         <div id="server-panel-traffic" class="server-tab-panel hidden">
           <div class="button-row">
-            <button id="reset-network-stats" class="small-btn danger" type="button">重置流量统计</button>
+            <button id="reset-network-stats" class="small-btn danger" type="button" data-i18n="gm.reset-network-stats">重置流量统计</button>
           </div>
-          <div id="traffic-reset-meta" class="note-card">统计区间尚未开始。</div>
+          <div id="traffic-reset-meta" class="note-card" data-i18n="gm.traffic-reset-meta">统计区间尚未开始。</div>
           <div class="stats-grid">
             <div class="stats-card">
-              <div class="stats-card-label">上行总量</div>
+              <div class="stats-card-label" data-i18n="gm.inbound-total">上行总量</div>
               <div id="traffic-total-in" class="stats-card-value">0 B</div>
-              <div id="traffic-total-in-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
+              <div id="traffic-total-in-note" class="stats-card-note" data-i18n="gm.traffic-total-in-note">均次 0 B · 均秒 0 B/s</div>
             </div>
             <div class="stats-card">
-              <div class="stats-card-label">下行总量</div>
+              <div class="stats-card-label" data-i18n="gm.outbound-total">下行总量</div>
               <div id="traffic-total-out" class="stats-card-value">0 B</div>
-              <div id="traffic-total-out-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
+              <div id="traffic-total-out-note" class="stats-card-note" data-i18n="gm.traffic-total-in-note">均次 0 B · 均秒 0 B/s</div>
             </div>
           </div>
           <div class="network-breakdown">
-            <div class="network-breakdown-head"><div class="panel-title">网络事件上行榜</div><div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div></div>
+            <div class="network-breakdown-head"><div class="panel-title" data-i18n="gm.network-inbound-ranking">网络事件上行榜</div><div class="network-breakdown-subtitle" data-i18n="gm.traffic.client-to-server-bytes">客户端 -> 服务端累计字节</div></div>
             <div class="button-row" style="margin-top: 8px;">
-              <button id="network-in-page-prev" class="small-btn" type="button">上一页</button>
-              <div id="network-in-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
-              <button id="network-in-page-next" class="small-btn" type="button">下一页</button>
+              <button id="network-in-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
+              <div id="network-in-page-meta" class="editor-note" style="margin: 0;" data-i18n="gm.network-in-page-meta">第 1 / 1 页 · 共 0 条</div>
+              <button id="network-in-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
             </div>
-            <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计上行事件。</div></div>
+            <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-inbound-events">当前还没有累计上行事件。</div></div>
           </div>
           <div class="network-breakdown">
-            <div class="network-breakdown-head"><div class="panel-title">网络事件下行榜</div><div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div></div>
+            <div class="network-breakdown-head"><div class="panel-title" data-i18n="gm.network-outbound-ranking">网络事件下行榜</div><div class="network-breakdown-subtitle" data-i18n="gm.traffic.server-to-client-bytes">服务端 -> 客户端累计字节</div></div>
             <div class="button-row" style="margin-top: 8px;">
-              <button id="network-out-page-prev" class="small-btn" type="button">上一页</button>
-              <div id="network-out-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
-              <button id="network-out-page-next" class="small-btn" type="button">下一页</button>
+              <button id="network-out-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
+              <div id="network-out-page-meta" class="editor-note" style="margin: 0;" data-i18n="gm.network-in-page-meta">第 1 / 1 页 · 共 0 条</div>
+              <button id="network-out-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
             </div>
-            <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计下行事件。</div></div>
+            <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-outbound-events">当前还没有累计下行事件。</div></div>
           </div>
         </div>
         <div id="server-panel-cpu" class="server-tab-panel hidden">
           <div class="button-row">
-            <button id="reset-cpu-stats" class="small-btn danger" type="button">重置 CPU 统计</button>
+            <button id="reset-cpu-stats" class="small-btn danger" type="button" data-i18n="gm.reset-cpu-stats">重置 CPU 统计</button>
           </div>
-          <div id="cpu-profile-meta" class="note-card">CPU 画像尚未开始。</div>
+          <div id="cpu-profile-meta" class="note-card" data-i18n="gm.cpu-profile-meta">CPU 画像尚未开始。</div>
           <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note">全进程最近一次采样窗口</div></div>
-            <div class="stats-card"><div class="stats-card-label">tick 占窗</div><div id="cpu-tick-window-percent" class="stats-card-value">0%</div><div id="cpu-tick-window-note" class="stats-card-note">最近采样窗口内全部地图 tick 累计墙钟</div></div>
-            <div class="stats-card"><div class="stats-card-label">逻辑核心数</div><div id="cpu-core-count" class="stats-card-value">0</div><div class="stats-card-note">Node 进程可见 CPU 核心</div></div>
-            <div class="stats-card"><div class="stats-card-label">用户态 CPU 时间</div><div id="cpu-user-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 user CPU</div></div>
-            <div class="stats-card"><div class="stats-card-label">内核态 CPU 时间</div><div id="cpu-system-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 system CPU</div></div>
-          </div>
-          <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">1 分钟负载</div><div id="cpu-load-1m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
-            <div class="stats-card"><div class="stats-card-label">5 分钟负载</div><div id="cpu-load-5m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
-            <div class="stats-card"><div class="stats-card-label">15 分钟负载</div><div id="cpu-load-15m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
-            <div class="stats-card"><div class="stats-card-label">进程运行时长</div><div id="cpu-process-uptime" class="stats-card-value">0s</div><div class="stats-card-note">Node 进程 uptime</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.current-cpu-pressure">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note" data-i18n="gm.process-latest-sample">全进程最近一次采样窗口</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.tick-window">tick 占窗</div><div id="cpu-tick-window-percent" class="stats-card-value">0%</div><div id="cpu-tick-window-note" class="stats-card-note" data-i18n="gm.cpu-tick-window-note">最近采样窗口内全部地图 tick 累计墙钟</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.logical-cores">逻辑核心数</div><div id="cpu-core-count" class="stats-card-value">0</div><div class="stats-card-note" data-i18n="gm.node-visible-cpu-cores">Node 进程可见 CPU 核心</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.user-cpu-time">用户态 CPU 时间</div><div id="cpu-user-ms" class="stats-card-value" data-i18n="gm.summary-tick">0 ms</div><div class="stats-card-note" data-i18n="gm.process-user-cpu">进程累计 user CPU</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.system-cpu-time">内核态 CPU 时间</div><div id="cpu-system-ms" class="stats-card-value" data-i18n="gm.summary-tick">0 ms</div><div class="stats-card-note" data-i18n="gm.process-system-cpu">进程累计 system CPU</div></div>
           </div>
           <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">系统运行时长</div><div id="cpu-system-uptime" class="stats-card-value">0s</div><div class="stats-card-note">宿主机 uptime</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.load-1m">1 分钟负载</div><div id="cpu-load-1m" class="stats-card-value">0</div><div class="stats-card-note" data-i18n="gm.system-load-average">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.load-5m">5 分钟负载</div><div id="cpu-load-5m" class="stats-card-value">0</div><div class="stats-card-note" data-i18n="gm.system-load-average">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.load-15m">15 分钟负载</div><div id="cpu-load-15m" class="stats-card-value">0</div><div class="stats-card-note" data-i18n="gm.system-load-average">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.process-uptime">进程运行时长</div><div id="cpu-process-uptime" class="stats-card-value">0s</div><div class="stats-card-note" data-i18n="gm.node-process-uptime">Node 进程 uptime</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.system-uptime">系统运行时长</div><div id="cpu-system-uptime" class="stats-card-value">0s</div><div class="stats-card-note" data-i18n="gm.host-uptime">宿主机 uptime</div></div>
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head">
-              <div class="panel-title">CPU 热点分项</div>
+              <div class="panel-title" data-i18n="gm.cpu-breakdown">CPU 热点分项</div>
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button id="cpu-breakdown-sort-total" class="small-btn primary" type="button">总耗时</button>
-                <button id="cpu-breakdown-sort-count" class="small-btn" type="button">次数</button>
-                <button id="cpu-breakdown-sort-avg" class="small-btn" type="button">单次</button>
+                <button id="cpu-breakdown-sort-total" class="small-btn primary" type="button" data-i18n="gm.cpu-breakdown-sort-total">总耗时</button>
+                <button id="cpu-breakdown-sort-count" class="small-btn" type="button" data-i18n="gm.cpu-breakdown-sort-count">次数</button>
+                <button id="cpu-breakdown-sort-avg" class="small-btn" type="button" data-i18n="gm.cpu-breakdown-sort-avg">单次</button>
               </div>
             </div>
-            <div class="network-breakdown-subtitle">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
-            <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint">当前还没有 CPU 分项数据。</div></div>
+            <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-cpu-breakdown-hint">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
+            <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-cpu-breakdown">当前还没有 CPU 分项数据。</div></div>
           </div>
         </div>
         <div id="server-panel-memory" class="server-tab-panel hidden">
-          <div id="memory-snapshot-meta" class="note-card">内存明细显示当前进程快照，建议配合“立即刷新”观察变化。</div>
+          <div id="memory-snapshot-meta" class="note-card" data-i18n="gm.memory-snapshot-meta">内存明细显示当前进程快照，建议配合“立即刷新”观察变化。</div>
           <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">RSS 内存</div><div id="memory-rss" class="stats-card-value">0 MB</div><div class="stats-card-note">进程常驻内存</div></div>
-            <div class="stats-card"><div class="stats-card-label">Heap 已用</div><div id="memory-heap-used" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已使用堆</div></div>
-            <div class="stats-card"><div class="stats-card-label">Heap 总量</div><div id="memory-heap-total" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 当前堆容量</div></div>
-            <div class="stats-card"><div class="stats-card-label">外部内存</div><div id="memory-external" class="stats-card-value">0 MB</div><div class="stats-card-note">Buffer / C++ 对象等</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.rss-memory">RSS 内存</div><div id="memory-rss" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.process-resident-memory">进程常驻内存</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.heap-used">Heap 已用</div><div id="memory-heap-used" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.v8-heap-used">V8 已使用堆</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.heap-total">Heap 总量</div><div id="memory-heap-total" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.v8-heap-total">V8 当前堆容量</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.external-memory">外部内存</div><div id="memory-external" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.buffer-cpp-objects">Buffer / C++ 对象等</div></div>
           </div>
           <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">Heap 使用率</div><div id="memory-heap-usage-percent" class="stats-card-value">0%</div><div id="memory-heap-usage-note" class="stats-card-note">已用 0 MB / 总量 0 MB</div></div>
-            <div class="stats-card"><div class="stats-card-label">Heap 预留空闲</div><div id="memory-heap-free" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已申请但尚未使用</div></div>
-            <div class="stats-card"><div class="stats-card-label">常驻差额</div><div id="memory-resident-gap" class="stats-card-value">0 MB</div><div class="stats-card-note">RSS - Heap 总量 - 外部内存，近似 native/栈/代码段</div></div>
-            <div class="stats-card"><div class="stats-card-label">RSS / Heap 已用</div><div id="memory-rss-heap-ratio" class="stats-card-value">0x</div><div id="memory-rss-heap-ratio-note" class="stats-card-note">倍率越高，非堆占比越大</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.heap-usage">Heap 使用率</div><div id="memory-heap-usage-percent" class="stats-card-value">0%</div><div id="memory-heap-usage-note" class="stats-card-note" data-i18n="gm.memory-heap-usage-note">已用 0 MB / 总量 0 MB</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.heap-free-reserved">Heap 预留空闲</div><div id="memory-heap-free" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.v8-reserved-unused">V8 已申请但尚未使用</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.resident-gap">常驻差额</div><div id="memory-resident-gap" class="stats-card-value" data-i18n="gm.summary-memory">0 MB</div><div class="stats-card-note" data-i18n="gm.resident-gap-note">RSS - Heap 总量 - 外部内存，近似 native/栈/代码段</div></div>
+            <div class="stats-card"><div class="stats-card-label" data-i18n="gm.rss-heap-ratio">RSS / Heap 已用</div><div id="memory-rss-heap-ratio" class="stats-card-value">0x</div><div id="memory-rss-heap-ratio-note" class="stats-card-note" data-i18n="gm.memory-rss-heap-ratio-note">倍率越高，非堆占比越大</div></div>
           </div>
-          <div id="memory-estimate-meta" class="note-card">运行态内存画像尚未生成。</div>
+          <div id="memory-estimate-meta" class="note-card" data-i18n="gm.memory-estimate-meta">运行态内存画像尚未生成。</div>
           <div class="network-breakdown">
             <div class="network-breakdown-head">
-              <div class="panel-title">对象域画像</div>
-              <div class="network-breakdown-subtitle">按玩家 / 怪物 / 实例快照估算，便于先定位优化方向</div>
+              <div class="panel-title" data-i18n="gm.object-domain-profile">对象域画像</div>
+              <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-object-domain-profile-note">按玩家 / 怪物 / 实例快照估算，便于先定位优化方向</div>
             </div>
-            <div id="memory-domain-list" class="network-breakdown-list"><div class="empty-hint">当前还没有运行态内存画像。</div></div>
+            <div id="memory-domain-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-runtime-memory-profile">当前还没有运行态内存画像。</div></div>
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head">
-              <div class="panel-title">实例大户榜</div>
-              <div class="network-breakdown-subtitle">按实例元数据 + 怪物快照估算排序，优先看最重的图</div>
+              <div class="panel-title" data-i18n="gm.heavy-instance-ranking">实例大户榜</div>
+              <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-heavy-instance-ranking-note">按实例元数据 + 怪物快照估算排序，优先看最重的图</div>
             </div>
-            <div id="memory-instance-list" class="network-breakdown-list"><div class="empty-hint">当前还没有实例内存画像。</div></div>
+            <div id="memory-instance-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-instance-memory-profile">当前还没有实例内存画像。</div></div>
           </div>
         </div>
         <div id="server-panel-database" class="server-tab-panel hidden">
-          <div class="note-card">正在准备数据库管理面板…</div>
+          <div class="note-card" data-i18n="gm.note-card-preparing-database-panel">正在准备数据库管理面板…</div>
         </div>
         <div id="server-panel-logs" class="server-tab-panel hidden">
           <div class="server-log-toolbar">
-            <button id="server-logs-load-older" class="small-btn" type="button">加载更早 100 行</button>
-            <button id="server-logs-refresh" class="small-btn" type="button">刷新最近 100 行</button>
-            <div id="server-logs-meta" class="server-log-meta">日志尚未加载。</div>
+            <button id="server-logs-load-older" class="small-btn" type="button" data-i18n="gm.server-logs-load-older">加载更早 100 行</button>
+            <button id="server-logs-refresh" class="small-btn" type="button" data-i18n="gm.server-logs-refresh">刷新最近 100 行</button>
+            <div id="server-logs-meta" class="server-log-meta" data-i18n="gm.server-logs-meta">日志尚未加载。</div>
           </div>
-          <pre id="server-logs-content" class="server-log-view">日志尚未加载。</pre>
+          <pre id="server-logs-content" class="server-log-view" data-i18n="gm.server-logs-meta">日志尚未加载。</pre>
         </div>
       </div>
     </section>
 
     <section id="redeem-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
-      <div class="panel-stamp">兑</div>
+      <div class="panel-stamp" data-i18n="gm.panel-stamp-stamp-redeem">兑</div>
       <div class="section-head">
-        <div class="shell-title">兑换码管理</div>
-        <div class="shell-subtitle">管理分组奖励、生成兑换码、查看使用情况与销毁指定兑换码</div>
+        <div class="shell-title" data-i18n="gm.shell-title-redeem-management">兑换码管理</div>
+        <div class="shell-subtitle" data-i18n="gm.shell-subtitle-redeem-management-subtitle">管理分组奖励、生成兑换码、查看使用情况与销毁指定兑换码</div>
       </div>
       <div class="section-body">
-        <div id="redeem-status" class="note-card" style="margin-bottom: 12px;">兑换码数据读取中…</div>
+        <div id="redeem-status" class="note-card" style="margin-bottom: 12px;" data-i18n="gm.redeem-status">兑换码数据读取中…</div>
         <div class="workspace-grid" style="grid-template-columns:minmax(260px,0.8fr) minmax(360px,1fr) minmax(420px,1.15fr);">
           <section class="layout-section">
             <div class="section-head">
-              <div class="section-title">分组列表</div>
-              <div class="section-subtitle">查看每个分组的兑换码总数、已使用数和可用数</div>
+              <div class="section-title" data-i18n="gm.redeem-group-list">分组列表</div>
+              <div class="section-subtitle" data-i18n="gm.redeem-group-list-subtitle">查看每个分组的兑换码总数、已使用数和可用数</div>
             </div>
             <div class="section-body">
               <div id="redeem-group-list" class="player-list"></div>
@@ -1999,20 +1999,20 @@
           </section>
           <section class="layout-section">
             <div class="section-head">
-              <div class="section-title">分组编辑</div>
-              <div class="section-subtitle">新建时选择奖励物品和数量，后续也可继续修改</div>
+              <div class="section-title" data-i18n="gm.redeem-group-editor">分组编辑</div>
+              <div class="section-subtitle" data-i18n="gm.redeem-group-editor-subtitle">新建时选择奖励物品和数量，后续也可继续修改</div>
             </div>
             <div class="section-body">
-              <div id="redeem-group-editor"><div class="empty-hint">正在准备分组编辑器…</div></div>
+              <div id="redeem-group-editor"><div class="empty-hint" data-i18n="gm.preparing-redeem-editor">正在准备分组编辑器…</div></div>
             </div>
           </section>
           <section class="layout-section">
             <div class="section-head">
-              <div class="section-title">兑换码列表</div>
-              <div class="section-subtitle">可查看使用状态，并销毁指定可用兑换码</div>
+              <div class="section-title" data-i18n="gm.redeem-code-list">兑换码列表</div>
+              <div class="section-subtitle" data-i18n="gm.redeem-code-list-subtitle">可查看使用状态，并销毁指定可用兑换码</div>
             </div>
             <div class="section-body">
-              <div id="redeem-code-list" class="network-breakdown-list"><div class="empty-hint">请选择一个分组查看兑换码。</div></div>
+              <div id="redeem-code-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.select-redeem-group">请选择一个分组查看兑换码。</div></div>
             </div>
           </section>
         </div>
@@ -2023,94 +2023,94 @@
     <section id="player-workspace" class="workspace-grid-2col hidden">
     <section class="layout-section">
       <div class="section-head">
-        <div class="section-title">角色册</div>
-        <div class="section-subtitle">列表显示账号、角色名、显示名；搜索支持账号、角色名、显示名和地图中文名</div>
+        <div class="section-title" data-i18n="gm.player-book">角色册</div>
+        <div class="section-subtitle" data-i18n="gm.player-book-subtitle">列表显示账号、角色名、显示名；搜索支持账号、角色名、显示名和地图中文名</div>
       </div>
       <div class="section-body">
         <div class="filter-row">
-          <input id="player-search" class="search-input" type="text" placeholder="搜索账号 / 角色名 / 显示名 / 地图" />
+          <input id="player-search" class="search-input" type="text" data-i18n-placeholder="gm.player-search.placeholder" placeholder="搜索账号 / 角色名 / 显示名 / 地图" />
           <select id="player-sort" class="search-input" style="flex:0 0 210px;">
-            <option value="realm-desc">境界从高到低</option>
-            <option value="realm-asc">境界从低到高</option>
-            <option value="risk-desc">风险从高到低</option>
-            <option value="risk-asc">风险从低到高</option>
-            <option value="online">在线优先</option>
-            <option value="map">按地图</option>
-            <option value="name">按角色名</option>
+            <option value="realm-desc" data-i18n="gm.realm-desc">境界从高到低</option>
+            <option value="realm-asc" data-i18n="gm.realm-asc">境界从低到高</option>
+            <option value="risk-desc" data-i18n="gm.risk-desc">风险从高到低</option>
+            <option value="risk-asc" data-i18n="gm.risk-asc">风险从低到高</option>
+            <option value="online" data-i18n="gm.online-first">在线优先</option>
+            <option value="map" data-i18n="gm.by-map">按地图</option>
+            <option value="name" data-i18n="gm.by-role-name">按角色名</option>
           </select>
           <select id="player-presence-filter" class="search-input" style="flex:0 0 180px;">
-            <option value="all">在线状态: 全部</option>
-            <option value="online">在线</option>
-            <option value="offline-hanging">离线挂机</option>
-            <option value="offline">离线</option>
+            <option value="all" data-i18n="gm.presence-all">在线状态: 全部</option>
+            <option value="online" data-i18n="gm.online">在线</option>
+            <option value="offline-hanging" data-i18n="gm.offline-hanging">离线挂机</option>
+            <option value="offline" data-i18n="gm.player.presence.offline">离线</option>
           </select>
           <select id="player-behavior-filter" class="search-input" style="flex:0 0 180px;">
-            <option value="all">行为: 全部</option>
-            <option value="combat">战斗</option>
-            <option value="cultivation">修炼</option>
-            <option value="alchemy">炼丹</option>
-            <option value="enhancement">强化</option>
-            <option value="gather">采集</option>
+            <option value="all" data-i18n="gm.behavior-all">行为: 全部</option>
+            <option value="combat" data-i18n="gm.combat">战斗</option>
+            <option value="cultivation" data-i18n="gm.cultivation">修炼</option>
+            <option value="alchemy" data-i18n="gm.alchemy">炼丹</option>
+            <option value="enhancement" data-i18n="gm.enhancement">强化</option>
+            <option value="gather" data-i18n="gm.gather">采集</option>
           </select>
           <select id="player-account-status-filter" class="search-input" style="flex:0 0 180px;">
-            <option value="all">账号状态: 全部</option>
-            <option value="normal">正常</option>
-            <option value="banned">封禁</option>
-            <option value="abnormal">异常</option>
+            <option value="all" data-i18n="gm.account-status-all">账号状态: 全部</option>
+            <option value="normal" data-i18n="gm.normal">正常</option>
+            <option value="banned" data-i18n="gm.banned">封禁</option>
+            <option value="abnormal" data-i18n="gm.abnormal">异常</option>
           </select>
         </div>
         <div class="filter-row" style="margin-top: 10px; align-items: center;">
           <input id="player-bulk-ban-risk-threshold" class="number-input" type="number" min="0" max="200" value="70" style="flex:0 0 180px;" />
-          <input id="player-bulk-ban-reason" class="search-input" type="text" placeholder="批量封号原因（可选）" style="flex:1 1 280px;" />
-          <button id="player-bulk-ban-by-risk" class="small-btn danger" type="button">预览并批量封号</button>
+          <input id="player-bulk-ban-reason" class="search-input" type="text" data-i18n-placeholder="gm.player-bulk-ban-reason.placeholder" placeholder="批量封号原因（可选）" style="flex:1 1 280px;" />
+          <button id="player-bulk-ban-by-risk" class="small-btn danger" type="button" data-i18n="gm.player-bulk-ban-by-risk">预览并批量封号</button>
         </div>
-        <div id="player-bulk-ban-preview" class="editor-note" style="margin-top: 8px; min-height: 22px;">尚未生成批量封号预览。</div>
+        <div id="player-bulk-ban-preview" class="editor-note" style="margin-top: 8px; min-height: 22px;" data-i18n="gm.player-bulk-ban-preview">尚未生成批量封号预览。</div>
         <div id="player-risk-audit-list" class="network-list" style="margin-top: 12px;"></div>
         <div id="player-list" class="player-list"></div>
         <div class="button-row" style="justify-content: space-between; margin-top: 12px;">
-          <button id="player-page-prev" class="small-btn" type="button">上一页</button>
-          <div id="player-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
-          <button id="player-page-next" class="small-btn" type="button">下一页</button>
+          <button id="player-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
+          <div id="player-page-meta" class="editor-note" style="margin: 0;" data-i18n="gm.network-in-page-meta">第 1 / 1 页 · 共 0 条</div>
+          <button id="player-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
         </div>
       </div>
     </section>
 
     <section class="layout-section">
       <div class="section-head">
-        <div class="section-title">分区数据编辑</div>
-        <div class="section-subtitle">按基础、位置、属性、功法、物品、任务等分开查看与保存，原始 JSON 保留在高级区</div>
+        <div class="section-title" data-i18n="gm.partition-editor">分区数据编辑</div>
+        <div class="section-subtitle" data-i18n="gm.partition-editor-subtitle">按基础、位置、属性、功法、物品、任务等分开查看与保存，原始 JSON 保留在高级区</div>
       </div>
       <div class="section-body">
-        <div id="editor-empty" class="empty-hint">从左侧选择一个角色后，可查看并修改其完整数据。</div>
+        <div id="editor-empty" class="empty-hint" data-i18n="gm.editor-empty">从左侧选择一个角色后，可查看并修改其完整数据。</div>
         <div id="editor-panel" class="hidden">
           <div class="editor-head">
             <div>
-              <div id="editor-title" class="editor-main-title">未选择角色</div>
+              <div id="editor-title" class="editor-main-title" data-i18n="gm.editor-title">未选择角色</div>
               <div id="editor-subtitle" class="editor-main-subtitle"></div>
             </div>
           </div>
           <div id="editor-meta" class="meta-row"></div>
           <div class="button-row" style="margin-bottom: 10px;">
-            <button id="save-player" class="small-btn primary" type="button">保存当前标签</button>
-            <button id="refresh-player" class="small-btn" type="button">刷新当前玩家</button>
-            <button id="open-player-mail" class="small-btn" type="button">发邮件</button>
-            <button id="reset-player" class="small-btn" type="button">回出生点</button>
-            <button id="reset-heaven-gate" class="small-btn" type="button">重置天门</button>
-            <button id="remove-bot" class="small-btn danger" type="button">移除该机器人</button>
+            <button id="save-player" class="small-btn primary" type="button" data-i18n="gm.save-player">保存当前标签</button>
+            <button id="refresh-player" class="small-btn" type="button" data-i18n="gm.refresh-player">刷新当前玩家</button>
+            <button id="open-player-mail" class="small-btn" type="button" data-i18n="gm.open-player-mail">发邮件</button>
+            <button id="reset-player" class="small-btn" type="button" data-i18n="gm.reset-player">回出生点</button>
+            <button id="reset-heaven-gate" class="small-btn" type="button" data-i18n="gm.reset-heaven-gate">重置天门</button>
+            <button id="remove-bot" class="small-btn danger" type="button" data-i18n="gm.remove-bot">移除该机器人</button>
           </div>
-          <div class="editor-note">当前保存只会提交所在标签的数据。刷新当前玩家会丢弃未保存草稿，并重新拉取服务端详情。</div>
+          <div class="editor-note" data-i18n="gm.editor-note-editor-save-note">当前保存只会提交所在标签的数据。刷新当前玩家会丢弃未保存草稿，并重新拉取服务端详情。</div>
           <div class="workspace-tabs editor-tabs">
-            <button id="editor-tab-basic" class="workspace-tab active" type="button">基础</button>
-            <button id="editor-tab-position" class="workspace-tab" type="button">位置</button>
-            <button id="editor-tab-realm" class="workspace-tab" type="button">属性</button>
-            <button id="editor-tab-buffs" class="workspace-tab" type="button">Buff</button>
-            <button id="editor-tab-techniques" class="workspace-tab" type="button">功法</button>
-            <button id="editor-tab-shortcuts" class="workspace-tab" type="button">快捷操作</button>
-            <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
-            <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
-            <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
-            <button id="editor-tab-risk" class="workspace-tab" type="button">风险检测</button>
-            <button id="editor-tab-persisted" class="workspace-tab" type="button">数据库</button>
+            <button id="editor-tab-basic" class="workspace-tab active" type="button" data-i18n="gm.editor-tab-basic">基础</button>
+            <button id="editor-tab-position" class="workspace-tab" type="button" data-i18n="gm.editor-tab-position">位置</button>
+            <button id="editor-tab-realm" class="workspace-tab" type="button" data-i18n="gm.editor-tab-realm">属性</button>
+            <button id="editor-tab-buffs" class="workspace-tab" type="button" data-i18n="gm.editor-tab-buffs">Buff</button>
+            <button id="editor-tab-techniques" class="workspace-tab" type="button" data-i18n="gm.editor-tab-techniques">功法</button>
+            <button id="editor-tab-shortcuts" class="workspace-tab" type="button" data-i18n="gm.editor-tab-shortcuts">快捷操作</button>
+            <button id="editor-tab-items" class="workspace-tab" type="button" data-i18n="gm.editor-tab-items">物品</button>
+            <button id="editor-tab-quests" class="workspace-tab" type="button" data-i18n="gm.editor-tab-quests">任务</button>
+            <button id="editor-tab-mail" class="workspace-tab" type="button" data-i18n="gm.editor-tab-mail">邮件</button>
+            <button id="editor-tab-risk" class="workspace-tab" type="button" data-i18n="gm.editor-tab-risk">风险检测</button>
+            <button id="editor-tab-persisted" class="workspace-tab" type="button" data-i18n="gm.server-subtab-database">数据库</button>
           </div>
           <div id="editor-visual-panel" class="editor-tab-panel">
             <div id="editor-content" class="editor-stack"></div>
@@ -2119,12 +2119,12 @@
             <div class="editor-section">
               <div class="editor-section-head">
                 <div>
-                  <div class="editor-section-title">数据库真源</div>
-                  <div class="editor-section-note">按表查看当前数据库中的玩家真源，不直接参与可视化编辑。</div>
+                  <div class="editor-section-title" data-i18n="gm.editor-section-title-database-source">数据库真源</div>
+                  <div class="editor-section-note" data-i18n="gm.editor-section-note-database-source-note">按表查看当前数据库中的玩家真源，不直接参与可视化编辑。</div>
                 </div>
               </div>
               <div id="player-database-tabs" class="workspace-tabs editor-tabs" style="margin: 12px 0 8px;"></div>
-              <div id="player-database-meta" class="editor-note" style="margin-bottom: 8px;">当前还没有数据库表数据。</div>
+              <div id="player-database-meta" class="editor-note" style="margin-bottom: 8px;" data-i18n="gm.player-database-meta">当前还没有数据库表数据。</div>
               <textarea id="player-persisted-json" class="editor-textarea" spellcheck="false" readonly></textarea>
             </div>
           </div>
@@ -2137,8 +2137,8 @@
     <section id="world-workspace" class="world-workspace hidden">
       <section class="layout-section">
         <div class="section-head">
-          <div class="section-title">实例列表</div>
-          <div class="section-subtitle">选择实例查看运行时状态</div>
+          <div class="section-title" data-i18n="gm.instance-list">实例列表</div>
+          <div class="section-subtitle" data-i18n="gm.select-instance-runtime">选择实例查看运行时状态</div>
         </div>
         <div class="section-body world-instance-section">
           <div id="world-instance-tabs" class="world-instance-tabs"></div>
@@ -2148,8 +2148,8 @@
       </section>
       <section class="layout-section">
         <div class="section-head">
-          <div class="section-title">上帝视角</div>
-          <div class="section-subtitle">右键拖动 · 滚轮缩放 · 左键选中查看</div>
+          <div class="section-title" data-i18n="gm.god-view">上帝视角</div>
+          <div class="section-subtitle" data-i18n="gm.god-view-hint">右键拖动 · 滚轮缩放 · 左键选中查看</div>
         </div>
         <div class="section-body" style="display:flex; flex-direction:column; padding:0;">
           <div id="world-canvas-host" class="map-canvas-host" style="min-height:400px;">
@@ -2159,30 +2159,30 @@
       </section>
       <section class="layout-section">
         <div class="section-head">
-          <div class="section-title">信息与操作</div>
-          <div class="section-subtitle">实例信息、世界控制与选中目标详情</div>
+          <div class="section-title" data-i18n="gm.info-actions">信息与操作</div>
+          <div class="section-subtitle" data-i18n="gm.instance-world-selected-detail">实例信息、世界控制与选中目标详情</div>
         </div>
         <div class="section-body">
-          <div id="world-info"><div class="empty-hint">从左侧选择一个实例</div></div>
+          <div id="world-info"><div class="empty-hint" data-i18n="gm.select-instance-left">从左侧选择一个实例</div></div>
         </div>
       </section>
     </section>
 
     <section id="shortcut-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
-      <div class="panel-stamp">令</div>
+      <div class="panel-stamp" data-i18n="gm.panel-stamp-stamp-command">令</div>
       <div class="section-head">
-        <div class="shell-title">快捷指令</div>
-        <div class="shell-subtitle">批量执行高频 GM 操作</div>
+        <div class="shell-title" data-i18n="gm.tab-shortcuts">快捷指令</div>
+        <div class="shell-subtitle" data-i18n="gm.shell-subtitle-batch-high-frequency-gm-actions">批量执行高频 GM 操作</div>
       </div>
       <div class="section-body">
-        <div class="note-card" style="margin-bottom: 16px;">
+        <div class="note-card" style="margin-bottom: 16px;" data-i18n="gm.note-card-shortcuts-warning">
           这里的快捷指令会直接影响全服角色状态。在线角色会在下一息统一执行，离线角色会直接更新存档。
         </div>
         <div class="editor-section" style="margin-bottom: 16px;">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">全服邮件</div>
-              <div class="editor-section-note">给当前全服玩家发送广播邮件。正文走低频 GM HTTP 接口，玩家收件箱再按需拉取详情。</div>
+              <div class="editor-section-title" data-i18n="gm.editor-section-title-global-mail">全服邮件</div>
+              <div class="editor-section-note" data-i18n="gm.editor-section-note-global-mail-note">给当前全服玩家发送广播邮件。正文走低频 GM HTTP 接口，玩家收件箱再按需拉取详情。</div>
             </div>
           </div>
           <div id="shortcut-mail-composer"></div>
@@ -2190,66 +2190,66 @@
         <div class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">存档清理</div>
-              <div class="editor-section-note">手动清理全服玩家背包、坊市托管仓和装备栏里的无效物品。在线与离线角色都会处理。</div>
+              <div class="editor-section-title" data-i18n="gm.editor-section-title-save-cleanup">存档清理</div>
+              <div class="editor-section-note" data-i18n="gm.editor-section-note-save-cleanup-note">手动清理全服玩家背包、坊市托管仓和装备栏里的无效物品。在线与离线角色都会处理。</div>
             </div>
           </div>
           <div class="button-row" style="margin-bottom: 16px;">
-            <button id="shortcut-cleanup-invalid-items" class="small-btn danger" type="button">清理全部玩家无效物品</button>
+            <button id="shortcut-cleanup-invalid-items" class="small-btn danger" type="button" data-i18n="gm.shortcut-cleanup-invalid-items">清理全部玩家无效物品</button>
           </div>
         </div>
         <div class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">补偿</div>
-              <div class="editor-section-note">用于执行全服统一补偿。按钮会直接作用到在线与离线角色。</div>
+              <div class="editor-section-title" data-i18n="gm.editor-section-title-compensation">补偿</div>
+              <div class="editor-section-note" data-i18n="gm.editor-section-note-compensation-note">用于执行全服统一补偿。按钮会直接作用到在线与离线角色。</div>
             </div>
           </div>
           <div class="button-row" style="margin-bottom: 16px;">
-            <button id="shortcut-compensate-combat-exp-2026-04-09" class="small-btn primary" type="button">战斗经验补偿-2026-04-09</button>
-            <button id="shortcut-compensate-foundation-2026-04-09" class="small-btn primary" type="button">底蕴补偿-2026-04-09</button>
+            <button id="shortcut-compensate-combat-exp-2026-04-09" class="small-btn primary" type="button" data-i18n="gm.shortcut-compensate-combat-exp-2026-04-09">战斗经验补偿-2026-04-09</button>
+            <button id="shortcut-compensate-foundation-2026-04-09" class="small-btn primary" type="button" data-i18n="gm.shortcut-compensate-foundation-2026-04-09">底蕴补偿-2026-04-09</button>
           </div>
         </div>
         <div class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">草药库存</div>
-              <div class="editor-section-note">给当前所有已加载地图里的草药采集点统一补充库存，按地图 tick 批量生效。</div>
+              <div class="editor-section-title" data-i18n="gm.editor-section-title-herb-stock">草药库存</div>
+              <div class="editor-section-note" data-i18n="gm.editor-section-note-herb-stock-note">给当前所有已加载地图里的草药采集点统一补充库存，按地图 tick 批量生效。</div>
             </div>
           </div>
           <div class="button-row" style="margin-bottom: 16px;">
-            <button id="shortcut-add-herb-stock-1000" class="small-btn primary" type="button">全图草药库存 +1000</button>
+            <button id="shortcut-add-herb-stock-1000" class="small-btn primary" type="button" data-i18n="gm.shortcut-add-herb-stock-1000">全图草药库存 +1000</button>
           </div>
         </div>
         <div class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">角色迁移</div>
-              <div class="editor-section-note">用于地图大改后，把全服角色统一送回新手村出生点。</div>
+              <div class="editor-section-title" data-i18n="gm.editor-section-title-player-migration">角色迁移</div>
+              <div class="editor-section-note" data-i18n="gm.editor-section-note-player-migration-note">用于地图大改后，把全服角色统一送回新手村出生点。</div>
             </div>
           </div>
           <div class="button-row">
-            <button id="shortcut-return-all-to-default-spawn" class="small-btn danger" type="button">所有角色回新手村出生点</button>
+            <button id="shortcut-return-all-to-default-spawn" class="small-btn danger" type="button" data-i18n="gm.shortcut-return-all-to-default-spawn">所有角色回新手村出生点</button>
           </div>
         </div>
       </div>
     </section>
 
     <section id="suggestion-workspace" class="layout-section hidden" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
-      <div class="panel-stamp">议</div>
+      <div class="panel-stamp" data-i18n="gm.panel-stamp-stamp-suggestion">议</div>
       <div style="padding: 24px; border-bottom: 1.5px solid var(--ink-black); background: var(--paper-bg);">
-        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">建言献策</div>
-        <div class="shell-subtitle" style="font-size: 14px;">监察司接纳之四海修士所提功能建议与反馈，依民意而定。</div>
+        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;" data-i18n="gm.shell-title-suggestion-title">建言献策</div>
+        <div class="shell-subtitle" style="font-size: 14px;" data-i18n="gm.shell-subtitle-suggestion-subtitle">监察司接纳之四海修士所提功能建议与反馈，依民意而定。</div>
       </div>
       <div class="gm-suggestion-toolbar">
-        <input id="gm-suggestion-search" class="search-input" type="search" maxlength="50" placeholder="搜索标题、描述或回复内容" />
-        <button id="gm-suggestion-search-clear" class="small-btn" type="button">清空</button>
-        <button id="gm-suggestion-page-prev" class="small-btn" type="button">上一页</button>
-        <button id="gm-suggestion-page-next" class="small-btn" type="button">下一页</button>
-        <div id="gm-suggestion-page-meta" class="gm-suggestion-page-meta">第 1 / 1 页</div>
+        <input id="gm-suggestion-search" class="search-input" type="search" maxlength="50" data-i18n-placeholder="gm.suggestion-search.placeholder" placeholder="搜索标题、描述或回复内容" />
+        <button id="gm-suggestion-search-clear" class="small-btn" type="button" data-i18n="gm.suggestion-search-clear">清空</button>
+        <button id="gm-suggestion-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
+        <button id="gm-suggestion-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
+        <div id="gm-suggestion-page-meta" class="gm-suggestion-page-meta" data-i18n="gm.suggestion-page-meta">第 1 / 1 页</div>
       </div>
       <div id="gm-suggestion-list" style="flex: 1; overflow-y: auto; padding: 24px; background: var(--paper-light);">
-        <div class="empty-hint">正在加载建议列表…</div>
+        <div class="empty-hint" data-i18n="gm.loading-suggestions">正在加载建议列表…</div>
       </div>
     </section>
   </main>

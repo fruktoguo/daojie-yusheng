@@ -16,6 +16,7 @@ import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { describePreviewBonuses } from './stat-preview';
+import { t } from './i18n';
 
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 type LeaderboardTrackedLocation = S2C_LeaderboardPlayerLocations['entries'][number];
@@ -34,7 +35,9 @@ function escapeHtml(value: string): string {
 
 /** formatPortalTrigger：格式化传送点Trigger。 */
 function formatPortalTrigger(trigger: 'manual' | 'auto' | undefined): string {
-  return trigger === 'auto' ? '踏入即触发' : '需要主动使用';
+  return trigger === 'auto'
+    ? t('entity-detail.portal.trigger.auto', undefined)
+    : t('entity-detail.portal.trigger.manual', undefined);
 }
 
 /** formatRespawnTicks：格式化Respawn Ticks。 */
@@ -42,9 +45,9 @@ function formatRespawnTicks(respawnTicks: number | undefined): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof respawnTicks !== 'number' || !Number.isFinite(respawnTicks) || respawnTicks <= 0) {
-    return '即将重生';
+    return t('entity-detail.respawn.soon', undefined);
   }
-  return `${Math.max(1, Math.round(respawnTicks))} 息后重生`;
+  return t('entity-detail.respawn.after', { ticks: Math.max(1, Math.round(respawnTicks)) });
 }
 
 /** formatNpcQuestMarker：格式化NPC任务标记。 */
@@ -52,34 +55,36 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!marker) {
-    return '暂无追索之委托';
+    return t('entity-detail.npc.quest.none', undefined);
   }
   const stateLabel = marker.state === 'ready'
-    ? '可交付'
+    ? t('entity-detail.npc.quest.ready', undefined)
     : marker.state === 'available'
-      ? '可接取'
-      : '进行中';
+      ? t('entity-detail.npc.quest.available', undefined)
+      : t('entity-detail.npc.quest.progress', undefined);
   return `${getQuestLineLabel(marker.line)} · ${stateLabel}`;
 }
 
 function isObservationVitalLabel(label: string | null | undefined): boolean {
-  return label === '生命' || label === '气血' || label === '灵力';
+  return label === t('entity-detail.label.life', undefined)
+    || label === t('entity-detail.label.hp', undefined)
+    || label === t('entity-detail.label.qi', undefined);
 }
 
 function formatObservationClarity(clarity: string | undefined): string {
   switch (clarity) {
     case 'veiled':
-      return '雾里看花';
+      return t('entity-detail.observation.clarity.veiled', undefined);
     case 'blurred':
-      return '轮廓模糊';
+      return t('entity-detail.observation.clarity.blurred', undefined);
     case 'partial':
-      return '窥得部分';
+      return t('entity-detail.observation.clarity.partial', undefined);
     case 'clear':
-      return '已较清晰';
+      return t('entity-detail.observation.clarity.clear', undefined);
     case 'complete':
-      return '洞察完整';
+      return t('entity-detail.observation.clarity.complete', undefined);
     default:
-      return '未明';
+      return t('entity-detail.value.unknown', undefined);
   }
 }
 
@@ -156,8 +161,10 @@ export class EntityDetailModal {
   private render(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? '详情');
-    const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情观望中...';
+    const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? t('entity-detail.title.default', undefined));
+    const subtitle = this.detail
+      ? t('entity-detail.subtitle.kind', { kind: escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind)) })
+      : t('entity-detail.subtitle.loading', undefined);
     const existingBody = detailModalHost.isOpenFor(EntityDetailModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
@@ -207,10 +214,10 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.detail) {
-      return '<div class="empty-hint">详情观望中……</div>';
+      return `<div class="empty-hint">${t('entity-detail.loading', undefined)}</div>`;
     }
     if (!this.detail) {
-      return '<div class="empty-hint">暂未探明此物详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.empty', undefined)}</div>`;
     }
     if (this.detail.error) {
       return `<div class="empty-hint">${escapeHtml(this.detail.error)}</div>`;
@@ -229,7 +236,7 @@ export class EntityDetailModal {
       case 'container':
         return this.renderContainer(this.detail.container ?? null);
       default:
-        return '<div class="empty-hint">此般详情尚不可察。</div>';
+        return `<div class="empty-hint">${t('entity-detail.unsupported', undefined)}</div>`;
     }
   }
 
@@ -255,21 +262,21 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!npc) {
-      return '<div class="empty-hint">暂未探明此人详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.npc.empty', undefined)}</div>`;
     }
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(npc.name)}</div>
-        <div class="ui-title-block-subtitle">${escapeHtml(npc.role ?? '无身份标记')}</div>
+        <div class="ui-title-block-subtitle">${escapeHtml(npc.role ?? t('entity-detail.npc.no-role-mark', undefined))}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${npc.x}, ${npc.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>身份</strong><span>${escapeHtml(npc.role ?? '无')}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>商店</strong><span>${npc.hasShop ? '可交易' : '无'}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>任务</strong><span>${npc.questCount ?? 0} 条</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>任务状态</strong><span>${escapeHtml(formatNpcQuestMarker(npc.questMarker ?? null))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${npc.x}, ${npc.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.role', undefined)}</strong><span>${escapeHtml(npc.role ?? t('entity-detail.value.none', undefined))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.shop', undefined)}</strong><span>${npc.hasShop ? t('entity-detail.npc.shop.available', undefined) : t('entity-detail.value.none', undefined)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.quest', undefined)}</strong><span>${t('entity-detail.count.entries', { count: npc.questCount ?? 0 })}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.quest-state', undefined)}</strong><span>${escapeHtml(formatNpcQuestMarker(npc.questMarker ?? null))}</span></div>
       </div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>对话</strong><div>${escapeHtml(npc.dialogue)}</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.dialogue', undefined)}</strong><div>${escapeHtml(npc.dialogue)}</div></div>
       ${this.renderObservation(npc.observation)}
     `;
   }
@@ -279,21 +286,21 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!monster) {
-      return '<div class="empty-hint">暂未探明妖兽详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.monster.empty', undefined)}</div>`;
     }
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(monster.name)}</div>
-        <div class="ui-title-block-subtitle">${escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier)} · 等级 ${monster.level}</div>
+        <div class="ui-title-block-subtitle">${t('entity-detail.monster.subtitle', { tier: escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier), level: monster.level })}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${monster.x}, ${monster.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>生命</strong><span>${monster.hp}/${monster.maxHp}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>灵力</strong><span>${monster.qi}/${monster.maxQi}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>层级</strong><span>${monster.level}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>血脉</strong><span>${escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><span>${monster.alive ? '存活' : '待重生'}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>重生</strong><span>${escapeHtml(monster.alive ? '无需等待' : formatRespawnTicks(monster.respawnTicks))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${monster.x}, ${monster.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${monster.hp}/${monster.maxHp}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${monster.qi}/${monster.maxQi}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.level', undefined)}</strong><span>${monster.level}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.tier', undefined)}</strong><span>${escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.state', undefined)}</strong><span>${monster.alive ? t('entity-detail.monster.alive', undefined) : t('entity-detail.monster.respawning', undefined)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.respawn', undefined)}</strong><span>${escapeHtml(monster.alive ? t('entity-detail.respawn.none', undefined) : formatRespawnTicks(monster.respawnTicks))}</span></div>
       </div>
       ${this.renderObservation(monster.observation, true)}
       ${this.renderBuffs(monster.buffs ?? [])}
@@ -305,23 +312,23 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!player) {
-      return '<div class="empty-hint">暂未探明此身详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.player.empty', undefined)}</div>`;
     }
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
     const titleRow = pendingTitle && pendingTitle !== player.id
-      ? `<div class="ui-detail-field ui-detail-field--section"><strong>称呼</strong><span>${escapeHtml(pendingTitle)}</span></div>`
+      ? `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.display-name', undefined)}</strong><span>${escapeHtml(pendingTitle)}</span></div>`
       : '';
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(pendingTitle && pendingTitle !== player.id ? pendingTitle : player.id)}</div>
-        <div class="ui-title-block-subtitle">玩家观测</div>
+        <div class="ui-title-block-subtitle">${t('entity-detail.player.subtitle', undefined)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
         ${titleRow}
-        <div class="ui-detail-field ui-detail-field--section"><strong>编号</strong><span>${escapeHtml(player.id)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${player.x}, ${player.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>生命</strong><span>${player.hp}/${player.maxHp}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>灵力</strong><span>${player.qi}/${player.maxQi}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.id', undefined)}</strong><span>${escapeHtml(player.id)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${player.x}, ${player.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${player.hp}/${player.maxHp}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${player.qi}/${player.maxQi}</span></div>
       </div>
       ${this.renderTrackedPlayerIntel(player.id)}
       ${this.renderObservation(player.observation, true)}
@@ -336,18 +343,18 @@ export class EntityDetailModal {
       return `
         <div class="ui-detail-field ui-detail-field--section">
           <strong>天机追索</strong>
-          <div>此身未在诛仙榜追索册页中。查看天下榜时若命中上榜对象，会在这里显现最新坐标。</div>
+          <div>${t('entity-detail.player.tracking.empty', undefined)}</div>
         </div>
       `;
     }
     const coordinate = `${tracked.mapName} (${tracked.x}, ${tracked.y})`;
-    const status = tracked.online ? '在线追索' : '离线坐标';
+    const status = tracked.online ? t('entity-detail.player.tracking.online', undefined) : t('entity-detail.player.tracking.offline', undefined);
     return `
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>天机追索</strong><span>${escapeHtml(status)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>卷宗坐标</strong><span>${escapeHtml(coordinate)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.tracking.title', undefined)}</strong><span>${escapeHtml(status)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.tracking.coordinate', undefined)}</strong><span>${escapeHtml(coordinate)}</span></div>
       </div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>说明</strong><div>该坐标来自天下榜玩家击杀榜的低频追索结果，榜册开启期间每十息刷新一次。</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.description', undefined)}</strong><div>${t('entity-detail.player.tracking.desc', undefined)}</div></div>
     `;
   }
 
@@ -357,23 +364,27 @@ export class EntityDetailModal {
 
     const portal = this.detail?.portal;
     if (!portal) {
-      return '<div class="empty-hint">暂未探明界门详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.portal.empty', undefined)}</div>`;
     }
-    const portalKind = portal.kind === 'stairs' ? '楼梯' : portal.kind === 'gate' ? '关隘' : '传送点';
+    const portalKind = portal.kind === 'stairs'
+      ? t('entity-detail.portal.kind.stairs', undefined)
+      : portal.kind === 'gate'
+        ? t('entity-detail.portal.kind.gate', undefined)
+        : t('entity-detail.portal.kind.portal', undefined);
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
       ? `(${portal.targetX}, ${portal.targetY})`
-      : '未知';
+      : t('entity-detail.value.unknown', undefined);
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(portal.targetMapName ?? portal.targetMapId)}</div>
         <div class="ui-title-block-subtitle">${escapeHtml(portalKind)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${portal.x}, ${portal.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>类型</strong><span>${escapeHtml(portalKind)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>目标地图</strong><span>${escapeHtml(portal.targetMapName ?? portal.targetMapId)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>目标坐标</strong><span>${escapeHtml(destination)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>触发方式</strong><span>${escapeHtml(formatPortalTrigger(portal.trigger))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${portal.x}, ${portal.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.type', undefined)}</strong><span>${escapeHtml(portalKind)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-map', undefined)}</strong><span>${escapeHtml(portal.targetMapName ?? portal.targetMapId)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-coordinate', undefined)}</strong><span>${escapeHtml(destination)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.trigger', undefined)}</strong><span>${escapeHtml(formatPortalTrigger(portal.trigger))}</span></div>
       </div>
     `;
   }
@@ -384,21 +395,21 @@ export class EntityDetailModal {
 
     const ground = this.detail?.ground;
     if (!ground) {
-      return '<div class="empty-hint">暂未探明地面之物。</div>';
+      return `<div class="empty-hint">${t('entity-detail.ground.empty', undefined)}</div>`;
     }
     const items = ground.items.length > 0
       ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: item.name, tone: 'reward' })).join('')}</div>`
-      : '<div class="inline-rich-text">已无可见之物。</div>';
+      : `<div class="inline-rich-text">${t('entity-detail.ground.no-visible-items', undefined)}</div>`;
     return `
       <div class="ui-title-block">
-        <div class="ui-title-block-title">地面物</div>
+        <div class="ui-title-block-title">${t('entity-detail.ground.title', undefined)}</div>
         <div class="ui-title-block-subtitle">${escapeHtml(ground.sourceId)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${ground.x}, ${ground.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>来源</strong><span>${escapeHtml(ground.sourceId)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${ground.x}, ${ground.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.ground.field.source', undefined)}</strong><span>${escapeHtml(ground.sourceId)}</span></div>
       </div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>物品</strong><div>${items}</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.ground.field.items', undefined)}</strong><div>${items}</div></div>
     `;
   }
 
@@ -407,20 +418,20 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!container) {
-      return '<div class="empty-hint">暂未探明此物详情。</div>';
+      return `<div class="empty-hint">${t('entity-detail.empty', undefined)}</div>`;
     }
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(container.name)}</div>
-        <div class="ui-title-block-subtitle">可搜索陈设</div>
+        <div class="ui-title-block-subtitle">${t('entity-detail.container.searchable', undefined)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>位置</strong><span>(${container.x}, ${container.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>名称</strong><span>${escapeHtml(container.name)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>搜索阶次</strong><span>${container.grade}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>类别</strong><span>可搜索陈设</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${container.x}, ${container.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.name', undefined)}</strong><span>${escapeHtml(container.name)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.container.field.grade', undefined)}</strong><span>${container.grade}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.container.searchable', undefined)}</span></div>
       </div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>说明</strong><div>${escapeHtml(container.desc ?? `这处${container.name}可以搜索，翻找后或许会有收获。`)}</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.description', undefined)}</strong><div>${escapeHtml(container.desc ?? t('entity-detail.container.default-desc', { name: container.name }))}</div></div>
     `;
   }  
   /**
@@ -458,21 +469,21 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!observation) {
-      return '<div class="ui-detail-field ui-detail-field--section"><strong>观测</strong><div>未得更多回响。</div></div>';
+      return `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.title', undefined)}</strong><div>${t('entity-detail.observation.no-more', undefined)}</div></div>`;
     }
     const lines = hideVitals
       ? (observation.lines ?? []).filter((line) => !isObservationVitalLabel(line.label))
       : (observation.lines ?? []);
     const rows = lines.length > 0
       ? `<div class="entity-detail-list">${lines.map((line) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(line.label)}</span><span class="observe-modal-value">${escapeHtml(line.value)}</span></div>`).join('')}</div>`
-      : '<div>暂且如此。</div>';
+      : `<div>${t('entity-detail.observation.rows.empty', undefined)}</div>`;
     return `
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>清晰度</strong><span>${escapeHtml(formatObservationClarity(observation.clarity))}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>洞察条目</strong><span>${lines.length} 条</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.clarity', undefined)}</strong><span>${escapeHtml(formatObservationClarity(observation.clarity))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.count', undefined)}</strong><span>${t('entity-detail.count.entries', { count: lines.length })}</span></div>
       </div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>判词</strong><div>${escapeHtml(observation.verdict ?? '未得更多回响。')}</div></div>
-      <div class="ui-detail-field ui-detail-field--section"><strong>细节</strong><div>${rows}</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.verdict', undefined)}</strong><div>${escapeHtml(observation.verdict ?? t('entity-detail.observation.no-more', undefined))}</div></div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.details', undefined)}</strong><div>${rows}</div></div>
     `;
   }
 
@@ -481,7 +492,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (buffs.length === 0) {
-      return '<div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div>未见异状。</div></div>';
+      return `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.state', undefined)}</strong><div>${t('entity-detail.buff.empty', undefined)}</div></div>`;
     }
     const publicBuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
     const publicDebuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
@@ -491,16 +502,16 @@ export class EntityDetailModal {
     const insightCount = observeOnlyBuffs.length + observeOnlyDebuffs.length;
     return `
       <div class="ui-detail-field ui-detail-field--section">
-        <strong>状态</strong>
+        <strong>${t('entity-detail.field.state', undefined)}</strong>
         <div class="ui-detail-grid ui-detail-grid--section">
-          <div class="ui-detail-field ui-detail-field--section"><strong>可见状态</strong><span>${visibleCount} 项</span></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>洞察状态</strong><span>${insightCount} 项</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.visible-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: visibleCount })}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.insight-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: insightCount })}</span></div>
         </div>
         <div class="observe-buff-columns">
-          ${this.renderBuffSection('可见增益', publicBuffs, '未见增益')}
-          ${this.renderBuffSection('可见减益', publicDebuffs, '未见减益')}
-          ${this.renderBuffSection('洞察增益', observeOnlyBuffs, '未见增益')}
-          ${this.renderBuffSection('洞察减益', observeOnlyDebuffs, '未见减益')}
+          ${this.renderBuffSection(t('entity-detail.buff.section.public-buffs', undefined), publicBuffs, t('entity-detail.buff.empty.buffs', undefined))}
+          ${this.renderBuffSection(t('entity-detail.buff.section.public-debuffs', undefined), publicDebuffs, t('entity-detail.buff.empty.debuffs', undefined))}
+          ${this.renderBuffSection(t('entity-detail.buff.section.observe-buffs', undefined), observeOnlyBuffs, t('entity-detail.buff.empty.buffs', undefined))}
+          ${this.renderBuffSection(t('entity-detail.buff.section.observe-debuffs', undefined), observeOnlyDebuffs, t('entity-detail.buff.empty.debuffs', undefined))}
         </div>
       </div>
     `;
@@ -614,7 +625,10 @@ export class EntityDetailModal {
 
   /** formatBuffDuration：格式化 Buff 持续时间。 */
   private formatBuffDuration(buff: VisibleBuffState): string {
-    return `${Math.max(0, Math.round(buff.remainingTicks))} / ${Math.max(1, Math.round(buff.duration))} 息`;
+    return t('entity-detail.buff.duration', {
+      remaining: Math.max(0, Math.round(buff.remainingTicks)),
+      duration: Math.max(1, Math.round(buff.duration)),
+    });
   }
 
   /** scaleBuffAttrs：按层数缩放 Buff 六维。 */
@@ -663,14 +677,14 @@ export class EntityDetailModal {
   /** buildBuffTooltipLines：组装 Buff tooltip 文案。 */
   private buildBuffTooltipLines(buff: VisibleBuffState): string[] {
     const lines = [
-      `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
-      `剩余：${this.formatBuffDuration(buff)}`,
+      t('entity-detail.buff.tooltip.category', { category: buff.category === 'debuff' ? t('entity-detail.buff.category.debuff', undefined) : t('entity-detail.buff.category.buff', undefined) }),
+      t('entity-detail.buff.tooltip.remaining', { duration: this.formatBuffDuration(buff) }),
     ];
     if (buff.maxStacks > 1) {
-      lines.push(`层数：${Math.max(0, Math.round(buff.stacks))} / ${Math.max(1, Math.round(buff.maxStacks))}`);
+      lines.push(t('entity-detail.buff.tooltip.stacks', { stacks: Math.max(0, Math.round(buff.stacks)), max: Math.max(1, Math.round(buff.maxStacks)) }));
     }
     if (buff.sourceSkillName || buff.sourceSkillId) {
-      lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
+      lines.push(t('entity-detail.buff.tooltip.source', { source: buff.sourceSkillName ?? buff.sourceSkillId }));
     }
     const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
     const effectLines = describePreviewBonuses(
@@ -681,7 +695,7 @@ export class EntityDetailModal {
       buff.statMode ?? 'percent',
     );
     if (effectLines.length > 0) {
-      lines.push(`效果：${effectLines.join('，')}`);
+      lines.push(t('entity-detail.buff.tooltip.effect', { effect: effectLines.join('，') }));
     }
     if (buff.desc) {
       lines.push(buff.desc);

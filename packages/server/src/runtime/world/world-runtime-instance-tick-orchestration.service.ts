@@ -88,6 +88,9 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                     ? deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId)
                     : ((x, y) => deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true);
                 const result = instance.tickOnce();
+                if (typeof instance.advanceTileResourceFlow === 'function') {
+                    instance.advanceTileResourceFlow();
+                }
                 if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
                     deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
                 }
@@ -121,6 +124,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                         cultivationAuraMultiplierByPlayerId,
                     });
+                    applyTileQiDrainForPlayers(instance, currentPlayerIds, deps);
                     if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
                         for (const playerId of currentPlayerIds) {
                             await deps.worldRuntimePlayerSkillDispatchService.resolvePendingPlayerSkillCast(playerId, deps);
@@ -265,6 +269,42 @@ function resolveTileCultivationAura(instance, player, x, y) {
         effectiveValue: effectiveAura,
         rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', normalizedAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
     };
+}
+
+function applyTileQiDrainForPlayers(instance, playerIds, deps) {
+    const playerRuntimeService = deps?.playerRuntimeService;
+    if (!instance || typeof instance.getPlayerPosition !== 'function' || typeof instance.getTileQiDrainPerTick !== 'function' || typeof playerRuntimeService?.getPlayer !== 'function' || typeof playerRuntimeService?.setVitals !== 'function') {
+        return;
+    }
+    for (const playerId of playerIds) {
+        const position = instance.getPlayerPosition(playerId);
+        if (!position) {
+            continue;
+        }
+        const qiDrain = instance.getTileQiDrainPerTick(position.x, position.y);
+        if (!Number.isFinite(qiDrain) || qiDrain <= 0) {
+            continue;
+        }
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player || player.hp <= 0) {
+            continue;
+        }
+        const currentQi = Math.max(0, Math.round(Number(player.qi) || 0));
+        const nextQi = Math.max(0, currentQi - Math.max(0, Math.trunc(qiDrain)));
+        if (nextQi !== player.qi) {
+            playerRuntimeService.setVitals(playerId, { qi: nextQi });
+        }
+        if (currentQi > 0 && nextQi <= 0 && typeof instance.relocatePlayer === 'function') {
+            const spawnPoint = instance.template?.spawnPoint ?? null;
+            const relocated = instance.relocatePlayer(playerId, spawnPoint?.x, spawnPoint?.y);
+            if (relocated) {
+                instance.cancelPendingCommand?.(playerId);
+                deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+                deps.clearPendingCommand?.(playerId);
+                deps.queuePlayerNotice?.(playerId, '灵力被地脉道压抽空，你被震回起点。', 'warn');
+            }
+        }
+    }
 }
 
 function resolveCultivationResourceValue(player, resourceKey, value) {

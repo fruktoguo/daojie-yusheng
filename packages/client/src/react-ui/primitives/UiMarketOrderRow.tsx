@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { t } from '../../ui/i18n';
 /**
  * UiMarketOrderRowProps：定义接口结构约束，明确可交付字段含义。
  */
@@ -47,11 +48,11 @@ export function UiMarketOrderRow({
   return (
     <div className={`react-ui-surface-card react-ui-surface-card--compact react-ui-market-order-row react-ui-market-order-row--${side}`}>
       <div className="react-ui-market-order-row-head react-ui-entry-head">
-        <span className="react-ui-market-order-row-side react-ui-entry-title">{side === 'buy' ? '买单' : '卖单'}</span>
+        <span className="react-ui-market-order-row-side react-ui-entry-title">{t(side === 'buy' ? 'react.market.order.buy' : 'react.market.order.sell')}</span>
         <span className="react-ui-market-order-row-price react-ui-entry-state">{price}</span>
       </div>
       <div className="react-ui-market-order-row-meta react-ui-entry-note">
-        <span>数量 {quantity}</span>
+        <span>{t('react.market.order.quantity', { quantity: String(quantity) })}</span>
         {owner ? <span>{owner}</span> : null}
       </div>
     </div>

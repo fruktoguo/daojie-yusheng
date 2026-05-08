@@ -39,6 +39,24 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
         }
         return payload;
     }    
+    /** 构建炼制/炼器面板运行态增量，高频刷新不重复下发目录和预设。 */
+    buildAlchemyPanelPatchPayload(player, kind = 'alchemy') {
+        const normalizedKind = kind === 'forging' ? 'forging' : 'alchemy';
+        const activeJob = player.alchemyJob
+            && (player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy') === normalizedKind
+            ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob)
+            : null;
+        return {
+            kind: normalizedKind,
+            state: null,
+            catalogVersion: craft_panel_alchemy_query_helpers_1.ALCHEMY_CATALOG_VERSION,
+            statePatch: {
+                job: activeJob,
+                queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
+            },
+        };
+    }
+
     /**
  * buildAlchemyPanelState：构建并返回目标对象。
  * @param player 玩家对象。

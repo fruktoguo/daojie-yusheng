@@ -8,6 +8,7 @@ import { detailModalHost } from './detail-modal-host';
 import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { confirmModalHost } from './confirm-modal-host';
 import { resolveTechniqueIdFromBookItemId } from '../content/local-templates';
+import { t } from './i18n';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -330,18 +331,18 @@ export class NpcShopModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.shopState) {
-      patchElementChildren(body, this.createEmptyState('货品查探中...'));
+      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.loading', undefined)));
       return;
     }
 
     const response = this.shopState;
     const shop = response?.shop ?? null;
     if (!shop) {
-      patchElementChildren(body, this.createEmptyState(response?.error ?? '暂无法观阅货品。'));
+      patchElementChildren(body, this.createEmptyState(response?.error ?? t('npc-shop.empty.unavailable', undefined)));
       return;
     }
     if (shop.items.length === 0) {
-      patchElementChildren(body, this.createEmptyState('此间今日无货。'));
+      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.no-stock', undefined)));
       return;
     }
 
@@ -351,7 +352,7 @@ export class NpcShopModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
     if (!toolbarMeta || !listRoot || !detailRoot) {
-      patchElementChildren(body, this.createEmptyState('暂无法观阅货品。'));
+      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.unavailable', undefined)));
       return;
     }
     this.syncToolbarMeta(toolbarMeta, shop);
@@ -465,8 +466,11 @@ export class NpcShopModal {
     const stockLabel = item.remainingQuantity === undefined
       ? getItemTypeLabel(item.item.type)
       : item.remainingQuantity > 0
-        ? `${getItemTypeLabel(item.item.type)} · 余 ${formatDisplayInteger(item.remainingQuantity)}${item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : ''}`
-        : `${getItemTypeLabel(item.item.type)} · 已售罄`;
+        ? `${getItemTypeLabel(item.item.type)} · ${t('npc-shop.stock.remaining', {
+          remaining: formatDisplayInteger(item.remainingQuantity),
+          limit: item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : '',
+        })}`
+        : `${getItemTypeLabel(item.item.type)} · ${t('npc-shop.stock.sold-out', undefined)}`;
 
     button.dataset.npcShopSelectItem = item.itemId;
     button.classList.toggle('active', active);
@@ -480,7 +484,9 @@ export class NpcShopModal {
     ownedNode.classList.toggle('hidden', ownedCount <= 0);
     patchElementHtml(ribbonNode, status ? `<span>${escapeHtml(status.label)}</span>` : '');
     ribbonNode.classList.toggle('hidden', status === null);
-    priceNode.textContent = `售价 ${formatDisplayInteger(item.unitPrice)}`;
+    priceNode.textContent = t('npc-shop.price.sale', {
+      price: formatDisplayInteger(item.unitPrice),
+    });
     stockNode.textContent = stockLabel;
     return true;
   }
@@ -490,7 +496,7 @@ export class NpcShopModal {
     if (item.type === 'skill_book') {
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
       if (techniqueId && this.player?.techniques.some((technique) => technique.techId === techniqueId)) {
-        return { label: '已学', kind: 'learned' };
+        return { label: t('npc-shop.status.learned', undefined), kind: 'learned' };
       }
     }
     const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
@@ -500,7 +506,7 @@ export class NpcShopModal {
         : [];
     const unlockedMinimapIds = new Set(this.player?.unlockedMinimapIds ?? []);
     if (mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId))) {
-      return { label: '已阅', kind: 'unlocked' };
+      return { label: t('npc-shop.status.unlocked', undefined), kind: 'unlocked' };
     }
     return null;
   }
@@ -508,7 +514,11 @@ export class NpcShopModal {
   /** syncToolbarMeta：同步列表顶部摘要。 */
   private syncToolbarMeta(toolbarMeta: HTMLElement, shop: NpcShopState): void {
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
-    toolbarMeta.textContent = `共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${shop.currencyItemName} ${formatDisplayInteger(ownedCurrency)}`;
+    toolbarMeta.textContent = t('npc-shop.toolbar.meta', {
+      count: formatDisplayInteger(shop.items.length),
+      currencyName: shop.currencyItemName,
+      owned: formatDisplayInteger(ownedCurrency),
+    });
   }
 
   /** syncShopList：同步商品列表，优先复用已有节点。 */
@@ -588,13 +598,25 @@ export class NpcShopModal {
     const stockSummary = selectedItem.remainingQuantity === undefined
       ? null
       : selectedItem.stockLimit
-        ? `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}/${formatDisplayInteger(selectedItem.stockLimit)}`
-        : `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}`;
+        ? t('npc-shop.stock.with-limit', {
+          remaining: formatDisplayInteger(selectedItem.remainingQuantity),
+          limit: formatDisplayInteger(selectedItem.stockLimit),
+        })
+        : t('npc-shop.stock.simple', {
+          remaining: formatDisplayInteger(selectedItem.remainingQuantity),
+        });
     const errorText = soldOut
-      ? `此物已售罄${refreshHint ? `，${refreshHint}` : ''}。`
+      ? t('npc-shop.error.sold-out', {
+        refreshHint: refreshHint ? `，${refreshHint}` : '',
+      })
       : stockExceeded
-        ? `库存不足，当前仅剩 ${formatDisplayInteger(selectedItem.remainingQuantity ?? 0)}。`
-        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
+        ? t('npc-shop.error.stock-short', {
+          remaining: formatDisplayInteger(selectedItem.remainingQuantity ?? 0),
+        })
+        : t('npc-shop.error.currency-short', {
+          currencyName: shop.currencyItemName,
+          total: displayTotal,
+        });
 
     return `
       <div class="market-book-header">
@@ -605,7 +627,7 @@ export class NpcShopModal {
       </div>
       ${effectLines.length > 0 ? `
         <div class="market-book-effects ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-          <div class="market-book-effects-title">完整效果</div>
+          <div class="market-book-effects-title">${escapeHtml(t('npc-shop.detail.effects', undefined))}</div>
           <div class="market-book-effects-list">
             ${effectLines.map((line) => `<div class="market-book-effect-line">${escapeHtml(line)}</div>`).join('')}
           </div>
@@ -613,12 +635,12 @@ export class NpcShopModal {
       ` : ''}
       <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
         <div class="market-book-column-head">
-          <div class="market-book-column-title">直接购买</div>
-          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${purchaseBlocked ? 'disabled' : ''}>购买</button>
+          <div class="market-book-column-title">${escapeHtml(t('npc-shop.detail.buy-direct', undefined))}</div>
+          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${purchaseBlocked ? 'disabled' : ''}>${escapeHtml(t('npc-shop.action.buy', undefined))}</button>
         </div>
         <div class="market-action-row">
-          <span class="market-order-meta">已有 ${formatDisplayCountBadge(ownedCount)}</span>
-          <span class="market-order-meta">最多买得起 ${formatDisplayInteger(maxPurchasable)}</span>
+          <span class="market-order-meta">${escapeHtml(t('npc-shop.owned-count', { count: formatDisplayCountBadge(ownedCount) }))}</span>
+          <span class="market-order-meta">${escapeHtml(t('npc-shop.affordable-count', { count: formatDisplayInteger(maxPurchasable) }))}</span>
         </div>
         ${stockSummary || refreshHint ? `
         <div class="market-action-row">
@@ -628,7 +650,7 @@ export class NpcShopModal {
         ` : ''}
         <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
           <div class="market-trade-dialog-field">
-            <span>单价</span>
+            <span>${escapeHtml(t('npc-shop.field.unit-price', undefined))}</span>
             <div class="market-price-display">
               <strong>${formatDisplayInteger(selectedItem.unitPrice)}</strong>
               <span>${escapeHtml(shop.currencyItemName)}</span>
@@ -637,7 +659,7 @@ export class NpcShopModal {
         </div>
         <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
           <div class="market-trade-dialog-field">
-            <span>数量</span>
+            <span>${escapeHtml(t('npc-shop.field.quantity', undefined))}</span>
             <div class="market-quantity-row">
               <button class="small-btn ghost" data-npc-shop-quick-qty="${escapeHtmlAttr(selectedItem.itemId)}" data-npc-shop-quick-qty-value="1" type="button">1</button>
               <input
@@ -655,11 +677,11 @@ export class NpcShopModal {
                 data-npc-shop-quick-qty-value="${Math.max(1, maxPurchasable)}"
                 type="button"
                 ${maxPurchasable <= 0 ? 'disabled' : ''}
-              >最大</button>
+              >${escapeHtml(t('npc-shop.action.max', undefined))}</button>
             </div>
           </div>
           <div class="market-trade-dialog-total ${insufficientCurrency || soldOut || stockExceeded ? 'error' : ''}">
-            <span>总价</span>
+            <span>${escapeHtml(t('npc-shop.field.total-price', undefined))}</span>
             <strong data-npc-shop-total="${escapeHtmlAttr(selectedItem.itemId)}">${displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
           </div>
         </div>
@@ -756,15 +778,15 @@ export class NpcShopModal {
     this.buyConfirmState = { npcId, itemId, quantity };
     confirmModalHost.open({
       ownerId: NpcShopModal.CONFIRM_MODAL_OWNER,
-      title: '确认购买',
+      title: t('npc-shop.confirm.title', undefined),
       subtitle: shop.npcName,
       bodyHtml: `
-        <div class="confirm-modal-line"><span>物品</span><strong>${escapeHtml(entry.item.name)}</strong></div>
-        <div class="confirm-modal-line"><span>数量</span><strong>${formatDisplayInteger(quantity)}</strong></div>
-        <div class="confirm-modal-line"><span>单价</span><strong>${formatDisplayInteger(entry.unitPrice)} ${escapeHtml(shop.currencyItemName)}</strong></div>
-        <div class="confirm-modal-line"><span>总额</span><strong>${formatDisplayInteger(totalCost)} ${escapeHtml(shop.currencyItemName)}</strong></div>
+        <div class="confirm-modal-line"><span>${escapeHtml(t('npc-shop.confirm.item', undefined))}</span><strong>${escapeHtml(entry.item.name)}</strong></div>
+        <div class="confirm-modal-line"><span>${escapeHtml(t('npc-shop.confirm.quantity', undefined))}</span><strong>${formatDisplayInteger(quantity)}</strong></div>
+        <div class="confirm-modal-line"><span>${escapeHtml(t('npc-shop.confirm.unit-price', undefined))}</span><strong>${formatDisplayInteger(entry.unitPrice)} ${escapeHtml(shop.currencyItemName)}</strong></div>
+        <div class="confirm-modal-line"><span>${escapeHtml(t('npc-shop.confirm.total', undefined))}</span><strong>${formatDisplayInteger(totalCost)} ${escapeHtml(shop.currencyItemName)}</strong></div>
       `,
-      confirmLabel: '确认购买',
+      confirmLabel: t('npc-shop.confirm.title', undefined),
       confirmButtonClass: 'danger',
       onConfirm: () => {
         const latest = this.buyConfirmState;
@@ -807,8 +829,8 @@ export class NpcShopModal {
   private buildModalMeta(): NpcShopModalMeta {
     const shop = this.shopState?.shop ?? null;
     return {
-      title: shop ? `${shop.npcName}的商店` : '商店',
-      subtitle: shop?.dialogue ?? '货品查探中...',
+      title: shop ? t('npc-shop.modal.title', { npcName: shop.npcName }) : t('npc-shop.modal.title-default', undefined),
+      subtitle: shop?.dialogue ?? t('npc-shop.empty.loading', undefined),
     };
   }
 
@@ -915,10 +937,17 @@ export class NpcShopModal {
     totalNode.parentElement?.classList.toggle('error', insufficientCurrency || soldOut || stockExceeded);
     errorNode.hidden = !(insufficientCurrency || soldOut || stockExceeded);
     errorNode.textContent = soldOut
-      ? `此物已售罄${this.formatRefreshHint(entry.refreshAt) ? `，${this.formatRefreshHint(entry.refreshAt)}` : ''}。`
+      ? t('npc-shop.error.sold-out', {
+        refreshHint: this.formatRefreshHint(entry.refreshAt) ? `，${this.formatRefreshHint(entry.refreshAt)}` : '',
+      })
       : stockExceeded
-        ? `库存不足，当前仅剩 ${formatDisplayInteger(entry.remainingQuantity ?? 0)}。`
-        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
+        ? t('npc-shop.error.stock-short', {
+          remaining: formatDisplayInteger(entry.remainingQuantity ?? 0),
+        })
+        : t('npc-shop.error.currency-short', {
+          currencyName: shop.currencyItemName,
+          total: displayTotal,
+        });
     buttonNode.disabled = invalidTotal || soldOut || stockExceeded;
   }
 
@@ -931,14 +960,14 @@ export class NpcShopModal {
     }
     const remainingMs = Math.max(0, Number(refreshAt) - Date.now());
     if (remainingMs <= 60_000) {
-      return '约 1 分钟内补货';
+      return t('npc-shop.refresh.within-minute', undefined);
     }
     const remainingMinutes = Math.ceil(remainingMs / 60_000);
     if (remainingMinutes < 60) {
-      return `约 ${formatDisplayInteger(remainingMinutes)} 分后补货`;
+      return t('npc-shop.refresh.minutes', { minutes: formatDisplayInteger(remainingMinutes) });
     }
     const remainingHours = Math.ceil(remainingMinutes / 60);
-    return `约 ${formatDisplayInteger(remainingHours)} 小时后补货`;
+    return t('npc-shop.refresh.hours', { hours: formatDisplayInteger(remainingHours) });
   }
 
   /** bindItemTooltipEvents：绑定物品提示事件。 */

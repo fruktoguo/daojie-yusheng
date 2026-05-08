@@ -18,6 +18,7 @@ import {
   STATUS_CLASS,
   STATUS_PRIORITY,
 } from '../../constants/ui/quest-panel';
+import { t } from '../i18n';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -174,7 +175,7 @@ export class QuestPanel {
     this.inventory = null;
     this.shellRefs = null;
     const emptyNode = this.createEmptyState();
-    emptyNode.textContent = '暂无任务，和场景人物交互可接取';
+    emptyNode.textContent = t('quest.empty.all', undefined);
     patchElementChildren(this.pane, emptyNode);
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
@@ -196,7 +197,7 @@ export class QuestPanel {
       this.lastStructureLine = this.activeLine;
       this.shellRefs = null;
       const emptyNode = this.createEmptyState();
-      emptyNode.textContent = '暂无任务，和场景人物交互可接取';
+      emptyNode.textContent = t('quest.empty.all', undefined);
       patchElementChildren(this.pane, emptyNode);
       return;
     }
@@ -224,7 +225,7 @@ export class QuestPanel {
       return this.shellRefs;
     }
 
-    const { sectionEl, titleEl } = createPanelSectionWithTitle('任务簿');
+    const { sectionEl, titleEl } = createPanelSectionWithTitle(t('quest.panel.title', undefined));
     sectionEl.classList.add('ui-panel-section');
     titleEl.classList.add('ui-panel-section-title');
 
@@ -312,7 +313,9 @@ export class QuestPanel {
     const visibleQuestIds = visibleQuests.map((quest) => quest.id);
     if (visibleQuests.length === 0) {
       const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]') ?? this.createEmptyState();
-      emptyNode.textContent = `当前没有${getQuestLineLabel(this.activeLine)}任务`;
+      emptyNode.textContent = t('quest.empty.line', {
+        line: getQuestLineLabel(this.activeLine),
+      });
       this.syncSectionContent(section, subtabs, [emptyNode]);
       this.lastVisibleQuestIds = [];
       this.lastStructureLine = this.activeLine;
@@ -404,7 +407,7 @@ export class QuestPanel {
 
     const expandHint = document.createElement('div');
     expandHint.className = 'quest-expand-hint';
-    expandHint.textContent = '点击查看详情';
+    expandHint.textContent = t('quest.card.expand-hint', undefined);
     card.appendChild(expandHint);
 
     this.patchQuestCard(card, quest);
@@ -432,11 +435,15 @@ export class QuestPanel {
     statusNode.textContent = getQuestStatusLabel(quest.status);
     statusNode.className = `quest-status ${STATUS_CLASS[quest.status]}`;
     chapterNode.className = `quest-meta ${quest.chapter ? '' : 'hidden'}`.trim();
-    chapterNode.textContent = `章节：${quest.chapter ?? ''}`;
+    chapterNode.textContent = t('quest.card.chapter', { chapter: quest.chapter ?? '' });
     replaceRichContent(descNode, this.renderQuestText(quest.desc, quest));
-    replaceRichContent(progressLabelNode, `目标：${this.renderQuestText(this.resolveProgressText(quest), quest)}`);
+    replaceRichContent(progressLabelNode, t('quest.card.objective', {
+      content: this.renderQuestText(this.resolveProgressText(quest), quest),
+    }));
     progressFillNode.style.width = `${percent}%`;
-    replaceRichContent(nextStepNode, `下一步：${this.renderQuestText(this.resolveNextStep(quest), quest)}`);
+    replaceRichContent(nextStepNode, t('quest.card.next-step', {
+      content: this.renderQuestText(this.resolveNextStep(quest), quest),
+    }));
     return true;
   }
 
@@ -485,14 +492,14 @@ export class QuestPanel {
     const canNavigateQuest = this.canNavigateQuest(quest);
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
-      : quest.giverMapName ?? '未知';
+      : quest.giverMapName ?? t('quest.location.unknown', undefined);
     const targetLocation = this.formatQuestLocation(
       quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
       quest.targetX,
       quest.targetY,
     );
     const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
-    const navigateLabel = quest.status === 'ready' ? '前往交付' : '前往目标';
+    const navigateLabel = this.resolveNavigateLabel(quest);
 
     detailModalHost.open({
       ownerId: QuestPanel.MODAL_OWNER,
@@ -531,13 +538,13 @@ export class QuestPanel {
     navigateLabel: string,
   ): void {
     patchElementHtml(body, `
-        <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>章节</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>任务描述</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
-        <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>剧情</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>${escapeHtml(t('quest.detail.chapter', undefined))}</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.desc', undefined))}</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>${escapeHtml(t('quest.detail.story', undefined))}</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
         <div class="ui-detail-grid ui-detail-grid--section">
-          <div class="ui-detail-field ui-detail-field--section"><strong>发布者</strong><span data-quest-modal-giver="true">${escapeHtml(quest.giverName)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.giver', undefined))}</strong><span data-quest-modal-giver="true">${escapeHtml(quest.giverName)}</span></div>
           <div class="ui-detail-field ui-detail-field--section">
-            <strong>接取地点</strong>
+            <strong>${escapeHtml(t('quest.detail.accept-location', undefined))}</strong>
             <div class="quest-detail-location-row">
               <span data-quest-modal-location="true">${escapeHtml(giverLocation)}</span>
               <button
@@ -550,15 +557,15 @@ export class QuestPanel {
               >${navigateLabel}</button>
             </div>
           </div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>任务目标</strong><span data-quest-modal-target-location="true">${escapeHtml(targetLocation)}</span></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>提交地点</strong><span data-quest-modal-submit-location="true">${escapeHtml(submitLocation)}</span></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>奖励</strong><div data-quest-modal-reward="true">${this.renderRewardContent(quest)}</div></div>
-          <div class="ui-detail-field ui-detail-field--section ${quest.requiredItemId ? '' : 'hidden'}" data-quest-modal-required-item-section="true"><strong>任务需求</strong><div data-quest-modal-required-item="true">${this.renderRequiredItemContent(quest)}</div></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>当前进度</strong><div data-quest-modal-progress="true">${this.renderQuestText(this.resolveProgressText(quest), quest)}</div></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>下一步</strong><div data-quest-modal-next-step="true">${this.renderQuestText(this.resolveNextStep(quest), quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.target', undefined))}</strong><span data-quest-modal-target-location="true">${escapeHtml(targetLocation)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.submit-location', undefined))}</strong><span data-quest-modal-submit-location="true">${escapeHtml(submitLocation)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.reward', undefined))}</strong><div data-quest-modal-reward="true">${this.renderRewardContent(quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section ${quest.requiredItemId ? '' : 'hidden'}" data-quest-modal-required-item-section="true"><strong>${escapeHtml(t('quest.detail.requirement', undefined))}</strong><div data-quest-modal-required-item="true">${this.renderRequiredItemContent(quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.progress', undefined))}</strong><div data-quest-modal-progress="true">${this.renderQuestText(this.resolveProgressText(quest), quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.next-step', undefined))}</strong><div data-quest-modal-next-step="true">${this.renderQuestText(this.resolveNextStep(quest), quest)}</div></div>
         </div>
-        <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
-        <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>${escapeHtml(t('quest.detail.objective-note', undefined))}</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>${escapeHtml(t('quest.detail.relay', undefined))}</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
       `);
   }
 
@@ -631,7 +638,7 @@ export class QuestPanel {
     const canNavigateQuest = this.canNavigateQuest(quest);
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
-      : quest.giverMapName ?? '未知';
+      : quest.giverMapName ?? t('quest.location.unknown', undefined);
     const targetLocation = this.formatQuestLocation(
       quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
       quest.targetX,
@@ -651,7 +658,7 @@ export class QuestPanel {
     navigateButton.disabled = !canNavigateQuest;
     navigateButton.dataset.questId = quest.id;
     navigateButton.dataset.questCanNavigate = canNavigateQuest ? '1' : '0';
-    navigateButton.textContent = quest.status === 'ready' ? '前往交付' : '前往目标';
+    navigateButton.textContent = this.resolveNavigateLabel(quest);
     replaceRichContent(rewardNode, this.renderRewardContent(quest));
     requiredItemSection.classList.toggle('hidden', !quest.requiredItemId);
     replaceRichContent(requiredItemNode, this.renderRequiredItemContent(quest));
@@ -706,13 +713,19 @@ export class QuestPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (quest.objectiveType === 'talk') {
-      return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
+      return quest.progress >= quest.required
+        ? t('quest.progress.talk.done', undefined)
+        : t('quest.progress.talk.pending', undefined);
     }
     if (quest.objectiveType === 'learn_technique') {
-      return `${quest.targetName} ${quest.progress >= quest.required ? '已参悟' : '未参悟'}`;
+      return quest.progress >= quest.required
+        ? t('quest.progress.learn.done', { targetName: quest.targetName })
+        : t('quest.progress.learn.pending', { targetName: quest.targetName });
     }
     if (quest.objectiveType === 'realm_stage') {
-      return `${quest.targetName} ${quest.progress >= quest.required ? '已达成' : '未达成'}`;
+      return quest.progress >= quest.required
+        ? t('quest.progress.realm-stage.done', { targetName: quest.targetName })
+        : t('quest.progress.realm-stage.pending', { targetName: quest.targetName });
     }
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
@@ -728,55 +741,55 @@ export class QuestPanel {
     if (quest.status === 'ready') {
       const submitLabel = quest.submitNpcName ?? quest.giverName;
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
-      return submitLocation !== '未设置'
-        ? `前往 ${submitLocation} 找 ${submitLabel} 交付任务`
-        : `前往 ${submitLabel} 交付任务`;
+      return !this.isUnsetLocation(submitLocation)
+        ? t('quest.next.submit-at', { location: submitLocation, npcName: submitLabel })
+        : t('quest.next.submit-to', { npcName: submitLabel });
     }
     if (quest.status === 'completed') {
-      return '任务已结清';
+      return t('quest.next.completed', undefined);
     }
     if (quest.status === 'available') {
       const giverLocation = this.formatQuestLocation(quest.giverMapName, quest.giverX, quest.giverY);
-      return giverLocation !== '未设置'
-        ? `前往 ${giverLocation} 找 ${quest.giverName} 接取任务`
-        : `前往 ${quest.giverName} 接取任务`;
+      return !this.isUnsetLocation(giverLocation)
+        ? t('quest.next.accept-at', { location: giverLocation, npcName: quest.giverName })
+        : t('quest.next.accept-to', { npcName: quest.giverName });
     }
     if (quest.objectiveType === 'talk') {
       const talkTarget = quest.targetNpcName ?? quest.targetName;
       const talkLocation = this.formatQuestLocation(quest.targetMapName, quest.targetX, quest.targetY);
-      return talkLocation !== '未设置'
-        ? `前往 ${talkLocation} 找 ${talkTarget} 传达口信`
-        : `前往 ${talkTarget} 传达口信`;
+      return !this.isUnsetLocation(talkLocation)
+        ? t('quest.next.talk-at', { location: talkLocation, npcName: talkTarget })
+        : t('quest.next.talk-to', { npcName: talkTarget });
     }
     if (quest.objectiveType === 'submit_item') {
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
-      return submitLocation !== '未设置'
-        ? `准备 ${quest.targetName}，再前往 ${submitLocation} 交付`
-        : `准备 ${quest.targetName} 并前往交付`;
+      return !this.isUnsetLocation(submitLocation)
+        ? t('quest.next.submit-item-at', { itemName: quest.targetName, location: submitLocation })
+        : t('quest.next.submit-item', { itemName: quest.targetName });
     }
     if (quest.objectiveType === 'learn_technique') {
-      return `打开背包，使用功法书学会 ${quest.targetName}`;
+      return t('quest.next.learn-technique', { targetName: quest.targetName });
     }
     if (quest.objectiveType === 'realm_progress') {
-      return `前往历练并击败敌人，继续积累 ${quest.targetName}`;
+      return t('quest.next.realm-progress', { targetName: quest.targetName });
     }
     if (quest.objectiveType === 'realm_stage') {
-      return `继续历练；境界圆满后点击顶部境界/突破查看要求并突破，达到 ${quest.targetName}`;
+      return t('quest.next.realm-stage', { targetName: quest.targetName });
     }
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
       if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
-        return `继续收集 ${requiredItemProgress.itemName} (${requiredItemProgress.current}/${requiredItemProgress.required})`;
+        return t('quest.next.collect-item', requiredItemProgress);
       }
       const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
-      return targetLocation !== '未设置'
-        ? `前往 ${targetLocation} 击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`
-        : `前往击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`;
+      return !this.isUnsetLocation(targetLocation)
+        ? t('quest.next.kill-collect-at', { location: targetLocation, targetName: quest.targetName, itemName: requiredItemProgress.itemName })
+        : t('quest.next.kill-collect', { targetName: quest.targetName, itemName: requiredItemProgress.itemName });
     }
     const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
-    return targetLocation !== '未设置'
-      ? `前往 ${targetLocation} 击杀 ${quest.targetName}`
-      : `前往击杀 ${quest.targetName}`;
+    return !this.isUnsetLocation(targetLocation)
+      ? t('quest.next.kill-at', { location: targetLocation, targetName: quest.targetName })
+      : t('quest.next.kill', { targetName: quest.targetName });
   }
 
   /** resolveRequiredItemProgress：解析Required物品进度。 */
@@ -826,7 +839,17 @@ export class QuestPanel {
     if (mapName && x !== undefined && y !== undefined) {
       return `${mapName} (${x}, ${y})`;
     }
-    return mapName ?? '未设置';
+    return mapName ?? t('quest.location.unset', undefined);
+  }
+
+  private isUnsetLocation(location: string): boolean {
+    return location === t('quest.location.unset', undefined);
+  }
+
+  private resolveNavigateLabel(quest: QuestState): string {
+    return quest.status === 'ready'
+      ? t('quest.action.navigate-submit', undefined)
+      : t('quest.action.navigate-target', undefined);
   }
 
   /** canNavigateQuest：判断是否Navigate任务。 */
@@ -881,10 +904,10 @@ export class QuestPanel {
     if (rewardChips) {
       return `<div class="inline-item-flow">${rewardChips}</div>`;
     }
-    if (quest.rewardText.trim().length > 0 && quest.rewardText.trim() !== '无') {
+    if (quest.rewardText.trim().length > 0 && quest.rewardText.trim() !== t('quest.reward.none-marker', undefined)) {
       return `<div class="inline-rich-text">${this.renderRichText(quest.rewardText)}</div>`;
     }
-    return '<div class="inline-rich-text">暂无额外奖励说明</div>';
+    return `<div class="inline-rich-text">${escapeHtml(t('quest.reward.empty', undefined))}</div>`;
   }
 
   /** renderRequiredItemContent：渲染Required物品Content。 */
@@ -893,12 +916,12 @@ export class QuestPanel {
 
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (!requiredItemProgress || !quest.requiredItemId) {
-      return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';
+      return `<div class="inline-rich-text">${escapeHtml(t('quest.requirement.empty', undefined))}</div>`;
     }
     return `
       <div class="ui-requirement-entry ui-surface-card ui-surface-card--compact">
         <div class="ui-requirement-entry-head">
-          <span class="ui-requirement-status ${requiredItemProgress.current >= requiredItemProgress.required ? 'is-completed' : 'is-unmet'}">当前持有 ${requiredItemProgress.current}/${requiredItemProgress.required}</span>
+          <span class="ui-requirement-status ${requiredItemProgress.current >= requiredItemProgress.required ? 'is-completed' : 'is-unmet'}">${escapeHtml(t('quest.requirement.owned', requiredItemProgress))}</span>
         </div>
         <div class="inline-item-flow">
           ${renderInlineItemChip(quest.requiredItemId, {

@@ -22,7 +22,7 @@ const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
-const { getSkillEffectColor } = world_runtime_normalization_helpers_1;
+const { getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
@@ -268,6 +268,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (!action.skillId) {
             return;
         }
+        const location = deps.getPlayerLocation?.(action.targetPlayerId);
+        if (!location || location.instanceId !== action.instanceId) {
+            return;
+        }
         const instance = deps.getInstanceRuntime(action.instanceId);
         if (!instance) {
             return;
@@ -276,76 +280,127 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (!monster || !monster.alive) {
             return;
         }
+        const skill = monster.skills.find((entry) => entry.id === action.skillId);
+        if (!skill) {
+            return;
+        }
         const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
         if (!runtimeTargetPosition) {
             return;
         }
-        const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
-        if (!player || player.instanceId !== action.instanceId || player.hp <= 0) {
+        const warningCells = Array.isArray(action.warningCells)
+            ? action.warningCells
+                .map((cell) => ({ x: Math.trunc(Number(cell?.x)), y: Math.trunc(Number(cell?.y)) }))
+                .filter((cell) => Number.isFinite(cell.x) && Number.isFinite(cell.y))
+            : [];
+        const hasAnchoredCast = Number.isFinite(Number(action.targetX)) && Number.isFinite(Number(action.targetY));
+        const distanceAnchor = hasAnchoredCast
+            ? { x: Math.trunc(Number(action.targetX)), y: Math.trunc(Number(action.targetY)) }
+            : runtimeTargetPosition;
+        const distance = skill.requiresTarget === false
+            ? 0
+            : chebyshevDistance(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y);
+        if (typeof instance.canSeeTileFrom === 'function'
+            && skill.requiresTarget !== false
+            && !instance.canSeeTileFrom(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y, distance)) {
             return;
         }
-        const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
-        if (typeof instance.canSeeTileFrom === 'function'
-            && !instance.canSeeTileFrom(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, distance)) {
+        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
+        const selectedTargets = skill.requiresTarget === false
+            ? []
+            : collectMonsterSkillRuntimeTargets(instance, this.playerRuntimeService, deps, action, runtimeTargetPosition, warningCells, skill);
+        if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+            if (hasAnchoredCast || warningCells.length > 0) {
+                this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
+                this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, distanceAnchor.x, distanceAnchor.y, effectColor);
+            }
+            return;
+        }
+        const selfBuffTarget = skill.requiresTarget === false
+            ? this.playerRuntimeService.getPlayer(action.targetPlayerId)
+            : null;
+        if (skill.requiresTarget === false && (!selfBuffTarget || selfBuffTarget.hp <= 0)) {
             return;
         }
         try {
             const currentTick = instance.tick;
-            const result = this.playerCombatService.castMonsterSkill({
-                runtimeId: monster.runtimeId,
-                monsterId: monster.monsterId,
-                hp: monster.hp,
-                maxHp: monster.maxHp,
-                qi: monster.qi,
-                maxQi: monster.maxQi,
-                level: monster.level,
-                combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
-                skills: monster.skills,
-                cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
-                attrs: {
-                    finalAttrs: monster.attrs,
-                    numericStats: monster.numericStats,
-                    ratioDivisors: monster.ratioDivisors,
-                },
-                buffs: monster.buffs,
-            }, player, action.skillId, currentTick, distance, (buff) => {
-                instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
-            }, (buff) => {
-                this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
-            }, (amount) => {
-                monster.qi = Math.max(0, Math.round((monster.qi ?? 0) - amount));
-                instance.markMonsterRuntimePersistenceDirty(monster.runtimeId);
-            });
-            const skill = monster.skills.find((entry) => entry.id === action.skillId);
-            const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-            if (skill) {
-                this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
-            }
-            this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
-            const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
-            pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, primaryRoll, effectColor);
-            if (result.totalDamage > 0) {
-                this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, result.totalDamage, effectColor);
-                deps.queuePlayerNotice?.(
-                    player.playerId,
-                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
-                    'combat',
-                );
-                this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
-            }
-            else {
-                deps.queuePlayerNotice?.(
-                    player.playerId,
-                    `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
-                    'combat',
-                );
-            }
-            this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
-                interruptCultivation: true,
-            });
-            const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
-            if (updatedPlayer && updatedPlayer.hp <= 0) {
-                deps.handlePlayerDefeat(updatedPlayer.playerId);
+            const targetEntries = skill.requiresTarget === false
+                ? [{ player: selfBuffTarget, position: runtimeTargetPosition }]
+                : selectedTargets;
+            let labelPushed = false;
+            let qiSpent = false;
+            for (let index = 0; index < targetEntries.length; index += 1) {
+                const entry = targetEntries[index];
+                const player = entry.player;
+                if (!player || player.hp <= 0 || !isPlayerLocatedInActionInstance(deps, player.playerId, action.instanceId)) {
+                    continue;
+                }
+                const result = this.playerCombatService.castMonsterSkill({
+                    runtimeId: monster.runtimeId,
+                    monsterId: monster.monsterId,
+                    hp: monster.hp,
+                    maxHp: monster.maxHp,
+                    qi: monster.qi,
+                    maxQi: monster.maxQi,
+                    level: monster.level,
+                    combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
+                    skills: monster.skills,
+                    cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
+                    attrs: {
+                        finalAttrs: monster.attrs,
+                        numericStats: monster.numericStats,
+                        ratioDivisors: monster.ratioDivisors,
+                    },
+                    buffs: monster.buffs,
+                }, player, action.skillId, currentTick, distance, (buff) => {
+                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
+                }, (buff) => {
+                    this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
+                }, (amount) => {
+                    if (qiSpent) {
+                        return;
+                    }
+                    qiSpent = true;
+                    monster.qi = Math.max(0, Math.round((monster.qi ?? 0) - amount));
+                    instance.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+                }, {
+                    skipResourceAndCooldown: index > 0,
+                    targetCount: Math.max(1, targetEntries.length),
+                });
+                if (skill && !labelPushed) {
+                    this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
+                    labelPushed = true;
+                }
+                if (skill.requiresTarget === false) {
+                    continue;
+                }
+                const targetPosition = entry.position;
+                this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, targetPosition.x, targetPosition.y, effectColor);
+                const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
+                pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, targetPosition.x, targetPosition.y, primaryRoll, effectColor);
+                if (result.totalDamage > 0) {
+                    this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, targetPosition.x, targetPosition.y, result.totalDamage, effectColor);
+                    deps.queuePlayerNotice?.(
+                        player.playerId,
+                        `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                        'combat',
+                    );
+                    this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
+                }
+                else {
+                    deps.queuePlayerNotice?.(
+                        player.playerId,
+                        `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                        'combat',
+                    );
+                }
+                this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
+                    interruptCultivation: true,
+                });
+                const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
+                if (updatedPlayer && updatedPlayer.hp <= 0) {
+                    deps.handlePlayerDefeat(updatedPlayer.playerId);
+                }
             }
         }
         catch (error) {
@@ -363,6 +418,85 @@ exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplySe
 ], WorldRuntimeMonsterActionApplyService);
 
 export { WorldRuntimeMonsterActionApplyService };
+
+function collectMonsterSkillRuntimeTargets(instance, playerRuntimeService, deps, action, fallbackPosition, warningCells, skill) {
+    const maxTargets = resolveMonsterSkillMaxTargets(skill);
+    const entries = [];
+    const seenPlayerIds = new Set();
+    const pushPlayerAtPosition = (playerId, position) => {
+        if (!playerId || seenPlayerIds.has(playerId) || entries.length >= maxTargets) {
+            return;
+        }
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player || player.hp <= 0 || !isPlayerLocatedInActionInstance(deps, playerId, action.instanceId)) {
+            return;
+        }
+        seenPlayerIds.add(playerId);
+        entries.push({
+            player,
+            position: {
+                x: Math.trunc(Number(position.x)),
+                y: Math.trunc(Number(position.y)),
+            },
+        });
+    };
+    if (Array.isArray(warningCells) && warningCells.length > 0) {
+        if (typeof instance.getPlayersAtTile === 'function') {
+            for (const cell of warningCells) {
+                if (entries.length >= maxTargets) {
+                    break;
+                }
+                for (const tilePlayer of instance.getPlayersAtTile(cell.x, cell.y) ?? []) {
+                    pushPlayerAtPosition(tilePlayer.playerId, { x: cell.x, y: cell.y });
+                    if (entries.length >= maxTargets) {
+                        break;
+                    }
+                }
+            }
+        }
+        else if (warningCells.some((cell) => cell.x === fallbackPosition.x && cell.y === fallbackPosition.y)) {
+            pushPlayerAtPosition(action.targetPlayerId, fallbackPosition);
+        }
+        return entries;
+    }
+    pushPlayerAtPosition(action.targetPlayerId, fallbackPosition);
+    return entries;
+}
+function isPlayerLocatedInActionInstance(deps, playerId, instanceId) {
+    const location = typeof deps?.getPlayerLocation === 'function'
+        ? deps.getPlayerLocation(playerId)
+        : null;
+    return Boolean(location && location.instanceId === instanceId);
+}
+function resolveMonsterSkillMaxTargets(skill) {
+    const configured = Number(skill?.targeting?.maxTargets);
+    if (Number.isFinite(configured) && configured > 0) {
+        return Math.max(1, Math.floor(configured));
+    }
+    const shape = skill?.targeting?.shape ?? 'single';
+    if (shape === 'single') {
+        return 1;
+    }
+    const geometry = {
+        range: resolveRuntimeSkillRange(skill),
+        shape,
+        radius: skill?.targeting?.radius,
+        innerRadius: skill?.targeting?.innerRadius,
+        width: skill?.targeting?.width,
+        height: skill?.targeting?.height,
+        checkerParity: skill?.targeting?.checkerParity,
+    };
+    const width = Math.max(1, Math.round(Number(geometry.width) || 1));
+    const height = Math.max(1, Math.round(Number(geometry.height) || 1));
+    const radius = Math.max(1, Math.round(Number(geometry.radius) || geometry.range || 1));
+    if (shape === 'box' || shape === 'checkerboard') {
+        return width * height;
+    }
+    if (shape === 'line') {
+        return Math.max(1, geometry.range) * width;
+    }
+    return Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
+}
 
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
     const level = Math.max(1, Math.floor(Number(monster?.level) || 1));

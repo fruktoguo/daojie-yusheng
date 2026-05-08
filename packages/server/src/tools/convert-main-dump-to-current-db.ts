@@ -10,6 +10,7 @@ const DEFAULT_DUMP_PATH = '参考/Test/20260428-060004-067__hourly.dump';
 const DEFAULT_TARGET_DB_PREFIX = 'mud_mmo_next_converted_main';
 const GM_AUTH_RECORD_KEY = 'gm_auth';
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
+const DEFAULT_INITIAL_CRAFT_EXP_TO_NEXT = 10_000;
 
 const PLAYER_DOMAIN_PROJECTION_TARGETS = [
   'world_anchor',
@@ -1178,7 +1179,7 @@ function buildEnhancementSkill(row) {
   return {
     level: normalizeInteger(row.enhancementSkillLevel, 1),
     exp: 0,
-    expToNext: 60,
+    expToNext: DEFAULT_INITIAL_CRAFT_EXP_TO_NEXT,
   };
 }
 

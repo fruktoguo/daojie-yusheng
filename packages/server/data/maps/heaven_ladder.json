@@ -1,0 +1,521 @@
+{
+  "id": "heaven_ladder",
+  "name": "天梯",
+  "terrainProfileId": "earth_stone_wild",
+  "terrainRealmLv": 30,
+  "description": "从归藏脉窟道基古阵旁接出的半步筑基关口。天梯本体没有阵眼，石阶却像被一座无形大阵压住：越往上走，脚下移动消耗越重，周身灵力也被更快抽走。尽头是一片可自由活动的平顶石台，通往筑基期主城方向。",
+  "recommendedRealm": "半步筑基",
+  "dangerLevel": 5,
+  "width": 61,
+  "height": 7,
+  "routeDomain": "system",
+  "tiles": [
+    "#############################################################",
+    "#.....梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯.....#",
+    "#.....梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯.....#",
+    "#.P...梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯.....#",
+    "#.....梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯.....#",
+    "#.....梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯梯.....#",
+    "#############################################################"
+  ],
+  "portals": [
+    {
+      "x": 2,
+      "y": 3,
+      "targetMapId": "guizang_vein_cavern",
+      "targetX": 32,
+      "targetY": 31,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "heaven_ladder:2,3",
+      "direction": "two_way",
+      "targetPortalId": "guizang_vein_cavern:32,31",
+      "observeTitle": "归藏回阶",
+      "observeDesc": "回身仍能看见归藏脉窟的道基古阵，退回去便能离开天梯。"
+    }
+  ],
+  "spawnPoint": {
+    "x": 2,
+    "y": 3
+  },
+  "time": {
+    "offsetTicks": 300,
+    "scale": 1,
+    "fixedLightLevel": 0.72
+  },
+  "auras": [],
+  "resources": [],
+  "safeZones": [],
+  "tileEffects": [
+    {
+      "id": "heaven_ladder_step_01",
+      "x": 6,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 100,
+      "qiDrainPerTick": 10
+    },
+    {
+      "id": "heaven_ladder_step_02",
+      "x": 7,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 110,
+      "qiDrainPerTick": 12
+    },
+    {
+      "id": "heaven_ladder_step_03",
+      "x": 8,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 120,
+      "qiDrainPerTick": 15
+    },
+    {
+      "id": "heaven_ladder_step_04",
+      "x": 9,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 130,
+      "qiDrainPerTick": 18
+    },
+    {
+      "id": "heaven_ladder_step_05",
+      "x": 10,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 140,
+      "qiDrainPerTick": 22
+    },
+    {
+      "id": "heaven_ladder_step_06",
+      "x": 11,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 150,
+      "qiDrainPerTick": 27
+    },
+    {
+      "id": "heaven_ladder_step_07",
+      "x": 12,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 160,
+      "qiDrainPerTick": 33
+    },
+    {
+      "id": "heaven_ladder_step_08",
+      "x": 13,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 170,
+      "qiDrainPerTick": 40
+    },
+    {
+      "id": "heaven_ladder_step_09",
+      "x": 14,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 180,
+      "qiDrainPerTick": 48
+    },
+    {
+      "id": "heaven_ladder_step_10",
+      "x": 15,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 190,
+      "qiDrainPerTick": 58
+    },
+    {
+      "id": "heaven_ladder_step_11",
+      "x": 16,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 400,
+      "qiDrainPerTick": 70
+    },
+    {
+      "id": "heaven_ladder_step_12",
+      "x": 17,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 420,
+      "qiDrainPerTick": 84
+    },
+    {
+      "id": "heaven_ladder_step_13",
+      "x": 18,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 440,
+      "qiDrainPerTick": 101
+    },
+    {
+      "id": "heaven_ladder_step_14",
+      "x": 19,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 460,
+      "qiDrainPerTick": 122
+    },
+    {
+      "id": "heaven_ladder_step_15",
+      "x": 20,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 480,
+      "qiDrainPerTick": 147
+    },
+    {
+      "id": "heaven_ladder_step_16",
+      "x": 21,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 500,
+      "qiDrainPerTick": 177
+    },
+    {
+      "id": "heaven_ladder_step_17",
+      "x": 22,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 520,
+      "qiDrainPerTick": 213
+    },
+    {
+      "id": "heaven_ladder_step_18",
+      "x": 23,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 540,
+      "qiDrainPerTick": 256
+    },
+    {
+      "id": "heaven_ladder_step_19",
+      "x": 24,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 560,
+      "qiDrainPerTick": 308
+    },
+    {
+      "id": "heaven_ladder_step_20",
+      "x": 25,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 580,
+      "qiDrainPerTick": 370
+    },
+    {
+      "id": "heaven_ladder_step_21",
+      "x": 26,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1200,
+      "qiDrainPerTick": 444
+    },
+    {
+      "id": "heaven_ladder_step_22",
+      "x": 27,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1240,
+      "qiDrainPerTick": 533
+    },
+    {
+      "id": "heaven_ladder_step_23",
+      "x": 28,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1280,
+      "qiDrainPerTick": 640
+    },
+    {
+      "id": "heaven_ladder_step_24",
+      "x": 29,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1320,
+      "qiDrainPerTick": 768
+    },
+    {
+      "id": "heaven_ladder_step_25",
+      "x": 30,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1360,
+      "qiDrainPerTick": 922
+    },
+    {
+      "id": "heaven_ladder_step_26",
+      "x": 31,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1400,
+      "qiDrainPerTick": 1107
+    },
+    {
+      "id": "heaven_ladder_step_27",
+      "x": 32,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1440,
+      "qiDrainPerTick": 1329
+    },
+    {
+      "id": "heaven_ladder_step_28",
+      "x": 33,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1480,
+      "qiDrainPerTick": 1595
+    },
+    {
+      "id": "heaven_ladder_step_29",
+      "x": 34,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1520,
+      "qiDrainPerTick": 1914
+    },
+    {
+      "id": "heaven_ladder_step_30",
+      "x": 35,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 1560,
+      "qiDrainPerTick": 2297
+    },
+    {
+      "id": "heaven_ladder_step_31",
+      "x": 36,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3200,
+      "qiDrainPerTick": 2757
+    },
+    {
+      "id": "heaven_ladder_step_32",
+      "x": 37,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3280,
+      "qiDrainPerTick": 3309
+    },
+    {
+      "id": "heaven_ladder_step_33",
+      "x": 38,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3360,
+      "qiDrainPerTick": 3971
+    },
+    {
+      "id": "heaven_ladder_step_34",
+      "x": 39,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3440,
+      "qiDrainPerTick": 4766
+    },
+    {
+      "id": "heaven_ladder_step_35",
+      "x": 40,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3520,
+      "qiDrainPerTick": 5720
+    },
+    {
+      "id": "heaven_ladder_step_36",
+      "x": 41,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3600,
+      "qiDrainPerTick": 6864
+    },
+    {
+      "id": "heaven_ladder_step_37",
+      "x": 42,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3680,
+      "qiDrainPerTick": 8237
+    },
+    {
+      "id": "heaven_ladder_step_38",
+      "x": 43,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3760,
+      "qiDrainPerTick": 9885
+    },
+    {
+      "id": "heaven_ladder_step_39",
+      "x": 44,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3840,
+      "qiDrainPerTick": 11862
+    },
+    {
+      "id": "heaven_ladder_step_40",
+      "x": 45,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 3920,
+      "qiDrainPerTick": 14235
+    },
+    {
+      "id": "heaven_ladder_step_41",
+      "x": 46,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8000,
+      "qiDrainPerTick": 17082
+    },
+    {
+      "id": "heaven_ladder_step_42",
+      "x": 47,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8160,
+      "qiDrainPerTick": 20499
+    },
+    {
+      "id": "heaven_ladder_step_43",
+      "x": 48,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8320,
+      "qiDrainPerTick": 24599
+    },
+    {
+      "id": "heaven_ladder_step_44",
+      "x": 49,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8480,
+      "qiDrainPerTick": 29519
+    },
+    {
+      "id": "heaven_ladder_step_45",
+      "x": 50,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8640,
+      "qiDrainPerTick": 35423
+    },
+    {
+      "id": "heaven_ladder_step_46",
+      "x": 51,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8800,
+      "qiDrainPerTick": 42508
+    },
+    {
+      "id": "heaven_ladder_step_47",
+      "x": 52,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 8960,
+      "qiDrainPerTick": 51010
+    },
+    {
+      "id": "heaven_ladder_step_48",
+      "x": 53,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 9120,
+      "qiDrainPerTick": 61212
+    },
+    {
+      "id": "heaven_ladder_step_49",
+      "x": 54,
+      "y": 1,
+      "width": 1,
+      "height": 5,
+      "movementCost": 9280,
+      "qiDrainPerTick": 73455
+    }
+  ],
+  "resourceNodeGroups": [],
+  "landmarks": [
+    {
+      "id": "lm_heaven_ladder_entry",
+      "name": "天梯起阶",
+      "x": 3,
+      "y": 3,
+      "desc": "脚下石阶宽阔平稳，尚未真正承受天梯道压。"
+    },
+    {
+      "id": "lm_heaven_ladder_mid",
+      "name": "天梯中段",
+      "x": 30,
+      "y": 3,
+      "desc": "石阶仍是一线直上，行动却已明显滞重，灵力像被无形阵纹从经脉里往外牵。"
+    },
+    {
+      "id": "lm_heaven_ladder_peak",
+      "name": "天梯尽头",
+      "x": 57,
+      "y": 3,
+      "desc": "走过最后一阶后，道压忽然散开。前方平顶石台可以自由活动，筑基主城的方向已在云外露出轮廓。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": []
+}

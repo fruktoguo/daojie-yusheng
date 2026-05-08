@@ -217,6 +217,12 @@ function cloneTilePatch(source) {
     if (Number.isFinite(source.aura) && source.aura > 0) {
         tile.aura = source.aura;
     }
+    if (Number.isFinite(source.movementCost) && source.movementCost > 0) {
+        tile.movementCost = Math.max(1, Math.trunc(source.movementCost));
+    }
+    if (Number.isFinite(source.qiDrainPerTick) && source.qiDrainPerTick > 0) {
+        tile.qiDrainPerTick = Math.max(0, Math.trunc(source.qiDrainPerTick));
+    }
     const resources = cloneCompactTileResources(source.resources);
     if (resources && resources.length > 0) {
         tile.resources = resources;
@@ -314,6 +320,8 @@ function isSameTile(left, right) {
         && left.walkable === right.walkable
         && left.blocksSight === right.blocksSight
         && left.aura === right.aura
+        && left.movementCost === right.movementCost
+        && left.qiDrainPerTick === right.qiDrainPerTick
         && isSameTileResourceList(left.resources, right.resources)
         && left.occupiedBy === right.occupiedBy
         && left.modifiedAt === right.modifiedAt

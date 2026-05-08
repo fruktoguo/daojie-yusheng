@@ -28,6 +28,7 @@ import {
   S2C_AttrUpdate,
   TileType,
   stackQiEfficiencyBp,
+  getMovePointsPerTick,
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
@@ -50,6 +51,7 @@ import {
   type NumericCardKey,
   type PlayerSpecialCardKey,
 } from '../../constants/ui/attr-panel';
+import { ACTION_SHORTCUTS_CHANGED_EVENT } from '../../constants/ui/action';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../../utils/number';
 import {
   describeSpiritualRoots,
@@ -57,10 +59,13 @@ import {
   normalizeSpiritualRoots,
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
+import { t } from '../i18n';
 
 type AttrPanelCallbacks = {
   onRequestDetail?: () => void;
   onOpenCraftSkill?: (key: string) => void;
+  onBindCraftSkill?: (key: string) => void;
+  getCraftSkillBindLabel?: (key: string) => string;
 };
 
 type DisplayQiDescriptor = {
@@ -80,6 +85,8 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
   observable: 1,
   absorbable: 2,
 };
+
+const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'building', 'forging', 'enhancement']);
 
 /** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
@@ -161,7 +168,7 @@ function matchesQiProjectionModifier(descriptor: DisplayQiDescriptor, modifier: 
 
 function buildQiProjectionSourceLines(projection: DisplayQiProjection): string[] {
   return projection.sources.length > 0
-    ? [`来源：${projection.sources.join('、')}`]
+    ? [t('attr.qi-projection.source', { sources: projection.sources.join('、') })]
     : [];
 }
 
@@ -323,7 +330,7 @@ function percentModifierToMultiplier(percent: number): number {
 /** formatMoveSpeedEffect：格式化移动速度效果。 */
 function formatMoveSpeedEffect(value: number): string {
   const safeValue = Math.max(0, value);
-  const movePoints = BASE_MOVE_POINTS_PER_TICK + safeValue;
+  const movePoints = getMovePointsPerTick(safeValue);
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
@@ -333,7 +340,7 @@ function formatMoveSpeedEffect(value: number): string {
 
 /** formatMoveSpeedDisplay：格式化移动速度显示。 */
 function formatMoveSpeedDisplay(value: number): string {
-  return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
+  return formatDisplayInteger(getMovePointsPerTick(value));
 }
 
 /** formatMultiplierDisplay：格式化乘区倍率显示。 */
@@ -427,7 +434,7 @@ function buildNumericBreakdownLines(
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.baseValue + breakdown.flatBuffValue
     : breakdown.baseValue + breakdown.flatBuffValue;
   const displayFinalValue = key === 'moveSpeed'
-    ? BASE_MOVE_POINTS_PER_TICK + breakdown.finalValue
+    ? getMovePointsPerTick(breakdown.finalValue)
     : breakdown.finalValue;
   const lines = [
     renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
@@ -442,6 +449,9 @@ function buildNumericBreakdownLines(
   ];
   if (breakdown.preMultiplierValue <= 1e-6 && breakdown.finalValue > 0) {
     lines.push('<span class="attr-tooltip-note">基础值为 0 时，实际结果还会受到乘区参考底座撬动</span>');
+  }
+  if (key === 'moveSpeed') {
+    lines.push('<span class="attr-tooltip-note">移动速度面板值已是软衰减后的有效移速，技能公式与移动预算都使用此值</span>');
   }
   return lines;
 }
@@ -836,6 +846,11 @@ interface AttrCraftSkillSnapshot {
  */
 
   openable: boolean;
+  /**
+ * bindLabel：快捷键绑定按钮文案。
+ */
+
+  bindLabel: string;
 }
 
 /** 生活技能页的渲染快照，按技能列表展示。 */
@@ -902,6 +917,7 @@ export class AttrPanel {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
     this.bindTooltipEvents();
+    window.addEventListener(ACTION_SHORTCUTS_CHANGED_EVENT, () => this.patchCraftActionButtons());
   }
 
   /** setCallbacks：注册详情请求回调。 */
@@ -1280,7 +1296,7 @@ export class AttrPanel {
 
     return {
       kind: 'numeric',
-      title: '灵脉流转',
+      title: t('attr.numeric.title.qi-flow', undefined),
       cards,
     };
   }
@@ -1595,7 +1611,8 @@ export class AttrPanel {
         `经验：${progress}`,
         `距下一级还需 ${formatDisplayInteger(remain)}`,
       ].join('\n'),
-      openable: key !== 'gather',
+      openable: OPENABLE_CRAFT_SKILL_KEYS.has(key),
+      bindLabel: this.callbacks?.getCraftSkillBindLabel?.(key) ?? '绑定键',
     };
   }  
   /**
@@ -1680,7 +1697,7 @@ export class AttrPanel {
     if (snapshot.kind === 'craft') {
       return `<div class="attr-craft-list" data-pane-kind="craft">
         ${snapshot.skills.map((skill) => `
-          <section class="attr-craft-row" data-craft-skill="${escapeHtml(skill.key)}"${skill.openable ? ` data-craft-open="${escapeHtml(skill.key)}" role="button" tabindex="0"` : ''} data-tooltip-title="${escapeHtml(skill.tooltipTitle)}" data-tooltip-detail="${escapeHtml(skill.tooltipDetail)}">
+          <section class="attr-craft-row" data-craft-skill="${escapeHtml(skill.key)}" data-tooltip-title="${escapeHtml(skill.tooltipTitle)}" data-tooltip-detail="${escapeHtml(skill.tooltipDetail)}">
             <span class="attr-craft-label" data-craft-label="true">${escapeHtml(skill.label)}</span>
             <strong class="attr-craft-level" data-craft-level="true">${escapeHtml(skill.level)}</strong>
             <div class="attr-craft-exp">
@@ -1690,6 +1707,12 @@ export class AttrPanel {
               </div>
             </div>
             <span class="attr-craft-remain" data-craft-remain="true">${escapeHtml(skill.remain)}</span>
+            ${skill.openable ? `
+              <div class="attr-craft-actions" data-craft-actions="true">
+                <button class="small-btn" data-craft-open="${escapeHtml(skill.key)}" type="button">打开</button>
+                <button class="small-btn ghost" data-craft-bind="${escapeHtml(skill.key)}" type="button">${escapeHtml(skill.bindLabel)}</button>
+              </div>
+            ` : ''}
           </section>
         `).join('')}
       </div>`;
@@ -1846,25 +1869,29 @@ export class AttrPanel {
         const progressNode = skillNode.querySelector<HTMLElement>('[data-craft-progress="true"]');
         const fillNode = skillNode.querySelector<HTMLElement>('[data-craft-progress-fill="true"]');
         const remainNode = skillNode.querySelector<HTMLElement>('[data-craft-remain="true"]');
+        const openNode = skillNode.querySelector<HTMLButtonElement>('[data-craft-open]');
+        const bindNode = skillNode.querySelector<HTMLButtonElement>('[data-craft-bind]');
         if (!labelNode || !levelNode || !progressNode || !fillNode || !remainNode) {
+          return false;
+        }
+        if (skill.openable && (!openNode || !bindNode)) {
+          return false;
+        }
+        if (!skill.openable && (openNode || bindNode)) {
           return false;
         }
         skillNode.setAttribute('data-tooltip-title', skill.tooltipTitle);
         skillNode.setAttribute('data-tooltip-detail', skill.tooltipDetail);
-        if (skill.openable) {
-          skillNode.setAttribute('data-craft-open', skill.key);
-          skillNode.setAttribute('role', 'button');
-          skillNode.setAttribute('tabindex', '0');
-        } else {
-          skillNode.removeAttribute('data-craft-open');
-          skillNode.removeAttribute('role');
-          skillNode.removeAttribute('tabindex');
-        }
         labelNode.textContent = skill.label;
         levelNode.textContent = skill.level;
         progressNode.textContent = skill.progress;
         fillNode.style.width = skill.progressPercent;
         remainNode.textContent = skill.remain;
+        if (openNode && bindNode) {
+          openNode.dataset.craftOpen = skill.key;
+          bindNode.dataset.craftBind = skill.key;
+          bindNode.textContent = this.callbacks?.getCraftSkillBindLabel?.(skill.key) ?? skill.bindLabel;
+        }
       }
       return true;
     }
@@ -2003,6 +2030,19 @@ export class AttrPanel {
       if (!(target instanceof HTMLElement)) {
         return;
       }
+      const craftBindButton = target.closest<HTMLElement>('[data-craft-bind]');
+      if (craftBindButton) {
+        const key = craftBindButton.dataset.craftBind;
+        if (key) {
+          this.tooltipTarget = null;
+          this.tooltip.hide(true);
+          this.callbacks?.onBindCraftSkill?.(key);
+          this.patchCraftActionButtons();
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
       const craftSkillRow = target.closest<HTMLElement>('[data-craft-open]');
       if (craftSkillRow) {
         const key = craftSkillRow.dataset.craftOpen;
@@ -2062,6 +2102,17 @@ export class AttrPanel {
     });
     this.paneEls.forEach((entry, tab) => {
       entry.classList.toggle('active', tab === this.activeTab);
+    });
+  }
+
+  /** 局部刷新技艺行上的绑键按钮，不重建属性面板。 */
+  private patchCraftActionButtons(): void {
+    this.pane.querySelectorAll<HTMLButtonElement>('[data-craft-bind]').forEach((button) => {
+      const key = button.dataset.craftBind;
+      if (!key) {
+        return;
+      }
+      button.textContent = this.callbacks?.getCraftSkillBindLabel?.(key) ?? '绑定键';
     });
   }
 
@@ -2339,7 +2390,7 @@ export class AttrPanel {
       if (!(target instanceof Element)) {
         return;
       }
-      if (target.closest('[data-craft-open]')) {
+      if (target.closest('[data-craft-open]') || target.closest('[data-craft-bind]')) {
         return;
       }
       const tooltipNode = target.closest<HTMLElement>('[data-tooltip-title]');

@@ -516,7 +516,7 @@ function buildCompleteAlchemyOperationId(playerId, activeJob, expectedJobVersion
 }
 
 function resolveCompletedAlchemyJobVersion(activeJob) {
-    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)) + 1);
+    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)));
 }
 
 async function resolveInstanceLeaseContext(instanceId, deps) {

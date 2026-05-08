@@ -65,11 +65,15 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
  */
 
     buildEnhancementPanelPatchPayload(player) {
+        const activeRecord = player.enhancementJob
+            ? (player.enhancementRecords ?? []).find((entry) => entry.itemId === player.enhancementJob.targetItemId)
+            : null;
         return {
             statePatch: {
                 enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
                 job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
                 queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
+                records: activeRecord ? [cloneEnhancementRecord(activeRecord)] : undefined,
             },
         };
     }    

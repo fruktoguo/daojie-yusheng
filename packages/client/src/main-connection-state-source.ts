@@ -1,4 +1,5 @@
 import type { SocketManager } from './network/socket';
+import { t } from './ui/i18n';
 /**
  * MainConnectionStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -135,7 +136,7 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       if (data.code === 'AUTH_FAIL') {
         if (redirectUrl && options.redirectConnection(redirectUrl)) {
           redirectInProgress = true;
-          options.renderPingLatency(null, '迁移');
+          options.renderPingLatency(null, t('connection.status.redirecting', undefined));
           return;
         }
         const restored = await options.restoreSession();
@@ -143,17 +144,17 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
           return;
         }
         options.resetGameState();
-        options.showLogin('灵气印记已散，请重新入世');
+        options.showLogin(t('connection.auth.expired-login', undefined));
         return;
       }
       if (data.code === 'SESSION_EXPIRED') {
         const restored = await options.restoreSession();
         if (restored) {
-          options.showToast('灵气牵引已续，重归天地...');
+          options.showToast(t('connection.session.restored', undefined));
           return;
         }
         options.resetGameState();
-        options.showLogin('灵气印记已散，请重新入世');
+        options.showLogin(t('connection.auth.expired-login', undefined));
         return;
       }
       const message = typeof data.message === 'string' ? data.message.trim() : '';
@@ -169,7 +170,7 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
 
     handleKick(): void {
       options.resetGameState();
-      options.logout('此身已在别处显化');
+      options.logout(t('connection.kicked', undefined));
     },    
     /**
  * handleConnectError：处理ConnectError并更新相关状态。
@@ -185,11 +186,11 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         return;
       }
       if (options.hasRefreshToken()) {
-        options.renderPingLatency(null, '重归');
+        options.renderPingLatency(null, t('connection.status.restoring', undefined));
         options.scheduleConnectionRecovery(300, true);
         return;
       }
-      options.showToast(`天地失联：${message}`);
+      options.showToast(t('connection.error.disconnected', { message }));
     },    
     /**
  * handleDisconnect：判断Disconnect是否满足条件。
@@ -208,12 +209,14 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         redirectInProgress = false;
         return;
       }
-      options.rejectPendingRedeemCodes('气机已断，兑换未竟');
+      options.rejectPendingRedeemCodes(t('connection.redeem.disconnected', undefined));
       options.clearPendingSocketPing();
-      options.renderPingLatency(null, navigator.onLine ? '重归' : '离线');
+      options.renderPingLatency(null, navigator.onLine
+        ? t('connection.status.restoring', undefined)
+        : t('connection.status.offline', undefined));
       options.setPanelRuntimeDisconnected();
       if (options.hasPlayer()) {
-        options.showToast('天地气机暂断，正尝试重连...');
+        options.showToast(t('connection.toast.reconnecting', undefined));
       }
       options.scheduleConnectionRecovery(options.getDocumentVisibilityState() === 'visible' ? 300 : 0);
     },    

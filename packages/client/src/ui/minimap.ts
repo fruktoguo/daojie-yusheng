@@ -17,6 +17,7 @@ import {
 } from '../constants/visuals/minimap';
 import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
+import { t } from './i18n';
 
 /** 小地图目录筛选条件。 */
 type CatalogFilter = 'all' | 'memory' | 'unlock';
@@ -1020,8 +1021,12 @@ export class Minimap {
     if (this.modalCatalogToggleBtn) {
       this.modalCatalogToggleBtn.classList.toggle('active', catalogVisible);
       this.modalCatalogToggleBtn.setAttribute('aria-expanded', catalogVisible ? 'true' : 'false');
-      this.modalCatalogToggleBtn.textContent = catalogVisible ? '收起' : '目录';
-      this.modalCatalogToggleBtn.title = catalogVisible ? '收起地图目录' : '展开地图目录';
+      this.modalCatalogToggleBtn.textContent = catalogVisible
+        ? t('minimap.catalog.toggle.collapse', undefined)
+        : t('minimap.catalog.toggle.open', undefined);
+      this.modalCatalogToggleBtn.title = catalogVisible
+        ? t('minimap.catalog.toggle.collapse-title', undefined)
+        : t('minimap.catalog.toggle.open-title', undefined);
     }
   }
 
@@ -1138,12 +1143,20 @@ export class Minimap {
     this.overlayRoot?.classList.toggle('hidden', !hasScene || !this.overlayVisible);
     this.syncModalDisplaySwitch();
     if (this.toggleBtn) {
-      this.toggleBtn.textContent = this.overlayVisible ? '隐' : '显';
-      this.toggleBtn.title = this.overlayVisible ? '隐藏小地图' : '显示小地图';
+      this.toggleBtn.textContent = this.overlayVisible
+        ? t('minimap.overlay.toggle.hide-short', undefined)
+        : t('minimap.overlay.toggle.show-short', undefined);
+      this.toggleBtn.title = this.overlayVisible
+        ? t('minimap.overlay.toggle.hide-title', undefined)
+        : t('minimap.overlay.toggle.show-title', undefined);
     }
     if (this.openBtn) {
-      this.openBtn.textContent = this.modalOpen ? '收' : '展';
-      this.openBtn.title = this.modalOpen ? '收起大地图' : '展开大地图';
+      this.openBtn.textContent = this.modalOpen
+        ? t('minimap.modal.toggle.collapse-short', undefined)
+        : t('minimap.modal.toggle.open-short', undefined);
+      this.openBtn.title = this.modalOpen
+        ? t('minimap.modal.toggle.collapse-title', undefined)
+        : t('minimap.modal.toggle.open-title', undefined);
     }
   }
 
@@ -1296,12 +1309,16 @@ export class Minimap {
     if (this.deleteMemoryBtn) {
       const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
       this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
-      this.deleteMemoryBtn.title = selectedEntry?.hasMemory ? `删除 ${selectedEntry.mapMeta?.name ?? selectedEntry.mapId} 的本地记忆` : '当前地图没有可删除的本地记忆';
+      this.deleteMemoryBtn.title = selectedEntry?.hasMemory
+        ? t('minimap.memory.delete-selected-title', { mapName: selectedEntry.mapMeta?.name ?? selectedEntry.mapId })
+        : t('minimap.memory.delete-selected-disabled-title', undefined);
     }
     if (this.deleteAllMemoryBtn) {
       const hasAnyMemory = listRememberedMapIds().length > 0;
       this.deleteAllMemoryBtn.disabled = !hasAnyMemory;
-      this.deleteAllMemoryBtn.title = hasAnyMemory ? '删除所有地图的本地记忆' : '当前没有可删除的本地记忆';
+      this.deleteAllMemoryBtn.title = hasAnyMemory
+        ? t('minimap.memory.delete-all-title', undefined)
+        : t('minimap.memory.delete-all-disabled-title', undefined);
     }
 
     const catalogContainer = this.modalList;
@@ -1391,7 +1408,7 @@ export class Minimap {
       entry.mapId,
       entry.mapGroupId,
       entry.mapGroupName,
-      entry.mapMeta?.name ?? '无名地域',
+      entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined),
       entry.hasMemory ? 'memory' : '',
       entry.hasUnlock ? 'unlock' : '',
       entry.mapId === this.selectedMapId ? 'active' : '',
@@ -1403,17 +1420,17 @@ export class Minimap {
 
     const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
     if (nameNode) {
-      nameNode.textContent = entry.mapMeta?.name ?? '无名地域';
+      nameNode.textContent = entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined);
     }
 
     const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
     if (badgesNode) {
       const badges: HTMLElement[] = [];
       if (entry.hasMemory) {
-        badges.push(this.buildCatalogBadge('memory', '忆'));
+        badges.push(this.buildCatalogBadge('memory', t('minimap.catalog.badge.memory', undefined)));
       }
       if (entry.hasUnlock) {
-        badges.push(this.buildCatalogBadge('unlock', '图'));
+        badges.push(this.buildCatalogBadge('unlock', t('minimap.catalog.badge.unlock', undefined)));
       }
       patchElementChildren(badgesNode, badges);
     }
@@ -1452,7 +1469,7 @@ export class Minimap {
       this.catalogEmptyNode = document.createElement('div');
       this.catalogEmptyNode.className = 'map-minimap-modal-empty';
     }
-    this.catalogEmptyNode.textContent = '当前分类下没有可浏览的地图。';
+    this.catalogEmptyNode.textContent = t('minimap.catalog.empty', undefined);
     return this.catalogEmptyNode;
   }
 
@@ -1485,12 +1502,12 @@ export class Minimap {
       return description;
     }
     if (entry.hasUnlock && entry.hasMemory) {
-      return '已拥有完整舆图，也保留了自身行走记忆。';
+      return t('minimap.catalog.desc.unlock-memory', undefined);
     }
     if (entry.hasUnlock) {
-      return '已解锁完整舆图，可查看整张地图地势。';
+      return t('minimap.catalog.desc.unlock', undefined);
     }
-    return '仅保留本地探索记忆，未获得完整地图。';
+    return t('minimap.catalog.desc.memory', undefined);
   }
 
   /** getCurrentDisplayAvailability：读取当前显示Availability。 */
@@ -1564,8 +1581,8 @@ export class Minimap {
       this.modalSourceMemoryBtn.classList.toggle('active', active);
       this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
       this.modalSourceMemoryBtn.title = availability.hasUnlock
-        ? '显示本地记忆地图'
-        : '当前地图只有本地记忆，未获得完整地图';
+        ? t('minimap.source.memory-title', undefined)
+        : t('minimap.source.memory-only-title', undefined);
     }
     if (this.modalSourceUnlockBtn) {
       const active = nextMode === 'unlock';
@@ -1574,8 +1591,8 @@ export class Minimap {
       this.modalSourceUnlockBtn.classList.toggle('active', active);
       this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
       this.modalSourceUnlockBtn.title = availability.hasMemory
-        ? '显示已解锁整图'
-        : '当前地图已解锁完整舆图';
+        ? t('minimap.source.unlock-title', undefined)
+        : t('minimap.source.unlock-only-title', undefined);
     }
   }
 
@@ -1779,7 +1796,9 @@ export class Minimap {
 
     ensureCanvasSize(this.overlayCanvas);
     if (this.overlayTitle) {
-      this.overlayTitle.textContent = `${display.mapMeta.name}${display.snapshot ? ' · 全图' : ' · 记忆'}`;
+      this.overlayTitle.textContent = display.snapshot
+        ? t('minimap.overlay.title.unlock', { mapName: display.mapMeta.name })
+        : t('minimap.overlay.title.memory', { mapName: display.mapMeta.name });
     }
     const metrics = this.getViewportMetrics(this.overlayCanvas, display, false);
     this.drawScene(ctx, display, metrics, false);
@@ -1804,7 +1823,9 @@ export class Minimap {
     this.modalPanX = metrics.panX;
     this.modalPanY = metrics.panY;
     if (this.modalTitle) {
-      this.modalTitle.textContent = `${display.mapMeta.name}${display.displayMode === 'unlock' ? ' · 已解锁图鉴' : ' · 本地记忆'}`;
+      this.modalTitle.textContent = display.displayMode === 'unlock'
+        ? t('minimap.modal.title.unlock', { mapName: display.mapMeta.name })
+        : t('minimap.modal.title.memory', { mapName: display.mapMeta.name });
     }
     if (!display.isCurrent) {
       this.closeMoveConfirm();
@@ -1817,12 +1838,12 @@ export class Minimap {
     this.pendingMovePoint = { x, y };
     detailModalHost.open({
       ownerId: Minimap.MOVE_CONFIRM_OWNER,
-      title: '确认前往',
-      subtitle: `${mapMeta.name} · 坐标 (${x}, ${y})`,
-      hint: '点击空白处取消',
+      title: t('minimap.move-confirm.title', undefined),
+      subtitle: t('minimap.coordinate.with-map', { mapName: mapMeta.name, x, y }),
+      hint: t('minimap.modal.hint.cancel-outside', undefined),
       renderBody: (body) => {
         patchElementChildren(body, [
-          this.createConfirmMessage('将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。'),
+          this.createConfirmMessage(t('minimap.move-confirm.message', undefined)),
           this.createMoveConfirmActions(x, y),
         ]);
       },
@@ -1856,17 +1877,19 @@ export class Minimap {
       return;
     }
     const mapName = scope === 'all'
-      ? `共 ${formatDisplayInteger(rememberedMapIds.length)} 张地图`
-      : (selectedEntry?.mapMeta?.name ?? selectedMapId ?? '当前地图');
-    const title = scope === 'all' ? '删除全部本地记忆' : '删除本地记忆';
+      ? t('minimap.memory.delete-all.subtitle', { count: formatDisplayInteger(rememberedMapIds.length) })
+      : (selectedEntry?.mapMeta?.name ?? selectedMapId ?? t('minimap.current-map', undefined));
+    const title = scope === 'all'
+      ? t('minimap.memory.delete-all.confirm-title', undefined)
+      : t('minimap.memory.delete-selected.confirm-title', undefined);
     const message = scope === 'all'
-      ? '会删除所有地图的本地探索记忆，不会影响已解锁整图。当前视野内正在看到的部分会继续保留在本次画面中。'
-      : '只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会继续保留在本次画面中。';
+      ? t('minimap.memory.delete-all.message', undefined)
+      : t('minimap.memory.delete-selected.message', undefined);
     detailModalHost.open({
       ownerId: Minimap.DELETE_MEMORY_OWNER,
       title,
       subtitle: mapName,
-      hint: '点击空白处取消',
+      hint: t('minimap.modal.hint.cancel-outside', undefined),
       renderBody: (body) => {
         patchElementChildren(body, [
           this.createConfirmMessage(message),
@@ -1893,9 +1916,9 @@ export class Minimap {
   /** createMoveConfirmActions：创建移动确认按钮区。 */
   private createMoveConfirmActions(x: number, y: number): HTMLElement {
     const actions = this.createConfirmActions();
-    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
+    const cancelButton = this.createConfirmButton(t('minimap.action.cancel', undefined), 'small-btn ghost');
     cancelButton.dataset.mapMoveCancel = 'true';
-    const confirmButton = this.createConfirmButton('确认前往', 'small-btn');
+    const confirmButton = this.createConfirmButton(t('minimap.action.confirm-move', undefined), 'small-btn');
     confirmButton.dataset.mapMoveConfirm = 'true';
     actions.append(cancelButton, confirmButton);
     return actions;
@@ -1926,9 +1949,14 @@ export class Minimap {
   /** createDeleteMemoryActions：创建删除记忆按钮区。 */
   private createDeleteMemoryActions(scope: 'selected' | 'all'): HTMLElement {
     const actions = this.createConfirmActions();
-    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
+    const cancelButton = this.createConfirmButton(t('minimap.action.cancel', undefined), 'small-btn ghost');
     cancelButton.dataset.mapMemoryDeleteCancel = 'true';
-    const confirmButton = this.createConfirmButton(scope === 'all' ? '确认全部删除' : '确认删除', 'small-btn danger');
+    const confirmButton = this.createConfirmButton(
+      scope === 'all'
+        ? t('minimap.action.confirm-delete-all', undefined)
+        : t('minimap.action.confirm-delete', undefined),
+      'small-btn danger',
+    );
     confirmButton.dataset.mapMemoryDeleteConfirm = 'true';
     actions.append(cancelButton, confirmButton);
     return actions;
@@ -2276,7 +2304,7 @@ export class Minimap {
           x: entity.wx,
           y: entity.wy,
           label: entity.name,
-          detail: '当前可见人物',
+          detail: t('minimap.marker.detail.visible-npc', undefined),
         });
         continue;
       }
@@ -2287,7 +2315,7 @@ export class Minimap {
           x: entity.wx,
           y: entity.wy,
           label: entity.name,
-          detail: '当前可见容器',
+          detail: t('minimap.marker.detail.visible-container', undefined),
         });
         continue;
       }
@@ -2298,7 +2326,7 @@ export class Minimap {
           x: entity.wx,
           y: entity.wy,
           label: entity.name,
-          detail: '当前可见怪物',
+          detail: t('minimap.marker.detail.visible-monster', undefined),
         });
       }
     }
@@ -2320,7 +2348,7 @@ export class Minimap {
           x: point.x,
           y: point.y,
           label: getTileTypeLabel(TileType.Portal),
-          detail: '当前视野内传送地块',
+          detail: t('minimap.marker.detail.visible-portal', undefined),
         });
       } else if (type === TileType.Stairs) {
         if (hasStaticMarkerAtPoint) {
@@ -2332,7 +2360,7 @@ export class Minimap {
           x: point.x,
           y: point.y,
           label: getTileTypeLabel(TileType.Stairs),
-          detail: '当前视野内楼梯',
+          detail: t('minimap.marker.detail.visible-stairs', undefined),
         });
       }
     }
@@ -2677,8 +2705,8 @@ export class Minimap {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const guide = display.isCurrent
-      ? '滚轮缩放 · 右键拖拽 · 左键前往'
-      : '滚轮缩放 · 右键拖拽';
+      ? t('minimap.hud.guide.current', undefined)
+      : t('minimap.hud.guide.readonly', undefined);
     ctx.save();
     ctx.font = buildCanvasFont('label', 12);
     ctx.textBaseline = 'middle';
@@ -2726,30 +2754,36 @@ export class Minimap {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const lines: string[] = [];
-    lines.push(`坐标 (${x}, ${y})`);
+    lines.push(t('minimap.hover.coordinate', { x, y }));
 
     const tile = this.getTileAt(display, x, y);
     if (tile) {
-      lines.push(`地表：${getTileTypeLabel(tile.type)}`);
+      lines.push(t('minimap.hover.surface', { surface: getTileTypeLabel(tile.type) }));
     } else {
-      lines.push('地表：此处尚未记下');
+      lines.push(t('minimap.hover.surface.unknown', undefined));
     }
 
     const tileMarkers = markers.filter((marker) => marker.x === x && marker.y === y);
     for (const marker of tileMarkers.slice(0, 3)) {
-      lines.push(`${getMinimapMarkerKindLabel(marker.kind)}：${marker.label}${marker.detail ? ` · ${marker.detail}` : ''}`);
+      lines.push(t('minimap.hover.marker', {
+        kind: getMinimapMarkerKindLabel(marker.kind),
+        label: marker.label,
+        detail: marker.detail ? ` · ${marker.detail}` : '',
+      }));
     }
 
     if (display.isCurrent && display.player?.x === x && display.player.y === y) {
-      lines.push('位置：你当前在此');
+      lines.push(t('minimap.hover.current-position', undefined));
     }
 
     if (display.isCurrent) {
       const pile = [...display.groundPiles.values()].find((entry) => entry.x === x && entry.y === y);
       if (pile) {
         const itemsLabel = pile.items.slice(0, 2).map((entry) => `${entry.name} ${formatDisplayCountBadge(entry.count)}`).join('、');
-        const suffix = pile.items.length > 2 ? ` 等 ${formatDisplayInteger(pile.items.length)} 件` : '';
-        lines.push(`地面：${itemsLabel}${suffix}`);
+        const suffix = pile.items.length > 2
+          ? t('minimap.hover.ground.suffix', { count: formatDisplayInteger(pile.items.length) })
+          : '';
+        lines.push(t('minimap.hover.ground', { items: itemsLabel, suffix }));
       }
     }
 

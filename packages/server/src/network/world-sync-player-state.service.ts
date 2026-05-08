@@ -30,6 +30,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     allowAoePlayerHit: player.combat.allowAoePlayerHit,
     autoIdleCultivation: player.combat.autoIdleCultivation,
     autoSwitchCultivation: player.combat.autoSwitchCultivation,
+    autoRootFoundation: player.combat.autoRootFoundation === true,
     cultivationActive: player.combat.cultivationActive,
     instanceId: player.instanceId || view.instance.instanceId,
     mapId: view.instance.templateId,

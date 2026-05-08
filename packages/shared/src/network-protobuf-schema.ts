@@ -141,6 +141,8 @@ message VisibleTileCellPayload {
   optional string surfaceType = 15;
   optional string structureType = 16;
   repeated string interactableKinds = 17;
+  optional sint32 movementCost = 18;
+  optional sint32 qiDrainPerTick = 19;
 }
 
 message PointPayload {
@@ -218,6 +220,7 @@ message ActionsUpdatePayload {
   optional string retaliatePlayerTargetId = 17;
   optional bool clearRetaliatePlayerTargetId = 18;
   optional bool wangQiActive = 19;
+  optional bool autoRootFoundation = 20;
 }
 
 message ActionUpdateEntryPayload {

@@ -271,6 +271,8 @@ export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
   if (tile.walkable !== isTileTypeWalkable(tile.type)) wire.walkable = tile.walkable;
   if (tile.blocksSight !== doesTileTypeBlockSight(tile.type)) wire.blocksSight = tile.blocksSight;
   if (tile.aura) wire.aura = tile.aura;
+  if (tile.movementCost !== undefined) wire.movementCost = tile.movementCost;
+  if (tile.qiDrainPerTick !== undefined) wire.qiDrainPerTick = tile.qiDrainPerTick;
   if (tile.hpVisible === true) wire.hpVisible = true;
   if (tile.occupiedBy) wire.occupiedBy = tile.occupiedBy;
   if (tile.modifiedAt !== null && tile.modifiedAt !== undefined) wire.modifiedAt = tile.modifiedAt;
@@ -304,6 +306,8 @@ export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile 
     walkable: hasOwn(wire, 'walkable') ? Boolean(wire.walkable) : isTileTypeWalkable(type),
     blocksSight: hasOwn(wire, 'blocksSight') ? Boolean(wire.blocksSight) : doesTileTypeBlockSight(type),
     aura: Number(wire.aura ?? 0),
+    movementCost: hasOwn(wire, 'movementCost') ? Number(wire.movementCost ?? 0) : undefined,
+    qiDrainPerTick: hasOwn(wire, 'qiDrainPerTick') ? Number(wire.qiDrainPerTick ?? 0) : undefined,
     occupiedBy: typeof wire.occupiedBy === 'string' && wire.occupiedBy.length > 0 ? wire.occupiedBy : null,
     modifiedAt: hasOwn(wire, 'modifiedAt') ? Number(wire.modifiedAt ?? 0) : null,
     hp: hasOwn(wire, 'hp') ? Number(wire.hp ?? 0) : undefined,

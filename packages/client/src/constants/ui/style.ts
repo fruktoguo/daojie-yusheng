@@ -3,6 +3,7 @@
  */
 
 import { UI_TEXT_SETTINGS } from './text';
+import { t } from '../../ui/i18n';
 
 /** UiColorMode：模式枚举。 */
 export type UiColorMode = 'light' | 'dark';
@@ -86,8 +87,8 @@ export const UI_COLOR_MODE_OPTIONS: Array<{
  * description：description相关字段。
  */
  description: string }> = [
-  { value: 'light', label: '浅色', description: '保持当前纸卷风格的亮面配色。' },
-  { value: 'dark', label: '深色', description: '切换为更适合夜间游玩的暗面配色。' },
+  { value: 'light', label: t('settings.color-mode.light.label', undefined), description: t('settings.color-mode.light.desc', undefined) },
+  { value: 'dark', label: t('settings.color-mode.dark.label', undefined), description: t('settings.color-mode.dark.desc', undefined) },
 ];
 
 /** 全局字号偏移配置。 */

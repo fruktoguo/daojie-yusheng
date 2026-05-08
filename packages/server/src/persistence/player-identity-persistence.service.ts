@@ -34,6 +34,7 @@ const CREATE_PLAYER_IDENTITY_TABLE_SQL = `
     user_id varchar(100) PRIMARY KEY,
     username varchar(80) NOT NULL UNIQUE,
     player_id varchar(100) NOT NULL UNIQUE,
+    player_no bigint UNIQUE,
     display_name varchar(32),
     player_name varchar(120) NOT NULL,
     persisted_source varchar(32) NOT NULL,
@@ -47,12 +48,21 @@ const CREATE_PLAYER_IDENTITY_MIRROR_TABLE_SQL = `
     user_id varchar(100) PRIMARY KEY,
     username varchar(80) NOT NULL UNIQUE,
     player_id varchar(100) NOT NULL UNIQUE,
+    player_no bigint UNIQUE,
     display_name varchar(32),
     player_name varchar(120) NOT NULL,
     persisted_source varchar(32) NOT NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
     payload jsonb NOT NULL
   )
+`;
+
+const ADD_PLAYER_IDENTITY_PLAYER_NO_COLUMNS_SQL = `
+  ALTER TABLE ${PLAYER_IDENTITY_TABLE}
+  ADD COLUMN IF NOT EXISTS player_no bigint;
+
+  ALTER TABLE ${PLAYER_IDENTITY_MIRROR_TABLE}
+  ADD COLUMN IF NOT EXISTS player_no bigint;
 `;
 
 const CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL = `
@@ -70,6 +80,12 @@ const CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL = `
   ON ${PLAYER_IDENTITY_TABLE}(display_name)
 `;
 
+const CREATE_PLAYER_IDENTITY_PLAYER_NO_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS server_player_identity_player_no_idx
+  ON ${PLAYER_IDENTITY_TABLE}(player_no)
+  WHERE player_no IS NOT NULL
+`;
+
 const CREATE_PLAYER_IDENTITY_MIRROR_USERNAME_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS player_identity_username_idx
   ON ${PLAYER_IDENTITY_MIRROR_TABLE}(username)
@@ -83,6 +99,12 @@ const CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_INDEX_SQL = `
 const CREATE_PLAYER_IDENTITY_MIRROR_DISPLAY_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS player_identity_display_idx
   ON ${PLAYER_IDENTITY_MIRROR_TABLE}(display_name)
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_NO_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS player_identity_player_no_idx
+  ON ${PLAYER_IDENTITY_MIRROR_TABLE}(player_no)
+  WHERE player_no IS NOT NULL
 `;
 
 const CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL = `
@@ -101,6 +123,7 @@ const CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL = `
       user_id,
       username,
       player_id,
+      player_no,
       display_name,
       player_name,
       persisted_source,
@@ -111,6 +134,7 @@ const CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL = `
       NEW.user_id,
       NEW.username,
       NEW.player_id,
+      NEW.player_no,
       NEW.display_name,
       NEW.player_name,
       NEW.persisted_source,
@@ -121,6 +145,7 @@ const CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL = `
     DO UPDATE SET
       username = EXCLUDED.username,
       player_id = EXCLUDED.player_id,
+      player_no = EXCLUDED.player_no,
       display_name = EXCLUDED.display_name,
       player_name = EXCLUDED.player_name,
       persisted_source = EXCLUDED.persisted_source,
@@ -220,6 +245,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
           user_id,
           username,
           player_id,
+          player_no,
           display_name,
           player_name,
           persisted_source,
@@ -261,6 +287,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
           user_id,
           username,
           player_id,
+          player_no,
           display_name,
           player_name,
           persisted_source,
@@ -310,26 +337,34 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             user_id,
             username,
             player_id,
+            player_no,
             display_name,
             player_name,
             persisted_source,
             updated_at,
             payload
           )
-          VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8::jsonb)
           ON CONFLICT (user_id)
           DO UPDATE SET
             username = EXCLUDED.username,
             player_id = EXCLUDED.player_id,
+            player_no = COALESCE(EXCLUDED.player_no, ${PLAYER_IDENTITY_TABLE}.player_no),
             display_name = EXCLUDED.display_name,
             player_name = EXCLUDED.player_name,
             persisted_source = EXCLUDED.persisted_source,
             updated_at = now(),
-            payload = EXCLUDED.payload
+            payload = jsonb_set(
+              EXCLUDED.payload,
+              '{playerNo}',
+              COALESCE(to_jsonb(COALESCE(EXCLUDED.player_no, ${PLAYER_IDENTITY_TABLE}.player_no)), 'null'::jsonb),
+              true
+            )
         `, [
                 normalized.userId,
                 normalized.username,
                 normalized.playerId,
+                normalized.playerNo,
                 normalized.displayName,
                 normalized.playerName,
                 normalizePlayerIdentityPersistedSource(normalized.persistedSource)
@@ -382,12 +417,16 @@ async function ensurePlayerIdentityTable(pool) {
         await client.query('BEGIN');
         await client.query(CREATE_PLAYER_IDENTITY_TABLE_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_TABLE_SQL);
+        await client.query(ADD_PLAYER_IDENTITY_PLAYER_NO_COLUMNS_SQL);
+        await backfillPlayerIdentityNoWithClient(client);
         await client.query(CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_PLAYER_NO_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_USERNAME_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_DISPLAY_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_NO_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_MIRROR_TRIGGER_SQL);
         await client.query('COMMIT');
@@ -399,6 +438,29 @@ async function ensurePlayerIdentityTable(pool) {
     finally {
         client.release();
     }
+}
+
+async function backfillPlayerIdentityNoWithClient(client) {
+    await client.query(`
+      UPDATE ${PLAYER_IDENTITY_TABLE} ident
+      SET
+        player_no = auth.player_no,
+        payload = jsonb_set(ident.payload, '{playerNo}', to_jsonb(auth.player_no), true)
+      FROM server_player_auth auth
+      WHERE ident.player_no IS DISTINCT FROM auth.player_no
+        AND auth.player_id = ident.player_id
+        AND auth.player_no IS NOT NULL
+    `);
+    await client.query(`
+      UPDATE ${PLAYER_IDENTITY_MIRROR_TABLE} mirror
+      SET
+        player_no = ident.player_no,
+        payload = jsonb_set(mirror.payload, '{playerNo}', to_jsonb(ident.player_no), true)
+      FROM ${PLAYER_IDENTITY_TABLE} ident
+      WHERE mirror.player_no IS DISTINCT FROM ident.player_no
+        AND ident.user_id = mirror.user_id
+        AND ident.player_no IS NOT NULL
+    `);
 }
 export { PlayerIdentityPersistenceService };
 /**
@@ -420,6 +482,7 @@ function normalizePersistedPlayerIdentityRow(row) {
     const userId = normalizeRequiredString(row.user_id) || normalizedFromPayload.userId;
     const username = normalizeRequiredString(row.username) || normalizedFromPayload.username;
     const playerId = normalizeRequiredString(row.player_id) || normalizedFromPayload.playerId;
+    const playerNo = normalizeOptionalPlayerNo(row.player_no) ?? normalizedFromPayload.playerNo ?? null;
     const playerName = normalizePlayerName(row.player_name, username) || normalizedFromPayload.playerName;
     if (!userId || !username || !playerId || !playerName) {
         return null;
@@ -429,6 +492,7 @@ function normalizePersistedPlayerIdentityRow(row) {
         userId,
         username,
         playerId,
+        playerNo,
         displayName: normalizeDisplayName(row.display_name, username),
         playerName,
         persistedSource: normalizePlayerIdentityPersistedSource(row.persisted_source)
@@ -461,12 +525,14 @@ function normalizePlayerIdentity(raw) {
     const displayName = normalizeDisplayName(raw.displayName, username);
 
     const playerName = normalizePlayerName(raw.playerName, username);
+    const playerNo = normalizeOptionalPlayerNo(raw.playerNo);
     return {
         version: 1,
         userId,
         username,
         displayName,
         playerId,
+        playerNo,
         playerName,
         persistedSource: normalizePlayerIdentityPersistedSource(raw.persistedSource)
             ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
@@ -504,6 +570,20 @@ function normalizePlayerIdentityPersistedSource(value) {
 
 function normalizeRequiredString(value) {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOptionalPlayerNo(value) {
+    const numeric = typeof value === 'number'
+        ? value
+        : typeof value === 'bigint'
+            ? Number(value)
+            : typeof value === 'string' && value.trim()
+                ? Number(value.trim())
+                : NaN;
+    if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+        return null;
+    }
+    return Math.trunc(numeric);
 }
 /**
  * normalizeDisplayName：判断显示名称是否满足条件。

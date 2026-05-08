@@ -1,5 +1,10 @@
 import type { PlayerState } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
+import { t } from '../ui/i18n';
+
+function dangerText(key: string): string {
+  return t(key);
+}
 
 /** 可用于危险评估的境界等级区间。 */
 type RealmLevelRange = {
@@ -108,15 +113,15 @@ function buildRealmAliasIndex(): void {
     }
   }
 
-  registerRealmAlias('Entry', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
-  registerRealmAlias('Minor', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
-  registerRealmAlias('Major', { minLevel: 8, maxLevel: 12, displayLabel: '瑶光-天玑' });
-  registerRealmAlias('Perfection', { minLevel: 13, maxLevel: 18, displayLabel: '天璇-叩仙门' });
-  registerRealmAlias('锻体', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
-  registerRealmAlias('后天', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
-  registerRealmAlias('先天', { minLevel: 8, maxLevel: 18, displayLabel: '瑶光-叩仙门' });
-  registerRealmAlias('练气前夜', { minLevel: 18, maxLevel: 18, displayLabel: '叩仙门' });
-  registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: '练气一层' });
+  registerRealmAlias('Entry', { minLevel: 1, maxLevel: 3, displayLabel: dangerText('world.danger.realm.entry') });
+  registerRealmAlias('Minor', { minLevel: 4, maxLevel: 7, displayLabel: dangerText('world.danger.realm.minor') });
+  registerRealmAlias('Major', { minLevel: 8, maxLevel: 12, displayLabel: dangerText('world.danger.realm.major') });
+  registerRealmAlias('Perfection', { minLevel: 13, maxLevel: 18, displayLabel: dangerText('world.danger.realm.perfection') });
+  registerRealmAlias('锻体', { minLevel: 1, maxLevel: 3, displayLabel: dangerText('world.danger.realm.body-training') });
+  registerRealmAlias('后天', { minLevel: 4, maxLevel: 7, displayLabel: dangerText('world.danger.realm.acquired') });
+  registerRealmAlias('先天', { minLevel: 8, maxLevel: 18, displayLabel: dangerText('world.danger.realm.innate') });
+  registerRealmAlias('练气前夜', { minLevel: 18, maxLevel: 18, displayLabel: dangerText('world.danger.realm.before-qi') });
+  registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: dangerText('world.danger.realm.qi-start') });
 }
 
 buildRealmAliasIndex();
@@ -200,18 +205,18 @@ function describeHarderDanger(gap: number): {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (gap <= 1) {
-    return { label: '高你一境，稍有风浪', tone: 3 };
+    return { label: dangerText('world.danger.harder.1'), tone: 3 };
   }
   if (gap === 2) {
-    return { label: '高你两境，已有压力', tone: 4 };
+    return { label: dangerText('world.danger.harder.2'), tone: 4 };
   }
   if (gap === 3) {
-    return { label: '高你三境，险意渐浓', tone: 4 };
+    return { label: dangerText('world.danger.harder.3'), tone: 4 };
   }
   if (gap === 4) {
-    return { label: '高你四境，步步惊心', tone: 5 };
+    return { label: dangerText('world.danger.harder.4'), tone: 5 };
   }
-  return { label: `高你${gap}境，十面埋伏`, tone: 5 };
+  return { label: t('world.danger.harder.many', { gap }), tone: 5 };
 }
 
 /** 生成“比玩家更弱”时的危险描述。 */
@@ -227,18 +232,18 @@ function describeEasierDanger(gap: number): {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (gap <= 1) {
-    return { label: '尚可从容', tone: 2 };
+    return { label: dangerText('world.danger.easier.1'), tone: 2 };
   }
   if (gap === 2) {
-    return { label: '游刃有余', tone: 2 };
+    return { label: dangerText('world.danger.easier.2'), tone: 2 };
   }
   if (gap === 3) {
-    return { label: '轻车熟路', tone: 1 };
+    return { label: dangerText('world.danger.easier.3'), tone: 1 };
   }
   if (gap === 4) {
-    return { label: '难逢敌手', tone: 1 };
+    return { label: dangerText('world.danger.easier.4'), tone: 1 };
   }
-  return { label: '如履平地', tone: 1 };
+  return { label: dangerText('world.danger.easier.many'), tone: 1 };
 }
 
 /** 根据玩家境界与推荐境界评估地图危险度。 */
@@ -253,12 +258,12 @@ export function assessMapDanger(
   const recommendedRealmLabel = resolvedRange?.displayLabel
     ?? recommendedRealm?.trim()
     ?? fallbackRecommendedRealm?.trim()
-    ?? '未知';
+    ?? dangerText('world.danger.recommended.unknown');
 
   if (!resolvedRange) {
     return {
       recommendedRealmLabel,
-      dangerLabel: '境界未明，谨慎试探',
+      dangerLabel: dangerText('world.danger.unknown'),
       dangerTone: 3,
     };
   }
@@ -284,7 +289,7 @@ export function assessMapDanger(
   }
   return {
     recommendedRealmLabel,
-    dangerLabel: '境界相宜，正合历练',
+    dangerLabel: dangerText('world.danger.matched'),
     dangerTone: 3,
   };
 }

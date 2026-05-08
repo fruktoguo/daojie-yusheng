@@ -460,13 +460,11 @@ function testPlayerCombatSelfBuffSkillAppliesBuff() {
     },
   });
   const result = service.castSelfSkill(attacker, 'skill.iron_bone_art', 8);
-  assert.deepEqual(result, {
-    skillId: 'skill.iron_bone_art',
-    qiCost: 0,
-    totalDamage: 0,
-    hitCount: 0,
-    targetPlayerId: attacker.playerId,
-  });
+  assert.equal(result.skillId, 'skill.iron_bone_art');
+  assert.equal(result.qiCost, 0);
+  assert.equal(result.totalDamage, 0);
+  assert.equal(result.hitCount, 0);
+  assert.equal(result.targetPlayerId, attacker.playerId);
   assert.deepEqual(log, [
     ['setSkillCooldownReadyTick', attacker.playerId, 'skill.iron_bone_art', 9, 8],
     ['applyTemporaryBuff', attacker.playerId, 'buff.tiegu_guard', 'percent', { physDef: 30 }],
@@ -832,6 +830,121 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
     && entry[4] === 17));
 }
 
+async function testMissedPlayerSkillStillAggrosMonster() {
+  const skill = {
+    id: 'skill.miss_probe',
+    name: '试探术',
+    cost: 0,
+    cooldown: 1,
+    range: 3,
+    effects: [{
+      type: 'damage',
+      damageKind: 'spell',
+      formula: 10,
+    }],
+  };
+  const attacker = createPlayer({
+    techniques: {
+      techniques: [{
+        skills: [skill],
+      }],
+    },
+  });
+  const monster = {
+    runtimeId: 'monster:runtime:miss',
+    monsterId: 'monster.test',
+    name: '测试妖兽',
+    alive: true,
+    hp: 100,
+    maxHp: 100,
+    x: 11,
+    y: 10,
+    level: 2,
+    attrs: {},
+    numericStats: {},
+    ratioDivisors: {},
+    buffs: [],
+  };
+  const log = [];
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    playerProgressionService: {
+      getMonsterCombatExpEquivalent(level) {
+        return level * 100;
+      },
+    },
+    getPlayerOrThrow(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      throw new Error(`unexpected playerId ${playerId}`);
+    },
+    getPlayer(playerId) {
+      return playerId === attacker.playerId ? attacker : null;
+    },
+    recordActivity(playerId, tick, payload) {
+      log.push(['recordActivity', playerId, tick, payload]);
+    },
+  }, {
+    castSkillToMonster() {
+      return {
+        totalDamage: 0,
+        hitCount: 0,
+        qiCost: 0,
+        damageKind: 'spell',
+        damageRolls: [{
+          hit: false,
+          rawDamage: 10,
+          damage: 0,
+          dodged: true,
+          damageKind: 'spell',
+        }],
+      };
+    },
+  });
+  await service.dispatchSkillTargets(attacker, skill.id, skill, [{
+    kind: 'monster',
+    monsterId: monster.runtimeId,
+    x: monster.x,
+    y: monster.y,
+  }], {
+    getInstanceRuntimeOrThrow(instanceId) {
+      assert.equal(instanceId, attacker.instanceId);
+      return {
+        getMonster(runtimeId) {
+          return runtimeId === monster.runtimeId ? monster : null;
+        },
+        applyDamageToMonster(runtimeId, damage, attackerPlayerId) {
+          log.push(['applyDamageToMonster', runtimeId, damage, attackerPlayerId]);
+          return { defeated: false, monster, appliedDamage: damage };
+        },
+      };
+    },
+    resolveCurrentTickForPlayerId(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return 19;
+    },
+    pushActionLabelEffect(instanceId, x, y, label) {
+      log.push(['label', instanceId, x, y, label]);
+    },
+    pushAttackEffect(instanceId, fromX, fromY, toX, toY) {
+      log.push(['attackEffect', instanceId, fromX, fromY, toX, toY]);
+    },
+    pushCombatTextFloatEffect(instanceId, x, y, text) {
+      log.push(['combatText', instanceId, x, y, text]);
+    },
+    pushDamageFloatEffect(instanceId, x, y, damage) {
+      log.push(['damageFloat', instanceId, x, y, damage]);
+    },
+    queuePlayerNotice(playerId, text, kind) {
+      log.push(['notice', playerId, text, kind]);
+    },
+  });
+  assert.ok(log.some((entry) => entry[0] === 'applyDamageToMonster'
+    && entry[1] === monster.runtimeId
+    && entry[2] === 0
+    && entry[3] === attacker.playerId), `expected zero-damage skill to aggro monster, log=${JSON.stringify(log)}`);
+}
+
 async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
   const attacker = createPlayer({
     actions: {
@@ -1004,6 +1117,7 @@ Promise.resolve()
   .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
   .then(() => testSkillDispatchLogsFormationDamage())
   .then(() => testSkillDispatchLogsMonsterAndPlayerDamage())
+  .then(() => testMissedPlayerSkillStillAggrosMonster())
   .then(() => testSkillDispatchKeepsTileAnchorForAreaTerrainDamage())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
   .then(() => {

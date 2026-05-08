@@ -3,6 +3,7 @@ import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { bindZoomControls } from './main-ui-helpers';
+import { t } from './ui/i18n';
 /**
  * MainStartupBindingsOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -445,7 +446,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
   });
 
   options.debugPanel.setCallbacks(() => {
-    options.showToast('正返回诞生之地...');
+    options.showToast(t('startup.toast.returning-spawn'));
     options.adminSender.sendDebugResetSpawn();
   });
 

@@ -2,6 +2,15 @@
  * 世界面板文本与指引常量，供 UI 组件使用。
  */
 import { TechniqueRealm } from '@mud/shared';
+import { t } from '../../ui/i18n';
+
+function worldText(key: string, _fallback?: string): string {
+  return t(key);
+}
+
+function worldKeySegment(id: string): string {
+  return id.replaceAll('_', '-');
+}
 
 /** WorldGuide：世界指南条目。 */
 export interface WorldGuide {
@@ -44,10 +53,10 @@ export interface WorldGuide {
 
 /** 各修行境界在界面中的展示名称。 */
 export const TECH_REALM_LABELS: Record<TechniqueRealm, string> = {
-  [TechniqueRealm.Entry]: '武学入门',
-  [TechniqueRealm.Minor]: '后天圆熟',
-  [TechniqueRealm.Major]: '先天凝意',
-  [TechniqueRealm.Perfection]: '半步修真',
+  [TechniqueRealm.Entry]: worldText('world.tech-realm.entry'),
+  [TechniqueRealm.Minor]: worldText('world.tech-realm.minor'),
+  [TechniqueRealm.Major]: worldText('world.tech-realm.major'),
+  [TechniqueRealm.Perfection]: worldText('world.tech-realm.perfection'),
 };
 
 /** 按 key 直接映射到对应的标签，方便数据驱动配置。 */
@@ -59,7 +68,7 @@ export const TECH_REALM_NAME_BY_KEY: Record<string, string> = {
 };
 
 /** 各地图的引导信息，用于世界面板的标签与建议路线。 */
-export const WORLD_GUIDE: Record<string, WorldGuide> = {
+const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   yunlai_town: {
     title: '云来镇',
     recommendedRealm: '凡胎-锻骨',
@@ -143,19 +152,34 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
 };
 
+export const WORLD_GUIDE: Record<string, WorldGuide> = Object.fromEntries(
+  Object.entries(WORLD_GUIDE_DEFS).map(([mapId, guide]) => [
+    mapId,
+    {
+      title: worldText(`world.guide.${worldKeySegment(mapId)}.title`, guide.title),
+      recommendedRealm: worldText(`world.guide.${worldKeySegment(mapId)}.recommended-realm`, guide.recommendedRealm),
+      route: worldText(`world.guide.${worldKeySegment(mapId)}.route`, guide.route),
+      mood: worldText(`world.guide.${worldKeySegment(mapId)}.mood`, guide.mood),
+      desc: worldText(`world.guide.${worldKeySegment(mapId)}.desc`, guide.desc),
+      resources: guide.resources.map((resource, index) => worldText(`world.guide.${worldKeySegment(mapId)}.resource.${index}`, resource)),
+      threats: guide.threats.map((threat, index) => worldText(`world.guide.${worldKeySegment(mapId)}.threat.${index}`, threat)),
+    },
+  ]),
+) as Record<string, WorldGuide>;
+
 /** 主界面兜底使用的地图推荐境界。 */
 export const MAP_FALLBACK: Record<string, {
 /**
  * recommendedRealm：recommendedRealm相关字段。
  */
  recommendedRealm: string }> = {
-  yunlai_town: { recommendedRealm: '凡胎-锻骨' },
-  qizhen_crossing: { recommendedRealm: '练气一层-半步筑基' },
-  bamboo_forest: { recommendedRealm: '易筋-养气' },
-  wildlands: { recommendedRealm: '凡胎-锻骨' },
-  black_iron_mine: { recommendedRealm: '养气-玉衡' },
-  ancient_ruins: { recommendedRealm: '瑶光-天权' },
-  beast_valley: { recommendedRealm: '玉衡-天璇' },
-  spirit_ridge: { recommendedRealm: '天玑-大宗师' },
-  sky_ruins: { recommendedRealm: '宗师-叩仙门' },
+  yunlai_town: { recommendedRealm: worldText('world.map-fallback.yunlai-town.recommended-realm') },
+  qizhen_crossing: { recommendedRealm: worldText('world.map-fallback.qizhen-crossing.recommended-realm') },
+  bamboo_forest: { recommendedRealm: worldText('world.map-fallback.bamboo-forest.recommended-realm') },
+  wildlands: { recommendedRealm: worldText('world.map-fallback.wildlands.recommended-realm') },
+  black_iron_mine: { recommendedRealm: worldText('world.map-fallback.black-iron-mine.recommended-realm') },
+  ancient_ruins: { recommendedRealm: worldText('world.map-fallback.ancient-ruins.recommended-realm') },
+  beast_valley: { recommendedRealm: worldText('world.map-fallback.beast-valley.recommended-realm') },
+  spirit_ridge: { recommendedRealm: worldText('world.map-fallback.spirit-ridge.recommended-realm') },
+  sky_ruins: { recommendedRealm: worldText('world.map-fallback.sky-ruins.recommended-realm') },
 };

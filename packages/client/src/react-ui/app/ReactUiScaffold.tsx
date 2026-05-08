@@ -13,6 +13,7 @@ import {
 } from '../overlays/overlay-store';
 import { panelDataStore } from '../stores/panel-data-store';
 import { shellStore } from '../stores/shell-store';
+import { t } from '../../ui/i18n';
 /**
  * ReactUiScaffold：判断ReactUiScaffold是否满足条件。
  * @returns 无返回值，直接更新ReactUiScaffold相关状态。
@@ -27,35 +28,35 @@ export function ReactUiScaffold() {
   return (
     <div className="react-ui-scaffold">
       <UiSection
-        title="React UI 骨架"
-        subtitle="当前阶段只验证桥接、store 与视觉原语，不接管旧 UI。"
-        actions={<UiPill tone={shellState.runtime.connected ? 'accent' : 'default'}>{shellState.runtime.connected ? '在线' : '离线'}</UiPill>}
+        title={t('react.prototype.scaffold.title', undefined)}
+        subtitle={t('react.prototype.scaffold.subtitle', undefined)}
+        actions={<UiPill tone={shellState.runtime.connected ? 'accent' : 'default'}>{t(shellState.runtime.connected ? 'react.prototype.status.online' : 'react.prototype.status.offline')}</UiPill>}
         className="react-ui-scaffold-card"
       >
         <div className="react-ui-scaffold-grid">
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">角色</span>
-            <span className="react-ui-scaffold-value">{player?.name ?? '未登录'}</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.character', undefined)}</span>
+            <span className="react-ui-scaffold-value">{player?.name ?? t('react.prototype.value.not-login', undefined)}</span>
           </div>
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">地图</span>
-            <span className="react-ui-scaffold-value">{shellState.runtime.mapId ?? '未知'}</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.map', undefined)}</span>
+            <span className="react-ui-scaffold-value">{shellState.runtime.mapId ?? t('react.prototype.value.unknown', undefined)}</span>
           </div>
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">背包</span>
-            <span className="react-ui-scaffold-value">{panelState.inventory?.items.length ?? 0} 项</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.inventory', undefined)}</span>
+            <span className="react-ui-scaffold-value">{t('react.prototype.count.items', { count: panelState.inventory?.items.length ?? 0 })}</span>
           </div>
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">功法</span>
-            <span className="react-ui-scaffold-value">{panelState.techniques.length} 项</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.technique', undefined)}</span>
+            <span className="react-ui-scaffold-value">{t('react.prototype.count.items', { count: panelState.techniques.length })}</span>
           </div>
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">行动</span>
-            <span className="react-ui-scaffold-value">{panelState.actions.length} 项</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.action', undefined)}</span>
+            <span className="react-ui-scaffold-value">{t('react.prototype.count.items', { count: panelState.actions.length })}</span>
           </div>
           <div className="react-ui-scaffold-row">
-            <span className="react-ui-scaffold-label">任务</span>
-            <span className="react-ui-scaffold-value">{panelState.quests?.length ?? 0} 项</span>
+            <span className="react-ui-scaffold-label">{t('react.prototype.field.quest', undefined)}</span>
+            <span className="react-ui-scaffold-value">{t('react.prototype.count.items', { count: panelState.quests?.length ?? 0 })}</span>
           </div>
         </div>
         <div className="react-ui-scaffold-actions">
@@ -63,30 +64,30 @@ export function ReactUiScaffold() {
             type="button"
             variants={['ghost']}
             onClick={() => {
-              showToast('新界面单实例提示已接通。', 'success');
+              showToast(t('react.prototype.toast.host-ready', undefined), 'success');
             }}
           >
-            测试提示
+            {t('react.prototype.action.test-toast', undefined)}
           </UiButton>
           <UiButton
             type="button"
             variants={['ghost']}
             onClick={() => {
               openDetailModal({
-                title: '详情弹层骨架',
-                subtitle: '单实例 React Host',
+                title: t('react.prototype.detail.title', undefined),
+                subtitle: t('react.prototype.detail.subtitle', undefined),
                 body: (
                   <div className="react-ui-detail-preview">
-                    当前只打通 host 和关闭逻辑，后续面板详情会统一走这层。
+                    {t('react.prototype.detail.body', undefined)}
                     <div className="react-ui-detail-preview-actions">
-                      <UiButton type="button" variants={['ghost']} onClick={closeDetailModal}>关闭</UiButton>
+                      <UiButton type="button" variants={['ghost']} onClick={closeDetailModal}>{t('react.prototype.action.close', undefined)}</UiButton>
                     </div>
                   </div>
                 ),
               });
             }}
           >
-            测试弹层
+            {t('react.prototype.action.test-modal', undefined)}
           </UiButton>
           <UiButton
             type="button"
@@ -96,7 +97,7 @@ export function ReactUiScaffold() {
               window.location.reload();
             }}
           >
-            关闭新 UI 骨架
+            {t('react.prototype.action.close-scaffold', undefined)}
           </UiButton>
         </div>
       </UiSection>
@@ -104,8 +105,11 @@ export function ReactUiScaffold() {
         className="react-ui-tooltip-probe react-ui-surface-pane react-ui-surface-pane--stack"
         onPointerMove={(event) => {
           showTooltip(
-            'Tooltip 骨架',
-            ['已接入单实例 hover 层。', '后续物品、技能、NPC 提示统一复用。'],
+            t('react.prototype.tooltip.title', undefined),
+            [
+              t('react.prototype.tooltip.line.host', undefined),
+              t('react.prototype.tooltip.line.future', undefined),
+            ],
             event.clientX,
             event.clientY,
           );
@@ -113,9 +117,9 @@ export function ReactUiScaffold() {
         }}
         onPointerLeave={hideTooltip}
       >
-        悬停这里测试 React Tooltip Host
+        {t('react.prototype.tooltip.probe', undefined)}
       </div>
-      <UiEmptyHint text="下一步会先迁 Tooltip、详情弹层、胶囊和按钮原语，再逐步替换背包与属性面板。" />
+      <UiEmptyHint text={t('react.prototype.empty.next-step', undefined)} />
     </div>
   );
 }

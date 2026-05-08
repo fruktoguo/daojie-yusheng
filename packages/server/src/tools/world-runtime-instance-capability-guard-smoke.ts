@@ -235,6 +235,9 @@ function createMonsterActionApplyService(player, log = [], playerCombatService =
     pushDamageFloatEffect(instanceId, x, y, amount, color) {
       log.push(['pushDamageFloatEffect', instanceId, x, y, amount, color]);
     },
+    pushCombatTextFloatEffect(instanceId, x, y, text, color, durationMs) {
+      log.push(['pushCombatTextFloatEffect', instanceId, x, y, text, color, durationMs]);
+    },
     pushCombatEffect(instanceId, effect) {
       log.push(['pushCombatEffect', instanceId, effect]);
     },
@@ -476,6 +479,128 @@ function testMonsterSkillQueuesCombatNoticeAndDamageFloat() {
   assert.equal(notice[3], 'combat');
 }
 
+function testMonsterSkillUsesRuntimeLocationBeforeCombatStateSync() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    instanceId: 'stale:previous',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    tick: 31,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill(attacker, target, skillId, currentTick, distance) {
+      log.push(['castMonsterSkill', attacker.runtimeId, target.playerId, skillId, currentTick, distance]);
+      return {
+        skillId,
+        totalDamage: 0,
+        hitCount: 0,
+        damageKind: 'spell',
+        damageRolls: [{
+          hit: false,
+          rawDamage: 17,
+          damage: 0,
+          dodged: true,
+          damageKind: 'spell',
+        }],
+        targetPlayerId: target.playerId,
+      };
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  deps.getPlayerLocation = (playerId) => {
+    log.push(['getPlayerLocation', playerId]);
+    return playerId === player.playerId
+      ? { instanceId: instance.meta.instanceId, x: player.x, y: player.y }
+      : null;
+  };
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+    skillId: 'monster:soul_flame',
+  }, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'castMonsterSkill'), `expected stale player.instanceId not to suppress monster skill, log=${JSON.stringify(log)}`);
+  const notice = log.find((entry) => entry[0] === 'queuePlayerNotice');
+  assert.ok(notice, `expected monster skill dodge notice before combat state sync, log=${JSON.stringify(log)}`);
+  assert.match(notice[2], /唤灵真人对你施展唤灵火/);
+  assert.match(notice[2], /被闪避/);
+}
+
+function testAnchoredMonsterChantMissStillShowsCast() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    hp: 100,
+    x: 12,
+    y: 10,
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    tick: 32,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    getPlayersAtTile() {
+      return [];
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill() {
+      throw new Error('anchored miss should not resolve damage against moved target');
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+    skillId: 'monster:soul_flame',
+    targetX: 11,
+    targetY: 10,
+    warningCells: [{ x: 11, y: 10 }],
+  }, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'pushActionLabelEffect'
+    && entry[1] === instance.meta.instanceId
+    && entry[2] === monster.x
+    && entry[3] === monster.y
+    && entry[4] === '唤灵火'), `expected anchored miss to show cast label, log=${JSON.stringify(log)}`);
+  assert.ok(log.some((entry) => entry[0] === 'pushAttackEffect'
+    && entry[1] === instance.meta.instanceId
+    && entry[2] === monster.x
+    && entry[3] === monster.y
+    && entry[4] === 11
+    && entry[5] === 10), `expected anchored miss to show cast effect at warning anchor, log=${JSON.stringify(log)}`);
+  assert.ok(!log.some((entry) => entry[0] === 'queuePlayerNotice'), `anchored miss should not report a hit notice, log=${JSON.stringify(log)}`);
+}
+
 function testPeacefulLineAllowsTileAttack() {
   const log = [];
   const attacker = createAttacker();
@@ -669,6 +794,8 @@ Promise.resolve()
   .then(() => testRealLineAllowsPlayerBasicAttack())
   .then(() => testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat())
   .then(() => testMonsterSkillQueuesCombatNoticeAndDamageFloat())
+  .then(() => testMonsterSkillUsesRuntimeLocationBeforeCombatStateSync())
+  .then(() => testAnchoredMonsterChantMissStillShowsCast())
   .then(() => testPeacefulLineAllowsTileAttack())
   .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
   .then(() => testTileAttackFallsBackToTerrainWhenContainerIsNotHerb())

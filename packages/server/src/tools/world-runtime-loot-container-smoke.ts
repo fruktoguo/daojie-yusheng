@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 
+const TEST_REALM_EXP_TO_NEXT = 10000;
+
 async function main(): Promise<void> {
   await testGroundTakeDurableGrant();
   await testGroundTakeAllDurableGrant();
@@ -439,7 +441,7 @@ async function testStartGatherSupportsColonInstanceId() {
   player.gatherSkill = {
     level: 20,
     exp: 0,
-    expToNext: 60,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   const container = {
     id: 'lm_yunlai_moondew_5_6',
@@ -661,7 +663,7 @@ async function testGatherCompletionDurableGrant() {
   player.gatherSkill = {
     level: 1,
     exp: 0,
-    expToNext: 60,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   player.gatherJob = {
     resourceNodeId: 'herb1',
@@ -783,7 +785,7 @@ async function testGatherCompletionDurableRollback() {
   player.gatherSkill = {
     level: 1,
     exp: 0,
-    expToNext: 60,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   player.gatherJob = {
     resourceNodeId: 'herb2',
@@ -888,7 +890,7 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
   player.gatherSkill = {
     level: 1,
     exp: 0,
-    expToNext: 60,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   player.gatherJob = {
     resourceNodeId: 'herb1',
@@ -986,7 +988,7 @@ async function testGatherCompletionDirtyDomains() {
   player.gatherSkill = {
     level: 1,
     exp: 0,
-    expToNext: 60,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   player.gatherJob = {
     resourceNodeId: 'herb1',
@@ -1054,6 +1056,7 @@ async function testGatherCompletionDirtyDomains() {
   assert.deepEqual(markedDomains, [['inventory', 'profession']]);
   assert.equal(player.dirtyDomains.has('inventory'), true);
   assert.equal(player.dirtyDomains.has('profession'), true);
+  assert.equal(player.gatherSkill?.exp, 42);
 }
 
 function buildPlayer(playerId: string, instanceId: string, runtimeOwnerId: string, sessionEpoch: number) {
@@ -1122,6 +1125,12 @@ function buildPlayerRuntimeService(
     },
     playerProgressionService: {
       refreshPreview() {},
+      getRealmLevelEntry(level: number) {
+        return {
+          realmLv: Math.max(1, Math.floor(Number(level) || 1)),
+          expToNext: TEST_REALM_EXP_TO_NEXT,
+        };
+      },
     },
   };
 }

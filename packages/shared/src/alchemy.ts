@@ -187,13 +187,13 @@ export function computeAlchemyBrewTicks(
   submitted: readonly AlchemyIngredientSelection[] | undefined,
   furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
 ): number {
+  void furnaceOutputCount;
   const normalizedBase = Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
-  const normalizedFurnaceOutputCount = Math.max(1, Math.floor(Number(furnaceOutputCount) || ALCHEMY_FURNACE_OUTPUT_COUNT));
   if (isExactAlchemyRecipe(recipe, submitted)) {
-    return normalizedBase * normalizedFurnaceOutputCount;
+    return normalizedBase;
   }
   const ratio = computeAlchemyPowerRatio(recipe, submitted);
-  return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio))) * normalizedFurnaceOutputCount;
+  return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio)));
 }
 
 export function computeAlchemySpeedRate(

@@ -3,6 +3,7 @@ import type { SocketSocialEconomySender } from '../network/socket-send-social-ec
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 import { patchElementHtml } from './dom-patch';
+import { t } from './i18n';
 
 /** SuggestionListTab：建议列表页签。 */
 type SuggestionListTab = 'all' | 'mine';
@@ -194,10 +195,10 @@ export class SuggestionPanel {
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
       size: 'full',
-      title: '道心反馈',
+      title: t('suggestion.modal.title', undefined),
       subtitle: meta.subtitle,
       variantClass: 'detail-modal--suggestion',
-      hint: '点击空白处关闭',
+      hint: t('suggestion.modal.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
       },
@@ -238,49 +239,49 @@ export class SuggestionPanel {
       <div class="suggestion-shell">
         <div class="suggestion-summary-grid ui-stats-grid">
           <div class="suggestion-stat ui-stat-card">
-            <div class="suggestion-stat-label ui-stat-card-label">待处理</div>
+            <div class="suggestion-stat-label ui-stat-card-label">${escapeHtml(t('suggestion.summary.pending', undefined))}</div>
             <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-pending="true">${pendingCount}</div>
-            <div class="suggestion-stat-note ui-stat-card-note">尚未归档的意见会优先排在列表前方。</div>
+            <div class="suggestion-stat-note ui-stat-card-note">${escapeHtml(t('suggestion.summary.pending-note', undefined))}</div>
           </div>
           <div class="suggestion-stat ui-stat-card">
-            <div class="suggestion-stat-label ui-stat-card-label">我的意见</div>
+            <div class="suggestion-stat-label ui-stat-card-label">${escapeHtml(t('suggestion.summary.mine', undefined))}</div>
             <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-mine="true">${mySuggestions.length}</div>
-            <div class="suggestion-stat-note ui-stat-card-note">只展示你自己发起的意见与后续往来记录。</div>
+            <div class="suggestion-stat-note ui-stat-card-note">${escapeHtml(t('suggestion.summary.mine-note', undefined))}</div>
           </div>
           <div class="suggestion-stat ui-stat-card">
-            <div class="suggestion-stat-label ui-stat-card-label">天道未读回音</div>
+            <div class="suggestion-stat-label ui-stat-card-label">${escapeHtml(t('suggestion.summary.unread', undefined))}</div>
             <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-unread="true">${unreadCount}</div>
-            <div class="suggestion-stat-note ui-stat-card-note">进入对应意见详情后，红点会随已读状态一并消失。</div>
+            <div class="suggestion-stat-note ui-stat-card-note">${escapeHtml(t('suggestion.summary.unread-note', undefined))}</div>
           </div>
         </div>
 
         <div class="suggestion-layout ui-three-pane-layout">
           <section class="panel-section suggestion-pane suggestion-compose ui-surface-pane ui-surface-pane--stack">
-            <div class="panel-section-title">提交意见</div>
-            <div class="suggestion-compose-copy ui-form-copy">写清目标、场景和预期结果，便于后续排期与实现。标题建议简短，描述里补充问题背景。</div>
+            <div class="panel-section-title">${escapeHtml(t('suggestion.compose.title', undefined))}</div>
+            <div class="suggestion-compose-copy ui-form-copy">${escapeHtml(t('suggestion.compose.copy', undefined))}</div>
             <div class="suggestion-form-grid ui-form-grid">
               <div class="suggestion-field ui-form-field">
-                <label class="ui-form-label" for="suggest-title">标题</label>
-                <input id="suggest-title" class="ui-input" type="text" maxlength="50" placeholder="例如：背包支持按类型筛选" value="${escapeHtmlAttr(this.draftTitle)}" />
+                <label class="ui-form-label" for="suggest-title">${escapeHtml(t('suggestion.field.title', undefined))}</label>
+                <input id="suggest-title" class="ui-input" type="text" maxlength="50" placeholder="${escapeHtmlAttr(t('suggestion.field.title-placeholder', undefined))}" value="${escapeHtmlAttr(this.draftTitle)}" />
               </div>
               <div class="suggestion-field ui-form-field">
-                <label class="ui-form-label" for="suggest-desc">详细描述</label>
-                <textarea id="suggest-desc" class="ui-textarea" maxlength="500" placeholder="描述遇到的问题、希望的改动方式，以及它会改善什么体验。">${escapeHtml(this.draftDescription)}</textarea>
+                <label class="ui-form-label" for="suggest-desc">${escapeHtml(t('suggestion.field.description', undefined))}</label>
+                <textarea id="suggest-desc" class="ui-textarea" maxlength="500" placeholder="${escapeHtmlAttr(t('suggestion.field.description-placeholder', undefined))}">${escapeHtml(this.draftDescription)}</textarea>
               </div>
             </div>
             <div class="suggestion-compose-actions ui-form-actions ui-action-row">
-              <div class="panel-subtext">提交后会并入天道回音。</div>
-              <button id="btn-submit-suggest" class="small-btn" type="button">提交意见</button>
+              <div class="panel-subtext">${escapeHtml(t('suggestion.compose.note', undefined))}</div>
+              <button id="btn-submit-suggest" class="small-btn" type="button">${escapeHtml(t('suggestion.action.submit', undefined))}</button>
             </div>
           </section>
 
           <section class="panel-section suggestion-pane ui-surface-pane ui-surface-pane--stack">
             <div class="suggestion-pane-head ui-pane-head">
               <div class="suggestion-tab-row ui-tab-row">
-                <button class="suggestion-tab-btn ui-tab-row-btn ${this.activeTab === 'all' ? 'active' : ''}" data-suggestion-tab="all" type="button">全部意见</button>
+                <button class="suggestion-tab-btn ui-tab-row-btn ${this.activeTab === 'all' ? 'active' : ''}" data-suggestion-tab="all" type="button">${escapeHtml(t('suggestion.tab.all', undefined))}</button>
                 <button class="suggestion-tab-btn ui-tab-row-btn ${this.activeTab === 'mine' ? 'active' : ''}" data-suggestion-tab="mine" type="button">${this.renderMineTabLabel(unreadCount)}</button>
               </div>
-              <div class="suggestion-pane-note ui-pane-note">搜索与分页</div>
+              <div class="suggestion-pane-note ui-pane-note">${escapeHtml(t('suggestion.list.note', undefined))}</div>
             </div>
             <div class="suggestion-toolbar ui-list-toolbar">
               <input
@@ -288,31 +289,31 @@ export class SuggestionPanel {
                 class="suggestion-search-input ui-search-input"
                 type="search"
                 maxlength="50"
-                placeholder="搜索标题、描述或回复内容"
+                placeholder="${escapeHtmlAttr(t('suggestion.search.placeholder', undefined))}"
                 value="${escapeHtmlAttr(this.searchKeyword)}"
               />
               <div class="suggestion-toolbar-note ui-list-toolbar-note" data-suggestion-toolbar-note="true">
-                共 ${pageData.total} 条，第 ${pageData.page} / ${pageData.totalPages} 页
+                ${escapeHtml(this.formatToolbarNote(pageData))}
               </div>
             </div>
             <div class="suggestion-list ui-card-list ui-scroll-panel" data-suggestion-list="true" data-list-kind="${escapeHtmlAttr(this.activeTab)}">
               ${pageData.items.length > 0
                 ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
-                : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`}
+                : `<div class="empty-hint">${escapeHtml(this.formatListEmpty())}</div>`}
             </div>
             <div class="suggestion-pagination">
-              <button class="small-btn ghost" data-suggestion-page-action="prev" type="button" ${pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
-              <button class="small-btn ghost" data-suggestion-page-action="next" type="button" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>下一页</button>
+              <button class="small-btn ghost" data-suggestion-page-action="prev" type="button" ${pageData.page <= 1 ? 'disabled' : ''}>${escapeHtml(t('suggestion.action.prev-page', undefined))}</button>
+              <button class="small-btn ghost" data-suggestion-page-action="next" type="button" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>${escapeHtml(t('suggestion.action.next-page', undefined))}</button>
             </div>
           </section>
 
           <section class="panel-section suggestion-pane ui-surface-pane ui-surface-pane--stack">
             <div class="suggestion-pane-head ui-pane-head">
-              <div class="panel-section-title">意见详情</div>
-              <div class="suggestion-pane-note ui-pane-note">回音卷宗</div>
+              <div class="panel-section-title">${escapeHtml(t('suggestion.detail.title', undefined))}</div>
+              <div class="suggestion-pane-note ui-pane-note">${escapeHtml(t('suggestion.detail.note', undefined))}</div>
             </div>
             <div class="suggestion-thread ui-scroll-panel" data-suggestion-thread="true" data-thread-kind="detail">
-              ${selectedSuggestion ? this.renderSuggestionDetail(selectedSuggestion) : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>'}
+              ${selectedSuggestion ? this.renderSuggestionDetail(selectedSuggestion) : `<div class="empty-hint">${escapeHtml(t('suggestion.empty.detail', undefined))}</div>`}
             </div>
           </section>
         </div>
@@ -344,7 +345,7 @@ export class SuggestionPanel {
               <div class="suggestion-entry-title">${escapeHtml(suggestion.title)}</div>
               ${unread ? '<span class="suggestion-inline-dot" aria-hidden="true"></span>' : ''}
             </div>
-            <div class="quest-meta">${suggestion.status === 'completed' ? '已完成' : '待处理'}</div>
+            <div class="quest-meta">${escapeHtml(this.formatSuggestionStatus(suggestion.status))}</div>
           </div>
           <div class="suggestion-entry-meta">
             <div>${escapeHtml(suggestion.authorName)}</div>
@@ -354,9 +355,11 @@ export class SuggestionPanel {
         <div class="suggestion-entry-desc">${escapeHtml(suggestion.description)}</div>
         <div class="suggestion-entry-foot">
           <div class="suggestion-entry-mini-meta">
-            <span>回复 ${suggestion.replies.length}</span>
-            <span>认同 ${score > 0 ? '+' : ''}${score}</span>
-            ${lastReply ? `<span>最新 ${escapeHtml(lastReply.authorType === 'gm' ? '天道执掌' : '发起人')}</span>` : '<span>暂无回音</span>'}
+            <span>${escapeHtml(t('suggestion.entry.replies', { count: suggestion.replies.length }))}</span>
+            <span>${escapeHtml(t('suggestion.entry.score', { score: `${score > 0 ? '+' : ''}${score}` }))}</span>
+            ${lastReply ? `<span>${escapeHtml(t('suggestion.entry.latest', {
+              role: this.formatReplyAuthorRole(lastReply.authorType),
+            }))}</span>` : `<span>${escapeHtml(t('suggestion.reply.empty', undefined))}</span>`}
           </div>
         </div>
       </article>
@@ -372,12 +375,12 @@ export class SuggestionPanel {
     const canReply = this.canCurrentPlayerReply(suggestion);
     const hasGmReply = suggestion.replies.some((reply) => reply.authorType === 'gm');
     const replyHint = canReply
-      ? '天道有回音，可续写。'
+      ? t('suggestion.detail.reply-hint.can', undefined)
       : suggestion.authorId === this.playerId
         ? hasGmReply
-          ? '待候天道，再有回音可续。'
-          : '尚未得天道回音，先静候。'
-        : '仅发起者可在天道回音后续写。';
+          ? t('suggestion.detail.reply-hint.wait-more', undefined)
+          : t('suggestion.detail.reply-hint.wait-first', undefined)
+        : t('suggestion.detail.reply-hint.not-author', undefined);
 
     return `
       <div class="suggestion-thread-head">
@@ -386,42 +389,42 @@ export class SuggestionPanel {
           <div class="suggestion-thread-meta">
             <span>${escapeHtml(suggestion.authorName)}</span>
             <span>${new Date(suggestion.createdAt).toLocaleString()}</span>
-            <span>${suggestion.status === 'completed' ? '已完成' : '待处理'}</span>
+            <span>${escapeHtml(this.formatSuggestionStatus(suggestion.status))}</span>
           </div>
         </div>
         <div class="suggestion-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : ''}">
-          认同: ${score > 0 ? '+' : ''}${score}
+          ${escapeHtml(t('suggestion.detail.score', { score: `${score > 0 ? '+' : ''}${score}` }))}
         </div>
       </div>
       <div class="suggestion-thread-desc ui-surface-card ui-surface-card--compact">${escapeHtml(suggestion.description)}</div>
       <div class="suggestion-entry-foot suggestion-thread-votes">
         <button class="small-btn ghost suggestion-vote-btn ${isUpvoted ? 'active up' : ''}" data-id="${escapeHtmlAttr(suggestion.id)}" data-vote="up" type="button">
-          赞同 ${suggestion.upvotes.length}
+          ${escapeHtml(t('suggestion.action.upvote', { count: suggestion.upvotes.length }))}
         </button>
         <button class="small-btn ghost suggestion-vote-btn ${isDownvoted ? 'active down' : ''}" data-id="${escapeHtmlAttr(suggestion.id)}" data-vote="down" type="button">
-          反对 ${suggestion.downvotes.length}
+          ${escapeHtml(t('suggestion.action.downvote', { count: suggestion.downvotes.length }))}
         </button>
       </div>
       <div class="suggestion-thread-replies">
-        <div class="suggestion-thread-section-title">回音记录</div>
+        <div class="suggestion-thread-section-title">${escapeHtml(t('suggestion.reply.section', undefined))}</div>
         ${suggestion.replies.length > 0
           ? suggestion.replies.map((reply) => this.renderReply(reply)).join('')
-          : '<div class="empty-hint">尚未得天道回音</div>'}
+          : `<div class="empty-hint">${escapeHtml(t('suggestion.reply.empty-gm', undefined))}</div>`}
       </div>
       ${isAuthor ? `
         <div class="suggestion-thread-reply-box">
-          <div class="suggestion-thread-section-title">续写回音</div>
+          <div class="suggestion-thread-section-title">${escapeHtml(t('suggestion.reply.compose-title', undefined))}</div>
           <div class="suggestion-pane-note ui-pane-note">${escapeHtml(replyHint)}</div>
           <textarea
             id="suggest-reply-content"
             class="suggestion-reply-textarea"
             maxlength="500"
-            placeholder="${escapeHtmlAttr(canReply ? '补充情景、描述或期盼' : '当前不可补充')}"
+            placeholder="${escapeHtmlAttr(canReply ? t('suggestion.reply.placeholder.can', undefined) : t('suggestion.reply.placeholder.disabled', undefined))}"
             ${canReply ? '' : 'disabled'}
           >${escapeHtml(this.replyDraft)}</textarea>
           <div class="suggestion-compose-actions ui-form-actions">
-            <div class="panel-subtext">补充内容会追加到当前意见，不会单独生成新意见。</div>
-            <button id="btn-submit-suggest-reply" class="small-btn" type="button" ${canReply ? '' : 'disabled'}>送出回音</button>
+            <div class="panel-subtext">${escapeHtml(t('suggestion.reply.compose-note', undefined))}</div>
+            <button id="btn-submit-suggest-reply" class="small-btn" type="button" ${canReply ? '' : 'disabled'}>${escapeHtml(t('suggestion.action.submit-reply', undefined))}</button>
           </div>
         </div>
       ` : ''}
@@ -430,7 +433,7 @@ export class SuggestionPanel {
 
   /** renderReply：渲染回复。 */
   private renderReply(reply: SuggestionReply): string {
-    const roleLabel = reply.authorType === 'gm' ? '天道执掌' : '发起人';
+    const roleLabel = this.formatReplyAuthorRole(reply.authorType);
     return `
       <article class="suggestion-reply-entry ui-surface-card ui-surface-card--compact ${reply.authorType === 'gm' ? 'gm' : 'author'}">
         <div class="suggestion-reply-head">
@@ -472,10 +475,10 @@ export class SuggestionPanel {
       detailModalHost.open({
         ownerId: SuggestionPanel.MODAL_OWNER,
         size: 'full',
-        title: '道心反馈',
+        title: t('suggestion.modal.title', undefined),
         subtitle: meta.subtitle,
         variantClass: 'detail-modal--suggestion',
-        hint: '点击空白处关闭',
+        hint: t('suggestion.modal.close-hint', undefined),
         renderBody: (nextBody) => {
           this.renderBody(nextBody);
         },
@@ -563,7 +566,13 @@ export class SuggestionPanel {
   /** buildSubtitle：构建Subtitle。 */
   private buildSubtitle(): string {
     const myUnreadCount = this.getMySuggestions().filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
-    return `待处理 ${this.suggestions.filter((suggestion) => suggestion.status === 'pending').length} · 我的意见 ${this.getMySuggestions().length} · 未读回音 ${myUnreadCount}`;
+    const pendingCount = this.suggestions.filter((suggestion) => suggestion.status === 'pending').length;
+    const mineCount = this.getMySuggestions().length;
+    return t('suggestion.modal.subtitle', {
+      pendingCount,
+      mineCount,
+      unreadCount: myUnreadCount,
+    });
   }
 
   /** buildModalMeta：构建弹窗元数据。 */
@@ -575,7 +584,33 @@ export class SuggestionPanel {
 
   /** renderMineTabLabel：渲染Mine Tab标签。 */
   private renderMineTabLabel(unreadCount: number): string {
-    return `我的意见${unreadCount > 0 ? `<span class="suggestion-inline-dot" aria-hidden="true">${unreadCount}</span>` : ''}`;
+    return `${escapeHtml(t('suggestion.tab.mine', undefined))}${unreadCount > 0 ? `<span class="suggestion-inline-dot" aria-hidden="true">${unreadCount}</span>` : ''}`;
+  }
+
+  private formatToolbarNote(pageData: SuggestionPageData): string {
+    return t('suggestion.toolbar.page', {
+      total: pageData.total,
+      page: pageData.page,
+      totalPages: pageData.totalPages,
+    });
+  }
+
+  private formatListEmpty(): string {
+    return this.activeTab === 'mine'
+      ? t('suggestion.empty.mine', undefined)
+      : t('suggestion.empty.all', undefined);
+  }
+
+  private formatSuggestionStatus(status: Suggestion['status']): string {
+    return status === 'completed'
+      ? t('suggestion.status.completed', undefined)
+      : t('suggestion.status.pending', undefined);
+  }
+
+  private formatReplyAuthorRole(authorType: SuggestionReply['authorType']): string {
+    return authorType === 'gm'
+      ? t('suggestion.role.gm', undefined)
+      : t('suggestion.role.author', undefined);
   }
 
   /** patchBody：处理patch身体。 */
@@ -609,7 +644,7 @@ export class SuggestionPanel {
     pendingNode.textContent = String(pendingCount);
     mineNode.textContent = String(mySuggestions.length);
     unreadNode.textContent = String(unreadCount);
-    toolbarNoteNode.textContent = `共 ${pageData.total} 条，第 ${pageData.page} / ${pageData.totalPages} 页`;
+    toolbarNoteNode.textContent = this.formatToolbarNote(pageData);
 
     allTabButton.classList.toggle('active', this.activeTab === 'all');
     mineTabButton.classList.toggle('active', this.activeTab === 'mine');
@@ -620,13 +655,13 @@ export class SuggestionPanel {
       listRoot,
       pageData.items.length > 0
         ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
-        : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`,
+        : `<div class="empty-hint">${escapeHtml(this.formatListEmpty())}</div>`,
     );
     patchElementHtml(
       threadRoot,
       selectedSuggestion
         ? this.renderSuggestionDetail(selectedSuggestion)
-        : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>',
+        : `<div class="empty-hint">${escapeHtml(t('suggestion.empty.detail', undefined))}</div>`,
     );
 
     prevPageButton.disabled = pageData.page <= 1;
@@ -688,11 +723,11 @@ export class SuggestionPanel {
       const title = this.draftTitle.trim();
       const description = this.draftDescription.trim();
       if (!title) {
-        alert('请输入建议标题');
+        alert(t('suggestion.error.title-required', undefined));
         return;
       }
       if (!description) {
-        alert('请输入建议描述');
+        alert(t('suggestion.error.description-required', undefined));
         return;
       }
       this.socket.sendCreateSuggestion(title, description);
@@ -718,11 +753,11 @@ export class SuggestionPanel {
         return;
       }
       if (!content) {
-        alert('请输入回音内容');
+        alert(t('suggestion.error.reply-required', undefined));
         return;
       }
       if (!this.canCurrentPlayerReply(selectedSuggestion)) {
-        alert('天道执掌尚未回音，且候。');
+        alert(t('suggestion.error.reply-disabled', undefined));
         return;
       }
       this.socket.sendReplySuggestion(selectedSuggestion.id, content);

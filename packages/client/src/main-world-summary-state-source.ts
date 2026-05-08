@@ -4,6 +4,7 @@ import { detailModalHost } from './ui/detail-modal-host';
 import { preserveSelection } from './ui/selection-preserver';
 import { WorldPanel } from './ui/panels/world-panel';
 import { formatDisplayInteger } from './utils/number';
+import { t } from './ui/i18n';
 /**
  * MainWorldSummaryStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -30,16 +31,28 @@ const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs' | 'sects';
 
 const LEADERBOARD_LIMIT = 10;
-const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
-  realm: '境界',
-  monsterKills: '斩妖',
-  spiritStones: '灵石',
-  playerKills: '杀伐',
-  deaths: '身陨',
-  bodyTraining: '炼体',
-  supremeAttrs: '六维最强',
-  sects: '宗门',
-};
+function getLeaderboardTabLabel(tab: LeaderboardTab): string {
+  switch (tab) {
+    case 'realm':
+      return t('world-summary.leaderboard.tab.realm', undefined);
+    case 'monsterKills':
+      return t('world-summary.leaderboard.tab.monster-kills', undefined);
+    case 'spiritStones':
+      return t('world-summary.leaderboard.tab.spirit-stones', undefined);
+    case 'playerKills':
+      return t('world-summary.leaderboard.tab.player-kills', undefined);
+    case 'deaths':
+      return t('world-summary.leaderboard.tab.deaths', undefined);
+    case 'bodyTraining':
+      return t('world-summary.leaderboard.tab.body-training', undefined);
+    case 'supremeAttrs':
+      return t('world-summary.leaderboard.tab.supreme-attrs', undefined);
+    case 'sects':
+      return t('world-summary.leaderboard.tab.sects', undefined);
+  }
+}
+
+const LEADERBOARD_TABS: LeaderboardTab[] = ['realm', 'monsterKills', 'spiritStones', 'playerKills', 'deaths', 'bodyTraining', 'supremeAttrs', 'sects'];
 /**
  * cloneJson：构建Json。
  * @param value T 参数说明。
@@ -76,7 +89,7 @@ function formatLeaderboardGeneratedAt(timestamp: number): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return '调卷中';
+    return t('world-summary.generated-at.loading', undefined);
   }
   const date = new Date(timestamp);
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -126,9 +139,9 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     const modalOptions = {
       ownerId: LEADERBOARD_MODAL_OWNER,
       variantClass: 'detail-modal--leaderboard',
-      title: '排行榜',
-      subtitle: `收录前 ${formatDisplayInteger(limit)} 名 · 十分钟一更 · ${formatLeaderboardGeneratedAt(data?.generatedAt ?? 0)}`,
-      hint: '点击空白处关闭',
+      title: t('world-summary.leaderboard.title', undefined),
+      subtitle: t('world-summary.leaderboard.subtitle', { limit: formatDisplayInteger(limit), time: formatLeaderboardGeneratedAt(data?.generatedAt ?? 0) }),
+      hint: t('world-summary.modal.hint.close-outside', undefined),
       bodyHtml: renderLeaderboardModalBody(data),
       onAfterRender: bindLeaderboardModalEvents,
       onClose: () => {
@@ -151,9 +164,9 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     const modalOptions = {
       ownerId: WORLD_SUMMARY_MODAL_OWNER,
       variantClass: 'detail-modal--leaderboard',
-      title: '世界',
-      subtitle: `世界卷宗 · 十分钟一更 · ${formatLeaderboardGeneratedAt(data?.generatedAt ?? 0)}`,
-      hint: '点击空白处关闭',
+      title: t('world-summary.summary.title', undefined),
+      subtitle: t('world-summary.summary.subtitle', { time: formatLeaderboardGeneratedAt(data?.generatedAt ?? 0) }),
+      hint: t('world-summary.modal.hint.close-outside', undefined),
       bodyHtml: renderWorldSummaryModalBody(data),
       onAfterRender: bindWorldSummaryModalEvents,
     };
@@ -279,11 +292,11 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   function formatLeaderboardPlayerLocation(playerId: string): string {
     const entry = leaderboardPlayerLocationById.get(playerId);
     if (!entry) {
-      return '坐标：天机追索中';
+      return t('world-summary.leaderboard.location.loading', undefined);
     }
     return entry.online
-      ? `坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`
-      : `离线坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`;
+      ? t('world-summary.leaderboard.location.online', { mapName: entry.mapName, x: formatDisplayInteger(entry.x), y: formatDisplayInteger(entry.y) })
+      : t('world-summary.leaderboard.location.offline', { mapName: entry.mapName, x: formatDisplayInteger(entry.x), y: formatDisplayInteger(entry.y) });
   }
 
   function openLeaderboardModal(): void {
@@ -301,7 +314,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   function renderActiveLeaderboardBoard(data: S2C_Leaderboard | null): string {
     if (!data) {
-      return '<div class="empty-hint">暂无榜册内容。</div>';
+      return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
     switch (activeLeaderboardTab) {
       case 'realm':
@@ -317,8 +330,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.monsterKills.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
-            value: `击杀 ${formatDisplayInteger(entry.totalKills)}`,
-            meta: `精英 ${formatDisplayInteger(entry.eliteKills)} · Boss ${formatDisplayInteger(entry.bossKills)}`,
+            value: t('world-summary.leaderboard.value.monster-kills', { count: formatDisplayInteger(entry.totalKills) }),
+            meta: t('world-summary.leaderboard.meta.monster-kills', { elite: formatDisplayInteger(entry.eliteKills), boss: formatDisplayInteger(entry.bossKills) }),
           })),
         );
       case 'spiritStones':
@@ -326,7 +339,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.spiritStones.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
-            value: `${formatDisplayInteger(entry.spiritStoneCount)} 灵石`,
+            value: t('world-summary.leaderboard.value.spirit-stones', { count: formatDisplayInteger(entry.spiritStoneCount) }),
           })),
         );
       case 'playerKills':
@@ -334,7 +347,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.playerKills.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
-            value: `击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}`,
+            value: t('world-summary.leaderboard.value.player-kills', { count: formatDisplayInteger(entry.playerKillCount) }),
             meta: formatLeaderboardPlayerLocation(entry.playerId),
           })),
         );
@@ -343,7 +356,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.deaths.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
-            value: `死亡 ${formatDisplayInteger(entry.deathCount)}`,
+            value: t('world-summary.leaderboard.value.deaths', { count: formatDisplayInteger(entry.deathCount) }),
           })),
         );
       case 'bodyTraining':
@@ -351,7 +364,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.bodyTraining.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
-            value: `炼体 ${formatDisplayInteger(entry.level)} 层`,
+            value: t('world-summary.leaderboard.value.body-training', { level: formatDisplayInteger(entry.level) }),
           })),
         );
       case 'supremeAttrs':
@@ -361,23 +374,23 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           data.boards.sects.map((entry) => ({
             rank: entry.rank,
             name: entry.mark ? `${entry.mark} ${entry.sectName}` : entry.sectName,
-            value: `${formatDisplayInteger(entry.memberCount)} 人`,
-            meta: `宗主 ${entry.leaderName}`,
+            value: t('world-summary.leaderboard.value.sect-members', { count: formatDisplayInteger(entry.memberCount) }),
+            meta: t('world-summary.leaderboard.meta.sect-leader', { leaderName: entry.leaderName }),
           })),
         );
       default:
-        return '<div class="empty-hint">暂无榜册内容。</div>';
+        return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
   }
 
   function renderLeaderboardModalBody(data: S2C_Leaderboard | null): string {
-    const tabs = (Object.keys(LEADERBOARD_TAB_LABELS) as LeaderboardTab[])
+    const tabs = LEADERBOARD_TABS
       .map((tab) => `
         <button
           class="leaderboard-tab-btn ${tab === activeLeaderboardTab ? 'active' : ''}"
           data-leaderboard-tab="${tab}"
           type="button"
-        >${LEADERBOARD_TAB_LABELS[tab]}</button>
+        >${getLeaderboardTabLabel(tab)}</button>
       `)
       .join('');
     return `
@@ -385,12 +398,12 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
         <div class="leaderboard-toolbar">
           <div class="leaderboard-tabs">${tabs}</div>
           <div class="leaderboard-toolbar-actions">
-            <button class="small-btn ghost" data-open-world-summary type="button">世界卷宗</button>
-            <button class="small-btn" data-leaderboard-refresh type="button">${leaderboardLoading ? '调卷中' : '刷新榜册'}</button>
+            <button class="small-btn ghost" data-open-world-summary type="button">${t('world-summary.action.open-summary', undefined)}</button>
+            <button class="small-btn" data-leaderboard-refresh type="button">${leaderboardLoading ? t('world-summary.generated-at.loading', undefined) : t('world-summary.action.refresh-leaderboard', undefined)}</button>
           </div>
         </div>
         <div class="leaderboard-content">
-          ${leaderboardLoading && !data ? '<div class="leaderboard-loading">天机阁正在调阅最新榜册……</div>' : ''}
+          ${leaderboardLoading && !data ? `<div class="leaderboard-loading">${t('world-summary.leaderboard.loading', undefined)}</div>` : ''}
           <div class="leaderboard-board">${renderActiveLeaderboardBoard(data)}</div>
         </div>
       </div>
@@ -401,14 +414,14 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     return `
       <div class="leaderboard-shell">
         <div class="leaderboard-toolbar">
-          <div class="panel-subtext">阁藏天下卷宗，专收全服低频汇总情报。</div>
+          <div class="panel-subtext">${t('world-summary.summary.intro', undefined)}</div>
           <div class="leaderboard-toolbar-actions">
-            <button class="small-btn ghost" data-open-leaderboard type="button">天下榜</button>
-            <button class="small-btn" data-world-summary-refresh type="button">${worldSummaryLoading ? '调卷中' : '刷新卷宗'}</button>
+            <button class="small-btn ghost" data-open-leaderboard type="button">${t('world-summary.action.open-leaderboard', undefined)}</button>
+            <button class="small-btn" data-world-summary-refresh type="button">${worldSummaryLoading ? t('world-summary.generated-at.loading', undefined) : t('world-summary.action.refresh-summary', undefined)}</button>
           </div>
         </div>
         <div class="leaderboard-content">
-          ${worldSummaryLoading && !data ? '<div class="leaderboard-loading">天机阁正在调阅世界卷宗……</div>' : ''}
+          ${worldSummaryLoading && !data ? `<div class="leaderboard-loading">${t('world-summary.summary.loading', undefined)}</div>` : ''}
           <div class="leaderboard-board">${renderWorldSummaryBoard(data)}</div>
         </div>
       </div>
@@ -500,7 +513,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     meta?: string;
   }>): string {
     if (entries.length === 0) {
-      return '<div class="empty-hint">暂无榜册内容。</div>';
+      return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
     return `
       <div class="leaderboard-list">
@@ -520,7 +533,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   function renderSupremeAttrBoard(data: S2C_Leaderboard): string {
     if (data.boards.supremeAttrs.length === 0) {
-      return '<div class="empty-hint">暂无榜册内容。</div>';
+      return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
     return `
       <div class="leaderboard-supreme-grid">
@@ -537,33 +550,33 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   function renderWorldSummaryBoard(data: S2C_WorldSummary | null): string {
     if (!data) {
-      return '<div class="empty-hint">暂无世界卷宗。</div>';
+      return `<div class="empty-hint">${t('world-summary.summary.empty', undefined)}</div>`;
     }
     const summary = data.summary;
     return `
       <div class="leaderboard-world-grid">
-        ${renderWorldSection('灵石总和', [{
-          label: '全体玩家持有',
-          value: `${formatDisplayInteger(summary.totalSpiritStones)} 灵石`,
-          hint: '包含背包、坊市托管仓与求购挂单中冻结的灵石。',
+        ${renderWorldSection(t('world-summary.section.spirit-stones', undefined), [{
+          label: t('world-summary.row.total-spirit-stones', undefined),
+          value: t('world-summary.value.spirit-stones', { count: formatDisplayInteger(summary.totalSpiritStones) }),
+          hint: t('world-summary.hint.total-spirit-stones', undefined),
         }])}
-        ${renderWorldSection('当前行动人数', [
-          { label: '修炼', value: `${formatDisplayInteger(summary.actionCounts.cultivation)} 人` },
-          { label: '战斗', value: `${formatDisplayInteger(summary.actionCounts.combat)} 人` },
-          { label: '炼丹', value: `${formatDisplayInteger(summary.actionCounts.alchemy)} 人` },
-          { label: '强化', value: `${formatDisplayInteger(summary.actionCounts.enhancement)} 人` },
+        ${renderWorldSection(t('world-summary.section.actions', undefined), [
+          { label: t('world-summary.row.action.cultivation', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.actionCounts.cultivation) }) },
+          { label: t('world-summary.row.action.combat', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.actionCounts.combat) }) },
+          { label: t('world-summary.row.action.alchemy', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.actionCounts.alchemy) }) },
+          { label: t('world-summary.row.action.enhancement', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.actionCounts.enhancement) }) },
         ])}
-        ${renderWorldSection('境界人数', [
-          { label: '初始境界', value: `${formatDisplayInteger(summary.realmCounts.initial)} 人`, hint: 'Lv.1' },
-          { label: '凡人境界', value: `${formatDisplayInteger(summary.realmCounts.mortal)} 人`, hint: 'Lv.2 - Lv.18' },
-          { label: '炼气及以上', value: `${formatDisplayInteger(summary.realmCounts.qiRefiningOrAbove)} 人`, hint: 'Lv.19+' },
+        ${renderWorldSection(t('world-summary.section.realms', undefined), [
+          { label: t('world-summary.row.realm.initial', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.realmCounts.initial) }), hint: 'Lv.1' },
+          { label: t('world-summary.row.realm.mortal', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.realmCounts.mortal) }), hint: 'Lv.2 - Lv.18' },
+          { label: t('world-summary.row.realm.qi-refining-or-above', undefined), value: t('world-summary.value.people', { count: formatDisplayInteger(summary.realmCounts.qiRefiningOrAbove) }), hint: 'Lv.19+' },
         ])}
-        ${renderWorldSection('全服击杀与死亡', [
-          { label: '普通怪物', value: `${formatDisplayInteger(summary.killCounts.normalMonsters)} 次` },
-          { label: '精英怪物', value: `${formatDisplayInteger(summary.killCounts.eliteMonsters)} 次` },
-          { label: 'Boss', value: `${formatDisplayInteger(summary.killCounts.bossMonsters)} 次` },
-          { label: '玩家击杀玩家', value: `${formatDisplayInteger(summary.killCounts.playerKills)} 次` },
-          { label: '玩家死亡', value: `${formatDisplayInteger(summary.killCounts.playerDeaths)} 次` },
+        ${renderWorldSection(t('world-summary.section.kills-deaths', undefined), [
+          { label: t('world-summary.row.kills.normal-monsters', undefined), value: t('world-summary.value.times', { count: formatDisplayInteger(summary.killCounts.normalMonsters) }) },
+          { label: t('world-summary.row.kills.elite-monsters', undefined), value: t('world-summary.value.times', { count: formatDisplayInteger(summary.killCounts.eliteMonsters) }) },
+          { label: t('world-summary.row.kills.boss-monsters', undefined), value: t('world-summary.value.times', { count: formatDisplayInteger(summary.killCounts.bossMonsters) }) },
+          { label: t('world-summary.row.kills.player-kills', undefined), value: t('world-summary.value.times', { count: formatDisplayInteger(summary.killCounts.playerKills) }) },
+          { label: t('world-summary.row.kills.player-deaths', undefined), value: t('world-summary.value.times', { count: formatDisplayInteger(summary.killCounts.playerDeaths) }) },
         ])}
       </div>
     `;

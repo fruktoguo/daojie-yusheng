@@ -1,4 +1,5 @@
 import { PanelDefinition, PanelId } from './types';
+import { t } from '../i18n';
 
 /** PanelRegistry：面板注册表实现。 */
 export class PanelRegistry {
@@ -37,7 +38,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'chat',
-      title: '聊天',
+      title: t('panel.registry.chat'),
       templateKind: 'floating',
       rootSelector: '#chat-panel',
       defaultPlacement: { desktop: 'floating', mobile: 'external' },
@@ -45,7 +46,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'attr',
-      title: '属性',
+      title: t('panel.registry.attr'),
       templateKind: 'embedded',
       rootSelector: '#pane-attr',
       defaultPlacement: { desktop: 'left-lower', mobile: 'external' },
@@ -54,7 +55,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'inventory',
-      title: '背包',
+      title: t('panel.registry.inventory'),
       templateKind: 'embedded',
       rootSelector: '#pane-inventory',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -63,7 +64,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'equipment',
-      title: '装备',
+      title: t('panel.registry.equipment'),
       templateKind: 'embedded',
       rootSelector: '#pane-equipment',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -72,7 +73,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'technique',
-      title: '功法',
+      title: t('panel.registry.technique'),
       templateKind: 'embedded',
       rootSelector: '#pane-technique',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -81,7 +82,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'body-training',
-      title: '炼体',
+      title: t('panel.registry.body-training'),
       templateKind: 'embedded',
       rootSelector: '#pane-body-training',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -90,7 +91,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'quest',
-      title: '任务',
+      title: t('panel.registry.quest'),
       templateKind: 'embedded',
       rootSelector: '#pane-quest',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -99,7 +100,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'market',
-      title: '坊市',
+      title: t('panel.registry.market'),
       templateKind: 'embedded',
       rootSelector: '#pane-market',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
@@ -108,7 +109,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'action',
-      title: '行动',
+      title: t('panel.registry.action'),
       templateKind: 'embedded',
       rootSelector: '#pane-action',
       defaultPlacement: { desktop: 'right-bottom', mobile: 'external' },
@@ -117,7 +118,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'world-map-intel',
-      title: '地图情报',
+      title: t('panel.registry.world-map-intel'),
       templateKind: 'embedded',
       rootSelector: '#pane-map-intel',
       defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
@@ -126,7 +127,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'world-tianji',
-      title: '天机阁',
+      title: t('panel.registry.world-tianji'),
       templateKind: 'embedded',
       rootSelector: '#pane-tianji',
       defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
@@ -135,7 +136,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'loot',
-      title: '拾取',
+      title: t('panel.registry.loot'),
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
@@ -143,7 +144,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'settings',
-      title: '设置',
+      title: t('panel.registry.settings'),
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
@@ -151,7 +152,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'mail',
-      title: '飞书',
+      title: t('panel.registry.mail'),
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
@@ -159,7 +160,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'suggestion',
-      title: '反馈',
+      title: t('panel.registry.suggestion'),
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
@@ -167,7 +168,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'changelog',
-      title: '更新日志',
+      title: t('panel.registry.changelog'),
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
@@ -175,14 +176,14 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
     },
     {
       id: 'minimap',
-      title: '小地图',
+      title: t('panel.registry.minimap'),
       templateKind: 'floating',
       defaultPlacement: { desktop: 'floating', mobile: 'floating' },
       supports: ['desktop', 'mobile'],
     },
     {
       id: 'debug',
-      title: '调试',
+      title: t('panel.registry.debug'),
       templateKind: 'modal',
       rootSelector: '#debug-panel',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },

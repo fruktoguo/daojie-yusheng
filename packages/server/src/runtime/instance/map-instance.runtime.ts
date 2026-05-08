@@ -14,6 +14,8 @@ const fengshui_calculator_service_1 = require("../building/fengshui-calculator.s
 const building_default_content_1 = require("../building/building-default-content");
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const TILE_AURA_FLOW_RATE_SCALE = shared_1.TILE_AURA_HALF_LIFE_RATE_SCALE ?? shared_1.QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
+const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(shared_1.TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -26,6 +28,20 @@ const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
 const MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT = 100;
 const MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT = 100;
 const MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT = 1000;
+const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
+const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
+const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
+const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
+const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
+const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
+const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
+const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
+const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
+const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
+const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
+const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
+const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
+const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
 /** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
@@ -307,7 +323,17 @@ class MapInstanceRuntime {
  * changedTileResourceEntryCountByKey：按资源键统计脏条目数量。
  */
 
-    changedTileResourceEntryCountByKey = new Map();    
+    changedTileResourceEntryCountByKey = new Map();
+    /**
+ * tileResourceFlowRemainderBuckets：地块气机自然流转的固定点余数。
+ */
+
+    tileResourceFlowRemainderBuckets = new Map();
+    /**
+ * tileResourceFlowIndicesByKey：当前需要自然流转的地块资源索引。
+ */
+
+    tileResourceFlowIndicesByKey = new Map();
     /**
  * dirtyDomains：实例域级脏标记。
  */
@@ -529,6 +555,7 @@ class MapInstanceRuntime {
                 baseNumericStats: cloneNumericStats(monster.baseNumericStats),
                 numericStats: cloneNumericStats(monster.baseNumericStats),
                 ratioDivisors: cloneNumericRatioDivisors(monster.ratioDivisors),
+                statFormula: cloneMonsterStatFormula(monster.statFormula),
                 initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs.map((entry) => cloneInitialBuff(entry)) : [],
                 buffs: [],
                 skills: monster.skills.map((entry) => cloneSkill(entry)),
@@ -767,6 +794,8 @@ class MapInstanceRuntime {
         const baseAuraByTile = new Int32Array(nextCellCapacity);
         baseAuraByTile.set(nextTemplate.baseAuraByTile);
         this.baseTileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile]]);
+        this.tileResourceFlowRemainderBuckets = new Map();
+        this.tileResourceFlowIndicesByKey = new Map();
         this.changedTileResourceEntryCountByKey = new Map();
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
@@ -3011,6 +3040,49 @@ class MapInstanceRuntime {
         this.setTileResourceValueByIndex(resourceKey, tileIndex, next, previous);
         return next;
     }
+    /** advanceTileResourceFlow：推进地块灵气向模板基线自然衰减或回补。 */
+    advanceTileResourceFlow() {
+        let changed = false;
+        for (const [resourceKey, tileIndices] of Array.from(this.tileResourceFlowIndicesByKey.entries())) {
+            if (!isNaturalAuraFlowResource(resourceKey) || !(tileIndices instanceof Set) || tileIndices.size <= 0) {
+                continue;
+            }
+            const bucket = this.tileResourceBuckets.get(resourceKey);
+            if (!bucket) {
+                this.tileResourceFlowIndicesByKey.delete(resourceKey);
+                continue;
+            }
+            const baseBucket = this.baseTileResourceBuckets.get(resourceKey);
+            const remainderBucket = this.getOrCreateTileResourceFlowRemainderBucket(resourceKey);
+            for (const tileIndex of Array.from(tileIndices.values())) {
+                const current = Math.max(0, Math.trunc(Number(bucket[tileIndex]) || 0));
+                const base = Math.max(0, Math.trunc(Number(baseBucket?.[tileIndex]) || 0));
+                if (current === base) {
+                    remainderBucket[tileIndex] = 0;
+                    tileIndices.delete(tileIndex);
+                    continue;
+                }
+                const diff = Math.abs(current - base);
+                const accumulated = diff * TILE_AURA_FLOW_RATE_SCALED + (remainderBucket[tileIndex] ?? 0);
+                let step = Math.floor(accumulated / TILE_AURA_FLOW_RATE_SCALE);
+                remainderBucket[tileIndex] = accumulated - step * TILE_AURA_FLOW_RATE_SCALE;
+                if (step <= 0) {
+                    continue;
+                }
+                step = Math.min(step, diff);
+                const next = current > base ? current - step : current + step;
+                this.setTileResourceValueByIndex(resourceKey, tileIndex, next, current);
+                if (next === base) {
+                    remainderBucket[tileIndex] = 0;
+                }
+                changed = true;
+            }
+            if (tileIndices.size <= 0) {
+                this.tileResourceFlowIndicesByKey.delete(resourceKey);
+            }
+        }
+        return changed;
+    }
     /** hydrateAura：用持久化数据回填地块灵气。 */
     hydrateAura(entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3031,6 +3103,8 @@ class MapInstanceRuntime {
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
         this.changedTileResourceEntryCountByKey.clear();
+        this.tileResourceFlowRemainderBuckets.clear();
+        this.tileResourceFlowIndicesByKey.clear();
         this.clearDirtyDomains();
         for (const entry of entries) {
             if (!entry
@@ -3054,6 +3128,7 @@ class MapInstanceRuntime {
             const previous = bucket[tileIndex] ?? 0;
             bucket[tileIndex] = next;
             this.applyTileResourceDirtyCounter(entry.resourceKey, tileIndex, previous, next);
+            this.updateTileResourceFlowIndex(entry.resourceKey, tileIndex, next);
         }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
@@ -3250,10 +3325,14 @@ class MapInstanceRuntime {
             }
             const bucket = this.getOrCreateTileResourceBucket(entry.resourceKey);
             bucket[tileIndex] = next;
+            this.updateTileResourceFlowIndex(entry.resourceKey, tileIndex, next);
         }
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
         this.changedTileResourceEntryCountByKey.clear();
+        this.tileResourceFlowRemainderBuckets.clear();
+        this.tileResourceFlowIndicesByKey.clear();
+        this.rebuildTileResourceFlowIndices();
         this.persistentRevision = 1;
         this.persistedRevision = 1;
         this.clearDirtyDomains();
@@ -3396,7 +3475,9 @@ class MapInstanceRuntime {
             if (monster.alive) {
                 ensureMonsterInitialBuffs(monster);
             }
-            recalculateMonsterDerivedState(monster);
+            if (!recalculateMonsterBaseStatsFromFormula(monster)) {
+                recalculateMonsterDerivedState(monster);
+            }
         }
     }
     /** hydrateOverlayChunks：用分域 overlay chunk 回填运行期动态覆盖物。 */
@@ -4005,13 +4086,15 @@ class MapInstanceRuntime {
             return;
         }
 
-        let movePoints = this.rechargePlayerMoveBudget(player);
+        let movePoints = player.movePoints;
 
         let moved = false;
 
         let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.trunc(maxSteps)) : Number.POSITIVE_INFINITY;
 
         const remainingPath = Array.isArray(path) && path.length > 0 ? path : null;
+        let rechargedMoveBudget = false;
+        let requiredMovePoints = 0;
         if (!remainingPath && player.facing !== direction) {
             player.facing = direction;
             player.selfRevision += 1;
@@ -4047,6 +4130,11 @@ class MapInstanceRuntime {
             }
 
             const stepCost = this.getTileTraversalCost(nextX, nextY, player.playerId);
+            if (!rechargedMoveBudget) {
+                requiredMovePoints = stepCost;
+                movePoints = this.rechargePlayerMoveBudget(player, stepCost);
+                rechargedMoveBudget = true;
+            }
             if (!Number.isFinite(stepCost) || stepCost <= 0 || movePoints < stepCost) {
                 break;
             }
@@ -4095,7 +4183,7 @@ class MapInstanceRuntime {
         if (moved) {
             player.selfRevision += 1;
         }
-        player.movePoints = Math.min(shared_1.MAX_STORED_MOVE_POINTS, Math.max(0, Math.round(movePoints)));
+        player.movePoints = Math.min((0, shared_1.getMaxStoredMovePoints)(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
     }
     /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {
@@ -4111,13 +4199,13 @@ class MapInstanceRuntime {
         };
     }
     /** rechargePlayerMoveBudget：恢复玩家移动预算。 */
-    rechargePlayerMoveBudget(player) {
+    rechargePlayerMoveBudget(player, requiredMovePoints = 0) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const elapsed = Math.max(0, this.tick - (player.lastMoveBudgetTick ?? this.tick));
         if (elapsed > 0) {
-            player.movePoints = Math.min(shared_1.MAX_STORED_MOVE_POINTS, Math.max(0, Math.round(player.movePoints + elapsed * (0, shared_1.getMovePointsPerTick)(player.moveSpeed))));
+            player.movePoints = Math.min((0, shared_1.getMaxStoredMovePoints)(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(player.movePoints + elapsed * (0, shared_1.getMovePointsPerTick)(player.moveSpeed))));
             player.lastMoveBudgetTick = this.tick;
         }
         return player.movePoints;
@@ -4137,8 +4225,22 @@ class MapInstanceRuntime {
         if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
             return Number.POSITIVE_INFINITY;
         }
+        const tileIndex = this.toTileIndex(x, y);
+        const movementCostOverride = this.template?.movementCostOverrideByTile?.[tileIndex] ?? 0;
+        if (Number.isFinite(movementCostOverride) && movementCostOverride > 0) {
+            return Math.max(1, Math.trunc(movementCostOverride));
+        }
         /** return：return。 */
         return (0, shared_1.getTileTraversalCost)(tileType);
+    }
+    /** getTileQiDrainPerTick：读取地块每息灵力消耗。 */
+    getTileQiDrainPerTick(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return 0;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        const value = this.template?.qiDrainByTile?.[tileIndex] ?? 0;
+        return Number.isFinite(value) && value > 0 ? Math.max(0, Math.trunc(value)) : 0;
     }
     /** normalizeVisibilityFilter：统一视野过滤输入，坐标 key 优先、索引兼容。 */
     normalizeVisibilityFilter(visibleTileVisibility = null) {
@@ -4452,6 +4554,11 @@ class MapInstanceRuntime {
                         targetPlayerId: pendingTarget.playerId,
                         kind: 'skill',
                         skillId: pendingCast.skillId,
+                        targetX: pendingCast.targetX,
+                        targetY: pendingCast.targetY,
+                        warningCells: Array.isArray(pendingCast.warningCells)
+                            ? pendingCast.warningCells.map((cell) => ({ x: cell.x, y: cell.y }))
+                            : undefined,
                     });
                 }
                 continue;
@@ -4476,7 +4583,7 @@ class MapInstanceRuntime {
 
             const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
 
-            const skill = chooseMonsterSkill(monster, distance, this.tick);
+            const skill = chooseMonsterSkill(monster, target, distance, this.tick);
             if (skill) {
                 monster.cooldownReadyTickBySkillId[skill.id] = this.tick + Math.max(1, Math.round(skill.cooldown));
                 const windupTicks = getMonsterSkillWindupTicks(skill);
@@ -4493,6 +4600,7 @@ class MapInstanceRuntime {
                             targetPlayerId: target.playerId,
                             targetX: target.x,
                             targetY: target.y,
+                            warningCells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
                             remainingTicks: windupTicks,
                             warningColor: getMonsterSkillWarningColor(skill),
                         };
@@ -4848,6 +4956,57 @@ class MapInstanceRuntime {
         this.baseTileResourceBuckets.set(resourceKey, bucket);
         return bucket;
     }
+    /** getOrCreateTileResourceFlowRemainderBucket：读取或创建地块气机流转余数桶。 */
+    getOrCreateTileResourceFlowRemainderBucket(resourceKey) {
+        const existing = this.tileResourceFlowRemainderBuckets.get(resourceKey);
+        if (existing) {
+            return existing;
+        }
+        const bucket = new Float64Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
+        this.tileResourceFlowRemainderBuckets.set(resourceKey, bucket);
+        return bucket;
+    }
+    /** updateTileResourceFlowIndex：维护需要自然流转的地块索引集合。 */
+    updateTileResourceFlowIndex(resourceKey, tileIndex, value = this.getTileResourceValueByIndex(resourceKey, tileIndex)) {
+        if (!isNaturalAuraFlowResource(resourceKey) || !Number.isFinite(Number(tileIndex))) {
+            return;
+        }
+        const normalizedTileIndex = Math.max(0, Math.trunc(Number(tileIndex)));
+        const current = Math.max(0, Math.trunc(Number(value) || 0));
+        const base = Math.max(0, Math.trunc(Number(this.getTileResourceBaseValueByIndex(resourceKey, normalizedTileIndex)) || 0));
+        let tileIndices = this.tileResourceFlowIndicesByKey.get(resourceKey);
+        if (current === base) {
+            if (tileIndices instanceof Set) {
+                tileIndices.delete(normalizedTileIndex);
+                if (tileIndices.size <= 0) {
+                    this.tileResourceFlowIndicesByKey.delete(resourceKey);
+                }
+            }
+            return;
+        }
+        if (!(tileIndices instanceof Set)) {
+            tileIndices = new Set();
+            this.tileResourceFlowIndicesByKey.set(resourceKey, tileIndices);
+        }
+        tileIndices.add(normalizedTileIndex);
+    }
+    /** rebuildTileResourceFlowIndices：从当前资源桶重建自然流转索引。 */
+    rebuildTileResourceFlowIndices() {
+        this.tileResourceFlowIndicesByKey.clear();
+        for (const [resourceKey, bucket] of this.tileResourceBuckets.entries()) {
+            if (!isNaturalAuraFlowResource(resourceKey)) {
+                continue;
+            }
+            const baseBucket = this.baseTileResourceBuckets.get(resourceKey);
+            for (let tileIndex = 0; tileIndex < bucket.length; tileIndex += 1) {
+                const current = Math.max(0, Math.trunc(Number(bucket[tileIndex]) || 0));
+                const base = Math.max(0, Math.trunc(Number(baseBucket?.[tileIndex]) || 0));
+                if (current !== base) {
+                    this.updateTileResourceFlowIndex(resourceKey, tileIndex, current);
+                }
+            }
+        }
+    }
     /** getTileResourceBaseValueByIndex：读取资源在模板上的基线值。 */
     getTileResourceBaseValueByIndex(resourceKey, tileIndex) {
         return this.baseTileResourceBuckets.get(resourceKey)?.[tileIndex] ?? 0;
@@ -4865,6 +5024,7 @@ class MapInstanceRuntime {
         const bucket = this.getOrCreateTileResourceBucket(resourceKey);
         bucket[tileIndex] = next;
         this.applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next);
+        this.updateTileResourceFlowIndex(resourceKey, tileIndex, next);
         if (resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && (this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0) <= 0) {
             this.tileResourceBuckets.delete(resourceKey);
         }
@@ -4901,6 +5061,14 @@ class MapInstanceRuntime {
             const nextBucket = new Int32Array(nextCapacity);
             nextBucket.set(bucket);
             this.baseTileResourceBuckets.set(resourceKey, nextBucket);
+        }
+        for (const [resourceKey, bucket] of Array.from(this.tileResourceFlowRemainderBuckets.entries())) {
+            if (bucket.length >= nextCapacity) {
+                continue;
+            }
+            const nextBucket = new Float64Array(nextCapacity);
+            nextBucket.set(bucket);
+            this.tileResourceFlowRemainderBuckets.set(resourceKey, nextBucket);
         }
     }
     /** applyTileResourceDirtyCounter：维护地块资源脏条目统计。 */
@@ -5590,6 +5758,7 @@ function snapshotMonster(source) {
         baseNumericStats: cloneNumericStats(source.baseNumericStats),
         numericStats: cloneNumericStats(source.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(source.ratioDivisors),
+        statFormula: cloneMonsterStatFormula(source.statFormula),
         buffs: source.buffs.map((entry) => cloneTemporaryBuff(entry)),
         skills: source.skills.map((entry) => cloneSkill(entry)),
         cooldownReadyTickBySkillId: { ...source.cooldownReadyTickBySkillId },
@@ -5682,6 +5851,50 @@ function cloneInitialBuff(source) {
         stats: source.stats ? { ...source.stats } : undefined,
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
+}
+/** cloneMonsterStatFormula：克隆妖兽动态属性公式。 */
+function cloneMonsterStatFormula(source) {
+    if (!source?.raw) {
+        return undefined;
+    }
+    return {
+        raw: clonePlainValue(source.raw),
+        baselines: clonePlainValue(source.baselines),
+    };
+}
+/** recalculateMonsterBaseStatsFromFormula：按当前等级/血脉重算妖兽基础属性。 */
+function recalculateMonsterBaseStatsFromFormula(monster) {
+    const formula = monster.statFormula;
+    if (!formula?.raw) {
+        return false;
+    }
+    const raw = clonePlainValue(formula.raw);
+    raw.level = Math.max(1, Math.trunc(Number(monster.level) || Number(raw.level) || 1));
+    if (typeof monster.tier === 'string' && monster.tier.trim()) {
+        raw.tier = monster.tier.trim();
+    }
+    const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, formula.baselines);
+    monster.level = resolved.level ?? raw.level;
+    monster.tier = resolved.tier;
+    monster.expMultiplier = resolved.expMultiplier;
+    monster.baseAttrs = cloneAttributes(resolved.resolvedAttrs);
+    monster.baseNumericStats = cloneNumericStats(resolved.computedStats);
+    recalculateMonsterDerivedState(monster);
+    return true;
+}
+/** clonePlainValue：克隆 JSON 风格配置值。 */
+function clonePlainValue(value) {
+    if (Array.isArray(value)) {
+        return value.map((entry) => clonePlainValue(entry));
+    }
+    if (value && typeof value === 'object') {
+        const result = {};
+        for (const [key, entry] of Object.entries(value)) {
+            result[key] = clonePlainValue(entry);
+        }
+        return result;
+    }
+    return value;
 }
 /** applyMonsterInitialBuffs：按模板给妖兽重建出生自带 Buff。 */
 function applyMonsterInitialBuffs(monster) {
@@ -5872,6 +6085,7 @@ function recalculateMonsterDerivedState(monster) {
     applyNumericStatPercentModifiers(nextStats, statPercentModifiers);
     nextStats.maxHp = Math.max(1, Math.round(nextStats.maxHp));
     nextStats.maxQi = Math.max(0, Math.round(nextStats.maxQi));
+    nextStats.moveSpeed = Math.max(0, Math.round((0, shared_1.getEffectiveMoveSpeed)(nextStats.moveSpeed)));
 
     const previousMaxHp = monster.maxHp;
 
@@ -6006,34 +6220,21 @@ function recoverMonsterQi(monster) {
     return true;
 }
 /** chooseMonsterSkill：选择妖兽技能。 */
-function chooseMonsterSkill(monster, distance, currentTick) {
+function chooseMonsterSkill(monster, target, distance, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (monster.monsterId === HUANLING_ZHENREN_MONSTER_ID) {
+        return selectHuanlingZhenrenSkill(monster, target, distance, currentTick);
+    }
 
     let selected = null;
 
     let selectedRange = 0;
     for (const skill of monster.skills) {
-        if (!matchesMonsterSkillConditions(monster, skill)) {
+        if (!canMonsterCastSkill(monster, skill, distance, currentTick)) {
             continue;
         }
         const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
-        if (distance > skillRange) {
-            continue;
-        }
-
-        const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(
-            Math.max(0, Math.round(Number(skill.cost) || 0)),
-            Math.max(0, monster.numericStats?.maxQiOutputPerTick ?? 0),
-        ));
-        if (qiCost > 0 && (monster.qi ?? 0) < qiCost) {
-            continue;
-        }
-
-        const readyTick = monster.cooldownReadyTickBySkillId[skill.id] ?? 0;
-        if (currentTick < readyTick) {
-            continue;
-        }
         if (!selected) {
             selected = skill;
             selectedRange = skillRange;
@@ -6045,6 +6246,181 @@ function chooseMonsterSkill(monster, distance, currentTick) {
         }
     }
     return selected;
+}
+function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
+    const maxHp = Math.max(1, Math.round(monster.maxHp));
+    const hpRatio = maxHp > 0 ? monster.hp / maxHp : 1;
+    const hasFaxiang = entityHasActiveBuff(monster.buffs, HUANLING_FAXIANG_BUFF_ID);
+    const targetBuffs = target?.buffs?.buffs ?? target?.buffs ?? target?.temporaryBuffs ?? [];
+    const targetYinStacks = getEntityBuffStacks(targetBuffs, HUANLING_RONGMAI_YIN_BUFF_ID);
+    const targetBurnStacks = getEntityBuffStacks(targetBuffs, TERRAIN_MOLTEN_POOL_BURN_BUFF_ID);
+    const targetLocked = entityHasActiveBuff(targetBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
+    const targetPrimed = targetYinStacks + targetBurnStacks;
+
+    if (!hasFaxiang && hpRatio <= 0.75) {
+        const phaseAwaken = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_FAXIANG_SKILL_ID,
+            HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (phaseAwaken) {
+            return phaseAwaken;
+        }
+    }
+
+    if (hpRatio <= 0.25) {
+        const desperation = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_DIFU_CHENYIN_SKILL_ID,
+            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        ]);
+        if (desperation) {
+            return desperation;
+        }
+    }
+
+    if (hpRatio <= 0.5) {
+        const collapse = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_XINGLUO_CANPAN_SKILL_ID,
+            HUANLING_RONGHE_GUANMAI_SKILL_ID,
+        ]);
+        if (collapse) {
+            return collapse;
+        }
+    }
+
+    if (!hasFaxiang) {
+        return pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_DUANHUN_DING_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+    }
+
+    if (targetLocked || targetPrimed >= 4) {
+        const finisher = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_DIFU_CHENYIN_SKILL_ID,
+            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+            HUANLING_DUANHUN_DING_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (finisher) {
+            return finisher;
+        }
+    }
+
+    if (distance <= 2) {
+        const closeControl = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+            HUANLING_DIFU_CHENYIN_SKILL_ID,
+            HUANLING_XINGLUO_CANPAN_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (closeControl) {
+            return closeControl;
+        }
+    }
+
+    if (distance >= 4) {
+        const longRangePressure = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+            HUANLING_RONGHE_GUANMAI_SKILL_ID,
+            HUANLING_XINGLUO_CANPAN_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (longRangePressure) {
+            return longRangePressure;
+        }
+    }
+
+    if (!targetLocked) {
+        const setup = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+            HUANLING_XINGLUO_CANPAN_SKILL_ID,
+            HUANLING_RONGHE_GUANMAI_SKILL_ID,
+            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (setup) {
+            return setup;
+        }
+    }
+
+    if (targetPrimed >= 2) {
+        const cashOut = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+            HUANLING_DIFU_CHENYIN_SKILL_ID,
+            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+            HUANLING_DUANHUN_DING_SKILL_ID,
+            HUANLING_CANPO_ZHANG_SKILL_ID,
+        ]);
+        if (cashOut) {
+            return cashOut;
+        }
+    }
+
+    return pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+    ]);
+}
+function pickFirstCastableMonsterSkill(monster, distance, currentTick, skillIds) {
+    for (const skillId of skillIds) {
+        const skill = monster.skills.find((entry) => entry.id === skillId);
+        if (!skill) {
+            continue;
+        }
+        if (!canMonsterCastSkill(monster, skill, distance, currentTick)) {
+            continue;
+        }
+        return skill;
+    }
+    return null;
+}
+function canMonsterCastSkill(monster, skill, distance, currentTick) {
+    if (!matchesMonsterSkillConditions(monster, skill)) {
+        return false;
+    }
+    const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
+    if (skill.requiresTarget !== false && distance > skillRange) {
+        return false;
+    }
+
+    const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(
+        Math.max(0, Math.round(Number(skill.cost) || 0)),
+        Math.max(0, monster.numericStats?.maxQiOutputPerTick ?? 0),
+    ));
+    if (qiCost > 0 && (monster.qi ?? 0) < qiCost) {
+        return false;
+    }
+
+    const readyTick = monster.cooldownReadyTickBySkillId[skill.id] ?? 0;
+    return currentTick >= readyTick;
+}
+function entityHasActiveBuff(buffs, buffId, minStacks = 1) {
+    return (Array.isArray(buffs) ? buffs : []).some((buff) => (
+        buff?.buffId === buffId
+        && (buff.remainingTicks === undefined || buff.remainingTicks > 0)
+        && Math.max(1, Math.round(Number(buff.stacks) || 1)) >= minStacks
+    ));
+}
+function getEntityBuffStacks(buffs, buffId) {
+    let total = 0;
+    for (const buff of Array.isArray(buffs) ? buffs : []) {
+        if (buff?.buffId !== buffId) {
+            continue;
+        }
+        if (buff.remainingTicks !== undefined && buff.remainingTicks <= 0) {
+            continue;
+        }
+        total += Math.max(1, Math.round(Number(buff.stacks) || 1));
+    }
+    return total;
 }
 function matchesMonsterSkillConditions(monster, skill) {
     const group = skill?.monsterCast?.conditions;
@@ -6421,6 +6797,15 @@ function isIndoorSubspaceTemplate(template) {
             || source.spaceVisionMode === 'parent_overlay'
             || Number.isInteger(source.floorLevel),
     );
+}
+function isNaturalAuraFlowResource(resourceKey) {
+    if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+        return true;
+    }
+    const parsed = typeof shared_1.parseQiResourceKey === 'function'
+        ? (0, shared_1.parseQiResourceKey)(resourceKey)
+        : null;
+    return parsed?.family === 'aura' && parsed?.form === 'refined';
 }
 /** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {

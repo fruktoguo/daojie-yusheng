@@ -25,6 +25,10 @@ function createDeps(log) {
             log.push('instance.tickOnce');
             return { transfers: [{ id: 'transfer:1' }], monsterActions: [{ id: 'action:1' }] };
         },        
+        advanceTileResourceFlow() {
+            log.push('instance.advanceTileResourceFlow');
+            return false;
+        },
         /**
  * listPlayerIds：读取玩家ID并返回结果。
  * @returns 无返回值，完成玩家ID的读取/组装。
@@ -231,6 +235,7 @@ async function verifyNormalPath() {
         'dispatchPendingSystemCommands',
         'getBlockedPlayerIds',
         'instance.tickOnce',
+        'instance.advanceTileResourceFlow',
         'applyTransfer',
         'applyMonsterAction',
         'instance.listPlayerIds',
@@ -300,6 +305,7 @@ async function verifyAwaitsPendingCommandsBeforeSystemAndTicks() {
         'dispatchPendingSystemCommands',
         'getBlockedPlayerIds',
         'instance.tickOnce',
+        'instance.advanceTileResourceFlow',
         'applyTransfer',
         'applyMonsterAction',
         'instance.listPlayerIds',
@@ -485,6 +491,66 @@ async function verifyTemporaryTileExpiryUsesInstanceTick() {
     assert.ok(!log.includes('advanceTemporaryTiles:501'));
 }
 
+async function verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    let position = { x: 6, y: 3 };
+    instance.template = {
+        id: 'heaven_ladder',
+        spawnPoint: { x: 2, y: 3 },
+    };
+    instance.tickOnce = () => {
+        log.push('instance.tickOnce');
+        return { transfers: [], monsterActions: [] };
+    };
+    instance.getPlayerPosition = (playerId) => {
+        assert.equal(playerId, 'player:1');
+        return position;
+    };
+    instance.getTileQiDrainPerTick = (x, y) => {
+        assert.deepEqual({ x, y }, { x: 6, y: 3 });
+        return 15;
+    };
+    instance.relocatePlayer = (playerId, x, y) => {
+        log.push(['relocatePlayer', playerId, x, y]);
+        position = { x, y };
+        return position;
+    };
+    instance.cancelPendingCommand = (playerId) => {
+        log.push(['cancelPendingCommand', playerId]);
+        return true;
+    };
+    const player = { playerId: 'player:1', hp: 100, qi: 10 };
+    deps.playerRuntimeService.getPlayer = (playerId) => playerId === 'player:1' ? player : null;
+    deps.playerRuntimeService.setVitals = (playerId, vitals) => {
+        log.push(['setVitals', playerId, vitals]);
+        if (typeof vitals.qi === 'number') {
+            player.qi = vitals.qi;
+        }
+        return player;
+    };
+    deps.worldRuntimeNavigationService.clearNavigationIntent = (playerId) => {
+        log.push(['clearNavigationIntent', playerId]);
+    };
+    deps.clearPendingCommand = (playerId) => {
+        log.push(['clearPendingCommand', playerId]);
+    };
+    deps.queuePlayerNotice = (playerId, message, kind) => {
+        log.push(['queuePlayerNotice', playerId, message, kind]);
+    };
+
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    await service.advanceFrame(deps, 1000, null);
+
+    assert.equal(player.qi, 0);
+    assert.deepEqual(position, { x: 2, y: 3 });
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'setVitals' && entry[2].qi === 0));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'relocatePlayer' && entry[2] === 2 && entry[3] === 3));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'clearNavigationIntent'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'queuePlayerNotice'));
+}
+
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
@@ -493,6 +559,7 @@ Promise.resolve()
     .then(() => verifyCultivationAuraMultiplierUsesQiProjectionEfficiency())
     .then(() => verifyCultivationAuraMultiplierUsesAllAbsorbableQiResources())
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
+    .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });

@@ -1,4 +1,5 @@
 import { UiButton } from './UiButton';
+import { t } from '../../ui/i18n';
 /**
  * clamp：执行clamp相关逻辑。
  * @param value number 参数说明。
@@ -69,7 +70,7 @@ export interface UiPriceEditorProps {
 
 
 export function UiPriceEditor({
-  label = '价格',
+  label = t('react.price.label', undefined),
   value,
   min = 1,
   max = Number.MAX_SAFE_INTEGER,

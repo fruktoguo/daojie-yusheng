@@ -10,6 +10,7 @@ import { getElementKeyLabel } from '../domain-labels';
 import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
+import { t } from './i18n';
 
 /** SkillTooltipPreviewPlayer：技能提示预览玩家切片。 */
 type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
@@ -276,7 +277,7 @@ function normalizeBuffMark(name: string, shortMark?: string): string {
 
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
-  return [...name.trim()][0] ?? '气';
+  return [...name.trim()][0] ?? t('skill-tooltip.buff.default-mark', undefined);
 }
 
 /** renderLabelLine：渲染标签Line。 */
@@ -302,11 +303,11 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
   const actualCost = calcQiCostWithOutputLimit(cost, Math.max(0, maxQiOutputPerTick));
   const actualText = Number.isFinite(actualCost)
     ? formatDisplayNumber(Math.round(actualCost))
-    : '无法稳定施展';
+    : t('skill-tooltip.cast.unstable', undefined);
   const actualClassName = Number.isFinite(actualCost) && Math.round(actualCost) > Math.round(cost)
     ? 'skill-tooltip-cost-actual is-overflow'
     : 'skill-tooltip-cost-actual';
-  return `${baseCost}<span class="skill-tooltip-cost-actual-separator"> · </span><span class="${actualClassName}">实际 ${escapeHtml(actualText)}</span>`;
+  return t('skill-tooltip.cost.actual-html', { baseCost, actualText: escapeHtml(actualText), className: actualClassName });
 }
 
 /** describeBuffEffect：处理describe Buff效果。 */
@@ -340,12 +341,16 @@ function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], {
  * type：type相关字段。
  */
  type: 'buff' }>): SkillTooltipAsideCard {
-  const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
+  const targetLabel = effect.target === 'target'
+    ? t('skill-tooltip.target.enemy', undefined)
+    : effect.target === 'allies'
+      ? t('skill-tooltip.target.allies', undefined)
+      : t('skill-tooltip.target.self', undefined);
   const effectLines = describeBuffEffect(effect);
   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
   const lines = [
-    `${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackLimit ? ` · 最多 ${stackLimit} 层` : ''}`,
-    ...(effectLines.length > 0 ? [`效果：${effectLines.join('，')}`] : []),
+    t('skill-tooltip.buff.aside.meta', { target: targetLabel, duration: formatDisplayInteger(effect.duration), stack: stackLimit ? t('skill-tooltip.buff.stack-limit.suffix', { stackLimit }) : '' }),
+    ...(effectLines.length > 0 ? [t('skill-tooltip.label-line.effect', { value: effectLines.join('，') })] : []),
     ...(effect.desc ? [effect.desc] : []),
   ];
   return {
@@ -420,12 +425,12 @@ function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltip
   if (!parsed) {
     return null;
   }
-  const sideLabel = parsed.side === 'caster' ? '自身' : '目标';
+  const sideLabel = parsed.side === 'caster' ? t('skill-tooltip.target.self', undefined) : t('skill-tooltip.target.enemy', undefined);
   const buffMeta = resolveBuffFormulaMeta(varName, context);
   if (!buffMeta) {
-    return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '状态层数' : `${formatDisplayNumber(stacks)}层`}</span></span>`;
+    return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.unknown', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
   }
-  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '层数' : `${formatDisplayNumber(stacks)}层`}</span></span>`;
+  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.label', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
 }
 
 /** resolveStatValue：解析Stat值。 */
@@ -529,7 +534,7 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
     const techLevel = context.techLevel;
     if (typeof techLevel === 'number') {
       const contribution = techLevel * scale;
-      const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(techLevel)}层`)}</span></span>`;
+      const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(t('skill-tooltip.tech-level.value', { level: formatDisplayNumber(techLevel) }))}</span></span>`;
       return {
         html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${detail})`, 'skill-formula-term-tech'),
         resolved: contribution,
@@ -776,7 +781,7 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
         : Math.min(resolved, maxPreview.resolved);
     }
     return {
-      html: `限制(${parts.join('，')})`,
+      html: t('skill-tooltip.formula.clamp', { parts: parts.join('，') }),
       resolved,
     };
   }
@@ -921,30 +926,36 @@ function formatTargeting(skill: SkillDef): string {
 
   const shape = skill.targeting?.shape ?? 'single';
   if (shape === 'line') {
-    return `直线，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.line', { count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
   }
   if (shape === 'ring') {
-    return `环带，内半径 ${formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0))}，外半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.ring', {
+      inner: formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0)),
+      outer: formatDisplayNumber(skill.targeting?.radius ?? 1),
+      count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99),
+    });
   }
   if (shape === 'checkerboard') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return `棋盘，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，隔格交错，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.checkerboard', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
   }
   if (shape === 'area') {
-    return `范围，半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.area', { radius: formatDisplayNumber(skill.targeting?.radius ?? 1), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
   }
   if (shape === 'box') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return `矩形，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
   }
   if (shape === 'orientedBox') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return `定向矩形，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+    return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
   }
-  return skill.targetMode === 'tile' ? '单体地块' : '单体';
+  return skill.targetMode === 'tile'
+    ? t('skill-tooltip.targeting.single-tile', undefined)
+    : t('skill-tooltip.targeting.single', undefined);
 }
 
 /** 构建完整的技能提示内容（富文本行 + 侧栏 Buff 卡片） */
@@ -955,50 +966,50 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
   const lines: string[] = [`<span class="skill-tooltip-desc">${escapeHtml(previewSkill.desc)}</span>`];
   const asideCards: SkillTooltipAsideCard[] = [];
   if (context.unlockLevel !== undefined) {
-    lines.push(renderPlainLine('解锁层数', `第 ${formatDisplayInteger(context.unlockLevel)} 层`));
+    lines.push(renderPlainLine(t('skill-tooltip.label.unlock-level', undefined), t('skill-tooltip.unlock-level.value', { level: formatDisplayInteger(context.unlockLevel) })));
   }
-  lines.push(renderPlainLine('施法距离', formatDisplayNumber(previewSkill.range)));
-  lines.push(renderPlainLine('作用方式', formatTargeting(previewSkill)));
+  lines.push(renderPlainLine(t('skill-tooltip.label.range', undefined), formatDisplayNumber(previewSkill.range)));
+  lines.push(renderPlainLine(t('skill-tooltip.label.targeting', undefined), formatTargeting(previewSkill)));
   for (const effect of previewSkill.effects) {
     if (effect.type === 'damage') {
       const damageKind = effect.damageKind === 'physical' ? 'physical' : 'spell';
       const damageLabel = damageKind === 'physical'
-        ? (effect.element ? `${getElementKeyLabel(effect.element)}行物理伤害` : '物理伤害')
-        : `${effect.element ? `${getElementKeyLabel(effect.element)}行` : ''}法术伤害`;
+        ? (effect.element ? t('skill-tooltip.damage.physical-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.physical', undefined))
+        : (effect.element ? t('skill-tooltip.damage.spell-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.spell', undefined));
       lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
       continue;
     }
     if (effect.type === 'buff') {
       const stackLimit = formatBuffMaxStacks(effect.maxStacks);
-      const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
-      const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
-      const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
+      const stackText = stackLimit ? t('skill-tooltip.buff.stack-limit.comma', { stackLimit }) : '';
+      const categoryLabel = effect.category === 'debuff' ? t('skill-tooltip.buff.category.debuff', undefined) : t('skill-tooltip.buff.category.buff', undefined);
+      const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : effect.target === 'allies' ? t('skill-tooltip.target.allies', undefined) : t('skill-tooltip.target.self', undefined);
       const badge = buildBuffInlineBadge(effect);
       lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
       const effectLines = describeBuffEffect(effect);
       if (effectLines.length > 0) {
-        lines.push(renderPlainLine('效果', effectLines.join('，')));
+        lines.push(renderPlainLine(t('skill-tooltip.label.effect', undefined), effectLines.join('，')));
       }
       asideCards.push(buildBuffAsideCard(effect));
       continue;
     }
     if (effect.type === 'heal') {
-      const targetLabel = effect.target === 'allies' ? '友方治疗' : effect.target === 'target' ? '目标治疗' : '自身治疗';
+      const targetLabel = effect.target === 'allies' ? t('skill-tooltip.heal.allies', undefined) : effect.target === 'target' ? t('skill-tooltip.heal.target', undefined) : t('skill-tooltip.heal.self', undefined);
       lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
       continue;
     }
     if (effect.type === 'temporary_tile') {
-      lines.push(renderLabelLine('临时地块', `生成石头，持续 ${formatDisplayInteger(effect.durationTicks)} 息`));
-      lines.push(renderLabelLine('地块生命', formatDamageFormula(effect.hpFormula, context, 'spell')));
+      lines.push(renderLabelLine(t('skill-tooltip.label.temporary-tile', undefined), t('skill-tooltip.temporary-tile.stone', { duration: formatDisplayInteger(effect.durationTicks) })));
+      lines.push(renderLabelLine(t('skill-tooltip.label.tile-hp', undefined), formatDamageFormula(effect.hpFormula, context, 'spell')));
       continue;
     }
-    const targetLabel = effect.target === 'target' ? '目标' : '自身';
-    const categoryLabel = effect.category === 'buff' ? '增益' : '减益';
-    lines.push(renderPlainLine('净化', `${targetLabel}，移除 ${formatDisplayInteger(effect.removeCount ?? 1)} 个${categoryLabel}`));
+    const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : t('skill-tooltip.target.self', undefined);
+    const categoryLabel = effect.category === 'buff' ? t('skill-tooltip.buff.category.buff', undefined) : t('skill-tooltip.buff.category.debuff', undefined);
+    lines.push(renderPlainLine(t('skill-tooltip.label.cleanse', undefined), t('skill-tooltip.cleanse.value', { target: targetLabel, count: formatDisplayInteger(effect.removeCount ?? 1), category: categoryLabel })));
   }
-  lines.push(renderLabelLine('灵力消耗', buildQiCostValue(previewSkill.cost, context)));
-  lines.push(renderPlainLine('冷却', `${formatDisplayInteger(previewSkill.cooldown)} 息`));
-  lines.push('<span class="skill-tooltip-note">实际结算仍会受命中、闪避、破招、化解、暴击与目标防御影响。</span>');
+  lines.push(renderLabelLine(t('skill-tooltip.label.qi-cost', undefined), buildQiCostValue(previewSkill.cost, context)));
+  lines.push(renderPlainLine(t('skill-tooltip.label.cooldown', undefined), t('skill-tooltip.cooldown.value', { cooldown: formatDisplayInteger(previewSkill.cooldown) })));
+  lines.push(`<span class="skill-tooltip-note">${t('skill-tooltip.note.combat-resolution', undefined)}</span>`);
   return { lines, asideCards };
 }
 

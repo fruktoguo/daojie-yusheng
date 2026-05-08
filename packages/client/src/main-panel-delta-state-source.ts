@@ -1192,6 +1192,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousRetaliatePlayerTargetId = player?.retaliatePlayerTargetId ?? null;
       const previousAutoIdleCultivation = player?.autoIdleCultivation ?? true;
       const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
+      const previousAutoRootFoundation = player?.autoRootFoundation ?? false;
       const previousCultivationActive = player?.cultivationActive ?? false;
       const previousSenseQiActive = player?.senseQiActive ?? false;
       const previousWangQiActive = player?.wangQiActive ?? false;
@@ -1210,6 +1211,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextRetaliatePlayerTargetId = data.retaliatePlayerTargetId ?? player?.retaliatePlayerTargetId ?? null;
       const nextAutoIdleCultivation = data.autoIdleCultivation ?? player?.autoIdleCultivation ?? true;
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
+      const nextAutoRootFoundation = data.autoRootFoundation ?? player?.autoRootFoundation ?? false;
       const nextCultivationActive = data.cultivationActive ?? player?.cultivationActive ?? false;
       const nextSenseQiActive = data.senseQiActive ?? player?.senseQiActive ?? false;
       const nextWangQiActive = data.wangQiActive ?? player?.wangQiActive ?? false;
@@ -1224,6 +1226,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId
         || previousAutoIdleCultivation !== nextAutoIdleCultivation
         || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
+        || previousAutoRootFoundation !== nextAutoRootFoundation
         || previousCultivationActive !== nextCultivationActive
         || previousSenseQiActive !== nextSenseQiActive
         || previousWangQiActive !== nextWangQiActive
@@ -1247,6 +1250,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.retaliatePlayerTargetId = nextRetaliatePlayerTargetId;
         player.autoIdleCultivation = nextAutoIdleCultivation;
         player.autoSwitchCultivation = nextAutoSwitchCultivation;
+        player.autoRootFoundation = nextAutoRootFoundation;
         player.cultivationActive = nextCultivationActive;
         player.senseQiActive = nextSenseQiActive;
         player.wangQiActive = nextWangQiActive;

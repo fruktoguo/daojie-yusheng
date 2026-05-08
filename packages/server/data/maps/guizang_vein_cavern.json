@@ -105,6 +105,23 @@
       "hidden": false,
       "id": "guizang_vein_cavern:60,32",
       "direction": "one_way"
+    },
+    {
+      "x": 32,
+      "y": 31,
+      "targetMapId": "heaven_ladder",
+      "targetX": 2,
+      "targetY": 3,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "guizang_vein_cavern:32,31",
+      "direction": "two_way",
+      "targetPortalId": "heaven_ladder:2,3",
+      "observeTitle": "天梯接引阶",
+      "observeDesc": "道基古阵旁裂出一线石阶，阶面没有阵眼，却有无形道压自下而上层层翻涌。"
     }
   ],
   "spawnPoint": {
@@ -276,6 +293,13 @@
       "x": 30,
       "y": 31,
       "desc": "阵核没有大殿，只有一块还在硬压五炁的歪阵面。能走到这里，碰上的就不是哪一行的尽头，而是练气期对混行承压的最终考题。"
+    },
+    {
+      "id": "lm_guizang_heaven_ladder_gate",
+      "name": "天梯接引阶",
+      "x": 32,
+      "y": 31,
+      "desc": "道基古阵旁的石阶只露出最下几级，真正的长阶被道压藏在阵后。半步筑基者可由此踏上天梯。"
     }
   ],
   "resourceNodeGroups": [],

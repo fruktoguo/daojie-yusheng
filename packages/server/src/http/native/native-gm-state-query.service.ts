@@ -33,6 +33,7 @@ interface ManagedAccountEntryLike {
  */
 
   username?: string;
+  playerNo?: number | null;
   playerName?: string;
   displayName?: string | null;
   createdAt?: string;
@@ -141,6 +142,7 @@ interface PlayerRuntimeServiceLike {
 }
 interface GmPersistedPlayerSummaryRow {
   player_id?: unknown;
+  player_no?: unknown;
   username?: unknown;
   created_at?: unknown;
   register_ip?: unknown;
@@ -303,6 +305,7 @@ export class NativeGmStateQueryService {
     const result = await pool.query<GmPersistedPlayerSummaryRow>(`
       SELECT
         rw.player_id,
+        COALESCE(auth.player_no, ident.player_no) AS player_no,
         COALESCE(auth.username, ident.username) AS username,
         auth.created_at,
         auth.register_ip,
@@ -355,6 +358,7 @@ export class NativeGmStateQueryService {
 
   private async toManagedPlayerSummaryFromSummaryRow(row: GmPersistedPlayerSummaryRow): Promise<GmManagedPlayerSummary> {
     const playerId = normalizeDisplayString(row.player_id) || 'unknown-player';
+    const playerNo = normalizeOptionalPlayerNo(row.player_no);
     const roleName = normalizeDisplayString(row.role_name) || playerId;
     const displayName = normalizeDisplayString(row.display_name) || roleName;
     const mapId = normalizeDisplayString(row.map_id) || 'yunlai_town';
@@ -389,6 +393,7 @@ export class NativeGmStateQueryService {
 
     return {
       id: playerId,
+      playerNo,
       name: roleName,
       roleName,
       displayName,
@@ -473,6 +478,7 @@ export class NativeGmStateQueryService {
 
     return {
       id: player.id,
+      playerNo: account?.playerNo ?? null,
       name: roleName,
       roleName,
       displayName,
@@ -858,6 +864,7 @@ function filterManagedPlayers(
       return true;
     }
     return matchesKeyword(player.id, keywordNeedle)
+      || matchesKeyword(formatPlayerNo(player.playerNo), keywordNeedle)
       || matchesKeyword(player.name, keywordNeedle)
       || matchesKeyword(player.roleName, keywordNeedle)
       || matchesKeyword(player.displayName, keywordNeedle)
@@ -925,6 +932,26 @@ function sanitizePositiveInteger(value: unknown, fallback: number): number {
     }
   }
   return fallback;
+}
+
+function normalizeOptionalPlayerNo(value: unknown): number | null {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'bigint'
+      ? Number(value)
+      : typeof value === 'string' && value.trim()
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
+}
+
+function formatPlayerNo(playerNo: number | null | undefined): string {
+  return typeof playerNo === 'number' && Number.isSafeInteger(playerNo) && playerNo > 0
+    ? String(playerNo)
+    : '';
 }
 
 function normalizeInteger(value: unknown, fallback: number): number {

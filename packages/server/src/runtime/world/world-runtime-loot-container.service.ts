@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
 const {
@@ -51,7 +52,6 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
 
 const HERB_GATHER_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
-const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
 
 function normalizeHerbLevel(level) {
     return Math.max(1, Math.floor(Number(level) || 1));
@@ -832,7 +832,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             });
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-        const skillExpResult = applyGatherSkillExp(player.gatherSkill, harvestedItem.level, job.totalTicks);
+        const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, player.gatherSkill, harvestedItem.level, computeHerbNativeGatherTicks(container, harvestedRow));
         const skillChanged = skillExpResult.changed;
         const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
         deps.refreshQuestStates(playerId);
@@ -1195,7 +1195,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         let skillChanged = false;
         try {
             this.playerRuntimeService.receiveInventoryItem(input.playerId, input.harvestedRow.item);
-            const skillExpResult = applyGatherSkillExp(input.player.gatherSkill, input.harvestedRow.item.level, input.job.totalTicks);
+            const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, input.player.gatherSkill, input.harvestedRow.item.level, computeHerbNativeGatherTicks(input.container, input.harvestedRow));
             skillChanged = skillExpResult.changed;
             const nextRow = groupContainerLootRows(input.state.entries)[0] ?? null;
             if (nextRow) {
@@ -1544,27 +1544,27 @@ function buildLootInventoryGrantOperationId(playerId, sourceType, sourceRefId, i
     return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`;
 }
 
-function getCraftSkillExpToNextByLevel(level) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
-    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
-}
-
-function applyCraftSkillExp(skill, amount) {
+function applyCraftSkillExp(source, skill, amount) {
     if (!skill) {
         return false;
     }
     let changed = false;
+    const currentExpToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+    if (skill.expToNext !== currentExpToNext) {
+        skill.expToNext = currentExpToNext;
+        changed = true;
+    }
     skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
         skill.exp -= skill.expToNext;
         skill.level += 1;
-        skill.expToNext = getCraftSkillExpToNextByLevel(skill.level);
+        skill.expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
         changed = true;
     }
     return changed || amount > 0;
 }
 
-function applyGatherSkillExp(skill, targetLevel, baseActionTicks) {
+function applyGatherSkillExp(source, skill, targetLevel, baseActionTicks) {
     if (!skill) {
         return { changed: false, gain: 0 };
     }
@@ -1572,13 +1572,13 @@ function applyGatherSkillExp(skill, targetLevel, baseActionTicks) {
         skillLevel: skill.level,
         targetLevel,
         baseActionTicks,
-        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
         successCount: 1,
         failureCount: 0,
         successMultiplier: 1,
     }).finalGain;
     return {
-        changed: applyCraftSkillExp(skill, gain),
+        changed: applyCraftSkillExp(source, skill, gain),
         gain,
     };
 }

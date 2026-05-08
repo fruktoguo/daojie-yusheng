@@ -372,6 +372,7 @@ interface CombatPreferencesRow {
   allowAoePlayerHit: boolean;
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
+  autoRootFoundation: boolean;
   senseQiActive: boolean;
   cultivatingTechId: string | null;
   targetingRulesPayload: Record<string, unknown> | null;
@@ -560,6 +561,7 @@ interface PlayerCombatPreferencesLoadRow {
   allow_aoe_player_hit?: unknown;
   auto_idle_cultivation?: unknown;
   auto_switch_cultivation?: unknown;
+  auto_root_foundation?: unknown;
   sense_qi_active?: unknown;
   cultivating_tech_id?: unknown;
   targeting_rules_payload?: unknown;
@@ -1747,6 +1749,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             allow_aoe_player_hit,
             auto_idle_cultivation,
             auto_switch_cultivation,
+            auto_root_foundation,
             sense_qi_active,
             cultivating_tech_id,
             targeting_rules_payload
@@ -2936,6 +2939,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       allow_aoe_player_hit boolean NOT NULL DEFAULT false,
       auto_idle_cultivation boolean NOT NULL DEFAULT true,
       auto_switch_cultivation boolean NOT NULL DEFAULT true,
+      auto_root_foundation boolean NOT NULL DEFAULT false,
       sense_qi_active boolean NOT NULL DEFAULT false,
       cultivating_tech_id varchar(120),
       targeting_rules_payload jsonb,
@@ -2945,6 +2949,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
     ADD COLUMN IF NOT EXISTS retaliate_player_target_last_attack_tick bigint
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
+    ADD COLUMN IF NOT EXISTS auto_root_foundation boolean NOT NULL DEFAULT false
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_AUTO_BATTLE_SKILL_TABLE} (
@@ -3729,12 +3737,13 @@ async function replacePlayerCombatPreferences(
         allow_aoe_player_hit,
         auto_idle_cultivation,
         auto_switch_cultivation,
+        auto_root_foundation,
         sense_qi_active,
         cultivating_tech_id,
         targeting_rules_payload,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         auto_battle = EXCLUDED.auto_battle,
@@ -3748,6 +3757,7 @@ async function replacePlayerCombatPreferences(
         allow_aoe_player_hit = EXCLUDED.allow_aoe_player_hit,
         auto_idle_cultivation = EXCLUDED.auto_idle_cultivation,
         auto_switch_cultivation = EXCLUDED.auto_switch_cultivation,
+        auto_root_foundation = EXCLUDED.auto_root_foundation,
         sense_qi_active = EXCLUDED.sense_qi_active,
         cultivating_tech_id = EXCLUDED.cultivating_tech_id,
         targeting_rules_payload = EXCLUDED.targeting_rules_payload,
@@ -3766,6 +3776,7 @@ async function replacePlayerCombatPreferences(
       row.allowAoePlayerHit,
       row.autoIdleCultivation,
       row.autoSwitchCultivation,
+      row.autoRootFoundation,
       row.senseQiActive,
       row.cultivatingTechId,
       JSON.stringify(row.targetingRulesPayload),
@@ -4337,6 +4348,7 @@ function buildCombatPreferencesRow(snapshot: PersistedPlayerSnapshot): CombatPre
     allowAoePlayerHit: combat.allowAoePlayerHit === true,
     autoIdleCultivation: combat.autoIdleCultivation === true,
     autoSwitchCultivation: combat.autoSwitchCultivation === true,
+    autoRootFoundation: combat.autoRootFoundation === true,
     senseQiActive: combat.senseQiActive === true,
     cultivatingTechId: normalizeOptionalString(snapshot.techniques?.cultivatingTechId),
     targetingRulesPayload: targetingRulesPayload ? { ...targetingRulesPayload } : null,
@@ -5092,6 +5104,7 @@ function applyProjectedCombatPreferences(
     allowAoePlayerHit: row.allow_aoe_player_hit === true,
     autoIdleCultivation: row.auto_idle_cultivation === true,
     autoSwitchCultivation: row.auto_switch_cultivation === true,
+    autoRootFoundation: row.auto_root_foundation === true,
     senseQiActive: row.sense_qi_active === true,
     combatTargetingRules: targetingRules ? { ...targetingRules } : undefined,
   };

@@ -37,6 +37,7 @@ import {
 } from '../technique-bonus-summary';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
+import { t } from '../i18n';
 
 /** TechniquePanelState：功法面板当前使用的数据状态。 */
 type TechniquePanelState = {
@@ -71,11 +72,11 @@ const TECHNIQUE_CATEGORY_FILTERS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'arts', label: '术法' },
-  { value: 'internal', label: '内功' },
-  { value: 'divine', label: '神通' },
-  { value: 'secret', label: '秘术' },
+  { value: 'all', label: t('technique.filter.category.all', undefined) },
+  { value: 'arts', label: t('technique.filter.category.arts', undefined) },
+  { value: 'internal', label: t('technique.filter.category.internal', undefined) },
+  { value: 'divine', label: t('technique.filter.category.divine', undefined) },
+  { value: 'secret', label: t('technique.filter.category.secret', undefined) },
 ];
 
 const TECHNIQUE_STATUS_FILTERS: Array<{
@@ -87,9 +88,9 @@ const TECHNIQUE_STATUS_FILTERS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { value: 'in_progress', label: '未圆满' },
-  { value: 'completed', label: '已圆满' },
-  { value: 'all', label: '全部' },
+  { value: 'in_progress', label: t('technique.filter.status.in-progress', undefined) },
+  { value: 'completed', label: t('technique.filter.status.completed', undefined) },
+  { value: 'all', label: t('technique.filter.status.all', undefined) },
 ];
 
 /** TECHNIQUE_GRADE_SORT_INDEX：TECHNIQUE GRADE排序索引映射。 */
@@ -135,7 +136,10 @@ function formatTechniqueContributionSummary(
   totalSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
   rawSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
 ): string {
-  return `${formatTechniqueBonusSummary(totalAttrs, totalSpecialStats)}（原始：${formatTechniqueBonusSummary(rawAttrs, rawSpecialStats)}）`;
+  return t('technique.contribution.with-raw', {
+    total: formatTechniqueBonusSummary(totalAttrs, totalSpecialStats),
+    raw: formatTechniqueBonusSummary(rawAttrs, rawSpecialStats),
+  });
 }
 
 /** resolveTechniqueCategory：解析Technique Category。 */
@@ -202,14 +206,14 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
 function formatTechniqueProgressText(tech: TechniqueState): string {
   return tech.expToNext > 0
     ? `${formatDisplayInteger(tech.exp)}/${formatDisplayInteger(tech.expToNext)}`
-    : '已满层';
+    : t('technique.progress.max-level', undefined);
 }
 
 /** formatTechniqueRemainText：格式化Technique Remain文本。 */
 function formatTechniqueRemainText(tech: TechniqueState): string {
   return tech.expToNext > 0
-    ? `距下一层还需 ${formatDisplayInteger(getTechniqueRemainingExp(tech))} 功法经验`
-    : '当前已达圆满层';
+    ? t('technique.progress.remain-exp', { exp: formatDisplayInteger(getTechniqueRemainingExp(tech)) })
+    : t('technique.progress.completed', undefined);
 }
 
 /** calcTechniqueTotalExp：处理calc Technique总量Exp。 */
@@ -265,9 +269,9 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
 
   const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
   const lines = [
-    '功法修速随境界差而变。',
-    `每低一阶减 ${stepPercent}%，每高一阶增 ${stepPercent}%。`,
-    `此功法境界：${getRealmLevelDisplayName(tech.realmLv)}`,
+    t('technique.exp-tooltip.rule', undefined),
+    t('technique.exp-tooltip.step', { percent: stepPercent }),
+    t('technique.exp-tooltip.tech-realm', { realm: getRealmLevelDisplayName(tech.realmLv) }),
   ];
   const playerRealmLv = getPlayerRealmLv(player);
   if (playerRealmLv === null) {
@@ -275,16 +279,16 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
   }
   const delta = playerRealmLv - tech.realmLv;
   const adjustment = getTechniqueExpLevelAdjustment(playerRealmLv, tech.realmLv);
-  lines.push(`你的境界：${getRealmLevelDisplayName(playerRealmLv)}`);
+  lines.push(t('technique.exp-tooltip.player-realm', { realm: getRealmLevelDisplayName(playerRealmLv) }));
   if (delta === 0) {
-    lines.push(`当前与功法同级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+    lines.push(t('technique.exp-tooltip.same-level', { percent: formatDisplayNumber(adjustment * 100) }));
     return lines;
   }
   if (delta > 0) {
-    lines.push(`当前高于功法 ${formatDisplayInteger(delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+    lines.push(t('technique.exp-tooltip.above-level', { delta: formatDisplayInteger(delta), percent: formatDisplayNumber(adjustment * 100) }));
     return lines;
   }
-  lines.push(`当前低于功法 ${formatDisplayInteger(-delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+  lines.push(t('technique.exp-tooltip.below-level', { delta: formatDisplayInteger(-delta), percent: formatDisplayNumber(adjustment * 100) }));
   return lines;
 }
 
@@ -408,7 +412,7 @@ export class TechniquePanel {
   clear(): void {
     this.lastVisibleTechniqueIds = null;
     this.shellRefs = null;
-    const empty = createEmptyHint('尚未习得功法');
+    const empty = createEmptyHint(t('technique.empty.none-learned', undefined));
     empty.dataset.techEmpty = 'true';
     patchElementChildren(this.pane, empty);
     this.tooltip.hide(true);
@@ -563,7 +567,7 @@ export class TechniquePanel {
           <span class="tech-badge tech-category">${escapeHtml(categoryLabel)}</span>
           <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
           <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
-          <span class="tech-layer" data-tech-layer="${tech.techId}">第${tech.level}/${maxLevel}层</span>
+          <span class="tech-layer" data-tech-layer="${tech.techId}">${escapeHtml(t('technique.card.layer', { level: tech.level, maxLevel }))}</span>
         </span>
         <span class="tech-progress-meta">
           <span class="tech-progress-text" data-tech-progress-text="${tech.techId}">${progressText}</span>
@@ -577,14 +581,14 @@ export class TechniquePanel {
           data-tech-skills-toggle="${tech.techId}"
           data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
           type="button"
-        >术法 ${skillsEnabled ? '启' : '闭'}</button>` : ''}
+        >${escapeHtml(t('technique.card.skills-toggle', { state: skillsEnabled ? t('common.state.on-short', undefined) : t('common.state.off-short', undefined) }))}</button>` : ''}
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
           data-cultivate="${isCultivating ? '' : tech.techId}"
           data-cultivate-stop="${isCultivating ? tech.techId : ''}"
           type="button"
-        >${isCultivating ? '取消主修' : '设为主修'}</button>
+        >${isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}</button>
       </div>
     </div>`;
   }
@@ -597,7 +601,7 @@ export class TechniquePanel {
     template.innerHTML = this.renderTechniqueCard(tech).trim();
     const card = template.content.firstElementChild;
     if (!(card instanceof HTMLElement)) {
-      throw new Error('创建功法卡片元素失败');
+      throw new Error(t('technique.error.create-card-failed', undefined));
     }
     return card;
   }
@@ -645,12 +649,12 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.statusFilter === 'in_progress') {
-      return '当前没有未圆满的功法';
+      return t('technique.empty.no-in-progress', undefined);
     }
     if (this.statusFilter === 'completed') {
-      return '当前没有已圆满的功法';
+      return t('technique.empty.no-completed', undefined);
     }
-    return '当前筛选下没有符合条件的功法';
+    return t('technique.empty.no-filtered', undefined);
   }
 
   /** getDisplayTechniques：读取显示Techniques。 */
@@ -749,29 +753,35 @@ export class TechniquePanel {
       size: 'wide',
       variantClass: 'detail-modal--technique',
       title: tech.name,
-      subtitle: `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
+      subtitle: t('technique.modal.subtitle', {
+        realmLevel: getTechniqueRealmLevelLabel(tech),
+        grade: getTechniqueGradeLabel(tech.grade),
+        realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
+        level: formatDisplayInteger(tech.level),
+        maxLevel: formatDisplayInteger(maxLevel),
+      }),
       bodyHtml: `
       <div class="tech-modal-stack">
         <section class="tech-modal-summary">
           <div class="tech-modal-stat">
-            <span class="tech-modal-label">当前经验</span>
+            <span class="tech-modal-label">${t('technique.modal.label.current-exp', undefined)}</span>
             <span data-tech-modal-current-exp="true" data-tech-exp-tooltip="true">${formatTechniqueProgressText(tech)}</span>
           </div>
           <div class="tech-modal-stat">
-            <span class="tech-modal-label">总经验</span>
+            <span class="tech-modal-label">${t('technique.modal.label.total-exp', undefined)}</span>
             <span data-tech-modal-total-exp="true">${formatDisplayInteger(totalExp)}</span>
           </div>
           <div class="tech-modal-stat">
-            <span class="tech-modal-label">当前总加成</span>
+            <span class="tech-modal-label">${t('technique.modal.label.current-bonus', undefined)}</span>
             <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats))}</span>
           </div>
         </section>
         <section class="tech-modal-pane tech-modal-pane--constellation">
-          <div class="tech-modal-section-title">周天星图</div>
+          <div class="tech-modal-section-title">${t('technique.modal.section.constellation', undefined)}</div>
           <div class="tech-modal-pane-body" data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
         </section>
         <section class="tech-modal-pane tech-modal-pane--focus">
-          <div class="tech-modal-section-title">星位注解</div>
+          <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
           <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
         </section>
       </div>
@@ -811,7 +821,7 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (tech.skills.length === 0) {
-      return '<div class="tech-skill-overview-empty">此功法暂无技能。</div>';
+      return `<div class="tech-skill-overview-empty">${t('technique.skill.empty', undefined)}</div>`;
     }
     const sortedSkills = [...tech.skills].sort((left, right) => {
       const levelDelta = resolveSkillUnlockLevel(left) - resolveSkillUnlockLevel(right);
@@ -831,7 +841,7 @@ export class TechniquePanel {
               data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
               data-skill-tooltip-unlock-level="${unlockLevel}"
               data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
-            <span class="tech-skill-overview-meta">第 ${formatDisplayInteger(unlockLevel)} 层解锁 · ${unlocked ? '已解锁' : '未解锁'}</span>
+            <span class="tech-skill-overview-meta">${escapeHtml(t('technique.skill.unlock-meta', { level: formatDisplayInteger(unlockLevel), state: unlocked ? t('technique.skill.unlocked', undefined) : t('technique.skill.locked', undefined) }))}</span>
           </div>
           <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
         </div>`;
@@ -867,39 +877,39 @@ export class TechniquePanel {
           data-skill-tooltip-unlock-level="${resolveSkillUnlockLevel(skill)}"
           data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>`;
       }).join('')
-      : '<span class="tech-layer-empty">此层未解锁新技能</span>';
+      : `<span class="tech-layer-empty">${t('technique.layer.no-skill', undefined)}</span>`;
 
-    const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+    const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
     const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
     const milestone = milestones.get(layer.level);
-    const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
-    const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
-    const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
+    const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
+    const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
+    const milestoneText = milestone ? t('technique.layer.milestone', { realm: getTechniqueRealmLabel(milestone) }) : t('technique.layer.realm-stage', { realm: getTechniqueRealmLabel(selectedRealm) });
 
     return `<section class="tech-focus-card ${layer.level < tech.level ? 'passed' : ''} ${layer.level === tech.level ? 'current' : ''}" data-tech-focus-card="true">
       <div class="tech-focus-head">
         <div>
-          <div class="tech-focus-title" data-tech-focus-title="true">第 ${formatDisplayInteger(layer.level)} 层星位</div>
+          <div class="tech-focus-title" data-tech-focus-title="true">${escapeHtml(t('technique.focus.title', { level: formatDisplayInteger(layer.level) }))}</div>
           <div class="tech-focus-subtitle" data-tech-focus-subtitle="true">${escapeHtml(milestoneText)}</div>
         </div>
         <div class="tech-focus-state" data-tech-focus-state="true">${stateLabel}</div>
       </div>
       <div class="tech-focus-grid">
         <div class="tech-focus-stat">
-          <span class="tech-modal-label">层位进度</span>
+          <span class="tech-modal-label">${t('technique.focus.label.progress', undefined)}</span>
           <span data-tech-focus-exp="true">${expText}</span>
         </div>
         <div class="tech-focus-stat">
-          <span class="tech-modal-label">本层原始收益</span>
+          <span class="tech-modal-label">${t('technique.focus.label.layer-attrs', undefined)}</span>
           <span data-tech-focus-layer-attrs="true">${escapeHtml(layerAttrs)}</span>
         </div>
         <div class="tech-focus-stat">
-          <span class="tech-modal-label">至此累计加成</span>
+          <span class="tech-modal-label">${t('technique.focus.label.total-attrs', undefined)}</span>
           <span data-tech-focus-total-attrs="true">${escapeHtml(totalAttrs)}</span>
         </div>
       </div>
       <div class="tech-focus-skills">
-        <span class="tech-modal-label">技能节点</span>
+        <span class="tech-modal-label">${t('technique.focus.label.skill-nodes', undefined)}</span>
         <span class="tech-layer-skill-list" data-tech-focus-skills="true">${skillTags}</span>
       </div>
     </section>`;
@@ -925,8 +935,8 @@ export class TechniquePanel {
     milestones: Map<number, TechniqueRealm>,
   ): string {
     const note = currentLevel < layers.length
-      ? `当前停驻第 ${formatDisplayInteger(currentLevel)} 层，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%，点击任意星位切换下方注解。`
-      : `当前已抵达 ${formatDisplayInteger(layers.length)} 层圆满，点击任意星位切换下方注解。`;
+      ? t('technique.constellation.note.current', { level: formatDisplayInteger(currentLevel), percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
+      : t('technique.constellation.note.completed', { level: formatDisplayInteger(layers.length) });
     return `<div class="tech-starfield-shell">
       <div class="tech-starfield-canvas-shell" data-tech-constellation-root="true">
         <canvas class="tech-starfield-canvas" data-tech-starfield-canvas="true"></canvas>
@@ -1223,10 +1233,10 @@ export class TechniquePanel {
       }
       const lines = buildTechniqueExpTooltipLines(tech, this.lastState.previewPlayer);
       if (pin) {
-        this.tooltip.showPinned(node, '功法经验修正', lines, clientX, clientY);
+        this.tooltip.showPinned(node, t('technique.exp-tooltip.title', undefined), lines, clientX, clientY);
         return;
       }
-      this.tooltip.show('功法经验修正', lines, clientX, clientY);
+      this.tooltip.show(t('technique.exp-tooltip.title', undefined), lines, clientX, clientY);
     };
     modalBody.addEventListener('click', (event) => {
       if (!tapMode || !(event instanceof PointerEvent)) {
@@ -1377,16 +1387,16 @@ export class TechniquePanel {
       card.classList.toggle('cultivating', isCultivating);
       realmLevelNode.textContent = realmLevelLabel;
       realmNode.textContent = realmLabel;
-      layerNode.textContent = `第${tech.level}/${maxLevel}层`;
+      layerNode.textContent = t('technique.card.layer', { level: tech.level, maxLevel });
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
       if (showSkillToggle && skillToggleButton) {
-        skillToggleButton.textContent = `术法 ${skillsEnabled ? '启' : '闭'}`;
+        skillToggleButton.textContent = t('technique.card.skills-toggle', { state: skillsEnabled ? t('common.state.on-short', undefined) : t('common.state.off-short', undefined) });
         skillToggleButton.classList.toggle('active', skillsEnabled);
         skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
       }
-      cultivateButton.textContent = isCultivating ? '取消主修' : '设为主修';
+      cultivateButton.textContent = isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined);
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;
       cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
@@ -1440,7 +1450,13 @@ export class TechniquePanel {
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 
     titleNode.textContent = tech.name;
-    subtitleNode.textContent = `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
+    subtitleNode.textContent = t('technique.modal.subtitle', {
+      realmLevel: getTechniqueRealmLevelLabel(tech),
+      grade: getTechniqueGradeLabel(tech.grade),
+      realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
+      level: formatDisplayInteger(tech.level),
+      maxLevel: formatDisplayInteger(maxLevel),
+    });
     expNode.textContent = formatTechniqueProgressText(tech);
     totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats);
@@ -1461,8 +1477,8 @@ export class TechniquePanel {
     const noteNode = document.querySelector<HTMLElement>('.tech-starfield-note');
     if (noteNode) {
       noteNode.textContent = tech.level < layers.length
-        ? `当前停驻第 ${formatDisplayInteger(tech.level)} 层，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%，点击任意星位切换下方注解。`
-        : `当前已抵达 ${formatDisplayInteger(layers.length)} 层圆满，点击任意星位切换下方注解。`;
+        ? t('technique.constellation.note.current', { level: formatDisplayInteger(tech.level), percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
+        : t('technique.constellation.note.completed', { level: formatDisplayInteger(layers.length) });
     }
     const constellationData = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationRoot = constellationShell.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
@@ -1516,25 +1532,25 @@ export class TechniquePanel {
       selectedLevel,
       nodes: layers.map((layer) => {
         const layerRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
-        const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+        const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
         const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
         const progressText = layer.level < tech.level
-          ? '进度：已贯通'
+          ? t('technique.constellation.progress.passed', undefined)
           : layer.level === tech.level
-            ? `进度：当前停驻，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%`
+            ? t('technique.constellation.progress.current', { percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
             : layer.level === tech.level + 1 && tech.level < layers.length && tech.expToNext > 0
-              ? `进度：正在突破，承接 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%`
-              : '进度：境界未至';
+              ? t('technique.constellation.progress.breaking', { percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
+              : t('technique.constellation.progress.locked', undefined);
         const milestone = milestones.get(layer.level);
         return {
           level: layer.level,
           milestone: milestone ? getTechniqueRealmLabel(milestone) as '小成' | '大成' | '圆满' : undefined,
-          hoverTitle: `第 ${formatDisplayInteger(layer.level)} 层星位`,
+          hoverTitle: t('technique.focus.title', { level: formatDisplayInteger(layer.level) }),
           hoverLines: [
             progressText,
-            `收益：${layerAttrs}`,
-            `累计：${totalAttrs}`,
-            `境界：${getTechniqueRealmLabel(layerRealm)}`,
+            t('technique.constellation.hover.gain', { value: layerAttrs }),
+            t('technique.constellation.hover.total', { value: totalAttrs }),
+            t('technique.constellation.hover.realm', { realm: getTechniqueRealmLabel(layerRealm) }),
           ],
         };
       }),
@@ -1605,15 +1621,15 @@ export class TechniquePanel {
     const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
     const milestone = milestones.get(layer.level);
     const skills = skillsByLevel.get(layer.level) ?? [];
-    const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
-    const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
-    const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
-    const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+    const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
+    const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
+    const milestoneText = milestone ? t('technique.layer.milestone', { realm: getTechniqueRealmLabel(milestone) }) : t('technique.layer.realm-stage', { realm: getTechniqueRealmLabel(selectedRealm) });
+    const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
     const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
 
     card.classList.toggle('passed', layer.level < tech.level);
     card.classList.toggle('current', layer.level === tech.level);
-    title.textContent = `第 ${formatDisplayInteger(layer.level)} 层星位`;
+    title.textContent = t('technique.focus.title', { level: formatDisplayInteger(layer.level) });
     subtitle.textContent = milestoneText;
     state.textContent = stateLabel;
     exp.textContent = expText;
@@ -1622,7 +1638,7 @@ export class TechniquePanel {
     if (skills.length === 0) {
       const empty = document.createElement('span');
       empty.className = 'tech-layer-empty';
-      empty.textContent = '此层未解锁新技能';
+      empty.textContent = t('technique.layer.no-skill', undefined);
       patchElementChildren(skillsNode, empty);
       return;
     }

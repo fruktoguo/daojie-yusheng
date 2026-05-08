@@ -26,6 +26,7 @@ import { bindInlineItemTooltips, renderInlineItemChip } from './ui/item-inline-t
 import { describePreviewBonuses } from './ui/stat-preview';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayPercent } from './utils/number';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
+import { t } from './ui/i18n';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -302,7 +303,7 @@ function isCrowdEntityKind(kind: string | null | undefined): boolean {
 
 
 function getTileTypeName(type: TileType): string {
-  return getTileTypeLabel(type, '未知地貌');
+  return getTileTypeLabel(type, t('observe.tile.unknown-type', undefined));
 }
 /**
  * formatTraversalCost：规范化或转换Traversal消耗。
@@ -315,9 +316,13 @@ function formatTraversalCost(tile: Tile): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!tile.walkable) {
-    return '无法通行';
+    return t('observe.tile.traversal.blocked', undefined);
   }
-  return `${getTileTraversalCost(tile.type)} 点/格`;
+  const movementCost = tile.movementCost;
+  const cost = typeof movementCost === 'number' && Number.isFinite(movementCost) && movementCost > 0
+    ? Math.trunc(movementCost)
+    : getTileTraversalCost(tile.type);
+  return t('observe.tile.traversal.cost', { cost });
 }
 /**
  * formatCurrentMax：规范化或转换当前Max。
@@ -331,13 +336,15 @@ function formatCurrentMax(current?: number, max?: number): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof current !== 'number' || typeof max !== 'number') {
-    return '未明';
+    return t('observe.value.unknown', undefined);
   }
   return formatDisplayCurrentMax(Math.max(0, Math.round(current)), Math.max(0, Math.round(max)));
 }
 
 function isObservationVitalLabel(label: string | null | undefined): boolean {
-  return label === '生命' || label === '气血' || label === '灵力';
+  return label === t('observe.label.life', undefined)
+    || label === t('observe.label.hp', undefined)
+    || label === t('observe.label.qi', undefined);
 }
 
 function isObservationDuplicatePrimaryLabel(label: string | null | undefined): boolean {
@@ -346,9 +353,9 @@ function isObservationDuplicatePrimaryLabel(label: string | null | undefined): b
 
 function buildObservePrimaryRows(entity: ObserveEntityCardData): Array<{ label: string; value: string }> {
   return [
-    { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
-    { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
-  ].filter((entry) => entry.value !== '未明');
+    { label: t('observe.label.life', undefined), value: formatCurrentMax(entity.hp, entity.maxHp) },
+    { label: t('observe.label.qi', undefined), value: formatCurrentMax(entity.qi, entity.maxQi) },
+  ].filter((entry) => entry.value !== t('observe.value.unknown', undefined));
 }
 
 function buildObserveDetailRows(entity: ObserveEntityCardData): Array<{ label: string; value: string }> {
@@ -387,35 +394,35 @@ function formatSignedInteger(value: number): string {
 function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null): string {
   const baseRows = info
     ? [
-      { label: '房间', value: info.roomLabel },
-      { label: '面积', value: typeof info.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(info.area))) : '未知' },
-      { label: '围合', value: typeof info.enclosed === 'boolean' ? (info.enclosed ? '封闭完整' : '连通外界') : '未知' },
-      { label: '门窗', value: `${formatDisplayInteger(Math.max(0, Math.round(info.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(info.windowCount ?? 0)))}` },
-      { label: '风水', value: `${info.fengShuiLabel} ${Math.round(info.score)}` },
-      { label: '幸运', value: formatSignedInteger(Math.trunc(Math.round(info.score) / 10)) },
+      { label: t('observe.fengshui.label.room', undefined), value: info.roomLabel },
+      { label: t('observe.fengshui.label.area', undefined), value: typeof info.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(info.area))) : t('observe.value.unknown', undefined) },
+      { label: t('observe.fengshui.label.enclosure', undefined), value: typeof info.enclosed === 'boolean' ? (info.enclosed ? t('observe.fengshui.enclosed', undefined) : t('observe.fengshui.open', undefined)) : t('observe.value.unknown', undefined) },
+      { label: t('observe.fengshui.label.doors-windows', undefined), value: `${formatDisplayInteger(Math.max(0, Math.round(info.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(info.windowCount ?? 0)))}` },
+      { label: t('observe.fengshui.label.score', undefined), value: `${info.fengShuiLabel} ${Math.round(info.score)}` },
+      { label: t('observe.fengshui.label.luck', undefined), value: formatSignedInteger(Math.trunc(Math.round(info.score) / 10)) },
     ]
     : [
-      { label: '房间', value: '此处不在房间内' },
-      { label: '风水', value: '平 0' },
-      { label: '幸运', value: '+0' },
+      { label: t('observe.fengshui.label.room', undefined), value: t('observe.fengshui.room.none', undefined) },
+      { label: t('observe.fengshui.label.score', undefined), value: t('observe.fengshui.neutral-score', undefined) },
+      { label: t('observe.fengshui.label.luck', undefined), value: '+0' },
     ];
   const detail = info?.detail;
   const dimensionHtml = detail
     ? `
       <div class="observe-modal-grid">
         ${buildObservationRows([
-          { label: '形制', value: formatSignedInteger(detail.shapeScore) },
-          { label: '围合', value: formatSignedInteger(detail.enclosureScore) },
-          { label: '灵气', value: formatSignedInteger(detail.qiScore) },
-          { label: '煞气', value: formatSignedInteger(detail.shaScore) },
-          { label: '舒适/用途', value: formatSignedInteger(detail.comfortScore) },
-          { label: '五行', value: formatSignedInteger(detail.elementScore) },
-          { label: '阵法', value: formatSignedInteger(detail.formationScore) },
-          { label: '完整性', value: formatSignedInteger(detail.integrityScore) },
+          { label: t('observe.fengshui.dimension.shape', undefined), value: formatSignedInteger(detail.shapeScore) },
+          { label: t('observe.fengshui.dimension.enclosure', undefined), value: formatSignedInteger(detail.enclosureScore) },
+          { label: t('observe.fengshui.dimension.qi', undefined), value: formatSignedInteger(detail.qiScore) },
+          { label: t('observe.fengshui.dimension.sha', undefined), value: formatSignedInteger(detail.shaScore) },
+          { label: t('observe.fengshui.dimension.comfort', undefined), value: formatSignedInteger(detail.comfortScore) },
+          { label: t('observe.fengshui.dimension.element', undefined), value: formatSignedInteger(detail.elementScore) },
+          { label: t('observe.fengshui.dimension.formation', undefined), value: formatSignedInteger(detail.formationScore) },
+          { label: t('observe.fengshui.dimension.integrity', undefined), value: formatSignedInteger(detail.integrityScore) },
         ])}
       </div>
     `
-    : '<div class="observe-entity-empty">具体分项正在随望气视角刷新。</div>';
+    : `<div class="observe-entity-empty">${t('observe.fengshui.detail.loading', undefined)}</div>`;
   const visibleReasons = detail?.reasons
     .filter((reason) => reason.delta !== 0)
     .slice()
@@ -429,11 +436,11 @@ function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null):
             <span class="fengshui-detail-reason-label">${escapeHtml(reason.code)}</span>
           </div>
         `).join('')}</div>`
-      : '<div class="observe-entity-empty">暂无有效加减项。</div>'
+      : `<div class="observe-entity-empty">${t('observe.fengshui.reasons.empty', undefined)}</div>`
     : '';
   return `
     <section class="observe-modal-section">
-      <div class="observe-modal-section-title">房间风水</div>
+      <div class="observe-modal-section-title">${t('observe.fengshui.section.title', undefined)}</div>
       <div class="observe-modal-grid">${buildObservationRows(baseRows)}</div>
       ${dimensionHtml}
       ${reasonsHtml}
@@ -448,7 +455,10 @@ function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null):
 
 
 function formatBuffDuration(buff: VisibleBuffState): string {
-  return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
+  return t('observe.buff.duration', {
+    remaining: formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks))),
+    duration: formatDisplayInteger(Math.max(1, Math.round(buff.duration))),
+  });
 }
 
 function scaleBuffAttrs(
@@ -525,19 +535,19 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const lines = [
-    `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
-    `剩余：${formatBuffDuration(buff)}`,
+    t('observe.buff.tooltip.category', { category: buff.category === 'debuff' ? t('observe.buff.category.debuff', undefined) : t('observe.buff.category.buff', undefined) }),
+    t('observe.buff.tooltip.remaining', { duration: formatBuffDuration(buff) }),
   ];
   const stackLimit = formatBuffMaxStacks(buff.maxStacks);
   if (stackLimit) {
-    lines.push(`层数：${formatDisplayInteger(buff.stacks)} / ${stackLimit}`);
+    lines.push(t('observe.buff.tooltip.stacks', { stacks: formatDisplayInteger(buff.stacks), max: stackLimit }));
   }
   if (buff.sourceSkillName || buff.sourceSkillId) {
-    lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
+    lines.push(t('observe.buff.tooltip.source', { source: buff.sourceSkillName ?? buff.sourceSkillId }));
   }
   const effectLines = buildBuffEffectLines(buff);
   if (effectLines.length > 0) {
-    lines.push(`效果：${effectLines.join('，')}`);
+    lines.push(t('observe.buff.tooltip.effect', { effect: effectLines.join('，') }));
   }
   if (buff.desc) {
     lines.push(buff.desc);
@@ -662,7 +672,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (typeof activeObservedTileDetail.aura === 'number' && activeObservedTileDetail.aura > 0) {
       return [{
         key: 'aura',
-        label: '灵气',
+        label: t('observe.resource.aura', undefined),
         value: activeObservedTileDetail.aura,
         level: activeObservedTileDetail.aura,
       }];
@@ -702,12 +712,12 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       ? resource.effectiveValue
       : undefined;
     const hasProjectedValue = effectiveValue !== undefined && Math.round(effectiveValue) !== Math.round(resource.value);
-    const lines = [`当前数值：${formatDisplayInteger(Math.max(0, Math.round(hasProjectedValue ? effectiveValue : resource.value)))}`];
+    const lines = [t('observe.resource.current-value', { value: formatDisplayInteger(Math.max(0, Math.round(hasProjectedValue ? effectiveValue : resource.value))) })];
     if (hasProjectedValue) {
-      lines.push(`原始值：${formatDisplayInteger(Math.max(0, Math.round(resource.value)))}`);
+      lines.push(t('observe.resource.source-value', { value: formatDisplayInteger(Math.max(0, Math.round(resource.value))) }));
     }
     if (typeof resource.level === 'number') {
-      lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
+      lines.unshift(t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) }));
     }
     return lines;
   }  
@@ -739,19 +749,19 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           title: resource.label,
           lines: [
             typeof resource.level === 'number'
-              ? `当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`
-              : `当前数值：${formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value)))}`,
-            '感气决运转中，正在细察此地气机。',
+              ? t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) })
+              : t('observe.resource.current-value', { value: formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value))) }),
+            t('observe.resource.senseqi.loading', undefined),
           ],
           tone: 'buff',
         }));
       }
       return [{
-        mark: '气',
-        title: '气机细察',
+        mark: t('observe.resource.aura-mark', undefined),
+        title: t('observe.resource.inspect-title', undefined),
         lines: [
-          `总灵气等级：${formatDisplayInteger(Math.max(0, Math.round(tile.aura ?? 0)))}`,
-          '感气决运转中，正在细察此地气机。',
+          t('observe.resource.total-aura-level', { level: formatDisplayInteger(Math.max(0, Math.round(tile.aura ?? 0))) }),
+          t('observe.resource.senseqi.loading', undefined),
         ],
         tone: 'buff',
       }];
@@ -761,8 +771,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     }
     return detailResources.map((resource) => {
       const lines = buildObservedResourceAsideLines(resource);
-      if (resource.key === 'aura' && !lines.some((line) => line.startsWith('当前等级：'))) {
-        lines.unshift(`当前等级：${formatObservedResourceOverview(resource, tile.aura ?? 0)}`);
+      if (resource.key === 'aura' && !lines.some((line) => line.startsWith(t('observe.resource.current-level-prefix', undefined)))) {
+        lines.unshift(t('observe.resource.current-level', { level: formatObservedResourceOverview(resource, tile.aura ?? 0) }));
       }
       return {
         mark: resource.label.slice(0, 1),
@@ -870,7 +880,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     maxEntries?: number,
   ): string {
     if (lootPreview.entries.length === 0) {
-      return `<div class="observe-entity-empty">${escapeHtml(lootPreview.emptyText ?? '此獠身上暂未看出稳定掉落。')}</div>`;
+      return `<div class="observe-entity-empty">${escapeHtml(lootPreview.emptyText ?? t('observe.loot.empty', undefined))}</div>`;
     }
     const visibleEntries = typeof maxEntries === 'number' && maxEntries > 0
       ? lootPreview.entries.slice(0, maxEntries)
@@ -887,7 +897,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       </div>
     `).join('');
     const moreHtml = remainingCount > 0
-      ? `<div class="observe-entity-empty">另有 ${escapeHtml(formatDisplayCountBadge(remainingCount))} 项潜在掉落，展开可查看完整列表。</div>`
+      ? `<div class="observe-entity-empty">${t('observe.loot.more', { count: escapeHtml(formatDisplayCountBadge(remainingCount)) })}</div>`
       : '';
     return `<div class="observe-entity-list">${rowsHtml}</div>${moreHtml}`;
   }
@@ -912,11 +922,11 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (isCrowdEntityKind(entity.kind)) {
       return `<div class="observe-entity-card">
         <div class="observe-entity-head">
-          <span class="observe-entity-name">${escapeHtml(entity.name ?? '人群')}</span>
-          <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '人群'))}</span>
+          <span class="observe-entity-name">${escapeHtml(entity.name ?? t('observe.entity.crowd', undefined))}</span>
+          <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, t('observe.entity.crowd', undefined)))}</span>
         </div>
-        <div class="observe-entity-verdict">此地人影交叠，气机纷杂，只能辨出这里聚着一团密集人群。</div>
-        <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、增益与细节变化。</div>
+        <div class="observe-entity-verdict">${t('observe.entity.crowd.verdict', undefined)}</div>
+        <div class="observe-entity-empty">${t('observe.entity.crowd.hint', undefined)}</div>
       </div>`;
     }
     const detailRows = buildObserveDetailRows(entity);
@@ -940,8 +950,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const observeOnlyBuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'buff');
     const observeOnlyDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'debuff');
     const buffSection = `<div class="observe-buff-columns">
-      ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
-      ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
+      ${buildBuffSectionHtml(t('observe.buff.section.buffs', undefined), [...publicBuffs, ...observeOnlyBuffs], t('observe.buff.empty.buffs', undefined))}
+      ${buildBuffSectionHtml(t('observe.buff.section.debuffs', undefined), [...publicDebuffs, ...observeOnlyDebuffs], t('observe.buff.empty.debuffs', undefined))}
     </div>`;
     const lootAction = entity.kind === 'monster'
       ? `<div class="observe-entity-actions">
@@ -950,19 +960,19 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             type="button"
             data-observe-loot-id="${escapeHtml(entity.id)}"
             aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
-            title="${escapeHtml(entity.observation?.clarity === 'complete' ? '查看掉落物与概率' : '神识完全探查后可查看掉落物与概率')}"
-          >掉落物</button>
+            title="${escapeHtml(entity.observation?.clarity === 'complete' ? t('observe.loot.action.title-ready', undefined) : t('observe.loot.action.title-locked', undefined))}"
+          >${t('observe.loot.action', undefined)}</button>
         </div>`
       : '';
     return `<div class="observe-entity-card">
       <div class="observe-entity-head">
         <span class="observe-entity-name">${badgeHtml}${escapeHtml(title)}</span>
-        <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
+        <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, t('observe.value.unknown', undefined)))}</span>
       </div>
-      <div class="observe-entity-verdict">${escapeHtml(entity.observation?.verdict ?? '神识轻拂而过，未得更多回响。')}</div>
+      <div class="observe-entity-verdict">${escapeHtml(entity.observation?.verdict ?? t('observe.entity.verdict.empty', undefined))}</div>
       ${detailGrid.length > 0
         ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
-        : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
+        : `<div class="observe-entity-empty">${t('observe.entity.detail.empty', undefined)}</div>`}
       ${buffSection}
       ${lootAction}
     </div>`;
@@ -976,10 +986,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
     return `<section class="observe-modal-section">
-      <div class="observe-modal-section-title">角色信息</div>
+      <div class="observe-modal-section-title">${t('observe.entity.section.title', undefined)}</div>
       ${entities.length > 0
         ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
-        : '<div class="observe-entity-empty">此地空无一人。</div>'}
+        : `<div class="observe-entity-empty">${t('observe.entity.empty', undefined)}</div>`}
     </section>`;
   }  
   /**
@@ -1011,11 +1021,11 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     detailModalHost.open({
       ownerId: 'observe-loot-preview',
       variantClass: 'detail-modal--loot',
-      title: `${entity.name ?? '目标'}掉落物`,
-      subtitle: '当前神识推演下的实际掉落概率',
+      title: t('observe.loot.modal.title', { name: entity.name ?? t('observe.entity.target', undefined) }),
+      subtitle: t('observe.loot.modal.subtitle', undefined),
       bodyHtml: `
         <section class="quest-detail-section">
-          <strong>掉落预览</strong>
+          <strong>${t('observe.loot.modal.section', undefined)}</strong>
           <div class="observe-loot-preview-list">${buildLootPreviewRowsHtml(entity.lootPreview)}</div>
         </section>
       `,
@@ -1051,7 +1061,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         }
         const entity = findObservedEntityById(entityId);
         if (!entity || entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
-          options.showToast('神识尚未完全探明其掉落。');
+          options.showToast(t('observe.toast.loot-locked', undefined));
           event.preventDefault();
           event.stopPropagation();
           return;
@@ -1134,7 +1144,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
     const tile = options.getVisibleTileAt(targetX, targetY);
     if (!tile) {
-      options.showToast('神识仅可触及视野之内');
+      options.showToast(t('observe.toast.out-of-vision', undefined));
       return;
     }
     const player = options.getPlayer();
@@ -1154,17 +1164,20 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       return order(left.kind) - order(right.kind);
     });
     const terrainRows = [
-      { label: '地貌', value: getTileTypeName(tile.type) },
-      { label: '底层地形', value: getTerrainTypeLabel(tile.terrainType, getTileTypeName(tile.type)) },
-      { label: '地表铺装', value: getSurfaceTypeLabel(tile.surfaceType, '无') },
-      { label: '地上结构', value: getStructureTypeLabel(tile.structureType, '无') },
-      { label: '是否可通行', value: tile.walkable ? '可通行' : '不可通行' },
-      { label: '行走消耗', value: formatTraversalCost(tile) },
-      { label: '是否阻挡视线', value: tile.blocksSight ? '会阻挡' : '不会阻挡' },
+      { label: t('observe.tile.label.type', undefined), value: getTileTypeName(tile.type) },
+      { label: t('observe.tile.label.terrain', undefined), value: getTerrainTypeLabel(tile.terrainType, getTileTypeName(tile.type)) },
+      { label: t('observe.tile.label.surface', undefined), value: getSurfaceTypeLabel(tile.surfaceType, t('observe.value.none', undefined)) },
+      { label: t('observe.tile.label.structure', undefined), value: getStructureTypeLabel(tile.structureType, t('observe.value.none', undefined)) },
+      { label: t('observe.tile.label.walkable', undefined), value: tile.walkable ? t('observe.tile.walkable.yes', undefined) : t('observe.tile.walkable.no', undefined) },
+      { label: t('observe.tile.label.traversal-cost', undefined), value: formatTraversalCost(tile) },
+      { label: t('observe.tile.label.blocks-sight', undefined), value: tile.blocksSight ? t('observe.tile.blocks-sight.yes', undefined) : t('observe.tile.blocks-sight.no', undefined) },
     ];
+    if (Number.isFinite(tile.qiDrainPerTick) && (tile.qiDrainPerTick ?? 0) > 0) {
+      terrainRows.push({ label: t('observe.tile.label.qi-drain', undefined), value: `${Math.trunc(tile.qiDrainPerTick ?? 0)}` });
+    }
     if (Array.isArray(tile.interactableKinds) && tile.interactableKinds.length > 0) {
       terrainRows.push({
-        label: '交互物',
+        label: t('observe.tile.label.interactable', undefined),
         value: tile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
       });
     }
@@ -1176,32 +1189,32 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         : null;
     if (observedTileHp) {
       terrainRows.push({
-        label: tile.type === TileType.Wall ? '壁垒稳固' : '地物稳固',
+        label: tile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
         value: formatCurrentMax(observedTileHp.hp, observedTileHp.maxHp),
       });
     }
     if (sortedEntities.length > 0) {
-      terrainRows.push({ label: '驻足气息', value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
+      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
     } else if (tile.occupiedBy) {
-      terrainRows.push({ label: '驻足气息', value: '此地留有生灵立身之痕' });
+      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: t('observe.tile.presence.unknown', undefined) });
     }
     if (tile.modifiedAt) {
-      terrainRows.push({ label: '最近变动', value: '此地近期发生过变化' });
+      terrainRows.push({ label: t('observe.tile.label.modified', undefined), value: t('observe.tile.modified.recent', undefined) });
     }
     if (tile.hiddenEntrance) {
-      terrainRows.push({ label: '异状', value: tile.hiddenEntrance.title });
+      terrainRows.push({ label: t('observe.tile.label.hidden', undefined), value: tile.hiddenEntrance.title });
     }
     if (safeZone) {
       terrainRows.push({
-        label: '安全区',
+        label: t('observe.safe-zone.label', undefined),
         value: safeZone.x === targetX && safeZone.y === targetY
-          ? `安全区中心 · 半径 ${safeZone.radius}`
-          : `已处于安全区内 · 中心 (${safeZone.x}, ${safeZone.y}) · 半径 ${safeZone.radius}`,
+          ? t('observe.safe-zone.center-value', { radius: safeZone.radius })
+          : t('observe.safe-zone.inside-value', { x: safeZone.x, y: safeZone.y, radius: safeZone.radius }),
       });
     }
     if (typeof observedTileDetail?.aura === 'number' && observedTileDetail.aura > 0) {
       terrainRows.push({
-        label: '灵气',
+        label: t('observe.resource.aura', undefined),
         value: formatDisplayInteger(Math.max(0, Math.round(observedTileDetail.aura))),
       });
     }
@@ -1211,16 +1224,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         .map((resource) => `${resource.label} ${formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value)))}`);
       if (visibleResourceSummary.length > 0) {
         terrainRows.push({
-          label: '气机',
+          label: t('observe.resource.qi-presence', undefined),
           value: visibleResourceSummary.join('、'),
         });
       }
     }
     if (groundSourceId) {
-      terrainRows.push({ label: '掉落来源', value: groundSourceId });
+      terrainRows.push({ label: t('observe.ground.source', undefined), value: groundSourceId });
     }
     if (portalDetail) {
-      terrainRows.push({ label: '界门去向', value: portalDetail.targetMapName ?? portalDetail.targetMapId });
+      terrainRows.push({ label: t('observe.portal.destination', undefined), value: portalDetail.targetMapName ?? portalDetail.targetMapId });
     }
 
     observeModalController.setSubtitle(targetX, targetY);
@@ -1233,20 +1246,20 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             </div>
           `).join('')}</div>`
         : observedTileDetail?.ground
-          ? '<div class="observe-entity-empty">此地无物可取。</div>'
-          : '<div class="observe-entity-empty">地面无物。</div>';
+          ? `<div class="observe-entity-empty">${t('observe.ground.empty.takeable', undefined)}</div>`
+          : `<div class="observe-entity-empty">${t('observe.ground.empty', undefined)}</div>`;
       const safeZoneHtml = safeZone
         ? `
           <section class="observe-modal-section">
-            <div class="observe-modal-section-title">安全区</div>
+            <div class="observe-modal-section-title">${t('observe.safe-zone.section.title', undefined)}</div>
             <div class="observe-entity-list">
               <div class="observe-modal-row">
-                <span class="observe-modal-label">中心</span>
+                <span class="observe-modal-label">${t('observe.safe-zone.center', undefined)}</span>
                 <span class="observe-modal-value">(${safeZone.x}, ${safeZone.y})</span>
               </div>
               <div class="observe-modal-row">
-                <span class="observe-modal-label">半径</span>
-                <span class="observe-modal-value">${safeZone.radius} 格</span>
+                <span class="observe-modal-label">${t('observe.safe-zone.radius', undefined)}</span>
+                <span class="observe-modal-value">${t('observe.safe-zone.radius-value', { radius: safeZone.radius })}</span>
               </div>
             </div>
           </section>
@@ -1255,37 +1268,37 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       const portalHtml = portalDetail
         ? `
           <section class="observe-modal-section">
-            <div class="observe-modal-section-title">传送点</div>
+            <div class="observe-modal-section-title">${t('observe.portal.section.title', undefined)}</div>
             <div class="observe-entity-list">
               <div class="observe-modal-row">
-                <span class="observe-modal-label">类型</span>
-                <span class="observe-modal-value">${escapeHtml(portalDetail.kind === 'stairs' ? '楼梯' : portalDetail.kind === 'gate' ? '关隘' : '传送点')}</span>
+                <span class="observe-modal-label">${t('observe.portal.label.type', undefined)}</span>
+                <span class="observe-modal-value">${escapeHtml(portalDetail.kind === 'stairs' ? t('observe.portal.kind.stairs', undefined) : portalDetail.kind === 'gate' ? t('observe.portal.kind.gate', undefined) : t('observe.portal.kind.portal', undefined))}</span>
               </div>
               <div class="observe-modal-row">
-                <span class="observe-modal-label">目标地图</span>
+                <span class="observe-modal-label">${t('observe.portal.label.target-map', undefined)}</span>
                 <span class="observe-modal-value">${escapeHtml(portalDetail.targetMapName ?? portalDetail.targetMapId)}</span>
               </div>
               <div class="observe-modal-row">
-                <span class="observe-modal-label">目标坐标</span>
-                <span class="observe-modal-value">${typeof portalDetail.targetX === 'number' && typeof portalDetail.targetY === 'number' ? `(${portalDetail.targetX}, ${portalDetail.targetY})` : '未知'}</span>
+                <span class="observe-modal-label">${t('observe.portal.label.target-coordinate', undefined)}</span>
+                <span class="observe-modal-value">${typeof portalDetail.targetX === 'number' && typeof portalDetail.targetY === 'number' ? `(${portalDetail.targetX}, ${portalDetail.targetY})` : t('observe.value.unknown', undefined)}</span>
               </div>
               <div class="observe-modal-row">
-                <span class="observe-modal-label">方向</span>
-                <span class="observe-modal-value">${portalDetail.direction === 'one_way' ? '单向' : '双向'}</span>
+                <span class="observe-modal-label">${t('observe.portal.label.direction', undefined)}</span>
+                <span class="observe-modal-value">${portalDetail.direction === 'one_way' ? t('observe.portal.direction.one-way', undefined) : t('observe.portal.direction.two-way', undefined)}</span>
               </div>
               <div class="observe-modal-row">
-                <span class="observe-modal-label">触发方式</span>
-                <span class="observe-modal-value">${escapeHtml(portalDetail.trigger === 'auto' ? '自动触发' : '手动触发')}</span>
+                <span class="observe-modal-label">${t('observe.portal.label.trigger', undefined)}</span>
+                <span class="observe-modal-value">${escapeHtml(portalDetail.trigger === 'auto' ? t('observe.portal.trigger.auto', undefined) : t('observe.portal.trigger.manual', undefined))}</span>
               </div>
             </div>
           </section>
         `
         : '';
       const groundMetaHtml = groundSourceId
-        ? `<div class="observe-entity-empty">来源：${escapeHtml(groundSourceId)} · 共 ${formatDisplayInteger(groundItems.length)} 种堆叠</div>`
+        ? `<div class="observe-entity-empty">${t('observe.ground.meta', { source: escapeHtml(groundSourceId), count: formatDisplayInteger(groundItems.length) })}</div>`
         : '';
       const errorHtml = observeError
-        ? `<section class="observe-modal-section"><div class="observe-modal-section-title">观察回响</div><div class="observe-entity-empty">${escapeHtml(observeError)}</div></section>`
+        ? `<section class="observe-modal-section"><div class="observe-modal-section-title">${t('observe.error.section.title', undefined)}</div><div class="observe-entity-empty">${escapeHtml(observeError)}</div></section>`
         : '';
       const fengShuiHtml = wangQiActive
         ? buildObservedFengShuiSectionHtml(options.getWangQiRoomInfoAt?.(targetX, targetY) ?? null)
@@ -1294,26 +1307,26 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         <div class="observe-modal-top">
           ${errorHtml}
           <section class="observe-modal-section">
-            <div class="observe-modal-section-title">地块信息</div>
+            <div class="observe-modal-section-title">${t('observe.tile.section.title', undefined)}</div>
             <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
           </section>
           ${fengShuiHtml}
           ${safeZoneHtml}
           ${tile.hiddenEntrance ? `
             <section class="observe-modal-section">
-              <div class="observe-modal-section-title">隐藏入口</div>
+              <div class="observe-modal-section-title">${t('observe.hidden.section.title', undefined)}</div>
               <div class="observe-entity-list">
                 <div class="observe-modal-row">
-                  <span class="observe-modal-label">痕迹</span>
+                  <span class="observe-modal-label">${t('observe.hidden.trace', undefined)}</span>
                   <span class="observe-modal-value">${escapeHtml(tile.hiddenEntrance.title)}</span>
                 </div>
-                <div class="observe-entity-empty">${escapeHtml(tile.hiddenEntrance.desc ?? '这里隐约残留着一处被刻意遮掩的入口痕迹。')}</div>
+                <div class="observe-entity-empty">${escapeHtml(tile.hiddenEntrance.desc ?? t('observe.hidden.default-desc', undefined))}</div>
               </div>
             </section>
           ` : ''}
           ${portalHtml}
           <section class="observe-modal-section">
-            <div class="observe-modal-section-title">地面物品</div>
+            <div class="observe-modal-section-title">${t('observe.ground.section.title', undefined)}</div>
             ${groundMetaHtml}
             ${groundHtml}
           </section>

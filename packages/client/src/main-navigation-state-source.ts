@@ -11,6 +11,7 @@ import {
 import { logMovement } from './debug/movement-debug';
 import { findPath } from './pathfinding';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
+import { t } from './ui/i18n';
 /**
  * MainNavigationObservedEntity：统一结构类型，保证协议与运行时一致性。
  */
@@ -946,7 +947,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       }
       const approachTarget = resolveNpcApproachTarget(npc);
       if (!approachTarget) {
-        options.showToast('找不到能靠近该场景人物的位置');
+        options.showToast(t('navigation.toast.no-nearby-position'));
         return true;
       }
       pendingAutoInteraction = {

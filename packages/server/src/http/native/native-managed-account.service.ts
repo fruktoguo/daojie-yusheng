@@ -18,6 +18,8 @@ interface ManagedAccountRecord {
  */
 
   playerId: string;  
+  /** 玩家可见数字编号。 */
+  playerNo: number | null;
   /**
  * playerName：玩家名称名称或显示文本。
  */
@@ -168,6 +170,7 @@ export class NativeManagedAccountService {
 
       result.set(playerId, {
         playerId,
+        playerNo: user.playerNo,
         playerName: user.pendingRoleName ?? user.username,
         userId: user.id,
         username: user.username,
@@ -310,6 +313,7 @@ export class NativeManagedAccountService {
         username: user.username,
         displayName: resolveDisplayName(user.displayName, user.username),
         playerId: user.playerId,
+        playerNo: user.playerNo,
         playerName: user.pendingRoleName?.trim() || user.username,
         persistedSource: GM_AUTH_CONTRACT.identityPersistedSource,
         updatedAt: Date.now(),

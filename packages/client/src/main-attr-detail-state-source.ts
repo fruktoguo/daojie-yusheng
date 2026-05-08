@@ -45,6 +45,10 @@ type MainAttrDetailStateSourceOptions = {
   cloneJson: <T>(value: T) => T;
   /** 打开属性面板技艺页中对应的低频 UI。 */
   onOpenCraftSkill?: (key: string) => void;
+  /** 进入属性面板技艺入口的快捷键绑定模式。 */
+  onBindCraftSkill?: (key: string) => void;
+  /** 读取属性面板技艺入口的快捷键按钮文案。 */
+  getCraftSkillBindLabel?: (key: string) => string;
 };
 /**
  * MainAttrDetailStateSource：统一结构类型，保证协议与运行时一致性。
@@ -143,6 +147,10 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
     onOpenCraftSkill: (key) => {
       options.onOpenCraftSkill?.(key);
     },
+    onBindCraftSkill: (key) => {
+      options.onBindCraftSkill?.(key);
+    },
+    getCraftSkillBindLabel: (key) => options.getCraftSkillBindLabel?.(key) ?? '绑定键',
   });
   return source;
 }

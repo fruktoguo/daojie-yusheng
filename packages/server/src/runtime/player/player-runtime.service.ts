@@ -33,6 +33,7 @@ const player_attributes_service_1 = require("./player-attributes.service");
 const player_progression_service_1 = require("./player-progression.service");
 const player_combat_config_helpers_1 = require("./player-combat-config.helpers");
 const player_runtime_state_1 = require("./player-runtime.state");
+const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -300,6 +301,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 allowAoePlayerHit: false,
                 autoIdleCultivation: true,
                 autoSwitchCultivation: false,
+                autoRootFoundation: false,
                 senseQiActive: false,
                 wangQiActive: false,
                 autoBattleSkills: [],
@@ -316,14 +318,14 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 revision: 1,
                 quests: [],
             },
-            alchemySkill: createCraftSkillState(),
-            gatherSkill: createCraftSkillState(),
-            buildingSkill: createCraftSkillState(),
+            alchemySkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
+            gatherSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
+            buildingSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
             alchemyPresets: [],
             alchemyJob: null,
-            enhancementSkill: createCraftSkillState(),
+            enhancementSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
             enhancementSkillLevel: 1,
             enhancementJob: null,
             enhancementRecords: [],
@@ -386,7 +388,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const session = {
             sessionId: buildOfflineGainSessionId(normalizedPlayerId, normalizedStartedAt),
             startedAt: normalizedStartedAt,
-            baselinePayload: buildOfflineGainSnapshot(player, this.contentTemplateRepository),
+            baselinePayload: buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService),
             accumulatedPayload: createEmptyOfflineGainReportParts(),
             accumulatedDurationMs: 0,
         };
@@ -2419,6 +2421,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.combat.autoSwitchCultivation = input.autoSwitchCultivation;
             changed = true;
         }
+        if (input.autoRootFoundation !== undefined && player.combat.autoRootFoundation !== input.autoRootFoundation) {
+            player.combat.autoRootFoundation = input.autoRootFoundation;
+            changed = true;
+        }
         if (input.senseQiActive !== undefined && player.combat.senseQiActive !== input.senseQiActive) {
             player.combat.senseQiActive = input.senseQiActive;
             if (input.senseQiActive === true) {
@@ -2448,6 +2454,23 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, currentTick);
         markPlayerDirtyDomains(player, cultivationActiveChanged ? ['combat_pref', 'attr'] : ['combat_pref']);
         this.bumpPersistentRevision(player);
+        return player;
+    }
+    /** 更新自动凝练根基开关，并在开启当下立即做一次权威条件检测。 */
+    updateAutoRootFoundation(playerId, enabled, currentTick = 0) {
+        const player = this.updateCombatSettings(playerId, {
+            autoRootFoundation: enabled === true,
+        }, currentTick);
+        if (enabled === true && this.disableAutoRootFoundationAtCap(player, currentTick, false)) {
+            return player;
+        }
+        if (enabled !== true || player.hp <= 0) {
+            return player;
+        }
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
+        const result = this.playerProgressionService.autoRefineRootFoundation(player);
+        this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick, true);
+        this.disableAutoRootFoundationAtCap(player, currentTick, false);
         return player;
     }
     /**
@@ -2935,6 +2958,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 });
                 this.applyProgressionResult(player, result, currentTick);
             }
+            if (player.hp > 0 && player.combat.autoRootFoundation === true) {
+                const result = this.playerProgressionService.autoRefineRootFoundation(player);
+                this.applyProgressionResult(player, result, currentTick, true);
+                this.disableAutoRootFoundationAtCap(player, currentTick);
+            }
             if (hasActiveSkillCooldown(player, currentTick)) {
                 this.rebuildActionState(player, currentTick);
             }
@@ -2947,7 +2975,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return null;
         }
         return this.playerStatisticSnapshotsByPlayerId.get(normalizedPlayerId)
-            ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository);
+            ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
     }
     /** accumulateOfflineGainAfterTick：累计玩家tick内实际收支；在线即时排队，离线归入挂机片段。 */
     accumulateOfflineGainAfterTick(player, beforeSnapshot) {
@@ -2962,10 +2990,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return;
         }
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
-        const afterSnapshot = buildOfflineGainSnapshot(player, this.contentTemplateRepository);
+        const afterSnapshot = buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
         const delta = buildOfflineGainDeltaParts(
             normalizeOfflineGainSnapshot(beforeSnapshot),
             normalizeOfflineGainSnapshot(afterSnapshot),
+            (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level),
         );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
         if (!hasOfflineGainReportParts(delta)) {
@@ -3373,14 +3402,14 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             realm: normalizeRealmState(snapshot.progression?.realm),
             heavenGate: normalizeHeavenGateState(snapshot.progression?.heavenGate),
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
-            alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill),
-            gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill),
-            buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill),
+            alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
+            gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
+            buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
-            enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill),
+            enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(snapshot.progression?.enhancementSkillLevel ?? snapshot.progression?.enhancementSkill?.level) || 1)),
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
             enhancementRecords: normalizeEnhancementRecords(snapshot.progression?.enhancementRecords),
@@ -3461,6 +3490,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoIdleCultivation: snapshot.combat?.autoIdleCultivation !== false,
 
                 autoSwitchCultivation: snapshot.combat?.autoSwitchCultivation === true,
+                autoRootFoundation: snapshot.combat?.autoRootFoundation === true,
 
                 senseQiActive: snapshot.combat?.senseQiActive === true,
                 wangQiActive: snapshot.combat?.wangQiActive === true,
@@ -3571,7 +3601,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, sessionId, player.sessionEpoch);
         player.lastHeartbeatAt = Date.now();
         player.offlineSinceAt = null;
-        this.playerStatisticSnapshotsByPlayerId.set(player.playerId, buildOfflineGainSnapshot(player, this.contentTemplateRepository));
+        this.playerStatisticSnapshotsByPlayerId.set(player.playerId, buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService));
         markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
         return player;
     }
@@ -3710,6 +3740,30 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.recordPlayerStatisticMutation(player, beforeSnapshot);
         }
         return player;
+    }
+    /** 根基已达上限时关闭自动凝练，并持久化玩家偏好。 */
+    disableAutoRootFoundationAtCap(player, currentTick = 0, emitNotice = true) {
+        if (!player || player.combat?.autoRootFoundation !== true) {
+            return false;
+        }
+        if (typeof this.playerProgressionService?.isRootFoundationAtCurrentCap !== 'function'
+            || !this.playerProgressionService.isRootFoundationAtCurrentCap(player)) {
+            return false;
+        }
+        player.combat.autoRootFoundation = false;
+        this.rebuildActionState(player, currentTick);
+        markPlayerDirtyDomains(player, ['combat_pref']);
+        this.bumpPersistentRevision(player);
+        const text = '根基已达当前境界上限，已关闭自动凝练根基。';
+        if (emitNotice && !player.notices.queue.some((notice) => notice.text === text)) {
+            player.notices.queue.push({
+                id: player.notices.nextId,
+                kind: 'info',
+                text,
+            });
+            player.notices.nextId += 1;
+        }
+        return true;
     }
     /**
  * rebuildActionState：构建rebuildAction状态。
@@ -3951,6 +4005,7 @@ function cloneRuntimePlayerState(player) {
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
             autoIdleCultivation: player.combat.autoIdleCultivation,
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
+            autoRootFoundation: player.combat.autoRootFoundation === true,
             senseQiActive: player.combat.senseQiActive,
             wangQiActive: player.combat.wangQiActive === true,
             autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
@@ -4073,20 +4128,21 @@ function mergeOfflineGainSessionRecords(persistedSession, memorySession) {
         accumulatedDurationMs: normalizeOfflineGainCount(memorySession.accumulatedDurationMs ?? persistedSession.accumulatedDurationMs),
     };
 }
-function accumulateOfflineGainSessionDelta(session, beforeSnapshot, afterSnapshot) {
+function accumulateOfflineGainSessionDelta(session, beforeSnapshot, afterSnapshot, resolveProfessionExpToNext = null) {
     if (!session) {
         return;
     }
     const delta = buildOfflineGainDeltaParts(
         normalizeOfflineGainSnapshot(beforeSnapshot),
         normalizeOfflineGainSnapshot(afterSnapshot),
+        resolveProfessionExpToNext,
     );
     session.accumulatedPayload = mergeOfflineGainReportPartsBySum(
         normalizeOfflineGainReportParts(session.accumulatedPayload),
         delta,
     );
 }
-function buildOfflineGainDeltaParts(before, after) {
+function buildOfflineGainDeltaParts(before, after, resolveProfessionExpToNext = null) {
     const itemDeltas = diffOfflineGainItems(before.inventoryItems, after.inventoryItems);
     const spiritStones = itemDeltas
         .filter((entry) => isWalletCacheItemId(entry.itemId))
@@ -4100,7 +4156,7 @@ function buildOfflineGainDeltaParts(before, after) {
         items: itemDeltas.filter((entry) => !isWalletCacheItemId(entry.itemId)),
         progress: diffOfflineGainProgress(before, after),
         techniques: diffOfflineGainTechniques(before.techniques, after.techniques),
-        professions: diffOfflineGainProfessions(before.professions, after.professions),
+        professions: diffOfflineGainProfessions(before.professions, after.professions, resolveProfessionExpToNext),
     };
 }
 function hasOfflineGainReportParts(parts) {
@@ -4574,7 +4630,8 @@ function mergeOfflineGainOptionalAmount(leftValue, rightValue, mode) {
     const merged = mode === 'sum' ? left + right : Math.max(left, right);
     return merged > 0 ? merged : undefined;
 }
-function buildOfflineGainSnapshot(player, contentTemplateRepository = null) {
+function buildOfflineGainSnapshot(player, contentTemplateRepository = null, playerProgressionService = null) {
+    const resolveProfessionExpToNext = (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(playerProgressionService, level);
     return {
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
@@ -4598,10 +4655,10 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null) {
         }),
         techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
         professions: [
-            buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill),
-            buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill),
-            buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill),
-            buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill),
+            buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill, resolveProfessionExpToNext),
+            buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill, resolveProfessionExpToNext),
+            buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill, resolveProfessionExpToNext),
+            buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill, resolveProfessionExpToNext),
         ].filter((entry) => Boolean(entry)),
     };
 }
@@ -4658,7 +4715,7 @@ function buildOfflineGainTechniqueExpTable(technique) {
     }
     return byLevel;
 }
-function buildOfflineGainProfessionSnapshot(professionType, label, state) {
+function buildOfflineGainProfessionSnapshot(professionType, label, state, resolveExpToNext = null) {
     if (!state) {
         return null;
     }
@@ -4667,7 +4724,7 @@ function buildOfflineGainProfessionSnapshot(professionType, label, state) {
         label,
         ...buildOfflineGainExpStateSnapshot(state, {
             minLevel: 1,
-            resolveExpToNext: resolveCraftSkillExpToNextForLevel,
+            resolveExpToNext: resolveExpToNext ?? resolveCraftSkillExpToNextForLevel,
         }),
     };
 }
@@ -4688,8 +4745,7 @@ function buildOfflineGainExpStateSnapshot(state, options = {}) {
     };
 }
 function resolveCraftSkillExpToNextForLevel(level) {
-    const normalizedLevel = Math.max(1, Math.trunc(Number(level) || 1));
-    return Math.max(60, 60 + ((normalizedLevel - 1) * 12));
+    return (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(null, level, craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT);
 }
 function buildOfflineGainReportFromSession(player, session, endedAt, contentTemplateRepository = null) {
     const baseline = normalizeOfflineGainSnapshot(session?.baselinePayload);
@@ -4885,14 +4941,14 @@ function diffOfflineGainTechniques(beforeTechniques, afterTechniques) {
         })
         .filter((entry) => Boolean(entry));
 }
-function diffOfflineGainProfessions(beforeProfessions, afterProfessions) {
+function diffOfflineGainProfessions(beforeProfessions, afterProfessions, resolveExpToNext = null) {
     const beforeByType = new Map((Array.isArray(beforeProfessions) ? beforeProfessions : [])
         .map((entry) => [entry.professionType, entry]));
     return (Array.isArray(afterProfessions) ? afterProfessions : [])
         .map((after) => {
             const before = beforeByType.get(after.professionType) ?? {};
             const delta = calculateOfflineGainExpChange(before, after, {
-                resolveExpToNext: resolveCraftSkillExpToNextForLevel,
+                resolveExpToNext: resolveExpToNext ?? resolveCraftSkillExpToNextForLevel,
             });
             if (delta.expGained <= 0 && delta.expLost <= 0 && delta.levelGain <= 0 && delta.levelLoss <= 0) {
                 return null;
@@ -5325,6 +5381,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
             autoIdleCultivation: player.combat.autoIdleCultivation,
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
+            autoRootFoundation: player.combat.autoRootFoundation === true,
             senseQiActive: player.combat.senseQiActive,
             wangQiActive: player.combat.wangQiActive === true,
             autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
@@ -5354,11 +5411,11 @@ function buildPublicPlayerInstanceId(templateId) {
  * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
-function createCraftSkillState() {
+function createCraftSkillState(expToNext = craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT) {
     return {
         level: 1,
         exp: 0,
-        expToNext: 60,
+        expToNext: Math.max(0, Math.floor(Number(expToNext) || craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT)),
     };
 }
 /**
@@ -5367,11 +5424,15 @@ function createCraftSkillState() {
  * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
-function normalizeCraftSkillState(value) {
+function normalizeCraftSkillState(value, resolveExpToNext = null) {
+    const level = Math.max(1, Math.floor(Number(value?.level) || 1));
+    const expToNext = typeof resolveExpToNext === 'function'
+        ? resolveExpToNext(level)
+        : Math.max(0, Math.floor(Number(value?.expToNext) || craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT));
     return {
-        level: Math.max(1, Math.floor(Number(value?.level) || 1)),
+        level,
         exp: Math.max(0, Math.floor(Number(value?.exp) || 0)),
-        expToNext: Math.max(0, Math.floor(Number(value?.expToNext) || 60)),
+        expToNext: Math.max(0, Math.floor(Number(expToNext) || 0)),
     };
 }
 /**

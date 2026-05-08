@@ -11,6 +11,7 @@ import { patchElementHtml } from '../dom-patch';
 import { preserveSelection } from '../selection-preserver';
 import { createSmallBtn } from '../ui-primitives';
 import { formatDisplayInteger } from '../../utils/number';
+import { t } from '../i18n';
 
 /** BodyTrainingPlayerSnapshot：玩家炼体与底蕴的读取快照。 */
 type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation'>;
@@ -67,10 +68,10 @@ function formatBonusSummary(state: BodyTrainingState): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (state.level <= 0) {
-    return '全属性暂未提升';
+    return t('body-training.bonus.none', undefined);
   }
   const attrs = calcBodyTrainingAttrPercentBonus(state.level);
-  return `全属性+${formatDisplayInteger(attrs.constitution ?? 0)}%`;
+  return t('body-training.bonus.all-attrs', { percent: formatDisplayInteger(attrs.constitution ?? 0) });
 }
 
 /** normalizeFoundation：规范化Foundation。 */
@@ -336,7 +337,7 @@ export class BodyTrainingPanel {
 
     const kickerNode = document.createElement('span');
     kickerNode.className = 'body-training-kicker';
-    kickerNode.textContent = '炼体层数';
+    kickerNode.textContent = t('body-training.kicker.level', undefined);
 
     const levelNode = document.createElement('strong');
     levelNode.className = 'body-training-level';
@@ -369,7 +370,7 @@ export class BodyTrainingPanel {
     bonusCard.className = 'body-training-card';
     const bonusLabel = document.createElement('span');
     bonusLabel.className = 'body-training-card-label';
-    bonusLabel.textContent = '当前总加成';
+    bonusLabel.textContent = t('body-training.label.current-bonus', undefined);
     const bonusNode = document.createElement('strong');
     bonusNode.className = 'body-training-card-value';
     bonusNode.dataset.bodyBonusSummary = 'true';
@@ -379,7 +380,7 @@ export class BodyTrainingPanel {
     foundationCard.className = 'body-training-card';
     const foundationLabel = document.createElement('span');
     foundationLabel.className = 'body-training-card-label';
-    foundationLabel.textContent = '当前底蕴';
+    foundationLabel.textContent = t('body-training.label.current-foundation', undefined);
     const foundationNode = document.createElement('strong');
     foundationNode.className = 'body-training-card-value';
     foundationNode.dataset.bodyFoundation = 'true';
@@ -392,14 +393,14 @@ export class BodyTrainingPanel {
     infuseCard.className = 'body-training-card body-training-card--wide body-training-card--accent';
     const infuseLabel = document.createElement('span');
     infuseLabel.className = 'body-training-card-label';
-    infuseLabel.textContent = '灌注炼体';
+    infuseLabel.textContent = t('body-training.infuse.title', undefined);
     const previewNode = document.createElement('strong');
     previewNode.className = 'body-training-card-value';
     previewNode.dataset.bodyInfusePreview = 'true';
     const detailNode = document.createElement('span');
     detailNode.className = 'body-training-card-note';
     detailNode.dataset.bodyInfuseDetail = 'true';
-    const buttonNode = createSmallBtn('灌注炼体', {
+    const buttonNode = createSmallBtn(t('body-training.infuse.title', undefined), {
       className: 'body-training-infuse-btn',
       dataset: { bodyInfuse: 'true' },
     });
@@ -448,10 +449,10 @@ export class BodyTrainingPanel {
       || !buttonNode) {
       return false;
     }
-    levelNode.textContent = `第 ${formatDisplayInteger(state.level)} 层`;
+    levelNode.textContent = t('body-training.level', { level: formatDisplayInteger(state.level) });
     progressNode.textContent = `${formatDisplayInteger(state.exp)}/${formatDisplayInteger(state.expToNext)}`;
     fillNode.style.width = `${(getProgressRatio(state) * 100).toFixed(2)}%`;
-    remainNode.textContent = `距下一层还需 ${formatDisplayInteger(Math.max(0, state.expToNext - state.exp))} 炼体经验`;
+    remainNode.textContent = t('body-training.remain-exp', { exp: formatDisplayInteger(Math.max(0, state.expToNext - state.exp)) });
     bonusNode.textContent = formatBonusSummary(state);
     foundationNode.textContent = formatDisplayInteger(foundation);
     foundationNoteNode.textContent = this.getFoundationNote();
@@ -532,9 +533,9 @@ export class BodyTrainingPanel {
       ownerId: BodyTrainingPanel.MODAL_OWNER,
       size: 'sm',
       variantClass: 'detail-modal--body-training-infuse',
-      title: '灌注炼体',
-      subtitle: `当前第 ${formatDisplayInteger(this.baseState.level)} 层`,
-      hint: '点击空白处关闭',
+      title: t('body-training.infuse.title', undefined),
+      subtitle: t('body-training.infuse.subtitle.current-level', { level: formatDisplayInteger(this.baseState.level) }),
+      hint: t('common.modal.click-blank-close', undefined),
       renderBody: (body) => {
         patchElementHtml(body, this.renderInfusionModalBody(plan, maxLevelGain));
       },
@@ -562,12 +563,16 @@ export class BodyTrainingPanel {
     setTextContent(
       body,
       '[data-body-infuse-max="true"]',
-      maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`,
+      maxLevelGain > 0
+        ? t('body-training.infuse.level-gain', { level: formatDisplayInteger(maxLevelGain) })
+        : t('body-training.infuse.foundation-count', { count: formatDisplayInteger(this.baseFoundation) }),
     );
     setTextContent(
       body,
       '[data-body-infuse-picker-value="true"]',
-      inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`,
+      inAllMode
+        ? t('body-training.infuse.all-foundation', undefined)
+        : t('body-training.infuse.level-gain', { level: formatDisplayInteger(plan.levelGain) }),
     );
     setTextContent(body, '[data-body-infuse-foundation-cost="true"]', formatDisplayInteger(plan.foundationCost));
     setTextContent(
@@ -575,7 +580,7 @@ export class BodyTrainingPanel {
       '[data-body-infuse-exp-gain="true"]',
       formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER),
     );
-    setTextContent(body, '[data-body-infuse-preview-level="true"]', `第 ${formatDisplayInteger(plan.previewState.level)} 层`);
+    setTextContent(body, '[data-body-infuse-preview-level="true"]', t('body-training.level', { level: formatDisplayInteger(plan.previewState.level) }));
     setTextContent(
       body,
       '[data-body-infuse-preview-exp="true"]',
@@ -585,8 +590,8 @@ export class BodyTrainingPanel {
       body,
       '[data-body-infuse-note="true"]',
       inAllMode
-        ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
-        : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`,
+        ? t('body-training.infuse.note.all', { cost: formatDisplayInteger(plan.foundationCost) })
+        : t('body-training.infuse.note.level', { exp: formatDisplayInteger(plan.expNeeded), cost: formatDisplayInteger(plan.foundationCost) }),
     );
     patchInfusionAdjustButton(body, '-10', !inAllMode, inAllMode || plan.levelGain <= 10);
     patchInfusionAdjustButton(body, '-1', !inAllMode, inAllMode || !canDecrease);
@@ -609,51 +614,55 @@ export class BodyTrainingPanel {
       <div class="body-training-infuse-modal">
         <section class="body-training-infuse-summary">
           <article class="body-training-infuse-stat">
-            <span class="body-training-infuse-stat-label">可用底蕴</span>
+            <span class="body-training-infuse-stat-label">${t('body-training.infuse.available-foundation', undefined)}</span>
             <strong class="body-training-infuse-stat-value" data-body-infuse-available="true">${formatDisplayInteger(this.baseFoundation)}</strong>
           </article>
           <article class="body-training-infuse-stat">
-            <span class="body-training-infuse-stat-label">${maxLevelGain > 0 ? '最多可升' : '当前可灌'}</span>
-            <strong class="body-training-infuse-stat-value" data-body-infuse-max="true">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
+            <span class="body-training-infuse-stat-label">${maxLevelGain > 0 ? t('body-training.infuse.max-level-gain-label', undefined) : t('body-training.infuse.available-infuse-label', undefined)}</span>
+            <strong class="body-training-infuse-stat-value" data-body-infuse-max="true">${maxLevelGain > 0
+              ? t('body-training.infuse.level-gain', { level: formatDisplayInteger(maxLevelGain) })
+              : t('body-training.infuse.foundation-count', { count: formatDisplayInteger(this.baseFoundation) })}</strong>
           </article>
         </section>
         <section class="body-training-infuse-picker">
-          <div class="body-training-infuse-picker-label">选择灌注方式</div>
+          <div class="body-training-infuse-picker-label">${t('body-training.infuse.pick-mode', undefined)}</div>
           <div class="body-training-infuse-picker-row">
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-10" ${(inAllMode || plan.levelGain <= 10) ? 'disabled' : ''}>-10</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-1" ${(inAllMode || !canDecrease) ? 'disabled' : ''}>-1</button>
-            <strong class="body-training-infuse-picker-value" data-body-infuse-picker-value="true">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
+            <strong class="body-training-infuse-picker-value" data-body-infuse-picker-value="true">${inAllMode
+              ? t('body-training.infuse.all-foundation', undefined)
+              : t('body-training.infuse.level-gain', { level: formatDisplayInteger(plan.levelGain) })}</strong>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="1" ${(inAllMode || !canIncrease) ? 'disabled' : ''}>+1</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="10" ${(inAllMode || plan.levelGain + 10 > maxLevelGain) ? 'disabled' : ''}>+10</button>
-            <button class="small-btn ghost ${inAllMode ? 'active' : ''}" type="button" data-body-infuse-all="true" ${this.baseFoundation > 0 ? '' : 'disabled'}>全部灌注</button>
+            <button class="small-btn ghost ${inAllMode ? 'active' : ''}" type="button" data-body-infuse-all="true" ${this.baseFoundation > 0 ? '' : 'disabled'}>${t('body-training.infuse.all-action', undefined)}</button>
           </div>
         </section>
         <section class="body-training-infuse-preview">
           <div class="body-training-infuse-preview-row">
-            <span>消耗底蕴</span>
+            <span>${t('body-training.infuse.cost-foundation', undefined)}</span>
             <strong data-body-infuse-foundation-cost="true">${formatDisplayInteger(plan.foundationCost)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
-            <span>转化经验</span>
+            <span>${t('body-training.infuse.convert-exp', undefined)}</span>
             <strong data-body-infuse-exp-gain="true">${formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
-            <span>预计境界</span>
-            <strong data-body-infuse-preview-level="true">第 ${formatDisplayInteger(plan.previewState.level)} 层</strong>
+            <span>${t('body-training.infuse.preview-level', undefined)}</span>
+            <strong data-body-infuse-preview-level="true">${t('body-training.level', { level: formatDisplayInteger(plan.previewState.level) })}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
-            <span>预计当前经验</span>
+            <span>${t('body-training.infuse.preview-exp', undefined)}</span>
             <strong data-body-infuse-preview-exp="true">${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}</strong>
           </div>
         </section>
         <div class="body-training-infuse-note" data-body-infuse-note="true">
           ${inAllMode
-            ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
-            : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`}
+            ? t('body-training.infuse.note.all', { cost: formatDisplayInteger(plan.foundationCost) })
+            : t('body-training.infuse.note.level', { exp: formatDisplayInteger(plan.expNeeded), cost: formatDisplayInteger(plan.foundationCost) })}
         </div>
         <div class="body-training-infuse-actions">
-          <button class="small-btn ghost" type="button" data-body-infuse-close="true">取消</button>
-          <button class="small-btn" type="button" data-body-infuse-confirm="true">确认灌注</button>
+          <button class="small-btn ghost" type="button" data-body-infuse-close="true">${t('common.action.cancel', undefined)}</button>
+          <button class="small-btn" type="button" data-body-infuse-confirm="true">${t('body-training.infuse.confirm', undefined)}</button>
         </div>
       </div>
     `;
@@ -729,12 +738,12 @@ export class BodyTrainingPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.onInfuse) {
-      return '暂不可用';
+      return t('body-training.infuse.unavailable', undefined);
     }
     if (this.baseFoundation <= 0) {
-      return '底蕴不足';
+      return t('body-training.infuse.insufficient-foundation', undefined);
     }
-    return '灌注';
+    return t('body-training.infuse.action', undefined);
   }
 
   /** getInfusionPreviewHeadline：读取Infusion Preview Headline。 */
@@ -743,9 +752,9 @@ export class BodyTrainingPanel {
 
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
-      return '可先灌注底蕴积累经验';
+      return t('body-training.infuse.preview.no-level-gain', undefined);
     }
-    return `本次最多可提升 ${formatDisplayInteger(maxLevelGain)} 层`;
+    return t('body-training.infuse.preview.max-level-gain', { level: formatDisplayInteger(maxLevelGain) });
   }
 
   /** getInfusionPreviewDetail：读取Infusion Preview详情。 */
@@ -753,12 +762,12 @@ export class BodyTrainingPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.baseFoundation <= 0) {
-      return '当前没有可用于灌注的底蕴。';
+      return t('body-training.infuse.no-foundation', undefined);
     }
     if (this.getMaxLevelGain() <= 0) {
-      return `当前底蕴暂不足提升一层，可直接灌注 ${formatDisplayInteger(this.baseFoundation)} 点底蕴。`;
+      return t('body-training.infuse.detail.insufficient-one-level', { foundation: formatDisplayInteger(this.baseFoundation) });
     }
-    return `1 点底蕴 = ${formatDisplayInteger(BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)} 点炼体经验。`;
+    return t('body-training.infuse.detail.rate', { exp: formatDisplayInteger(BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER) });
   }
 
   /** getFoundationNote：读取Foundation Note。 */
@@ -767,12 +776,12 @@ export class BodyTrainingPanel {
 
     const maxLevelGain = this.getMaxLevelGain();
     if (this.baseFoundation <= 0) {
-      return '当前没有可用于灌注的底蕴。';
+      return t('body-training.infuse.no-foundation', undefined);
     }
     if (maxLevelGain <= 0) {
-      return `当前可直接灌入 ${formatDisplayInteger(this.baseFoundation)} 点底蕴。`;
+      return t('body-training.foundation.direct-infuse', { foundation: formatDisplayInteger(this.baseFoundation) });
     }
-    return `当前最多可直达第 ${formatDisplayInteger(this.baseState.level + maxLevelGain)} 层。`;
+    return t('body-training.foundation.max-reach-level', { level: formatDisplayInteger(this.baseState.level + maxLevelGain) });
   }
 
   /** getSelectedPlan：读取Selected规划。 */

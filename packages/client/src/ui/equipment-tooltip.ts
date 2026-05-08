@@ -31,6 +31,7 @@ import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatTechniqueCumulativeBonusSummary } from './technique-bonus-summary';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
+import { t } from './i18n';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -56,17 +57,17 @@ function renderPlainLine(label: string, value: string): string {
 function resolveQiElementLabel(element: string): string {
   switch (element) {
     case 'metal':
-      return '金';
+      return t('equipment-tooltip.element.metal', undefined);
     case 'wood':
-      return '木';
+      return t('equipment-tooltip.element.wood', undefined);
     case 'water':
-      return '水';
+      return t('equipment-tooltip.element.water', undefined);
     case 'fire':
-      return '火';
+      return t('equipment-tooltip.element.fire', undefined);
     case 'earth':
-      return '土';
+      return t('equipment-tooltip.element.earth', undefined);
     default:
-      return '无属性';
+      return t('equipment-tooltip.element.none', undefined);
   }
 }
 
@@ -74,11 +75,11 @@ function resolveQiElementLabel(element: string): string {
 function resolveQiFamilyLabel(family: string): string {
   switch (family) {
     case 'sha':
-      return '煞气';
+      return t('equipment-tooltip.qi-family.sha', undefined);
     case 'demonic':
-      return '魔气';
+      return t('equipment-tooltip.qi-family.demonic', undefined);
     default:
-      return '灵气';
+      return t('equipment-tooltip.qi-family.aura', undefined);
   }
 }
 
@@ -86,15 +87,15 @@ function resolveQiFamilyLabel(family: string): string {
 function resolveTileResourceGainLabel(resourceKey: string): string {
   const parsed = parseQiResourceKey(resourceKey);
   if (!parsed) {
-    return `当前地块资源 ${resourceKey}`;
+    return t('equipment-tooltip.tile-resource.unknown', { resourceKey });
   }
   if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
-    return '所处之地灵力';
+    return t('equipment-tooltip.tile-resource.aura', undefined);
   }
   const familyLabel = resolveQiFamilyLabel(parsed.family);
   const elementLabel = resolveQiElementLabel(parsed.element);
-  const formLabel = parsed.form === 'dispersed' ? '逸散' : '凝练';
-  return `当前地块${elementLabel}${formLabel}${familyLabel}`;
+  const formLabel = parsed.form === 'dispersed' ? t('equipment-tooltip.qi-form.dispersed', undefined) : t('equipment-tooltip.qi-form.refined', undefined);
+  return t('equipment-tooltip.tile-resource.qi', { element: elementLabel, form: formLabel, family: familyLabel });
 }
 
 /** resolveMedicineCategoryLabel：解析Medicine Category标签。 */
@@ -108,22 +109,22 @@ function resolveMedicineCategoryLabel(item: ItemStack): string | null {
     labels.push(materialCategoryLabel);
   }
   if (tags.includes('生命回复')) {
-    labels.push('生命回复');
+    labels.push(t('equipment-tooltip.medicine-category.hp', undefined));
   }
-  if (tags.includes('灵力回复') && !labels.includes('灵力回复')) {
-    labels.push('灵力回复');
+  if (tags.includes('灵力回复') && !labels.includes(t('equipment-tooltip.medicine-category.qi', undefined))) {
+    labels.push(t('equipment-tooltip.medicine-category.qi', undefined));
   }
-  if (tags.includes('增益') && !labels.includes('增益')) {
-    labels.push('增益');
+  if (tags.includes('增益') && !labels.includes(t('equipment-tooltip.medicine-category.buff', undefined))) {
+    labels.push(t('equipment-tooltip.medicine-category.buff', undefined));
   }
-  if (tags.includes('特殊') && !labels.includes('特殊')) {
-    labels.push('特殊');
+  if (tags.includes('特殊') && !labels.includes(t('equipment-tooltip.medicine-category.special', undefined))) {
+    labels.push(t('equipment-tooltip.medicine-category.special', undefined));
   }
-  if (tags.includes('药材') && !labels.includes('药材')) {
-    labels.push('药材');
+  if (tags.includes('药材') && !labels.includes(t('equipment-tooltip.material.herb', undefined))) {
+    labels.push(t('equipment-tooltip.material.herb', undefined));
   }
-  if (tags.includes('异材') && !labels.includes('异材')) {
-    labels.push('异材');
+  if (tags.includes('异材') && !labels.includes(t('equipment-tooltip.material.exotic', undefined))) {
+    labels.push(t('equipment-tooltip.material.exotic', undefined));
   }
   return labels.length > 0 ? labels.join(' / ') : null;
 }
@@ -131,11 +132,11 @@ function resolveMedicineCategoryLabel(item: ItemStack): string | null {
 function getMaterialCategoryLabel(category: MaterialCategory | undefined): string | null {
   switch (category) {
     case 'herb':
-      return '药材';
+      return t('equipment-tooltip.material.herb', undefined);
     case 'exotic':
-      return '异材';
+      return t('equipment-tooltip.material.exotic', undefined);
     case 'ore':
-      return '矿石';
+      return t('equipment-tooltip.material.ore', undefined);
     default:
       return null;
   }
@@ -154,7 +155,7 @@ export function describeMaterialValueDetails(item: ItemStack): string[] {
         ? [`${ELEMENT_KEY_LABELS[element]} ${formatDisplayInteger(value)}`]
         : [];
     });
-  return parts.length > 0 ? [`五行：${parts.join(' / ')}`] : [];
+  return parts.length > 0 ? [t('equipment-tooltip.material-values.elements', { values: parts.join(' / ') })] : [];
 }
 
 /** normalizeBuffMark：规范化Buff Mark。 */
@@ -163,7 +164,7 @@ function normalizeBuffMark(name: string, shortMark?: string): string {
 
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
-  return [...name.trim()][0] ?? '气';
+  return [...name.trim()][0] ?? t('equipment-tooltip.buff.default-mark', undefined);
 }
 
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
@@ -189,10 +190,10 @@ function describeSpecialStats(specialStats?: ItemStack['equipSpecialStats']): st
   const comprehension = Math.trunc(Number(specialStats?.comprehension ?? 0) || 0);
   const luck = Math.trunc(Number(specialStats?.luck ?? 0) || 0);
   if (comprehension !== 0) {
-    lines.push(`悟性 ${comprehension > 0 ? '+' : ''}${formatDisplayInteger(comprehension)}`);
+    lines.push(t('equipment-tooltip.special.comprehension', { value: `${comprehension > 0 ? '+' : ''}${formatDisplayInteger(comprehension)}` }));
   }
   if (luck !== 0) {
-    lines.push(`幸运 ${luck > 0 ? '+' : ''}${formatDisplayInteger(luck)}`);
+    lines.push(t('equipment-tooltip.special.luck', { value: `${luck > 0 ? '+' : ''}${formatDisplayInteger(luck)}` }));
   }
   return lines;
 }
@@ -210,7 +211,7 @@ function getMapLabel(mapId: string): string {
 /** getConditionTargetKindLabel：读取条件目标类型标签。 */
 function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): string {
   if (kind === 'tile') {
-    return '地块';
+    return t('equipment-tooltip.target-kind.tile', undefined);
   }
   return getEntityKindLabel(kind, kind);
 }
@@ -221,19 +222,19 @@ export function formatEquipmentConditionText(effect: EquipmentEffectDef): string
   return conditions.map((condition) => {
     switch (condition.type) {
       case 'time_segment':
-        return `时段：${condition.in.map((entry) => getTimePhaseLabel(entry)).join(' / ')}`;
+        return t('equipment-tooltip.condition.time', { value: condition.in.map((entry) => getTimePhaseLabel(entry)).join(' / ') });
       case 'map':
-        return `地图：${condition.mapIds.map((entry) => getMapLabel(entry)).join(' / ')}`;
+        return t('equipment-tooltip.condition.map', { value: condition.mapIds.map((entry) => getMapLabel(entry)).join(' / ') });
       case 'hp_ratio':
-        return `生命 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
+        return t('equipment-tooltip.condition.hp-ratio', { op: condition.op, value: formatDisplayPercent(condition.value * 100) });
       case 'qi_ratio':
-        return `灵力 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
+        return t('equipment-tooltip.condition.qi-ratio', { op: condition.op, value: formatDisplayPercent(condition.value * 100) });
       case 'is_cultivating':
-        return condition.value ? '仅修炼中生效' : '仅未修炼时生效';
+        return condition.value ? t('equipment-tooltip.condition.cultivating', undefined) : t('equipment-tooltip.condition.not-cultivating', undefined);
       case 'has_buff':
-        return `需带有 ${condition.buffId}${condition.minStacks ? ` ${condition.minStacks} 层` : ''}`;
+        return t('equipment-tooltip.condition.has-buff', { buffId: condition.buffId, stacks: condition.minStacks ? t('equipment-tooltip.condition.min-stacks', { stacks: condition.minStacks }) : '' });
       case 'target_kind':
-        return `目标：${condition.in.map((entry) => getConditionTargetKindLabel(entry)).join(' / ')}`;
+        return t('equipment-tooltip.condition.target-kind', { value: condition.in.map((entry) => getConditionTargetKindLabel(entry)).join(' / ') });
       default:
         return '';
     }
@@ -243,17 +244,17 @@ export function formatEquipmentConditionText(effect: EquipmentEffectDef): string
 /** formatTriggerLabel：格式化Trigger标签。 */
 function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? string : never): string {
   const labels: Record<string, string> = {
-    on_equip: '装备时',
-    on_unequip: '卸下时',
-    on_tick: '每息',
-    on_move: '移动后',
-    on_attack: '攻击后',
-    on_hit: '受击后',
-    on_kill: '击杀后',
-    on_skill_cast: '施法后',
-    on_cultivation_tick: '修炼时',
-    on_time_segment_changed: '时段切换时',
-    on_enter_map: '入图时',
+    on_equip: t('equipment-tooltip.trigger.on-equip', undefined),
+    on_unequip: t('equipment-tooltip.trigger.on-unequip', undefined),
+    on_tick: t('equipment-tooltip.trigger.on-tick', undefined),
+    on_move: t('equipment-tooltip.trigger.on-move', undefined),
+    on_attack: t('equipment-tooltip.trigger.on-attack', undefined),
+    on_hit: t('equipment-tooltip.trigger.on-hit', undefined),
+    on_kill: t('equipment-tooltip.trigger.on-kill', undefined),
+    on_skill_cast: t('equipment-tooltip.trigger.on-skill-cast', undefined),
+    on_cultivation_tick: t('equipment-tooltip.trigger.on-cultivation-tick', undefined),
+    on_time_segment_changed: t('equipment-tooltip.trigger.on-time-segment-changed', undefined),
+    on_enter_map: t('equipment-tooltip.trigger.on-enter-map', undefined),
   };
   return labels[trigger] ?? trigger;
 }
@@ -265,15 +266,15 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
  */
  type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
-  const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
+  const stackText = stackLimit ? t('equipment-tooltip.buff.stack-limit.suffix', { stackLimit }) : '';
   const conditionLines = formatEquipmentConditionText(effect);
   const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
   const lines = [
-    `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
-    ...(effect.cooldown !== undefined ? [`冷却：${formatDisplayInteger(effect.cooldown)} 息`] : []),
-    ...(effect.chance !== undefined ? [`触发概率：${formatDisplayPercent(effect.chance * 100)}`] : []),
-    ...(conditionLines.length > 0 ? [`条件：${conditionLines.join('，')}`] : []),
-    ...(buffLines.length > 0 ? [`效果：${buffLines.join('，')}`] : []),
+    t('equipment-tooltip.timed-buff.meta', { trigger: formatTriggerLabel(effect.trigger), target: effect.target === 'target' ? t('equipment-tooltip.target.enemy', undefined) : t('equipment-tooltip.target.self', undefined), duration: formatDisplayInteger(effect.buff.duration), stack: stackText }),
+    ...(effect.cooldown !== undefined ? [t('equipment-tooltip.cooldown.line', { cooldown: formatDisplayInteger(effect.cooldown) })] : []),
+    ...(effect.chance !== undefined ? [t('equipment-tooltip.chance.line', { chance: formatDisplayPercent(effect.chance * 100) })] : []),
+    ...(conditionLines.length > 0 ? [t('equipment-tooltip.condition.line', { conditions: conditionLines.join('，') })] : []),
+    ...(buffLines.length > 0 ? [t('equipment-tooltip.effect.line', { effects: buffLines.join('，') })] : []),
     ...(effect.buff.desc ? [effect.buff.desc] : []),
   ];
   return {
@@ -302,8 +303,8 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
-          renderPlainLine('常驻特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
-          ...(conditionLines.length > 0 ? [renderPlainLine('生效条件', conditionLines.join('，'))] : []),
+          renderPlainLine(t('equipment-tooltip.label.stat-aura', undefined), effectLines.length > 0 ? effectLines.join('，') : t('equipment-tooltip.effect.no-change', undefined)),
+          ...(conditionLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.conditions', undefined), conditionLines.join('，'))] : []),
         ],
       };
     }
@@ -311,8 +312,8 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
-          renderPlainLine('推进特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
-          ...(conditionLines.length > 0 ? [renderPlainLine('生效条件', conditionLines.join('，'))] : []),
+          renderPlainLine(t('equipment-tooltip.label.progress-boost', undefined), effectLines.length > 0 ? effectLines.join('，') : t('equipment-tooltip.effect.no-change', undefined)),
+          ...(conditionLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.conditions', undefined), conditionLines.join('，'))] : []),
         ],
       };
     }
@@ -320,32 +321,32 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
       const modeLabel = effect.mode === 'flat'
         ? `${formatDisplayNumber(effect.value)}`
       : effect.mode === 'max_ratio_bp'
-          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '气血' : '灵力'}`
-          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '气血' : '灵力'}`;
+          ? t('equipment-tooltip.periodic-cost.max-ratio', { value: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment-tooltip.resource.hp', undefined) : t('equipment-tooltip.resource.qi', undefined) })
+          : t('equipment-tooltip.periodic-cost.current-ratio', { value: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment-tooltip.resource.hp', undefined) : t('equipment-tooltip.resource.qi', undefined) });
       return {
         lines: [
-          renderPlainLine('持续代价', `${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`),
-          ...(conditionLines.length > 0 ? [renderPlainLine('生效条件', conditionLines.join('，'))] : []),
+          renderPlainLine(t('equipment-tooltip.label.periodic-cost', undefined), t('equipment-tooltip.periodic-cost.value', { trigger: effect.trigger === 'on_cultivation_tick' ? t('equipment-tooltip.trigger.each-cultivation-tick', undefined) : t('equipment-tooltip.trigger.each-tick', undefined), value: modeLabel })),
+          ...(conditionLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.conditions', undefined), conditionLines.join('，'))] : []),
         ],
       };
     }
     case 'timed_buff': {
       const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
-      const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
+      const stackText = stackLimit ? t('equipment-tooltip.buff.stack-limit.comma', { stackLimit }) : '';
       const meta: string[] = [
         formatTriggerLabel(effect.trigger),
-        effect.target === 'target' ? '目标' : '自身',
-        `${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
+        effect.target === 'target' ? t('equipment-tooltip.target.enemy', undefined) : t('equipment-tooltip.target.self', undefined),
+        t('equipment-tooltip.duration.with-stack', { duration: formatDisplayInteger(effect.buff.duration), stack: stackText }),
       ];
-      if (effect.cooldown !== undefined) meta.push(`冷却 ${formatDisplayInteger(effect.cooldown)} 息`);
+      if (effect.cooldown !== undefined) meta.push(t('equipment-tooltip.cooldown.meta', { cooldown: formatDisplayInteger(effect.cooldown) }));
       if (effect.chance !== undefined) meta.push(formatDisplayPercent(effect.chance * 100));
       return {
         lines: [
           renderLabelLine(
-            '触发增益',
+            t('equipment-tooltip.label.timed-buff', undefined),
             `${buildBuffInlineBadge(effect.buff.name, effect.buff.shortMark, effect.buff.category)}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${meta.join(' · ')}`)}</span>`,
           ),
-          ...(conditionLines.length > 0 ? [renderPlainLine('触发条件', conditionLines.join('，'))] : []),
+          ...(conditionLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.trigger-conditions', undefined), conditionLines.join('，'))] : []),
         ],
         asideCard: buildTimedBuffAsideCard(effect),
       };
@@ -439,16 +440,16 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
     ? itemCooldown
     : null;
   if (activeCooldown) {
-    return `冷却 ${formatDisplayInteger(activeCooldown.cooldownLeft)} 息`;
+    return t('equipment-tooltip.status.cooldown', { cooldown: formatDisplayInteger(activeCooldown.cooldownLeft) });
   }
   if (item.type === 'skill_book') {
     const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
-      return '已学';
+      return t('equipment-tooltip.status.learned', undefined);
     }
   }
   if (isMapUnlockItemRead(item, context?.unlockedMinimapIds)) {
-    return '已阅';
+    return t('equipment-tooltip.status.read', undefined);
   }
   return null;
 }
@@ -462,40 +463,40 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
     case 'stat_aura': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
-        `常驻特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
-        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+        t('equipment-tooltip.plain.stat-aura', { value: effectLines.length > 0 ? effectLines.join('，') : t('equipment-tooltip.effect.no-change', undefined) }),
+        ...(conditionLines.length > 0 ? [t('equipment-tooltip.plain.conditions', { value: conditionLines.join('，') })] : []),
       ];
     }
     case 'progress_boost': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
-        `推进特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
-        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+        t('equipment-tooltip.plain.progress-boost', { value: effectLines.length > 0 ? effectLines.join('，') : t('equipment-tooltip.effect.no-change', undefined) }),
+        ...(conditionLines.length > 0 ? [t('equipment-tooltip.plain.conditions', { value: conditionLines.join('，') })] : []),
       ];
     }
     case 'periodic_cost': {
       const modeLabel = effect.mode === 'flat'
         ? `${formatDisplayNumber(effect.value)}`
         : effect.mode === 'max_ratio_bp'
-          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+          ? t('equipment-tooltip.periodic-cost.max-ratio', { value: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment-tooltip.resource.life', undefined) : t('equipment-tooltip.resource.qi', undefined) })
+          : t('equipment-tooltip.periodic-cost.current-ratio', { value: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment-tooltip.resource.life', undefined) : t('equipment-tooltip.resource.qi', undefined) });
       return [
-        `持续代价：${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`,
-        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+        t('equipment-tooltip.plain.periodic-cost', { trigger: effect.trigger === 'on_cultivation_tick' ? t('equipment-tooltip.trigger.each-cultivation-tick', undefined) : t('equipment-tooltip.trigger.each-tick', undefined), value: modeLabel }),
+        ...(conditionLines.length > 0 ? [t('equipment-tooltip.plain.conditions', { value: conditionLines.join('，') })] : []),
       ];
     }
     case 'timed_buff': {
       const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
       const meta = [
         formatTriggerLabel(effect.trigger),
-        effect.target === 'target' ? '目标' : '自身',
-        `${formatDisplayInteger(effect.buff.duration)} 息${stackLimit ? `，最多 ${stackLimit} 层` : ''}`,
-        ...(effect.cooldown !== undefined ? [`冷却 ${formatDisplayInteger(effect.cooldown)} 息`] : []),
+        effect.target === 'target' ? t('equipment-tooltip.target.enemy', undefined) : t('equipment-tooltip.target.self', undefined),
+        t('equipment-tooltip.duration.with-stack', { duration: formatDisplayInteger(effect.buff.duration), stack: stackLimit ? t('equipment-tooltip.buff.stack-limit.comma', { stackLimit }) : '' }),
+        ...(effect.cooldown !== undefined ? [t('equipment-tooltip.cooldown.meta', { cooldown: formatDisplayInteger(effect.cooldown) })] : []),
         ...(effect.chance !== undefined ? [formatDisplayPercent(effect.chance * 100)] : []),
       ];
       return [
-        `触发增益：${effect.buff.name} ${meta.join(' · ')}`,
-        ...(conditionLines.length > 0 ? [`触发条件：${conditionLines.join('，')}`] : []),
+        t('equipment-tooltip.plain.timed-buff', { name: effect.buff.name, meta: meta.join(' · ') }),
+        ...(conditionLines.length > 0 ? [t('equipment-tooltip.plain.trigger-conditions', { value: conditionLines.join('，') })] : []),
       ];
     }
   }
@@ -515,37 +516,37 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
     ? itemCooldown
     : null;
   if (activeCooldown) {
-    lines.push(`当前冷却：${formatDisplayInteger(activeCooldown.cooldownLeft)} / ${formatDisplayInteger(activeCooldown.cooldown)} 息`);
+    lines.push(t('equipment-tooltip.consumable.active-cooldown', { left: formatDisplayInteger(activeCooldown.cooldownLeft), cooldown: formatDisplayInteger(activeCooldown.cooldown) }));
   }
   if (typeof previewItem.cooldown === 'number' && previewItem.cooldown > 0) {
-    lines.push(`使用冷却：${formatDisplayInteger(previewItem.cooldown)} 息`);
+    lines.push(t('equipment-tooltip.consumable.cooldown', { cooldown: formatDisplayInteger(previewItem.cooldown) }));
   }
   const instantParts: string[] = [];
   if (typeof previewItem.healAmount === 'number' && previewItem.healAmount > 0) {
-    instantParts.push(`恢复 ${formatDisplayInteger(previewItem.healAmount)} 点气血`);
+    instantParts.push(t('equipment-tooltip.consumable.heal-amount', { amount: formatDisplayInteger(previewItem.healAmount) }));
   }
   if (typeof previewItem.healPercent === 'number' && previewItem.healPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.healPercent * 100)} 气血`);
+    instantParts.push(t('equipment-tooltip.consumable.heal-percent', { percent: formatDisplayPercent(previewItem.healPercent * 100) }));
   }
   if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.qiPercent * 100)} 真气`);
+    instantParts.push(t('equipment-tooltip.consumable.qi-percent', { percent: formatDisplayPercent(previewItem.qiPercent * 100) }));
   }
   if (instantParts.length > 0) {
-    lines.push(`立即效果：${instantParts.join('，')}`);
+    lines.push(t('equipment-tooltip.consumable.instant', { value: instantParts.join('，') }));
   }
 
   for (const buff of previewItem.consumeBuffs ?? []) {
-    const metaParts = [`持续 ${formatDisplayInteger(buff.duration)} 息`];
+    const metaParts = [t('equipment-tooltip.consumable.buff-duration', { duration: formatDisplayInteger(buff.duration) })];
     if (typeof buff.maxStacks === 'number' && buff.maxStacks > 1) {
-      metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
+      metaParts.push(t('equipment-tooltip.consumable.buff-max-stacks', { stacks: formatDisplayInteger(buff.maxStacks) }));
     }
-    lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
+    lines.push(t('equipment-tooltip.consumable.buff', { name: buff.name, meta: metaParts.length > 0 ? `，${metaParts.join('，')}` : '' }));
     const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats, buff.attrMode ?? 'percent', buff.statMode ?? 'percent');
     if (bonusLines.length > 0) {
-      lines.push(`效果：${bonusLines.join('，')}`);
+      lines.push(t('equipment-tooltip.effect.line', { effects: bonusLines.join('，') }));
     }
     if (bonusLines.length === 0 && buff.desc?.trim()) {
-      lines.push(`说明：${buff.desc.trim()}`);
+      lines.push(t('equipment-tooltip.desc.line', { desc: buff.desc.trim() }));
     }
   }
 
@@ -554,16 +555,16 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
       if (typeof gain.amount !== 'number' || gain.amount <= 0) {
         continue;
       }
-      lines.push(`立即效果：${resolveTileResourceGainLabel(gain.resourceKey)} +${formatDisplayInteger(gain.amount)}`);
+      lines.push(t('equipment-tooltip.consumable.instant-resource', { resource: resolveTileResourceGainLabel(gain.resourceKey), amount: formatDisplayInteger(gain.amount) }));
     }
   } else if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
-    lines.push(`立即效果：所处之地灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
+    lines.push(t('equipment-tooltip.consumable.instant-resource', { resource: t('equipment-tooltip.tile-resource.aura', undefined), amount: formatDisplayInteger(previewItem.tileAuraGainAmount) }));
   }
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
-    lines.push('使用效果：永久解锁对应地图');
+    lines.push(t('equipment-tooltip.consumable.unlock-map', undefined));
   }
   if (previewItem.respawnBindMapId) {
-    lines.push('使用效果：绑定复活点与遁返落点');
+    lines.push(t('equipment-tooltip.consumable.bind-respawn', undefined));
   }
 
   return lines;
@@ -584,18 +585,18 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
 export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   const lines: string[] = [];
   const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
-  const craftLabel = item.tags?.includes('forging_tool') && !item.tags?.includes('alchemy_furnace') ? '炼器' : '炼丹';
+  const craftLabel = item.tags?.includes('forging_tool') && !item.tags?.includes('alchemy_furnace') ? t('equipment-tooltip.craft.forging', undefined) : t('equipment-tooltip.craft.alchemy', undefined);
   if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
-    lines.push(`${craftLabel}速度 ${formatSignedRate(item.alchemySpeedRate)}`);
+    lines.push(t('equipment-tooltip.utility.speed', { craft: craftLabel, value: formatSignedRate(item.alchemySpeedRate) }));
   }
   if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
-    lines.push(`${craftLabel}成功 ${formatSignedRate(item.alchemySuccessRate)}`);
+    lines.push(t('equipment-tooltip.utility.success', { craft: craftLabel, value: formatSignedRate(item.alchemySuccessRate) }));
   }
   if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
-    lines.push(`强化速度 ${formatSignedRate(item.enhancementSpeedRate)}`);
+    lines.push(t('equipment-tooltip.utility.enhancement-speed', { value: formatSignedRate(item.enhancementSpeedRate) }));
   }
   if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
-    lines.push(`强化成功修正 ${formatSignedRate(item.enhancementSuccessRate)}`);
+    lines.push(t('equipment-tooltip.utility.enhancement-success', { value: formatSignedRate(item.enhancementSuccessRate) }));
   }
   return lines;
 }
@@ -617,12 +618,12 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
   const propertyLines = describeEquipmentBonuses(previewItem);
   const effectLines = (enhancedPreviewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
-    mark: '装',
-    title: '已装备',
+    mark: t('equipment-tooltip.equipped.mark', undefined),
+    title: t('equipment-tooltip.equipped.title', undefined),
     lines: [
       enhancedPreviewItem.name,
-      ...(enhancedPreviewItem.equipSlot ? [`部位：${getEquipSlotLabel(enhancedPreviewItem.equipSlot)}`] : []),
-      ...(propertyLines.length > 0 ? [`装备属性：${propertyLines.join('，')}`] : []),
+      ...(enhancedPreviewItem.equipSlot ? [t('equipment-tooltip.equipped.slot', { slot: getEquipSlotLabel(enhancedPreviewItem.equipSlot) })] : []),
+      ...(propertyLines.length > 0 ? [t('equipment-tooltip.equipped.attrs', { attrs: propertyLines.join('，') })] : []),
       ...effectLines,
     ],
     tone: 'buff',
@@ -641,7 +642,7 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   }
   const realmLabel = technique.realmLv
     ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
-    : '未知';
+    : t('equipment-tooltip.value.unknown', undefined);
   const maxLevel = Math.max(
     1,
     ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
@@ -650,14 +651,14 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     .map((skill) => skill.name.trim())
     .filter((name) => name.length > 0);
   return [
-    renderPlainLine('功法', technique.name),
-    renderPlainLine('描述', item.desc?.trim() || '此物无言'),
-    renderPlainLine('境界', realmLabel),
-    renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
-    renderPlainLine('满层属性', formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),
+    renderPlainLine(t('equipment-tooltip.technique-book.technique', undefined), technique.name),
+    renderPlainLine(t('equipment-tooltip.technique-book.desc', undefined), item.desc?.trim() || t('equipment-tooltip.technique-book.no-desc', undefined)),
+    renderPlainLine(t('equipment-tooltip.technique-book.realm', undefined), realmLabel),
+    renderPlainLine(t('equipment-tooltip.technique-book.grade', undefined), getTechniqueGradeLabel(technique.grade)),
+    renderPlainLine(t('equipment-tooltip.technique-book.max-attrs', undefined), formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),
     renderPlainLine(
-      `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
-      skillNames.length > 0 ? skillNames.join('、') : '无',
+      t('equipment-tooltip.technique-book.skills-label', { count: skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : '' }),
+      skillNames.length > 0 ? skillNames.join('、') : t('equipment-tooltip.value.none', undefined),
     ),
   ];
 }
@@ -684,13 +685,13 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
       ...(previewItem.type === 'skill_book'
         ? []
         : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
-      renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
-      ...(medicineCategoryLabel ? [renderPlainLine('分类', medicineCategoryLabel)] : []),
-      ...materialValueLines.map((line) => renderPlainLine('五行数值', line.replace(/^五行：/, ''))),
-      ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
+      renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(previewItem.type)),
+      ...(medicineCategoryLabel ? [renderPlainLine(t('equipment-tooltip.label.category', undefined), medicineCategoryLabel)] : []),
+      ...materialValueLines.map((line) => renderPlainLine(t('equipment-tooltip.label.element-values', undefined), line.replace(/^五行：/, ''))),
+      ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
       ...techniqueBookLines,
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
-      `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
+      `<div class="inventory-source-block"><span class="skill-tooltip-label">${t('equipment-tooltip.label.source', undefined)}：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
     return {
       title: previewItem.name,
@@ -705,12 +706,12 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const effectSummaries = (enhancedPreviewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
     `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
-    renderPlainLine('类型', getItemTypeLabel(enhancedPreviewItem.type)),
-    ...(enhancedPreviewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
-    ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
-    ...(propertyLines.length > 0 ? [renderPlainLine('装备属性', propertyLines.join('，'))] : []),
+    renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(enhancedPreviewItem.type)),
+    ...(enhancedPreviewItem.equipSlot ? [renderPlainLine(t('equipment-tooltip.label.slot', undefined), getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
+    ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
+    ...(propertyLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.equipment-attrs', undefined), propertyLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
-    `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
+    `<div class="inventory-source-block"><span class="skill-tooltip-label">${t('equipment-tooltip.label.source', undefined)}：</span>${sourceListHtml}</div>`,
   ];
   const asideCards = effectSummaries
     .map((entry) => entry.asideCard)

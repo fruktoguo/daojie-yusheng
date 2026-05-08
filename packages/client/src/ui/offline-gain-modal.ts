@@ -6,6 +6,7 @@ import {
   type OfflineGainStoreResult,
 } from '../offline-gain-storage';
 import { formatOfflineGainDuration, renderOfflineGainReports } from './offline-gain-render';
+import { t } from './i18n';
 
 type OfflineGainToastKind = 'success' | 'warn' | 'system';
 
@@ -37,9 +38,9 @@ export function handleOfflineGainReports(
   if (storeResult.reports.length > 0) {
     openOfflineGainReportsModal(storeResult);
     if (storeResult.storageOk) {
-      options.showToast(`离线挂机收益已保存：${storeResult.reports.length} 条`, 'success');
+      options.showToast(t('offline-gain.toast.saved', { count: storeResult.reports.length }), 'success');
     } else {
-      options.showToast('离线挂机收益已接收，本地保存失败，云端会保留并下次重发', 'warn');
+      options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
     }
   }
 }
@@ -54,9 +55,9 @@ function openOfflineGainReportsModal(storeResult: OfflineGainStoreResult): void 
     ownerId: 'offline-gain-reports',
     variantClass: 'detail-modal--offline-gain',
     size: 'lg',
-    title: '离线挂机收益',
-    subtitle: `${reports.length} 次离线记录 · ${formatOfflineGainDuration(totalDurationMs)}`,
-    hint: storeResult.storageOk ? '已存入本地浏览器' : '本地保存失败，云端仍会保留',
+    title: t('offline-gain.modal.title'),
+    subtitle: t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) }),
+    hint: storeResult.storageOk ? t('offline-gain.modal.hint.saved') : t('offline-gain.modal.hint.save-failed'),
     bodyHtml: renderOfflineGainReports(reports),
   });
 }

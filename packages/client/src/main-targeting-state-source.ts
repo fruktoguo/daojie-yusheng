@@ -15,6 +15,7 @@ import {
   resolveTargetRefForAction as resolveTargetRefForActionHelper,
 } from './main-targeting-helpers';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
+import { t } from './ui/i18n';
 
 const WANG_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS = 3000;
 /**
@@ -262,16 +263,16 @@ type MainTargetingStateSourceOptions = {
 };
 
 function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLevelText: (auraValue: number) => string): string[] {
-  const lines = [`坐标 (${x}, ${y})`];
+  const lines = [t('targeting.tooltip.coordinate', { x, y })];
   if (Array.isArray(tile.resources) && tile.resources.length > 0) {
     for (const resource of tile.resources) {
       const displayValue = resource.effectiveValue ?? resource.value;
       lines.push(
         typeof resource.level === 'number' && Number.isFinite(resource.level)
-          ? `${resource.label}等级 ${Math.max(0, Math.round(resource.level))}`
+          ? t('targeting.tooltip.resource-level', { label: resource.label, level: Math.max(0, Math.round(resource.level)) })
           : resource.label === '灵气'
           ? formatAuraLevelText(displayValue)
-          : `${resource.label} ${Math.max(0, Math.round(displayValue))}`,
+          : t('targeting.tooltip.resource-value', { label: resource.label, value: Math.max(0, Math.round(displayValue)) }),
       );
     }
     return lines;
@@ -286,35 +287,45 @@ function appendSenseQiFormationLines(lines: string[], entities: readonly MainTar
       continue;
     }
     const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
-    lines.push(`${entity.name ?? '阵法'} · 中心 (${entity.wx}, ${entity.wy}) · 半径 ${radius}`);
+    lines.push(t('targeting.tooltip.formation', {
+      name: entity.name ?? t('targeting.tooltip.formation.default-name', undefined),
+      x: entity.wx,
+      y: entity.wy,
+      radius,
+    }));
   }
 }
 
 function appendWangQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | null): void {
   if (!info) {
-    lines.push('房间：此处不在房间内');
-    lines.push('风水：平 0');
-    lines.push('幸运：+0');
+    lines.push(t('targeting.wangqi.room.none', undefined));
+    lines.push(t('targeting.wangqi.fengshui.neutral', undefined));
+    lines.push(t('targeting.wangqi.luck.zero', undefined));
     return;
   }
-  lines.push(`房间：${info.roomLabel}`);
+  lines.push(t('targeting.wangqi.room', { room: info.roomLabel }));
   const roomParts: string[] = [];
   if (typeof info.area === 'number') {
-    roomParts.push(`面积 ${Math.max(0, Math.round(info.area))}`);
+    roomParts.push(t('targeting.wangqi.area', { area: Math.max(0, Math.round(info.area)) }));
   }
   if (typeof info.enclosed === 'boolean') {
-    roomParts.push(info.enclosed ? '封闭完整' : '连通外界');
+    roomParts.push(info.enclosed
+      ? t('targeting.wangqi.enclosed', undefined)
+      : t('targeting.wangqi.open', undefined));
   }
   if (typeof info.doorCount === 'number' || typeof info.windowCount === 'number') {
-    roomParts.push(`门窗 ${Math.max(0, Math.round(info.doorCount ?? 0))}/${Math.max(0, Math.round(info.windowCount ?? 0))}`);
+    roomParts.push(t('targeting.wangqi.doors-windows', {
+      doors: Math.max(0, Math.round(info.doorCount ?? 0)),
+      windows: Math.max(0, Math.round(info.windowCount ?? 0)),
+    }));
   }
   if (roomParts.length > 0) {
     lines.push(roomParts.join(' · '));
   }
   const score = Math.round(info.score);
   const luck = Math.trunc(score / 10);
-  lines.push(`风水：${info.fengShuiLabel} ${score}`);
-  lines.push(`幸运：${luck > 0 ? `+${luck}` : String(luck)}`);
+  lines.push(t('targeting.wangqi.fengshui', { label: info.fengShuiLabel, score }));
+  lines.push(t('targeting.wangqi.luck', { luck: luck > 0 ? `+${luck}` : String(luck) }));
 }
 
 function isTileInsideFormationRange(entity: MainTargetingObservedEntity, x: number, y: number): boolean {
@@ -524,10 +535,10 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       pendingTargetedAction.range = this.resolveCurrentTargetingRange(pendingTargetedAction);
       this.syncTargetingOverlay();
       if (actionId === 'client:observe') {
-        options.showToast('请选择当前视野内的目标格，按取消键或右键取消');
+        options.showToast(t('targeting.toast.observe', undefined));
         return;
       }
-      options.showToast(`请选择 ${pendingTargetedAction.range} 格内目标，按取消键或右键取消`);
+      options.showToast(t('targeting.toast.select-range', { range: pendingTargetedAction.range }));
     },
     /**
  * cancelTargeting：读取cancelTargeting并返回结果。
@@ -549,7 +560,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         options.sendAction?.('battle:force_attack');
       }
       if (showMessage) {
-        options.showToast('已取消目标选择');
+        options.showToast(t('targeting.toast.cancelled', undefined));
       }
     },
     /**
@@ -585,22 +596,26 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       });
       if (options.targetingBadgeEl) {
         const rangeLabel = pendingTargetedAction.actionId === 'client:observe'
-          ? `视野 ${pendingTargetedAction.range}`
-          : `射程 ${geometry.range}`;
+          ? t('targeting.badge.vision-range', { range: pendingTargetedAction.range })
+          : t('targeting.badge.cast-range', { range: geometry.range });
         const shapeLabel = geometry.shape === 'line'
-          ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
+          ? t('targeting.badge.shape.line', { maxTargets: pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : '' })
           : geometry.shape === 'ring'
-            ? ` · 环带 ${Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))}-${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+            ? t('targeting.badge.shape.ring', { inner: Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0)), outer: Math.max(0, geometry.radius ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
             : geometry.shape === 'checkerboard'
-              ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+              ? t('targeting.badge.shape.checkerboard', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
               : geometry.shape === 'box'
-                ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                ? t('targeting.badge.shape.box', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
                 : geometry.shape === 'orientedBox'
-                  ? ` · 定向矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                  ? t('targeting.badge.shape.oriented-box', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
                   : geometry.shape === 'area'
-                    ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                    ? t('targeting.badge.shape.area', { radius: Math.max(0, geometry.radius ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
                     : '';
-        options.targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
+        options.targetingBadgeEl.textContent = t('targeting.badge.selected', {
+          actionName: pendingTargetedAction.actionName,
+          range: rangeLabel,
+          shape: shapeLabel,
+        });
         options.targetingBadgeEl.classList.remove('hidden');
       }
       this.syncSenseQiOverlay();
@@ -629,9 +644,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
           return;
         }
         const info = options.getWangQiRoomInfoAt?.(hoveredMapTile.x, hoveredMapTile.y) ?? null;
-        const lines = [`坐标 (${hoveredMapTile.x}, ${hoveredMapTile.y})`];
+        const lines = [t('targeting.tooltip.coordinate', { x: hoveredMapTile.x, y: hoveredMapTile.y })];
         appendWangQiRoomLines(lines, info);
-        showHoverTooltip('望气视角', lines);
+        showHoverTooltip(t('targeting.wangqi.title', undefined), lines);
         return;
       }
 
@@ -654,7 +669,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
       const lines = buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText);
       appendSenseQiFormationLines(lines, options.getLatestEntities(), hoveredMapTile.x, hoveredMapTile.y);
-      showHoverTooltip('感气视角', lines);
+      showHoverTooltip(t('targeting.senseqi.title', undefined), lines);
     },
     syncWangQiOverlay(): void {
       const player = options.getPlayer();

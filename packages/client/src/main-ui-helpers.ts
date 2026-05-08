@@ -1,5 +1,6 @@
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { patchElementHtml } from './ui/dom-patch';
+import { t } from './ui/i18n';
 /**
  * ObserveAsideCard：统一结构类型，保证协议与运行时一致性。
  */
@@ -228,10 +229,10 @@ export function bindZoomControls(options: {
   });
   zoomSlider?.addEventListener('change', () => {
     const zoom = applyZoomChange(Number(zoomSlider.value));
-    showToast(`缩放已调整为 ${formatZoom(zoom)}x`);
+    showToast(t('ui.zoom.adjusted', { zoom: formatZoom(zoom) }));
   });
   zoomResetBtn?.addEventListener('click', () => {
     const zoom = applyZoomChange(2);
-    showToast(`缩放已重置为 ${formatZoom(zoom)}x`);
+    showToast(t('ui.zoom.reset', { zoom: formatZoom(zoom) }));
   });
 }

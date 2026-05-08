@@ -3,6 +3,7 @@ import type { PlayerState } from '@mud/shared';
 import type { ToastKind } from '../main-app-assembly-types';
 import { detailModalHost } from './detail-modal-host';
 import { patchElementChildren } from './dom-patch';
+import { t } from './i18n';
 
 type WorldMigrationLinePreset = 'peaceful' | 'real';
 
@@ -18,7 +19,7 @@ const WORLD_MIGRATION_VARIANT_CLASS = 'detail-modal--world-migration';
 export function openWorldMigrationModal(options: OpenWorldMigrationModalOptions): void {
   const player = options.getPlayer();
   if (!player) {
-    options.showToast('身未安定，暂不可跨界。', 'warn');
+    options.showToast(t('world-migration.toast.not-ready'), 'warn');
     return;
   }
   renderWorldMigrationModal(options, player, null);
@@ -33,10 +34,10 @@ function renderWorldMigrationModal(
   const modalOptions = {
     ownerId: WORLD_MIGRATION_MODAL_OWNER,
     variantClass: WORLD_MIGRATION_VARIANT_CLASS,
-    title: '世界迁移',
+    title: t('world-migration.modal.title'),
     size: 'sm' as const,
-    subtitle: `当前世界：${currentPreset === 'real' ? '现世' : '虚境'}`,
-    hint: '切入他道后，随其之道。',
+    subtitle: t('world-migration.modal.subtitle', { world: currentPreset === 'real' ? t('world-migration.line.real') : t('world-migration.line.peaceful') }),
+    hint: t('world-migration.modal.hint'),
     renderBody: (body: HTMLElement) => {
       patchElementChildren(body, createWorldMigrationShell(currentPreset, pendingTargetPreset));
     },
@@ -236,7 +237,7 @@ function openWorldMigrationConfirm(
   const player = options.getPlayer();
   if (!player) {
     detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-    options.showToast('身未安定，暂不可跨界。', 'warn');
+    options.showToast(t('world-migration.toast.not-ready'), 'warn');
     return;
   }
   const livePreset = resolveCurrentWorldLinePreset(player.instanceId);

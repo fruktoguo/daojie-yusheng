@@ -76,7 +76,10 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         if (!socket || !player || !this.worldClientEventService.prefersMainline(socket)) {
             return;
         }
-        const payload = panel === 'enhancement' && player.enhancementJob && typeof this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload === 'function'
+        const hasActivePanelJob = typeof this.craftPanelRuntimeService.hasActiveTechniqueActivity === 'function'
+            ? this.craftPanelRuntimeService.hasActiveTechniqueActivity(player, panel)
+            : Boolean(panel === 'enhancement' ? player.enhancementJob : player.alchemyJob);
+        const payload = hasActivePanelJob && typeof this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload === 'function'
             ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
             : this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
         (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(socket, panel, payload);
@@ -93,6 +96,15 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
             this.emitCraftPanelUpdate(playerId, kind, deps);
         }
     }    
+    /** 判断指定技艺面板是否有运行中任务，需要每息推送运行态小包。 */
+    hasActiveCraftPanelJob(playerId, panel) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player || typeof this.craftPanelRuntimeService.hasActiveTechniqueActivity !== 'function') {
+            return false;
+        }
+        return this.craftPanelRuntimeService.hasActiveTechniqueActivity(player, panel);
+    }
+
     /**
  * flushCraftMutation：执行刷新炼制Mutation相关逻辑。
  * @param playerId 玩家 ID。
@@ -122,7 +134,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
                 deps.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
             }
         }
-        if (result.panelChanged) {
+        if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
             this.emitCraftPanelUpdate(playerId, panel, deps);
         }
     }    

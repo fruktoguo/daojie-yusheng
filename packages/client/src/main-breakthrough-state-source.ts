@@ -2,7 +2,8 @@ import { C2S, getAuraLevel, type BreakthroughRequirementView, type ClientToServe
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { openHeavenGateModal } from './ui/heaven-gate-modal';
+import { getHeavenGateHudAction, openHeavenGateModal } from './ui/heaven-gate-modal';
+import { t } from './ui/i18n';
 import { formatDisplayInteger } from './utils/number';
 /**
  * MainBreakthroughStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -95,7 +96,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
-      if (openHeavenGateModal(player, {
+      if (getHeavenGateHudAction(player)?.visible && openHeavenGateModal(player, {
         showToast: options.showToast,
         sendAction: options.sendHeavenGateAction,
       })) {
@@ -105,13 +106,14 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
       const preview = player?.realm?.breakthrough;
       const currentRealm = player?.realm;
       if (!preview || !currentRealm) {
-        options.showToast('当前境界尚未圆满，暂时不能突破');
+        options.showToast(t('breakthrough.toast.not-ready'));
         return;
       }
 
       const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
       const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
       const rootFoundation = preview.rootFoundation;
+      const autoRootFoundation = player?.autoRootFoundation === true;
       const rootFoundationReachedCap = rootFoundation ? rootFoundation.current >= rootFoundation.cap : false;
       const rootFoundationStatusLabel = rootFoundation?.canRefine
         ? '可凝练'
@@ -173,6 +175,11 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
                     <div class="action-desc">修为：${formatDisplayInteger(rootFoundation.progress)} / ${formatDisplayInteger(rootFoundation.costProgress)}</div>
                     <div class="action-desc breakthrough-root-materials">${rootMaterialRows}</div>
                     ${rootFoundation.blockedReason ? `<div class="action-desc">${renderTextWithInlineItemHighlights(rootFoundation.blockedReason)}</div>` : ''}
+                    <label class="breakthrough-root-auto-toggle">
+                      <input type="checkbox" data-root-foundation-auto-refine ${autoRootFoundation ? 'checked' : ''}>
+                      <span>自动凝练</span>
+                      <span class="breakthrough-root-auto-hint">条件满足时执行</span>
+                    </label>
                   </div>
                 </div>
               ` : '<div class="empty-hint ui-empty-hint">当前暂不可凝练根基。</div>'}
@@ -201,6 +208,14 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           body.querySelector<HTMLElement>('[data-root-foundation-refine]')?.addEventListener('click', () => {
             detailModalHost.close('realm:breakthrough');
             options.sendAction('realm:refine_root_foundation');
+          }, { signal });
+          body.querySelector<HTMLInputElement>('[data-root-foundation-auto-refine]')?.addEventListener('change', (event) => {
+            const checked = (event.currentTarget as HTMLInputElement).checked;
+            const currentPlayer = options.getPlayer();
+            if (currentPlayer) {
+              currentPlayer.autoRootFoundation = checked;
+            }
+            options.sendAction(checked ? 'realm:auto_refine_root_foundation:on' : 'realm:auto_refine_root_foundation:off');
           }, { signal });
         },
       });

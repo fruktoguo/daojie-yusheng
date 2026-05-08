@@ -45,12 +45,18 @@ export function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
 
 /** getPlayerIdentityLine：读取玩家身份Line。 */
 export function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
-  return `地图: ${player.mapName}`;
+  return `${formatPlayerNo(player.playerNo)} · 地图: ${player.mapName}`;
 }
 
 /** getPlayerStatsLine：读取玩家属性Line。 */
 export function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
   return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel}`;
+}
+
+function formatPlayerNo(playerNo: number | null | undefined): string {
+  return typeof playerNo === 'number' && Number.isSafeInteger(playerNo) && playerNo > 0
+    ? String(playerNo).padStart(3, '0')
+    : '000';
 }
 
 /** getEditorMetaMarkup：读取编辑器元数据Markup。 */

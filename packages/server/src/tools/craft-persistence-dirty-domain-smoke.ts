@@ -2,12 +2,20 @@ import assert from 'node:assert/strict';
 
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 
+const TEST_REALM_EXP_TO_NEXT = 10000;
+
 function createRuntimeHarness(playerStore: Map<string, ReturnType<typeof createPlayer>>) {
   return {
     walletDebits: [] as Array<[string, string, number]>,
     playerProgressionService: {
       refreshPreview() {
         return undefined;
+      },
+      getRealmLevelEntry(level: number) {
+        return {
+          realmLv: Math.max(1, Math.floor(Number(level) || 1)),
+          expToNext: TEST_REALM_EXP_TO_NEXT,
+        };
       },
     },
     playerAttributesService: {
@@ -154,13 +162,13 @@ function createPlayer() {
     alchemySkill: {
       level: 1,
       exp: 0,
-      expToNext: 60,
+      expToNext: TEST_REALM_EXP_TO_NEXT,
     },
     gatherSkill: null,
     enhancementSkill: {
       level: 1,
       exp: 0,
-      expToNext: 60,
+      expToNext: TEST_REALM_EXP_TO_NEXT,
     },
     enhancementSkillLevel: 1,
     alchemyPresets: [],

@@ -2,10 +2,31 @@
 
 const assert = require("node:assert/strict");
 
-const { computeCraftSkillExpGain } = require("@mud/shared");
+const { computeAlchemyAdjustedBrewTicks, computeCraftSkillExpGain } = require("@mud/shared");
 const { CraftPanelRuntimeService } = require("../runtime/craft/craft-panel-runtime.service");
 const { WorldRuntimeCraftInterruptService } = require("../runtime/world/world-runtime-craft-interrupt.service");
 const { WorldRuntimeCraftTickService } = require("../runtime/world/world-runtime-craft-tick.service");
+
+const TEST_REALM_EXP_MULTIPLIER = 1000;
+
+function resolveTestRealmExpToNext(level) {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    if (normalizedLevel === 1) {
+        return 10 * TEST_REALM_EXP_MULTIPLIER;
+    }
+    if (normalizedLevel === 6) {
+        return 30 * TEST_REALM_EXP_MULTIPLIER;
+    }
+    return Math.max(0, (10 + ((normalizedLevel - 1) * 2)) * TEST_REALM_EXP_MULTIPLIER);
+}
+
+function getTestRealmLevelEntry(level) {
+    const realmLv = Math.max(1, Math.floor(Number(level) || 1));
+    return {
+        realmLv,
+        expToNext: resolveTestRealmExpToNext(realmLv),
+    };
+}
 /**
  * testInterruptCraftForReason：执行testInterrupt炼制ForReason相关逻辑。
  * @returns 无返回值，直接更新testInterrupt炼制ForReason相关状态。
@@ -91,7 +112,7 @@ function testInterruptCraftForReason() {
 }
 
 function testShortCraftSkillExpGain() {
-    const expToNextByLevel = (level) => Math.max(60, 60 + ((Math.max(1, Math.floor(Number(level) || 1)) - 1) * 12));
+    const expToNextByLevel = resolveTestRealmExpToNext;
     const lowTickAlchemyGain = computeCraftSkillExpGain({
         skillLevel: 1,
         targetLevel: 1,
@@ -101,7 +122,7 @@ function testShortCraftSkillExpGain() {
         failureCount: 0,
         successMultiplier: 1,
     });
-    assert.equal(lowTickAlchemyGain.finalGain, 1);
+    assert.equal(lowTickAlchemyGain.finalGain, 167);
     const lowTickEnhancementGain = computeCraftSkillExpGain({
         skillLevel: 6,
         targetLevel: 6,
@@ -111,7 +132,72 @@ function testShortCraftSkillExpGain() {
         failureCount: 0,
         successMultiplier: 1,
     });
-    assert.equal(lowTickEnhancementGain.finalGain, 1);
+    assert.equal(lowTickEnhancementGain.finalGain, 127);
+}
+
+function testAlchemyBatchTicksDoNotScaleWithFurnaceOutputCount() {
+    const exactRecipe = {
+        fullPower: 1,
+        ingredients: [{ itemId: 'herb', count: 1, role: 'main' }],
+    };
+    assert.equal(computeAlchemyAdjustedBrewTicks(12, exactRecipe, exactRecipe.ingredients, 1, 1, 0, 6), 12);
+}
+
+function testForgingStartsSingleOutputBatch() {
+    const service = new CraftPanelRuntimeService({
+        getItemName() { return null; },
+    }, {
+        playerProgressionService: {
+            refreshPreview() {},
+            getRealmLevelEntry: getTestRealmLevelEntry,
+        },
+        markPersistenceDirtyDomains() {},
+        bumpPersistentRevision(player) {
+            player.persistentRevision = Math.max(0, Number(player.persistentRevision) || 0) + 1;
+        },
+    }, {
+        isEnabled() {
+            return false;
+        },
+    }, {}, {
+        canAffordWallet() {
+            return true;
+        },
+        debitWallet() {},
+    });
+    service.forgingCatalog = [{
+        recipeId: 'forging.copper_tool',
+        outputItemId: 'equip.copper_forging_tool',
+        outputName: '铜炼器钳',
+        outputLevel: 1,
+        outputCount: 1,
+        category: 'special',
+        baseBrewTicks: 10,
+        ingredients: [],
+    }];
+    const player = {
+        playerId: 'player:forging-start',
+        persistentRevision: 1,
+        inventory: { revision: 1, capacity: 20, items: [] },
+        alchemySkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        gatherSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        enhancementSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        enhancementSkillLevel: 1,
+        alchemyPresets: [],
+        enhancementRecords: [],
+        enhancementJob: null,
+        alchemyJob: null,
+    };
+    const result = service.startForging(player, {
+        recipeId: 'forging.copper_tool',
+        ingredients: [],
+        quantity: 1,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(player.alchemyJob?.jobType, 'forging');
+    assert.equal(player.alchemyJob?.outputCount, 1);
+    assert.equal(player.alchemyJob?.batchBrewTicks, 10);
+    assert.equal(player.alchemyJob?.totalTicks, 20);
 }
 
 function testToolSlotsAreNoLongerLockedByCraftJobs() {
@@ -151,6 +237,182 @@ function testToolSlotsAreNoLongerLockedByCraftJobs() {
     assert.equal(service.getLockedSlotReason(enhancementPlayer, 'weapon'), null);
     assert.equal(service.blocksEquipSlotChange(enhancementPlayer, 'armor'), true);
     assert.equal(service.getLockedSlotReason(enhancementPlayer, 'armor'), '铁甲 强化进行中，暂时不能更换对应装备槽。');
+}
+
+async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
+    const persistedActiveJobs = [];
+    const dirtyDomains = [];
+    const service = new CraftPanelRuntimeService({
+        getItemName(itemId) {
+            return itemId === 'equip.copper_forging_tool' ? '铜炼器钳' : null;
+        },
+        normalizeItem(item) {
+            return {
+                itemId: item.itemId,
+                name: item.itemId === 'equip.copper_forging_tool' ? '铜炼器钳' : item.itemId,
+                count: Math.max(1, Math.floor(Number(item.count) || 1)),
+            };
+        },
+    }, {
+        playerProgressionService: {
+            refreshPreview() {},
+            getRealmLevelEntry: getTestRealmLevelEntry,
+        },
+        playerAttributesService: {
+            recalculate() {},
+        },
+        rebuildActionState() {},
+        markPersistenceDirtyDomains(_player, domains) {
+            dirtyDomains.push([...domains]);
+        },
+        bumpPersistentRevision(player) {
+            player.persistentRevision = Math.max(0, Number(player.persistentRevision) || 0) + 1;
+        },
+    }, {
+        isEnabled() {
+            return true;
+        },
+        async savePlayerActiveJob(_playerId, activeJob) {
+            persistedActiveJobs.push(activeJob ? { ...activeJob } : null);
+        },
+    }, {}, {});
+    service.forgingCatalog = [{
+        recipeId: 'forging:copper_tool',
+        outputItemId: 'equip.copper_forging_tool',
+        outputName: '铜炼器钳',
+        outputLevel: 1,
+        outputCount: 1,
+        category: 'special',
+        baseBrewTicks: 10,
+        ingredients: [],
+    }];
+    const player = {
+        playerId: 'player:forging',
+        persistentRevision: 1,
+        inventory: {
+            revision: 1,
+            capacity: 20,
+            items: [],
+        },
+        alchemySkill: {
+            level: 1,
+            exp: 0,
+            expToNext: resolveTestRealmExpToNext(1),
+        },
+        gatherSkill: {
+            level: 1,
+            exp: 0,
+            expToNext: resolveTestRealmExpToNext(1),
+        },
+        enhancementSkill: {
+            level: 1,
+            exp: 0,
+            expToNext: resolveTestRealmExpToNext(1),
+        },
+        enhancementSkillLevel: 1,
+        alchemyPresets: [],
+        enhancementRecords: [],
+        enhancementJob: null,
+        alchemyJob: {
+            jobRunId: 'job:forging:final',
+            jobType: 'forging',
+            jobVersion: 5,
+            recipeId: 'forging:copper_tool',
+            outputItemId: 'equip.copper_forging_tool',
+            outputCount: 1,
+            quantity: 1,
+            completedCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            ingredients: [],
+            phase: 'brewing',
+            preparationTicks: 0,
+            batchBrewTicks: 5,
+            currentBatchRemainingTicks: 1,
+            pausedTicks: 0,
+            spiritStoneCost: 0,
+            totalTicks: 5,
+            remainingTicks: 1,
+            successRate: 1,
+            exactRecipe: true,
+            outputLevel: 1,
+            baseBrewTicks: 10,
+            startedAt: 100,
+            queuedJobs: [],
+        },
+    };
+    const result = service.tickAlchemy(player);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(result.ok, true);
+    assert.equal(player.alchemyJob, null);
+    assert.equal(player.inventory.items[0]?.itemId, 'equip.copper_forging_tool');
+    assert.equal(player.inventory.items[0]?.count, 1);
+    assert.equal(player.alchemySkill.exp, 139);
+    assert.deepEqual(persistedActiveJobs, [null]);
+    assert.equal(dirtyDomains.some((domains) => domains.includes('active_job')), true);
+    assert.equal(dirtyDomains.some((domains) => domains.includes('profession')), true);
+}
+
+async function testCompletedAlchemyLikeJobIsClearedOnEnsure() {
+    const persistedActiveJobs = [];
+    const service = new CraftPanelRuntimeService({
+        getItemName() { return null; },
+        normalizeItem(item) { return item; },
+    }, {
+        playerProgressionService: {
+            refreshPreview() {},
+            getRealmLevelEntry: getTestRealmLevelEntry,
+        },
+        markPersistenceDirtyDomains() {},
+        bumpPersistentRevision(player) {
+            player.persistentRevision = Math.max(0, Number(player.persistentRevision) || 0) + 1;
+        },
+    }, {
+        isEnabled() {
+            return true;
+        },
+        async savePlayerActiveJob(_playerId, activeJob) {
+            persistedActiveJobs.push(activeJob ? { ...activeJob } : null);
+        },
+    }, {}, {});
+    const player = {
+        playerId: 'player:stale-forging',
+        persistentRevision: 1,
+        alchemySkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        gatherSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        enhancementSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        enhancementSkillLevel: 1,
+        alchemyPresets: [],
+        enhancementRecords: [],
+        enhancementJob: null,
+        alchemyJob: {
+            jobRunId: 'job:forging:stale',
+            jobType: 'forging',
+            recipeId: 'forging:copper_tool',
+            outputItemId: 'equip.copper_forging_tool',
+            outputCount: 6,
+            quantity: 1,
+            completedCount: 1,
+            successCount: 6,
+            failureCount: 0,
+            ingredients: [],
+            phase: 'brewing',
+            preparationTicks: 0,
+            batchBrewTicks: 1,
+            currentBatchRemainingTicks: 0,
+            pausedTicks: 0,
+            spiritStoneCost: 0,
+            totalTicks: 1,
+            remainingTicks: 0,
+            successRate: 1,
+            exactRecipe: true,
+            startedAt: 100,
+        },
+    };
+    service.ensureCraftSkills(player);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(player.alchemyJob, null);
+    assert.deepEqual(persistedActiveJobs, [null]);
 }
 /**
  * testAdvanceCraftJobs：执行testAdvance炼制Job相关逻辑。
@@ -252,10 +514,18 @@ Promise.resolve()
     .then(() => {
     testShortCraftSkillExpGain();
 })
+.then(() => {
+    testAlchemyBatchTicksDoNotScaleWithFurnaceOutputCount();
+})
+.then(() => {
+    testForgingStartsSingleOutputBatch();
+})
     .then(() => {
     testToolSlotsAreNoLongerLockedByCraftJobs();
 })
-    .then(() => testAdvanceCraftJobs())
-    .then(() => {
+.then(() => testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob())
+.then(() => testCompletedAlchemyLikeJobIsClearedOnEnsure())
+.then(() => testAdvanceCraftJobs())
+.then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-craft' }, null, 2));
 });

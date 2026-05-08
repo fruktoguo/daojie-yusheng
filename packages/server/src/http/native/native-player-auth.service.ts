@@ -489,6 +489,7 @@ export class NativePlayerAuthService {
       username: user.username,
       displayName,
       playerId: user.playerId,
+      playerNo: user.playerNo,
       playerName,
     };
 
@@ -518,6 +519,7 @@ export class NativePlayerAuthService {
         username: user.username,
         displayName: resolveDisplayName(user.displayName, user.username),
         playerId: user.playerId,
+        playerNo: user.playerNo,
         playerName: user.pendingRoleName?.trim() || user.username,
         persistedSource: 'native',
         updatedAt: Date.now(),

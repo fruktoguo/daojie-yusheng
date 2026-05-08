@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react';
 
 import { UiButton } from './UiButton';
+import { t } from '../../ui/i18n';
 /**
  * clamp：执行clamp相关逻辑。
  * @param value number 参数说明。
@@ -69,7 +70,7 @@ export function UiQuantityStepper({
   min = 1,
   max = Number.MAX_SAFE_INTEGER,
   step = 1,
-  label = '数量',
+  label = t('react.stepper.quantity', undefined),
   onChange,
 }: UiQuantityStepperProps) {
   const updateValue = (next: number) => {
@@ -87,7 +88,7 @@ export function UiQuantityStepper({
     <div className="react-ui-stepper">
       <span className="react-ui-stepper-label">{label}</span>
       <div className="react-ui-inline-meta-row react-ui-stepper-controls">
-        <UiButton type="button" variants={['ghost']} onClick={() => updateValue(min)} disabled={value <= min}>最小</UiButton>
+        <UiButton type="button" variants={['ghost']} onClick={() => updateValue(min)} disabled={value <= min}>{t('react.stepper.min', undefined)}</UiButton>
         <UiButton type="button" variants={['ghost']} onClick={() => updateValue(value - step)} disabled={value <= min}>-</UiButton>
         <input
           className="react-ui-input react-ui-stepper-input"
@@ -99,7 +100,7 @@ export function UiQuantityStepper({
           onChange={handleInput}
         />
         <UiButton type="button" variants={['ghost']} onClick={() => updateValue(value + step)} disabled={value >= max}>+</UiButton>
-        <UiButton type="button" variants={['ghost']} onClick={() => updateValue(max)} disabled={value >= max}>最大</UiButton>
+        <UiButton type="button" variants={['ghost']} onClick={() => updateValue(max)} disabled={value >= max}>{t('react.stepper.max', undefined)}</UiButton>
       </div>
     </div>
   );

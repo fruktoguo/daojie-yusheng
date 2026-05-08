@@ -157,6 +157,41 @@ function testRootFoundationRefineStillSupportsConfiguredNonSpiritStoneItem() {
     assert.equal(player.inventory.revision, 1);
 }
 
+function testAutoRootFoundationRefinesOnlyWhenEnabledAndReady() {
+    const service = new PlayerProgressionService({
+        getItemName(itemId) {
+            return itemId;
+        },
+    }, {
+        recalculate() {
+            return true;
+        },
+        markPanelDirty() {
+            return undefined;
+        },
+    });
+    service.onModuleInit();
+    const player = {
+        realm: service.createRealmStateFromLevel(1, Number.MAX_SAFE_INTEGER),
+        rootFoundation: 0,
+        inventory: { items: [{ itemId: 'spirit_stone', count: 1 }], revision: 0 },
+        combat: { autoRootFoundation: false },
+        attrs: { revision: 0 },
+        selfRevision: 0,
+    };
+    const disabledResult = service.autoRefineRootFoundation(player);
+    assert.equal(disabledResult.changed, false, 'disabled auto root foundation should not consume resources');
+    assert.equal(player.rootFoundation, 0);
+    assert.equal(player.inventory.revision, 0);
+
+    player.combat.autoRootFoundation = true;
+    const result = service.autoRefineRootFoundation(player);
+    assert.equal(result.changed, true, 'enabled auto root foundation should refine when preview is ready');
+    assert.equal(player.rootFoundation, 1);
+    assert.equal(player.inventory.items.some((entry) => entry.itemId === 'spirit_stone'), false);
+    assert.equal(player.inventory.revision, 1);
+}
+
 function testBreakthroughOnlyUsesTotalAttributes() {
     const service = new PlayerProgressionService({
         getItemName(itemId) {
@@ -263,6 +298,7 @@ testHeavenGateAction();
 testRootFoundationRefineAcceptsExactSpiritStoneCount();
 testRootFoundationPreviewReportsSpiritStoneShortage();
 testRootFoundationRefineStillSupportsConfiguredNonSpiritStoneItem();
+testAutoRootFoundationRefinesOnlyWhenEnabledAndReady();
 testBreakthroughOnlyUsesTotalAttributes();
 testSpiritualRootRequirementBlocksQiRefiningBreakthrough();
 

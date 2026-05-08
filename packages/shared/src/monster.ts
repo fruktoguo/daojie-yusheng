@@ -29,6 +29,7 @@ import {
 } from './constants/gameplay';
 import { ELEMENT_KEYS } from './constants/gameplay/attributes';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
+import { getEffectiveMoveSpeed } from './terrain';
 import { compileValueStatsToActualStats, NUMERIC_STAT_POINTS_PER_VALUE } from './value';
 import type {
   Attributes,
@@ -1437,6 +1438,7 @@ export function resolveMonsterTemplateRecord(
         tier,
       })
     : applyNumericStatPercentages(resolveMonsterNumericStatsFromValueStats(valueStats, level), resolvedStatPercents);
+  computedStats.moveSpeed = Math.max(0, Math.round(getEffectiveMoveSpeed(computedStats.moveSpeed)));
   const count = Number.isFinite(monster.count)
     ? Math.max(1, Math.floor(Number(monster.count)))
     : (Number.isFinite(monster.maxAlive) ? Math.max(1, Math.floor(Number(monster.maxAlive))) : 1);

@@ -620,7 +620,8 @@ function scaleBuffNumericStats(buff, factor) {
 
 function roundNumericStats(target) {
     for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
-        const rounded = Math.round(target[key]);
+        const sourceValue = key === 'moveSpeed' ? (0, shared_1.getEffectiveMoveSpeed)(target[key]) : target[key];
+        const rounded = Math.round(sourceValue);
         target[key] = SIGNED_NUMERIC_STAT_KEYS.has(key) ? rounded : Math.max(0, rounded);
     }
     for (const key of shared_1.ELEMENT_KEYS) {

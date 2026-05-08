@@ -35,6 +35,8 @@ import {
   type GmEditorCatalogRes,
   type GmEditorItemOption,
   type GmEditorTechniqueOption,
+  type GmMapListRes,
+  type GmMapSummary,
   type GmPlayerUpdateSection,
   ATTR_KEYS,
   ATTR_KEY_LABELS,
@@ -66,6 +68,9 @@ import {
   type GmUpdateManagedPlayerPasswordReq,
   type GmUpdateRedeemCodeGroupReq,
   type GmUpdatePlayerReq,
+  type GmUpdatePlayerSnapshot,
+  type GmWorldInstanceListRes,
+  type GmWorldInstanceSummary,
   type ItemStack,
   type MailAttachment,
   MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
@@ -105,7 +110,10 @@ import {
   GM_API_BASE_PATH,
   GM_AUTH_API_BASE_PATH,
 } from './constants/api';
+import { applyStaticI18n, t } from './ui/i18n';
 import { startClientVersionReload } from './version-reload';
+
+applyStaticI18n(document);
 
 /** loginOverlay：login Overlay。 */
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
@@ -518,7 +526,7 @@ const SERVER_LOG_PAGE_SIZE = 100;
 
 startClientVersionReload({
   onBeforeReload: () => {
-    setStatus('检测到前端新版本，正在刷新页面');
+    setStatus(t('gm.client.version.reload'));
   },
 });
 
@@ -597,6 +605,18 @@ let currentNetworkInPage = 1;
 /** currentNetworkOutPage：当前下行榜分页。 */
 let currentNetworkOutPage = 1;
 const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
+type GmPositionMapCategory = 'void' | 'real' | 'sect' | 'map';
+const GM_POSITION_MAP_CATEGORY_OPTIONS: readonly { id: GmPositionMapCategory; label: string }[] = [
+  { id: 'void', label: t('gm.client.position.category.void') },
+  { id: 'real', label: t('gm.client.position.category.real') },
+  { id: 'sect', label: t('gm.client.position.category.sect') },
+];
+let gmMapSummaries: GmMapSummary[] = [];
+let gmWorldInstances: GmWorldInstanceSummary[] = [];
+let gmMapPickerCatalogLoaded = false;
+let gmMapPickerCatalogLoading: Promise<void> | null = null;
+let gmMapPickerCatalogWarned = false;
+let positionMapCategoryDraft: { playerId: string; category: GmPositionMapCategory } | null = null;
 /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
 let lastPlayerListStructureKey: string | null = null;
 /** lastEditorStructureKey：last编辑器Structure Key。 */
@@ -641,13 +661,13 @@ function assertGmStateResponseShape(data: unknown): asserts data is GmStateRes {
     || !Number.isFinite(data.playerStats.offlineHangingPlayers)
     || !Number.isFinite(data.playerStats.offlinePlayers)
     || !isRecord(data.perf)) {
-    throw new Error('GM 状态响应结构异常');
+    throw new Error(t('gm.response.invalid-state'));
   }
 }
 
 function assertGmPlayerDetailResponseShape(data: unknown): asserts data is GmPlayerDetailRes {
   if (!isRecord(data) || !isRecord(data.player) || typeof data.player.id !== 'string') {
-    throw new Error('GM 玩家详情响应结构异常');
+    throw new Error(t('gm.response.invalid-player-detail'));
   }
 }
 /** lastSuggestionStructureKey：last建议Structure Key。 */
@@ -856,26 +876,26 @@ function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta
   if (player.meta.online) {
     return {
       label: '在线时间戳',
-      value: player.meta.lastHeartbeatAt ? formatDateTime(player.meta.lastHeartbeatAt) : '当前在线，暂无可靠记录',
-      note: player.meta.lastHeartbeatAt ? undefined : '当前未返回可靠的本次上线时间。',
+      value: player.meta.lastHeartbeatAt ? formatDateTime(player.meta.lastHeartbeatAt) : t('gm.client.activity.online.no-record'),
+      note: player.meta.lastHeartbeatAt ? undefined : t('gm.client.activity.online.no-heartbeat-note'),
     };
   }
   if (player.meta.updatedAt) {
     return {
-      label: '最近存档时间',
+      label: t('gm.client.activity.updated-at'),
       value: formatDateTime(player.meta.updatedAt),
     };
   }
   if (player.meta.lastHeartbeatAt) {
     return {
-      label: '最近心跳时间',
+      label: t('gm.client.activity.last-heartbeat'),
       value: formatDateTime(player.meta.lastHeartbeatAt),
-      note: '该时间来自旧心跳语义，不等同于可靠离线时间。',
+      note: t('gm.client.activity.legacy-heartbeat-note'),
     };
   }
   return {
-    label: '最近活动记录',
-    value: '暂无可靠记录',
+    label: t('gm.client.activity.latest-record'),
+    value: t('gm.client.activity.no-record'),
   };
 }
 
@@ -883,18 +903,18 @@ function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta
 function getManagedPlayerAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
   switch (status) {
     case 'banned':
-      return '封禁';
+      return t('gm.client.account-status.banned');
     case 'abnormal':
-      return '异常';
+      return t('gm.client.account-status.abnormal');
     case 'normal':
     default:
-      return '正常';
+      return t('gm.client.account-status.normal');
   }
 }
 
 /** getManagedAccountRestrictionLabel：读取账号封禁状态标签。 */
 function getManagedAccountRestrictionLabel(account: NonNullable<GmManagedPlayerRecord['account']>): string {
-  return account.status === 'banned' ? '已封禁' : '可登录';
+  return account.status === 'banned' ? t('gm.client.account-restriction.banned') : t('gm.client.account-restriction.allowed');
 }
 
 /** getManagedAccountRestrictionPillClass：读取账号封禁状态样式。 */
@@ -906,14 +926,14 @@ function getManagedAccountRestrictionPillClass(account: NonNullable<GmManagedPla
 function getPlayerRiskLevelLabel(level: GmPlayerRiskLevel): string {
   switch (level) {
     case 'critical':
-      return '极高风险';
+      return t('gm.client.risk-level.critical');
     case 'high':
-      return '高风险';
+      return t('gm.client.risk-level.high');
     case 'medium':
-      return '中风险';
+      return t('gm.client.risk-level.medium');
     case 'low':
     default:
-      return '低风险';
+      return t('gm.client.risk-level.low');
   }
 }
 
@@ -936,7 +956,7 @@ function getPlayerRiskLevelPillClass(level: GmPlayerRiskLevel): string {
 function renderPlayerRiskFactorCard(factor: GmPlayerRiskFactor): string {
   const evidenceMarkup = factor.evidence.length > 0
     ? `<div class="editor-note" style="margin-top: 8px;">${factor.evidence.map((entry) => `- ${escapeHtml(entry)}`).join('<br />')}</div>`
-    : '<div class="editor-note" style="margin-top: 8px;">当前维度暂无额外证据。</div>';
+    : `<div class="editor-note" style="margin-top: 8px;">${escapeHtml(t('gm.client.risk.factor.no-evidence'))}</div>`;
   return `
     <div class="editor-card">
       <div class="editor-card-head">
@@ -957,24 +977,24 @@ function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
   const accountEnvMarkup = player.account
     ? `
       <div class="editor-note" style="margin-top: 8px;">
-        账号状态：${escapeHtml(getManagedAccountRestrictionLabel(player.account))}<br />
-        管理员名单：${player.account.isRiskAdmin ? '已加入' : '未加入'}<br />
-        注册时间：${escapeHtml(formatDateTime(player.account.createdAt))}<br />
-        最近登录：${escapeHtml(formatDateTime(player.account.lastLoginAt))}
+        ${escapeHtml(t('gm.client.risk.account.status', { status: getManagedAccountRestrictionLabel(player.account) }))}<br />
+        ${escapeHtml(t('gm.client.risk.account.admin-list', { state: player.account.isRiskAdmin ? t('gm.client.risk.account.admin-joined') : t('gm.client.risk.account.admin-not-joined') }))}<br />
+        ${escapeHtml(t('gm.client.risk.account.created-at', { time: formatDateTime(player.account.createdAt) }))}<br />
+        ${escapeHtml(t('gm.client.risk.account.last-login', { time: formatDateTime(player.account.lastLoginAt) }))}
       </div>
     `
-    : '<div class="editor-note" style="margin-top: 8px;">当前目标没有可管理账号，风险检测会按异常账号绑定处理。</div>';
+    : `<div class="editor-note" style="margin-top: 8px;">${escapeHtml(t('gm.client.risk.no-manageable-account'))}</div>`;
 
   return `
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">风险总览</div>
-          <div class="editor-section-note">这里展示账号真源、命名模式、相似账号簇、重复 IP/设备与坊市关系的低频检测结果，不会自动封号。</div>
+          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.overview.title'))}</div>
+          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.overview.note'))}</div>
         </div>
         <div class="editor-chip-list">
           <span class="pill ${getPlayerRiskLevelPillClass(report.level)}">${escapeHtml(getPlayerRiskLevelLabel(report.level))}</span>
-          <span class="pill">总分 ${report.score} / ${report.maxScore}</span>
+          <span class="pill">${escapeHtml(t('gm.client.risk.score', { score: report.score, maxScore: report.maxScore }))}</span>
           <span class="pill">${escapeHtml(formatDateTime(report.generatedAt))}</span>
         </div>
       </div>
@@ -985,15 +1005,15 @@ function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">处置建议</div>
-          <div class="editor-section-note">只提供复核顺序，资产或账号处置仍必须由 GM 人工确认。</div>
+          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.recommendations.title'))}</div>
+          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.recommendations.note'))}</div>
         </div>
       </div>
       <div class="editor-card-list">
         ${report.recommendations.map((entry, index) => `
           <div class="editor-card">
             <div class="editor-card-head">
-              <div class="editor-card-title">建议 ${index + 1}</div>
+              <div class="editor-card-title">${escapeHtml(t('gm.client.risk.recommendation.index', { index: index + 1 }))}</div>
             </div>
             <div class="editor-note" style="margin-top: 0;">${escapeHtml(entry)}</div>
           </div>
@@ -1004,8 +1024,8 @@ function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">维度明细</div>
-          <div class="editor-section-note">每个维度都会给出分数、摘要和命中的证据。</div>
+          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.factors.title'))}</div>
+          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.factors.note'))}</div>
         </div>
       </div>
       <div class="editor-card-list">
@@ -1025,10 +1045,10 @@ function getEditorCatalogFallbackNote(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (editorCatalogSource === 'local-fallback') {
-    return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回服务端。';
+    return t('gm.client.editor-catalog.local-fallback-note');
   }
   if (editorCatalogSource === 'unavailable') {
-    return '编辑目录尚未加载完成，模板快捷写入暂不可用。';
+    return t('gm.client.editor-catalog.unavailable-note');
   }
   return '';
 }
@@ -1040,7 +1060,7 @@ function assertTrustedEditorCatalog(actionLabel: string): void {
   if (hasServerEditorCatalog()) {
     return;
   }
-  throw new Error(`${actionLabel}已暂停：GM 编辑目录未从服务端加载成功，当前仅允许查看本地参考标签，避免提交过期目录数据`);
+  throw new Error(t('gm.client.editor-catalog.action-paused', { actionLabel }));
 }
 
 /** getFilteredPlayers：读取Filtered Players。 */
@@ -1067,24 +1087,40 @@ function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
 function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean): void {
   const presence = getPlayerPresenceMeta(player);
   button.classList.toggle('active', isActive);
-  button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = player.roleName;
+  button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = `${player.roleName} · ${formatPlayerNo(player.playerNo)}`;
   const presenceEl = button.querySelector<HTMLElement>('[data-role="presence"]')!;
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
   presenceEl.textContent = presence.label;
-  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 状态: ${getManagedPlayerAccountStatusLabel(player.accountStatus)} · 风险: ${player.riskScore} (${getPlayerRiskLevelLabel(player.riskLevel)})`;
-  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = `${getPlayerIdentityLine(player)}${player.riskTags.length > 0 ? ` · 命中: ${player.riskTags.join(' / ')}` : ''}`;
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = t('gm.client.player-list.meta', {
+    accountName: player.accountName ?? t('gm.none'),
+    status: getManagedPlayerAccountStatusLabel(player.accountStatus),
+    riskScore: player.riskScore,
+    riskLevel: getPlayerRiskLevelLabel(player.riskLevel),
+  });
+  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = player.riskTags.length > 0
+    ? t('gm.client.player-list.identity-with-risk-tags', { identity: getPlayerIdentityLine(player), tags: player.riskTags.join(' / ') })
+    : getPlayerIdentityLine(player);
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
 
 /** getEditorSubtitle：读取编辑器Subtitle。 */
 function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
   return [
-    `账号: ${detail.accountName ?? '无'}`,
-    `显示名: ${detail.displayName}`,
-    `地图: ${detail.mapName} (${detail.x}, ${detail.y})`,
-    detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
+    formatPlayerNo(detail.playerNo),
+    t('gm.client.editor.subtitle.account', { accountName: detail.accountName ?? t('gm.none') }),
+    t('gm.client.editor.subtitle.display-name', { displayName: detail.displayName }),
+    t('gm.client.editor.subtitle.map', { mapName: detail.mapName, x: detail.x, y: detail.y }),
+    detail.meta.updatedAt
+      ? t('gm.client.editor.subtitle.persisted-at', { time: new Date(detail.meta.updatedAt).toLocaleString('zh-CN') })
+      : t('gm.client.editor.subtitle.runtime-player'),
   ].join(' · ');
+}
+
+function formatPlayerNo(playerNo: number | null | undefined): string {
+  return typeof playerNo === 'number' && Number.isSafeInteger(playerNo) && playerNo > 0
+    ? String(playerNo).padStart(3, '0')
+    : '000';
 }
 
 /** getEditorMetaMarkup：读取编辑器元数据Markup。 */
@@ -1093,11 +1129,11 @@ function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
 
   const presence = getPlayerPresenceMeta(detail);
   const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
-  const riskMeta = `<span class="pill ${getPlayerRiskLevelPillClass(detail.riskLevel)}">风险 ${detail.riskScore} · ${escapeHtml(getPlayerRiskLevelLabel(detail.riskLevel))}</span>`;
+  const riskMeta = `<span class="pill ${getPlayerRiskLevelPillClass(detail.riskLevel)}">${escapeHtml(t('gm.client.editor.meta.risk', { score: detail.riskScore, level: getPlayerRiskLevelLabel(detail.riskLevel) }))}</span>`;
   if (hasServerEditorCatalog()) {
     return `${base}${riskMeta}`;
   }
-  return `${base}${riskMeta}<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`;
+  return `${base}${riskMeta}<span class="pill">${escapeHtml(editorCatalogSource === 'local-fallback' ? t('gm.client.editor.meta.catalog-local-fallback') : t('gm.client.editor.meta.catalog-unavailable'))}</span>`;
 }
 
 /** getEditorBodyChipMarkup：读取编辑器身体Chip Markup。 */
@@ -1419,17 +1455,17 @@ function getShortcutMailTargetOptions(): Array<{
 
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
   const options = [
-    { value: '', label: '发送给全服玩家' },
+    { value: '', label: t('gm.text.all-player-recipients') },
     ...players.map((player) => ({
       value: player.id,
-      label: `${player.roleName} · ${player.accountName || '无账号'} · ${player.meta.online ? '在线' : '离线'}`,
+      label: `${player.roleName} · ${formatPlayerNo(player.playerNo)} · ${player.accountName || t('gm.text.no-account')} · ${player.meta.online ? t('gm.online') : t('gm.offline')}`,
     })),
   ];
   const selectedTargetId = broadcastMailDraft.targetPlayerId.trim();
   if (selectedTargetId && !options.some((option) => option.value === selectedTargetId)) {
     const fallbackLabel = selectedPlayerDetail?.id === selectedTargetId
-      ? `${selectedPlayerDetail.roleName} · ${selectedPlayerDetail.account?.username || '无账号'} · 已选中`
-      : `当前目标 · ${selectedTargetId}`;
+      ? `${selectedPlayerDetail.roleName} · ${formatPlayerNo(selectedPlayerDetail.playerNo)} · ${selectedPlayerDetail.account?.username || t('gm.text.no-account')} · ${t('gm.text.selected')}`
+      : t('gm.text.current-target', { targetId: selectedTargetId });
     options.push({ value: selectedTargetId, label: fallbackLabel });
   }
   return options;
@@ -1443,7 +1479,7 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
   const usesServerManagedTemplate = isServerManagedMailTemplate(templateId);
   const title = draft.title.trim();
   const body = draft.body.trim();
-  const senderLabel = draft.senderLabel.trim() || '司命台';
+  const senderLabel = draft.senderLabel.trim() || t('gm.mail.sender.default');
   const expireHours = Math.floor(Number(draft.expireHours || '0'));
   const attachments: MailAttachment[] = usesServerManagedTemplate
     ? []
@@ -1455,7 +1491,7 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
       }));
 
   if (!templateId && !title && !body && attachments.length === 0) {
-    throw new Error('标题、正文和附件至少填写一项');
+    throw new Error(t('gm.mail.compose.required'));
   }
 
   return {
@@ -1834,10 +1870,16 @@ function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
 /** buildEditorStructureKey：构建编辑器Structure Key。 */
 function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerState): string {
   const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort().join(',');
+  const mapPickerKey = [
+    gmMapSummaries.map((entry) => `${entry.id}:${entry.name}:${entry.mapGroupId ?? ''}`).join(','),
+    gmWorldInstances.map((entry) => `${entry.instanceId}:${entry.templateId}:${entry.linePreset}:${entry.defaultEntry ? 1 : 0}`).join(','),
+    positionMapCategoryDraft?.playerId === detail.id ? positionMapCategoryDraft.category : '',
+  ].join('#');
   const equipmentPresence = EQUIP_SLOTS.map((slot) => (draft.equipment[slot] ? '1' : '0')).join('');
   return [
     detail.id,
     mapIds,
+    mapPickerKey,
     equipmentPresence,
     detail.account?.status ?? 'no-account',
     String(detail.riskReport.score),
@@ -2118,12 +2160,17 @@ function rememberNetworkLargePayloadBuckets(buckets: GmNetworkBucket[]): void {
 }
 
 function renderNetworkLargePayloadSample(sample: NonNullable<GmNetworkBucket['largePayloadSamples']>[number], index: number): string {
-  const recordedAt = sample.recordedAt > 0 ? new Date(sample.recordedAt).toLocaleString() : '未知时间';
+  const recordedAt = sample.recordedAt > 0 ? new Date(sample.recordedAt).toLocaleString() : t('gm.text.unknown-time');
   return `
     <section class="network-payload-sample">
       <div class="network-payload-sample-head">
-        <div>样本 ${index + 1}</div>
-        <div>${escapeHtml(sample.event)} · ${escapeHtml(recordedAt)} · payload ${escapeHtml(formatBytes(sample.bytes))} · packet ${escapeHtml(formatBytes(sample.packetBytes))}</div>
+        <div>${escapeHtml(t('gm.text.sample', { index: index + 1 }))}</div>
+        <div>${escapeHtml(t('gm.network.large-payload.sample-meta', {
+          event: sample.event,
+          recordedAt,
+          payloadBytes: formatBytes(sample.bytes),
+          packetBytes: formatBytes(sample.packetBytes),
+        }))}</div>
       </div>
       <textarea class="network-payload-body" readonly spellcheck="false">${escapeHtml(sample.body)}</textarea>
     </section>
@@ -2140,7 +2187,7 @@ function closeNetworkPayloadModal(): void {
 function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
   const samples = Array.isArray(bucket.largePayloadSamples) ? bucket.largePayloadSamples : [];
   if (samples.length === 0) {
-    setStatus('这个流量项当前没有可查看的大包样本', true);
+    setStatus(t('gm.network.large-payload.empty'), true);
     return;
   }
   closeNetworkPayloadModal();
@@ -2152,9 +2199,9 @@ function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
       <div class="network-payload-dialog-head">
         <div>
           <div class="panel-title">${escapeHtml(bucket.label)}</div>
-          <div class="network-breakdown-subtitle">仅开发态记录最近 ${samples.length} 个超过 1 KB 的实际包体</div>
+          <div class="network-breakdown-subtitle">${escapeHtml(t('gm.network.large-payload.limit-note', { count: samples.length }))}</div>
         </div>
-        <button class="small-btn" type="button" data-network-payload-close>关闭</button>
+        <button class="small-btn" type="button" data-network-payload-close>${escapeHtml(t('gm.common.close'))}</button>
       </div>
       <div class="network-payload-sample-list">
         ${samples.map((sample, index) => renderNetworkLargePayloadSample(sample, index)).join('')}
@@ -2831,15 +2878,17 @@ async function copyActiveRedeemCodes(): Promise<void> {
     .map((code) => code.code.trim())
     .filter((code) => code.length > 0);
   if (activeCodes.length === 0) {
-    setStatus('当前分组没有可复制的未使用兑换码', true);
+    setStatus(t('gm.redeem.active-empty'), true);
     return;
   }
   const copied = await copyTextToClipboard(activeCodes.join('\n'));
   if (!copied) {
-    setStatus('复制未使用兑换码失败，请检查浏览器剪贴板权限', true);
+    setStatus(t('gm.redeem.copy-failed'), true);
     return;
   }
-  setStatus(`已复制 ${activeCodes.length} 个未使用兑换码${group ? ` · ${group.name}` : ''}`);
+  setStatus(group
+    ? t('gm.redeem.copied-with-group', { count: activeCodes.length, groupName: group.name })
+    : t('gm.redeem.copied', { count: activeCodes.length }));
 }
 
 /** getRedeemCodeStatusLabel：读取兑换兑换码状态标签。 */
@@ -2867,10 +2916,10 @@ function buildRedeemGroupPayload(): {
       count: Math.max(1, Math.floor(entry.count)),
     }));
   if (!name) {
-    throw new Error('分组名称不能为空');
+    throw new Error(t('gm.redeem.group-name-empty'));
   }
   if (rewards.length === 0) {
-    throw new Error('请至少配置一个奖励物品');
+    throw new Error(t('gm.redeem.reward-empty'));
   }
   return { name, rewards };
 }
@@ -2900,7 +2949,7 @@ async function loadRedeemGroups(silent = false): Promise<void> {
       renderRedeemPanel();
     }
     if (!silent) {
-      setStatus(`已同步 ${redeemGroupsState.length} 个兑换码分组`);
+      setStatus(t('gm.redeem.synced', { count: redeemGroupsState.length }));
     }
   } finally {
     /** redeemLoading：兑换Loading。 */
@@ -2930,7 +2979,7 @@ async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<v
       appendCount: '10',
     };
     if (!silent) {
-      setStatus(`已加载分组 ${detail.group.name}`);
+      setStatus(t('gm.redeem.loaded', { groupName: detail.group.name }));
     }
   } finally {
     /** redeemLoading：兑换Loading。 */
@@ -2955,7 +3004,7 @@ async function createRedeemGroup(): Promise<void> {
   /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
   redeemLatestGeneratedCodes = [...result.codes];
   await loadRedeemGroups(true);
-  setStatus(`已创建分组 ${result.group.name}，并生成 ${result.codes.length} 个兑换码`);
+  setStatus(t('gm.redeem.created', { groupName: result.group.name, count: result.codes.length }));
 }
 
 /** saveRedeemGroup：保存兑换分组。 */
@@ -2963,7 +3012,7 @@ async function saveRedeemGroup(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!selectedRedeemGroupId) {
-    throw new Error('请先选择一个分组');
+    throw new Error(t('gm.redeem.selected-group-required'));
   }
   const payload: GmUpdateRedeemCodeGroupReq = buildRedeemGroupPayload();
   await request<GmRedeemCodeGroupDetailRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
@@ -2973,7 +3022,7 @@ async function saveRedeemGroup(): Promise<void> {
   /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
   redeemLatestGeneratedCodes = [];
   await loadRedeemGroups(true);
-  setStatus('兑换码分组已保存');
+  setStatus(t('gm.redeem.saved'));
 }
 
 /** appendRedeemCodes：处理append兑换兑换码。 */
@@ -2981,7 +3030,7 @@ async function appendRedeemCodes(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!selectedRedeemGroupId) {
-    throw new Error('请先选择一个分组');
+    throw new Error(t('gm.redeem.selected-group-required'));
   }
   const payload: GmAppendRedeemCodesReq = {
     count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.appendCount || '0')) || 0)),
@@ -2993,7 +3042,7 @@ async function appendRedeemCodes(): Promise<void> {
   /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
   redeemLatestGeneratedCodes = [...result.codes];
   await loadRedeemGroups(true);
-  setStatus(`已追加 ${result.codes.length} 个兑换码`);
+  setStatus(t('gm.redeem.appended', { count: result.codes.length }));
 }
 
 /** destroyRedeemCode：处理destroy兑换兑换码。 */
@@ -3006,7 +3055,7 @@ async function destroyRedeemCode(codeId: string): Promise<void> {
     method: 'DELETE',
   });
   await loadRedeemGroups(true);
-  setStatus('兑换码已销毁');
+  setStatus(t('gm.redeem.destroyed'));
 }
 
 /** loadDatabaseState：加载数据库状态。 */
@@ -3024,7 +3073,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
     /** databaseState：数据库状态。 */
     databaseState = data;
     if (!silent) {
-      setStatus(`已同步 ${data.backups.length} 份数据库备份`);
+      setStatus(t('gm.database.synced-backups', { count: data.backups.length }));
     }
   } finally {
     /** databaseStateLoading：数据库状态Loading。 */
@@ -3038,7 +3087,7 @@ async function exportCurrentDatabase(): Promise<void> {
   const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/backup`, {
     method: 'POST',
   });
-  setStatus(`已开始导出当前数据库：${result.job.backupId ?? result.job.id}`);
+  setStatus(t('gm.database.export-started', { backupId: result.job.backupId ?? result.job.id }));
   await loadDatabaseState(true);
 }
 
@@ -3071,43 +3120,43 @@ function isSupportedDatabaseImportFile(file: File): boolean {
 function updateDatabaseImportFileSelection(file: File | null): void {
   selectedDatabaseImportFile = file;
   if (!file) {
-    patchDatabaseImportStatus('未选择文件。');
+    patchDatabaseImportStatus(t('gm.database.import.no-file'));
     return;
   }
 
   const fileLabel = `${file.name}（${formatBytes(file.size)}）`;
   if (!isSupportedDatabaseImportFile(file)) {
-    patchDatabaseImportStatus(`已选择 ${fileLabel}，但硬切后仅支持新版 PostgreSQL 自定义备份（.dump）。`);
-    setStatus('仅支持新版 PostgreSQL 自定义备份（.dump）', true);
+    patchDatabaseImportStatus(t('gm.database.import.file-selected-unsupported', { fileLabel }));
+    setStatus(t('gm.database.import.unsupported'), true);
     return;
   }
 
-  patchDatabaseImportStatus(`已选择 ${fileLabel}，可以上传到备份列表，或上传并导入。`);
-  setStatus(`已选择数据库备份：${file.name}`);
+  patchDatabaseImportStatus(t('gm.database.import.file-selected-ready', { fileLabel }));
+  setStatus(t('gm.database.import.selected', { fileName: file.name }));
 }
 
 /** uploadDatabaseBackupFile：上传数据库备份文件。 */
 async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<void> {
   const file = getSelectedDatabaseImportFile();
   if (!file) {
-    setStatus('请先选择要导入的数据库备份文件', true);
-    patchDatabaseImportStatus('未选择文件。');
+    setStatus(t('gm.database.import.choose-file'), true);
+    patchDatabaseImportStatus(t('gm.database.import.no-file'));
     return;
   }
   if (!isSupportedDatabaseImportFile(file)) {
-    setStatus('仅支持新版 PostgreSQL 自定义备份（.dump）', true);
-    patchDatabaseImportStatus(`文件类型不受支持：${file.name}。`);
+    setStatus(t('gm.database.import.unsupported'), true);
+    patchDatabaseImportStatus(t('gm.database.import.file-unsupported', { fileName: file.name }));
     return;
   }
   if (restoreAfterUpload) {
-    const confirmed = window.confirm(`将上传 ${file.name}，随后用它覆盖当前主线数据库。\n服务端仍会先生成一份导入前备份，并断开在线玩家连接。是否继续？`);
+    const confirmed = window.confirm(t('gm.database.import.confirm-upload', { fileName: file.name }));
     if (!confirmed) {
       return;
     }
   }
 
   databaseImportBusy = true;
-  databaseImportStatus = `正在上传 ${file.name}（${formatBytes(file.size)}）…`;
+  databaseImportStatus = t('gm.database.import.uploading', { fileName: file.name, fileSize: formatBytes(file.size) });
   renderDatabasePanel();
   try {
     const result = await request<GmUploadDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/upload`, {
@@ -3120,8 +3169,8 @@ async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<vo
       body: file,
     });
     selectedDatabaseImportFile = null;
-    databaseImportStatus = `已上传 ${result.backup.fileName}，大小 ${formatBytes(result.backup.sizeBytes)}。`;
-    setStatus(`已上传数据库备份：${result.backup.fileName}`);
+    databaseImportStatus = t('gm.database.import.uploaded-with-size', { fileName: result.backup.fileName, fileSize: formatBytes(result.backup.sizeBytes) });
+    setStatus(t('gm.database.uploaded', { fileName: result.backup.fileName }));
     await loadDatabaseState(true);
     if (restoreAfterUpload) {
       await restoreDatabaseBackup(result.backup.id, {
@@ -3161,7 +3210,7 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-  setStatus(`已下载数据库备份 ${fileName}`);
+  setStatus(t('gm.database.downloaded', { fileName }));
 }
 
 /** restoreDatabaseBackup：处理restore数据库备份。 */
@@ -3173,17 +3222,17 @@ async function restoreDatabaseBackup(
 
   const backup = databaseState?.backups.find((entry) => entry.id === backupId);
   if (!backup && !options.fallbackFileName) {
-    setStatus('目标备份不存在', true);
+    setStatus(t('gm.database.target-missing'), true);
     return;
   }
   if (backup && backup.format !== 'postgres_custom_dump') {
-    setStatus('硬切后只支持恢复新版 PostgreSQL 自定义备份，不再支持历史 JSON 快照', true);
+    setStatus(t('gm.database.restore.unsupported-history'), true);
     return;
   }
   const fileName = backup?.fileName ?? options.fallbackFileName ?? backupId;
   const confirmed = options.skipConfirm === true
     ? true
-    : window.confirm(`将使用备份 ${fileName} 覆盖当前主线数据库。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
+    : window.confirm(t('gm.database.restore.confirm', { fileName }));
   if (!confirmed) {
     return;
   }
@@ -3192,7 +3241,7 @@ async function restoreDatabaseBackup(
     method: 'POST',
     body: JSON.stringify(body),
   });
-  setStatus(`已开始恢复数据库备份：${result.job.sourceBackupId ?? fileName}`);
+  setStatus(t('gm.database.restore.started', { backupId: result.job.sourceBackupId ?? fileName }));
   await loadDatabaseState(true);
 }
 
@@ -3293,7 +3342,7 @@ async function loadEditorCatalog(): Promise<void> {
     };
     /** editorCatalogSource：编辑器目录来源。 */
     editorCatalogSource = 'local-fallback';
-    setStatus('GM 编辑目录加载失败，当前仅保留本地参考标签；目录型编辑与带附件邮件已暂停，避免提交过期模板数据。', true);
+    setStatus(t('gm.editor.catalog.load-failed'), true);
   }
   renderShortcutMailComposer();
 }
@@ -3321,7 +3370,7 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
     attachments: broadcastMailDraft.attachments.map((entry) => `${entry.itemId}:${entry.count}`),
     players: (state?.players ?? [])
       .filter((player) => !player.meta.isBot)
-      .map((player) => `${player.id}:${player.roleName}:${player.accountName || ''}:${player.meta.online ? 1 : 0}`),
+      .map((player) => `${player.id}:${player.playerNo ?? ''}:${player.roleName}:${player.accountName || ''}:${player.meta.online ? 1 : 0}`),
   });
   const activeElement = document.activeElement;
   const activeField = activeElement instanceof HTMLInputElement
@@ -3341,10 +3390,8 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   }
   shortcutMailComposerEl.innerHTML = getMailComposerMarkup(broadcastMailDraft, {
     scope: 'shortcut',
-    submitLabel: targetPlayer ? `发送给 ${targetPlayer.roleName}` : '发送全服邮件',
-    note: targetPlayer
-      ? '指定玩家邮件会直接写入该角色的持久化邮箱，在线时只推送摘要更新。'
-      : '全服邮件不会混入高频地图同步，只在玩家打开收件箱时按需拉取。',
+    submitLabel: targetPlayer ? t('gm.mail.send-to-player', { roleName: targetPlayer.roleName }) : t('gm.mail.send-all'),
+    note: targetPlayer ? t('gm.mail.send-to-player.note') : t('gm.mail.send-all.note'),
     showTargetPlayer: true,
   });
   syncSearchableItemFields(shortcutMailComposerEl);
@@ -3381,10 +3428,14 @@ function renderSuggestions(): void {
 
   if (!suggestions || suggestions.length === 0) {
     if (lastSuggestionStructureKey !== 'empty') {
-      suggestionListEl.innerHTML = '<div class="empty-hint">暂无建议反馈数据</div>';
+      suggestionListEl.innerHTML = `<div class="empty-hint">${escapeHtml(t('gm.suggestion.empty'))}</div>`;
       lastSuggestionStructureKey = 'empty';
     }
-    suggestionPageMetaEl.textContent = `第 ${currentSuggestionPage} / ${currentSuggestionTotalPages} 页 · 共 ${currentSuggestionTotal} 条`;
+    suggestionPageMetaEl.textContent = t('gm.suggestion.page-meta', {
+      page: currentSuggestionPage,
+      totalPages: currentSuggestionTotalPages,
+      total: currentSuggestionTotal,
+    });
     suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
     suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
     return;
@@ -3403,7 +3454,11 @@ function renderSuggestions(): void {
     /** lastSuggestionStructureKey：last建议Structure Key。 */
     lastSuggestionStructureKey = structureKey;
   }
-  suggestionPageMetaEl.textContent = `第 ${currentSuggestionPage} / ${currentSuggestionTotalPages} 页 · 共 ${currentSuggestionTotal} 条`;
+  suggestionPageMetaEl.textContent = t('gm.suggestion.page-meta', {
+    page: currentSuggestionPage,
+    totalPages: currentSuggestionTotalPages,
+    total: currentSuggestionTotal,
+  });
   suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
   suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
 }
@@ -3412,10 +3467,10 @@ function renderSuggestions(): void {
 async function completeSuggestion(id: string): Promise<void> {
   try {
     await request(`${GM_API_BASE_PATH}/suggestions/${id}/complete`, { method: 'POST' });
-    setStatus('建议已标记为完成');
+    setStatus(t('gm.suggestion.completed'));
     await loadSuggestions();
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '操作失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   }
 }
 
@@ -3426,10 +3481,10 @@ async function replySuggestion(id: string, content: string): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ content } satisfies GmReplySuggestionReq),
     });
-    setStatus('开发者回复已发送');
+    setStatus(t('gm.suggestion.reply-sent'));
     await loadSuggestions();
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '发送回复失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   }
 }
 
@@ -3437,16 +3492,16 @@ async function replySuggestion(id: string, content: string): Promise<void> {
 async function removeSuggestion(id: string): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!confirm('确定要移除这条建议吗？此操作不可撤销。')) return;
+  if (!confirm(t('gm.suggestion.remove.confirm'))) return;
   try {
     await request(`${GM_API_BASE_PATH}/suggestions/${id}`, { method: 'DELETE' });
-    setStatus('建议已成功移除');
+    setStatus(t('gm.suggestion.removed'));
     if (suggestions.length === 1 && currentSuggestionPage > 1) {
       currentSuggestionPage -= 1;
     }
     await loadSuggestions();
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '移除失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   }
 }
 
@@ -3474,8 +3529,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (response.status === 401 && path !== `${GM_AUTH_API_BASE_PATH}/login`) {
-    logout('GM 登录已失效，请重新输入密码');
-    throw new Error('GM 登录已失效');
+    logout(t('gm.request.login-expired'));
+    throw new Error(t('gm.request.expired'));
   }
   if (!response.ok) {
     const message = typeof data === 'object' && data && 'message' in data
@@ -3486,7 +3541,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
  message: unknown }).message)
       : typeof data === 'string' && data.trim().length > 0
         ? data
-        : '请求失败';
+        : t('gm.request.failed');
     throw new Error(message);
   }
   return data as T;
@@ -3502,13 +3557,191 @@ async function requestBlob(path: string, init: RequestInit = {}): Promise<Respon
   }
   const response = await fetch(path, { ...init, headers });
   if (response.status === 401) {
-    logout('GM 登录已失效，请重新输入密码');
-    throw new Error('GM 登录已失效');
+    logout(t('gm.request.login-expired'));
+    throw new Error(t('gm.request.expired'));
   }
   if (!response.ok) {
-    throw new Error((await response.text()).trim() || '请求失败');
+    throw new Error((await response.text()).trim() || t('gm.request.failed'));
   }
   return response;
+}
+
+function isGmSectTemplateId(templateId: string | null | undefined): boolean {
+  return typeof templateId === 'string' && templateId.trim().startsWith('sect_domain:');
+}
+
+function isGmSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): boolean {
+  return isGmSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
+}
+
+function resolvePositionMapCategory(instance: GmWorldInstanceSummary): GmPositionMapCategory {
+  if (isGmSectRuntimeInstance(instance)) return 'sect';
+  return instance.linePreset === 'real' ? 'real' : 'void';
+}
+
+function getMapSummary(mapId: string): GmMapSummary | null {
+  return gmMapSummaries.find((entry) => entry.id === mapId) ?? null;
+}
+
+function getMapDisplayName(mapId: string, fallbackName?: string): string {
+  const name = getMapSummary(mapId)?.name || fallbackName || mapId;
+  return name.trim() || mapId;
+}
+
+function getPositionMapCategoryCounts(): Map<GmPositionMapCategory, number> {
+  const counts = new Map<GmPositionMapCategory, number>();
+  for (const instance of gmWorldInstances) {
+    const category = resolvePositionMapCategory(instance);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function getPositionCategoryOptions(currentCategory: GmPositionMapCategory): Array<{ value: string; label: string }> {
+  if (gmWorldInstances.length === 0) {
+    return [{ value: 'map', label: '地图' }];
+  }
+  const counts = getPositionMapCategoryCounts();
+  const options = GM_POSITION_MAP_CATEGORY_OPTIONS
+    .filter((entry) => (counts.get(entry.id) ?? 0) > 0 || entry.id === currentCategory)
+    .map((entry) => ({
+      value: entry.id,
+      label: `${entry.label}（${counts.get(entry.id) ?? 0}）`,
+    }));
+  return options.length > 0 ? options : [{ value: 'map', label: '地图' }];
+}
+
+function getPositionMapInstances(category: GmPositionMapCategory): GmWorldInstanceSummary[] {
+  return gmWorldInstances
+    .filter((instance) => resolvePositionMapCategory(instance) === category)
+    .slice()
+    .sort((left, right) => {
+      const leftGroupOrder = left.mapGroupOrder ?? 1000;
+      const rightGroupOrder = right.mapGroupOrder ?? 1000;
+      if (leftGroupOrder !== rightGroupOrder) return leftGroupOrder - rightGroupOrder;
+      const groupOrder = (left.mapGroupName || left.templateName).localeCompare(right.mapGroupName || right.templateName, 'zh-Hans-CN');
+      if (groupOrder !== 0) return groupOrder;
+      const memberOrder = (left.mapGroupMemberOrder ?? 0) - (right.mapGroupMemberOrder ?? 0);
+      if (memberOrder !== 0) return memberOrder;
+      const defaultOrder = Number(!left.defaultEntry) - Number(!right.defaultEntry);
+      if (defaultOrder !== 0) return defaultOrder;
+      return left.templateName.localeCompare(right.templateName, 'zh-Hans-CN') || left.templateId.localeCompare(right.templateId);
+    });
+}
+
+function getPositionMapOptions(category: GmPositionMapCategory, currentMapId: string): Array<{ value: string; label: string }> {
+  const optionsByMapId = new Map<string, { value: string; label: string }>();
+  if (category !== 'map' && gmWorldInstances.length > 0) {
+    for (const instance of getPositionMapInstances(category)) {
+      if (optionsByMapId.has(instance.templateId)) continue;
+      optionsByMapId.set(instance.templateId, {
+        value: instance.templateId,
+        label: getMapDisplayName(instance.templateId, instance.templateName),
+      });
+    }
+  } else {
+    const maps = gmMapSummaries.length > 0
+      ? gmMapSummaries.slice().sort((left, right) => {
+        const groupOrder = (left.mapGroupOrder ?? 1000) - (right.mapGroupOrder ?? 1000);
+        if (groupOrder !== 0) return groupOrder;
+        const groupNameOrder = (left.mapGroupName || left.name).localeCompare(right.mapGroupName || right.name, 'zh-Hans-CN');
+        if (groupNameOrder !== 0) return groupNameOrder;
+        const memberOrder = (left.mapGroupMemberOrder ?? 0) - (right.mapGroupMemberOrder ?? 0);
+        if (memberOrder !== 0) return memberOrder;
+        return left.name.localeCompare(right.name, 'zh-Hans-CN') || left.id.localeCompare(right.id);
+      })
+      : Array.from(new Set(state?.mapIds ?? [])).map((mapId) => ({ id: mapId, name: mapId } as GmMapSummary));
+    for (const map of maps) {
+      optionsByMapId.set(map.id, { value: map.id, label: getMapDisplayName(map.id, map.name) });
+    }
+  }
+  if (currentMapId && !optionsByMapId.has(currentMapId)) {
+    optionsByMapId.set(currentMapId, { value: currentMapId, label: getMapDisplayName(currentMapId) });
+  }
+  return Array.from(optionsByMapId.values());
+}
+
+function getPositionCategoryForMap(playerId: string, mapId: string): GmPositionMapCategory {
+  if (
+    positionMapCategoryDraft?.playerId === playerId
+    && getPositionMapOptions(positionMapCategoryDraft.category, mapId).some((entry) => entry.value === mapId)
+  ) {
+    return positionMapCategoryDraft.category;
+  }
+  for (const entry of GM_POSITION_MAP_CATEGORY_OPTIONS) {
+    if (getPositionMapOptions(entry.id, mapId).some((option) => option.value === mapId)) {
+      return entry.id;
+    }
+  }
+  return 'map';
+}
+
+function renderPositionMapPicker(player: GmManagedPlayerRecord, draft: PlayerState): string {
+  const category = getPositionCategoryForMap(player.id, draft.mapId);
+  const mapOptions = getPositionMapOptions(category, draft.mapId);
+  return `
+    <label class="editor-field">
+      <span>类别</span>
+      <select data-gm-position-map-category>
+        ${optionsMarkup(getPositionCategoryOptions(category), category)}
+      </select>
+    </label>
+    <label class="editor-field wide">
+      <span>地图</span>
+      <select data-bind="mapId" data-kind="string" data-gm-position-map-select>
+        ${optionsMarkup(mapOptions, draft.mapId)}
+      </select>
+    </label>
+  `;
+}
+
+function patchPositionMapSelect(category: GmPositionMapCategory, currentMapId: string): string {
+  const mapSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-gm-position-map-select]');
+  if (!mapSelect) return currentMapId;
+  const mapOptions = getPositionMapOptions(category, currentMapId);
+  const nextMapId = mapOptions.some((entry) => entry.value === currentMapId)
+    ? currentMapId
+    : mapOptions[0]?.value ?? currentMapId;
+  const fragment = document.createDocumentFragment();
+  for (const option of mapOptions) {
+    const optionEl = document.createElement('option');
+    optionEl.value = String(option.value);
+    optionEl.textContent = option.label;
+    optionEl.selected = option.value === nextMapId;
+    fragment.append(optionEl);
+  }
+  mapSelect.replaceChildren(fragment);
+  mapSelect.value = nextMapId;
+  return nextMapId;
+}
+
+function resolvePositionTargetInstanceId(mapId: string): string | undefined {
+  const categorySelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-gm-position-map-category]');
+  const category = (categorySelect?.value as GmPositionMapCategory | undefined) ?? positionMapCategoryDraft?.category ?? 'map';
+  if (category === 'map') return undefined;
+  const candidates = getPositionMapInstances(category).filter((instance) => instance.templateId === mapId);
+  const target = candidates.find((instance) => instance.defaultEntry)
+    ?? candidates.find((instance) => instance.lineIndex === 1)
+    ?? candidates[0];
+  return target?.instanceId;
+}
+
+async function loadGmMapPickerCatalog(): Promise<void> {
+  if (gmMapPickerCatalogLoaded) return;
+  if (gmMapPickerCatalogLoading) return gmMapPickerCatalogLoading;
+  gmMapPickerCatalogLoading = (async () => {
+    const [mapsRes, instancesRes] = await Promise.all([
+      request<GmMapListRes>(`${GM_API_BASE_PATH}/maps`),
+      request<GmWorldInstanceListRes>(`${GM_API_BASE_PATH}/world/instances`),
+    ]);
+    gmMapSummaries = Array.isArray(mapsRes.maps) ? mapsRes.maps : [];
+    gmWorldInstances = Array.isArray(instancesRes.instances) ? instancesRes.instances : [];
+    gmMapPickerCatalogLoaded = true;
+    clearEditorRenderCache();
+  })().finally(() => {
+    gmMapPickerCatalogLoading = null;
+  });
+  return gmMapPickerCatalogLoading;
 }
 
 /** updateMailDraftValue：更新邮件Draft值。 */
@@ -3611,7 +3844,7 @@ function addMailAttachment(scope: 'direct' | 'shortcut'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!hasServerEditorCatalog()) {
-    setStatus('服务端编辑目录不可用，当前不能用模板方式新增邮件附件。', true);
+    setStatus(t('gm.editor.catalog.mail-attachment-unavailable'), true);
     return;
   }
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
@@ -3647,7 +3880,7 @@ async function sendDirectMail(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail) {
-    throw new Error('当前没有可发送邮件的角色');
+    throw new Error(t('gm.mail.no-target'));
   }
   if (directMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
     assertTrustedEditorCatalog('带附件邮件发送');
@@ -3671,7 +3904,7 @@ async function sendDirectMail(): Promise<void> {
   directMailDraftPlayerId = detail.id;
   resetMailAttachmentPageStore('direct');
   rerenderDirectMailComposer();
-  setStatus(`已向 ${detail.roleName} 发送邮件：${result.mailId}`);
+  setStatus(t('gm.mail.sent', { roleName: detail.roleName, mailId: result.mailId }));
 }
 
 /** sendShortcutMail：处理send Shortcut邮件。 */
@@ -3714,8 +3947,8 @@ async function sendShortcutMail(): Promise<void> {
   resetMailAttachmentPageStore('shortcut');
   renderShortcutMailComposer();
   setStatus(targetPlayer
-    ? `已向 ${targetPlayer.roleName} 发送邮件：${result.mailId}`
-    : `已发送全服邮件批次 ${result.batchId ?? result.mailId}，覆盖 ${result.recipientCount ?? 0} 人`);
+    ? t('gm.mail.sent', { roleName: targetPlayer.roleName, mailId: result.mailId })
+    : t('gm.mail.broadcast.sent', { batchId: result.batchId ?? result.mailId, recipientCount: result.recipientCount ?? 0 }));
 }
 
 /** getSelectedPlayer：读取Selected玩家。 */
@@ -4404,7 +4637,6 @@ function renderEditorTabSection(tab: GmEditorTab, content: string): string {
 
 /** renderVisualEditor：渲染Visual编辑器。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
-  const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort();
   const equipment = draft.equipment as EquipmentSlots;
   const bonuses = ensureArray(draft.bonuses);
   const buffs = ensureArray(draft.temporaryBuffs);
@@ -4598,6 +4830,10 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       </div>
       ${account ? `
       <div class="editor-grid compact">
+        <div class="editor-field">
+          <span>玩家编号</span>
+          <div class="editor-code">${escapeHtml(formatPlayerNo(player.playerNo))}</div>
+        </div>
         <label class="editor-field">
           <span>账号</span>
           <input
@@ -4703,7 +4939,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${numberField('QI', 'qi', draft.qi)}
         <div class="editor-field wide">
           <span>角色标识</span>
-          <div class="editor-code">ID: ${escapeHtml(draft.id)}</div>
+          <div class="editor-code">${escapeHtml(formatPlayerNo(player.playerNo))} · ID: ${escapeHtml(draft.id)}</div>
         </div>
       </div>
       <div class="editor-toggle-row" style="margin-top: 10px;">
@@ -4725,7 +4961,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         </div>
       </div>
       <div class="editor-grid">
-        ${selectField('地图', 'mapId', draft.mapId, mapIds.map((mapId) => ({ value: mapId, label: mapId })))}
+        ${renderPositionMapPicker(player, draft)}
         ${numberField('X', 'x', draft.x)}
         ${numberField('Y', 'y', draft.y)}
         ${selectField('朝向', 'facing', draft.facing, GM_FACING_OPTIONS)}
@@ -5216,12 +5452,12 @@ function renderEditor(data: GmStateRes): void {
   if (!detail) {
     editorEmptyEl.classList.remove('hidden');
     editorEmptyEl.textContent = loadingPlayerDetailId === selected.id
-      ? '正在加载角色详情…'
-      : (selectedPlayerDetailError?.trim() || '当前角色详情暂不可用。');
+      ? t('gm.loading-player-detail')
+      : (selectedPlayerDetailError?.trim() || t('gm.player.detail-unavailable'));
     editorPanelEl.classList.add('hidden');
     clearPlayerDatabasePanel(loadingPlayerDetailId === selected.id
-      ? '正在加载数据库详情…'
-      : '当前数据库详情暂不可用。');
+      ? t('gm.loading-database-detail')
+      : t('gm.database.detail-unavailable'));
     savePlayerBtn.disabled = true;
     refreshPlayerBtn.disabled = true;
     openPlayerMailBtn.disabled = true;
@@ -5323,7 +5559,7 @@ function syncVisualEditorToDraft(scope?: ParentNode): {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!draftSnapshot) {
-    return { ok: false, message: '当前没有可编辑角色' };
+    return { ok: false, message: t('gm.player.no-editable') };
   }
 
   const next = clone(draftSnapshot);
@@ -5405,7 +5641,7 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
   const techniqueMatch = path.match(/^techniques\.(\d+)\.techId$/);
   const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
   if ((inventoryMatch || equipmentMatch || techniqueMatch || buffMatch) && !hasServerEditorCatalog()) {
-    setStatus('服务端编辑目录不可用，当前不能通过模板下拉直接改写角色数据。', true);
+    setStatus(t('gm.editor.catalog.binding-unavailable'), true);
     /** lastEditorStructureKey：last编辑器Structure Key。 */
     lastEditorStructureKey = null;
     if (state) {
@@ -5491,6 +5727,14 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
   currentPlayerPage = data.playerPage.page;
   /** currentPlayerTotalPages：当前玩家总量Pages。 */
   currentPlayerTotalPages = data.playerPage.totalPages;
+  try {
+    await loadGmMapPickerCatalog();
+  } catch (error) {
+    if (!gmMapPickerCatalogWarned) {
+      gmMapPickerCatalogWarned = true;
+      console.warn('GM 地图选择目录加载失败', error);
+    }
+  }
   const previousSelectedPlayerId = selectedPlayerId;
   if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
     /** selectedPlayerId：selected玩家ID。 */
@@ -5549,12 +5793,12 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
     /** selectedPlayerDetailError：selected玩家详情错误。 */
     selectedPlayerDetailError = null;
     if (!silent) {
-      setStatus(`已加载 ${data.player.name} 的角色详情`);
+      setStatus(t('gm.player.detail-loaded', { name: data.player.name }));
     }
   } catch (error) {
     if (nonce === detailRequestNonce && selectedPlayerId === playerId) {
       selectedPlayerDetail = null;
-      selectedPlayerDetailError = error instanceof Error ? error.message : '加载角色详情失败';
+      selectedPlayerDetailError = error instanceof Error ? error.message : t('gm.player.detail-load-failed');
     }
     throw error;
   } finally {
@@ -5574,7 +5818,7 @@ function startPolling(): void {
   }
   pollTimer = window.setInterval(() => {
     loadState(true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '刷新失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.refresh.failed'), true);
     });
   }, GM_PANEL_POLL_INTERVAL_MS);
 }
@@ -5733,7 +5977,7 @@ async function login(): Promise<void> {
 
   const password = passwordInput.value.trim();
   if (!password) {
-    loginErrorEl.textContent = '请输入 GM 密码';
+    loginErrorEl.textContent = t('gm.login.enter-password');
     return;
   }
 
@@ -5755,9 +5999,9 @@ async function login(): Promise<void> {
     startPolling();
     passwordInput.value = '';
     gmPasswordCurrentInput.value = readPersistedGmPassword();
-    setStatus(`GM 管理令牌已签发，有效期约 ${Math.round(result.expiresInSec / 3600)} 小时`);
+    setStatus(t('gm.login.token-issued', { hours: Math.round(result.expiresInSec / 3600) }));
   } catch (error) {
-    loginErrorEl.textContent = error instanceof Error ? error.message : '登录失败';
+    loginErrorEl.textContent = error instanceof Error ? error.message : t('gm.login.failed');
   } finally {
     loginSubmitBtn.disabled = false;
   }
@@ -5770,7 +6014,7 @@ async function changeGmPassword(): Promise<void> {
   const currentPassword = gmPasswordCurrentInput.value.trim();
   const newPassword = gmPasswordNextInput.value.trim();
   if (!currentPassword || !newPassword) {
-    setStatus('请填写当前密码和新密码', true);
+    setStatus(t('gm.password.change.fill-both'), true);
     return;
   }
 
@@ -5788,9 +6032,9 @@ async function changeGmPassword(): Promise<void> {
     passwordInput.value = persistedPassword;
     gmPasswordCurrentInput.value = persistedPassword;
     gmPasswordNextInput.value = '';
-    setStatus('GM 密码已更新');
+    setStatus(t('gm.password.updated'));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : 'GM 密码修改失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     gmPasswordSaveBtn.disabled = false;
   }
@@ -5863,7 +6107,7 @@ function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | nul
 }
 
 /** buildSectionSnapshot：构建Section快照。 */
-function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState): Partial<PlayerState> {
+function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState): GmUpdatePlayerSnapshot {
   switch (section) {
     case 'basic':
       return {
@@ -5884,6 +6128,7 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
     case 'position':
       return {
         mapId: draft.mapId,
+        instanceId: resolvePositionTargetInstanceId(draft.mapId),
         x: draft.x,
         y: draft.y,
         facing: draft.facing,
@@ -5942,15 +6187,15 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
 
   const selected = getSelectedPlayer();
   if (!selected || !draftSnapshot) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
   const uniqueSections = Array.from(new Set(sections));
   if (uniqueSections.length === 0) {
-    setStatus('当前没有需要提交的快捷改动', true);
+    setStatus(t('gm.player.no-shortcut-changes'), true);
     return;
   }
-  setPendingStatus(`正在提交 ${selected.name} 的快捷修改...`);
+  setPendingStatus(t('gm.player.save-started', { name: selected.name, tabLabel: t('gm.editor-tab-shortcuts') }));
   for (const section of uniqueSections) {
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{    
@@ -5973,7 +6218,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
 
@@ -5983,7 +6228,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
   const level = Number(rawValue);
 
   if (!rawValue || !Number.isFinite(level) || level < 0 || !Number.isInteger(level)) {
-    setStatus('请输入非负整数炼体等级', true);
+    setStatus(t('gm.player.training-level.invalid'), true);
     return;
   }
 
@@ -5991,16 +6236,16 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在设置 ${detail.name} 的炼体等级...`);
+    setPendingStatus(t('gm.player.training-level.updating', { name: detail.name }));
     await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/body-training/level`, {
       method: 'POST',
       body: JSON.stringify({ level } satisfies GmSetPlayerBodyTrainingLevelReq),
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已将 ${detail.name} 的炼体等级设置为 ${level} 层`);
+    await delayRefresh(t('gm.player.training-level.updated', { name: detail.name, level }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6014,7 +6259,7 @@ async function addSelectedPlayerFoundation(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
 
@@ -6025,7 +6270,7 @@ async function addSelectedPlayerFoundation(): Promise<void> {
   const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
   if (!rawValue || !Number.isFinite(amount) || !isInteger) {
-    setStatus('请输入整数底蕴调整值', true);
+    setStatus(t('gm.player.foundation.invalid'), true);
     return;
   }
 
@@ -6033,16 +6278,16 @@ async function addSelectedPlayerFoundation(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在调整 ${detail.name} 的底蕴...`);
+    setPendingStatus(t('gm.player.foundation.updating', { name: detail.name }));
     await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/foundation/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerFoundationReq),
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已将 ${detail.name} 的底蕴调整 ${amount > 0 ? '+' : ''}${amount}`);
+    await delayRefresh(t('gm.player.foundation.updated', { name: detail.name, amount: amount > 0 ? `+${amount}` : `${amount}` }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6056,7 +6301,7 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
 
@@ -6067,7 +6312,7 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
   const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
   if (!rawValue || !Number.isFinite(amount) || !isInteger) {
-    setStatus('请输入整数战斗经验调整值', true);
+    setStatus(t('gm.player.combat-exp.invalid'), true);
     return;
   }
 
@@ -6075,16 +6320,16 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在调整 ${detail.name} 的战斗经验...`);
+    setPendingStatus(t('gm.player.combat-exp.updating', { name: detail.name }));
     await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerCombatExpReq),
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已将 ${detail.name} 的战斗经验调整 ${amount > 0 ? '+' : ''}${amount}`);
+    await delayRefresh(t('gm.player.combat-exp.updated', { name: detail.name, amount: amount > 0 ? `+${amount}` : `${amount}` }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6099,7 +6344,7 @@ async function runPlayerTechniqueShortcut(
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!draftSnapshot) {
-    setStatus('当前没有可编辑角色', true);
+    setStatus(t('gm.player.no-editable'), true);
     return;
   }
 
@@ -6116,7 +6361,7 @@ async function runPlayerTechniqueShortcut(
         return !!techniqueId && !learnedTechniqueIds.has(techniqueId) && !existingInventoryItemIds.has(itemId);
       });
     if (bookItemIds.length === 0) {
-      setStatus('当前没有可补发的未学习功法书');
+      setStatus(t('gm.player.no-unlearned-technique-books'));
       return;
     }
     const changed = mutateDraft((draft) => {
@@ -6125,19 +6370,19 @@ async function runPlayerTechniqueShortcut(
     if (!changed) {
       return;
     }
-    await saveSelectedPlayerSections(['items'], `已为当前角色补发 ${bookItemIds.length} 本未学习功法书`);
+    await saveSelectedPlayerSections(['items'], t('gm.player.no-unlearned-technique-books.sent', { count: bookItemIds.length }));
     return;
   }
 
   if (action === 'max-all-techniques') {
     const techniques = ensureArray(draftSnapshot.techniques);
     if (techniques.length === 0) {
-      setStatus('当前角色还没有已学习功法');
+      setStatus(t('gm.player.no-learned-techniques'));
       return;
     }
     const upgradableCount = techniques.filter((technique) => technique.level < getTechniqueTemplateMaxLevel(technique) || technique.expToNext !== 0).length;
     if (upgradableCount === 0) {
-      setStatus('当前全部功法已经处于满级状态');
+      setStatus(t('gm.player.techniques-maxed'));
       return;
     }
     const changed = mutateDraft((draft) => {
@@ -6146,14 +6391,14 @@ async function runPlayerTechniqueShortcut(
     if (!changed) {
       return;
     }
-    await saveSelectedPlayerSections(['techniques'], `已将当前 ${techniques.length} 门功法提升至满级`);
+    await saveSelectedPlayerSections(['techniques'], t('gm.player.techniques-maxed.sent', { count: techniques.length }));
     return;
   }
 
   if (action === 'remove-all-techniques') {
     const techniques = ensureArray(draftSnapshot.techniques);
     if (techniques.length === 0) {
-      setStatus('当前角色没有可移除的已学功法');
+      setStatus(t('gm.player.no-removable-techniques'));
       return;
     }
     const changed = mutateDraft((draft) => {
@@ -6164,7 +6409,7 @@ async function runPlayerTechniqueShortcut(
     if (!changed) {
       return;
     }
-    await saveSelectedPlayerSections(['techniques'], `已移除当前角色全部 ${techniques.length} 门功法`);
+    await saveSelectedPlayerSections(['techniques'], t('gm.player.techniques-removed', { count: techniques.length }));
     return;
   }
 
@@ -6173,7 +6418,7 @@ async function runPlayerTechniqueShortcut(
     .map((technique) => technique.id)
     .filter((techId) => !learnedTechniqueIds.has(techId));
   if (missingTechniqueIds.length === 0) {
-    setStatus('当前角色已经学会目录内全部功法');
+    setStatus(t('gm.player.learned-all-techniques'));
     return;
   }
   const changed = mutateDraft((draft) => {
@@ -6185,13 +6430,13 @@ async function runPlayerTechniqueShortcut(
   if (!changed) {
     return;
   }
-  await saveSelectedPlayerSections(['techniques'], `已为当前角色补齐 ${missingTechniqueIds.length} 门功法`);
+  await saveSelectedPlayerSections(['techniques'], t('gm.player.learned-all-techniques.sent', { count: missingTechniqueIds.length }));
 }
 
 /** runPlayerItemShortcut：执行玩家物品类快捷操作。 */
 async function runPlayerItemShortcut(action: 'grant-all-consumables' | 'grant-all-equipment'): Promise<void> {
   if (!draftSnapshot) {
-    setStatus('当前没有可编辑角色', true);
+    setStatus(t('gm.player.no-editable'), true);
     return;
   }
 
@@ -6203,7 +6448,7 @@ async function runPlayerItemShortcut(action: 'grant-all-consumables' | 'grant-al
     .filter((item) => item.type === targetType)
     .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
   if (catalogItems.length === 0) {
-    setStatus(action === 'grant-all-consumables' ? '当前目录没有消耗品模板' : '当前目录没有装备模板');
+    setStatus(action === 'grant-all-consumables' ? t('gm.player.no-consumable-template') : t('gm.player.no-equipment-template'));
     return;
   }
 
@@ -6217,7 +6462,7 @@ async function runPlayerItemShortcut(action: 'grant-all-consumables' | 'grant-al
       })
     : [];
   if (itemsToAdd.length === 0 && consumablesToUpdate.length === 0) {
-    setStatus(action === 'grant-all-consumables' ? '当前角色已拥有全部消耗品，且数量不低于 999' : '当前角色背包已拥有全部装备');
+    setStatus(action === 'grant-all-consumables' ? t('gm.player.inventory-full-consumables') : t('gm.player.inventory-full-equipment'));
     return;
   }
 
@@ -6245,7 +6490,7 @@ async function runPlayerItemShortcut(action: 'grant-all-consumables' | 'grant-al
   const detail = action === 'grant-all-consumables'
     ? `新增 ${itemsToAdd.length} 种，补足 ${consumablesToUpdate.length} 种到 999 个`
     : `新增 ${itemsToAdd.length} 件`;
-  await saveSelectedPlayerSections(['items'], `已为当前角色添加全部${label}：${detail}`);
+  await saveSelectedPlayerSections(['items'], t('gm.player.inventory-updated', { label, detail }));
 }
 
 /** openSelectedPlayerMailTab：打开Selected玩家邮件Tab。 */
@@ -6253,7 +6498,7 @@ function openSelectedPlayerMailTab(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!selectedPlayerId) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
   if (currentTab !== 'players') {
@@ -6268,11 +6513,11 @@ async function refreshSelectedPlayer(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
 
-  if (editorDirty && !window.confirm('刷新会丢弃当前未保存的修改。继续吗？')) {
+  if (editorDirty && !window.confirm(t('gm.refresh.confirm'))) {
     return;
   }
 
@@ -6292,9 +6537,9 @@ async function refreshSelectedPlayer(): Promise<void> {
 
   try {
     await loadState(true, true);
-    setStatus(`已刷新 ${selected.name} 的角色详情`);
+    setStatus(t('gm.player.refreshed', { name: selected.name }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '刷新角色详情失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.detail-load-failed'), true);
   } finally {
     refreshPlayerBtn.disabled = false;
   }
@@ -6306,33 +6551,33 @@ async function saveSelectedPlayer(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
   const section = getCurrentEditorSaveSection();
   if (!section) {
     setStatus(
       currentEditorTab === 'mail'
-        ? '邮件标签不参与角色保存，请直接使用邮件表单发送'
-        : '持久化 JSON 标签不直接保存，请先应用到可视化标签',
+        ? t('gm.player.section.mail-cannot-save')
+        : t('gm.player.section.persisted-cannot-save'),
       true,
     );
     return;
   }
   if ((section === 'buffs' || section === 'techniques' || section === 'items' || section === 'quests') && !hasServerEditorCatalog()) {
-    setStatus(`${getEditorTabLabel(section)}保存已暂停：GM 编辑目录未从服务端加载成功，避免提交过期目录数据`, true);
+    setStatus(t('gm.player.catalog.save-paused', { tabLabel: getEditorTabLabel(section) }), true);
     return;
   }
 
   const synced = syncVisualEditorToDraft(getEditorTabSection(section) ?? undefined);
   if (!synced.ok || !draftSnapshot) {
-    setStatus(synced.ok ? '当前没有可保存内容' : synced.message, true);
+    setStatus(synced.ok ? t('gm.player.no-save-content') : synced.message, true);
     return;
   }
 
   savePlayerBtn.disabled = true;
   try {
-    setPendingStatus(`正在提交 ${selected.name} 的${getEditorTabLabel(section)}修改...`);
+    setPendingStatus(t('gm.player.save-started', { name: selected.name, tabLabel: getEditorTabLabel(section) }));
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{    
     /**
@@ -6344,9 +6589,9 @@ async function saveSelectedPlayer(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已提交 ${selected.name} 的${getEditorTabLabel(section)}修改`);
+    await delayRefresh(t('gm.player.save-done', { name: selected.name, tabLabel: getEditorTabLabel(section) }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '保存失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     savePlayerBtn.disabled = false;
   }
@@ -6358,7 +6603,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
-    setStatus('当前目标没有可修改的账号密码', true);
+    setStatus(t('gm.player.password.no-target'), true);
     return;
   }
 
@@ -6367,7 +6612,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
   const newPassword = passwordInput?.value.trim() ?? '';
 
   if (!newPassword) {
-    setStatus('请填写新密码', true);
+    setStatus(t('gm.player.password.fill-new'), true);
     return;
   }
 
@@ -6375,7 +6620,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在修改账号 ${detail.account.username} 的密码...`);
+    setPendingStatus(t('gm.player.password.updating', { username: detail.account.username }));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6387,9 +6632,9 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     if (passwordInput) {
       passwordInput.value = '';
     }
-    setStatus(`已修改账号 ${detail.account.username} 的密码，服务端已按哈希保存`);
+    setStatus(t('gm.player.password.updated', { username: detail.account.username }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '修改账号密码失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6403,7 +6648,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
 
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
-    setStatus('当前目标没有可修改的账号', true);
+    setStatus(t('gm.player.account.no-target'), true);
     return;
   }
 
@@ -6412,11 +6657,11 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   const username = accountInput?.value.trim() ?? '';
 
   if (!username) {
-    setStatus('请填写账号', true);
+    setStatus(t('gm.player.account.fill'), true);
     return;
   }
   if (username === detail.account.username) {
-    setStatus('账号未变化');
+    setStatus(t('gm.player.account.unchanged'));
     return;
   }
 
@@ -6424,7 +6669,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在修改账号 ${detail.account.username}...`);
+    setPendingStatus(t('gm.player.account.updating', { username: detail.account.username }));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6433,9 +6678,9 @@ async function saveSelectedPlayerAccount(): Promise<void> {
       method: 'PUT',
       body: JSON.stringify({ username } satisfies GmUpdateManagedPlayerAccountReq),
     });
-    await delayRefresh(`已将账号从 ${detail.account.username} 修改为 ${username}`);
+    await delayRefresh(t('gm.player.account.updated', { oldUsername: detail.account.username, newUsername: username }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '修改账号失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6447,7 +6692,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
 async function banSelectedPlayerAccount(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
-    setStatus('当前目标没有可封禁的账号', true);
+    setStatus(t('gm.player.account.ban.no-target'), true);
     return;
   }
   const reasonInput = editorContentEl.querySelector<HTMLInputElement>('#player-account-ban-reason');
@@ -6457,16 +6702,16 @@ async function banSelectedPlayerAccount(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在封禁账号 ${detail.account.username}...`);
+    setPendingStatus(t('gm.player.account.ban.updating', { username: detail.account.username }));
     await request<{
       ok: true;
     }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/ban`, {
       method: 'POST',
       body: JSON.stringify({ reason } satisfies GmBanManagedPlayerReq),
     });
-    await delayRefresh(`已封禁账号 ${detail.account.username}`);
+    await delayRefresh(t('gm.player.account.banned', { username: detail.account.username }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '封禁账号失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.account.ban.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6478,7 +6723,7 @@ async function banSelectedPlayerAccount(): Promise<void> {
 async function unbanSelectedPlayerAccount(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
-    setStatus('当前目标没有可解封的账号', true);
+    setStatus(t('gm.player.account.unban.no-target'), true);
     return;
   }
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="unban-player-account"]');
@@ -6486,15 +6731,15 @@ async function unbanSelectedPlayerAccount(): Promise<void> {
     button.disabled = true;
   }
   try {
-    setPendingStatus(`正在解封账号 ${detail.account.username}...`);
+    setPendingStatus(t('gm.player.account.unban.updating', { username: detail.account.username }));
     await request<{
       ok: true;
     }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/unban`, {
       method: 'POST',
     });
-    await delayRefresh(`已解封账号 ${detail.account.username}`);
+    await delayRefresh(t('gm.player.account.unbanned', { username: detail.account.username }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '解封账号失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.account.unban.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6508,13 +6753,13 @@ async function resetSelectedPlayer(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.reset.no-target'), true);
     return;
   }
 
   resetPlayerBtn.disabled = true;
   try {
-    setPendingStatus(`正在让 ${selected.name} 返回出生点...`);
+    setPendingStatus(t('gm.player.reset.updating', { name: selected.name }));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6524,9 +6769,9 @@ async function resetSelectedPlayer(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已让 ${selected.name} 返回出生点`);
+    await delayRefresh(t('gm.player.reset.done', { name: selected.name }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '重置失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.reset.failed'), true);
   } finally {
     resetPlayerBtn.disabled = false;
   }
@@ -6538,13 +6783,13 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected) {
-    setStatus('请先选择角色', true);
+    setStatus(t('gm.player.choose'), true);
     return;
   }
 
   resetHeavenGateBtn.disabled = true;
   try {
-    setPendingStatus(`正在重置 ${selected.name} 的天门测试状态...`);
+    setPendingStatus(t('gm.player.heaven-gate.reset.updating', { name: selected.name }));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6554,9 +6799,9 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已重置 ${selected.name} 的天门测试状态`);
+    await delayRefresh(t('gm.player.heaven-gate.reset.done', { name: selected.name }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '重置天门失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.heaven-gate.reset.failed'), true);
   } finally {
     resetHeavenGateBtn.disabled = false;
   }
@@ -6568,13 +6813,13 @@ async function removeSelectedBot(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected || !selected.meta.isBot) {
-    setStatus('当前选中目标不是机器人', true);
+    setStatus(t('gm.bot.not-selected'), true);
     return;
   }
 
   removeBotBtn.disabled = true;
   try {
-    setPendingStatus(`正在移除机器人 ${selected.name}...`);
+    setPendingStatus(t('gm.bot.removing', { name: selected.name }));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6585,9 +6830,9 @@ async function removeSelectedBot(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(`已移除机器人 ${selected.name}`);
+    await delayRefresh(t('gm.bot.removed', { name: selected.name }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '移除机器人失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.bot.remove.failed'), true);
   } finally {
     removeBotBtn.disabled = false;
   }
@@ -6599,13 +6844,13 @@ async function spawnBots(): Promise<void> {
 
   const selected = getSelectedPlayer();
   if (!selected) {
-    setStatus('请先选择一个角色作为生成锚点', true);
+    setStatus(t('gm.bot.spawn.anchor-required'), true);
     return;
   }
 
   const count = Number(spawnCountInput.value);
   if (!Number.isFinite(count) || count <= 0) {
-    setStatus('机器人数量必须为正整数', true);
+    setStatus(t('gm.bot.spawn.count-invalid'), true);
     return;
   }
 
@@ -6621,16 +6866,16 @@ async function spawnBots(): Promise<void> {
         count,
       } satisfies GmSpawnBotsReq),
     });
-    await delayRefresh(`已提交在 ${selected.name} 附近生成 ${Math.floor(count)} 个机器人`);
+    await delayRefresh(t('gm.bot.spawn.started', { name: selected.name, count: Math.floor(count) }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '生成机器人失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.bot.spawn.failed'), true);
   }
 }
 
 /** removeAllBots：处理remove All Bots。 */
 async function removeAllBots(): Promise<void> {
   try {
-    setPendingStatus('正在移除全部机器人...');
+    setPendingStatus(t('gm.bot.remove-all.started'));
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6641,9 +6886,9 @@ async function removeAllBots(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh('已提交移除全部机器人');
+    await delayRefresh(t('gm.bot.remove-all.done'));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '移除机器人失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.bot.remove.failed'), true);
   }
 }
 
@@ -6651,7 +6896,7 @@ async function removeAllBots(): Promise<void> {
 async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!window.confirm('这会把所有非机器人角色统一送回新手村出生点。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
+  if (!window.confirm(t('gm.shortcut.return-all.confirm'))) {
     return;
   }
 
@@ -6665,11 +6910,13 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(
-      `已提交全部角色回新手村出生点，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个`,
-    );
+    await delayRefresh(t('gm.shortcut.return-all.done', {
+      totalPlayers: result.totalPlayers,
+      queuedRuntimePlayers: result.queuedRuntimePlayers,
+      updatedOfflinePlayers: result.updatedOfflinePlayers,
+    }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '执行快捷指令失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6681,7 +6928,7 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
 async function cleanupAllPlayersInvalidItems(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!window.confirm('这会手动清理所有非机器人角色背包、坊市托管仓和装备栏里的无效物品。在线角色将在下一息处理并落盘，离线角色会直接改存档。确认继续吗？')) {
+  if (!window.confirm(t('gm.shortcut.cleanup-invalid.confirm'))) {
     return;
   }
 
@@ -6695,11 +6942,16 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(
-      `已提交无效物品清理，共 ${result.totalPlayers} 个角色，运行态 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，移除背包堆叠 ${Math.floor(result.totalInvalidInventoryStacksRemoved ?? 0)} 个、托管仓堆叠 ${Math.floor(result.totalInvalidMarketStorageStacksRemoved ?? 0)} 个、装备栏 ${Math.floor(result.totalInvalidEquipmentRemoved ?? 0)} 件`,
-    );
+    await delayRefresh(t('gm.shortcut.cleanup-invalid.done', {
+      totalPlayers: result.totalPlayers,
+      queuedRuntimePlayers: result.queuedRuntimePlayers,
+      updatedOfflinePlayers: result.updatedOfflinePlayers,
+      removedInventoryStacks: Math.floor(result.totalInvalidInventoryStacksRemoved ?? 0),
+      removedMarketStorageStacks: Math.floor(result.totalInvalidMarketStorageStacksRemoved ?? 0),
+      removedEquipment: Math.floor(result.totalInvalidEquipmentRemoved ?? 0),
+    }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '执行无效物品清理失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6711,7 +6963,7 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
 async function compensateAllPlayersCombatExp(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
+  if (!window.confirm(t('gm.shortcut.combat-exp.confirm'))) {
     return;
   }
 
@@ -6725,11 +6977,14 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(
-      `已提交战斗经验补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalCombatExpGranted ?? 0)} 点战斗经验`,
-    );
+    await delayRefresh(t('gm.shortcut.combat-exp.done', {
+      totalPlayers: result.totalPlayers,
+      queuedRuntimePlayers: result.queuedRuntimePlayers,
+      updatedOfflinePlayers: result.updatedOfflinePlayers,
+      combatExp: Math.floor(result.totalCombatExpGranted ?? 0),
+    }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6741,7 +6996,7 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
 async function compensateAllPlayersFoundation(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!window.confirm('这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？')) {
+  if (!window.confirm(t('gm.shortcut.foundation.confirm'))) {
     return;
   }
 
@@ -6755,11 +7010,14 @@ async function compensateAllPlayersFoundation(): Promise<void> {
     });
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
-    await delayRefresh(
-      `已提交底蕴补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalFoundationGranted ?? 0)} 点底蕴`,
-    );
+    await delayRefresh(t('gm.shortcut.foundation.done', {
+      totalPlayers: result.totalPlayers,
+      queuedRuntimePlayers: result.queuedRuntimePlayers,
+      updatedOfflinePlayers: result.updatedOfflinePlayers,
+      foundation: Math.floor(result.totalFoundationGranted ?? 0),
+    }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -6783,9 +7041,9 @@ async function resetNetworkStats(): Promise<void> {
       method: 'POST',
     });
     await loadState(true);
-    setStatus('流量统计已重置');
+    setStatus(t('gm.perf.network.reset.done'));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '重置流量统计失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.perf.network.reset.failed'), true);
   } finally {
     resetNetworkStatsBtn.disabled = false;
   }
@@ -6805,9 +7063,9 @@ async function resetCpuStats(): Promise<void> {
       method: 'POST',
     });
     await loadState(true);
-    setStatus('CPU 统计已重置');
+    setStatus(t('gm.perf.cpu.reset.done'));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '重置 CPU 统计失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.perf.cpu.reset.failed'), true);
   } finally {
     resetCpuStatsBtn.disabled = false;
   }
@@ -6827,9 +7085,9 @@ async function resetPathfindingStats(): Promise<void> {
       method: 'POST',
     });
     await loadState(true);
-    setStatus('寻路统计已重置');
+    setStatus(t('gm.perf.pathfinding.reset.done'));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '重置寻路统计失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.perf.pathfinding.reset.failed'), true);
   } finally {
     resetPathfindingStatsBtn.disabled = false;
   }
@@ -6855,7 +7113,7 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       break;
     case 'add-buff':
       if (!hasServerEditorCatalog()) {
-        setStatus('服务端编辑目录不可用，当前不能用模板方式新增增益。', true);
+        setStatus(t('gm.editor.catalog.buff-unavailable'), true);
         return;
       }
       mutateDraft((draft) => {
@@ -6874,12 +7132,12 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       break;
     case 'add-inventory-item-from-catalog': {
       if (!hasServerEditorCatalog()) {
-        setStatus('服务端编辑目录不可用，当前不能用模板方式加入物品。', true);
+        setStatus(t('gm.editor.catalog.item-unavailable'), true);
         return;
       }
       const itemId = readCatalogSelectValue('inventory-item');
       if (!itemId) {
-        setStatus('请先选择一个物品模板', true);
+        setStatus(t('gm.editor.catalog.choose-item-template'), true);
         return;
       }
       mutateDraft((draft) => {
@@ -6900,12 +7158,12 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       if (!slot) return;
       {
         if (!hasServerEditorCatalog()) {
-          setStatus('服务端编辑目录不可用，当前不能用模板方式创建装备。', true);
+          setStatus(t('gm.editor.catalog.equipment-unavailable'), true);
           return;
         }
         const itemId = readCatalogSelectValue('equipment', slot);
         if (!itemId) {
-          setStatus('请先选择一个装备模板', true);
+          setStatus(t('gm.editor.catalog.choose-equipment-template'), true);
           return;
         }
         mutateDraft((draft) => {
@@ -6932,12 +7190,12 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       break;
     case 'add-technique-from-catalog': {
       if (!hasServerEditorCatalog()) {
-        setStatus('服务端编辑目录不可用，当前不能用模板方式加入功法。', true);
+        setStatus(t('gm.editor.catalog.technique-unavailable'), true);
         return;
       }
       const techId = readCatalogSelectValue('technique');
       if (!techId) {
-        setStatus('请先选择一个功法模板', true);
+        setStatus(t('gm.editor.catalog.choose-technique-template'), true);
         return;
       }
       mutateDraft((draft) => {
@@ -6964,7 +7222,7 @@ playerListEl.addEventListener('click', (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-player-id]');
   const playerId = button?.dataset.playerId;
   if (!playerId || playerId === selectedPlayerId) return;
-  if (editorDirty && !window.confirm('当前角色有未保存修改，切换后会丢失这些修改。继续吗？')) {
+  if (editorDirty && !window.confirm(t('gm.player.switch.confirm'))) {
     return;
   }
   /** selectedPlayerId：selected玩家ID。 */
@@ -6981,7 +7239,7 @@ playerListEl.addEventListener('click', (event) => {
   editorDirty = false;
   render();
   loadSelectedPlayerDetail(playerId, true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.detail-load-failed'), true);
   });
 });
 
@@ -7008,7 +7266,7 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'send-direct-mail') {
     sendDirectMail().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '发送角色邮件失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
@@ -7030,19 +7288,19 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'set-body-training-level') {
     setSelectedPlayerBodyTrainingLevel().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
   if (action === 'add-foundation') {
     addSelectedPlayerFoundation().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
   if (action === 'add-combat-exp') {
     addSelectedPlayerCombatExp().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
@@ -7053,13 +7311,13 @@ editorContentEl.addEventListener('click', (event) => {
     || action === 'remove-all-techniques'
   ) {
     runPlayerTechniqueShortcut(action).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '执行快捷操作失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
   if (action === 'grant-all-consumables' || action === 'grant-all-equipment') {
     runPlayerItemShortcut(action).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '执行物品快捷操作失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
   }
@@ -7114,6 +7372,32 @@ editorContentEl.addEventListener('change', (event) => {
         return;
       }
     }
+  }
+  if (target instanceof HTMLSelectElement && target.dataset.gmPositionMapCategory !== undefined) {
+    const selected = getSelectedPlayerDetail();
+    const category = (target.value as GmPositionMapCategory) || 'map';
+    const mapSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-gm-position-map-select]');
+    const currentMapId = mapSelect?.value || draftSnapshot?.mapId || '';
+    const nextMapId = patchPositionMapSelect(category, currentMapId);
+    if (selected) {
+      positionMapCategoryDraft = { playerId: selected.id, category };
+    }
+    const synced = syncVisualEditorToDraft(
+      target.closest<HTMLElement>('[data-editor-tab]') ?? undefined,
+    );
+    if (!synced.ok) {
+      setStatus(synced.message, true);
+      return;
+    }
+    if (draftSnapshot) {
+      draftSnapshot.mapId = nextMapId;
+    }
+    const detail = getSelectedPlayerDetail();
+    if (detail && draftSnapshot) {
+      editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
+      patchEditorPreview(detail, draftSnapshot);
+    }
+    return;
   }
   if (target instanceof HTMLSelectElement && target.dataset.catalogSelect === 'inventory-type') {
     /** currentInventoryAddType：当前背包Add类型。 */
@@ -7282,7 +7566,7 @@ suggestionListEl.addEventListener('click', (event) => {
     const replyInput = card?.querySelector<HTMLTextAreaElement>('[data-role="reply-input"]');
     const content = replyInput?.value.trim() ?? '';
     if (!content) {
-      setStatus('请输入开发者回复内容', true);
+      setStatus(t('gm.suggestion.reply.empty'), true);
       return;
     }
     replySuggestion(suggestionId, content).catch(() => {});
@@ -7376,7 +7660,7 @@ playerSearchInput.addEventListener('input', () => {
   }
   playerSearchTimer = window.setTimeout(() => {
     loadState(true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
     });
   }, 250);
 });
@@ -7388,7 +7672,7 @@ playerSortSelect.addEventListener('change', () => {
   /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
   lastPlayerListStructureKey = null;
   loadState(true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
 playerAccountStatusFilterSelect.addEventListener('change', () => {
@@ -7396,7 +7680,7 @@ playerAccountStatusFilterSelect.addEventListener('change', () => {
   currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
   loadState(true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
 playerPrevPageBtn.addEventListener('click', () => {
@@ -7405,7 +7689,7 @@ playerPrevPageBtn.addEventListener('click', () => {
   }
   currentPlayerPage -= 1;
   loadState(true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
 playerNextPageBtn.addEventListener('click', () => {
@@ -7414,7 +7698,7 @@ playerNextPageBtn.addEventListener('click', () => {
   }
   currentPlayerPage += 1;
   loadState(true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
 redeemTabBtn.addEventListener('click', () => switchTab('redeem'));
@@ -7464,7 +7748,7 @@ playerDatabaseTabsEl.addEventListener('click', (event) => {
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
   loadState(false, true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '刷新失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.refresh.failed'), true);
   });
 });
 document.getElementById('logout')?.addEventListener('click', () => logout());
@@ -7502,7 +7786,7 @@ shortcutWorkspaceEl.addEventListener('click', (event) => {
   }
   if (action === 'send-shortcut-mail') {
     sendShortcutMail().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '发送快捷邮件失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
   }
 });
@@ -7570,7 +7854,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
     /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
     redeemLatestGeneratedCodes = [];
     loadRedeemGroupDetail(groupId, true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载兑换码分组失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.load.failed'), true);
     });
     return;
   }
@@ -7605,31 +7889,31 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
   }
   if (action === 'refresh-redeem-groups') {
     loadRedeemGroups(false).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '刷新兑换码分组失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.refresh.failed'), true);
     });
     return;
   }
   if (action === 'create-redeem-group') {
     createRedeemGroup().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '创建兑换码分组失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.create.failed'), true);
     });
     return;
   }
   if (action === 'save-redeem-group') {
     saveRedeemGroup().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '保存兑换码分组失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.save.failed'), true);
     });
     return;
   }
   if (action === 'append-redeem-codes') {
     appendRedeemCodes().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '追加兑换码失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.append.failed'), true);
     });
     return;
   }
   if (action === 'copy-active-redeem-codes') {
     copyActiveRedeemCodes().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '复制未使用兑换码失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.copy.failed'), true);
     });
     return;
   }
@@ -7639,7 +7923,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
       return;
     }
     destroyRedeemCode(codeId).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '销毁兑换码失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.destroy.failed'), true);
     });
   }
 });
@@ -7688,7 +7972,7 @@ serverPanelTrafficEl.addEventListener('click', (event) => {
   event.preventDefault();
   const bucket = networkLargePayloadBucketByKey.get(key);
   if (!bucket) {
-    setStatus('这个流量项的大包样本已经过期，请等待下一次刷新', true);
+    setStatus(t('gm.network.large-payload.expired'), true);
     return;
   }
   openNetworkPayloadModal(bucket);
@@ -7701,12 +7985,12 @@ resetPathfindingStatsBtn.addEventListener('click', () => {
 });
 serverLogsLoadOlderBtn.addEventListener('click', () => {
   loadServerLogs(true).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '加载更早服务端日志失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.server.logs.load-older.failed'), true);
   });
 });
 serverLogsRefreshBtn.addEventListener('click', () => {
   loadServerLogs(false).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '刷新服务端日志失败', true);
+    setStatus(error instanceof Error ? error.message : t('gm.server.logs.refresh.failed'), true);
   });
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
@@ -7714,7 +7998,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const refreshButton = target?.closest<HTMLButtonElement>('#database-refresh');
   if (refreshButton) {
     loadDatabaseState(false).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '刷新数据库状态失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.state.refresh.failed'), true);
     });
     return;
   }
@@ -7722,7 +8006,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const exportButton = target?.closest<HTMLButtonElement>('#database-export-current');
   if (exportButton) {
     exportCurrentDatabase().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '导出数据库失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.export.failed'), true);
     });
     return;
   }
@@ -7731,9 +8015,9 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   if (uploadButton) {
     uploadDatabaseBackupFile(false).catch((error: unknown) => {
       databaseImportBusy = false;
-      databaseImportStatus = error instanceof Error ? error.message : '上传数据库备份失败';
+      databaseImportStatus = error instanceof Error ? error.message : t('gm.database.upload.failed');
       renderDatabasePanel();
-      setStatus(error instanceof Error ? error.message : '上传数据库备份失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.upload.failed'), true);
     });
     return;
   }
@@ -7742,9 +8026,9 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   if (uploadAndRestoreButton) {
     uploadDatabaseBackupFile(true).catch((error: unknown) => {
       databaseImportBusy = false;
-      databaseImportStatus = error instanceof Error ? error.message : '上传并导入数据库失败';
+      databaseImportStatus = error instanceof Error ? error.message : t('gm.database.upload-and-restore.failed');
       renderDatabasePanel();
-      setStatus(error instanceof Error ? error.message : '上传并导入数据库失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.upload-and-restore.failed'), true);
     });
     return;
   }
@@ -7752,7 +8036,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const downloadButton = target?.closest<HTMLButtonElement>('[data-db-download]');
   if (downloadButton?.dataset.dbDownload) {
     downloadDatabaseBackup(downloadButton.dataset.dbDownload).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '下载数据库备份失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.download.failed'), true);
     });
     return;
   }
@@ -7760,7 +8044,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const restoreButton = target?.closest<HTMLButtonElement>('[data-db-restore]');
   if (restoreButton?.dataset.dbRestore) {
     restoreDatabaseBackup(restoreButton.dataset.dbRestore).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '导入数据库失败', true);
+      setStatus(error instanceof Error ? error.message : t('gm.database.restore.failed'), true);
     });
   }
 });
@@ -7805,7 +8089,7 @@ if (token) {
   loadEditorCatalog()
     .then(() => loadState())
     .then(() => startPolling())
-    .catch(() => logout('GM 登录已失效，请重新输入密码'));
+    .catch(() => logout(t('gm.request.login-expired')));
 } else {
   showLogin();
 }

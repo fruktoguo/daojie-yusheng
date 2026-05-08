@@ -26,8 +26,9 @@ import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getLocalItemTemplate, getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
-import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import { ACTION_SHORTCUTS_CHANGED_EVENT, ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 import { formatDisplayNumber } from '../../utils/number';
+import { t } from '../i18n';
 import {
   appendUnique,
   decodePresetTextValue,
@@ -182,18 +183,18 @@ type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
 
 const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
 const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
-  { id: 'leader', label: '宗主', assignable: false },
-  { id: 'deputy', label: '副宗主', assignable: true },
-  { id: 'elder', label: '长老', assignable: true },
-  { id: 'inner', label: '内门弟子', assignable: true },
-  { id: 'outer', label: '外门弟子', assignable: true },
-  { id: 'labor', label: '杂役', assignable: true },
-  { id: 'supreme_elder', label: '太上长老', assignable: false },
+  { id: 'leader', label: t('action.sect.role.leader', undefined), assignable: false },
+  { id: 'deputy', label: t('action.sect.role.deputy', undefined), assignable: true },
+  { id: 'elder', label: t('action.sect.role.elder', undefined), assignable: true },
+  { id: 'inner', label: t('action.sect.role.inner', undefined), assignable: true },
+  { id: 'outer', label: t('action.sect.role.outer', undefined), assignable: true },
+  { id: 'labor', label: t('action.sect.role.labor', undefined), assignable: true },
+  { id: 'supreme_elder', label: t('action.sect.role.supreme-elder', undefined), assignable: false },
 ];
 const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
-  { id: 'guardian', label: '护宗大阵' },
-  { id: 'member_remove', label: '移除成员' },
-  { id: 'member_role', label: '修改职位' },
+  { id: 'guardian', label: t('action.sect.permission.guardian', undefined) },
+  { id: 'member_remove', label: t('action.sect.permission.member-remove', undefined) },
+  { id: 'member_role', label: t('action.sect.permission.member-role', undefined) },
 ];
 
 function stripSectManagementData(desc: string | undefined): string {
@@ -243,7 +244,7 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
 
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
   const playerId = player?.id ?? '';
-  const name = player?.name || player?.displayName || playerId || '当前宗主';
+  const name = player?.name || player?.displayName || playerId || t('action.sect.fallback.current-leader', undefined);
   const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
   return {
     selfPlayerId: playerId,
@@ -262,9 +263,9 @@ function buildFallbackSectManagementData(player: PlayerState | null): SectManage
       playerId,
       name,
       roleId: 'leader',
-      roleLabel: '宗主',
+      roleLabel: t('action.sect.role.leader', undefined),
       realmLv: Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv)) ? Math.trunc(Number(player?.realm?.realmLv ?? player?.realmLv)) : null,
-      statusLabel: '在线',
+      statusLabel: t('action.sect.status.online', undefined),
       self: true,
       leader: true,
     }],
@@ -300,11 +301,11 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
   const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
   return {
     playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知成员',
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-member', undefined),
     roleId,
     roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
     realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
-    statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : '离线',
+    statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : t('action.sect.status.offline', undefined),
     self: source.self === true,
     leader: source.leader === true,
   };
@@ -315,19 +316,19 @@ function normalizeSectManagementApplication(input: unknown): SectManagementAppli
   const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
   return {
     playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知申请人',
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-applicant', undefined),
     appliedAt: Number.isFinite(Number(source.appliedAt)) ? Math.trunc(Number(source.appliedAt)) : 0,
   };
 }
 
 function formatSectTimestamp(timestamp: number): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return '未知';
+    return t('common.value.unknown', undefined);
   }
   return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
 }
 
-function formatSectMemberRealmLabel(member: SectManagementMember, fallback = '未知'): string {
+function formatSectMemberRealmLabel(member: SectManagementMember, fallback = t('common.value.unknown', undefined)): string {
   if (!Number.isFinite(Number(member.realmLv)) || Number(member.realmLv) <= 0) {
     return fallback;
   }
@@ -374,12 +375,12 @@ interface CombatTargetingCardOption {
 }
 
 const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{ mode: AutoBattleTargetingMode; label: string; summary: string }> = [
-  { mode: 'auto', label: '自动', summary: '按仇恨自动切换。' },
-  { mode: 'nearest', label: '优先更近', summary: '更偏向最近目标。' },
-  { mode: 'low_hp', label: '优先残血', summary: '更偏向血量低的目标。' },
-  { mode: 'full_hp', label: '优先满血', summary: '更偏向血量高的目标。' },
-  { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
-  { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
+  { mode: 'auto', label: t('action.targeting-plan.mode.auto.label', undefined), summary: t('action.targeting-plan.mode.auto.summary', undefined) },
+  { mode: 'nearest', label: t('action.targeting-plan.mode.nearest.label', undefined), summary: t('action.targeting-plan.mode.nearest.summary', undefined) },
+  { mode: 'low_hp', label: t('action.targeting-plan.mode.low-hp.label', undefined), summary: t('action.targeting-plan.mode.low-hp.summary', undefined) },
+  { mode: 'full_hp', label: t('action.targeting-plan.mode.full-hp.label', undefined), summary: t('action.targeting-plan.mode.full-hp.summary', undefined) },
+  { mode: 'boss', label: t('action.targeting-plan.mode.boss.label', undefined), summary: t('action.targeting-plan.mode.boss.summary', undefined) },
+  { mode: 'player', label: t('action.targeting-plan.mode.player.label', undefined), summary: t('action.targeting-plan.mode.player.summary', undefined) },
 ];
 
 const HOSTILE_TARGETING_KEYS = new Set<CombatTargetingRuleKey>([
@@ -740,7 +741,7 @@ export class ActionPanel {
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
-    patchElementHtml(this.pane, '<div class="empty-hint">暂无可用行动</div>');
+    patchElementHtml(this.pane, `<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`);
   }  
   /**
  * setCallbacks：写入Callback。
@@ -762,6 +763,19 @@ export class ActionPanel {
     this.onUpdateAutoUsePills = onUpdateAutoUsePills ?? null;
     this.onUpdateCombatTargetingRules = onUpdateCombatTargetingRules ?? null;
     this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
+  }
+
+  /** 读取外部面板展示用的绑键按钮文案。 */
+  getShortcutBindLabel(actionId: string): string {
+    return this.getBindButtonLabel(actionId);
+  }
+
+  /** 供属性等外部面板进入或退出行动绑键模式。 */
+  toggleShortcutBinding(actionId: string): void {
+    this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
+    this.render(this.currentActions);
+    this.renderSkillManagementModalIfOpen();
+    this.notifyShortcutBindingChanged();
   }
 
   /** 用新的动作快照覆盖当前状态，并重绘面板和已开的弹层。 */
@@ -871,10 +885,10 @@ export class ActionPanel {
 
       types: string[];
     }> = [
-      { id: 'dialogue', label: '交互', types: ['quest', 'interact', 'travel'] },
-      { id: 'skill', label: '技能', types: ['skill', 'battle', 'gather', 'craft'] },
-      { id: 'toggle', label: '开关', types: ['toggle'] },
-      { id: 'utility', label: '行动', types: ['toggle'] },
+      { id: 'dialogue', label: t('action.tab.dialogue', undefined), types: ['quest', 'interact', 'travel'] },
+      { id: 'skill', label: t('action.tab.skill', undefined), types: ['skill', 'battle', 'gather', 'craft'] },
+      { id: 'toggle', label: t('action.tab.toggle', undefined), types: ['toggle'] },
+      { id: 'utility', label: t('action.tab.utility', undefined), types: ['toggle'] },
     ];
     const groups = new Map<string, ActionDef[]>();
     for (const action of actions) {
@@ -899,11 +913,11 @@ export class ActionPanel {
       if (tab.id === 'toggle') {
         const switchEntries = actions.filter((action) => this.isSwitchAction(action));
         if (switchEntries.length === 0) {
-          html += '<div class="empty-hint">当前分组暂无内容</div></div>';
+          html += `<div class="empty-hint">${t('action.empty.current-group', undefined)}</div></div>`;
           continue;
         }
         html += `<div class="panel-section">
-          <div class="panel-section-title">开关</div>
+          <div class="panel-section-title">${t('action.section.toggle', undefined)}</div>
           <div class="intel-grid compact">`;
         for (const action of switchEntries) {
           html += this.renderSwitchItem(action);
@@ -917,11 +931,11 @@ export class ActionPanel {
           || this.isUtilityAction(action)
         ));
         if (utilityEntries.length === 0) {
-          html += '<div class="empty-hint">当前分组暂无内容</div></div>';
+          html += `<div class="empty-hint">${t('action.empty.current-group', undefined)}</div></div>`;
           continue;
         }
         html += `<div class="panel-section">
-          <div class="panel-section-title">行动</div>
+          <div class="panel-section-title">${t('action.section.utility', undefined)}</div>
           <div class="action-card-list">`;
         for (const action of utilityEntries) {
           html += this.renderActionItem(action);
@@ -931,7 +945,7 @@ export class ActionPanel {
       }
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
       if (relevantTypes.length === 0) {
-        html += '<div class="empty-hint">当前分组暂无内容</div>';
+        html += `<div class="empty-hint">${t('action.empty.current-group', undefined)}</div>`;
       } else {
         for (const type of relevantTypes) {
           const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action) && !this.isSwitchAction(action));
@@ -1101,6 +1115,7 @@ export class ActionPanel {
         this.bindingActionId = null;
         this.render(this.currentActions);
         this.renderSkillManagementModalIfOpen();
+        this.notifyShortcutBindingChanged();
         return;
       }
       const normalized = normalizeShortcutKey(event.key);
@@ -1116,6 +1131,7 @@ export class ActionPanel {
       this.bindingActionId = null;
       this.render(this.currentActions);
       this.renderSkillManagementModalIfOpen();
+      this.notifyShortcutBindingChanged();
       return;
     }
 
@@ -1133,13 +1149,13 @@ export class ActionPanel {
   /** 在动作标题旁补一枚快捷键标记。 */
   private renderShortcutBadge(actionId: string): string {
     const binding = this.shortcutBindings.get(actionId);
-    return binding ? `<span class="action-shortcut-tag">键 ${binding.toUpperCase()}</span>` : '';
+    return binding ? `<span class="action-shortcut-tag">${t('action.shortcut.badge', { key: binding.toUpperCase() })}</span>` : '';
   }
 
   /** 在动作摘要里补一段快捷键说明。 */
   private renderShortcutMeta(actionId: string): string {
     const binding = this.shortcutBindings.get(actionId);
-    return binding ? ` · 快捷键 ${binding.toUpperCase()}` : '';
+    return binding ? t('action.shortcut.meta', { key: binding.toUpperCase() }) : '';
   }
 
   /** 判断是否属于需要显示开关卡片的动作。 */
@@ -1173,21 +1189,21 @@ export class ActionPanel {
   private getSwitchCardTitle(action: ActionDef): string {
     switch (action.id) {
       case 'toggle:auto_battle':
-        return '自动战斗';
+        return t('action.switch.auto-battle', undefined);
       case 'toggle:auto_retaliate':
-        return '自动反击';
+        return t('action.switch.auto-retaliate', undefined);
       case 'toggle:auto_battle_stationary':
-        return '原地战斗';
+        return t('action.switch.stationary', undefined);
       case 'toggle:allow_aoe_player_hit':
-        return '全体攻击';
+        return t('action.switch.aoe-player-hit', undefined);
       case 'toggle:auto_idle_cultivation':
-        return '闲置自动修炼';
+        return t('action.switch.auto-idle-cultivation', undefined);
       case 'toggle:auto_switch_cultivation':
-        return '修满自动切换';
+        return t('action.switch.auto-switch-cultivation', undefined);
       case 'cultivation:toggle':
-        return '当前修炼';
+        return t('action.switch.cultivation-active', undefined);
       case 'sense_qi:toggle':
-        return '感气视角';
+        return t('action.switch.sense-qi', undefined);
       default:
         return action.name;
     }
@@ -1202,28 +1218,30 @@ export class ActionPanel {
  /**
  * label：label名称或显示文本。
  */
- label: string } {
+  label: string } {
+    const onLabel = t('common.state.on', undefined);
+    const offLabel = t('common.state.off', undefined);
     switch (action.id) {
       case 'toggle:auto_battle':
-        return { active: this.autoBattle, label: this.autoBattle ? '开' : '关' };
+        return { active: this.autoBattle, label: this.autoBattle ? onLabel : offLabel };
       case 'toggle:auto_retaliate':
-        return { active: this.autoRetaliate, label: this.autoRetaliate ? '开' : '关' };
+        return { active: this.autoRetaliate, label: this.autoRetaliate ? onLabel : offLabel };
       case 'toggle:auto_battle_stationary':
-        return { active: this.autoBattleStationary, label: this.autoBattleStationary ? '开' : '关' };
+        return { active: this.autoBattleStationary, label: this.autoBattleStationary ? onLabel : offLabel };
       case 'toggle:allow_aoe_player_hit':
-        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
+        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? onLabel : offLabel };
       case 'toggle:auto_idle_cultivation':
-        return { active: this.autoIdleCultivation, label: this.autoIdleCultivation ? '开' : '关' };
+        return { active: this.autoIdleCultivation, label: this.autoIdleCultivation ? onLabel : offLabel };
       case 'toggle:auto_switch_cultivation':
-        return { active: this.autoSwitchCultivation, label: this.autoSwitchCultivation ? '开' : '关' };
+        return { active: this.autoSwitchCultivation, label: this.autoSwitchCultivation ? onLabel : offLabel };
       case 'cultivation:toggle':
-        return { active: this.cultivationActive, label: this.cultivationActive ? '开' : '关' };
+        return { active: this.cultivationActive, label: this.cultivationActive ? onLabel : offLabel };
       case 'sense_qi:toggle': {
         const active = this.previewPlayer?.senseQiActive === true;
-        return { active, label: active ? '开' : '关' };
+        return { active, label: active ? onLabel : offLabel };
       }
       default:
-        return { active: false, label: '执行' };
+        return { active: false, label: t('common.action.execute', undefined) };
     }
   }
 
@@ -1247,10 +1265,10 @@ export class ActionPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.bindingActionId === actionId) {
-      return '按键中';
+      return t('action.shortcut.binding', undefined);
     }
     const binding = this.shortcutBindings.get(actionId);
-    return binding ? `改键 ${binding.toUpperCase()}` : '绑定键';
+    return binding ? t('action.shortcut.rebind', { key: binding.toUpperCase() }) : t('action.shortcut.bind', undefined);
   }
 
   /** 从本地存储读回快捷键绑定。 */
@@ -1276,6 +1294,11 @@ export class ActionPanel {
   private saveShortcutBindings(): void {
     const payload = Object.fromEntries(this.shortcutBindings.entries());
     localStorage.setItem(ACTION_SHORTCUTS_KEY, JSON.stringify(payload));
+  }
+
+  /** 通知其他面板刷新绑键按钮状态。 */
+  private notifyShortcutBindingChanged(): void {
+    window.dispatchEvent(new CustomEvent(ACTION_SHORTCUTS_CHANGED_EVENT));
   }
 
   /** 从本地存储恢复技能方案列表。 */
@@ -1405,7 +1428,7 @@ export class ActionPanel {
     if (skills.length === 0) {
       return null;
     }
-    const fallbackName = `技能方案 ${index + 1}`;
+    const fallbackName = t('action.skill-preset.default-indexed-name', { index: index + 1 });
     const name = this.sanitizeSkillPresetName(
       typeof value.n === 'string'
         ? value.n
@@ -1433,7 +1456,7 @@ export class ActionPanel {
   private resolveUniqueSkillPresetName(name: string, usedNames: Set<string>): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const base = this.sanitizeSkillPresetName(name) || '技能方案';
+    const base = this.sanitizeSkillPresetName(name) || t('action.skill-preset.default-base-name', undefined);
     if (!usedNames.has(base)) {
       return base;
     }
@@ -1589,7 +1612,7 @@ export class ActionPanel {
     const day = String(now.getDate()).padStart(2, '0');
     const hour = String(now.getHours()).padStart(2, '0');
     const minute = String(now.getMinutes()).padStart(2, '0');
-    return `技能方案 ${month}-${day} ${hour}:${minute}`;
+    return t('action.skill-preset.default-datetime-name', { month, day, hour, minute });
   }
 
   /** 生成技能方案弹层的外部变更摘要。 */
@@ -1619,9 +1642,9 @@ export class ActionPanel {
     if (!result.some((action) => action.id === 'loot:open')) {
       result.push({
         id: 'loot:open',
-        name: '拿取',
+        name: t('action.utility.loot.name', undefined),
         type: 'toggle',
-        desc: '选定 1 格内的目标，查看地面物品或搜索容器后拿取。',
+        desc: t('action.utility.loot.desc', undefined),
         cooldownLeft: 0,
         requiresTarget: true,
         targetMode: 'tile',
@@ -1631,9 +1654,9 @@ export class ActionPanel {
     if (!result.some((action) => action.id === 'client:observe')) {
       result.push({
         id: 'client:observe',
-        name: '观察',
+        name: t('action.utility.observe.name', undefined),
         type: 'toggle',
-        desc: '选定视野范围内任意一格，查看地面、实体与耐久等详细信息。',
+        desc: t('action.utility.observe.desc', undefined),
         cooldownLeft: 0,
         requiresTarget: true,
         targetMode: 'tile',
@@ -1722,29 +1745,29 @@ export class ActionPanel {
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
     const autoBattleMeta = isAutoBattleSkill
-      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
-         ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
+      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+         ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: autoBattleOrder })}</span>` : ''}`
       : '';
     const autoBattleControls = isAutoBattleSkill
-      ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
-         ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
+      ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined)}</button>
+         ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">${t('common.action.drag', undefined)}</button>` : ''}`
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
     const executeLabel = action.id === 'sect:manage'
-      ? '打开'
+      ? t('common.action.open', undefined)
       : action.id === 'wang_qi:toggle'
-        ? (this.previewPlayer?.wangQiActive === true ? '关闭' : '开启')
-        : '执行';
+        ? (this.previewPlayer?.wangQiActive === true ? t('common.action.close', undefined) : t('common.action.enable', undefined))
+        : t('common.action.execute', undefined);
 
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}" data-action-card="${action.id}" role="button" tabindex="0"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
+          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: action.range })}</span>` : ''}
           ${isAutoBattleSkill
-            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
-               <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? `顺位 ${autoBattleOrder}` : ''}</span>`
+            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+               <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: autoBattleOrder }) : ''}</span>`
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
@@ -1754,7 +1777,7 @@ export class ActionPanel {
       <div class="action-cta ui-action-row ui-action-row--end">
         ${autoBattleControls}
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
-        <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? `冷却 ${action.cooldownLeft} 息` : ''}</span>
+        <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? t('action.cooldown', { ticks: action.cooldownLeft }) : ''}</span>
         <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>${executeLabel}</button>
       </div>
     </div>`;
@@ -1977,7 +2000,7 @@ export class ActionPanel {
       if (!cdNode || !execNode) {
         return false;
       }
-      cdNode.textContent = onCd ? `冷却 ${action.cooldownLeft} 息` : '';
+      cdNode.textContent = onCd ? t('action.cooldown.left', { ticks: action.cooldownLeft }) : '';
       cdNode.hidden = !onCd;
       execNode.hidden = onCd;
       execNode.disabled = onCd;
@@ -1992,13 +2015,13 @@ export class ActionPanel {
         const enabled = action.autoBattleEnabled !== false;
         const showOrder = this.activeSkillTab === 'auto' && enabled;
         const order = showOrder ? (autoBattleDisplayOrders.get(action.id) ?? null) : null;
-        stateNode.textContent = enabled ? '自行运转中' : '自行已止';
+        stateNode.textContent = enabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined);
         stateNode.classList.toggle('auto-battle-enabled', enabled);
         stateNode.classList.toggle('auto-battle-disabled', !enabled);
         orderNode.hidden = order === null;
-        orderNode.textContent = order === null ? '' : `顺位 ${order + 1}`;
+        orderNode.textContent = order === null ? '' : t('action.skill.order', { order: order + 1 });
         toggleNode.classList.toggle('active', enabled);
-        toggleNode.textContent = enabled ? '自动 开' : '自动 关';
+        toggleNode.textContent = enabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined);
       }
     }
 
@@ -2015,33 +2038,33 @@ export class ActionPanel {
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
     const slotSummary = this.getSkillSlotSummary(actions);
     const hint = this.activeSkillTab === 'auto'
-      ? `自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。当前已启用 ${slotSummary}。`
-      : `这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。当前已启用 ${slotSummary}。`;
+      ? t('action.skill.hint.auto', { slotSummary })
+      : t('action.skill.hint.manual', { slotSummary });
 
     let html = `<div class="panel-section action-skill-section">
       <div class="panel-section-head">
-        <div class="panel-section-title">技能 · ${slotSummary}</div>
+        <div class="panel-section-title">${t('action.skill.section-title', { slotSummary })}</div>
         <div class="action-section-actions">
-          <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
-          <button class="small-btn ghost" data-action-combat-settings-open type="button">战斗设置</button>
-          <button class="small-btn ghost" data-action-skill-preset-open type="button">技能方案</button>
-          <button class="small-btn ghost" data-action-targeting-plan-open type="button">索敌方案 · ${escapeHtml(this.getAutoBattleTargetingModeLabel())}</button>
+          <button class="small-btn ghost" data-action-skill-manage-open type="button">${t('action.skill.manage', undefined)}</button>
+          <button class="small-btn ghost" data-action-combat-settings-open type="button">${t('action.combat-settings.title', undefined)}</button>
+          <button class="small-btn ghost" data-action-skill-preset-open type="button">${t('action.skill-preset.title', undefined)}</button>
+          <button class="small-btn ghost" data-action-targeting-plan-open type="button">${t('action.targeting-plan.title-with-mode', { mode: escapeHtml(this.getAutoBattleTargetingModeLabel()) })}</button>
         </div>
       </div>
       <div class="action-skill-subtabs">
         <button class="action-skill-subtab-btn ${this.activeSkillTab === 'auto' ? 'active' : ''}" data-action-skill-tab="auto" type="button">
-          自动
+          ${t('action.skill.tab.auto', undefined)}
           <span class="action-skill-subtab-count">${autoSkills.length}</span>
         </button>
         <button class="action-skill-subtab-btn ${this.activeSkillTab === 'manual' ? 'active' : ''}" data-action-skill-tab="manual" type="button">
-          手动
+          ${t('action.skill.tab.manual', undefined)}
           <span class="action-skill-subtab-count">${manualSkills.length}</span>
         </button>
       </div>
       <div class="action-section-hint">${hint}</div>`;
 
     if (visibleSkills.length === 0) {
-      html += `<div class="empty-hint">${this.activeSkillTab === 'auto' ? '当前没有启用自动战斗的技能' : '当前没有仅手动触发的技能'}</div>`;
+      html += `<div class="empty-hint">${this.activeSkillTab === 'auto' ? t('action.skill.empty.auto', undefined) : t('action.skill.empty.manual', undefined)}</div>`;
     } else {
       html += '<div class="action-skill-list">';
       for (const action of visibleSkills) {
@@ -2127,9 +2150,7 @@ export class ActionPanel {
         event.stopPropagation();
         const actionId = button.dataset.bindAction;
         if (!actionId) return;
-        this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
-        this.render(this.currentActions);
-        this.renderSkillManagementModalIfOpen();
+        this.toggleShortcutBinding(actionId);
       }, { signal });
     });
   }
@@ -2377,7 +2398,7 @@ export class ActionPanel {
     if (!this.hasPendingSkillManagementChanges()) {
       return true;
     }
-    return window.confirm('技能管理有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+    return window.confirm(t('action.skill.manage.confirm-discard', undefined));
   }
 
   /** 请求关闭技能管理弹层。 */
@@ -2411,33 +2432,37 @@ export class ActionPanel {
   ): { filter: string; sort: string } {
     const totalSkills = this.getSkillActions(this.getSkillManagementPreviewActions()).length;
     const filter = this.skillManagementFilterToggles.size > 0
-      ? `过滤 ${filteredEntries.length}/${totalSkills} 项`
-      : `过滤 全部 ${filteredEntries.length} 项`;
+      ? t('action.skill.manage.scope.filtered', { filteredCount: filteredEntries.length, totalCount: totalSkills })
+      : t('action.skill.manage.scope.all', { count: filteredEntries.length });
     const sortFieldLabel = ({
-      custom: '当前顺位',
-      actualDamage: '伤害',
-      qiCost: '蓝耗',
-      range: '距离',
-      targetCount: '目标',
-      cooldown: '冷却',
+      custom: t('action.skill.manage.sort.field.custom', undefined),
+      actualDamage: t('action.skill.manage.sort.field.actual-damage', undefined),
+      qiCost: t('action.skill.manage.sort.field.qi-cost', undefined),
+      range: t('action.skill.manage.sort.field.range', undefined),
+      targetCount: t('action.skill.manage.sort.field.target-count', undefined),
+      cooldown: t('action.skill.manage.sort.field.cooldown', undefined),
     } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
     const sort = this.skillManagementSortField === 'custom'
-      ? `排序 ${sortFieldLabel}`
-      : `排序 ${sortFieldLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'} · 展示 ${visibleEntries.length} 项`;
+      ? t('action.skill.manage.scope.sort', { sortField: sortFieldLabel })
+      : t('action.skill.manage.scope.sort-detailed', {
+        sortField: sortFieldLabel,
+        sortDirection: this.skillManagementSortDirection === 'asc' ? t('action.skill.manage.sort.direction.asc', undefined) : t('action.skill.manage.sort.direction.desc', undefined),
+        visibleCount: visibleEntries.length,
+      });
     return { filter, sort };
   }
 
   /** 生成技能管理空态文案。 */
   private getSkillManagementEmptyStateText(): string {
     const base = this.skillManagementTab === 'auto'
-      ? '当前过滤下没有自动技能。'
+      ? t('action.skill.manage.empty.auto', undefined)
       : this.skillManagementTab === 'manual'
-        ? '当前过滤下没有手动技能。'
-        : '当前过滤下没有禁用技能。';
+        ? t('action.skill.manage.empty.manual', undefined)
+        : t('action.skill.manage.empty.disabled', undefined);
     if (this.skillManagementFilterToggles.size === 0) {
       return base;
     }
-    return `${base} 可以先清空过滤标签，再继续批量调整。`;
+    return t('action.skill.manage.empty.with-filter', { base });
   }
 
   /** 打开技能管理弹层，并以当前自动/手动页签作为初始视图。 */
@@ -2677,7 +2702,7 @@ export class ActionPanel {
 
   /** 读取当前索敌方案标签。 */
   private getAutoBattleTargetingModeLabel(mode = this.getAutoBattleTargetingMode()): string {
-    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? '自动';
+    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? t('action.targeting-plan.mode.auto.label', undefined);
   }
 
   /** 获取自动丹药视图条目。 */
@@ -2711,7 +2736,7 @@ export class ActionPanel {
       entries.set(config.itemId, {
         itemId: config.itemId,
         name: template?.name ?? config.itemId,
-        desc: template?.desc ?? '当前背包里没有这味丹药，配置会先保留。',
+        desc: template?.desc ?? t('action.combat-settings.pill.missing-inventory-desc', undefined),
         count: 0,
         healAmount: template?.healAmount,
         healPercent: template?.healPercent,
@@ -2820,7 +2845,9 @@ export class ActionPanel {
     if (config) {
       payload.lines = [
         ...payload.lines,
-        `<span class="skill-tooltip-detail">自动条件：${escapeHtml(this.renderAutoUsePillConditionSummary(config.conditions))}</span>`,
+        `<span class="skill-tooltip-detail">${escapeHtml(t('action.combat-settings.pill.tooltip.condition', {
+          summary: this.renderAutoUsePillConditionSummary(config.conditions),
+        }))}</span>`,
       ];
     }
     return payload;
@@ -2920,24 +2947,24 @@ export class ActionPanel {
     if (condition.type === 'buff_missing') {
       return `
         <div class="auto-pill-condition-row auto-pill-condition-row--wide">
-          <div class="auto-pill-condition-static">效果未生效时服用</div>
-          <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">移除</button>
+          <div class="auto-pill-condition-static">${t('action.combat-settings.auto-pills.condition.buff-missing', undefined)}</div>
+          <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">${t('action.combat-settings.auto-pills.condition.remove', undefined)}</button>
         </div>
       `;
     }
     return `
       <div class="auto-pill-condition-row">
         <select data-auto-pill-condition-resource="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
-          <option value="hp" ${condition.resource === 'hp' ? 'selected' : ''}>血量</option>
-          <option value="qi" ${condition.resource === 'qi' ? 'selected' : ''}>灵力</option>
+          <option value="hp" ${condition.resource === 'hp' ? 'selected' : ''}>${t('action.combat-settings.auto-pills.condition.resource.hp', undefined)}</option>
+          <option value="qi" ${condition.resource === 'qi' ? 'selected' : ''}>${t('action.combat-settings.auto-pills.condition.resource.qi', undefined)}</option>
         </select>
         <select data-auto-pill-condition-op="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
-          <option value="lt" ${condition.op === 'lt' ? 'selected' : ''}>低于</option>
-          <option value="gt" ${condition.op === 'gt' ? 'selected' : ''}>高于</option>
+          <option value="lt" ${condition.op === 'lt' ? 'selected' : ''}>${t('action.combat-settings.auto-pills.condition.op.lt', undefined)}</option>
+          <option value="gt" ${condition.op === 'gt' ? 'selected' : ''}>${t('action.combat-settings.auto-pills.condition.op.gt', undefined)}</option>
         </select>
         <input type="number" min="0" max="100" step="1" value="${condition.thresholdPct}" data-auto-pill-condition-threshold="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" />
         <span class="auto-pill-condition-unit">%</span>
-        <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">移除</button>
+        <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">${t('action.combat-settings.auto-pills.condition.remove', undefined)}</button>
       </div>
     `;
   }
@@ -2946,34 +2973,34 @@ export class ActionPanel {
   private renderCombatTargetingSection(): string {
     const draft = this.syncCombatTargetingDraft();
     const hostileOptions: CombatTargetingCardOption[] = [
-      { key: 'monster', scope: 'hostile', label: '妖兽', summary: '把妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
-      { key: 'demonized_players', scope: 'hostile', label: '入魔者', summary: '把煞气入体超过 20 层的入魔者纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
-      { key: 'retaliators', scope: 'hostile', label: '仇敌', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
-      { key: 'party', scope: 'hostile', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', scope: 'hostile', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
-      { key: 'terrain', scope: 'hostile', label: '地形', summary: '把墙体、山崖、容器等场景地形纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
+      { key: 'monster', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.monster.label', undefined), summary: t('action.combat-settings.targeting.hostile.monster.summary', undefined), active: draft.hostile?.includes('monster') === true },
+      { key: 'demonized_players', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.demonized-players.label', undefined), summary: t('action.combat-settings.targeting.hostile.demonized-players.summary', undefined), active: draft.hostile?.includes('demonized_players') === true },
+      { key: 'retaliators', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.retaliators.label', undefined), summary: t('action.combat-settings.targeting.hostile.retaliators.summary', undefined), active: draft.hostile?.includes('retaliators') === true },
+      { key: 'party', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.party.label', undefined), summary: t('action.combat-settings.targeting.hostile.party.summary', undefined), disabled: true },
+      { key: 'sect', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.sect.label', undefined), summary: t('action.combat-settings.targeting.hostile.sect.summary', undefined), disabled: true },
+      { key: 'terrain', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.terrain.label', undefined), summary: t('action.combat-settings.targeting.hostile.terrain.summary', undefined), active: draft.hostile?.includes('terrain') === true },
     ];
     const friendlyOptions: CombatTargetingCardOption[] = [
-      { key: 'non_hostile_players', scope: 'friendly', label: '非敌修士', summary: '把当前不属于敌对范围的修士视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
-      { key: 'all_players', scope: 'friendly', label: '所有修士', summary: '把所有修士都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
-      { key: 'retaliators', scope: 'friendly', label: '仇敌', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
-      { key: 'party', scope: 'friendly', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', scope: 'friendly', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'non_hostile_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.non-hostile-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.non-hostile-players.summary', undefined), active: draft.friendly?.includes('non_hostile_players') === true },
+      { key: 'all_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.all-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.all-players.summary', undefined), active: draft.friendly?.includes('all_players') === true },
+      { key: 'retaliators', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.retaliators.label', undefined), summary: t('action.combat-settings.targeting.friendly.retaliators.summary', undefined), active: draft.friendly?.includes('retaliators') === true },
+      { key: 'party', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.party.label', undefined), summary: t('action.combat-settings.targeting.friendly.party.summary', undefined), disabled: true },
+      { key: 'sect', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.sect.label', undefined), summary: t('action.combat-settings.targeting.friendly.sect.summary', undefined), disabled: true },
     ];
     return `
       <div class="combat-settings-targeting-shell">
         <div class="combat-settings-targeting-head">
           <div>
-            <div class="skill-preset-card-title">目标判定</div>
-            <div class="skill-preset-list-meta">这里是在定义你会把哪些单位视为敌方目标、哪些单位视为友方目标。伤害默认使用敌对判定，治疗默认使用友方判定；队伍与宗门关系暂未接入，先保留禁用态。</div>
+            <div class="skill-preset-card-title">${t('action.combat-settings.targeting.title', undefined)}</div>
+            <div class="skill-preset-list-meta">${t('action.combat-settings.targeting.copy', undefined)}</div>
           </div>
-          <span class="combat-settings-targeting-badge">应用后生效</span>
+          <span class="combat-settings-targeting-badge">${t('action.combat-settings.targeting.badge', undefined)}</span>
         </div>
         <div class="combat-settings-targeting-grid">
           <div class="combat-settings-targeting-card combat-settings-targeting-card--hostile">
             <div class="skill-preset-section-head">
-              <div class="skill-preset-card-title">敌对判定</div>
-              <div class="skill-preset-list-meta">勾选后，这些单位会被你视为敌方目标，可多选组合。</div>
+              <div class="skill-preset-card-title">${t('action.combat-settings.targeting.hostile.title', undefined)}</div>
+              <div class="skill-preset-list-meta">${t('action.combat-settings.targeting.hostile.copy', undefined)}</div>
             </div>
             <div class="combat-settings-toggle-grid">
               ${hostileOptions.map((option) => this.renderCombatTargetingOption(option)).join('')}
@@ -2981,8 +3008,8 @@ export class ActionPanel {
           </div>
           <div class="combat-settings-targeting-card combat-settings-targeting-card--friendly">
             <div class="skill-preset-section-head">
-              <div class="skill-preset-card-title">友方判定</div>
-              <div class="skill-preset-list-meta">勾选后，这些单位会被你视为友方目标，可多选组合。</div>
+              <div class="skill-preset-card-title">${t('action.combat-settings.targeting.friendly.title', undefined)}</div>
+              <div class="skill-preset-list-meta">${t('action.combat-settings.targeting.friendly.copy', undefined)}</div>
             </div>
             <div class="combat-settings-toggle-grid">
               ${friendlyOptions.map((option) => this.renderCombatTargetingOption(option)).join('')}
@@ -3004,8 +3031,8 @@ export class ActionPanel {
         <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
         <span class="combat-settings-toggle-chip-content">
           <span class="combat-settings-toggle-chip-title">
-            ${escapeHtml(option.label)}
-            ${option.disabled ? '<span class="combat-settings-toggle-chip-disabled-tag">未开放</span>' : ''}
+          ${escapeHtml(option.label)}
+            ${option.disabled ? `<span class="combat-settings-toggle-chip-disabled-tag">${t('action.combat-settings.targeting.unavailable', undefined)}</span>` : ''}
           </span>
           <span class="combat-settings-toggle-chip-copy">${escapeHtml(option.summary)}</span>
         </span>
@@ -3059,22 +3086,22 @@ export class ActionPanel {
     detailModalHost.open({
       ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--sect-management',
-      title: '宗门管理',
-      subtitle: `${summary.name} · 印记 ${summary.mark}`,
+      title: t('action.sect.manage.title', undefined),
+      subtitle: t('action.sect.manage.subtitle', { name: summary.name, mark: summary.mark }),
       renderBody: (body) => {
         patchElementHtml(body, `
           <div class="sect-manage-shell">
-            <aside class="sect-manage-sidebar" aria-label="宗门管理页签">
-              <div class="sect-manage-sidebar-title">管理</div>
-              <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="宗门管理">
+            <aside class="sect-manage-sidebar" aria-label="${t('action.sect.manage.sidebar.aria', undefined)}">
+              <div class="sect-manage-sidebar-title">${t('action.sect.manage.sidebar.title', undefined)}</div>
+              <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="${t('action.sect.manage.aria', undefined)}">
                 ${tabs.map((entry) => this.renderSectManagementTabButton(entry.tab, entry.label)).join('')}
               </div>
             </aside>
             <main class="sect-manage-main">
               <div class="skill-manage-summary sect-manage-summary">
                 <span>${escapeHtml(summary.name)}</span>
-                <span>印记 ${escapeHtml(summary.mark)}</span>
-                <span>地域 ${escapeHtml(summary.domainLabel)}</span>
+                <span>${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
+                <span>${t('action.sect.manage.summary.domain', { domain: escapeHtml(summary.domainLabel) })}</span>
                 <span>${escapeHtml(summary.sectIdLabel)}</span>
               </div>
               <div class="sect-manage-content">
@@ -3097,8 +3124,8 @@ export class ActionPanel {
           button.addEventListener('click', () => {
             const actionId = button.dataset.sectAction;
             if (!actionId) return;
-            if (actionId === 'sect:dissolve' && !window.confirm('确认解散宗门？该操作会移除所有成员关系。')) return;
-            if (actionId === 'sect:leave' && !window.confirm('确认离开宗门？离开后需要重新递交拜帖并通过审批才能入宗。')) return;
+            if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
+            if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
             this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
           }, { signal });
         });
@@ -3107,12 +3134,12 @@ export class ActionPanel {
             const playerId = select.dataset.sectMemberRoleSelect;
             const roleId = select.value;
             if (!playerId || !roleId) return;
-            this.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, '修改职位');
+            this.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
           }, { signal });
         });
         body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
           const stones = this.readSectGuardianInjectValue(body);
-          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '灌注灵力');
+          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, t('action.sect.manage.action.inject-aura', undefined));
         }, { signal });
         const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
         body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
@@ -3123,11 +3150,11 @@ export class ActionPanel {
 
   private resolveSectManagementTabs(summary: SectManagementSummary): Array<{ tab: SectManagementTab; label: string }> {
     const tabs: Array<{ tab: SectManagementTab; label: string }> = [
-      { tab: 'overview', label: '基础信息' },
-      { tab: 'members', label: '宗门成员' },
+      { tab: 'overview', label: t('action.sect.manage.tab.overview', undefined) },
+      { tab: 'members', label: t('action.sect.manage.tab.members', undefined) },
     ];
     if (summary.data.canEditPermissions) {
-      tabs.push({ tab: 'roles', label: '宗门职位' });
+      tabs.push({ tab: 'roles', label: t('action.sect.manage.tab.roles', undefined) });
     }
     if (
       summary.data.canReviewApplications
@@ -3136,12 +3163,12 @@ export class ActionPanel {
       || summary.data.canDissolve
       || summary.data.canLeave
     ) {
-      tabs.push({ tab: 'manage', label: '宗门事务' });
+      tabs.push({ tab: 'manage', label: t('action.sect.manage.tab.manage', undefined) });
     }
     if (summary.data.canManageGuardian) {
-      tabs.push({ tab: 'guardian', label: '宗门大阵' });
+      tabs.push({ tab: 'guardian', label: t('action.sect.manage.tab.guardian', undefined) });
     }
-    tabs.push({ tab: 'domain', label: '宗门地脉' });
+    tabs.push({ tab: 'domain', label: t('action.sect.manage.tab.domain', undefined) });
     return tabs;
   }
 
@@ -3167,43 +3194,43 @@ export class ActionPanel {
         return `
           <div class="panel-section">
             <div class="panel-section-head">
-              <div class="panel-section-title">护宗大阵</div>
+              <div class="panel-section-title">${t('action.sect.manage.guardian.title', undefined)}</div>
               <div class="action-section-actions">
-                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>启闭大阵</button>
+                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.toggle', undefined)}</button>
               </div>
             </div>
             <div class="skill-manage-summary">
-              <span>状态 ${escapeHtml(summary.guardianStatusLabel)}</span>
-              <span>当前灵力 ${escapeHtml(summary.guardianAuraLabel)}</span>
-              <span>阵眼位于宗门核心</span>
-              <span>护持山门</span>
+              <span>${t('action.sect.manage.guardian.status', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
+              <span>${t('action.sect.manage.guardian.aura', { aura: escapeHtml(summary.guardianAuraLabel) })}</span>
+              <span>${t('action.sect.manage.guardian.core', undefined)}</span>
+              <span>${t('action.sect.manage.guardian.guard', undefined)}</span>
             </div>
             <div class="formation-config-grid">
               <label class="formation-config-field ui-detail-field">
-                <strong>灵石注入</strong>
+                <strong>${t('action.sect.manage.guardian.inject-stones', undefined)}</strong>
                 <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
               </label>
               <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
-                <strong>灵力消耗</strong>
+                <strong>${t('action.sect.manage.guardian.cost', undefined)}</strong>
                 <output data-sect-guardian-inject-qi-cost>100,000</output>
               </div>
-              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>灌注灵力</button>
+              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.action.inject-aura', undefined)}</button>
             </div>
-            <div class="action-section-hint">持续性阵法不通过地图阵眼上的两个快捷按钮维护；注入时按灵石数量自动计算灵力消耗和阵法灵力补充，阵眼受损后大阵会停摆但不会从宗门真源中消失。</div>
+            <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
           </div>`;
       case 'domain':
       default:
         return `
           <div class="panel-section">
             <div class="panel-section-head">
-              <div class="panel-section-title">宗门地脉</div>
+              <div class="panel-section-title">${t('action.sect.manage.domain.title', undefined)}</div>
             </div>
             <div class="skill-manage-summary">
               <span>${escapeHtml(summary.name)}</span>
-              <span>印记 ${escapeHtml(summary.mark)}</span>
-              <span>显化地域 ${escapeHtml(summary.domainLabel)}</span>
+              <span>${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
+              <span>${t('action.sect.manage.domain.region', { region: escapeHtml(summary.domainLabel) })}</span>
             </div>
-            <div class="action-section-hint">宗门地图初始为 3x3 空地，边界石头被挖穿后只沿对应方向继续显化；石头耐久按距核心圈层翻倍，核心周围自带固脉。</div>
+            <div class="action-section-hint">${t('action.sect.manage.domain.copy', undefined)}</div>
           </div>`;
     }
   }
@@ -3226,7 +3253,9 @@ export class ActionPanel {
     if (button) {
       const allowed = button.dataset.sectGuardianAllowed !== '0';
       button.disabled = stones <= 0 || !allowed;
-      button.textContent = allowed ? (stones > 0 ? '灌注灵力' : '投入灵石') : '无权';
+      button.textContent = allowed
+        ? (stones > 0 ? t('action.sect.manage.action.inject-aura', undefined) : t('action.sect.manage.guardian.inject-stones-short', undefined))
+        : t('action.sect.manage.guardian.no-permission', undefined);
     }
   }
 
@@ -3237,35 +3266,35 @@ export class ActionPanel {
           <div class="sect-detail-card-main">
             <div class="sect-detail-name">${escapeHtml(summary.name)}</div>
             <div class="sect-detail-tag-row">
-              <span class="sect-detail-tag">Lv.1</span>
-              <span class="sect-detail-tag">宗主 ${escapeHtml(summary.leaderName)}</span>
-              <span class="sect-detail-tag">成员 ${escapeHtml(summary.memberCountLabel)}</span>
-              <span class="sect-detail-tag">印记 ${escapeHtml(summary.mark)}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.level', undefined)}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.leader', { leaderName: escapeHtml(summary.leaderName) })}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.members', { memberCount: escapeHtml(summary.memberCountLabel) })}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.mark', { mark: escapeHtml(summary.mark) })}</span>
             </div>
             <div class="sect-detail-notice">${escapeHtml(summary.notice)}</div>
           </div>
           <div class="sect-detail-card-actions">
-            <button class="small-btn ghost" data-sect-manage-tab="manage" type="button">管理事务</button>
+            <button class="small-btn ghost" data-sect-manage-tab="manage" type="button">${t('action.sect.manage.overview.manage', undefined)}</button>
           </div>
         </div>
         <div class="sect-detail-stat-grid">
-          ${this.renderSectStatCard('宗门印记', summary.mark)}
-          ${this.renderSectStatCard('显化地域', summary.domainLabel)}
-          ${this.renderSectStatCard('宗门成员', summary.memberCountLabel)}
-          ${this.renderSectStatCard('宗主', summary.leaderName)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.mark', undefined), summary.mark)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.domain', undefined), summary.domainLabel)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.members', undefined), summary.memberCountLabel)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.leader', undefined), summary.leaderName)}
         </div>
         <div class="sect-detail-action-grid">
           <button class="sect-detail-action-card" data-sect-manage-tab="members" type="button">
-            <span class="sect-detail-action-title">成员名册</span>
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.members', undefined)}</span>
           </button>
           <button class="sect-detail-action-card" data-sect-manage-tab="roles" type="button">
-            <span class="sect-detail-action-title">职位权限</span>
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.roles', undefined)}</span>
           </button>
           <button class="sect-detail-action-card" data-sect-manage-tab="guardian" type="button">
-            <span class="sect-detail-action-title">护宗大阵</span>
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.guardian', undefined)}</span>
           </button>
           <button class="sect-detail-action-card" data-sect-manage-tab="domain" type="button">
-            <span class="sect-detail-action-title">宗门地脉</span>
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.domain', undefined)}</span>
           </button>
         </div>
       </div>
@@ -3279,22 +3308,22 @@ export class ActionPanel {
       <div class="sect-detail-pane">
         <div class="sect-pane-head">
           <div>
-            <div class="panel-section-title">宗门成员</div>
+            <div class="panel-section-title">${t('action.sect.manage.members.title', undefined)}</div>
           </div>
           <div class="sect-detail-count">${escapeHtml(summary.memberCountLabel)}</div>
         </div>
         <div class="sect-member-table">
           <div class="sect-member-table-head">
-            <span>成员</span>
-            <span>职位</span>
-            <span>境界</span>
-            <span>贡献</span>
-            <span>周贡献</span>
-            <span>状态</span>
+            <span>${t('action.sect.manage.members.column.member', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.role', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.realm', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.contrib', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.week-contrib', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.status', undefined)}</span>
           </div>
           ${rows}
         </div>
-        ${summary.data.members.length <= 1 ? '<div class="sect-empty-note">暂无更多成员。</div>' : ''}
+        ${summary.data.members.length <= 1 ? `<div class="sect-empty-note">${t('action.sect.manage.members.empty', undefined)}</div>` : ''}
       </div>
     `;
   }
@@ -3305,13 +3334,13 @@ export class ActionPanel {
       <div class="sect-detail-pane">
         <div class="sect-pane-head">
           <div>
-            <div class="panel-section-title">宗门职位</div>
+            <div class="panel-section-title">${t('action.sect.manage.roles.title', undefined)}</div>
           </div>
         </div>
         <div class="sect-role-grid">
           ${cards}
         </div>
-        <div class="sect-current-role">只有宗主可以编辑职位权限；太上长老暂时无法任命。</div>
+        <div class="sect-current-role">${t('action.sect.manage.roles.copy', undefined)}</div>
       </div>
     `;
   }
@@ -3319,35 +3348,35 @@ export class ActionPanel {
   private renderSectManagementManagePanel(summary: SectManagementSummary): string {
     const transferTargets = summary.data.members.filter((member) => !member.self && !member.leader);
     const transferButtons = transferTargets.length > 0
-      ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>转让给 ${escapeHtml(member.name)}</button>`).join('')
-      : '<div class="sect-empty-note">暂无可转让成员。</div>';
+      ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>${t('action.sect.manage.manage.transfer-to', { name: escapeHtml(member.name) })}</button>`).join('')
+      : `<div class="sect-empty-note">${t('action.sect.manage.manage.transfer-empty', undefined)}</div>`;
     const applicationRows = summary.data.applications.length > 0
       ? summary.data.applications.map((entry) => `
         <div class="sect-application-table-row">
           <span class="sect-member-name-cell">
             <span class="sect-member-name-main">${escapeHtml(entry.name)}</span>
-            <span class="sect-member-name-sub">待审批</span>
+            <span class="sect-member-name-sub">${t('action.sect.manage.manage.pending', undefined)}</span>
           </span>
-          <span>拜帖</span>
+          <span>${t('action.sect.manage.manage.application-type', undefined)}</span>
           <span>${escapeHtml(formatSectTimestamp(entry.appliedAt))}</span>
           <span class="action-section-actions">
-            <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>准入</button>
-            <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>退回</button>
+            <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.approve', undefined)}</button>
+            <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.reject', undefined)}</button>
           </span>
         </div>
       `).join('')
-      : '<div class="sect-empty-note">暂无待审批拜帖。</div>';
+      : `<div class="sect-empty-note">${t('action.sect.manage.manage.applications-empty', undefined)}</div>`;
     const cards: string[] = [];
     if (summary.data.canReviewApplications) {
       cards.push(`
         <div class="sect-manage-card sect-manage-card--wide">
-          <div class="sect-manage-card-title">入宗审批</div>
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.review-title', undefined)}</div>
           <div class="sect-application-table">
             <div class="sect-application-table-head">
-              <span>申请人</span>
-              <span>类型</span>
-              <span>递交时间</span>
-              <span>操作</span>
+              <span>${t('action.sect.manage.manage.column.applicant', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.type', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.time', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.actions', undefined)}</span>
             </div>
             ${applicationRows}
           </div>
@@ -3357,15 +3386,15 @@ export class ActionPanel {
     if (summary.data.canManageGuardian) {
       cards.push(`
         <div class="sect-manage-card">
-          <div class="sect-manage-card-title">护宗大阵</div>
-          <button class="small-btn" data-sect-manage-tab="guardian" type="button">前往大阵</button>
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.guardian-title', undefined)}</div>
+          <button class="small-btn" data-sect-manage-tab="guardian" type="button">${t('action.sect.manage.manage.go-guardian', undefined)}</button>
         </div>
       `);
     }
     if (summary.data.canTransfer) {
       cards.push(`
         <div class="sect-manage-card">
-          <div class="sect-manage-card-title">宗门转让</div>
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.transfer-title', undefined)}</div>
           <div class="action-section-actions">${transferButtons}</div>
         </div>
       `);
@@ -3373,16 +3402,16 @@ export class ActionPanel {
     if (summary.data.canDissolve) {
       cards.push(`
         <div class="sect-manage-card">
-          <div class="sect-manage-card-title">宗门解散</div>
-          <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button">解散宗门</button>
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.dissolve-title', undefined)}</div>
+          <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button">${t('action.sect.manage.action.dissolve', undefined)}</button>
         </div>
       `);
     }
     if (summary.data.canLeave) {
       cards.push(`
         <div class="sect-manage-card">
-          <div class="sect-manage-card-title">离开宗门</div>
-          <button class="small-btn ghost" data-sect-action="sect:leave" type="button">离开宗门</button>
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.leave-title', undefined)}</div>
+          <button class="small-btn ghost" data-sect-action="sect:leave" type="button">${t('action.sect.manage.action.leave', undefined)}</button>
         </div>
       `);
     }
@@ -3390,7 +3419,7 @@ export class ActionPanel {
       <div class="sect-detail-pane">
         <div class="sect-pane-head">
           <div>
-            <div class="panel-section-title">宗门事务</div>
+            <div class="panel-section-title">${t('action.sect.manage.manage.title', undefined)}</div>
           </div>
         </div>
         <div class="sect-manage-card-grid">
@@ -3409,17 +3438,17 @@ export class ActionPanel {
       : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
     const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
     const removeButton = canRemove
-      ? `<button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button">移除</button>`
+      ? `<button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button">${t('action.sect.manage.member.remove', undefined)}</button>`
       : '';
-    const statusClass = member.statusLabel === '在线' ? 'sect-online-text' : 'sect-detail-tag';
+    const statusClass = member.statusLabel === t('action.sect.status.online', undefined) ? 'sect-online-text' : 'sect-detail-tag';
     return `
       <div class="sect-member-table-row">
         <span class="sect-member-name-cell">
           <span class="sect-member-name-main">${escapeHtml(member.name)}</span>
-          <span class="sect-member-name-sub">${member.self ? '当前角色' : escapeHtml(member.roleLabel)}</span>
+          <span class="sect-member-name-sub">${member.self ? t('action.sect.manage.member.self-role', undefined) : escapeHtml(member.roleLabel)}</span>
         </span>
         <span>${roleControl}</span>
-        <span>${escapeHtml(formatSectMemberRealmLabel(member, member.self ? summary.realmLabel : '未知'))}</span>
+        <span>${escapeHtml(formatSectMemberRealmLabel(member, member.self ? summary.realmLabel : t('common.value.unknown', undefined)))}</span>
         <span>0</span>
         <span>0</span>
         <span>
@@ -3444,7 +3473,7 @@ export class ActionPanel {
       <div class="sect-role-card ${role.assignable ? '' : 'is-muted'}">
         <div class="sect-role-card-head">
           <div class="sect-role-card-title">${escapeHtml(role.label)}</div>
-          <span class="sect-detail-tag ${role.assignable ? 'strong' : ''}">${role.assignable ? '可任命' : '不可任命'}</span>
+          <span class="sect-detail-tag ${role.assignable ? 'strong' : ''}">${role.assignable ? t('action.sect.manage.role.assignable', undefined) : t('action.sect.manage.role.unassignable', undefined)}</span>
         </div>
         <div class="sect-role-permissions">${permissions}</div>
       </div>
@@ -3478,16 +3507,16 @@ export class ActionPanel {
     const rawDesc = action?.desc ?? '';
     const data = parseSectManagementData(rawDesc, this.previewPlayer ?? null);
     const desc = stripSectManagementData(rawDesc);
-    const name = desc.split('·')[0]?.trim() || action?.name || '本宗';
-    const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? '宗';
-    const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
-    const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
-    const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? '0';
-    const sectIdLabel = this.previewPlayer?.sectId ? `宗门 ${this.previewPlayer.sectId}` : '宗门已绑定';
-    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.name || this.previewPlayer?.displayName || this.previewPlayer?.id || '当前宗主';
-    const realmLabel = this.previewPlayer?.realm?.displayName || this.previewPlayer?.realmName || this.previewPlayer?.realm?.name || '未知境界';
+    const name = desc.split('·')[0]?.trim() || action?.name || t('action.sect.manage.fallback.name', undefined);
+    const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.mark', undefined);
+    const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.domain', undefined);
+    const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);
+    const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-aura', undefined);
+    const sectIdLabel = this.previewPlayer?.sectId ? t('action.sect.manage.summary.sect-id', { sectId: this.previewPlayer.sectId }) : t('action.sect.manage.summary.bound', undefined);
+    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.name || this.previewPlayer?.displayName || this.previewPlayer?.id || t('action.sect.manage.fallback.leader', undefined);
+    const realmLabel = this.previewPlayer?.realm?.displayName || this.previewPlayer?.realmName || this.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
     const memberCountLabel = String(data.members.length || 1);
-    const notice = `${name} 已开宗立派。`;
+    const notice = t('action.sect.manage.notice', { name });
     return { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
   }
 
@@ -3524,7 +3553,7 @@ export class ActionPanel {
         : null;
       const conditionSummary = slotConfig
         ? this.renderAutoUsePillConditionSummary(slotConfig.conditions)
-        : '未设置药品';
+        : t('action.combat-settings.auto-pills.slot.unset', undefined);
       return `
         <div class="auto-pill-slot-unit">
           <button
@@ -3540,7 +3569,7 @@ export class ActionPanel {
               `
               : `
                 <span class="auto-pill-slot-empty">+</span>
-                <span class="auto-pill-slot-label">空槽</span>
+                <span class="auto-pill-slot-label">${t('action.combat-settings.auto-pills.slot.empty', undefined)}</span>
               `}
           </button>
           <div class="auto-pill-slot-summary">${escapeHtml(conditionSummary)}</div>
@@ -3549,13 +3578,13 @@ export class ActionPanel {
             data-auto-pill-open-slot-conditions="${index}"
             type="button"
             ${slotEntry ? '' : 'disabled'}
-          >条件</button>
+          >${t('action.combat-settings.auto-pills.slot.conditions', undefined)}</button>
         </div>
       `;
     }).join('');
     const pickerEntries = this.getAutoUsePillPickerEntries();
     const pickerBody = pickerEntries.length === 0
-      ? '<div class="empty-hint">当前没有可选的自动服用丹药。</div>'
+      ? `<div class="empty-hint">${t('action.combat-settings.auto-pills.picker.empty', undefined)}</div>`
       : `
         <div class="auto-pill-picker-grid">
           ${pickerEntries.map((entry) => `
@@ -3582,31 +3611,31 @@ export class ActionPanel {
             <div class="auto-pill-card-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(currentEntry))}</div>
             <div class="auto-pill-config-summary">${escapeHtml(this.renderAutoUsePillConditionSummary(currentConfig?.conditions ?? []))}</div>
           </div>
-          <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
+            <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
             <div class="auto-pill-condition-head">
-              <div class="skill-preset-card-title">触发条件</div>
-              <div class="skill-preset-list-meta">满足任一条件时就会尝试服用。</div>
+              <div class="skill-preset-card-title">${t('action.combat-settings.auto-pills.condition.title', undefined)}</div>
+              <div class="skill-preset-list-meta">${t('action.combat-settings.auto-pills.condition.copy', undefined)}</div>
             </div>
             ${(currentConfig?.conditions.length ?? 0) > 0
               ? `<div class="auto-pill-condition-list">
                   ${currentConfig?.conditions.map((condition, conditionIndex) => this.renderAutoUsePillConditionRow(currentEntry.itemId, condition, conditionIndex)).join('')}
                 </div>`
-              : '<div class="empty-hint">还没有设置任何触发条件。</div>'}
+              : `<div class="empty-hint">${t('action.combat-settings.auto-pills.condition.empty', undefined)}</div>`}
             <div class="auto-pill-condition-actions">
-              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">添加生命条件</button>
-              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">添加灵力条件</button>
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">${t('action.combat-settings.auto-pills.condition.add-hp', undefined)}</button>
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">${t('action.combat-settings.auto-pills.condition.add-qi', undefined)}</button>
               ${(currentEntry.consumeBuffs?.length ?? 0) > 0
-                ? `<button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="buff_missing" type="button">添加效果未生效条件</button>`
+                ? `<button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="buff_missing" type="button">${t('action.combat-settings.auto-pills.condition.add-buff-missing', undefined)}</button>`
                 : ''}
             </div>
           </div>
         </div>
       `
-      : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
+      : `<div class="empty-hint">${t('action.combat-settings.auto-pills.condition.no-item', undefined)}</div>`;
     const autoPillBody = `
       <div class="skill-preset-card auto-pill-hero-card">
-        <div class="skill-preset-card-title">自动丹药槽</div>
-        <div class="skill-preset-card-copy">点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会与目标选择一起在“应用”时提交。</div>
+        <div class="skill-preset-card-title">${t('action.combat-settings.auto-pills.title', undefined)}</div>
+        <div class="skill-preset-card-copy">${t('action.combat-settings.auto-pills.copy', undefined)}</div>
       </div>
       <div class="auto-pill-slot-grid">${slotMarkup}</div>
     `;
@@ -3615,17 +3644,17 @@ export class ActionPanel {
       <div class="auto-pill-shell">
         <div class="auto-pill-topbar">
           <div class="skill-preset-card auto-pill-hero-card combat-settings-hero-card">
-            <div class="skill-preset-card-title">战斗设置</div>
-            <div class="skill-preset-card-copy">把战斗补给和目标判定收在同一个面板里管理。所有改动都只在点击“应用”后才会提交到服务端。</div>
+            <div class="skill-preset-card-title">${t('action.combat-settings.hero.title', undefined)}</div>
+            <div class="skill-preset-card-copy">${t('action.combat-settings.hero.copy', undefined)}</div>
           </div>
           <div class="auto-pill-toolbar">
-            <button class="small-btn" data-combat-settings-apply type="button">应用</button>
-            <button class="small-btn ghost" data-combat-settings-cancel type="button">取消</button>
+            <button class="small-btn" data-combat-settings-apply type="button">${t('common.action.execute', undefined)}</button>
+            <button class="small-btn ghost" data-combat-settings-cancel type="button">${t('common.action.cancel', undefined)}</button>
           </div>
         </div>
         <div class="action-skill-subtabs combat-settings-tabs">
-          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">备丹</button>
-          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">${t('action.combat-settings.tab.auto-pills', undefined)}</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">${t('action.combat-settings.tab.targeting', undefined)}</button>
         </div>
         <div class="combat-settings-panel-body">
           ${this.combatSettingsActiveTab === 'auto_pills' ? autoPillBody : targetingBody}
@@ -3636,12 +3665,12 @@ export class ActionPanel {
               <div class="auto-pill-subdialog auto-pill-subdialog--picker">
                 <div class="auto-pill-subdialog-head">
                   <div>
-                    <div class="skill-preset-card-title">选择药品</div>
-                    <div class="skill-preset-list-meta">hover 可查看和背包一致的物品详情，点击后直接放入当前槽位。</div>
+                    <div class="skill-preset-card-title">${t('action.combat-settings.auto-pills.picker.title', undefined)}</div>
+                    <div class="skill-preset-list-meta">${t('action.combat-settings.auto-pills.picker.copy', undefined)}</div>
                   </div>
                   <div class="auto-pill-toolbar">
-                    ${currentConfig ? '<button class="small-btn ghost" data-auto-pill-clear-slot type="button">清空槽位</button>' : ''}
-                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                    ${currentConfig ? `<button class="small-btn ghost" data-auto-pill-clear-slot type="button">${t('action.combat-settings.auto-pills.picker.clear-slot', undefined)}</button>` : ''}
+                    <button class="small-btn ghost" data-auto-pill-back type="button">${t('common.action.close', undefined)}</button>
                   </div>
                 </div>
                 ${pickerBody}
@@ -3655,11 +3684,11 @@ export class ActionPanel {
               <div class="auto-pill-subdialog auto-pill-subdialog--condition">
                 <div class="auto-pill-subdialog-head">
                   <div>
-                    <div class="skill-preset-card-title">条件设置</div>
-                    <div class="skill-preset-list-meta">${escapeHtml(currentEntry?.name ?? '当前槽位')} 的自动条件</div>
+                    <div class="skill-preset-card-title">${t('action.combat-settings.auto-pills.condition.dialog-title', undefined)}</div>
+                    <div class="skill-preset-list-meta">${t('action.combat-settings.auto-pills.condition.dialog-copy', { name: escapeHtml(currentEntry?.name ?? t('action.combat-settings.auto-pills.slot.current', undefined)) })}</div>
                   </div>
                   <div class="auto-pill-toolbar">
-                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                    <button class="small-btn ghost" data-auto-pill-back type="button">${t('common.action.close', undefined)}</button>
                   </div>
                 </div>
                 ${conditionBody}
@@ -3672,8 +3701,13 @@ export class ActionPanel {
     detailModalHost.open({
       ownerId: ActionPanel.COMBAT_SETTINGS_MODAL_OWNER,
       variantClass: 'detail-modal--combat-settings',
-      title: '战备',
-      subtitle: `备丹 ${pillDraft.length}种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '备丹' : '目标选择'}`,
+      title: t('action.combat-settings.title', undefined),
+      subtitle: t('action.combat-settings.subtitle', {
+        pillCount: pillDraft.length,
+        tabLabel: this.combatSettingsActiveTab === 'auto_pills'
+          ? t('action.combat-settings.tab.auto-pills', undefined)
+          : t('action.combat-settings.tab.targeting', undefined),
+      }),
       bodyHtml: overviewBody,
       onRequestClose: () => this.confirmDiscardCombatSettingsChanges(),
       onClose: () => this.discardCombatSettingsDraft(),
@@ -3691,21 +3725,21 @@ export class ActionPanel {
     detailModalHost.open({
       ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
       variantClass: 'detail-modal--targeting-plan',
-      title: '索敌方案',
-      subtitle: `当前 ${activeOption.label}`,
+      title: t('action.targeting-plan.title', undefined),
+      subtitle: t('action.targeting-plan.subtitle', { label: activeOption.label }),
       bodyHtml: `
         <div class="targeting-plan-shell">
           <div class="targeting-plan-hero">
             <div class="targeting-plan-card">
-              <div class="skill-preset-card-title">当前方案</div>
+              <div class="skill-preset-card-title">${t('action.targeting-plan.current.title', undefined)}</div>
               <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
               <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
             </div>
           </div>
           <div class="targeting-plan-card targeting-plan-options">
             <div class="skill-preset-section-head">
-              <div class="skill-preset-card-title">方案切换</div>
-              <div class="skill-preset-list-meta">点击后立即切换。</div>
+              <div class="skill-preset-card-title">${t('action.targeting-plan.switch.title', undefined)}</div>
+              <div class="skill-preset-list-meta">${t('action.targeting-plan.switch.copy', undefined)}</div>
             </div>
             <div class="targeting-plan-grid">
               ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
@@ -3735,7 +3769,7 @@ export class ActionPanel {
       && this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules())) {
       return true;
     }
-    return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+    return window.confirm(t('action.combat-settings.confirm-discard', undefined));
   }
 
   /** 渲染战斗设置状态提示。 */
@@ -4035,13 +4069,21 @@ export class ActionPanel {
   /** 渲染自动吃药条件摘要。 */
   private renderAutoUsePillConditionSummary(conditions: AutoUsePillCondition[]): string {
     if (conditions.length === 0) {
-      return '未设置条件，不会自动使用。';
+      return t('action.combat-settings.auto-pills.condition.none', undefined);
     }
     return conditions.map((condition) => {
       if (condition.type === 'buff_missing') {
-        return '当前药品效果未生效时使用';
+        return t('action.combat-settings.auto-pills.condition.buff-missing', undefined);
       }
-      return `当前${condition.resource === 'hp' ? '生命' : '灵力'}${condition.op === 'lt' ? '低于' : '高于'} ${condition.thresholdPct}%`;
+      return t('action.combat-settings.auto-pills.condition.resource-ratio', {
+        resource: condition.resource === 'hp'
+          ? t('action.combat-settings.auto-pills.condition.resource.hp', undefined)
+          : t('action.combat-settings.auto-pills.condition.resource.qi', undefined),
+        op: condition.op === 'lt'
+          ? t('action.combat-settings.auto-pills.condition.op.lt', undefined)
+          : t('action.combat-settings.auto-pills.condition.op.gt', undefined),
+        thresholdPct: condition.thresholdPct,
+      });
     }).join('；');
   }
 
@@ -4049,18 +4091,20 @@ export class ActionPanel {
   private renderAutoUsePillEffectSummary(entry: AutoUsePillViewEntry): string {
     const parts: string[] = [];
     if ((entry.healAmount ?? 0) > 0) {
-      parts.push(`恢复气血 ${formatDisplayNumber(entry.healAmount ?? 0)}`);
+      parts.push(t('action.combat-settings.auto-pills.effect.heal-amount', { value: formatDisplayNumber(entry.healAmount ?? 0) }));
     }
     if ((entry.healPercent ?? 0) > 0) {
-      parts.push(`恢复生命 ${Math.round((entry.healPercent ?? 0) * 100)}%`);
+      parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: Math.round((entry.healPercent ?? 0) * 100) }));
     }
     if ((entry.qiPercent ?? 0) > 0) {
-      parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
+      parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: Math.round((entry.qiPercent ?? 0) * 100) }));
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
-      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || '增益').join('、')}`);
+      parts.push(t('action.combat-settings.auto-pills.effect.buffs', {
+        buffs: entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || t('action.combat-settings.auto-pills.effect.buff-fallback', undefined)).join('、') ?? '',
+      }));
     }
-    return parts.join('；') || '效果以物品真源配置为准。';
+    return parts.join('；') || t('action.combat-settings.auto-pills.effect.fallback', undefined);
   }
 
   /** 应用战斗设置。 */
@@ -4085,7 +4129,7 @@ export class ActionPanel {
       this.onUpdateCombatTargetingRules?.(nextRules);
     }
     if (allowAoeChanged) {
-      this.onAction?.('toggle:allow_aoe_player_hit', false, undefined, undefined, '全体攻击');
+      this.onAction?.('toggle:allow_aoe_player_hit', false, undefined, undefined, t('action.combat-settings.toggle-aoe', undefined));
     }
   }
 
@@ -4136,7 +4180,7 @@ export class ActionPanel {
   private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
     const auto = skills.filter((skill) => skill.enabled !== false).length;
     const manual = skills.length - auto;
-    return `已记录 ${skills.length} 项 · 自动 ${auto} · 手动 ${manual}`;
+    return t('action.skill-preset.summary.recorded', { count: skills.length, auto, manual });
   }
 
   /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
@@ -4157,7 +4201,11 @@ export class ActionPanel {
         currentOnly += 1;
       }
     }
-    return `命中 ${matched}/${preset.skills.length} 项 · 当前新增 ${currentOnly} 项`;
+    return t('action.skill-preset.summary.compatibility', {
+      matched,
+      total: preset.skills.length,
+      currentOnly,
+    });
   }
 
   /** 汇总当前方案名输入会如何被规整。 */
@@ -4166,10 +4214,10 @@ export class ActionPanel {
     const raw = this.skillPresetNameDraft;
     const sanitized = this.sanitizeSkillPresetName(raw);
     if (!raw.trim()) {
-      return `命名规则：最多 ${SKILL_PRESET_NAME_MAX_LENGTH} 字，自动压缩多余空格；留空时会使用默认名。`;
+      return t('action.skill-preset.name.rule', { max: SKILL_PRESET_NAME_MAX_LENGTH });
     }
     if (!sanitized) {
-      return '当前输入在清理空白后为空，请换一个方案名。';
+      return t('action.skill-preset.name.empty-after-trim', undefined);
     }
     const usedNames = new Set(
       this.skillPresets
@@ -4178,19 +4226,22 @@ export class ActionPanel {
     );
     const resolved = this.resolveUniqueSkillPresetName(sanitized, usedNames);
     return resolved === sanitized
-      ? `将以“${sanitized}”保存。`
-      : `当前名称重复，将自动保存为“${resolved}”。`;
+      ? t('action.skill-preset.name.will-save', { name: sanitized })
+      : t('action.skill-preset.name.duplicate-resolved', { name: resolved });
   }
 
   /** 汇总当前导入文本的规模和导入规则。 */
   private getSkillPresetImportSummary(): string {
     const text = this.skillPresetImportText.trim();
     if (!text) {
-      return '支持键值文本和旧 JSON；名称重复时会自动追加编号。';
+      return t('action.skill-preset.import.rule', undefined);
     }
     const lineCount = text.split(/\r?\n/).length;
     const byteSize = new TextEncoder().encode(text).length;
-    return `已粘贴 ${formatDisplayNumber(lineCount)} 行 · ${formatDisplayNumber(byteSize)} B；导入时会自动跳过无效技能并给重名方案补编号。`;
+    return t('action.skill-preset.import.summary', {
+      lines: formatDisplayNumber(lineCount),
+      bytes: formatDisplayNumber(byteSize),
+    });
   }
 
   /** 把方案弹层里的结果提示渲染成状态条。 */
@@ -4208,24 +4259,24 @@ export class ActionPanel {
     const currentSkills = this.getCurrentSkillPresetSnapshot();
     const selected = this.getSelectedSkillPreset();
     const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
-    const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : '未选择方案';
-    const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : '从列表选择一个方案后可查看兼容情况。';
+    const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : t('action.skill-preset.selected.none', undefined);
+    const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : t('action.skill-preset.compatibility.none', undefined);
 
     detailModalHost.open({
       ownerId: ActionPanel.SKILL_PRESET_MODAL_OWNER,
       variantClass: 'detail-modal--skill-preset',
-      title: '技能方案',
-      subtitle: `本地方案 ${this.skillPresets.length} 份 · 当前技能 ${currentSkills.length} 项`,
+      title: t('action.skill-preset.title', undefined),
+      subtitle: t('action.skill-preset.subtitle', { presetCount: this.skillPresets.length, skillCount: currentSkills.length }),
       renderBody: (body) => {
         patchElementHtml(body, `
         <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
             <div class="skill-preset-card">
-              <div class="skill-preset-card-title">保存当前技能布局</div>
-              <div class="skill-preset-card-copy">只记录当前已启用技能的顺序，以及它们是自动还是手动。未写进方案的技能会视为禁用，只保存在当前浏览器。导入时会自动忽略不存在的技能，并把你当前多出来的技能保留在禁用区。</div>
+              <div class="skill-preset-card-title">${t('action.skill-preset.save-layout.title', undefined)}</div>
+              <div class="skill-preset-card-copy">${t('action.skill-preset.save-layout.copy', undefined)}</div>
               <div class="skill-manage-summary">
                 <span>${escapeHtml(currentSummary)}</span>
-                <span>已启用 ${this.getSkillSlotSummary(this.currentActions)}</span>
+                <span>${t('action.skill-preset.enabled-summary', { slotSummary: this.getSkillSlotSummary(this.currentActions) })}</span>
               </div>
               <div class="skill-preset-save-row">
                 <input
@@ -4233,26 +4284,26 @@ export class ActionPanel {
                   data-skill-preset-name-input
                   type="text"
                   maxlength="${SKILL_PRESET_NAME_MAX_LENGTH}"
-                  placeholder="输入方案名"
+                  placeholder="${t('action.skill-preset.name.placeholder', undefined)}"
                   value="${escapeHtml(this.skillPresetNameDraft)}"
                 />
-                <button class="small-btn" data-skill-preset-save type="button"${currentSkills.length > 0 ? '' : ' disabled'}>保存当前</button>
-                <button class="small-btn ghost" data-skill-preset-overwrite type="button"${selected && currentSkills.length > 0 ? '' : ' disabled'}>覆盖选中</button>
+                <button class="small-btn" data-skill-preset-save type="button"${currentSkills.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.save-current', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-overwrite type="button"${selected && currentSkills.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.overwrite-selected', undefined)}</button>
               </div>
             </div>
             <div class="skill-preset-card">
-              <div class="skill-preset-card-title">选中方案</div>
-              <div class="skill-preset-card-copy">${selected ? escapeHtml(selectedSummary) : '还没有选中任何技能方案。'}</div>
+              <div class="skill-preset-card-title">${t('action.skill-preset.selected.title', undefined)}</div>
+              <div class="skill-preset-card-copy">${selected ? escapeHtml(selectedSummary) : t('action.skill-preset.selected.empty', undefined)}</div>
               <div class="skill-manage-summary">
                 <span>${escapeHtml(compatibilitySummary)}</span>
-                <span>${selected ? '导出内容只包含技能 id 顺序和自动/手动标记' : '可导出单个方案或整个本地列表'}</span>
+                <span>${selected ? t('action.skill-preset.export.selected-copy', undefined) : t('action.skill-preset.export.list-copy', undefined)}</span>
               </div>
               <div class="skill-preset-actions">
-                <button class="small-btn" data-skill-preset-apply type="button"${selected ? '' : ' disabled'}>套用选中</button>
-                <button class="small-btn ghost" data-skill-preset-copy type="button"${selected ? '' : ' disabled'}>复制选中</button>
-                <button class="small-btn ghost" data-skill-preset-export-selected type="button"${selected ? '' : ' disabled'}>导出选中</button>
-                <button class="small-btn ghost" data-skill-preset-export-all type="button"${this.skillPresets.length > 0 ? '' : ' disabled'}>导出全部</button>
-                <button class="small-btn danger" data-skill-preset-delete type="button"${selected ? '' : ' disabled'}>删除选中</button>
+                <button class="small-btn" data-skill-preset-apply type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.apply-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-copy type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.copy-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-export-selected type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.export-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-export-all type="button"${this.skillPresets.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.export-all', undefined)}</button>
+                <button class="small-btn danger" data-skill-preset-delete type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.delete-selected', undefined)}</button>
               </div>
             </div>
           </div>
@@ -4260,11 +4311,11 @@ export class ActionPanel {
           <div class="skill-preset-layout">
             <div class="skill-preset-list-card">
               <div class="skill-preset-section-head">
-                <div class="skill-preset-card-title">本地方案列表</div>
-                <div class="skill-preset-list-meta">${this.skillPresets.length > 0 ? '列表从上到下按最近保存排序' : '当前还没有保存任何方案'}</div>
+                <div class="skill-preset-card-title">${t('action.skill-preset.list.title', undefined)}</div>
+                <div class="skill-preset-list-meta">${this.skillPresets.length > 0 ? t('action.skill-preset.list.sorted-copy', undefined) : t('action.skill-preset.list.empty-meta', undefined)}</div>
               </div>
               ${this.skillPresets.length === 0
-                ? '<div class="empty-hint">先保存一份当前技能方案，再进行导出或分享。</div>'
+                ? `<div class="empty-hint">${t('action.skill-preset.list.empty-hint', undefined)}</div>`
                 : `<div class="skill-preset-list">
                     ${this.skillPresets.map((preset) => `
                       <button
@@ -4281,19 +4332,19 @@ export class ActionPanel {
             </div>
             <div class="skill-preset-import-card">
               <div class="skill-preset-section-head">
-                <div class="skill-preset-card-title">导入数据</div>
-                <button class="small-btn ghost" data-skill-preset-import-file-open type="button">读取文件</button>
+                <div class="skill-preset-card-title">${t('action.skill-preset.import.title', undefined)}</div>
+                <button class="small-btn ghost" data-skill-preset-import-file-open type="button">${t('action.skill-preset.action.read-file', undefined)}</button>
               </div>
-              <div class="skill-preset-card-copy">支持导入键值文本，也兼容之前的 JSON 分享数据。若名称重复，会自动在本地追加编号。</div>
+              <div class="skill-preset-card-copy">${t('action.skill-preset.import.copy', undefined)}</div>
               <textarea
                 class="skill-preset-import-input ui-textarea"
                 data-skill-preset-import-input
-                placeholder="粘贴技能方案文本，例如：&#10;v=3&#10;p=日常刷图&#10;s=fireball,1&#10;s=guard,0"
+                placeholder="${t('action.skill-preset.import.placeholder', undefined)}"
               >${escapeHtml(this.skillPresetImportText)}</textarea>
               <input class="hidden" data-skill-preset-import-file type="file" accept="text/plain,.txt,.preset,application/json,.json" />
               <div class="skill-preset-actions">
-                <button class="small-btn" data-skill-preset-import type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>导入到本地</button>
-                <button class="small-btn ghost" data-skill-preset-import-clear type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>清空输入</button>
+                <button class="small-btn" data-skill-preset-import type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>${t('action.skill-preset.action.import-local', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-import-clear type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>${t('action.skill-preset.action.clear-input', undefined)}</button>
               </div>
             </div>
           </div>
@@ -4408,13 +4459,13 @@ export class ActionPanel {
           this.skillPresetImportText = await file.text();
           this.skillPresetStatus = {
             tone: 'info',
-            text: `已读取文件 ${file.name}，确认后即可导入本地。`,
+            text: t('action.skill-preset.status.file-read', { fileName: file.name }),
           };
           this.renderSkillPresetModal();
         } catch {
           this.skillPresetStatus = {
             tone: 'error',
-            text: '读取技能方案文件失败，请改用复制粘贴导入。',
+            text: t('action.skill-preset.status.file-read-failed', undefined),
           };
           this.renderSkillPresetModal();
         } finally {
@@ -4432,7 +4483,7 @@ export class ActionPanel {
     if (snapshot.length === 0) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '当前没有可保存的技能。',
+        text: t('action.skill-preset.status.no-savable-skills', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4442,7 +4493,7 @@ export class ActionPanel {
     if (!inputName && !overwriteSelected) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '请先输入方案名。',
+        text: t('action.skill-preset.status.name-required', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4463,7 +4514,7 @@ export class ActionPanel {
       this.skillPresetNameDraft = nextName;
       this.skillPresetStatus = {
         tone: 'success',
-        text: `已覆盖方案“${nextName}”。`,
+        text: t('action.skill-preset.status.overwritten', { name: nextName }),
       };
     } else {
       const usedNames = new Set(this.skillPresets.map((preset) => preset.name));
@@ -4478,7 +4529,7 @@ export class ActionPanel {
       this.skillPresetNameDraft = nextName;
       this.skillPresetStatus = {
         tone: 'success',
-        text: `已保存方案“${nextName}”。`,
+        text: t('action.skill-preset.status.saved', { name: nextName }),
       };
     }
 
@@ -4550,7 +4601,7 @@ export class ActionPanel {
     if (!preset) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '请先选择一个技能方案。',
+        text: t('action.skill-preset.status.select-first', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4562,7 +4613,7 @@ export class ActionPanel {
     this.commitSkillPresetActions(nextActions);
     this.skillPresetStatus = {
       tone: 'success',
-      text: `已套用方案“${preset.name}”。`,
+      text: t('action.skill-preset.status.applied', { name: preset.name }),
     };
     this.renderSkillPresetModal();
   }
@@ -4575,7 +4626,7 @@ export class ActionPanel {
     if (!preset) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '请先选择一个技能方案。',
+        text: t('action.skill-preset.status.select-first', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4584,7 +4635,7 @@ export class ActionPanel {
     if (!navigator.clipboard?.writeText) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '当前浏览器不支持直接复制，请改用导出文件。',
+        text: t('action.skill-preset.status.clipboard-unsupported', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4593,12 +4644,12 @@ export class ActionPanel {
       await navigator.clipboard.writeText(text);
       this.skillPresetStatus = {
         tone: 'success',
-        text: `已复制方案“${preset.name}”的数据。`,
+        text: t('action.skill-preset.status.copied', { name: preset.name }),
       };
     } catch {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '复制失败，请改用导出文件。',
+        text: t('action.skill-preset.status.copy-failed', undefined),
       };
     }
     this.renderSkillPresetModal();
@@ -4615,7 +4666,7 @@ export class ActionPanel {
     this.downloadSkillPresetPayload(`${preset.name}.txt`, this.buildSkillPresetExportText([preset]));
     this.skillPresetStatus = {
       tone: 'success',
-      text: `已导出方案“${preset.name}”。`,
+      text: t('action.skill-preset.status.exported', { name: preset.name }),
     };
     this.renderSkillPresetModal();
   }
@@ -4630,7 +4681,7 @@ export class ActionPanel {
     this.downloadSkillPresetPayload('skill-presets.txt', this.buildSkillPresetExportText(this.skillPresets));
     this.skillPresetStatus = {
       tone: 'success',
-      text: `已导出全部 ${this.skillPresets.length} 份技能方案。`,
+      text: t('action.skill-preset.status.exported-all', { count: this.skillPresets.length }),
     };
     this.renderSkillPresetModal();
   }
@@ -4643,7 +4694,7 @@ export class ActionPanel {
     if (!preset) {
       return;
     }
-    if (!window.confirm(`确定删除技能方案“${preset.name}”吗？`)) {
+    if (!window.confirm(t('action.skill-preset.confirm.delete', { name: preset.name }))) {
       return;
     }
     this.skillPresets = this.skillPresets.filter((entry) => entry.id !== preset.id);
@@ -4651,7 +4702,7 @@ export class ActionPanel {
     this.skillPresetNameDraft = this.getSelectedSkillPreset()?.name ?? this.buildDefaultSkillPresetName();
     this.skillPresetStatus = {
       tone: 'success',
-      text: `已删除方案“${preset.name}”。`,
+      text: t('action.skill-preset.status.deleted', { name: preset.name }),
     };
     this.saveSkillPresets();
     this.renderSkillPresetModal();
@@ -4665,7 +4716,7 @@ export class ActionPanel {
     if (!text) {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '请先粘贴要导入的技能方案数据。',
+        text: t('action.skill-preset.status.import-empty', undefined),
       };
       this.renderSkillPresetModal();
       return;
@@ -4682,7 +4733,7 @@ export class ActionPanel {
       if (imported.length === 0) {
         this.skillPresetStatus = {
           tone: 'error',
-          text: '导入数据里没有找到可用的技能方案。',
+          text: t('action.skill-preset.status.import-no-valid', undefined),
         };
         this.renderSkillPresetModal();
         return;
@@ -4692,14 +4743,14 @@ export class ActionPanel {
       this.skillPresetNameDraft = imported[0]?.name ?? this.buildDefaultSkillPresetName();
       this.skillPresetStatus = {
         tone: 'success',
-        text: `已导入 ${imported.length} 份技能方案。`,
+        text: t('action.skill-preset.status.imported', { count: imported.length }),
       };
       this.saveSkillPresets();
       this.renderSkillPresetModal();
     } catch {
       this.skillPresetStatus = {
         tone: 'error',
-        text: '技能方案数据格式无效，请检查键值文本后重试。',
+        text: t('action.skill-preset.status.import-invalid', undefined),
       };
       this.renderSkillPresetModal();
     }
@@ -4937,70 +4988,74 @@ export class ActionPanel {
     detailModalHost.open({
       ownerId: ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--skill-management',
-      title: '技能管理',
-      subtitle: `已学技能 ${skillEntries.length} 项 · 已启用 ${slotSummary} · 当前过滤 ${filteredEntries.length} 项`,
+      title: t('action.skill.manage', undefined),
+      subtitle: t('action.skill.manage.subtitle', {
+        skillCount: skillEntries.length,
+        slotSummary,
+        filteredCount: filteredEntries.length,
+      }),
       renderBody: (body) => {
         patchElementHtml(body, `
         <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
             <div class="action-skill-subtabs skill-manage-subtabs">
               <button class="action-skill-subtab-btn ${this.skillManagementTab === 'auto' ? 'active' : ''}" data-skill-manage-tab="auto" type="button">
-                自动
+                ${t('action.skill.tab.auto', undefined)}
                 <span class="action-skill-subtab-count">${autoEntries.length}</span>
               </button>
               <button class="action-skill-subtab-btn ${this.skillManagementTab === 'manual' ? 'active' : ''}" data-skill-manage-tab="manual" type="button">
-                手动
+                ${t('action.skill.tab.manual', undefined)}
                 <span class="action-skill-subtab-count">${manualEntries.length}</span>
               </button>
               <button class="action-skill-subtab-btn ${this.skillManagementTab === 'disabled' ? 'active' : ''}" data-skill-manage-tab="disabled" type="button">
-                禁用
+                ${t('action.skill.manage.tab.disabled', undefined)}
                 <span class="action-skill-subtab-count">${disabledEntries.length}</span>
               </button>
             </div>
             <div class="skill-manage-toolbar">
-              <button class="small-btn" data-skill-manage-apply type="button">应用</button>
-              <button class="small-btn ghost" data-skill-manage-cancel type="button">取消</button>
+              <button class="small-btn" data-skill-manage-apply type="button">${t('common.action.execute', undefined)}</button>
+              <button class="small-btn ghost" data-skill-manage-cancel type="button">${t('common.action.cancel', undefined)}</button>
               <button class="small-btn ghost ${this.skillManagementSortOpen ? 'active' : ''}" data-skill-manage-sort-toggle type="button">
-                ${this.skillManagementSortOpen ? '收起排序' : '排序'}
+                ${this.skillManagementSortOpen ? t('action.skill.manage.sort.close', undefined) : t('action.skill.manage.sort.open', undefined)}
               </button>
               <button class="small-btn ghost ${this.skillManagementFilterOpen ? 'active' : ''}" data-skill-manage-filter-toggle type="button">
-                ${this.skillManagementFilterOpen ? '收起过滤' : '过滤'}
+                ${this.skillManagementFilterOpen ? t('action.skill.manage.filter.close', undefined) : t('action.skill.manage.filter.open', undefined)}
               </button>
             </div>
           </div>
           <div class="skill-manage-summary">
-            <span>已启用 ${slotSummary}</span>
-            <span>当前过滤 ${filteredEntries.length} 项</span>
-            <span>自动 ${autoEntries.length} 项</span>
-            <span>手动 ${manualEntries.length} 项</span>
-            <span>禁用 ${disabledEntries.length} 项</span>
+            <span>${t('action.skill.manage.summary.enabled', { slotSummary })}</span>
+            <span>${t('action.skill.manage.summary.filtered', { count: filteredEntries.length })}</span>
+            <span>${t('action.skill.manage.summary.auto', { count: autoEntries.length })}</span>
+            <span>${t('action.skill.manage.summary.manual', { count: manualEntries.length })}</span>
+            <span>${t('action.skill.manage.summary.disabled', { count: disabledEntries.length })}</span>
           </div>
           ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
           ${this.skillManagementFilterOpen ? `
             <div class="skill-manage-filter-panel">
               <div class="skill-manage-filter-head">
-                <div class="skill-manage-filter-title">过滤技能</div>
-                <button class="small-btn ghost" data-skill-manage-filter-all type="button">全部技能</button>
+                <div class="skill-manage-filter-title">${t('action.skill.manage.filter.title', undefined)}</div>
+                <button class="small-btn ghost" data-skill-manage-filter-all type="button">${t('action.skill.manage.filter.all', undefined)}</button>
               </div>
               <div class="skill-manage-chip-group">
-                <span class="skill-manage-chip-group-title">过滤标签</span>
+                <span class="skill-manage-chip-group-title">${t('action.skill.manage.filter.tags', undefined)}</span>
                 <div class="skill-manage-chip-row">
-                  ${this.renderSkillManagementChipToggle('melee', '近战')}
-                  ${this.renderSkillManagementChipToggle('ranged', '远程')}
-                  ${this.renderSkillManagementChipToggle('physical', '物理')}
-                  ${this.renderSkillManagementChipToggle('spell', '法术')}
-                  ${this.renderSkillManagementChipToggle('single', '单体')}
-                  ${this.renderSkillManagementChipToggle('aoe', '群攻')}
+                  ${this.renderSkillManagementChipToggle('melee', t('action.skill.manage.filter.melee', undefined))}
+                  ${this.renderSkillManagementChipToggle('ranged', t('action.skill.manage.filter.ranged', undefined))}
+                  ${this.renderSkillManagementChipToggle('physical', t('action.skill.manage.filter.physical', undefined))}
+                  ${this.renderSkillManagementChipToggle('spell', t('action.skill.manage.filter.spell', undefined))}
+                  ${this.renderSkillManagementChipToggle('single', t('action.skill.manage.filter.single', undefined))}
+                  ${this.renderSkillManagementChipToggle('aoe', t('action.skill.manage.filter.aoe', undefined))}
                 </div>
               </div>
-              <div class="skill-manage-filter-copy">同类标签可同时选中；若某一类开了多个，则按该类任意命中处理。</div>
+              <div class="skill-manage-filter-copy">${t('action.skill.manage.filter.copy', undefined)}</div>
             </div>
           ` : ''}
           <div class="skill-manage-batch">
-            <button class="small-btn" data-skill-manage-bulk="auto" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部自动</button>
-            <button class="small-btn ghost" data-skill-manage-bulk="manual" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部手动</button>
-            <button class="small-btn ghost" data-skill-manage-bulk="enabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部启用</button>
-            <button class="small-btn ghost" data-skill-manage-bulk="disabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部禁用</button>
+            <button class="small-btn" data-skill-manage-bulk="auto" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.auto', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="manual" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.manual', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="enabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.enabled', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="disabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.disabled', undefined)}</button>
           </div>
           <div class="action-section-hint">${hint}</div>
           ${visibleEntries.length === 0
@@ -5157,20 +5212,20 @@ export class ActionPanel {
     if (filteredSkillIds.size === 0) {
       this.skillManagementStatus = {
         tone: 'error',
-        text: '当前过滤结果里没有可批量调整的技能。',
+        text: t('action.skill.manage.bulk.empty', undefined),
       };
       this.renderSkillManagementModal();
       return;
     }
     const label = ({
-      auto: '切到自动',
-      manual: '切到手动',
-      enabled: '批量启用',
-      disabled: '批量禁用',
+      auto: t('action.skill.manage.bulk.auto-label', undefined),
+      manual: t('action.skill.manage.bulk.manual-label', undefined),
+      enabled: t('action.skill.manage.bulk.enabled-label', undefined),
+      disabled: t('action.skill.manage.bulk.disabled-label', undefined),
     } satisfies Record<SkillManagementBulkMode, string>)[mode];
     this.skillManagementStatus = {
       tone: 'success',
-      text: `已对当前过滤命中的 ${filteredSkillIds.size} 项技能执行“${label}”。`,
+      text: t('action.skill.manage.bulk.done', { count: filteredSkillIds.size, label }),
     };
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
@@ -5335,31 +5390,31 @@ export class ActionPanel {
     return `
       <div class="skill-manage-sort-panel">
         <div class="skill-manage-filter-head">
-          <div class="skill-manage-filter-title">排序规则</div>
+          <div class="skill-manage-filter-title">${t('action.skill.manage.sort.title', undefined)}</div>
         </div>
         <div class="skill-manage-chip-group">
-          <span class="skill-manage-chip-group-title">排序字段</span>
+          <span class="skill-manage-chip-group-title">${t('action.skill.manage.sort.field-title', undefined)}</span>
           <div class="skill-manage-chip-row">
-            ${this.renderSkillManagementSortChip('custom', '当前顺位')}
-            ${this.renderSkillManagementSortChip('actualDamage', '伤害')}
-            ${this.renderSkillManagementSortChip('qiCost', '蓝耗')}
-            ${this.renderSkillManagementSortChip('range', '距离')}
-            ${this.renderSkillManagementSortChip('targetCount', '目标')}
-            ${this.renderSkillManagementSortChip('cooldown', '冷却')}
+            ${this.renderSkillManagementSortChip('custom', t('action.skill.manage.sort.field.custom', undefined))}
+            ${this.renderSkillManagementSortChip('actualDamage', t('action.skill.manage.sort.field.actual-damage', undefined))}
+            ${this.renderSkillManagementSortChip('qiCost', t('action.skill.manage.sort.field.qi-cost', undefined))}
+            ${this.renderSkillManagementSortChip('range', t('action.skill.manage.sort.field.range', undefined))}
+            ${this.renderSkillManagementSortChip('targetCount', t('action.skill.manage.sort.field.target-count', undefined))}
+            ${this.renderSkillManagementSortChip('cooldown', t('action.skill.manage.sort.field.cooldown', undefined))}
           </div>
         </div>
         <div class="skill-manage-chip-group">
-          <span class="skill-manage-chip-group-title">排序方向</span>
+          <span class="skill-manage-chip-group-title">${t('action.skill.manage.sort.direction-title', undefined)}</span>
           <div class="skill-manage-chip-row">
-            ${this.renderSkillManagementDirectionChip('desc', '倒序')}
-            ${this.renderSkillManagementDirectionChip('asc', '正序')}
+            ${this.renderSkillManagementDirectionChip('desc', t('action.skill.manage.sort.direction.desc', undefined))}
+            ${this.renderSkillManagementDirectionChip('asc', t('action.skill.manage.sort.direction.asc', undefined))}
           </div>
         </div>
         <div class="skill-manage-filter-copy ui-form-copy">${this.skillManagementTab === 'disabled'
-          ? '禁用页签只提供查看与筛选；重新启用后，技能会按原自动状态回到自动或手动列表。'
+          ? t('action.skill.manage.sort.copy.disabled', undefined)
           : this.skillManagementSortField === 'custom'
-            ? '当前顺位模式下，自动页签可直接拖拽，或用上移、下移调整优先级。'
-            : '当前列表会按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。'}</div>
+            ? t('action.skill.manage.sort.copy.custom', undefined)
+            : t('action.skill.manage.sort.copy.sorted', undefined)}</div>
       </div>
     `;
   }
@@ -5369,26 +5424,28 @@ export class ActionPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.skillManagementTab === 'disabled') {
-      return `这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。当前已启用 ${slotSummary}。`;
+      return t('action.skill.manage.hint.disabled', { slotSummary });
     }
     if (this.skillManagementSortField !== 'custom') {
-      return `当前列表已按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。当前已启用 ${slotSummary}。`;
+      return t('action.skill.manage.hint.sorted', { slotSummary });
     }
     if (dragSortEnabled) {
-      return `自动战斗会按列表从上到下尝试技能，当前可直接拖拽，或用上移、下移调整优先级。当前已启用 ${slotSummary}，超过上限会自动禁用末位技能。`;
+      return t('action.skill.manage.hint.drag', { slotSummary });
     }
     return this.skillManagementTab === 'auto'
-      ? `这里显示会参与自动战斗的技能，可继续用过滤条件缩小范围后批量调整。当前已启用 ${slotSummary}。`
-      : `这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。当前已启用 ${slotSummary}。`;
+      ? t('action.skill.manage.hint.auto', { slotSummary })
+      : t('action.skill.manage.hint.manual', { slotSummary });
   }
 
   /** 渲染当前排序字段对应的指标读数。 */
   private renderSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string | null {
     switch (this.skillManagementSortField) {
       case 'actualDamage':
-        return metrics.actualDamage === null ? '伤害 未知' : `伤害 ${formatDisplayNumber(metrics.actualDamage)}`;
+        return metrics.actualDamage === null
+          ? t('action.skill.manage.metric.damage-unknown', undefined)
+          : t('action.skill.manage.metric.damage', { value: formatDisplayNumber(metrics.actualDamage) });
       case 'qiCost':
-        return `蓝耗 ${formatDisplayNumber(metrics.actualQiCost)}`;
+        return t('action.skill.manage.metric.qi-cost', { value: formatDisplayNumber(metrics.actualQiCost) });
       default:
         return null;
     }
@@ -5462,7 +5519,7 @@ export class ActionPanel {
       if (notify) {
         this.skillManagementStatus = {
           tone: 'error',
-          text: '当前页签或排序模式不支持把排序结果写回技能顺位。',
+          text: t('action.skill.manage.sort.error.unsupported', undefined),
         };
         this.renderSkillManagementModal();
       }
@@ -5473,7 +5530,7 @@ export class ActionPanel {
       if (notify) {
         this.skillManagementStatus = {
           tone: 'error',
-          text: '当前可见技能不足 2 项，无法应用新的顺位。',
+          text: t('action.skill.manage.sort.error.not-enough', undefined),
         };
         this.renderSkillManagementModal();
       }
@@ -5481,16 +5538,21 @@ export class ActionPanel {
     }
     if (notify) {
       const sortLabel = ({
-        actualDamage: '伤害',
-        qiCost: '蓝耗',
-        range: '距离',
-        targetCount: '目标',
-        cooldown: '冷却',
-        custom: '当前顺位',
+        actualDamage: t('action.skill.manage.sort.field.actual-damage', undefined),
+        qiCost: t('action.skill.manage.sort.field.qi-cost', undefined),
+        range: t('action.skill.manage.sort.field.range', undefined),
+        targetCount: t('action.skill.manage.sort.field.target-count', undefined),
+        cooldown: t('action.skill.manage.sort.field.cooldown', undefined),
+        custom: t('action.skill.manage.sort.field.custom', undefined),
       } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
       this.skillManagementStatus = {
         tone: 'success',
-        text: `已按“${sortLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'}”重写当前顺位。`,
+        text: t('action.skill.manage.sort.done', {
+          sortLabel,
+          sortDirection: this.skillManagementSortDirection === 'asc'
+            ? t('action.skill.manage.sort.direction.asc', undefined)
+            : t('action.skill.manage.sort.direction.desc', undefined),
+        }),
       };
     }
     this.applySkillManagementDraftMutation(
@@ -5546,22 +5608,22 @@ export class ActionPanel {
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
-          <span class="action-type">[技能]</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
-          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
-          <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? '技能已启用' : '技能已禁用'}</span>
-          ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
+          <span class="action-type">${t('action.card.skill-type', undefined)}</span>
+          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: action.range })}</span>` : ''}
+          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+          <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
+          ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: autoBattleOrder })}</span>` : ''}
         </div>
         <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta">
         ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}
-        <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
-        <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${skillEnabled ? '启用 开' : '启用 关'}</button>
-        <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>上移</button>
-        <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>下移</button>
-        ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-skill-manage-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}
+        <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.auto', { state: autoBattleEnabled ? t('common.state.on') : t('common.state.off') })}</button>
+        <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.enabled', { state: skillEnabled ? t('common.state.on') : t('common.state.off') })}</button>
+        <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>${t('action.skill.manage.move-up', undefined)}</button>
+        <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>${t('action.skill.manage.move-down', undefined)}</button>
+        ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-skill-manage-drag="${action.id}" draggable="true" type="button">${t('common.action.drag', undefined)}</button>` : ''}
       </div>
     </div>`;
   }

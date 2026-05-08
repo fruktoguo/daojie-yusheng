@@ -484,9 +484,6 @@
       cursor: help;
       transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     }
-    .attr-craft-row[data-craft-open] {
-      cursor: pointer;
-    }
     .attr-mini-main {
       display: grid;
       grid-template-columns: 30px minmax(0, 1fr);
@@ -1132,8 +1129,9 @@
     }
     .attr-craft-row {
       display: grid;
-      grid-template-columns: 40px 68px minmax(0, 1fr);
+      grid-template-columns: 40px 68px minmax(0, 1fr) auto;
       align-items: center;
+      gap: 8px;
       min-height: 48px;
       padding: 8px 12px;
       border: 1px solid var(--wash-ink);
@@ -1209,6 +1207,18 @@
     }
     .attr-craft-remain {
       display: none;
+    }
+    .attr-craft-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: max-content;
+    }
+    .attr-craft-actions .small-btn {
+      min-height: 28px;
+      padding: 4px 10px;
+      white-space: nowrap;
     }
     .body-training-grid,
     .body-training-attrs {
@@ -1347,6 +1357,14 @@
       }
       .attr-craft-row {
         grid-template-columns: 36px 62px minmax(0, 1fr);
+      }
+      .attr-craft-actions {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+        min-width: 0;
+      }
+      .attr-craft-actions .small-btn {
+        flex: 1 1 0;
       }
       .body-training-infuse-summary {
         grid-template-columns: 1fr;
@@ -5830,6 +5848,29 @@
       flex-wrap: wrap;
       gap: 6px;
     }
+    .breakthrough-root-auto-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      margin-top: 8px;
+      color: var(--ink-strong);
+      font-size: var(--font-size-14);
+      line-height: 1.35;
+      cursor: pointer;
+      user-select: none;
+    }
+    .breakthrough-root-auto-toggle input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .breakthrough-root-auto-hint {
+      color: var(--ink-grey);
+      font-size: var(--font-size-13);
+    }
     .breakthrough-action-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8146,6 +8187,49 @@
     .craft-queue-item em {
       font-style: normal;
     }
+    .craft-queue-progress {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      margin-top: 2px;
+    }
+    .craft-queue-progress-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.25;
+    }
+    .craft-queue-progress-head span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .craft-queue-progress-head strong {
+      flex: 0 0 auto;
+      color: var(--ink-strong);
+      font-size: var(--font-size-11);
+    }
+    .craft-queue-progress-bar {
+      position: relative;
+      height: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(84, 57, 35, 0.12);
+      background: rgba(122, 91, 65, 0.12);
+    }
+    .craft-queue-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(169, 102, 45, 0.92), rgba(225, 169, 83, 0.94));
+      transition: width 0.18s linear;
+    }
+    .craft-queue-item:not(.active) .craft-queue-progress-fill {
+      background: rgba(122, 91, 65, 0.28);
+    }
     .craft-placeholder-panel {
       display: grid;
       align-content: start;
@@ -8289,6 +8373,13 @@
       }
       .craft-queue-item strong {
         font-size: var(--font-size-12);
+      }
+      .craft-queue-progress-head {
+        gap: 6px;
+        font-size: var(--font-size-10);
+      }
+      .craft-queue-progress-bar {
+        height: 5px;
       }
       .craft-workbench-content {
         border-top: 0;
@@ -8535,6 +8626,35 @@
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-card {
         gap: 8px;
       }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-layout,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-main {
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-layout--merged {
+        grid-template-columns: minmax(0, 1.08fr) minmax(138px, 0.92fr);
+        align-items: start;
+        gap: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot {
+        gap: 2px;
+        padding: 8px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-extra,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-merged-section {
+        gap: 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-merged-section {
+        justify-content: flex-start;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-extra {
+        padding-top: 0;
+        padding-left: 8px;
+        border-top: 0;
+        border-left: 1px dashed color-mix(in srgb, var(--wash-ink) 76%, transparent);
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-merged-section-head {
+        gap: 6px;
+      }
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-candidate-name,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-title,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-title,
@@ -8544,10 +8664,26 @@
         font-size: var(--font-size-12);
         line-height: 1.25;
       }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-card-head {
+        gap: 1px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-card-head-main {
+        gap: 4px 6px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-card-head-value {
+        min-height: 18px;
+        padding: 0 6px;
+        font-size: var(--font-size-10);
+      }
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-toolbar-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-action-note,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-owned,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-candidate-meta,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-slot-meta,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-summary-subtitle,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-lines,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-empty,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-empty-state,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-material-empty,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-entry-meta,
@@ -8561,6 +8697,12 @@
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-requirement-card .enhancement-protection-note,
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-head .enhancement-protection-note {
         display: none;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-formula-pill {
+        display: inline-flex;
+        min-height: 26px;
+        padding: 0 10px;
+        font-size: var(--font-size-11);
       }
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-target-level-row {
         grid-template-columns: 42px minmax(0, 1fr) 42px;
@@ -8640,9 +8782,35 @@
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-preview-grid {
         display: none;
       }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-table {
+        gap: 4px;
+        padding-right: 0;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        padding: 6px;
+        text-align: center;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-row > * {
+        min-width: 0;
+      }
       .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-empty-state {
         min-height: 128px;
         padding: 12px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-empty-state--history {
+        min-height: 96px;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-head {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+      }
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-inline-toggle,
+      .detail-modal-card.detail-modal--craft.detail-modal--craft-enhancement .enhancement-history-head .small-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
     }
     .detail-modal-card.detail-modal--enhancement {

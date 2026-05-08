@@ -16,6 +16,7 @@ import {
 } from './auth-api';
 import { AUTH_API_BASE_PATH } from '../constants/api';
 import { validateAccountName, validateDisplayName, validatePassword, validateRoleName } from './account-rules';
+import { t } from './i18n';
 
 /** AuthMode：模式枚举。 */
 type AuthMode = 'login' | 'register';
@@ -105,7 +106,7 @@ export class LoginUI {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
 
-    this.setError('正在重归天地...');
+    this.setError(t('login.restore.in-progress', undefined));
     try {
       const data = await restoreTokens(refreshToken);
       this.onSuccess(data);
@@ -116,7 +117,7 @@ export class LoginUI {
         this.clearSession();
       }
       this.show();
-      this.setError(error instanceof Error ? error.message : '重归失败');
+      this.setError(error instanceof Error ? error.message : t('login.restore.failed', undefined));
       return false;
     }
   }
@@ -179,7 +180,7 @@ export class LoginUI {
       });
       this.onSuccess(data);
     } catch (error) {
-      this.setError(error instanceof Error ? error.message : '登录失败');
+      this.setError(error instanceof Error ? error.message : t('login.error.login-failed', undefined));
     }
   }
 
@@ -215,7 +216,7 @@ export class LoginUI {
 
     await this.checkDisplayName(displayName, { immediate: true });
     if (!this.displayNameAvailable) {
-      this.setError(this.displayNameStatus.textContent || '此道号已被占用');
+      this.setError(this.displayNameStatus.textContent || t('login.display-name.taken', undefined));
       return;
     }
 
@@ -233,7 +234,7 @@ export class LoginUI {
       });
       this.onSuccess(data);
     } catch (error) {
-      this.setError(error instanceof Error ? error.message : '注册失败');
+      this.setError(error instanceof Error ? error.message : t('login.error.register-failed', undefined));
     }
   }
 
@@ -259,7 +260,7 @@ export class LoginUI {
     const displayName = this.displayNameInput.value.normalize('NFC');
     const localError = validateDisplayName(displayName);
     if (!displayName) {
-      this.setDisplayNameStatus('注册时必填', '');
+      this.setDisplayNameStatus(t('login.display-name.required', undefined), '');
       this.displayNameAvailable = false;
       return;
     }
@@ -269,7 +270,7 @@ export class LoginUI {
       return;
     }
 
-    this.setDisplayNameStatus('正在验查...', '');
+    this.setDisplayNameStatus(t('login.display-name.checking', undefined), '');
     this.displayNameCheckTimer = setTimeout(() => {
       void this.checkDisplayName(displayName, { immediate: false });
     }, 250);
@@ -298,7 +299,7 @@ export class LoginUI {
     const controller = new AbortController();
     this.displayNameAbortController = controller;
     if (options.immediate) {
-      this.setDisplayNameStatus('正在验查...', '');
+      this.setDisplayNameStatus(t('login.display-name.checking', undefined), '');
     }
 
     try {
@@ -308,7 +309,9 @@ export class LoginUI {
       }
       this.displayNameAvailable = result.available;
       this.setDisplayNameStatus(
-        result.available ? '此道号可用' : (result.message ?? '此道号已被占用'),
+        result.available
+          ? t('login.display-name.available', undefined)
+          : (result.message ?? t('login.display-name.taken', undefined)),
         result.available ? 'success' : 'error',
       );
     } catch (error) {
@@ -316,7 +319,7 @@ export class LoginUI {
         return;
       }
       this.displayNameAvailable = false;
-      this.setDisplayNameStatus(error instanceof Error ? error.message : '验查未果', 'error');
+      this.setDisplayNameStatus(error instanceof Error ? error.message : t('login.display-name.check-failed', undefined), 'error');
     }
   }
 
@@ -353,14 +356,18 @@ export class LoginUI {
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
     this.roleNameGroup.classList.toggle('hidden', !isRegister);
     this.displayNameGroup.classList.toggle('hidden', !isRegister);
-    this.loginNameLabel.textContent = '账号 / 角色名';
-    this.loginNameInput.placeholder = '输入账号或角色名';
-    this.submitText.textContent = isRegister ? '注册' : '登录';
+    this.loginTab.textContent = t('login.mode.login', undefined);
+    this.registerTab.textContent = t('login.mode.register', undefined);
+    this.loginNameLabel.textContent = t('login.login-name.label', undefined);
+    this.loginNameInput.placeholder = t('login.login-name.placeholder', undefined);
+    this.submitText.textContent = isRegister
+      ? t('login.mode.register', undefined)
+      : t('login.mode.login', undefined);
     this.setError('');
     if (!isRegister) {
       this.resetDisplayNameState();
     } else {
-      this.setDisplayNameStatus('注册时必填', '');
+      this.setDisplayNameStatus(t('login.display-name.required', undefined), '');
     }
   }
 
@@ -377,6 +384,6 @@ export class LoginUI {
       this.displayNameAbortController = null;
     }
     this.displayNameAvailable = false;
-    this.setDisplayNameStatus('注册时必填', '');
+    this.setDisplayNameStatus(t('login.display-name.required', undefined), '');
   }
 }

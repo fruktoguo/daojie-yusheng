@@ -1,5 +1,6 @@
 import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import { getElementKeyLabel } from '../../domain-labels';
+import { t } from '../i18n';
 
 /** normalizeShortcutKey：规范化Shortcut Key。 */
 export function normalizeShortcutKey(key: string): string | null {
@@ -166,8 +167,8 @@ export function getSkillAffinityBadge(skill: SkillDef): {
   const { kinds, elements } = resolveSkillDamageProfile(skill);
   if (kinds.length === 0) {
     return {
-      label: '辅助',
-      title: '辅助型技能',
+      label: t('action.skill-affinity.utility.label'),
+      title: t('action.skill-affinity.utility.title'),
       tone: 'utility',
       element: 'neutral',
     };
@@ -192,7 +193,6 @@ export function getSkillEnabledTechniques(player: PlayerState): PlayerState['tec
 export type ActionPanelAction = ActionDef;
 /** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */
 export type ActionPanelSkillDraft = AutoBattleSkillConfig;
-
 
 
 

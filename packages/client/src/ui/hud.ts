@@ -5,6 +5,7 @@
 
 import { PlayerState, resolveCharacterAge } from '@mud/shared';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
+import { t } from './i18n';
 
 /** HUDMeta：HUD 附加显示元数据。 */
 interface HUDMeta {
@@ -131,7 +132,7 @@ export class HUD {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.nameDiv.textContent = player.displayName ?? player.name;
-    this.titleDiv.textContent = meta?.titleLabel ?? '无号散修';
+    this.titleDiv.textContent = meta?.titleLabel ?? t('hud.title.default', undefined);
     this.posDiv.textContent = `(${player.x}, ${player.y})`;
     this.mapDiv.textContent = meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId);
     this.objectiveDiv.textContent = meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player);
@@ -146,7 +147,11 @@ export class HUD {
       const canBreakthrough = player.realm?.breakthroughReady && breakthroughPreview;
       const showRealmAction = meta?.showRealmAction ?? canBreakthrough;
       this.breakthroughButton.hidden = !showRealmAction;
-      this.breakthroughButton.textContent = meta?.realmActionLabel ?? (canBreakthrough ? `突破 · ${breakthroughPreview.targetDisplayName}` : '突破');
+      this.breakthroughButton.textContent = meta?.realmActionLabel ?? (
+        canBreakthrough
+          ? t('hud.action.breakthrough-target', { target: breakthroughPreview.targetDisplayName })
+          : t('hud.action.breakthrough', undefined)
+      );
       this.breakthroughButton.disabled = !showRealmAction;
     }
 
@@ -158,10 +163,12 @@ export class HUD {
     if (player.realm && player.realm.progressToNext > 0) {
       const ratio = Math.min(1, player.realm.progress / player.realm.progressToNext);
       this.cultivateBar.style.width = `${Math.round(ratio * 100)}%`;
-      this.cultivateText.textContent = `境界修为 (${formatDisplayInteger(player.realm.progress)}/${formatDisplayInteger(player.realm.progressToNext)})`;
+      const current = formatDisplayInteger(player.realm.progress);
+      const next = formatDisplayInteger(player.realm.progressToNext);
+      this.cultivateText.textContent = t('hud.cultivate.progress', { current, next });
     } else {
       this.cultivateBar.style.width = '0%';
-      this.cultivateText.textContent = '境界圆满';
+      this.cultivateText.textContent = t('hud.cultivate.complete', undefined);
     }
   }
 
@@ -176,8 +183,11 @@ export class HUD {
   private buildBoneAgeLabel(player: PlayerState): string {
     const age = resolveCharacterAge(player);
     return age.days > 0
-      ? `${formatDisplayInteger(age.years)}载${formatDisplayInteger(age.days)}日`
-      : `${formatDisplayInteger(age.years)}载`;
+      ? t('hud.age.years-days', {
+        years: formatDisplayInteger(age.years),
+        days: formatDisplayInteger(age.days),
+      })
+      : t('hud.age.years', { years: formatDisplayInteger(age.years) });
   }
 
   /** buildLifespanLabel：构建Lifespan标签。 */
@@ -186,8 +196,9 @@ export class HUD {
 
     const lifespanYears = player.lifespanYears ?? player.realm?.lifespanYears ?? null;
     if (lifespanYears == null || lifespanYears <= 0) {
-      return '???';
+      return t('hud.lifespan.unknown', undefined);
     }
-    return `${formatDisplayInteger(lifespanYears)}载`;
+    const years = formatDisplayInteger(lifespanYears);
+    return t('hud.lifespan.years', { years });
   }
 }

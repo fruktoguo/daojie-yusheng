@@ -77,6 +77,11 @@ export enum TileType {
 
   Stairs = 'stairs',
   /**
+ * StoneStairs：石梯地形，普通阶道，不等同传送楼梯。
+ */
+
+  StoneStairs = 'stone_stairs',
+  /**
  * Grass：枚举成员常量定义。
  */
 
@@ -223,6 +228,16 @@ export interface Tile {
  */
 
   aura: number;
+  /**
+ * movementCost：当前地块实际移动消耗，省略时按地形默认值。
+ */
+
+  movementCost?: number;
+  /**
+ * qiDrainPerTick：当前地块每息灵力消耗，省略或 0 表示无持续消耗。
+ */
+
+  qiDrainPerTick?: number;
   /**
  * resources：resource相关字段。
  */

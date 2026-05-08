@@ -11,6 +11,7 @@ import { patchElementHtml } from './dom-patch';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spiritual-roots';
+import { t } from './i18n';
 
 /** HEAVEN_GATE_OWNER：HEAVEN关卡OWNER。 */
 const HEAVEN_GATE_OWNER = 'realm:heaven_gate';
@@ -255,13 +256,13 @@ function renderBoard(session: HeavenGateSession): string {
       </svg>
 
       <div class="heaven-gate-path-layer">
-        <button class="heaven-gate-path" data-heaven-gate-path="metal" data-heaven-gate-cursor-label="${session.severed.has('metal') ? '补' : '斩'}" type="button" style="left:50%;top:35%;width:18%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="${session.severed.has('metal') ? '补' : '斩'}金灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="wood" data-heaven-gate-cursor-label="${session.severed.has('wood') ? '补' : '斩'}" type="button" style="left:58%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(-18deg);" aria-label="${session.severed.has('wood') ? '补' : '斩'}木灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="water" data-heaven-gate-cursor-label="${session.severed.has('water') ? '补' : '斩'}" type="button" style="left:54.95%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="${session.severed.has('water') ? '补' : '斩'}水灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="fire" data-heaven-gate-cursor-label="${session.severed.has('fire') ? '补' : '斩'}" type="button" style="left:45.05%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="${session.severed.has('fire') ? '补' : '斩'}火灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="earth" data-heaven-gate-cursor-label="${session.severed.has('earth') ? '补' : '斩'}" type="button" style="left:42%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(198deg);" aria-label="${session.severed.has('earth') ? '补' : '斩'}土灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="metal" data-heaven-gate-cursor-label="${t(session.severed.has('metal') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}" type="button" style="left:50%;top:35%;width:18%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="${t(session.severed.has('metal') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}${getElementKeyLabel('metal')}"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="wood" data-heaven-gate-cursor-label="${t(session.severed.has('wood') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}" type="button" style="left:58%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(-18deg);" aria-label="${t(session.severed.has('wood') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}${getElementKeyLabel('wood')}"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="water" data-heaven-gate-cursor-label="${t(session.severed.has('water') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}" type="button" style="left:54.95%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="${t(session.severed.has('water') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}${getElementKeyLabel('water')}"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="fire" data-heaven-gate-cursor-label="${t(session.severed.has('fire') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}" type="button" style="left:45.05%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="${t(session.severed.has('fire') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}${getElementKeyLabel('fire')}"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="earth" data-heaven-gate-cursor-label="${t(session.severed.has('earth') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}" type="button" style="left:42%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(198deg);" aria-label="${t(session.severed.has('earth') ? 'heaven-gate.action.restore' : 'heaven-gate.action.sever')}${getElementKeyLabel('earth')}"></button>
       </div>
-      <div class="heaven-gate-cursor-text hidden" data-heaven-gate-cursor>斩</div>
+      <div class="heaven-gate-cursor-text hidden" data-heaven-gate-cursor>${t('heaven-gate.action.sever', undefined)}</div>
 
       <div class="heaven-gate-node ${session.severed.has('metal') ? 'is-severed' : ''}" style="left:50%;top:13.5%;">
         <span class="heaven-gate-node-name" data-element="metal">金</span>
@@ -289,7 +290,7 @@ function renderBoard(session: HeavenGateSession): string {
       <div class="heaven-gate-line-value ${session.roots ? '' : 'hidden'} ${session.severed.has('earth') ? 'is-severed' : ''}" data-element="earth" data-heaven-gate-display-value="earth" data-target="${displayRoots.earth}" style="${getLineValueStyle('earth')}">${formatDisplayInteger(displayRoots.earth)}</div>
 
       <button class="heaven-gate-core" type="button" data-heaven-gate-core>
-        <span class="heaven-gate-core-title">${session.roots ? '入天门' : '开天门'}</span>
+        <span class="heaven-gate-core-title">${t(session.roots ? 'heaven-gate.action.enter' : 'heaven-gate.action.open')}</span>
       </button>
     </section>
   `;
@@ -299,7 +300,7 @@ function renderBoard(session: HeavenGateSession): string {
 function renderBoardActions(session: HeavenGateSession): string {
   return `
     <div class="heaven-gate-board-actions ${session.roots ? '' : 'hidden'}">
-      <button class="small-btn ghost" type="button" data-heaven-gate-reroll>逆天改命</button>
+      <button class="small-btn ghost" type="button" data-heaven-gate-reroll>${t('heaven-gate.action.reroll', undefined)}</button>
     </div>
   `;
 }
@@ -312,19 +313,25 @@ function renderPendingPopup(session: HeavenGateSession): string {
     return '';
   }
   if (pendingAction.kind === 'sever' || pendingAction.kind === 'restore') {
-    const actionLabel = pendingAction.kind === 'sever' ? '斩断' : '补回';
+    const actionLabel = t(pendingAction.kind === 'sever' ? 'heaven-gate.action.sever-full' : 'heaven-gate.action.restore-full');
     const cost = formatDisplayInteger(getSeverCost(session));
     const desc = pendingAction.kind === 'sever'
-      ? `斩断后，此系将不参与本次随机；留数越少，单条越易高值，但该系本局将不再出现。消耗 ${cost} 点境界修为（上限 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；当前已有结果会失效并退回可重开。`
-      : `补回会使该灵根重入随机池，并提高复合可能；补回同样消耗 ${cost} 点境界修为（上限 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；当前结果会失效并退回可重开。`;
+      ? t(
+        'heaven-gate.popup.sever-desc',
+        { cost, percent: HEAVEN_GATE_SEVER_COST_PERCENT },
+      )
+      : t(
+        'heaven-gate.popup.restore-desc',
+        { cost, percent: HEAVEN_GATE_SEVER_COST_PERCENT },
+      );
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
-          <div class="heaven-gate-popup-title">确认${actionLabel}${escapeHtml(getElementKeyLabel(pendingAction.element))}灵根</div>
+          <div class="heaven-gate-popup-title">${t('heaven-gate.popup.sever-title', { action: actionLabel, element: getElementKeyLabel(pendingAction.element) })}</div>
           <div class="heaven-gate-popup-desc">${desc}</div>
           <div class="heaven-gate-popup-actions">
-            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
-            <button class="small-btn" type="button" data-heaven-gate-confirm>确认${actionLabel}</button>
+            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>${t('heaven-gate.action.cancel', undefined)}</button>
+            <button class="small-btn" type="button" data-heaven-gate-confirm>${t(pendingAction.kind === 'sever' ? 'heaven-gate.action.confirm-sever' : 'heaven-gate.action.confirm-restore')}</button>
           </div>
         </section>
       </div>
@@ -334,11 +341,11 @@ function renderPendingPopup(session: HeavenGateSession): string {
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
-          <div class="heaven-gate-popup-title">确认开天门</div>
-          <div class="heaven-gate-popup-desc">开天门不耗境界修为。多灵根则更易出现，斩后更偏单一高值；被斩属性本局不再出现。对结果不满可入天门前逆天改命重开。</div>
+          <div class="heaven-gate-popup-title">${t('heaven-gate.action.confirm-open', undefined)}</div>
+          <div class="heaven-gate-popup-desc">${t('heaven-gate.popup.open-desc', undefined)}</div>
           <div class="heaven-gate-popup-actions">
-            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
-            <button class="small-btn" type="button" data-heaven-gate-confirm>确认开天门</button>
+            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>${t('heaven-gate.action.cancel', undefined)}</button>
+            <button class="small-btn" type="button" data-heaven-gate-confirm>${t('heaven-gate.action.confirm-open', undefined)}</button>
           </div>
         </section>
       </div>
@@ -348,11 +355,11 @@ function renderPendingPopup(session: HeavenGateSession): string {
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
-          <div class="heaven-gate-popup-title">确认逆天改命</div>
-          <div class="heaven-gate-popup-desc">逆天改命会消耗 ${formatDisplayInteger(getRerollCost(session))} 点境界修为，并清掉当前结果，退回重新开天门状态。</div>
+          <div class="heaven-gate-popup-title">${t('heaven-gate.action.confirm-reroll', undefined)}</div>
+          <div class="heaven-gate-popup-desc">${t('heaven-gate.popup.reroll-desc', { cost: formatDisplayInteger(getRerollCost(session)) })}</div>
           <div class="heaven-gate-popup-actions">
-            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
-            <button class="small-btn" type="button" data-heaven-gate-confirm>确认逆天改命</button>
+            <button class="small-btn ghost" type="button" data-heaven-gate-cancel>${t('heaven-gate.action.cancel', undefined)}</button>
+            <button class="small-btn" type="button" data-heaven-gate-confirm>${t('heaven-gate.action.confirm-reroll', undefined)}</button>
           </div>
         </section>
       </div>
@@ -361,11 +368,11 @@ function renderPendingPopup(session: HeavenGateSession): string {
   return `
     <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
       <section class="heaven-gate-popup" data-heaven-gate-popup>
-        <div class="heaven-gate-popup-title">确认入天门</div>
-        <div class="heaven-gate-popup-desc">入天门会正式写入本次灵根并完成开天门，但不会代替突破动作。入天门后，多数情况下结果即定，难以再重抽或逆天改命。</div>
+        <div class="heaven-gate-popup-title">${t('heaven-gate.action.confirm-enter', undefined)}</div>
+        <div class="heaven-gate-popup-desc">${t('heaven-gate.popup.enter-desc', undefined)}</div>
         <div class="heaven-gate-popup-actions">
-          <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
-          <button class="small-btn" type="button" data-heaven-gate-confirm>确认入天门</button>
+          <button class="small-btn ghost" type="button" data-heaven-gate-cancel>${t('heaven-gate.action.cancel', undefined)}</button>
+          <button class="small-btn" type="button" data-heaven-gate-confirm>${t('heaven-gate.action.confirm-enter', undefined)}</button>
         </div>
       </section>
     </div>
@@ -465,7 +472,7 @@ function bindCursor(body: HTMLElement, signal?: AbortSignal): void {
     document.body.classList.remove('heaven-gate-brush-cursor');
   };
   body.querySelectorAll<HTMLButtonElement>('[data-heaven-gate-path]').forEach((button) => {
-    const label = button.dataset.heavenGateCursorLabel ?? '斩';
+    const label = button.dataset.heavenGateCursorLabel ?? t('heaven-gate.action.sever', undefined);
     button.addEventListener('mouseenter', (event) => syncCursor(event as MouseEvent, label), { signal });
     button.addEventListener('mousemove', (event) => syncCursor(event, label), { signal });
     button.addEventListener('mouseleave', hideCursor, { signal });
@@ -501,13 +508,13 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     const subtitle = document.getElementById('detail-modal-subtitle');
     const hint = document.getElementById('detail-modal-hint');
     if (title) {
-      title.textContent = '开天门';
+      title.textContent = t('heaven-gate.action.open', undefined);
     }
     if (subtitle) {
-      subtitle.textContent = `${player.realm?.displayName ?? '开天门'}`;
+      subtitle.textContent = `${player.realm?.displayName ?? t('heaven-gate.action.open', undefined)}`;
     }
     if (hint) {
-      hint.textContent = '点击空白处关闭';
+      hint.textContent = t('heaven-gate.modal.close-hint', undefined);
     }
     bindHeavenGateEvents(existingBody, player, session, options, shouldAnimate, rootsKey);
     return;
@@ -517,9 +524,9 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     ownerId: HEAVEN_GATE_OWNER,
     size: 'md',
     variantClass: 'detail-modal--heaven-gate',
-    title: '开天门',
-    subtitle: `${player.realm?.displayName ?? '开天门'}`,
-    hint: '点击空白处关闭',
+    title: t('heaven-gate.action.open', undefined),
+    subtitle: `${player.realm?.displayName ?? t('heaven-gate.action.open', undefined)}`,
+    hint: t('heaven-gate.modal.close-hint', undefined),
     renderBody: (body) => {
       patchElementHtml(body, renderHeavenGateShell(session, judgement));
     },
@@ -698,7 +705,7 @@ function bindHeavenGateEvents(
         return;
       }
       if (!context.session.severed.has(element) && context.session.severed.size >= 4) {
-        context.options.showToast('最多只能斩断四条灵根。');
+        context.options.showToast(t('heaven-gate.toast.max-sever', undefined));
         return;
       }
       pendingAction = context.session.severed.has(element)
@@ -768,7 +775,7 @@ export function getHeavenGateHudAction(player: PlayerState | null | undefined): 
   }
   return {
     visible: true,
-    label: '开天门',
+    label: t('heaven-gate.action.open', undefined),
   };
 }
 
@@ -777,12 +784,12 @@ export function openHeavenGateModal(player: PlayerState | null | undefined, opti
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!player) {
-    options.showToast('当前未获取到角色状态。');
+    options.showToast(t('heaven-gate.toast.no-player', undefined));
     return false;
   }
   const session = buildSession(player);
   if (!session) {
-    options.showToast('当前已完成入天门，或暂时不处于可开天门状态。');
+    options.showToast(t('heaven-gate.toast.unavailable', undefined));
     return false;
   }
   renderHeavenGateModal(player, session, options);

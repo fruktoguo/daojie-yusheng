@@ -1257,6 +1257,47 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   assert.ok(player.persistentRevision > player.persistedRevision, 'expected chronology and buff tick to bump persistentRevision');
 }
 
+function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
+  const playerId = 'player:tick-auto-root-foundation';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = progressionService.createRealmStateFromLevel(1, Number.MAX_SAFE_INTEGER);
+  player.rootFoundation = 0;
+  player.inventory.items = [{ itemId: 'spirit_stone', count: 1 }] as never;
+  player.inventory.revision = 1;
+  player.combat.autoRootFoundation = true;
+  service.markPersisted(playerId);
+
+  service.advanceSinglePlayerTick(player, 1, {});
+
+  assert.equal(player.rootFoundation, 1);
+  assert.equal(player.combat.autoRootFoundation, false);
+  assert.equal(player.realm.progress, 0);
+  assert.equal(player.inventory.items.some((entry) => entry.itemId === 'spirit_stone'), false);
+  assert.ok(player.notices.queue.some((notice) => notice.text.includes('你凝练 1 点根基')));
+  assert.ok(player.notices.queue.some((notice) => notice.text.includes('已关闭自动凝练根基')));
+  assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals', 'combat_pref'], ['snapshot']);
+}
+
+function testEnableAutoRootFoundationStopsImmediatelyAtCap(): void {
+  const playerId = 'player:auto-root-foundation-at-cap';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = progressionService.createRealmStateFromLevel(1, Number.MAX_SAFE_INTEGER);
+  player.rootFoundation = 1;
+  player.combat.autoRootFoundation = false;
+  service.markPersisted(playerId);
+
+  service.updateAutoRootFoundation(playerId, true, 1);
+
+  assert.equal(player.combat.autoRootFoundation, false);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['snapshot']);
+}
+
 function testRespawnDirtyDomains(): void {
   const playerId = 'player:respawn';
   const service = createHydratedService(playerId);
@@ -1378,6 +1419,8 @@ testLogbookDirtyDomain();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
+  testAdvanceSinglePlayerTickAutoRefinesRootFoundation();
+  testEnableAutoRootFoundationStopsImmediatelyAtCap();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
   testApplyProgressionResultDirtyDomains();

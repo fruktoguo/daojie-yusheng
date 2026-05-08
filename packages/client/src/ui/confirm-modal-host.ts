@@ -1,4 +1,5 @@
 import { patchElementHtml } from './dom-patch';
+import { t } from './i18n';
 
 type ConfirmModalOptions = {
   ownerId: string;
@@ -39,8 +40,8 @@ class ConfirmModalHost {
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
     patchElementHtml(this.body, options.bodyHtml);
-    this.cancelButton.textContent = options.cancelLabel ?? '取消';
-    this.confirmButton.textContent = options.confirmLabel ?? '确认';
+    this.cancelButton.textContent = options.cancelLabel ?? t('modal.confirm.cancel', undefined);
+    this.confirmButton.textContent = options.confirmLabel ?? t('modal.confirm.ok', undefined);
     this.confirmButton.disabled = options.confirmDisabled === true;
     this.confirmButton.className = `small-btn ${options.confirmButtonClass ?? ''}`.trim();
     this.modal.classList.remove('hidden');
@@ -78,8 +79,8 @@ class ConfirmModalHost {
         </div>
         <div class="confirm-modal-body"></div>
         <div class="confirm-modal-actions">
-          <button class="small-btn ghost" type="button" data-confirm-modal-cancel="true">取消</button>
-          <button class="small-btn" type="button" data-confirm-modal-confirm="true">确认</button>
+          <button class="small-btn ghost" type="button" data-confirm-modal-cancel="true"></button>
+          <button class="small-btn" type="button" data-confirm-modal-confirm="true"></button>
         </div>
       </div>
     `;

@@ -49,6 +49,7 @@ export type {
   PlayerEnhancementLevelRecord,
   PlayerEnhancementRecord,
   PlayerEnhancementSessionStatus,
+  SyncedAlchemyPanelPatch,
   SyncedAlchemyPanelState,
   SyncedEnhancementCandidateView,
   SyncedEnhancementItemView,

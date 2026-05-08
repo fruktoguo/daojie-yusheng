@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { t } from '../../ui/i18n';
 /**
  * UiEquipmentSlotProps：定义接口结构约束，明确可交付字段含义。
  */
@@ -64,7 +65,7 @@ export function UiEquipmentSlot({
         <span className="react-ui-equipment-slot-name react-ui-entry-title">{slot}</span>
         {stateLabel ? <span className="react-ui-equipment-slot-state react-ui-entry-state">{stateLabel}</span> : null}
       </div>
-      <div className="react-ui-equipment-slot-item react-ui-entry-note">{itemName ?? '未装备'}</div>
+      <div className="react-ui-equipment-slot-item react-ui-entry-note">{itemName ?? t('react.equipment.empty', undefined)}</div>
     </button>
   );
 }

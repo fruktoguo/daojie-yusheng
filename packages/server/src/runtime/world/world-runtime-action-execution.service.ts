@@ -149,6 +149,33 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId === 'toggle:auto_switch_cultivation') {
             return this.toggleCombatSetting(playerId, currentTick, 'autoSwitchCultivation', deps);
         }
+        if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
+            const mode = actionId.slice('realm:auto_refine_root_foundation'.length).replace(/^:/, '');
+            const enabled = mode === 'on'
+                || (mode !== 'off' && (targetInput === true
+                || targetInput === 1
+                || targetInput === '1'
+                || targetInput === 'true'
+                || targetInput === 'on'));
+            let player = null;
+            if (typeof this.playerRuntimeService.updateAutoRootFoundation === 'function') {
+                player = this.playerRuntimeService.updateAutoRootFoundation(playerId, enabled, currentTick);
+            }
+            else {
+                player = this.playerRuntimeService.updateCombatSettings(playerId, { autoRootFoundation: enabled }, currentTick);
+            }
+            const enabledAfterUpdate = player?.combat?.autoRootFoundation === true;
+            deps.queuePlayerNotice(
+                playerId,
+                enabledAfterUpdate
+                    ? '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。'
+                    : enabled
+                        ? '根基已达当前境界上限，已关闭自动凝练根基。'
+                        : '已关闭自动凝练根基。',
+                'info',
+            );
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId === 'sense_qi:toggle') {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             const nextActive = !player.combat.senseQiActive;

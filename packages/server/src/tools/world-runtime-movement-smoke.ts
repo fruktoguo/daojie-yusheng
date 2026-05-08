@@ -2,7 +2,11 @@
 
 const assert = require("node:assert/strict");
 
+const { Direction, getMaxStoredMovePoints } = require("@mud/shared");
+const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
+const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { WorldRuntimeMovementService } = require("../runtime/world/world-runtime-movement.service");
+const { WorldRuntimeNavigationService } = require("../runtime/world/world-runtime-navigation.service");
 /**
  * buildDeps：构建并返回目标对象。
  * @param log 参数说明。
@@ -172,7 +176,126 @@ function testPortalBranch() {
     ]);
 }
 
+function testManualNavigationMoveKeepsBudget() {
+    const log = [];
+    const service = new WorldRuntimeNavigationService(null, {
+        getPlayer(playerId) {
+            assert.equal(playerId, 'player:1');
+            return { templateId: 'movement_budget_smoke', x: 0, y: 1 };
+        },
+        updateCombatSettings(playerId, settings, tick) {
+            log.push(['updateCombatSettings', playerId, settings, tick]);
+        },
+    });
+    service.enqueueMove('player:1', Direction.East, {
+        getPlayerLocationOrThrow(playerId) {
+            assert.equal(playerId, 'player:1');
+            return { instanceId: 'smoke:movement_budget', sessionId: 'session:1' };
+        },
+        enqueuePendingCommand(playerId, command) {
+            log.push(['enqueuePendingCommand', playerId, command]);
+        },
+        getPlayerViewOrThrow(playerId) {
+            assert.equal(playerId, 'player:1');
+            return {};
+        },
+        resolveCurrentTickForPlayerId(playerId) {
+            assert.equal(playerId, 'player:1');
+            return 7;
+        },
+        cancelPendingInstanceCommand(playerId) {
+            log.push(['cancelPendingInstanceCommand', playerId]);
+        },
+        logger: null,
+    });
+    assert.deepEqual(log, [
+        ['updateCombatSettings', 'player:1', { autoBattle: false }, 7],
+        ['cancelPendingInstanceCommand', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'move',
+            direction: Direction.East,
+            continuous: true,
+            resetBudget: false,
+        }],
+    ]);
+}
+
+function testHighCostTileAccumulatesMoveBudget() {
+    assert.equal(getMaxStoredMovePoints(0), 800);
+    assert.equal(getMaxStoredMovePoints(0, 930), 930);
+
+    const templateRepository = new MapTemplateRepository();
+    templateRepository.registerRuntimeMapTemplate({
+        id: 'movement_budget_smoke',
+        name: '移动预算烟测',
+        width: 3,
+        height: 3,
+        routeDomain: 'system',
+        tiles: [
+            '...',
+            '...',
+            '...',
+        ],
+        spawnPoint: { x: 0, y: 1 },
+        portals: [],
+        npcs: [],
+        monsters: [],
+        safeZones: [],
+        landmarks: [],
+        containers: [],
+        auras: [],
+        tileEffects: [
+            { x: 1, y: 1, width: 1, height: 1, movementCost: 930 },
+        ],
+    });
+    const instance = new MapInstanceRuntime({
+        instanceId: 'smoke:movement_budget',
+        template: templateRepository.getOrThrow('movement_budget_smoke'),
+        monsterSpawns: [],
+        kind: 'public',
+        persistent: false,
+        createdAt: Date.now(),
+        displayName: '移动预算烟测',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'smoke',
+        defaultEntry: true,
+        canDamageTile: false,
+    });
+    const player = instance.connectPlayer({
+        playerId: 'player:budget',
+        sessionId: 'session:budget',
+        preferredX: 0,
+        preferredY: 1,
+    });
+    instance.setPlayerMoveSpeed(player.playerId, 0);
+
+    for (let index = 0; index < 9; index += 1) {
+        instance.enqueueMove({
+            playerId: player.playerId,
+            direction: Direction.East,
+            continuous: true,
+            resetBudget: false,
+        });
+        instance.tickOnce();
+        assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 0, y: 1 });
+    }
+    assert.equal(player.movePoints, 900);
+
+    instance.enqueueMove({
+        playerId: player.playerId,
+        direction: Direction.East,
+        continuous: true,
+        resetBudget: false,
+    });
+    instance.tickOnce();
+    assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 1 });
+    assert.equal(player.movePoints, 0);
+}
+
 testMoveBranch();
 testPortalBranch();
+testManualNavigationMoveKeepsBudget();
+testHighCostTileAccumulatesMoveBudget();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-movement' }, null, 2));

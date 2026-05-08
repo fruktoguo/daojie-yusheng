@@ -215,6 +215,7 @@ export function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, 
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
   if (payload.autoIdleCultivation !== undefined) wire.autoIdleCultivation = payload.autoIdleCultivation;
   if (payload.autoSwitchCultivation !== undefined) wire.autoSwitchCultivation = payload.autoSwitchCultivation;
+  if (payload.autoRootFoundation !== undefined) wire.autoRootFoundation = payload.autoRootFoundation;
   if (payload.cultivationActive !== undefined) wire.cultivationActive = payload.cultivationActive;
   if (payload.senseQiActive !== undefined) wire.senseQiActive = payload.senseQiActive;
   if (payload.wangQiActive !== undefined) wire.wangQiActive = payload.wangQiActive;
@@ -262,6 +263,7 @@ export function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_Action
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);
   if (hasOwn(wire, 'autoIdleCultivation')) payload.autoIdleCultivation = Boolean(wire.autoIdleCultivation);
   if (hasOwn(wire, 'autoSwitchCultivation')) payload.autoSwitchCultivation = Boolean(wire.autoSwitchCultivation);
+  if (hasOwn(wire, 'autoRootFoundation')) payload.autoRootFoundation = Boolean(wire.autoRootFoundation);
   if (hasOwn(wire, 'cultivationActive')) payload.cultivationActive = Boolean(wire.cultivationActive);
   if (hasOwn(wire, 'senseQiActive')) payload.senseQiActive = Boolean(wire.senseQiActive);
   if (hasOwn(wire, 'wangQiActive')) payload.wangQiActive = Boolean(wire.wangQiActive);

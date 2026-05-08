@@ -135,7 +135,11 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
       if (!tile.walkable) {
         return '无法通行';
       }
-      return `${getTileTraversalCost(tile.type)} 点/格`;
+      const movementCost = tile.movementCost;
+      const cost = typeof movementCost === 'number' && Number.isFinite(movementCost) && movementCost > 0
+        ? Math.trunc(movementCost)
+        : getTileTraversalCost(tile.type);
+      return `${cost} 点/格`;
     },
   };
 }

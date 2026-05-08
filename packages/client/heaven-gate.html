@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>开天门</title>
+  <title data-i18n="heaven-gate.static.heaven-gate.title">开天门</title>
   <link rel="icon" type="image/png" href="/logo.png" />
   <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/styles/tokens.css" />
@@ -551,36 +551,36 @@
       <section class="detail-modal-card detail-modal--heaven-gate">
         <div class="detail-modal-head">
           <div>
-            <h2 class="detail-modal-title">开天门</h2>
-            <div class="detail-modal-subtitle" id="hg-subtitle">叩仙门 · 已斩 0/4 · 保留 5 条灵根</div>
+            <h2 class="detail-modal-title" data-i18n="heaven-gate.static.detail-modal-title-heaven-gate">开天门</h2>
+            <div class="detail-modal-subtitle" id="hg-subtitle" data-i18n="heaven-gate.static.subtitle">叩仙门 · 已斩 0/4 · 保留 5 条灵根</div>
           </div>
-          <div class="detail-modal-hint">点击连线可斩 / 补灵根，点击中间丹田可开天门或入天门。</div>
+          <div class="detail-modal-hint" data-i18n="heaven-gate.static.detail-modal-hint-hint">点击连线可斩 / 补灵根，点击中间丹田可开天门或入天门。</div>
         </div>
 
         <div class="heaven-gate-shell">
           <section class="heaven-gate-summary">
             <div class="heaven-gate-summary-card">
-              <span class="heaven-gate-summary-label">当前可用经验</span>
+              <span class="heaven-gate-summary-label" data-i18n="heaven-gate.static.heaven-gate-summary-label-available-exp">当前可用经验</span>
               <strong id="hg-exp">800</strong>
             </div>
             <div class="heaven-gate-summary-card">
-              <span class="heaven-gate-summary-label">斩 / 补消耗</span>
+              <span class="heaven-gate-summary-label" data-i18n="heaven-gate.static.heaven-gate-summary-label-sever-cost">斩 / 补消耗</span>
               <strong id="hg-sever-cost">80</strong>
             </div>
             <div class="heaven-gate-summary-card">
-              <span class="heaven-gate-summary-label">逆天改命消耗</span>
+              <span class="heaven-gate-summary-label" data-i18n="heaven-gate.static.heaven-gate-summary-label-reroll-cost">逆天改命消耗</span>
               <strong id="hg-reroll-cost">240</strong>
             </div>
             <div class="heaven-gate-summary-card">
-              <span class="heaven-gate-summary-label">当前总值</span>
-              <strong id="hg-total">未定</strong>
+              <span class="heaven-gate-summary-label" data-i18n="heaven-gate.static.heaven-gate-summary-label-current-total">当前总值</span>
+              <strong id="hg-total" data-i18n="heaven-gate.static.total">未定</strong>
             </div>
           </section>
 
           <section class="heaven-gate-judgement hidden" id="hg-judgement">
-            <div class="heaven-gate-judgement-name" id="hg-judgement-name">灵根未定</div>
-            <div class="heaven-gate-judgement-meta" id="hg-judgement-meta">未开天门前不生成判语。</div>
-            <div class="heaven-gate-judgement-desc" id="hg-judgement-desc">开天门后会根据当前保留灵根的数量、强弱、均衡程度，给出对应的资质称谓与描述。</div>
+            <div class="heaven-gate-judgement-name" id="hg-judgement-name" data-i18n="heaven-gate.static.judgement-name">灵根未定</div>
+            <div class="heaven-gate-judgement-meta" id="hg-judgement-meta" data-i18n="heaven-gate.static.judgement-meta">未开天门前不生成判语。</div>
+            <div class="heaven-gate-judgement-desc" id="hg-judgement-desc" data-i18n="heaven-gate.static.judgement-desc">开天门后会根据当前保留灵根的数量、强弱、均衡程度，给出对应的资质称谓与描述。</div>
           </section>
 
           <section class="heaven-gate-board">
@@ -607,93 +607,93 @@
             </svg>
 
             <div class="heaven-gate-path-layer">
-              <button class="heaven-gate-path" data-element="metal" type="button" style="left:50%;top:36.6%;width:15%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="斩金灵根"></button>
-              <button class="heaven-gate-path" data-element="wood" type="button" style="left:57.15%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(-17.8deg);" aria-label="斩木灵根"></button>
-              <button class="heaven-gate-path" data-element="water" type="button" style="left:54.4%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="斩水灵根"></button>
-              <button class="heaven-gate-path" data-element="fire" type="button" style="left:45.6%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="斩火灵根"></button>
-              <button class="heaven-gate-path" data-element="earth" type="button" style="left:42.85%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(197.8deg);" aria-label="斩土灵根"></button>
+              <button class="heaven-gate-path" data-element="metal" type="button" style="left:50%;top:36.6%;width:15%;transform:translate(-50%, -50%) rotate(-90deg);" data-i18n-aria-label="heaven-gate.static.metal.aria-label" aria-label="斩金灵根"></button>
+              <button class="heaven-gate-path" data-element="wood" type="button" style="left:57.15%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(-17.8deg);" data-i18n-aria-label="heaven-gate.static.wood.aria-label" aria-label="斩木灵根"></button>
+              <button class="heaven-gate-path" data-element="water" type="button" style="left:54.4%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(54deg);" data-i18n-aria-label="heaven-gate.static.water.aria-label" aria-label="斩水灵根"></button>
+              <button class="heaven-gate-path" data-element="fire" type="button" style="left:45.6%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(126deg);" data-i18n-aria-label="heaven-gate.static.fire.aria-label" aria-label="斩火灵根"></button>
+              <button class="heaven-gate-path" data-element="earth" type="button" style="left:42.85%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(197.8deg);" data-i18n-aria-label="heaven-gate.static.earth.aria-label" aria-label="斩土灵根"></button>
             </div>
-            <div class="heaven-gate-cursor-text hidden" id="hg-cursor-text">斩</div>
+            <div class="heaven-gate-cursor-text hidden" id="hg-cursor-text" data-i18n="heaven-gate.static.cursor-text">斩</div>
 
             <div class="heaven-gate-node" style="left:50%;top:16.1%;" id="node-metal">
-              <span class="heaven-gate-node-name" data-element="metal">金</span>
+              <span class="heaven-gate-node-name" data-element="metal" data-i18n="heaven-gate.static.metal">金</span>
             </div>
             <div class="heaven-gate-line-value hidden" id="value-metal" data-element="metal" style="left:50%;top:9.2%;">0</div>
 
             <div class="heaven-gate-node" style="left:68.1%;top:39.5%;" id="node-wood">
-              <span class="heaven-gate-node-name" data-element="wood">木</span>
+              <span class="heaven-gate-node-name" data-element="wood" data-i18n="heaven-gate.static.wood">木</span>
             </div>
             <div class="heaven-gate-line-value hidden" id="value-wood" data-element="wood" style="left:72.1%;top:35.2%;">0</div>
 
             <div class="heaven-gate-node" style="left:61.2%;top:75.7%;" id="node-water">
-              <span class="heaven-gate-node-name" data-element="water">水</span>
+              <span class="heaven-gate-node-name" data-element="water" data-i18n="heaven-gate.static.water">水</span>
             </div>
             <div class="heaven-gate-line-value hidden" id="value-water" data-element="water" style="left:64.2%;top:82.6%;">0</div>
 
             <div class="heaven-gate-node" style="left:38.8%;top:75.7%;" id="node-fire">
-              <span class="heaven-gate-node-name" data-element="fire">火</span>
+              <span class="heaven-gate-node-name" data-element="fire" data-i18n="heaven-gate.static.fire">火</span>
             </div>
             <div class="heaven-gate-line-value hidden" id="value-fire" data-element="fire" style="left:35.8%;top:82.6%;">0</div>
 
             <div class="heaven-gate-node" style="left:31.9%;top:39.5%;" id="node-earth">
-              <span class="heaven-gate-node-name" data-element="earth">土</span>
+              <span class="heaven-gate-node-name" data-element="earth" data-i18n="heaven-gate.static.earth">土</span>
             </div>
             <div class="heaven-gate-line-value hidden" id="value-earth" data-element="earth" style="left:27.9%;top:35.2%;">0</div>
 
             <button class="heaven-gate-core" id="hg-core" type="button">
-              <span class="heaven-gate-core-title" id="hg-core-title">开天门</span>
-              <span class="heaven-gate-core-subtitle" id="hg-core-subtitle">五行未定，先启天门。若不满意，后续可消耗经验逆天改命。</span>
+              <span class="heaven-gate-core-title" id="hg-core-title" data-i18n="heaven-gate.static.detail-modal-title-heaven-gate">开天门</span>
+              <span class="heaven-gate-core-subtitle" id="hg-core-subtitle" data-i18n="heaven-gate.static.core-subtitle">五行未定，先启天门。若不满意，后续可消耗经验逆天改命。</span>
             </button>
             <div class="heaven-gate-reroll-anchor hidden" id="hg-reroll-anchor">
-              <button class="small-btn ghost" id="hg-reroll" type="button">逆天改命</button>
+              <button class="small-btn ghost" id="hg-reroll" type="button" data-i18n="heaven-gate.static.reroll">逆天改命</button>
             </div>
           </section>
 
           <section class="heaven-gate-result">
             <div class="heaven-gate-result-head">
               <div>
-                <div class="panel-section-title">五行结果</div>
-                <div class="empty-hint" id="hg-result-hint">当前还未开天门。保留灵根会以 1 作为占位，已斩灵根为 0。</div>
+                <div class="panel-section-title" data-i18n="heaven-gate.static.panel-section-title-five-elements-result">五行结果</div>
+                <div class="empty-hint" id="hg-result-hint" data-i18n="heaven-gate.static.result-hint">当前还未开天门。保留灵根会以 1 作为占位，已斩灵根为 0。</div>
               </div>
-              <div class="heaven-gate-total" id="hg-total-badge">总值 未定</div>
+              <div class="heaven-gate-total" id="hg-total-badge" data-i18n="heaven-gate.static.total-badge">总值 未定</div>
             </div>
 
             <div class="heaven-gate-result-grid">
               <div class="heaven-gate-stat">
-                <span class="heaven-gate-stat-name">金灵根</span>
+                <span class="heaven-gate-stat-name" data-i18n="heaven-gate.static.heaven-gate-stat-name-metal-root">金灵根</span>
                 <span class="heaven-gate-stat-value" id="stat-metal">1</span>
-                <span class="heaven-gate-stat-meta" id="meta-metal">待定</span>
+                <span class="heaven-gate-stat-meta" id="meta-metal" data-i18n="heaven-gate.static.meta-metal">待定</span>
               </div>
               <div class="heaven-gate-stat">
-                <span class="heaven-gate-stat-name">木灵根</span>
+                <span class="heaven-gate-stat-name" data-i18n="heaven-gate.static.heaven-gate-stat-name-wood-root">木灵根</span>
                 <span class="heaven-gate-stat-value" id="stat-wood">1</span>
-                <span class="heaven-gate-stat-meta" id="meta-wood">待定</span>
+                <span class="heaven-gate-stat-meta" id="meta-wood" data-i18n="heaven-gate.static.meta-metal">待定</span>
               </div>
               <div class="heaven-gate-stat">
-                <span class="heaven-gate-stat-name">水灵根</span>
+                <span class="heaven-gate-stat-name" data-i18n="heaven-gate.static.heaven-gate-stat-name-water-root">水灵根</span>
                 <span class="heaven-gate-stat-value" id="stat-water">1</span>
-                <span class="heaven-gate-stat-meta" id="meta-water">待定</span>
+                <span class="heaven-gate-stat-meta" id="meta-water" data-i18n="heaven-gate.static.meta-metal">待定</span>
               </div>
               <div class="heaven-gate-stat">
                 <span class="heaven-gate-stat-value" id="stat-fire">1</span>
-                <span class="heaven-gate-stat-name">火灵根</span>
-                <span class="heaven-gate-stat-meta" id="meta-fire">待定</span>
+                <span class="heaven-gate-stat-name" data-i18n="heaven-gate.static.heaven-gate-stat-name-fire-root">火灵根</span>
+                <span class="heaven-gate-stat-meta" id="meta-fire" data-i18n="heaven-gate.static.meta-metal">待定</span>
               </div>
               <div class="heaven-gate-stat">
-                <span class="heaven-gate-stat-name">土灵根</span>
+                <span class="heaven-gate-stat-name" data-i18n="heaven-gate.static.heaven-gate-stat-name-earth-root">土灵根</span>
                 <span class="heaven-gate-stat-value" id="stat-earth">1</span>
-                <span class="heaven-gate-stat-meta" id="meta-earth">待定</span>
+                <span class="heaven-gate-stat-meta" id="meta-earth" data-i18n="heaven-gate.static.meta-metal">待定</span>
               </div>
             </div>
           </section>
 
           <div class="heaven-gate-confirm-strip">
             <div>
-              <div class="panel-section-title">当前操作说明</div>
-              <div class="heaven-gate-confirm-note" id="hg-strip-note">点击任意连线可斩或补灵根。已出结果后若再斩 / 补，当前结果会失效并退回重新开门。</div>
+              <div class="panel-section-title" data-i18n="heaven-gate.static.panel-section-title-operation-note-title">当前操作说明</div>
+              <div class="heaven-gate-confirm-note" id="hg-strip-note" data-i18n="heaven-gate.static.strip-note">点击任意连线可斩或补灵根。已出结果后若再斩 / 补，当前结果会失效并退回重新开门。</div>
             </div>
             <div class="heaven-gate-footer">
-              <button class="small-btn ghost" id="hg-reset-demo" type="button">重置</button>
+              <button class="small-btn ghost" id="hg-reset-demo" type="button" data-i18n="heaven-gate.static.reset-demo">重置</button>
             </div>
           </div>
         </div>
@@ -703,12 +703,12 @@
 
   <div class="heaven-gate-overlay hidden" id="hg-overlay" aria-hidden="true">
     <div class="heaven-gate-popup">
-      <div class="heaven-gate-popup-title" id="hg-popup-title">确认操作</div>
-      <div class="heaven-gate-popup-subtitle" id="hg-popup-subtitle">请确认当前操作。</div>
+      <div class="heaven-gate-popup-title" id="hg-popup-title" data-i18n="heaven-gate.static.popup-title">确认操作</div>
+      <div class="heaven-gate-popup-subtitle" id="hg-popup-subtitle" data-i18n="heaven-gate.static.popup-subtitle">请确认当前操作。</div>
       <div class="heaven-gate-popup-section" id="hg-popup-body"></div>
       <div class="heaven-gate-popup-actions">
-        <button class="small-btn ghost" id="hg-popup-cancel" type="button">取消</button>
-        <button class="small-btn" id="hg-popup-confirm" type="button">确认</button>
+        <button class="small-btn ghost" id="hg-popup-cancel" type="button" data-i18n="heaven-gate.static.popup-cancel">取消</button>
+        <button class="small-btn" id="hg-popup-confirm" type="button" data-i18n="heaven-gate.static.popup-confirm">确认</button>
       </div>
     </div>
   </div>

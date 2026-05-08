@@ -123,6 +123,31 @@ function testTilePatchKeepsOnlyCompactSpecialResourceSignal() {
     });
 }
 
+function testTilePatchKeepsTileEffectProjectionFields() {
+    const { service, setVisibleTiles } = createService();
+    const initial = service.buildInitialMapStaticState(createView(3, 4), {}, {});
+    service.commitPlayerCache('player:1', initial.cacheState);
+
+    const nextVisibleTiles = buildVisibleTilesByKey(3, 3);
+    const effectTile = nextVisibleTiles.byKey.get('5,3');
+    effectTile.movementCost = 9280;
+    effectTile.qiDrainPerTick = 73455;
+    setVisibleTiles(nextVisibleTiles);
+    const plan = service.buildDeltaMapStaticPlan('player:1', createView(4, 4), {}, {});
+    const addedPatch = plan.tilePatches.find((patch) => patch.x === 5 && patch.y === 3);
+
+    assert.deepEqual(addedPatch, {
+        x: 5,
+        y: 3,
+        tile: {
+            type: 'floor',
+            aura: 26,
+            movementCost: 9280,
+            qiDrainPerTick: 73455,
+        },
+    });
+}
+
 function testInstanceChangeStillRequiresMapStatic() {
     const { service, setVisibleTiles } = createService();
     const initial = service.buildInitialMapStaticState(createView(3, 4), {}, {});
@@ -139,6 +164,7 @@ function testInstanceChangeStillRequiresMapStatic() {
 
 testMovingVisibleWindowUsesTilePatchesNotMapStatic();
 testTilePatchKeepsOnlyCompactSpecialResourceSignal();
+testTilePatchKeepsTileEffectProjectionFields();
 testInstanceChangeStillRequiresMapStatic();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-map-static-aux' }, null, 2));

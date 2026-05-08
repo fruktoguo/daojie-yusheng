@@ -70,6 +70,7 @@ const EXPECTED_INTERFACES = {
     state: { type: 'SyncedAlchemyPanelState | null', optional: false },
     catalogVersion: { type: 'number', optional: false },
     catalog: { type: 'AlchemyRecipeCatalogEntry[]', optional: true },
+    statePatch: { type: 'SyncedAlchemyPanelPatch', optional: true },
     error: { type: 'string', optional: true },
   },
   S2C_EnhancementPanel: {

@@ -408,6 +408,7 @@ interface ProjectorPlayerLike {
     allowAoePlayerHit?: boolean;
     autoIdleCultivation?: boolean;
     autoSwitchCultivation?: boolean;
+    autoRootFoundation?: boolean;
     cultivationActive?: boolean;
     senseQiActive?: boolean;
     wangQiActive?: boolean;
@@ -520,6 +521,7 @@ interface ProjectedActionPanelState {
   allowAoePlayerHit?: boolean;
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;
+  autoRootFoundation?: boolean;
   cultivationActive?: boolean;
   senseQiActive?: boolean;
   wangQiActive?: boolean;
@@ -998,6 +1000,7 @@ function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPa
         allowAoePlayerHit: player.combat.allowAoePlayerHit,
         autoIdleCultivation: player.combat.autoIdleCultivation,
         autoSwitchCultivation: player.combat.autoSwitchCultivation,
+        autoRootFoundation: player.combat.autoRootFoundation === true,
         cultivationActive: player.combat.cultivationActive,
         senseQiActive: player.combat.senseQiActive,
         wangQiActive: player.combat.wangQiActive === true,
@@ -1074,6 +1077,7 @@ function buildFullActionDelta(player: ProjectorPlayerLike): S2C_PanelActionDelta
         allowAoePlayerHit: player.combat.allowAoePlayerHit,
         autoIdleCultivation: player.combat.autoIdleCultivation,
         autoSwitchCultivation: player.combat.autoSwitchCultivation,
+        autoRootFoundation: player.combat.autoRootFoundation === true,
         cultivationActive: player.combat.cultivationActive,
         senseQiActive: player.combat.senseQiActive,
     };
@@ -1257,6 +1261,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || previousAction.allowAoePlayerHit !== player.combat.allowAoePlayerHit
         || previousAction.autoIdleCultivation !== player.combat.autoIdleCultivation
         || previousAction.autoSwitchCultivation !== player.combat.autoSwitchCultivation
+        || previousAction.autoRootFoundation !== (player.combat.autoRootFoundation === true)
         || previousAction.cultivationActive !== player.combat.cultivationActive
         || previousAction.senseQiActive !== player.combat.senseQiActive
         || previousAction.wangQiActive !== (player.combat.wangQiActive === true);
@@ -1277,6 +1282,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
             autoIdleCultivation: player.combat.autoIdleCultivation,
             autoSwitchCultivation: player.combat.autoSwitchCultivation,
+            autoRootFoundation: player.combat.autoRootFoundation === true,
             cultivationActive: player.combat.cultivationActive,
             senseQiActive: player.combat.senseQiActive,
             wangQiActive: player.combat.wangQiActive === true,

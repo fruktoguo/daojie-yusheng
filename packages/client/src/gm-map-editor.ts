@@ -37,6 +37,7 @@ import {
   normalizeConfiguredAuraValue,
   parseQiResourceKey,
 } from '@mud/shared';
+import { t } from './ui/i18n';
 import {
   AURA_BRUSH_LEVELS,
   EDITOR_BASE_CELL_SIZE,
@@ -924,7 +925,7 @@ export class GmMapEditor {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (mapId === this.selectedMapId && this.draft) return;
-    if (this.dirty && !window.confirm('当前地图有未保存修改，切换后会丢失这些修改。继续吗？')) {
+    if (this.dirty && !window.confirm(t('gm-map-editor.confirm.switch-dirty'))) {
       return;
     }
     await this.loadMap(mapId, true);
@@ -3102,7 +3103,7 @@ export class GmMapEditor {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.selectedMapId) return;
-    if (this.dirty && !window.confirm('确定放弃当前地图的未保存修改吗？')) {
+    if (this.dirty && !window.confirm(t('gm-map-editor.confirm.reset-dirty'))) {
       return;
     }
     this.loadMap(this.selectedMapId).catch(() => {});
@@ -3113,7 +3114,7 @@ export class GmMapEditor {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.selectedMapId) return;
-    if (this.dirty && !window.confirm('当前有未保存修改，重新载入会丢失这些修改。继续吗？')) {
+    if (this.dirty && !window.confirm(t('gm-map-editor.confirm.reload-dirty'))) {
       return;
     }
     await this.loadMap(this.selectedMapId);

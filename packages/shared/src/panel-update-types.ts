@@ -357,7 +357,12 @@ export interface ActionsUpdateView {
  * autoSwitchCultivation：autoSwitchCultivation相关字段。
  */
 
-  autoSwitchCultivation?: boolean;  
+  autoSwitchCultivation?: boolean;
+  /**
+ * autoRootFoundation：自动凝练根基开关。
+ */
+
+  autoRootFoundation?: boolean;
   /**
  * cultivationActive：cultivation激活状态相关字段。
  */
@@ -495,7 +500,12 @@ export interface PanelActionDeltaView {
  * autoSwitchCultivation：autoSwitchCultivation相关字段。
  */
 
-  autoSwitchCultivation?: boolean;  
+  autoSwitchCultivation?: boolean;
+  /**
+ * autoRootFoundation：自动凝练根基开关。
+ */
+
+  autoRootFoundation?: boolean;
   /**
  * cultivationActive：cultivation激活状态相关字段。
  */

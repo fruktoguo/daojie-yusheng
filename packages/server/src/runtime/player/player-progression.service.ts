@@ -949,6 +949,34 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             dirtyDomains: ['inventory', 'progression', 'attr', 'vitals'],
         };
     }
+    /** 自动凝练根基：只在玩家开关开启且当前预览已经满足时执行，不输出阻塞提示。 */
+    autoRefineRootFoundation(player) {
+        if (player?.combat?.autoRootFoundation !== true) {
+            return {
+                changed: false,
+                notices: [],
+                actionsDirty: false,
+                dirtyDomains: [],
+            };
+        }
+        const realm = this.normalizeRealmState(player.realm);
+        const preview = this.buildRootFoundationPreview(player, realm);
+        if (!preview.canRefine) {
+            return {
+                changed: false,
+                notices: [],
+                actionsDirty: false,
+                dirtyDomains: [],
+            };
+        }
+        return this.refineRootFoundation(player);
+    }
+    /** 判断当前境界根基是否已达可凝练上限。 */
+    isRootFoundationAtCurrentCap(player) {
+        const realm = this.normalizeRealmState(player.realm);
+        const preview = this.buildRootFoundationPreview(player, realm);
+        return preview.remaining <= 0;
+    }
     /** 读取并缓存境界配置文件。 */
     loadRealmLevels() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1012,6 +1040,12 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             phaseName: entry.phaseName ?? undefined,
             review: entry.review,
         })).sort((left, right) => left.realmLv - right.realmLv);
+    }
+    /** 按等级读取已解析的境界配置，供技艺经验等运行时规则复用。 */
+    getRealmLevelEntry(realmLv) {
+        const normalizedLevel = Math.max(1, Math.floor(Number(realmLv) || 1));
+        const entry = this.realmLevels.get(normalizedLevel);
+        return entry ? { ...entry } : undefined;
     }
     /** 按 main 口径计算怪物在战斗经验伤害分层中的等价值。 */
     getMonsterCombatExpEquivalent(monsterLevel) {

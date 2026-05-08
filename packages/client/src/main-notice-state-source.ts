@@ -1,5 +1,6 @@
 import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg } from '@mud/shared';
 import { ChatUI } from './ui/chat';
+import { t } from './ui/i18n';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -115,7 +116,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'grudge') {
-        void options.chatUI.addMessage(rawText, data.from ?? '情仇', data.kind, {
+        void options.chatUI.addMessage(rawText, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
           id: data.id,
           at: data.occurredAt,
         }).then((stored) => {
@@ -127,7 +128,13 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
-        const label = data.from ?? (data.kind === 'quest' ? '任务' : data.kind === 'combat' ? '战斗' : '掉落');
+        const label = data.from ?? (
+          data.kind === 'quest'
+            ? t('notice.channel.quest', undefined)
+            : data.kind === 'combat'
+              ? t('notice.channel.combat', undefined)
+              : t('notice.channel.loot', undefined)
+        );
         void options.chatUI.addMessage(rawText, label, data.kind);
         if (data.kind === 'quest' || data.kind === 'loot') {
           options.showToast(rawText, data.kind);
@@ -135,16 +142,23 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'success' || data.kind === 'warn' || data.kind === 'travel') {
-        const label = data.from ?? (data.kind === 'success' ? '天机' : data.kind === 'warn' ? '警示' : '江湖');
-        const text = rawText === '目标过远，无法规划路径' ? '目标过远，神识难及' : rawText === '无法到达该位置' ? '此地无法抵达' : rawText;
+        const label = data.from ?? (
+          data.kind === 'success'
+            ? t('notice.channel.success', undefined)
+            : data.kind === 'warn'
+              ? t('notice.channel.warn', undefined)
+              : t('notice.channel.travel', undefined)
+        );
+        const text = rewriteClientNoticeText(rawText);
         void options.chatUI.addMessage(text, label, data.kind);
         options.showToast(text, data.kind);
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
-      const text = rawText === '目标过远，无法规划路径' ? '目标过远，神识难及' : rawText === '无法到达该位置' ? '此地无法抵达' : rawText;
-      void options.chatUI.addMessage(text, data.from ?? '系统', fallbackKind);
-      if (text === '此地无法抵达' || text === '目标过远，神识难及') {
+      const text = rewriteClientNoticeText(rawText);
+      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind);
+      if (text === t('notice.rewrite.unreachable', undefined)
+        || text === t('notice.rewrite.target-too-far', undefined)) {
         options.clearCurrentPath();
       }
       options.showToast(text, fallbackKind);
@@ -162,4 +176,14 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       }
     },
   };
+}
+
+function rewriteClientNoticeText(rawText: string): string {
+  if (rawText === '目标过远，无法规划路径') {
+    return t('notice.rewrite.target-too-far', undefined);
+  }
+  if (rawText === '无法到达该位置') {
+    return t('notice.rewrite.unreachable', undefined);
+  }
+  return rawText;
 }

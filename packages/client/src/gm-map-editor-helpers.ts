@@ -9,6 +9,7 @@ import {
   normalizeConfiguredAuraValue,
   parseQiResourceKey,
 } from '@mud/shared';
+import { t } from './ui/i18n';
 
 /** TileResourcePointLike：资源刷点记录的可选视图，用于通用格式化和读写。 */
 type TileResourcePointLike = Partial<GmMapResourceRecord>;
@@ -171,4 +172,4 @@ export function getQuestCardTitle(quest: GmMapQuestRecord, index: number): strin
 /** getQuestCardMeta：读取任务卡片元数据。 */
 export function getQuestCardMeta(quest: GmMapQuestRecord): string { const lineLabel = QUEST_LINE_LABELS[quest.line ?? 'side'] ?? (quest.line ?? 'side'); const objectiveType = quest.objectiveType ?? 'kill'; const objectiveLabel = QUEST_OBJECTIVE_TYPE_LABELS[objectiveType] ?? objectiveType; const targetLabel = quest.targetName?.trim() || quest.targetNpcName?.trim() || quest.targetNpcId?.trim() || quest.targetMonsterId?.trim() || quest.requiredItemId?.trim() || '未填写目标'; return `${lineLabel} · ${objectiveLabel} · ${targetLabel}`; }
 /** createDefaultQuestRecord：创建默认任务记录。 */
-export function createDefaultQuestRecord(npc: GmMapNpcRecord, index: number): GmMapQuestRecord { return { id: `quest_${npc.id}_${index + 1}`, title: '新任务', desc: '请填写任务描述', line: 'side', objectiveType: 'kill', targetName: '', required: 1, rewardText: '无', reward: [] }; }
+export function createDefaultQuestRecord(npc: GmMapNpcRecord, index: number): GmMapQuestRecord { return { id: `quest_${npc.id}_${index + 1}`, title: t('gm-map-editor.default-quest.title'), desc: t('gm-map-editor.default-quest.desc'), line: 'side', objectiveType: 'kill', targetName: '', required: 1, rewardText: t('gm-map-editor.default-quest.reward-none'), reward: [] }; }

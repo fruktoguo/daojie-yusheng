@@ -71,6 +71,7 @@ import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
 } from '../../constants/ui/inventory-panel';
+import { t } from '../i18n';
 
 /** InventoryActionKind：分类枚举。 */
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
@@ -751,7 +752,7 @@ export class InventoryPanel {
 
   /** createInventoryEmptyState：创建背包Empty状态。 */
   private createInventoryEmptyState(): HTMLDivElement {
-    const empty = createEmptyHint('背包空空如也');
+    const empty = createEmptyHint(t('inventory.empty.all', undefined));
     empty.dataset.inventoryEmpty = 'true';
     return empty;
   }
@@ -764,13 +765,13 @@ export class InventoryPanel {
       return this.shellRefs;
     }
 
-    const { sectionEl, titleEl } = createPanelSectionWithTitle('背包');
+    const { sectionEl, titleEl } = createPanelSectionWithTitle(t('inventory.title', undefined));
     titleEl.dataset.inventoryTitle = 'true';
 
     const head = document.createElement('div');
     head.className = 'inventory-panel-head';
     head.append(titleEl);
-    head.append(createSmallBtn('一键整理', { dataset: { sortInventory: 'true' } }));
+    head.append(createSmallBtn(t('inventory.action.sort', undefined), { dataset: { sortInventory: 'true' } }));
 
     const filters = document.createElement('div');
     filters.className = 'inventory-filter-tabs';
@@ -852,7 +853,7 @@ export class InventoryPanel {
     const actions = document.createElement('div');
     actions.className = 'inventory-cell-actions';
     actions.dataset.itemActions = 'true';
-    const dropButton = createSmallBtn('丢下', {
+    const dropButton = createSmallBtn(t('inventory.action.drop-one', undefined), {
       variants: ['danger'],
       dataset: { inlineDrop: String(slotIndex) },
     });
@@ -1109,7 +1110,7 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: displayItem.name,
-      subtitle: `${getItemTypeLabel(item.type)} · 数量 ${formatDisplayCountBadge(item.count)}`,
+      subtitle: t('inventory.modal.item-subtitle', { type: getItemTypeLabel(item.type), count: formatDisplayCountBadge(item.count) }),
       renderBody: (body) => {
         this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, primaryAction, canBatchUse, canBatchDropOrDestroy, bonusLines, materialValueLines, effectLines, statusLabel);
       },
@@ -1169,9 +1170,9 @@ export class InventoryPanel {
     const diskTier = this.resolveFormationDiskTier(item);
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
-      title: '布置阵法',
-      subtitle: `${displayName} · ${FORMATION_DISK_TIER_LABELS[diskTier] ?? '阵盘'} · ${diskMultiplier} 倍灵力`,
-      hint: '点击空白处取消',
+      title: t('inventory.formation.title', undefined),
+      subtitle: t('inventory.formation.subtitle', { itemName: displayName, tier: FORMATION_DISK_TIER_LABELS[diskTier] ?? t('inventory.formation.disk', undefined), multiplier: diskMultiplier }),
+      hint: t('common.modal.click-blank-cancel', undefined),
       renderBody: (body) => {
         this.renderFormationDialogBody(body, item);
       },
@@ -1214,66 +1215,66 @@ export class InventoryPanel {
       <div class="formation-dialog-layout">
       <div class="formation-config-grid">
         <label class="formation-config-field formation-config-field--select ui-detail-field">
-          <strong>阵法</strong>
+          <strong>${t('inventory.formation.field.template', undefined)}</strong>
           <select class="ui-input formation-config-input" data-formation-input data-formation-id>
             ${BUILTIN_FORMATION_TEMPLATES.filter((template) => template.placeableByDisk !== false).map((template) => `<option value="${this.escapeHtml(template.id)}">${this.escapeHtml(template.name)}</option>`).join('')}
           </select>
         </label>
         <label class="formation-config-field ui-detail-field">
-          <strong>范围 <span>默认 <output data-formation-default-radius>1</output> 格</span></strong>
+          <strong>${t('inventory.formation.field.range', undefined)} <span>${t('inventory.formation.default-radius', undefined)} <output data-formation-default-radius>1</output> ${t('common.unit.grid', undefined)}</span></strong>
           <input class="ui-input formation-config-input" data-formation-input data-formation-radius type="number" min="1" step="1" value="1">
         </label>
         <label class="formation-config-field ui-detail-field">
-          <strong>持续 <span>默认 <output data-formation-default-duration>120 分钟</output></span></strong>
+          <strong>${t('inventory.formation.field.duration', undefined)} <span>${t('inventory.formation.default-duration', undefined)} <output data-formation-default-duration>120 ${t('common.unit.minute', undefined)}</output></span></strong>
           <input class="ui-input formation-config-input" data-formation-input data-formation-duration-minutes type="number" min="1" step="1" value="120">
         </label>
         <label class="formation-config-field ui-detail-field">
-          <strong>效果 <span>最小 <output data-formation-min-effect>1</output></span></strong>
+          <strong>${t('inventory.formation.field.effect', undefined)} <span>${t('inventory.formation.min-effect', undefined)} <output data-formation-min-effect>1</output></span></strong>
           <input class="ui-input formation-config-input" data-formation-input data-formation-effect-value type="number" min="1" step="1" value="1">
         </label>
         <div class="formation-cost-card ui-detail-field" data-formation-stone-state>
-          <strong>消耗灵石</strong>
+          <strong>${t('inventory.formation.cost.spirit-stone', undefined)}</strong>
           <output data-formation-stone-cost>-</output>
-          <span>按阵法与阵盘倍率反算</span>
+          <span>${t('inventory.formation.cost.reverse-note', undefined)}</span>
         </div>
         <div class="formation-cost-card ui-detail-field" data-formation-cost-state>
-          <strong>消耗灵力</strong>
+          <strong>${t('inventory.formation.cost.qi', undefined)}</strong>
           <output data-formation-qi-cost>-</output>
-          <span>当前 <output data-formation-current-qi>${formatDisplayInteger(this.playerQi)}</output></span>
+          <span>${t('inventory.formation.current', undefined)} <output data-formation-current-qi>${formatDisplayInteger(this.playerQi)}</output></span>
         </div>
       </div>
       <div class="formation-preview">
         <div class="formation-section-heading">
-          <strong>预览</strong>
-          <span data-formation-preview-summary>阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍</span>
+          <strong>${t('inventory.formation.preview', undefined)}</strong>
+          <span data-formation-preview-summary>${t('inventory.formation.disk-multiplier', { multiplier: formatDisplayNumber(diskMultiplier) })}</span>
         </div>
         <div class="formation-preview-metrics">
-          <span><em>总灵力</em><output data-formation-stat="totalAura">-</output></span>
-          <span><em>强度</em><output data-formation-stat="effectValue">-</output></span>
-          <span><em>半径</em><output data-formation-stat="radius">-</output></span>
-          <span><em>持续</em><output data-formation-stat="durationHours">-</output></span>
-          <span><em>开启/日</em><output data-formation-stat="activeCost">-</output></span>
-          <span><em>关闭/日</em><output data-formation-stat="inactiveCost">-</output></span>
+          <span><em>${t('inventory.formation.stat.total-aura', undefined)}</em><output data-formation-stat="totalAura">-</output></span>
+          <span><em>${t('inventory.formation.stat.effect', undefined)}</em><output data-formation-stat="effectValue">-</output></span>
+          <span><em>${t('inventory.formation.stat.radius', undefined)}</em><output data-formation-stat="radius">-</output></span>
+          <span><em>${t('inventory.formation.stat.duration', undefined)}</em><output data-formation-stat="durationHours">-</output></span>
+          <span><em>${t('inventory.formation.stat.active-cost', undefined)}</em><output data-formation-stat="activeCost">-</output></span>
+          <span><em>${t('inventory.formation.stat.inactive-cost', undefined)}</em><output data-formation-stat="inactiveCost">-</output></span>
         </div>
       </div>
       <div class="formation-effect-card ui-detail-field">
         <div class="formation-section-heading">
-          <strong>效果介绍</strong>
+          <strong>${t('inventory.formation.effect.intro', undefined)}</strong>
           <span data-formation-effect-kind>-</span>
         </div>
         <div class="formation-effect-desc" data-formation-effect-desc>-</div>
         <div class="formation-effect-list">
-          <span><em>作用对象</em><output data-formation-effect-target>-</output></span>
-          <span><em>强度含义</em><output data-formation-effect-scaling>-</output></span>
-          <span><em>范围规则</em><output data-formation-effect-range>-</output></span>
-          <span><em>可见/通行</em><output data-formation-effect-visibility>-</output></span>
+          <span><em>${t('inventory.formation.effect.target', undefined)}</em><output data-formation-effect-target>-</output></span>
+          <span><em>${t('inventory.formation.effect.scaling', undefined)}</em><output data-formation-effect-scaling>-</output></span>
+          <span><em>${t('inventory.formation.effect.range', undefined)}</em><output data-formation-effect-range>-</output></span>
+          <span><em>${t('inventory.formation.effect.visibility', undefined)}</em><output data-formation-effect-visibility>-</output></span>
         </div>
       </div>
-      <button class="small-btn ghost formation-range-preview-btn" type="button" data-formation-range-preview>预览范围</button>
+      <button class="small-btn ghost formation-range-preview-btn" type="button" data-formation-range-preview>${t('inventory.formation.action.preview-range', undefined)}</button>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-formation-cancel>返回详情</button>
-          <button class="small-btn" type="button" data-formation-confirm>确认布阵</button>
+          <button class="small-btn ghost" type="button" data-formation-cancel>${t('inventory.action.back-detail', undefined)}</button>
+          <button class="small-btn" type="button" data-formation-confirm>${t('inventory.formation.action.confirm', undefined)}</button>
         </div>
       </div>
       </div>
@@ -1591,9 +1592,9 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       variantClass: 'detail-modal--sect-founding',
-      title: '建立宗门',
-      subtitle: `${displayName} · 当前位置开辟山门`,
-      hint: '点击空白处取消',
+      title: t('inventory.sect-founding.dialog.title', undefined),
+      subtitle: t('inventory.sect-founding.dialog.subtitle', { itemName: displayName }),
+      hint: t('inventory.sect-founding.dialog.hint', undefined),
       renderBody: (body) => {
         this.renderSectFoundingDialogBody(body);
       },
@@ -1628,11 +1629,11 @@ export class InventoryPanel {
           const sectName = this.normalizeSectName(nameInput?.value ?? '');
           const sectMark = this.normalizeSectMark(markInput?.value ?? '');
           if (!sectName) {
-            if (statusNode) statusNode.textContent = '宗门名称需为 2 到 12 个字。';
+            if (statusNode) statusNode.textContent = t('inventory.sect-founding.name-invalid', undefined);
             return;
           }
           if (!sectMark) {
-            if (statusNode) statusNode.textContent = '宗门印记只能是一个字。';
+            if (statusNode) statusNode.textContent = t('inventory.sect-founding.mark-invalid', undefined);
             return;
           }
           this.onUseItem?.(slotIndex, 1, { sectName, sectMark });
@@ -1657,9 +1658,9 @@ export class InventoryPanel {
     if (dialog.confirmDestroy) {
       detailModalHost.open({
         ownerId: InventoryPanel.MODAL_OWNER,
-        title: '确认摧毁',
-        subtitle: `${displayName} · 数量 ${formatDisplayCountBadge(selectedCount)}`,
-        hint: '点击空白处取消',
+      title: t('inventory.destroy.title', undefined),
+      subtitle: t('inventory.modal.item-subtitle.count-only', { itemName: displayName, count: formatDisplayCountBadge(selectedCount) }),
+      hint: t('common.modal.click-blank-cancel', undefined),
         renderBody: (body) => {
           this.renderDestroyConfirmBody(body);
         },
@@ -1690,8 +1691,8 @@ export class InventoryPanel {
       detailModalHost.open({
         ownerId: InventoryPanel.MODAL_OWNER,
         title: specialUseSummary.title,
-        subtitle: `${displayName} · 数量 ${formatDisplayCountBadge(1)}`,
-        hint: '点击空白处取消',
+        subtitle: t('inventory.modal.item-subtitle.count-only', { itemName: displayName, count: formatDisplayCountBadge(1) }),
+        hint: t('common.modal.click-blank-cancel', undefined),
         renderBody: (body) => {
           this.renderSpecialUseConfirmBody(body, specialUseSummary);
         },
@@ -1718,8 +1719,8 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: labels.title,
-      subtitle: `${displayName} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
-      hint: '点击空白处取消',
+      subtitle: t('inventory.action-dialog.subtitle.max-count', { itemName: displayName, count: formatDisplayInteger(maxCount) }),
+      hint: t('common.modal.click-blank-cancel', undefined),
       renderBody: (body) => {
         this.renderActionDialogBody(body, labels, selectedCount, halfCount, maxCount);
       },
@@ -1793,55 +1794,55 @@ export class InventoryPanel {
     patchElementHtml(body, `
       <div class="quest-detail-grid inventory-detail-grid">
         <div class="quest-detail-section">
-          <strong>物品类型</strong>
+          <strong>${t('inventory.detail.item-type', undefined)}</strong>
           <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
         </div>
         <div class="quest-detail-section">
-          <strong>当前数量</strong>
+          <strong>${t('inventory.detail.current-count', undefined)}</strong>
           <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
         </div>
         ${item.equipSlot ? `<div class="quest-detail-section">
-          <strong>装备部位</strong>
+          <strong>${t('inventory.detail.equip-slot', undefined)}</strong>
           <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
         </div>` : ''}
       </div>
       <div class="quest-detail-section">
-        <strong>物品说明</strong>
+        <strong>${t('inventory.detail.desc', undefined)}</strong>
         <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
       </div>
       ${statusLabel ? `<div class="quest-detail-section">
-        <strong>当前状态</strong>
+        <strong>${t('inventory.detail.status', undefined)}</strong>
         <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
       </div>` : ''}
       ${bonusLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>装备属性</strong>
+        <strong>${t('inventory.detail.equipment-bonuses', undefined)}</strong>
         <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
       </div>` : ''}
       ${materialValueLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>材料属性</strong>
+        <strong>${t('inventory.detail.material-bonuses', undefined)}</strong>
         <span data-inventory-modal-material-values="true">${this.escapeHtml(materialValueLines.join(' / '))}</span>
       </div>` : ''}
       ${effectLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>特殊效果</strong>
+        <strong>${t('inventory.detail.effects', undefined)}</strong>
         <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
       </div>` : ''}
       <div class="quest-detail-section inventory-source-section">
-        <strong>来源</strong>
+        <strong>${t('inventory.detail.sources', undefined)}</strong>
         ${sourceListHtml}
         ${canToggleSourceList
-          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? '收起来源' : `展开全部来源（${sourceEntryCount}）`}</button>`
+          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: sourceEntryCount })}</button>`
           : ''}
       </div>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
           ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
-          ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">批量使用</button>` : ''}
+          ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">${t('inventory.action.batch-use', undefined)}</button>` : ''}
         </div>
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
-          <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">丢下</button>
-          ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">批量丢下</button>` : ''}
-          <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">摧毁</button>
-          ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">批量摧毁</button>` : ''}
+          <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">${t('inventory.action.drop-one', undefined)}</button>
+          ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">${t('inventory.action.batch-drop', undefined)}</button>` : ''}
+          <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">${t('inventory.action.destroy', undefined)}</button>
+          ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">${t('inventory.action.batch-destroy', undefined)}</button>` : ''}
         </div>
       </div>
     `);
@@ -1851,12 +1852,12 @@ export class InventoryPanel {
   private renderDestroyConfirmBody(body: HTMLElement): void {
     patchElementHtml(body, `
       <div class="panel-section">
-        <div class="empty-hint">摧毁后物品会永久消失，无法找回。</div>
+        <div class="empty-hint">${t('inventory.destroy.warning', undefined)}</div>
       </div>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-destroy-back>返回修改数量</button>
-          <button class="small-btn danger" type="button" data-inventory-destroy-confirm>确认摧毁</button>
+          <button class="small-btn ghost" type="button" data-inventory-destroy-back>${t('inventory.destroy.back-count', undefined)}</button>
+          <button class="small-btn danger" type="button" data-inventory-destroy-confirm>${t('inventory.destroy.confirm', undefined)}</button>
         </div>
       </div>
     `);
@@ -1885,13 +1886,13 @@ export class InventoryPanel {
   ): void {
     patchElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
-        <strong>使用说明</strong>
+        <strong>${t('inventory.use-confirm.instructions', undefined)}</strong>
         ${summary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
       </div>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(summary.cancelLabel ?? '返回详情')}</button>
-          <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(summary.confirmLabel ?? '确认使用')}</button>
+          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(summary.cancelLabel ?? t('inventory.action.back-detail', undefined))}</button>
+          <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(summary.confirmLabel ?? t('inventory.action.confirm-use', undefined))}</button>
         </div>
       </div>
     `);
@@ -1902,19 +1903,19 @@ export class InventoryPanel {
       <div class="sect-founding-modal">
         <div class="sect-founding-form">
           <label class="sect-founding-field">
-            <span>宗门名称</span>
-            <input class="sect-founding-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="例如：青玄宗">
+            <span>${t('inventory.sect-founding.name-label', undefined)}</span>
+            <input class="sect-founding-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="${t('inventory.sect-founding.name-placeholder', undefined)}">
           </label>
           <label class="sect-founding-field sect-founding-field--mark">
-            <span>宗门印记</span>
-            <input class="sect-founding-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="单字">
+            <span>${t('inventory.sect-founding.mark-label', undefined)}</span>
+            <input class="sect-founding-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="${t('inventory.sect-founding.mark-placeholder', undefined)}">
           </label>
         </div>
         <div class="sect-founding-status" data-sect-founding-status role="status" aria-live="polite"></div>
         <div class="inventory-detail-actions sect-founding-actions">
           <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-            <button class="small-btn ghost" type="button" data-sect-founding-cancel>返回详情</button>
-            <button class="small-btn" type="button" data-sect-founding-confirm>建立宗门</button>
+            <button class="small-btn ghost" type="button" data-sect-founding-cancel>${t('inventory.action.back-detail', undefined)}</button>
+            <button class="small-btn" type="button" data-sect-founding-confirm>${t('inventory.sect-founding.confirm', undefined)}</button>
           </div>
         </div>
       </div>
@@ -1970,11 +1971,11 @@ export class InventoryPanel {
   ): void {
     patchElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
-        <strong>选择数量</strong>
+        <strong>${t('inventory.action-dialog.choose-count', undefined)}</strong>
         <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="1">1 个</button>
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">一半</button>
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">全部</button>
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="1">${t('inventory.action-dialog.one', undefined)}</button>
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">${t('inventory.action-dialog.half', undefined)}</button>
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">${t('inventory.action-dialog.all', undefined)}</button>
           <input
             class="gm-inline-input"
             data-inventory-action-count="true"
@@ -1989,7 +1990,7 @@ export class InventoryPanel {
       </div>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
+          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${t('inventory.action.back-detail', undefined)}</button>
           <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
         </div>
       </div>
@@ -2001,7 +2002,7 @@ export class InventoryPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const refs = this.ensureShell();
-    refs.title.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
+      refs.title.textContent = t('inventory.title.with-count', { count: formatDisplayInteger(inventory.items.length), capacity: formatDisplayInteger(inventory.capacity) });
 
     for (const tab of INVENTORY_FILTER_TABS) {
       const button = refs.filterButtons.get(tab.id);
@@ -2020,7 +2021,7 @@ export class InventoryPanel {
     const { renderedItems, totalVisibleItems } = visibleSnapshot;
     if (totalVisibleItems === 0) {
       refs.empty.hidden = false;
-      refs.empty.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
+      refs.empty.textContent = inventory.items.length === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
       refs.grid.hidden = true;
       refs.grid.replaceChildren();
       this.cellBySlotIndex.clear();
@@ -2034,7 +2035,7 @@ export class InventoryPanel {
     const cooldownStateMap = this.getCooldownStateMap(inventory);
     if (renderedItems.length < totalVisibleItems) {
       refs.loadHint.hidden = false;
-      refs.loadHint.textContent = `向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(totalVisibleItems)}）`;
+      refs.loadHint.textContent = t('inventory.load-more', { rendered: formatDisplayInteger(renderedItems.length), total: formatDisplayInteger(totalVisibleItems) });
     } else {
       refs.loadHint.hidden = true;
       refs.loadHint.textContent = '';
@@ -2234,19 +2235,37 @@ export class InventoryPanel {
       const foundationCost = this.getHeavenGateRerollCost(this.playerRealm) * reducedCount;
       const remainingFoundation = Math.max(0, this.playerFoundation - foundationCost);
       const nextRerollCount = currentRerollCount + gainedRerollCount;
-      const lines = tier === 'divine'
-        ? [
-            '使用后，五行灵根会直接全部固定为 100。',
-            `当前底蕴 ${formatDisplayInteger(this.playerFoundation)}，本次会消耗 ${formatDisplayInteger(foundationCost)}，使用后剩余 ${formatDisplayInteger(remainingFoundation)}。`,
-            `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 ${formatDisplayInteger(gainedRerollCount)} 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+    const lines = tier === 'divine'
+      ? [
+            t('inventory.special-use.root-seed.divine.line-1', undefined),
+            t('inventory.special-use.root-seed.line-2', {
+              foundationCost: formatDisplayInteger(foundationCost),
+              foundation: formatDisplayInteger(this.playerFoundation),
+              remainingFoundation: formatDisplayInteger(remainingFoundation),
+            }),
+            t('inventory.special-use.root-seed.line-3', {
+              currentRerollCount: formatDisplayInteger(currentRerollCount),
+              gainedRerollCount: formatDisplayInteger(gainedRerollCount),
+              nextRerollCount: formatDisplayInteger(nextRerollCount),
+            }),
           ]
         : [
-            '使用后，五行灵根会先全部定为 99，再逐项以 50% 概率升到 100，且至少保底一项为 100。',
-            `当前底蕴 ${formatDisplayInteger(this.playerFoundation)}，本次会消耗 ${formatDisplayInteger(foundationCost)}，使用后剩余 ${formatDisplayInteger(remainingFoundation)}。`,
-            `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 ${formatDisplayInteger(gainedRerollCount)} 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+            t('inventory.special-use.root-seed.heaven.line-1', undefined),
+            t('inventory.special-use.root-seed.line-2', {
+              foundationCost: formatDisplayInteger(foundationCost),
+              foundation: formatDisplayInteger(this.playerFoundation),
+              remainingFoundation: formatDisplayInteger(remainingFoundation),
+            }),
+            t('inventory.special-use.root-seed.line-3', {
+              currentRerollCount: formatDisplayInteger(currentRerollCount),
+              gainedRerollCount: formatDisplayInteger(gainedRerollCount),
+              nextRerollCount: formatDisplayInteger(nextRerollCount),
+            }),
           ];
       return {
-        title: tier === 'divine' ? '确认使用神品灵根幼苗' : '确认使用天品灵根幼苗',
+        title: tier === 'divine'
+          ? t('inventory.special-use.root-seed.divine.title', undefined)
+          : t('inventory.special-use.root-seed.heaven.title', undefined),
         lines,
       };
     }
@@ -2259,11 +2278,18 @@ export class InventoryPanel {
     const remainingExp = Math.max(0, currentExp - expCost);
     const nextRerollCount = currentRerollCount + 1;
     return {
-      title: '确认使用碎灵丹',
+      title: t('inventory.special-use.shatter-spirit-pill.title', undefined),
       lines: [
-        '使用后会立刻重置天门，清掉当前已开出的灵根结果，并回到可重新开天门的状态。',
-        `当前境界修为 ${formatDisplayInteger(currentExp)}，本次会消耗 ${formatDisplayInteger(expCost)}，使用后剩余 ${formatDisplayInteger(remainingExp)}。`,
-        `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 1 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+        t('inventory.special-use.shatter-spirit-pill.line-1', undefined),
+        t('inventory.special-use.shatter-spirit-pill.line-2', {
+          currentExp: formatDisplayInteger(currentExp),
+          expCost: formatDisplayInteger(expCost),
+          remainingExp: formatDisplayInteger(remainingExp),
+        }),
+        t('inventory.special-use.shatter-spirit-pill.line-3', {
+          currentRerollCount: formatDisplayInteger(currentRerollCount),
+          nextRerollCount: formatDisplayInteger(nextRerollCount),
+        }),
       ],
     };
   }
@@ -2316,14 +2342,17 @@ export class InventoryPanel {
     }
     const gap = techniqueRealmLv - playerRealmLv;
     return {
-      title: `确认学习 ${technique.name || item.name}`,
+      title: t('inventory.technique-learning-warning.title', { name: technique.name || item.name }),
       lines: [
-        '目标功法当前过于晦涩难懂，获得的经验值会大幅衰减。',
-        `你当前比这门功法低 ${formatDisplayInteger(gap)} 个境界，已超过 ${formatDisplayInteger(TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA)} 个境界的提醒阈值。`,
-        '确认后仍会照常学习；若暂时不学，点取消即可返回。',
+        t('inventory.technique-learning-warning.line-1', undefined),
+        t('inventory.technique-learning-warning.line-2', {
+          gap: formatDisplayInteger(gap),
+          threshold: formatDisplayInteger(TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA),
+        }),
+        t('inventory.technique-learning-warning.line-3', undefined),
       ],
-      confirmLabel: '确认学习',
-      cancelLabel: '取消学习',
+      confirmLabel: t('inventory.technique-learning-warning.confirm', undefined),
+      cancelLabel: t('inventory.technique-learning-warning.cancel', undefined),
     };
   }
 
@@ -2395,13 +2424,13 @@ export class InventoryPanel {
   } {
     switch (kind) {
       case 'use':
-        return { title: '批量使用', confirm: '确认使用', danger: false };
+        return { title: t('inventory.action-dialog.title.use', undefined), confirm: t('inventory.action-dialog.confirm.use', undefined), danger: false };
       case 'drop':
-        return { title: '丢下物品', confirm: '确认丢下', danger: true };
+        return { title: t('inventory.action-dialog.title.drop', undefined), confirm: t('inventory.action-dialog.confirm.drop', undefined), danger: true };
       case 'destroy':
-        return { title: '摧毁物品', confirm: '继续摧毁', danger: true };
+        return { title: t('inventory.action-dialog.title.destroy', undefined), confirm: t('inventory.action-dialog.confirm.destroy', undefined), danger: true };
       default:
-        return { title: '操作物品', confirm: '确认', danger: false };
+        return { title: t('inventory.action-dialog.title.default', undefined), confirm: t('inventory.action-dialog.confirm.default', undefined), danger: false };
     }
   }
 
@@ -2417,19 +2446,19 @@ export class InventoryPanel {
       return { label: statusLabel, kind: 'status', disabled: true };
     }
     if (item.type === 'equipment') {
-      return { label: '装备', kind: 'equip' };
+      return { label: t('inventory.action.label.equip', undefined), kind: 'equip' };
     }
     if (this.isFormationDiskItem(item)) {
-      return { label: '布阵', kind: 'use' };
+      return { label: t('inventory.action.label.formation', undefined), kind: 'use' };
     }
     if (this.isSectFoundingTokenItem(item)) {
-      return { label: '建立宗门', kind: 'use' };
+      return { label: t('inventory.action.label.sect-founding', undefined), kind: 'use' };
     }
     if (item.type === 'skill_book') {
-      return { label: '学习', kind: 'use' };
+      return { label: t('inventory.action.label.learn', undefined), kind: 'use' };
     }
     if (this.canUseItem(item)) {
-      return { label: '使用', kind: 'use' };
+      return { label: t('inventory.action.label.use', undefined), kind: 'use' };
     }
     return null;
   }
@@ -2474,7 +2503,7 @@ export class InventoryPanel {
     if (item.type === 'skill_book') {
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
       if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
-        return '已学';
+        return t('inventory.status.learned', undefined);
       }
     }
     const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
@@ -2483,7 +2512,7 @@ export class InventoryPanel {
         ? [item.mapUnlockId]
         : [];
     if (mapIds.length > 0 && mapIds.every((mapId) => this.unlockedMinimapIds.has(mapId))) {
-      return '已阅';
+      return t('inventory.status.read', undefined);
     }
     return null;
   }

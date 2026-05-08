@@ -26,15 +26,13 @@ const craft_panel_alchemy_query_service_1 = require("./craft-panel-alchemy-query
 const craft_panel_alchemy_query_helpers_1 = require("./craft-panel-alchemy-query.helpers");
 const craft_panel_enhancement_query_service_1 = require("./craft-panel-enhancement-query.service");
 const technique_activity_runtime_helpers_1 = require("./technique-activity-runtime.helpers");
+const craft_skill_exp_helpers_1 = require("./craft-skill-exp.helpers");
 
 /** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
 
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
-
-/** 工艺技能的默认升级经验门槛。 */
-const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
 
 /** 炼丹任务开始后先经历的准备息数。 */
 const ALCHEMY_PREPARATION_TICKS = 10;
@@ -140,6 +138,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         this.ensureCraftSkills(player);
         return this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(player, knownCatalogVersion, this.alchemyCatalog, this.getWeapon(player));
     }
+    /** 读取炼丹面板运行态增量，高频刷新不重复下发目录和预设。 */
+    buildAlchemyPanelPatchPayload(player) {
+        this.ensureCraftSkills(player);
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelPatchPayload(player, 'alchemy');
+    }
     /** 读取炼器面板状态，复用炼丹面板结构但返回炼器目录。 */
     buildForgingPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
@@ -154,6 +157,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             };
         }
         return payload;
+    }
+    /** 读取炼器面板运行态增量，高频刷新不重复下发目录和预设。 */
+    buildForgingPanelPatchPayload(player) {
+        this.ensureCraftSkills(player);
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelPatchPayload(player, 'forging');
     }
     /** 读取强化面板状态并在未装备强化锤时返回错误。 */
     buildEnhancementPanelPayload(player) {
@@ -180,6 +188,12 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     }
     /** 按 activity kind 统一返回技艺面板运行态增量。 */
     buildTechniqueActivityPanelPatchPayload(player, kind) {
+        if (kind === 'alchemy') {
+            return this.buildAlchemyPanelPatchPayload(player);
+        }
+        if (kind === 'forging') {
+            return this.buildForgingPanelPatchPayload(player);
+        }
         if (kind === 'enhancement') {
             return this.buildEnhancementPanelPatchPayload(player);
         }
@@ -346,7 +360,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (spiritStoneCost > 0) {
             this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
         }
-        const furnaceOutputCount = recipe.category === 'buff' ? 1 : shared_1.ALCHEMY_FURNACE_OUTPUT_COUNT;
+        const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : shared_1.ALCHEMY_FURNACE_OUTPUT_COUNT;
         const baseSuccessRate = shared_1.computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
         const batchBrewTicks = shared_1.computeAlchemyAdjustedBrewTicks(
             recipe.baseBrewTicks,
@@ -685,22 +699,25 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 groundDrops.push(outputItem);
             }
         }
-        const skillGain = resolveAlchemySkillExpGain(catalog, job, player.alchemySkill, successCount, failureCount);
-        const skillChanged = applyCraftSkillExp(player.alchemySkill, skillGain);
+        const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, player.alchemySkill, successCount, failureCount);
+        const skillChanged = applyCraftSkillExp(player.alchemySkill, skillGain, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerRuntimeService, level));
+        const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
         this.finalizeMutation(player, {
             inventoryChanged,
             attrChanged: skillChanged,
             persistentOnly: true,
             dirtyDomains: [
-                'active_job',
+                ...(jobCompleted ? [] : ['active_job']),
                 ...(skillChanged ? ['profession'] : []),
             ],
         });
-        if (job.completedCount >= job.quantity || job.remainingTicks <= 0) {
+        if (jobCompleted) {
             const queuedJobs = cloneCraftQueue(job.queuedJobs);
             player.alchemyJob = null;
-            this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
             const nextStartResult = this.startNextQueuedCraftJob(player, queuedJobs);
+            if (!player.alchemyJob && !player.enhancementJob) {
+                this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
+            }
             const nextMessages = nextStartResult.messages ?? [];
             return buildCraftTickResult(true, [{
                    kind: 'quest',
@@ -967,8 +984,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 ? Math.max(0, job.currentLevel - 1)
                 : 0;
         this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
-        const skillGain = resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success);
-        const skillChanged = applyCraftSkillExp(player.enhancementSkill, skillGain);
+        const skillGain = resolveEnhancementSkillExpGain(this.playerRuntimeService, player.enhancementSkill, job.targetItemLevel, success);
+        const skillChanged = applyCraftSkillExp(player.enhancementSkill, skillGain, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerRuntimeService, level));
         player.enhancementSkillLevel = player.enhancementSkill.level;
         if (skillChanged) {
             this.finalizeMutation(player, {
@@ -1140,13 +1157,14 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     ensureCraftSkills(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        player.alchemySkill = normalizeCraftSkill(player.alchemySkill);
-        player.gatherSkill = normalizeCraftSkill(player.gatherSkill);
+        const resolveExpToNext = (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerRuntimeService, level);
+        player.alchemySkill = normalizeCraftSkill(player.alchemySkill, resolveExpToNext);
+        player.gatherSkill = normalizeCraftSkill(player.gatherSkill, resolveExpToNext);
         player.enhancementSkill = normalizeCraftSkill(player.enhancementSkill ?? {
             level: player.enhancementSkillLevel,
             exp: 0,
-            expToNext: DEFAULT_CRAFT_EXP_TO_NEXT,
-        });
+            expToNext: (0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerRuntimeService),
+        }, resolveExpToNext);
         player.enhancementSkillLevel = player.enhancementSkill.level;
         if (!Array.isArray(player.alchemyPresets)) {
             player.alchemyPresets = [];
@@ -1155,6 +1173,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             player.enhancementRecords = [];
         }
         player.alchemyJob = player.alchemyJob ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob) : null;
+        if (isCompletedAlchemyLikeJob(player.alchemyJob)) {
+            player.alchemyJob = null;
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
+        }
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
     }
     /**
@@ -1420,12 +1445,24 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         const existing = (player.enhancementRecords ?? []).find((entry) => entry.itemId === itemId);
         if (existing) {
-            existing.actionStartedAt = input.actionStartedAt;
-            existing.startLevel = input.startLevel;
-            existing.initialTargetLevel = input.initialTargetLevel;
-            existing.desiredTargetLevel = input.desiredTargetLevel;
-            existing.protectionStartLevel = input.protectionStartLevel;
-            existing.status = input.status;
+            if (Object.prototype.hasOwnProperty.call(input, 'actionStartedAt')) {
+                existing.actionStartedAt = input.actionStartedAt;
+            }
+            if (Object.prototype.hasOwnProperty.call(input, 'startLevel')) {
+                existing.startLevel = input.startLevel;
+            }
+            if (Object.prototype.hasOwnProperty.call(input, 'initialTargetLevel')) {
+                existing.initialTargetLevel = input.initialTargetLevel;
+            }
+            if (Object.prototype.hasOwnProperty.call(input, 'desiredTargetLevel')) {
+                existing.desiredTargetLevel = input.desiredTargetLevel;
+            }
+            if (Object.prototype.hasOwnProperty.call(input, 'protectionStartLevel')) {
+                existing.protectionStartLevel = input.protectionStartLevel;
+            }
+            if (Object.prototype.hasOwnProperty.call(input, 'status')) {
+                existing.status = input.status;
+            }
             this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
             return existing;
         }
@@ -1457,13 +1494,22 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     touchEnhancementLevelRecord(player, itemId, targetLevel, success, resultingLevel) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const record = this.touchEnhancementRecord(player, {
-            itemId,
-            startLevel: 0,
-            initialTargetLevel: targetLevel,
-            desiredTargetLevel: targetLevel,
-            status: 'in_progress',
-        });
+        const existing = (player.enhancementRecords ?? []).find((entry) => entry.itemId === normalizeText(itemId));
+        const job = player.enhancementJob?.targetItemId === itemId ? player.enhancementJob : null;
+        const record = this.touchEnhancementRecord(player, existing
+            ? {
+                itemId,
+                status: 'in_progress',
+            }
+            : {
+                itemId,
+                actionStartedAt: job?.startedAt,
+                startLevel: job?.currentLevel ?? 0,
+                initialTargetLevel: job?.targetLevel ?? targetLevel,
+                desiredTargetLevel: job?.desiredTargetLevel ?? targetLevel,
+                protectionStartLevel: job?.protectionStartLevel,
+                status: 'in_progress',
+            });
         if (!record) {
             return;
         }
@@ -2074,12 +2120,15 @@ function normalizePositiveInt(value, fallback = 1) {
  * @returns 无返回值，直接更新炼制技能相关状态。
  */
 
-function normalizeCraftSkill(value) {
+function normalizeCraftSkill(value, getExpToNextByLevel = null) {
     const level = Math.max(1, Math.floor(Number(value?.level) || 1));
+    const resolvedExpToNext = typeof getExpToNextByLevel === 'function'
+        ? getExpToNextByLevel(level)
+        : Math.max(0, Math.floor(Number(value?.expToNext) || craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT));
     return {
         level,
         exp: Math.max(0, Math.floor(Number(value?.exp) || 0)),
-        expToNext: Math.max(0, Math.floor(Number(value?.expToNext) || DEFAULT_CRAFT_EXP_TO_NEXT)),
+        expToNext: Math.max(0, Math.floor(Number(resolvedExpToNext) || 0)),
     };
 }
 /**
@@ -2377,6 +2426,15 @@ function bumpActiveJobVersion(player) {
     }
     activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
 }
+
+function isCompletedAlchemyLikeJob(job) {
+    if (!job || typeof job !== 'object') {
+        return false;
+    }
+    const quantity = Math.max(1, Math.trunc(Number(job.quantity ?? 1)));
+    const completedCount = Math.max(0, Math.trunc(Number(job.completedCount ?? 0)));
+    return completedCount >= quantity;
+}
 /**
  * countInventoryItem：执行数量背包道具相关逻辑。
  * @param player 玩家对象。
@@ -2624,29 +2682,33 @@ function validateAlchemySelection(recipe, submitted) {
  * @returns 无返回值，直接更新炼制技能Exp相关状态。
  */
 
-function applyCraftSkillExp(skill, amount) {
+function applyCraftSkillExp(skill, amount, getExpToNextByLevel = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!skill) {
         return false;
     }
     let changed = false;
+    if (typeof getExpToNextByLevel === 'function') {
+        const resolvedExpToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
+        if (skill.expToNext !== resolvedExpToNext) {
+            skill.expToNext = resolvedExpToNext;
+            changed = true;
+        }
+    }
     skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
         skill.exp -= skill.expToNext;
         skill.level += 1;
-        skill.expToNext = Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((skill.level - 1) * 12));
+        skill.expToNext = typeof getExpToNextByLevel === 'function'
+            ? Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0))
+            : (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(null, skill.level, craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT);
         changed = true;
     }
     return changed || amount > 0;
 }
 
-function getCraftSkillExpToNextByLevel(level) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
-    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
-}
-
-function resolveAlchemySkillExpGain(alchemyCatalog, job, skill, successCount, failureCount) {
+function resolveAlchemySkillExpGain(source, alchemyCatalog, job, skill, successCount, failureCount) {
     if (!skill || (skill.expToNext ?? 0) <= 0) {
         return 0;
     }
@@ -2656,16 +2718,29 @@ function resolveAlchemySkillExpGain(alchemyCatalog, job, skill, successCount, fa
     const gainResult = (0, shared_1.computeCraftSkillExpGain)({
         skillLevel: skill.level,
         targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
-        baseActionTicks: recipe?.baseBrewTicks ?? job.baseBrewTicks ?? job.batchBrewTicks ?? 1,
+        baseActionTicks: resolveAlchemySkillBaseActionTicks(recipe, job),
         successCount,
         failureCount,
         successMultiplier: 1,
-        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
     });
     return gainResult.finalGain;
 }
 
-function resolveEnhancementSkillExpGain(skill, targetItemLevel, success) {
+function resolveAlchemySkillBaseActionTicks(recipe, job) {
+    const baseBrewTicks = recipe?.baseBrewTicks ?? job?.baseBrewTicks ?? job?.batchBrewTicks ?? 1;
+    if (recipe) {
+        return shared_1.computeAlchemyBrewTicks(
+            baseBrewTicks,
+            recipe,
+            Array.isArray(job?.ingredients) ? job.ingredients : undefined,
+            job?.outputCount ?? shared_1.ALCHEMY_FURNACE_OUTPUT_COUNT,
+        );
+    }
+    return Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
+}
+
+function resolveEnhancementSkillExpGain(source, skill, targetItemLevel, success) {
     if (!skill || (skill.expToNext ?? 0) <= 0) {
         return 0;
     }
@@ -2676,7 +2751,7 @@ function resolveEnhancementSkillExpGain(skill, targetItemLevel, success) {
         successCount: success ? 1 : 0,
         failureCount: success ? 0 : 1,
         successMultiplier: 1,
-        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
     });
     return gainResult.finalGain;
 }

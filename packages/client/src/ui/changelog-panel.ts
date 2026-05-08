@@ -1,5 +1,6 @@
 import { detailModalHost } from './detail-modal-host';
 import { patchElementChildren } from './dom-patch';
+import { t } from './i18n';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
 /** ChangelogPanel：Changelog面板实现。 */
@@ -20,9 +21,9 @@ export class ChangelogPanel {
   open(): void {
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
-      title: '岁月史书',
+      title: t('changelog.panel.title', undefined),
       subtitle: this.buildSubtitle(),
-      hint: '点击空白处关闭',
+      hint: t('changelog.panel.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
       },
@@ -32,7 +33,9 @@ export class ChangelogPanel {
   /** buildSubtitle：构建Subtitle。 */
   private buildSubtitle(): string {
     const latest = getLatestChangelogEntry();
-    return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
+    return latest
+      ? t('changelog.panel.subtitle.latest', { updatedAt: latest.updatedAt })
+      : t('changelog.panel.subtitle.empty', undefined);
   }
 
   /** renderBody：渲染身体。 */
@@ -41,7 +44,7 @@ export class ChangelogPanel {
 
     const shell = createElement('div', 'chronicle-shell');
     const historySection = createElement('section', 'panel-section chronicle-history');
-    const sectionTitle = createElement('div', 'panel-section-title', '更新日志');
+    const sectionTitle = createElement('div', 'panel-section-title', t('changelog.panel.section.title', undefined));
     const entryList = createElement('div', 'chronicle-entry-list');
     for (const entry of CHANGELOG_ENTRIES) {
       entryList.append(this.renderEntry(entry));

@@ -4,6 +4,7 @@ import { LOCAL_EDITOR_CATALOG } from '../../content/editor-catalog';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../../content/monster-locations';
 import { getItemTypeLabel } from '../../domain-labels';
+import { t } from '../../ui/i18n';
 import { hideTooltip, moveTooltip, showTooltip } from '../overlays/overlay-store';
 /**
  * UiInlineReferenceTone：统一结构类型，保证协议与运行时一致性。
@@ -74,14 +75,15 @@ function buildItemTooltipPayload(itemId: string, fallbackLabel: string): Tooltip
     ?? LOCAL_EDITOR_CATALOG.items.find((entry) => entry.name === fallbackLabel)
     ?? null;
   if (!item) {
-    return { title: fallbackLabel, lines: ['条目信息待补充'] };
+    return { title: fallbackLabel, lines: [t('react.reference.item.missing', undefined)] };
   }
 
+  const typeLabel = getItemTypeLabel(item.type);
   const lines: string[] = [
-    `类型：${getItemTypeLabel(item.type)}`,
+    t('react.reference.item.type', { type: typeLabel }),
   ];
   if (item.grade) {
-    lines.push(`品阶：${item.grade}`);
+    lines.push(t('react.reference.item.grade', { grade: item.grade }));
   }
   if (item.desc?.trim()) {
     lines.push(item.desc.trim());
@@ -106,14 +108,14 @@ async function loadMonsterTooltipPayload(monsterId: string, fallbackLabel: strin
   const location = direct ?? await import('../../constants/world/monster-locations.generated.json')
     .then((module) => Object.values(module.default).find((entry) => entry.monsterName === fallbackLabel) ?? null);
   if (!location) {
-    return { title: fallbackLabel, lines: ['地图情报待补充'] };
+    return { title: fallbackLabel, lines: [t('react.reference.monster.missing', undefined)] };
   }
   return {
     title: location.monsterName || fallbackLabel,
     lines: [
-      `出没地图：${location.mapName}`,
-      ...(typeof location.dangerLevel === 'number' ? [`地图等级：${location.dangerLevel}`] : []),
-      ...(location.totalMaps > 1 ? ['已优先显示更低等级地图'] : []),
+      t('react.reference.monster.location', { mapName: location.mapName }),
+      ...(typeof location.dangerLevel === 'number' ? [t('react.reference.monster.danger', { dangerLevel: location.dangerLevel })] : []),
+      ...(location.totalMaps > 1 ? [t('react.reference.monster.lower-map', undefined)] : []),
     ],
   };
 }

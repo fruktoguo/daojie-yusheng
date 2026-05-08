@@ -43,6 +43,7 @@ import {
 } from '../offline-gain-render';
 import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
+import { t } from '../i18n';
 
 type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
 
@@ -147,9 +148,13 @@ export class SettingsPanel {
       ownerId: 'settings-panel',
       size: 'xl',
       variantClass: 'detail-modal--settings',
-      title: '设置',
-      subtitle: `账号：${this.currentAccountName || '未登录'} · 道号：${this.currentDisplayName || '未设置'} · 角色：${this.currentRoleName || '未设置'}`,
-      hint: '点击空白处关闭',
+      title: t('settings.modal.title', undefined),
+      subtitle: t('settings.modal.subtitle', {
+        account: this.currentAccountName || t('settings.modal.not-logged-in', undefined),
+        displayName: this.currentDisplayName || t('settings.modal.not-set', undefined),
+        roleName: this.currentRoleName || t('settings.modal.not-set', undefined),
+      }),
+      hint: t('settings.modal.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
       },
@@ -163,37 +168,37 @@ export class SettingsPanel {
   private renderBody(body: HTMLElement): void {
     patchElementHtml(body, `
         <div class="settings-modal-shell ui-tabbed-modal-shell">
-          <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="设置分组">
+          <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="${escapeHtml(t('settings.tabs.aria', undefined))}">
             <button
               class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'account' ? ' active' : ''}"
               type="button"
               data-settings-tab="account"
               aria-selected="${this.activeTab === 'account' ? 'true' : 'false'}"
-            >账号管理</button>
+            >${escapeHtml(t('settings.tab.account', undefined))}</button>
             <button
               class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
               type="button"
               data-settings-tab="redeem"
               aria-selected="${this.activeTab === 'redeem' ? 'true' : 'false'}"
-            >兑换码</button>
+            >${escapeHtml(t('settings.tab.redeem', undefined))}</button>
             <button
               class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
               type="button"
               data-settings-tab="ui"
               aria-selected="${this.activeTab === 'ui' ? 'true' : 'false'}"
-            >UI</button>
+            >${escapeHtml(t('settings.tab.ui', undefined))}</button>
             <button
               class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
               type="button"
               data-settings-tab="performance"
               aria-selected="${this.activeTab === 'performance' ? 'true' : 'false'}"
-            >性能</button>
+            >${escapeHtml(t('settings.tab.performance', undefined))}</button>
             <button
               class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'offlineGain' ? ' active' : ''}"
               type="button"
               data-settings-tab="offlineGain"
               aria-selected="${this.activeTab === 'offlineGain' ? 'true' : 'false'}"
-            >收支统计</button>
+            >${escapeHtml(t('settings.tab.offline-gain', undefined))}</button>
           </div>
           <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
             ${this.renderAccountTab()}
@@ -305,7 +310,11 @@ export class SettingsPanel {
         this.syncUiModeButtons(body, colorMode as UiColorMode);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-        setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
+        setStatus(styleStatus, t('settings.status.color-mode-switched', {
+          mode: colorMode === 'dark'
+            ? t('settings.status.mode.dark', undefined)
+            : t('settings.status.mode.light', undefined),
+        }), 'success');
       }, { signal });
     });
 
@@ -318,7 +327,7 @@ export class SettingsPanel {
           : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
         const nextConfig = updateUiGlobalFontOffset(nextValue);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
-        setStatus(styleStatus, '字号已调', 'success');
+        setStatus(styleStatus, t('settings.status.font-adjusted', undefined), 'success');
       };
 
       globalRangeInput.addEventListener('input', () => {
@@ -341,7 +350,7 @@ export class SettingsPanel {
           : UI_SCALE_RANGE.defaultValue;
         const nextConfig = updateUiScale(nextValue);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-        setStatus(styleStatus, '画幅已调', 'success');
+        setStatus(styleStatus, t('settings.status.scale-adjusted', undefined), 'success');
       };
 
       scaleRangeInput.addEventListener('input', () => {
@@ -360,7 +369,7 @@ export class SettingsPanel {
       this.syncUiModeButtons(body, nextConfig.colorMode);
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
       this.syncUiScaleRow(body, nextConfig.uiScale);
-      setStatus(styleStatus, '界面已复归原本', 'success');
+      setStatus(styleStatus, t('settings.status.ui-reset', undefined), 'success');
     }, { signal });
   }
 
@@ -397,7 +406,9 @@ export class SettingsPanel {
           showFpsMonitor: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-        setStatus(statusEl, nextConfig.showFpsMonitor ? '帧率示数已显' : '帧率示数已隐', 'success');
+        setStatus(statusEl, nextConfig.showFpsMonitor
+          ? t('settings.status.fps-shown', undefined)
+          : t('settings.status.fps-hidden', undefined), 'success');
       }, { signal });
     });
 
@@ -411,7 +422,9 @@ export class SettingsPanel {
           targetFps: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-        setStatus(statusEl, `渲染帧率上限已调至 ${nextConfig.targetFps}`, 'success');
+        setStatus(statusEl, t('settings.status.target-fps-adjusted', {
+          fps: nextConfig.targetFps,
+        }), 'success');
       };
       fpsNumberInput.addEventListener('change', () => {
         applyTargetFps(fpsNumberInput.value);
@@ -424,14 +437,14 @@ export class SettingsPanel {
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetMapPerformanceConfig();
       this.syncPerformanceControls(body, nextConfig);
-      setStatus(statusEl, '性能已复归原本', 'success');
+      setStatus(statusEl, t('settings.status.performance-reset', undefined), 'success');
     }, { signal });
   }
 
   /** bindOfflineGainSettings：绑定收支统计设置。 */
   private bindOfflineGainSettings(body: HTMLElement, signal: AbortSignal): void {
     body.querySelector<HTMLButtonElement>('#settings-offline-gain-refresh')?.addEventListener('click', () => {
-      this.refreshOfflineGainPane(body, '收支统计已刷新');
+      this.refreshOfflineGainPane(body, t('settings.status.offline-gain-refreshed', undefined));
     }, { signal });
     body.querySelector<HTMLElement>('#settings-offline-gain-list')?.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
@@ -509,48 +522,51 @@ export class SettingsPanel {
   private renderAccountTab(): string {
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">账号信息</div>
-        <div class="account-settings-copy ui-form-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
+        <div class="panel-section-title">${escapeHtml(t('settings.account.section.account', undefined))}</div>
+        <div class="account-settings-copy ui-form-copy">${escapeHtml(t('settings.account.copy.account', undefined))}</div>
         <div class="account-settings-field ui-form-field">
-          <label class="ui-form-label" for="settings-account-name">当前账号</label>
+          <label class="ui-form-label" for="settings-account-name">${escapeHtml(t('settings.account.label.current-account', undefined))}</label>
           <input id="settings-account-name" class="ui-input" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
         </div>
       </div>
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy ui-form-copy">显示名称是头顶的一字标识，必须是可见字符；除“人”外，显示名称仍只和其他显示名称比唯一性。角色名称完整显示在头顶，也必须包含可见字符；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
+        <div class="panel-section-title">${escapeHtml(t('settings.account.section.names', undefined))}</div>
+        <div class="account-settings-copy ui-form-copy">${escapeHtml(t('settings.account.copy.names', {
+          roleNameMaxLength: ROLE_NAME_MAX_LENGTH,
+          roleNameMaxAsciiLength: ROLE_NAME_MAX_ASCII_LENGTH,
+        }))}</div>
         <div class="account-settings-name-grid ui-form-grid ui-form-grid--two-column">
           <div class="account-settings-field account-settings-field--display ui-form-field">
-            <label class="ui-form-label" for="settings-display-name">显示名称</label>
-            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
-            <div id="settings-display-name-status" class="account-settings-status ui-status-text">当前名称可继续使用</div>
+            <label class="ui-form-label" for="settings-display-name">${escapeHtml(t('settings.account.label.display-name', undefined))}</label>
+            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="${escapeHtml(t('settings.account.placeholder.display-name', undefined))}" />
+            <div id="settings-display-name-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.account.status.display-name-current', undefined))}</div>
             <div class="account-settings-actions ui-inline-actions-end ui-action-row">
-              <button id="settings-display-name-submit" class="small-btn" type="button">保存显示名称</button>
+              <button id="settings-display-name-submit" class="small-btn" type="button">${escapeHtml(t('settings.account.action.save-display-name', undefined))}</button>
             </div>
           </div>
           <div class="account-settings-field ui-form-field">
-            <label class="ui-form-label" for="settings-role-name">角色名称</label>
-            <input id="settings-role-name" class="ui-input" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
+            <label class="ui-form-label" for="settings-role-name">${escapeHtml(t('settings.account.label.role-name', undefined))}</label>
+            <input id="settings-role-name" class="ui-input" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="${escapeHtml(t('settings.account.placeholder.role-name', undefined))}" />
             <div id="settings-role-name-status" class="account-settings-status ui-status-text"></div>
             <div class="account-settings-actions ui-inline-actions-end ui-action-row">
-              <button id="settings-role-name-submit" class="small-btn" type="button">保存角色名称</button>
+              <button id="settings-role-name-submit" class="small-btn" type="button">${escapeHtml(t('settings.account.action.save-role-name', undefined))}</button>
             </div>
           </div>
         </div>
       </div>
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">修改密码</div>
+        <div class="panel-section-title">${escapeHtml(t('settings.account.section.password', undefined))}</div>
         <div class="account-settings-field ui-form-field">
-          <label class="ui-form-label" for="settings-current-password">当前密码</label>
-          <input id="settings-current-password" class="ui-input" type="password" placeholder="输入当前密码" />
+          <label class="ui-form-label" for="settings-current-password">${escapeHtml(t('settings.account.label.current-password', undefined))}</label>
+          <input id="settings-current-password" class="ui-input" type="password" placeholder="${escapeHtml(t('settings.account.placeholder.current-password', undefined))}" />
         </div>
         <div class="account-settings-field ui-form-field">
-          <label class="ui-form-label" for="settings-new-password">新密码</label>
-          <input id="settings-new-password" class="ui-input" type="password" placeholder="至少 6 位且不含空格" />
+          <label class="ui-form-label" for="settings-new-password">${escapeHtml(t('settings.account.label.new-password', undefined))}</label>
+          <input id="settings-new-password" class="ui-input" type="password" placeholder="${escapeHtml(t('settings.account.placeholder.new-password', undefined))}" />
         </div>
         <div id="settings-password-status" class="account-settings-status ui-status-text"></div>
         <div class="account-settings-actions ui-inline-actions-end ui-action-row">
-          <button id="settings-password-submit" class="small-btn" type="button">保存密码</button>
+          <button id="settings-password-submit" class="small-btn" type="button">${escapeHtml(t('settings.account.action.save-password', undefined))}</button>
         </div>
       </div>
     `;
@@ -561,8 +577,8 @@ export class SettingsPanel {
     const config = getUiStyleConfig();
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">颜色模式</div>
-        <div class="settings-ui-copy ui-form-copy">切换后立即生效，并自动保存在当前设备。深色模式会同步替换主界面、弹层与常用控件的基础配色。</div>
+        <div class="panel-section-title">${escapeHtml(t('settings.ui.section.color-mode', undefined))}</div>
+        <div class="settings-ui-copy ui-form-copy">${escapeHtml(t('settings.ui.copy.color-mode', undefined))}</div>
         <div class="settings-ui-mode-row">
           ${UI_COLOR_MODE_OPTIONS.map((option) => `
             <button
@@ -577,15 +593,15 @@ export class SettingsPanel {
       </div>
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-    <div class="panel-section-title">界面显示</div>
-          <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
+    <div class="panel-section-title">${escapeHtml(t('settings.ui.section.display', undefined))}</div>
+          <button id="settings-ui-reset" class="small-btn ghost" type="button">${escapeHtml(t('settings.common.action.reset-default', undefined))}</button>
         </div>
-        <div class="settings-ui-copy ui-form-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
+        <div class="settings-ui-copy ui-form-copy">${escapeHtml(t('settings.ui.copy.display', undefined))}</div>
         <div class="settings-ui-table ui-data-table">
           <div class="settings-ui-table-row ui-data-table-row">
             <div class="settings-ui-level-meta ui-data-table-meta">
-              <div class="settings-ui-level-name ui-data-table-name">全局字号</div>
-              <div class="settings-ui-level-desc ui-data-table-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
+              <div class="settings-ui-level-name ui-data-table-name">${escapeHtml(t('settings.ui.label.global-font', undefined))}</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">${escapeHtml(t('settings.ui.desc.global-font', undefined))}</div>
             </div>
             <div class="settings-ui-level-slider ui-data-table-control">
               <input
@@ -609,12 +625,12 @@ export class SettingsPanel {
               />
               <span data-ui-global-font-value>${formatGlobalFontOffset(config.globalFontOffset)}</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--body ui-data-table-preview ui-data-table-preview--body">山门告示</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--body ui-data-table-preview ui-data-table-preview--body">${escapeHtml(t('settings.ui.preview.body', undefined))}</div>
           </div>
           <div class="settings-ui-table-row ui-data-table-row">
             <div class="settings-ui-level-meta ui-data-table-meta">
-              <div class="settings-ui-level-name ui-data-table-name">界面缩放</div>
-              <div class="settings-ui-level-desc ui-data-table-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
+              <div class="settings-ui-level-name ui-data-table-name">${escapeHtml(t('settings.ui.label.scale', undefined))}</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">${escapeHtml(t('settings.ui.desc.scale', undefined))}</div>
             </div>
             <div class="settings-ui-level-slider ui-data-table-control">
               <input
@@ -638,10 +654,10 @@ export class SettingsPanel {
               />
               <span data-ui-scale-value>${Math.round(config.uiScale * 100)}%</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--title ui-data-table-preview ui-data-table-preview--title">缩放预览</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--title ui-data-table-preview ui-data-table-preview--title">${escapeHtml(t('settings.ui.preview.scale', undefined))}</div>
           </div>
         </div>
-      <div id="settings-ui-style-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
+      <div id="settings-ui-style-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.ui.status.saved-local', undefined))}</div>
       </div>
     `;
   }
@@ -650,19 +666,19 @@ export class SettingsPanel {
   private renderRedeemTab(): string {
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">批量兑换</div>
-        <div class="settings-ui-copy ui-form-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
+        <div class="panel-section-title">${escapeHtml(t('settings.redeem.section.bulk', undefined))}</div>
+        <div class="settings-ui-copy ui-form-copy">${escapeHtml(t('settings.redeem.copy.bulk', undefined))}</div>
         <div class="account-settings-field ui-form-field">
-          <label class="ui-form-label" for="settings-redeem-codes">兑换码列表</label>
+          <label class="ui-form-label" for="settings-redeem-codes">${escapeHtml(t('settings.redeem.label.codes', undefined))}</label>
           <textarea
             id="settings-redeem-codes"
             class="settings-redeem-textarea ui-textarea"
             spellcheck="false"
-            placeholder="每行一个，或用空格 / 逗号分隔多个兑换码"
+            placeholder="${escapeHtml(t('settings.redeem.placeholder.codes', undefined))}"
           ></textarea>
         </div>
         <div class="account-settings-actions ui-inline-actions-end ui-action-row">
-          <button id="settings-redeem-submit" class="small-btn" type="button">立即兑换</button>
+          <button id="settings-redeem-submit" class="small-btn" type="button">${escapeHtml(t('settings.redeem.action.submit', undefined))}</button>
         </div>
         <div id="settings-redeem-status" class="account-settings-status ui-status-text"></div>
         <div id="settings-redeem-results" class="settings-redeem-results ui-card-list"></div>
@@ -676,15 +692,15 @@ export class SettingsPanel {
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-    <div class="panel-section-title">地图性能浮层</div>
-          <button id="settings-performance-reset" class="small-btn ghost" type="button">恢复默认</button>
+    <div class="panel-section-title">${escapeHtml(t('settings.performance.section.overlay', undefined))}</div>
+          <button id="settings-performance-reset" class="small-btn ghost" type="button">${escapeHtml(t('settings.common.action.reset-default', undefined))}</button>
         </div>
-        <div class="settings-ui-copy ui-form-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
+        <div class="settings-ui-copy ui-form-copy">${escapeHtml(t('settings.performance.copy.overlay', undefined))}</div>
         <div class="settings-performance-card ui-card-list">
           <div class="settings-performance-row ui-data-table-row">
             <div class="settings-performance-meta ui-data-table-meta">
-              <div class="settings-performance-name ui-data-table-name">显示地图帧率浮层</div>
-              <div class="settings-performance-desc ui-data-table-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
+              <div class="settings-performance-name ui-data-table-name">${escapeHtml(t('settings.performance.label.show-fps', undefined))}</div>
+              <div class="settings-performance-desc ui-data-table-desc">${escapeHtml(t('settings.performance.desc.show-fps', undefined))}</div>
             </div>
             <div class="settings-performance-actions ui-inline-actions-end-wrap">
               <button
@@ -692,19 +708,22 @@ export class SettingsPanel {
                 type="button"
                 data-performance-fps-toggle="off"
                 aria-pressed="${config.showFpsMonitor ? 'false' : 'true'}"
-              >关闭</button>
+              >${escapeHtml(t('settings.common.action.off', undefined))}</button>
               <button
                 class="small-btn ghost${config.showFpsMonitor ? ' active' : ''}"
                 type="button"
                 data-performance-fps-toggle="on"
                 aria-pressed="${config.showFpsMonitor ? 'true' : 'false'}"
-              >显示</button>
+              >${escapeHtml(t('settings.common.action.show', undefined))}</button>
             </div>
           </div>
           <div class="settings-performance-row ui-data-table-row">
             <div class="settings-performance-meta ui-data-table-meta">
-              <div class="settings-performance-name ui-data-table-name">地图渲染帧率上限</div>
-              <div class="settings-performance-desc ui-data-table-desc">默认 60 FPS，可按设备情况自行调整。仅限制地图渲染循环，最低 ${MAP_TARGET_FPS_RANGE.min}，最高 ${MAP_TARGET_FPS_RANGE.max}。</div>
+              <div class="settings-performance-name ui-data-table-name">${escapeHtml(t('settings.performance.label.target-fps', undefined))}</div>
+              <div class="settings-performance-desc ui-data-table-desc">${escapeHtml(t('settings.performance.desc.target-fps', {
+                min: MAP_TARGET_FPS_RANGE.min,
+                max: MAP_TARGET_FPS_RANGE.max,
+              }))}</div>
             </div>
             <div class="settings-performance-actions ui-inline-actions-end-wrap settings-performance-actions--numeric">
               <input
@@ -721,7 +740,7 @@ export class SettingsPanel {
             </div>
           </div>
         </div>
-        <div id="settings-performance-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
+        <div id="settings-performance-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.ui.status.saved-local', undefined))}</div>
       </div>
     `;
   }  
@@ -733,17 +752,17 @@ export class SettingsPanel {
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack settings-offline-gain-shell">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">收支统计</div>
-          <button id="settings-offline-gain-refresh" class="small-btn ghost" type="button">刷新</button>
+          <div class="panel-section-title">${escapeHtml(t('settings.offline-gain.section.title', undefined))}</div>
+          <button id="settings-offline-gain-refresh" class="small-btn ghost" type="button">${escapeHtml(t('settings.common.action.refresh', undefined))}</button>
         </div>
-        <div class="settings-ui-copy ui-form-copy">今日、昨日、本周总账来自服务端权威累计，包含在线与离线全部收支；下方历史只展示已存入本机的离线挂机记录。</div>
+        <div class="settings-ui-copy ui-form-copy">${escapeHtml(t('settings.offline-gain.copy.summary', undefined))}</div>
         <div id="settings-offline-gain-summary">
           ${this.renderOfflineGainHistorySummary(totals)}
         </div>
         <div id="settings-offline-gain-list" class="settings-offline-gain-list">
           ${this.renderOfflineGainHistoryList(reports)}
         </div>
-        <div id="settings-offline-gain-status" class="account-settings-status ui-status-text">总账为服务端下发缓存，历史为本机离线挂机归档</div>
+        <div id="settings-offline-gain-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.offline-gain.status.source', undefined))}</div>
       </div>
     `;
   }
@@ -780,9 +799,9 @@ export class SettingsPanel {
   private renderOfflineGainHistorySummary(totals: PlayerStatisticTotalsView | null): string {
     return `
       <div class="settings-offline-gain-summary">
-        ${this.renderStatisticPeriodCard('今日总计', totals?.today)}
-        ${this.renderStatisticPeriodCard('昨日总计', totals?.yesterday)}
-        ${this.renderStatisticPeriodCard('本周总计', totals?.week)}
+        ${this.renderStatisticPeriodCard(t('settings.offline-gain.period.today', undefined), totals?.today)}
+        ${this.renderStatisticPeriodCard(t('settings.offline-gain.period.yesterday', undefined), totals?.yesterday)}
+        ${this.renderStatisticPeriodCard(t('settings.offline-gain.period.week', undefined), totals?.week)}
       </div>
     `;
   }
@@ -794,19 +813,19 @@ export class SettingsPanel {
       <div class="settings-offline-gain-stat ui-surface-card ui-surface-card--compact">
         <span class="settings-offline-gain-stat-title">${escapeHtml(title)}</span>
         <div class="settings-offline-gain-stat-line">
-          <small>灵石</small>
+          <small>${escapeHtml(t('settings.offline-gain.metric.spirit-stones', undefined))}</small>
           <strong>${escapeHtml(formatSignedAmount(total.spiritStones.gained, total.spiritStones.lost))}</strong>
         </div>
         <div class="settings-offline-gain-stat-line">
-          <small>修为</small>
+          <small>${escapeHtml(t('settings.offline-gain.metric.progress', undefined))}</small>
           <strong>${escapeHtml(formatSignedAmount(total.progress.gained, total.progress.lost))}</strong>
         </div>
         <div class="settings-offline-gain-stat-line">
-          <small>功法</small>
+          <small>${escapeHtml(t('settings.offline-gain.metric.techniques', undefined))}</small>
           <strong>${escapeHtml(formatSignedAmount(total.techniques.gained, total.techniques.lost))}</strong>
         </div>
         <div class="settings-offline-gain-stat-line">
-          <small>技艺</small>
+          <small>${escapeHtml(t('settings.offline-gain.metric.professions', undefined))}</small>
           <strong>${escapeHtml(formatSignedAmount(total.professions.gained, total.professions.lost))}</strong>
         </div>
       </div>
@@ -816,12 +835,12 @@ export class SettingsPanel {
   /** renderOfflineGainHistoryList：渲染收支统计历史列表。 */
   private renderOfflineGainHistoryList(reports: OfflineGainReportView[]): string {
     if (reports.length === 0) {
-      return '<div class="ui-empty-hint compact settings-offline-gain-empty">本机还没有离线挂机历史</div>';
+      return `<div class="ui-empty-hint compact settings-offline-gain-empty">${escapeHtml(t('settings.offline-gain.empty.history', undefined))}</div>`;
     }
     const selected = resolveSelectedOfflineGainReport(reports, this.selectedOfflineGainReportId) ?? reports[0];
     return `
       <div class="settings-offline-gain-history-layout">
-        <div class="settings-offline-gain-record-list" role="listbox" aria-label="离线挂机历史">
+        <div class="settings-offline-gain-record-list" role="listbox" aria-label="${escapeHtml(t('settings.offline-gain.aria.history', undefined))}">
           ${reports.map((report) => this.renderOfflineGainHistoryListItem(report, selected.id)).join('')}
         </div>
         <div id="settings-offline-gain-detail" class="settings-offline-gain-detail">
@@ -843,7 +862,9 @@ export class SettingsPanel {
         data-offline-gain-report-id="${escapeHtml(report.id)}"
       >
         <span class="settings-offline-gain-record-date">${escapeHtml(formatOfflineGainTime(report.endedAt))}</span>
-        <span class="settings-offline-gain-record-meta">离线挂机 ${escapeHtml(formatOfflineGainDuration(report.durationMs))}</span>
+        <span class="settings-offline-gain-record-meta">${escapeHtml(t('settings.offline-gain.record.duration', {
+          duration: formatOfflineGainDuration(report.durationMs),
+        }))}</span>
       </button>
     `;
   }
@@ -890,13 +911,13 @@ export class SettingsPanel {
     }
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
-      setStatus(statusEl, '请至少填写一个兑换码', 'error');
+      setStatus(statusEl, t('settings.redeem.error.empty', undefined), 'error');
       patchElementHtml(resultEl, '');
       return;
     }
 
     button.disabled = true;
-      setStatus(statusEl, '兑换已呈报，静待回音...', '');
+      setStatus(statusEl, t('settings.redeem.status.submitted', undefined), '');
     patchElementHtml(resultEl, '');
     try {
       const result = await this.options.redeemCodes(codes);
@@ -904,12 +925,17 @@ export class SettingsPanel {
       const failedCount = result.results.length - successCount;
       setStatus(
         statusEl,
-        failedCount > 0 ? `兑换收讫：${successCount} 成 ${failedCount} 败` : `兑换收讫：${successCount} 成`,
+        failedCount > 0
+          ? t('settings.redeem.status.result-mixed', {
+            successCount,
+            failedCount,
+          })
+          : t('settings.redeem.status.result-success', { successCount }),
         failedCount > 0 ? 'error' : 'success',
       );
       patchElementChildren(resultEl, result.results.map((entry) => this.createRedeemResultCard(entry)));
     } catch (error) {
-      setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : t('settings.redeem.error.failed', undefined), 'error');
       patchElementHtml(resultEl, '');
     } finally {
       button.disabled = false;
@@ -925,7 +951,9 @@ export class SettingsPanel {
     const code = document.createElement('span');
     code.textContent = entry.code;
     const status = document.createElement('span');
-    status.textContent = entry.ok ? '成功' : '失败';
+    status.textContent = entry.ok
+      ? t('settings.redeem.result.success', undefined)
+      : t('settings.redeem.result.failed', undefined);
     head.append(code, status);
 
     const body = document.createElement('div');
@@ -954,7 +982,7 @@ export class SettingsPanel {
     const displayName = input.value.normalize('NFC');
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '道号可继续使用', '');
+      setStatus(statusEl, t('settings.account.status.display-name-available-current', undefined), '');
       return;
     }
 
@@ -965,7 +993,7 @@ export class SettingsPanel {
       return;
     }
 
-    setStatus(statusEl, '正在检测...', '');
+    setStatus(statusEl, t('settings.account.status.checking', undefined), '');
     this.displayNameCheckTimer = setTimeout(() => {
       void this.checkDisplayName(displayName, statusEl);
     }, 250);
@@ -977,7 +1005,7 @@ export class SettingsPanel {
 
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '道号可继续使用', '');
+      setStatus(statusEl, t('settings.account.status.display-name-available-current', undefined), '');
       return;
     }
     if (this.displayNameAbortController) {
@@ -994,7 +1022,7 @@ export class SettingsPanel {
       this.displayNameAvailable = result.available;
       setStatus(
         statusEl,
-        result.available ? '道号可用' : (result.message ?? '道号已被占'),
+        result.available ? t('settings.account.status.display-name-available', undefined) : (result.message ?? t('settings.account.status.display-name-taken', undefined)),
         result.available ? 'success' : 'error',
       );
     } catch (error) {
@@ -1002,7 +1030,7 @@ export class SettingsPanel {
         return;
       }
       this.displayNameAvailable = false;
-      setStatus(statusEl, error instanceof Error ? error.message : '验查未果', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : t('settings.account.error.check-failed', undefined), 'error');
     }
   }  
   /**
@@ -1023,7 +1051,7 @@ export class SettingsPanel {
 
     const accessToken = getAccessToken();
     if (!accessToken) {
-      setStatus(statusEl, '登录已失效，请重新登录', 'error');
+      setStatus(statusEl, t('settings.account.error.login-expired', undefined), 'error');
       return;
     }
 
@@ -1041,16 +1069,16 @@ export class SettingsPanel {
     }
 
     button.disabled = true;
-    setStatus(statusEl, '正在保存...', '');
+    setStatus(statusEl, t('settings.account.status.saving', undefined), '');
     try {
       const result = await updateDisplayName(accessToken, { displayName });
       this.currentDisplayName = result.displayName;
       this.displayNameAvailable = true;
       input.value = result.displayName;
       this.options?.onDisplayNameUpdated(result.displayName);
-      setStatus(statusEl, '道号已更', 'success');
+      setStatus(statusEl, t('settings.account.status.display-name-saved', undefined), 'success');
     } catch (error) {
-      setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : t('settings.account.error.save-failed', undefined), 'error');
     } finally {
       button.disabled = false;
     }
@@ -1075,12 +1103,12 @@ export class SettingsPanel {
 
     const accessToken = getAccessToken();
     if (!accessToken) {
-      setStatus(statusEl, '登录已失效，请重新登录', 'error');
+      setStatus(statusEl, t('settings.account.error.login-expired', undefined), 'error');
       return;
     }
 
     if (!currentPasswordInput.value) {
-      setStatus(statusEl, '当前密码不能为空', 'error');
+      setStatus(statusEl, t('settings.account.error.current-password-empty', undefined), 'error');
       return;
     }
     const passwordError = validatePassword(newPasswordInput.value);
@@ -1090,7 +1118,7 @@ export class SettingsPanel {
     }
 
     button.disabled = true;
-    setStatus(statusEl, '正在保存...', '');
+    setStatus(statusEl, t('settings.account.status.saving', undefined), '');
     try {
       await updatePassword(accessToken, {
         currentPassword: currentPasswordInput.value,
@@ -1098,9 +1126,9 @@ export class SettingsPanel {
       });
       currentPasswordInput.value = '';
       newPasswordInput.value = '';
-      setStatus(statusEl, '密码已更新', 'success');
+      setStatus(statusEl, t('settings.account.status.password-saved', undefined), 'success');
     } catch (error) {
-      setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : t('settings.account.error.save-failed', undefined), 'error');
     } finally {
       button.disabled = false;
     }
@@ -1123,7 +1151,7 @@ export class SettingsPanel {
 
     const accessToken = getAccessToken();
     if (!accessToken) {
-      setStatus(statusEl, '登录已失效，请重新登录', 'error');
+      setStatus(statusEl, t('settings.account.error.login-expired', undefined), 'error');
       return;
     }
 
@@ -1134,20 +1162,20 @@ export class SettingsPanel {
       return;
     }
     if (roleName === this.currentRoleName) {
-      setStatus(statusEl, '角色名称未变化', '');
+      setStatus(statusEl, t('settings.account.status.role-name-unchanged', undefined), '');
       return;
     }
 
     button.disabled = true;
-    setStatus(statusEl, '正在保存...', '');
+    setStatus(statusEl, t('settings.account.status.saving', undefined), '');
     try {
       const result = await updateRoleName(accessToken, { roleName });
       this.currentRoleName = result.roleName;
       input.value = result.roleName;
       this.options?.onRoleNameUpdated(result.roleName);
-      setStatus(statusEl, '角色名号已更', 'success');
+      setStatus(statusEl, t('settings.account.status.role-name-saved', undefined), 'success');
     } catch (error) {
-      setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : t('settings.account.error.save-failed', undefined), 'error');
     } finally {
       button.disabled = false;
     }

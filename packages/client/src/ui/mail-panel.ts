@@ -11,6 +11,7 @@ import type { SocketSocialEconomySender } from '../network/socket-send-social-ec
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 import { patchElementChildren } from './dom-patch';
+import { t } from './i18n';
 
 /** 转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -44,9 +45,9 @@ const MAIL_FILTER_OPTIONS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { id: 'all', label: '全部' },
-  { id: 'unread', label: '未阅' },
-  { id: 'claimable', label: '可取信物' },
+  { id: 'all', label: t('mail.filter.all', undefined) },
+  { id: 'unread', label: t('mail.filter.unread', undefined) },
+  { id: 'claimable', label: t('mail.filter.claimable', undefined) },
 ];
 
 const EMPTY_SUMMARY: MailSummaryView = {
@@ -67,15 +68,15 @@ const EMPTY_PAGE: MailPageView = {
 /** 邮件附件列表每页显示数量。 */
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 /** 邮件弹窗默认提示。 */
-const MAIL_MODAL_HINT_DEFAULT = '点击空白处关闭';
+const MAIL_MODAL_HINT_DEFAULT = t('mail.modal.close-hint', undefined);
 /** 邮件列表空态文案。 */
-const MAIL_LIST_EMPTY_TEXT = '当前筛选下暂无邮件';
+const MAIL_LIST_EMPTY_TEXT = t('mail.empty.list', undefined);
 /** 邮件详情空态文案。 */
-const MAIL_DETAIL_EMPTY_TEXT = '请选择一封邮件查看详情';
+const MAIL_DETAIL_EMPTY_TEXT = t('mail.empty.detail', undefined);
 /** 邮件正文空态文案。 */
-const MAIL_BODY_EMPTY_TEXT = '这封邮件无正文内容。';
+const MAIL_BODY_EMPTY_TEXT = t('mail.empty.body', undefined);
 /** 邮件附件空态文案。 */
-const MAIL_ATTACHMENT_EMPTY_TEXT = '这封邮件无信物';
+const MAIL_ATTACHMENT_EMPTY_TEXT = t('mail.empty.attachments', undefined);
 
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
@@ -473,7 +474,7 @@ export class MailPanel {
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
       variantClass: 'detail-modal--mail',
-      title: '飞书台',
+      title: t('mail.modal.title', undefined),
       subtitle: meta.subtitle,
       hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
@@ -614,7 +615,7 @@ export class MailPanel {
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
       variantClass: 'detail-modal--mail',
-      title: '飞书台',
+      title: t('mail.modal.title'),
       subtitle: meta.subtitle,
       hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
@@ -636,27 +637,27 @@ export class MailPanel {
       <div class="mail-shell">
             <div class="mail-summary-grid">
               <div class="mail-summary-card">
-            <div class="mail-summary-label">未阅</div>
+            <div class="mail-summary-label">${escapeHtml(t('mail.summary.unread', undefined))}</div>
                 <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
-                  <div class="mail-summary-note">点入信笺，归入已阅。</div>
+                  <div class="mail-summary-note">${escapeHtml(t('mail.summary.unread-note', undefined))}</div>
                 </div>
             <div class="mail-summary-card">
-              <div class="mail-summary-label">可取信物</div>
+              <div class="mail-summary-label">${escapeHtml(t('mail.summary.claimable', undefined))}</div>
               <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
-              <div class="mail-summary-note">信物取出由天道控卷，不入地图广播。</div>
+              <div class="mail-summary-note">${escapeHtml(t('mail.summary.claimable-note', undefined))}</div>
             </div>
           <div class="mail-summary-card">
-            <div class="mail-summary-label">当前筛选</div>
+            <div class="mail-summary-label">${escapeHtml(t('mail.summary.current-filter', undefined))}</div>
             <div class="mail-summary-value" data-mail-summary-total="true">${total}</div>
-            <div class="mail-summary-note" data-mail-summary-page-meta="true">第 ${this.pageData.page} / ${this.pageData.totalPages} 页，已勾选 ${selectedCount} 封。</div>
+            <div class="mail-summary-note" data-mail-summary-page-meta="true">${escapeHtml(this.formatPageMeta(selectedCount))}</div>
           </div>
         </div>
 
         <div class="mail-layout">
           <section class="panel-section mail-pane mail-pane--list">
             <div class="mail-pane-head">
-              <div class="panel-section-title">邮件列表</div>
-              <div class="mail-pane-note">按需拉取，不在登录首包塞整箱正文</div>
+              <div class="panel-section-title">${escapeHtml(t('mail.list.title', undefined))}</div>
+              <div class="mail-pane-note">${escapeHtml(t('mail.list.note', undefined))}</div>
             </div>
             <div class="mail-toolbar">
               <div class="mail-filter-row">
@@ -665,10 +666,10 @@ export class MailPanel {
                 `).join('')}
               </div>
               <div class="mail-batch-row">
-                <button class="small-btn ghost" data-mail-select-page type="button" ${this.pageData.items.length === 0 ? 'disabled' : ''}>全选本页</button>
-                <button class="small-btn ghost" data-mail-clear-selection type="button" ${selectedCount === 0 ? 'disabled' : ''}>清空勾选</button>
-                <button class="small-btn" data-mail-batch-claim type="button" ${selectedCount === 0 ? 'disabled' : ''}>领取勾选</button>
-                <button class="small-btn danger" data-mail-batch-delete type="button" ${selectedCount === 0 ? 'disabled' : ''}>删除勾选</button>
+                <button class="small-btn ghost" data-mail-select-page type="button" ${this.pageData.items.length === 0 ? 'disabled' : ''}>${escapeHtml(t('mail.action.select-page', undefined))}</button>
+                <button class="small-btn ghost" data-mail-clear-selection type="button" ${selectedCount === 0 ? 'disabled' : ''}>${escapeHtml(t('mail.action.clear-selection', undefined))}</button>
+                <button class="small-btn" data-mail-batch-claim type="button" ${selectedCount === 0 ? 'disabled' : ''}>${escapeHtml(t('mail.action.claim-selected', undefined))}</button>
+                <button class="small-btn danger" data-mail-batch-delete type="button" ${selectedCount === 0 ? 'disabled' : ''}>${escapeHtml(t('mail.action.delete-selected', undefined))}</button>
               </div>
             </div>
             <div class="mail-list" data-mail-list="true">
@@ -677,15 +678,15 @@ export class MailPanel {
                 : `<div class="empty-hint">${escapeHtml(MAIL_LIST_EMPTY_TEXT)}</div>`}
             </div>
             <div class="suggestion-pagination">
-              <button class="small-btn ghost" data-mail-page-action="prev" type="button" ${this.pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
-              <button class="small-btn ghost" data-mail-page-action="next" type="button" ${this.pageData.page >= this.pageData.totalPages ? 'disabled' : ''}>下一页</button>
+              <button class="small-btn ghost" data-mail-page-action="prev" type="button" ${this.pageData.page <= 1 ? 'disabled' : ''}>${escapeHtml(t('mail.action.prev-page', undefined))}</button>
+              <button class="small-btn ghost" data-mail-page-action="next" type="button" ${this.pageData.page >= this.pageData.totalPages ? 'disabled' : ''}>${escapeHtml(t('mail.action.next-page', undefined))}</button>
             </div>
           </section>
 
           <section class="panel-section mail-pane mail-pane--detail">
             <div class="mail-pane-head">
-              <div class="panel-section-title">邮件详情</div>
-              <div class="mail-pane-note">单实例详情弹层</div>
+              <div class="panel-section-title">${escapeHtml(t('mail.detail.title', undefined))}</div>
+              <div class="mail-pane-note">${escapeHtml(t('mail.detail.note', undefined))}</div>
             </div>
             <div class="mail-detail" data-mail-detail="true">
               ${detail ? this.renderDetail(detail) : `<div class="empty-hint">${escapeHtml(MAIL_DETAIL_EMPTY_TEXT)}</div>`}
@@ -761,8 +762,10 @@ export class MailPanel {
     const selected = item.mailId === this.selectedMailId;
     const checked = this.selectedMailIds.has(item.mailId);
     const stateChips = [
-      item.read ? '已阅' : '未阅',
-      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
+      item.read ? t('mail.state.read', undefined) : t('mail.state.unread', undefined),
+      item.hasAttachments
+        ? (item.claimed ? t('mail.state.claimed', undefined) : t('mail.state.claimable', undefined))
+        : t('mail.state.no-attachments', undefined),
     ];
     node.dataset.mailSelect = item.mailId;
     node.classList.toggle('selected', selected);
@@ -776,14 +779,16 @@ export class MailPanel {
       [
         item.senderLabel,
         ...stateChips,
-        ...(item.expireAt ? [`至 ${new Date(item.expireAt).toLocaleString()}`] : []),
+        ...(item.expireAt ? [t('mail.expire.until', {
+          time: new Date(item.expireAt).toLocaleString(),
+        })] : []),
       ].map((text) => {
         const span = document.createElement('span');
         span.textContent = text;
         return span;
       }),
     );
-    summary.textContent = item.summary || '信笺无言';
+    summary.textContent = item.summary || t('mail.summary.empty', undefined);
     return true;
   }
 
@@ -831,21 +836,21 @@ export class MailPanel {
     attachmentHead.className = 'mail-attachment-head';
     const attachmentTitle = document.createElement('div');
     attachmentTitle.className = 'mail-attachment-title';
-    attachmentTitle.textContent = '信物';
+    attachmentTitle.textContent = t('mail.attachment.title', undefined);
     const attachmentPagination = document.createElement('div');
     attachmentPagination.className = 'mail-attachment-pagination';
     const attachmentPrevButton = document.createElement('button');
     attachmentPrevButton.className = 'small-btn ghost';
     attachmentPrevButton.type = 'button';
     attachmentPrevButton.dataset.mailAttachmentPage = 'prev';
-    attachmentPrevButton.textContent = '上一页';
+    attachmentPrevButton.textContent = t('mail.action.prev-page', undefined);
     const attachmentPageMeta = document.createElement('span');
     attachmentPageMeta.className = 'mail-attachment-page-meta';
     const attachmentNextButton = document.createElement('button');
     attachmentNextButton.className = 'small-btn ghost';
     attachmentNextButton.type = 'button';
     attachmentNextButton.dataset.mailAttachmentPage = 'next';
-    attachmentNextButton.textContent = '下一页';
+    attachmentNextButton.textContent = t('mail.action.next-page', undefined);
     attachmentPagination.append(attachmentPrevButton, attachmentPageMeta, attachmentNextButton);
     attachmentHead.append(attachmentTitle, attachmentPagination);
 
@@ -897,13 +902,15 @@ export class MailPanel {
     refs.titleNode.textContent = title;
     refs.senderNode.textContent = detail.senderLabel;
     refs.createdAtNode.textContent = new Date(detail.createdAt).toLocaleString();
-    refs.expireNode.textContent = detail.expireAt ? `到期 ${new Date(detail.expireAt).toLocaleString()}` : '长期保留';
+    refs.expireNode.textContent = detail.expireAt
+      ? t('mail.expire.at', { time: new Date(detail.expireAt).toLocaleString() })
+      : t('mail.expire.permanent', undefined);
     refs.markReadButton.dataset.mailMarkRead = detail.mailId;
     refs.claimButton.dataset.mailClaim = detail.mailId;
     refs.deleteButton.dataset.mailDelete = detail.mailId;
-    refs.markReadButton.textContent = '标已阅';
-    refs.claimButton.textContent = '收取信物';
-    refs.deleteButton.textContent = '删除';
+    refs.markReadButton.textContent = t('mail.action.mark-read', undefined);
+    refs.claimButton.textContent = t('mail.action.claim', undefined);
+    refs.deleteButton.textContent = t('mail.action.delete', undefined);
     refs.markReadButton.disabled = detail.read;
     refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
     refs.deleteButton.disabled = !detail.deletable;
@@ -916,7 +923,10 @@ export class MailPanel {
     }));
 
     refs.attachmentPagination.hidden = detail.attachments.length <= MAIL_ATTACHMENT_PAGE_SIZE;
-    refs.attachmentPageMeta.textContent = `第 ${attachmentPage} / ${totalAttachmentPages} 页`;
+    refs.attachmentPageMeta.textContent = t('mail.attachment.page-meta', {
+      page: attachmentPage,
+      totalPages: totalAttachmentPages,
+    });
     refs.attachmentPrevButton.disabled = attachmentPage <= 1;
     refs.attachmentNextButton.disabled = attachmentPage >= totalAttachmentPages;
     refs.attachmentEmpty.hidden = detail.attachments.length > 0;
@@ -970,8 +980,10 @@ export class MailPanel {
     const selected = item.mailId === this.selectedMailId;
     const checked = this.selectedMailIds.has(item.mailId);
     const stateChips = [
-      item.read ? '已阅' : '未阅',
-      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
+      item.read ? t('mail.state.read', undefined) : t('mail.state.unread', undefined),
+      item.hasAttachments
+        ? (item.claimed ? t('mail.state.claimed', undefined) : t('mail.state.claimable', undefined))
+        : t('mail.state.no-attachments', undefined),
     ];
     return `
       <article class="mail-entry ${selected ? 'selected' : ''}" data-mail-select="${escapeHtmlAttr(item.mailId)}" tabindex="0" role="button">
@@ -989,9 +1001,11 @@ export class MailPanel {
           <div class="mail-entry-meta" data-mail-entry-meta="true">
             <span>${escapeHtml(item.senderLabel)}</span>
             ${stateChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('')}
-            ${item.expireAt ? `<span>至 ${escapeHtml(new Date(item.expireAt).toLocaleString())}</span>` : ''}
+            ${item.expireAt ? `<span>${escapeHtml(t('mail.expire.until', {
+              time: new Date(item.expireAt).toLocaleString(),
+            }))}</span>` : ''}
           </div>
-      <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || '信笺无言')}</div>
+      <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || t('mail.summary.empty', undefined))}</div>
         </div>
       </article>
     `;
@@ -1013,24 +1027,29 @@ export class MailPanel {
           <div class="mail-detail-meta">
             <span>${escapeHtml(detail.senderLabel)}</span>
             <span>${escapeHtml(new Date(detail.createdAt).toLocaleString())}</span>
-            ${detail.expireAt ? `<span>到期 ${escapeHtml(new Date(detail.expireAt).toLocaleString())}</span>` : '<span>长期保留</span>'}
+            ${detail.expireAt ? `<span>${escapeHtml(t('mail.expire.at', {
+              time: new Date(detail.expireAt).toLocaleString(),
+            }))}</span>` : `<span>${escapeHtml(t('mail.expire.permanent', undefined))}</span>`}
           </div>
         </div>
         <div class="mail-detail-actions">
-          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>标已阅</button>
-          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>收取信物</button>
-          <button class="small-btn danger" data-mail-delete="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.deletable ? 'disabled' : ''}>删除</button>
+          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>${escapeHtml(t('mail.action.mark-read', undefined))}</button>
+          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>${escapeHtml(t('mail.action.claim', undefined))}</button>
+          <button class="small-btn danger" data-mail-delete="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.deletable ? 'disabled' : ''}>${escapeHtml(t('mail.action.delete', undefined))}</button>
         </div>
       </div>
       <div class="mail-detail-body">${escapeHtml(body || MAIL_BODY_EMPTY_TEXT).replaceAll('\n', '<br />')}</div>
       <div class="mail-attachment-block">
         <div class="mail-attachment-head">
-    <div class="mail-attachment-title">信物</div>
+    <div class="mail-attachment-title">${escapeHtml(t('mail.attachment.title', undefined))}</div>
           ${detail.attachments.length > MAIL_ATTACHMENT_PAGE_SIZE ? `
             <div class="mail-attachment-pagination">
-              <button class="small-btn ghost" data-mail-attachment-page="prev" type="button" ${attachmentPage <= 1 ? 'disabled' : ''}>上一页</button>
-              <span class="mail-attachment-page-meta">第 ${attachmentPage} / ${totalAttachmentPages} 页</span>
-              <button class="small-btn ghost" data-mail-attachment-page="next" type="button" ${attachmentPage >= totalAttachmentPages ? 'disabled' : ''}>下一页</button>
+              <button class="small-btn ghost" data-mail-attachment-page="prev" type="button" ${attachmentPage <= 1 ? 'disabled' : ''}>${escapeHtml(t('mail.action.prev-page', undefined))}</button>
+              <span class="mail-attachment-page-meta">${escapeHtml(t('mail.attachment.page-meta', {
+                page: attachmentPage,
+                totalPages: totalAttachmentPages,
+              }))}</span>
+              <button class="small-btn ghost" data-mail-attachment-page="next" type="button" ${attachmentPage >= totalAttachmentPages ? 'disabled' : ''}>${escapeHtml(t('mail.action.next-page', undefined))}</button>
             </div>
           ` : ''}
         </div>
@@ -1218,7 +1237,7 @@ export class MailPanel {
     unreadNode.textContent = String(this.summary.unreadCount);
     claimableNode.textContent = String(this.summary.claimableCount);
     totalNode.textContent = String(this.pageData.total);
-    pageMetaNode.textContent = `第 ${this.pageData.page} / ${this.pageData.totalPages} 页，已勾选 ${selectedCount} 封。`;
+    pageMetaNode.textContent = this.formatPageMeta(selectedCount);
 
     for (const option of MAIL_FILTER_OPTIONS) {
       const button = body.querySelector<HTMLButtonElement>(`[data-mail-filter="${escapeHtmlAttr(option.id)}"]`);
@@ -1255,9 +1274,20 @@ export class MailPanel {
   /** 生成弹窗标题栏文案。 */
   private buildModalMeta(): MailModalMeta {
     return {
-      subtitle: `未阅 ${this.summary.unreadCount} · 可取信物 ${this.summary.claimableCount}`,
+      subtitle: t('mail.modal.subtitle', {
+        unreadCount: this.summary.unreadCount,
+        claimableCount: this.summary.claimableCount,
+      }),
       hint: this.statusMessage || MAIL_MODAL_HINT_DEFAULT,
     };
+  }
+
+  private formatPageMeta(selectedCount: number): string {
+    return t('mail.summary.page-meta', {
+      page: this.pageData.page,
+      totalPages: this.pageData.totalPages,
+      selectedCount,
+    });
   }
 
   /** 直接更新弹窗标题栏的摘要和提示。 */

@@ -120,7 +120,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
             kind: 'move',
             direction,
             continuous: true,
-            resetBudget: true,
+            resetBudget: false,
         });
         (0, movement_debug_1.logServerNextMovement)(deps.logger ?? this.logger, 'runtime.enqueue.move', {
             playerId,
@@ -393,7 +393,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
             continuous: true,
             maxSteps: initialStep.maxSteps,
             path: initialStep.path ?? undefined,
-            resetBudget: true,
+            resetBudget: false,
         });
     }    
     /**

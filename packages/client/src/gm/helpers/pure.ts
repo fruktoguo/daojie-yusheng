@@ -4,6 +4,7 @@ import {
   type GmManagedPlayerSummary,
   type RedeemCodeGroupRewardItem,
 } from '@mud/shared';
+import { t } from '../../ui/i18n';
 
 /** GM 邮件草稿里单条附件的最小输入结构。 */
 interface GmMailAttachmentDraft {
@@ -152,7 +153,7 @@ export function createDefaultMailComposerDraft(): GmMailComposerDraft {
   return {
     templateId: '',
     targetPlayerId: '',
-    senderLabel: '司命台',
+    senderLabel: t('gm.mail.sender.default', undefined),
     title: '',
     body: '',
     expireHours: '72',
@@ -230,10 +231,10 @@ export function formatDurationSeconds(seconds: number): string {
   const hours = Math.floor((safe % 86400) / 3600);
   const minutes = Math.floor((safe % 3600) / 60);
   const secs = safe % 60;
-  if (days > 0) return `${days}天 ${hours}时 ${minutes}分`;
-  if (hours > 0) return `${hours}时 ${minutes}分 ${secs}秒`;
-  if (minutes > 0) return `${minutes}分 ${secs}秒`;
-  return `${secs}秒`;
+  if (days > 0) return t('gm.duration.days', { days, hours, minutes });
+  if (hours > 0) return t('gm.duration.hours', { hours, minutes, seconds: secs });
+  if (minutes > 0) return t('gm.duration.minutes', { minutes, seconds: secs });
+  return t('gm.duration.seconds', { seconds: secs });
 }
 
 /** 将 ISO 时间转成本地中文时间，非法值返回 `无`。 */
@@ -241,11 +242,11 @@ export function formatDateTime(value?: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!value) {
-    return '无';
+    return t('gm.none', undefined);
   }
   const time = new Date(value);
   if (Number.isNaN(time.getTime())) {
-    return '无';
+    return t('gm.none', undefined);
   }
   return time.toLocaleString('zh-CN');
 }
@@ -268,12 +269,12 @@ export function getPlayerPresenceMeta(
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (player.meta.online) {
-    return { className: 'online', label: '在线' };
+    return { className: 'online', label: t('gm.presence.online') as '在线' };
   }
   if (player.meta.inWorld) {
-    return { className: 'offline', label: '离线挂机' };
+    return { className: 'offline', label: t('gm.presence.offline-hanging') as '离线挂机' };
   }
-  return { className: 'offline', label: '离线' };
+  return { className: 'offline', label: t('gm.presence.offline') as '离线' };
 }
 
 /** 复用在线状态映射，生成托管账号的显示文本。 */
@@ -329,5 +330,3 @@ export function removeArrayIndex(target: unknown, path: string, index: number): 
 export function ensureArray<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
 }
-
-

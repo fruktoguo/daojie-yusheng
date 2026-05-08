@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { UiPanelFrame } from './UiPanelFrame';
+import { t } from '../../ui/i18n';
 /**
  * UiMailDetailProps：定义接口结构约束，明确可交付字段含义。
  */
@@ -39,7 +40,7 @@ export function UiMailDetail({
   bodyLines,
 }: UiMailDetailProps) {
   return (
-    <UiPanelFrame title={title} subtitle={`来自 ${from}`}>
+    <UiPanelFrame title={title} subtitle={t('react.mail.from', { from: String(from) })}>
       <div className="react-ui-mail-detail-body react-ui-copy-block">
         {bodyLines.map((line, index) => (
           <p key={`${title}-${index}`}>{line}</p>
