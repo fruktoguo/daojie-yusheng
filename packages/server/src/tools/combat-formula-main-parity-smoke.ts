@@ -3,7 +3,9 @@
 
 const assert = require("node:assert/strict");
 const shared_1 = require("@mud/shared");
+const { PlayerCombatService } = require("../runtime/combat/player-combat.service");
 const combat_resolution_helpers_1 = require("../runtime/combat/combat-resolution.helpers");
+const { resolveMonsterCombatExpEquivalentFallback } = require("../runtime/combat/monster-combat-exp-equivalent.helper");
 
 function createStats(patch = {}) {
     return {
@@ -34,11 +36,13 @@ function createRatios() {
 function withRandom(value, fn) {
     const previous = Math.random;
     Math.random = () => value;
+    combat_resolution_helpers_1.setCombatRngForTesting(() => value);
     try {
         return fn();
     }
     finally {
         Math.random = previous;
+        combat_resolution_helpers_1.resetCombatRngForTesting();
     }
 }
 
@@ -91,6 +95,57 @@ withRandom(0.99, () => {
         damageMultiplier: 2,
     });
     assert.equal(combatExpScaled.damage, 200, '普攻战斗经验伤害乘区应作为独立最终乘区');
+});
+
+withRandom(0.99, () => {
+    const service = new PlayerCombatService({});
+    const fallbackCombatExp = resolveMonsterCombatExpEquivalentFallback(12);
+    assert.equal(fallbackCombatExp, 32500, '怪物战斗经验兜底应按境界表 expToNext * 品阶系数，不应退回 level * 100');
+    assert.equal(resolveMonsterCombatExpEquivalentFallback(25), 4547000, '玄阶怪物战斗经验系数应按凡阶 0.25 后每阶翻倍，玄阶为 1.0');
+    assert.equal(resolveMonsterCombatExpEquivalentFallback({ level: 12, tier: 'variant' }), 65000, '异种怪物战斗经验应在普通等价值基础上乘 2');
+    assert.equal(resolveMonsterCombatExpEquivalentFallback({ level: 12, tier: 'demon_king' }), 130000, '妖王怪物战斗经验应在普通等价值基础上乘 4');
+
+    const attacker = {
+        runtimeId: 'monster:combat-exp-fallback',
+        monsterId: 'monster:fallback',
+        level: 12,
+        tier: 'variant',
+        attrs: {
+            numericStats: createStats({ physAtk: 100, hit: 100 }),
+            ratioDivisors: createRatios(),
+        },
+        techniques: { techniques: [] },
+        combat: { cooldownReadyTickBySkillId: {} },
+    };
+    const target = {
+        playerId: 'player:combat-exp-fallback-target',
+        hp: 1000,
+        maxHp: 1000,
+        qi: 0,
+        maxQi: 0,
+        realm: { realmLv: 12 },
+        combatExp: 10000,
+        attrs: {
+            numericStats: createStats({ physDef: 0, dodge: 200, antiCrit: 0, resolvePower: 0 }),
+            ratioDivisors: createRatios(),
+        },
+        buffs: { buffs: [] },
+        techniques: { techniques: [] },
+        combat: { cooldownReadyTickBySkillId: {} },
+    };
+    const result = service.executeResolvedSkillCast(attacker, target, {
+        skill: {
+            id: 'monster:fallback:skill',
+            name: '兜底测试',
+            cost: { qi: 0 },
+            cooldown: 1,
+            range: 1,
+            effects: [{ type: 'damage', formula: { var: 'caster.stat.physAtk' }, target: 'enemy', damageKind: 'physical' }],
+        },
+        level: 1,
+        readyTick: 0,
+    }, 1, 1, { setCooldownReadyTick: () => undefined }, { skipResourceAndCooldown: true });
+    assert.equal(result.damageRolls?.[0]?.dodged, false, '底层战斗服务缺省 combatExp 时应使用 main 口径怪物等价值参与命中对抗');
 });
 
 console.log(JSON.stringify({ ok: true, case: 'combat-formula-main-parity' }, null, 2));

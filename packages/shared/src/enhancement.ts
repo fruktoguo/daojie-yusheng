@@ -9,6 +9,12 @@ import type { PartialNumericStats } from './numeric';
 import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
+import {
+  CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL,
+  CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL,
+  applyAsymptoticSuccessModifier,
+  computeCraftAdjustedSuccessRate,
+} from './craft-success';
 
 export const DEFAULT_ENHANCE_LEVEL = 0;
 export const MAX_ENHANCE_LEVEL = 20;
@@ -39,8 +45,8 @@ export const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 export const ENHANCEMENT_BASE_JOB_TICKS = 5;
 export const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 export const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
-export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.002;
-export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
+export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL;
+export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 1 - Math.exp(CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL);
 export const ENHANCEMENT_ACTION_ID = 'enhancement:open';
 export const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
 export const ENHANCEMENT_SPIRIT_STONE_ITEM_ID = 'spirit_stone';
@@ -104,27 +110,7 @@ export function applyEnhancementSuccessModifier(
   baseRate: number | undefined,
   modifier: number | undefined,
 ): number {
-  const normalizedBaseRate = Math.max(0, Math.min(1, Number.isFinite(baseRate) ? Number(baseRate) : 0));
-  if (normalizedBaseRate <= 0 || normalizedBaseRate >= 1) {
-    return normalizedBaseRate;
-  }
-  const normalizedModifier = Number.isFinite(modifier) ? Number(modifier) : 0;
-  if (normalizedModifier === 0) {
-    return normalizedBaseRate;
-  }
-  if (normalizedModifier < 0) {
-    return normalizedBaseRate / (1 + Math.abs(normalizedModifier));
-  }
-
-  const factor = 1 + normalizedModifier;
-  if (normalizedBaseRate <= 0.5) {
-    const scaledSuccess = normalizedBaseRate * factor;
-    if (scaledSuccess <= 0.5) {
-      return scaledSuccess;
-    }
-    return 1 - (0.25 / scaledSuccess);
-  }
-  return 1 - ((1 - normalizedBaseRate) / factor);
+  return applyAsymptoticSuccessModifier(baseRate, modifier);
 }
 
 export function computeEnhancementAdjustedSuccessRate(
@@ -134,12 +120,7 @@ export function computeEnhancementAdjustedSuccessRate(
   toolSuccessRateModifier = 0,
 ): number {
   const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
-  const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
-  const lowerLevelGap = Math.max(0, targetLevel - normalizeEnhanceLevel(roleEnhancementLevel));
-  const upperLevelGap = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel);
-  const adjustedBaseRate = baseRate * ((1 - ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY) ** lowerLevelGap);
-  const totalSuccessModifier = toolSuccessRateModifier + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
-  return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
+  return computeCraftAdjustedSuccessRate(baseRate, targetItemLevel, roleEnhancementLevel, toolSuccessRateModifier);
 }
 
 function normalizeEnhancementRequirement(value: unknown): EnhancementMaterialRequirement | null {

@@ -264,20 +264,34 @@ type MainTargetingStateSourceOptions = {
 
 function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLevelText: (auraValue: number) => string): string[] {
   const lines = [t('targeting.tooltip.coordinate', { x, y })];
-  if (Array.isArray(tile.resources) && tile.resources.length > 0) {
-    for (const resource of tile.resources) {
-      const displayValue = resource.effectiveValue ?? resource.value;
-      lines.push(
-        typeof resource.level === 'number' && Number.isFinite(resource.level)
-          ? t('targeting.tooltip.resource-level', { label: resource.label, level: Math.max(0, Math.round(resource.level)) })
-          : resource.label === '灵气'
-          ? formatAuraLevelText(displayValue)
-          : t('targeting.tooltip.resource-value', { label: resource.label, value: Math.max(0, Math.round(displayValue)) }),
-      );
-    }
-    return lines;
+  const resources = Array.isArray(tile.resources) ? tile.resources : [];
+  // 中性灵气在 resources 里优先取 'aura.refined.neutral'；没有则用 tile.aura（server 投影后的等级值）兜底，
+  // 保证感气视角下始终有一条「灵气等级 N」。
+  const neutralAuraResource = resources.find((resource) => resource.key === 'aura.refined.neutral' || resource.label === '灵气');
+  if (neutralAuraResource) {
+    const hasLevel = typeof neutralAuraResource.level === 'number' && Number.isFinite(neutralAuraResource.level);
+    lines.push(
+      hasLevel
+        ? t('targeting.tooltip.resource-level', { label: neutralAuraResource.label, level: Math.max(0, Math.round(neutralAuraResource.level as number)) })
+        : formatAuraLevelText(neutralAuraResource.effectiveValue ?? neutralAuraResource.value ?? 0),
+    );
+  } else {
+    // tile.aura 在玩家视角下是已投影的灵气等级（非原始灵气值），直接作为 level 展示，
+    // 不再走 formatAuraLevelText —— 后者会再次调用 getAuraLevel 导致永远渲染成「灵气等级 0」。
+    const auraLevel = Math.max(0, Math.round(tile.aura ?? 0));
+    lines.push(t('targeting.tooltip.resource-level', { label: t('observe.resource.aura', undefined), level: auraLevel }));
   }
-  lines.push(formatAuraLevelText(tile.aura ?? 0));
+  for (const resource of resources) {
+    if (resource === neutralAuraResource) {
+      continue;
+    }
+    const displayValue = resource.effectiveValue ?? resource.value;
+    lines.push(
+      typeof resource.level === 'number' && Number.isFinite(resource.level)
+        ? t('targeting.tooltip.resource-level', { label: resource.label, level: Math.max(0, Math.round(resource.level)) })
+        : t('targeting.tooltip.resource-value', { label: resource.label, value: Math.max(0, Math.round(displayValue)) }),
+    );
+  }
   return lines;
 }
 

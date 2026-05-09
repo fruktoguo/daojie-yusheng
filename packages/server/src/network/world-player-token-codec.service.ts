@@ -14,7 +14,7 @@ const PLAYER_TOKEN_SECRET_ENV_KEYS = [
   'JWT_SECRET',
 ] as const;
 const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
-const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
+const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 /**
  * TokenKind：统一结构类型，保证协议与运行时一致性。
  */

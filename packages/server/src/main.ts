@@ -229,6 +229,15 @@ async function bootstrap(): Promise<void> {
     app.enableCors(corsOptions);
   }
 
+  app.use((_req: unknown, res: { setHeader(name: string, value: string): void }, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '0');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+
   const port = Number(process.env.SERVER_PORT ?? 13001);
   const host = process.env.SERVER_HOST ?? '0.0.0.0';
 

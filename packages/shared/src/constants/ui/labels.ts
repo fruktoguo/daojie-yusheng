@@ -283,6 +283,7 @@ export const TECHNIQUE_REALM_LABELS: Record<TechniqueRealm, string> = {
 /** 技能公式基础变量中文标签（不含动态 caster/target.stat 与 buff 层数字段） */
 export const SKILL_FORMULA_BASE_VAR_LABELS: Partial<Record<SkillFormulaVar, string>> = {
   techLevel: '功法层数',
+  'caster.realmLv': '自身境界等级',
   targetCount: '目标数量',
   'caster.hp': '自身当前生命',
   'caster.maxHp': '自身最大生命',

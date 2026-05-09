@@ -3,15 +3,41 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveCombatHit = resolveCombatHit;
+exports.resolveCombatHitForAction = resolveCombatHitForAction;
 exports.resolveCombatExperienceAdvantage = resolveCombatExperienceAdvantage;
 exports.resolveCombatExperienceBonus = resolveCombatExperienceBonus;
 exports.resolveDefenseReductionRate = resolveDefenseReductionRate;
 exports.resolveOpposedCombatRate = resolveOpposedCombatRate;
+exports.setCombatRngForTesting = setCombatRngForTesting;
+exports.resetCombatRngForTesting = resetCombatRngForTesting;
 
 const shared_1 = require("@mud/shared");
+const node_crypto_1 = require("node:crypto");
 
 const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
 const DEFENSE_REDUCTION_BASELINE = 100;
+
+// 战斗随机源：生产默认走 crypto，smoke 可临时注入确定性 rng 做回归。
+// 注意：测试挂载后必须在 finally 里还原，否则污染后续战斗随机性。
+let combatRngOverride = null;
+
+function cryptoRandom() {
+    if (typeof combatRngOverride === 'function') {
+        const value = Number(combatRngOverride());
+        if (Number.isFinite(value)) {
+            return Math.min(1, Math.max(0, value));
+        }
+    }
+    return node_crypto_1.randomInt(0, 2147483647) / 2147483647;
+}
+
+function setCombatRngForTesting(rng) {
+    combatRngOverride = typeof rng === 'function' ? rng : null;
+}
+
+function resetCombatRngForTesting() {
+    combatRngOverride = null;
+}
 
 function resolveCombatHit(params) {
     const attackerStats = params.attackerStats;
@@ -26,13 +52,13 @@ function resolveCombatHit(params) {
     const breakChance = breakWins
         ? resolveOpposedCombatRate(attackerStats.breakPower, targetStats.resolvePower)
         : 0;
-    const broken = breakChance > 0 && Math.random() < breakChance;
+    const broken = breakChance > 0 && cryptoRandom() < breakChance;
 
     const combatAdvantage = resolveCombatExperienceAdvantage(params.attackerCombatExp, params.targetCombatExp);
     const hitStat = attackerStats.hit * (broken ? 2 : 1) * (1 + combatAdvantage.attackerBonus);
     const defenderDodge = targetStats.dodge * (1 + combatAdvantage.defenderBonus);
     const dodgeChance = resolveOpposedCombatRate(defenderDodge, hitStat);
-    const dodged = dodgeChance > 0 && Math.random() < dodgeChance;
+    const dodged = dodgeChance > 0 && cryptoRandom() < dodgeChance;
     if (dodged) {
         return {
             hit: false,
@@ -48,10 +74,10 @@ function resolveCombatHit(params) {
     const resolveChance = resolveWins
         ? resolveOpposedCombatRate(targetStats.resolvePower, attackerStats.breakPower)
         : 0;
-    const resolved = resolveChance > 0 && Math.random() < resolveChance;
+    const resolved = resolveChance > 0 && cryptoRandom() < resolveChance;
     const critStat = attackerStats.crit * (broken ? 2 : 1);
     const critChance = resolveOpposedCombatRate(critStat, targetStats.antiCrit);
-    const crit = critChance > 0 && Math.random() < critChance;
+    const crit = critChance > 0 && cryptoRandom() < critChance;
 
     let damage = baseDamage;
     if (element) {
@@ -101,6 +127,25 @@ function resolveCombatHit(params) {
     };
 }
 
+function resolveCombatHitForAction(input = {}) {
+    const actor = input.actor ?? input.attacker ?? {};
+    const target = input.target ?? input.defender ?? {};
+    return resolveCombatHit({
+        attackerStats: input.attackerStats ?? actor.numericStats ?? actor.attrs?.numericStats,
+        attackerRatios: input.attackerRatios ?? actor.ratioDivisors ?? actor.attrs?.ratioDivisors,
+        attackerRealmLv: input.attackerRealmLv ?? actor.realmLv ?? actor.realm?.realmLv ?? actor.level ?? 1,
+        attackerCombatExp: input.attackerCombatExp ?? actor.combatExp ?? 0,
+        targetStats: input.targetStats ?? target.numericStats ?? target.attrs?.numericStats,
+        targetRatios: input.targetRatios ?? target.ratioDivisors ?? target.attrs?.ratioDivisors,
+        targetRealmLv: input.targetRealmLv ?? target.realmLv ?? target.realm?.realmLv ?? target.level ?? 1,
+        targetCombatExp: input.targetCombatExp ?? target.combatExp ?? 0,
+        baseDamage: input.baseDamage,
+        damageKind: input.damageKind,
+        element: input.element,
+        damageMultiplier: input.damageMultiplier,
+    });
+}
+
 function resolveCombatExperienceAdvantage(attackerExp, defenderExp) {
     return {
         attackerBonus: resolveCombatExperienceBonus(attackerExp, defenderExp),
@@ -146,8 +191,11 @@ function resolveDefenseReductionRate(defense, attackBasis) {
 
 export {
     resolveCombatHit,
+    resolveCombatHitForAction,
     resolveCombatExperienceAdvantage,
     resolveCombatExperienceBonus,
     resolveDefenseReductionRate,
     resolveOpposedCombatRate,
+    setCombatRngForTesting,
+    resetCombatRngForTesting,
 };

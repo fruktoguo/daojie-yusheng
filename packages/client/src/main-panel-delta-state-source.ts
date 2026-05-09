@@ -873,6 +873,13 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     }
 
     if (actionOrder && actionOrder.length > 0) {
+      const orderedIdSet = new Set(actionOrder);
+      for (let index = merged.length - 1; index >= 0; index -= 1) {
+        if (!orderedIdSet.has(merged[index]!.id)) {
+          nextMap.delete(merged[index]!.id);
+          merged.splice(index, 1);
+        }
+      }
       const orderIndex = new Map(actionOrder.map((actionId, index) => [actionId, index] as const));
       merged.sort((left, right) => (
         (orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER)

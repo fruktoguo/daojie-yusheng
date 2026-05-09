@@ -19,19 +19,19 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const player_combat_service_1 = require("../combat/player-combat.service");
 const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
+const combat_outcome_apply_adapters_1 = require("../combat/combat-outcome-apply-adapters");
+const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
+const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
+const combat_action_types_1 = require("./combat-action.types");
+const combat_presentation_helpers_1 = require("./world-runtime-combat-presentation.helpers");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const {
-    formatCombatDamageBreakdown,
     formatCombatActionClause,
     formatCombatResolutionOutcome,
-    formatCombatResolutionFloatText,
-    getCombatResolutionFloatColor,
 } = world_runtime_observation_helpers_1;
 function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
     const firstRoll = Array.isArray(result?.damageRolls)
@@ -62,19 +62,8 @@ function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
         element: result?.damageElement ?? fallbackElement,
     };
 }
-function pushCombatResolutionFloat(effectsService, instanceId, x, y, resolution, fallbackColor) {
-    const text = formatCombatResolutionFloatText(resolution);
-    if (!text) {
-        return;
-    }
-    effectsService.pushCombatTextFloatEffect(
-        instanceId,
-        x,
-        y,
-        text,
-        getCombatResolutionFloatColor(resolution, fallbackColor),
-        920,
-    );
+function projectDamageDefeated(target, damage) {
+    return Math.max(0, Math.round(Number(target?.hp) || 0)) - Math.max(0, Math.round(Number(damage) || 0)) <= 0;
 }
 
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
@@ -95,6 +84,11 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
 
     worldRuntimeCombatEffectsService;    
     /**
+ * worldRuntimeCombatActionService：统一战斗动作诊断服务引用。
+ */
+
+    worldRuntimeCombatActionService;
+    /**
  * logger：日志器引用。
  */
 
@@ -107,10 +101,11 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, playerCombatService, worldRuntimeCombatEffectsService) {
+    constructor(playerRuntimeService, playerCombatService, worldRuntimeCombatEffectsService, worldRuntimeCombatActionService) {
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
+        this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
     }    
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。
@@ -130,45 +125,58 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             this.applyMonsterSkill(action, deps);
             return;
         }
+        if (action.kind === 'skill_cancel') {
+            this.applyMonsterSkillCancel(action, deps);
+            return;
+        }
         this.applyMonsterBasicAttack(action, deps);
     }    
+    applyMonsterSkillCancel(action, deps) {
+        const reason = resolveMonsterSkillCancelRejectReason(action?.cancelReason);
+        this.recordMonsterActionReject(deps, action, reason, {
+            cancelReason: action?.cancelReason ?? null,
+            cancelMessage: action?.cancelMessage ?? null,
+            cancelledTick: action?.cancelledTick ?? null,
+            targetX: action?.targetX ?? null,
+            targetY: action?.targetY ?? null,
+            warningCellCount: Array.isArray(action?.warningCells) ? action.warningCells.length : 0,
+        }, { severity: 'info', log: false });
+    }
+
     applyMonsterSkillChant(action, deps) {
-        if (!action.skillId) {
-            return;
-        }
         const instance = deps.getInstanceRuntime(action.instanceId);
-        if (!instance) {
+        const monster = instance?.getMonster?.(action.runtimeId) ?? null;
+        const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
+        const actionPlan = this.resolveMonsterSkillChantStartPlan(instance, action, skill, monster);
+        if (!actionPlan.ok) {
+            this.recordMonsterActionReject(deps, action, actionPlan.reason, actionPlan.details ?? {}, { severity: actionPlan.severity ?? 'warn' });
             return;
         }
-        const monster = instance.getMonster(action.runtimeId);
-        if (!monster || !monster.alive) {
-            return;
-        }
-        const skill = monster.skills.find((entry) => entry.id === action.skillId);
-        if (!skill) {
-            return;
-        }
-        const durationMs = Math.max(1, Math.round(Number(action.durationMs) || 1000));
-        this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name, {
-            actionStyle: 'chant',
-            durationMs: durationMs + 240,
-        });
-        const warningCells = Array.isArray(action.warningCells)
-            ? action.warningCells.map((cell) => ({ x: cell.x, y: cell.y }))
-            : [];
-        if (warningCells.length > 0) {
-            this.worldRuntimeCombatEffectsService.pushCombatEffect(action.instanceId, {
+        const durationMs = actionPlan.durationMs;
+        const warningCells = actionPlan.warningCells;
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            effectsService: this.worldRuntimeCombatEffectsService,
+            instanceId: action.instanceId,
+            actionLabel: {
+                x: monster.x,
+                y: monster.y,
+                text: skill.name,
+                options: {
+                    actionStyle: 'chant',
+                    durationMs: durationMs + 240,
+                },
+            },
+            combatEffects: warningCells.length > 0 ? [{
                 type: 'warning_zone',
                 cells: warningCells,
-                color: typeof action.warningColor === 'string' && action.warningColor.trim().length > 0
-                    ? action.warningColor.trim()
-                    : '#ff3030',
+                color: actionPlan.warningColor,
                 baseColor: '#ff8a8a',
                 originX: Number.isFinite(action.warningOriginX) ? action.warningOriginX : undefined,
                 originY: Number.isFinite(action.warningOriginY) ? action.warningOriginY : undefined,
                 durationMs,
-            });
-        }
+            }] : [],
+        });
     }
     /**
  * applyMonsterBasicAttack：处理怪物BasicAttack并更新相关状态。
@@ -180,39 +188,22 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
     applyMonsterBasicAttack(action, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const location = deps.getPlayerLocation(action.targetPlayerId);
-        if (!location) {
+        const targetResolution = this.resolveMonsterBasicAttackPlayerTarget(deps, action);
+        if (!targetResolution.ok) {
+            this.recordMonsterActionReject(deps, action, targetResolution.reason, targetResolution.details, { severity: targetResolution.severity });
             return;
         }
-        const instance = deps.getInstanceRuntime(action.instanceId);
-        if (!instance) {
-            return;
-        }
-        const monster = instance.getMonster(action.runtimeId);
-        if (!monster || !monster.alive) {
-            return;
-        }
-        const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
-        if (!runtimeTargetPosition) {
-            return;
-        }
-        const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
-        if (!player || player.instanceId !== location.instanceId || player.hp <= 0) {
-            return;
-        }
-        const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
-        if (distance > monster.attackRange) {
-            return;
-        }
-        if (typeof instance.canSeeTileFrom === 'function'
-            && !instance.canSeeTileFrom(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, distance)) {
-            return;
-        }
+        const instance = targetResolution.instance;
+        const monster = targetResolution.monster;
+        const player = targetResolution.player;
+        const runtimeTargetPosition = targetResolution.position;
         const damageKind = monster.numericStats.spellAtk > monster.numericStats.physAtk ? 'spell' : 'physical';
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? monster.numericStats.spellAtk
             : monster.numericStats.physAtk));
-        const resolvedDamage = (0, combat_resolution_helpers_1.resolveCombatHit)({
+        const resolvedDamage = (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+            actor: monster,
+            target: player,
             attackerStats: monster.numericStats,
             attackerRatios: monster.ratioDivisors,
             attackerRealmLv: Math.max(1, Math.floor(monster.level ?? 1)),
@@ -226,31 +217,43 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             damageMultiplier: 1,
         });
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, '攻击');
-        this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
-        pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage, effectColor);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
         let updated = player;
-        if (resolvedDamage.damage > 0) {
-            updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, resolvedDamage.damage);
-            this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, resolvedDamage.damage, effectColor);
-            deps.queuePlayerNotice?.(
-                action.targetPlayerId,
-                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                'combat',
-            );
-            this.playerRuntimeService.activateAutoRetaliate(action.targetPlayerId, currentTick);
-        }
-        else {
-            deps.queuePlayerNotice?.(
-                action.targetPlayerId,
-                `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                'combat',
-            );
-        }
-        this.playerRuntimeService.recordActivity(action.targetPlayerId, currentTick, {
-            interruptCultivation: true,
+        this.applyMonsterCombatOutcome({
+            ...deps,
+            currentTick,
+        }, action, {
+            kind: combat_action_types_1.CombatTargetKind.Player,
+            id: action.targetPlayerId,
+        }, {
+            targetPlayerId: action.targetPlayerId,
+            targetX: runtimeTargetPosition.x,
+            targetY: runtimeTargetPosition.y,
+            damageKind,
+            damage: resolvedDamage.damage,
+            rawDamage: resolvedDamage.rawDamage,
+            dodged: resolvedDamage.dodged === true,
+            crit: resolvedDamage.crit === true,
+            resolved: resolvedDamage.resolved === true,
+            broken: resolvedDamage.broken === true,
+            autoRetaliate: resolvedDamage.damage > 0,
+            defeated: projectDamageDefeated(player, resolvedDamage.damage),
+            applyDefeat: false,
         });
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            effectsService: this.worldRuntimeCombatEffectsService,
+            instanceId: action.instanceId,
+            actionLabel: { x: monster.x, y: monster.y, text: '攻击' },
+            attack: { fromX: monster.x, fromY: monster.y, toX: runtimeTargetPosition.x, toY: runtimeTargetPosition.y, color: effectColor },
+            resolutionFloat: { x: runtimeTargetPosition.x, y: runtimeTargetPosition.y, resolution: resolvedDamage, fallbackColor: effectColor },
+            damageFloat: { x: runtimeTargetPosition.x, y: runtimeTargetPosition.y, damage: resolvedDamage.damage, color: effectColor },
+            notices: [{
+                playerId: action.targetPlayerId,
+                text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+            }],
+        });
+        updated = this.playerRuntimeService.getPlayer(action.targetPlayerId) ?? player;
         if (updated.hp <= 0) {
             deps.handlePlayerDefeat(updated.playerId);
         }
@@ -265,76 +268,53 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
     applyMonsterSkill(action, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!action.skillId) {
-            return;
-        }
-        const location = deps.getPlayerLocation?.(action.targetPlayerId);
-        if (!location || location.instanceId !== action.instanceId) {
-            return;
-        }
         const instance = deps.getInstanceRuntime(action.instanceId);
-        if (!instance) {
-            return;
-        }
-        const monster = instance.getMonster(action.runtimeId);
-        if (!monster || !monster.alive) {
-            return;
-        }
-        const skill = monster.skills.find((entry) => entry.id === action.skillId);
-        if (!skill) {
-            return;
-        }
-        const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
-        if (!runtimeTargetPosition) {
-            return;
-        }
-        const warningCells = Array.isArray(action.warningCells)
-            ? action.warningCells
-                .map((cell) => ({ x: Math.trunc(Number(cell?.x)), y: Math.trunc(Number(cell?.y)) }))
-                .filter((cell) => Number.isFinite(cell.x) && Number.isFinite(cell.y))
-            : [];
-        const hasAnchoredCast = Number.isFinite(Number(action.targetX)) && Number.isFinite(Number(action.targetY));
-        const distanceAnchor = hasAnchoredCast
-            ? { x: Math.trunc(Number(action.targetX)), y: Math.trunc(Number(action.targetY)) }
-            : runtimeTargetPosition;
-        const distance = skill.requiresTarget === false
-            ? 0
-            : chebyshevDistance(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y);
-        if (typeof instance.canSeeTileFrom === 'function'
-            && skill.requiresTarget !== false
-            && !instance.canSeeTileFrom(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y, distance)) {
-            return;
-        }
+        const monster = instance?.getMonster?.(action.runtimeId) ?? null;
+        const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
+        const actionPlan = this.resolveMonsterSkillActionPlan(instance, deps, action, skill, monster);
         const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-        const selectedTargets = skill.requiresTarget === false
-            ? []
-            : collectMonsterSkillRuntimeTargets(instance, this.playerRuntimeService, deps, action, runtimeTargetPosition, warningCells, skill);
-        if (skill.requiresTarget !== false && selectedTargets.length === 0) {
-            if (hasAnchoredCast || warningCells.length > 0) {
-                this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
-                this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, distanceAnchor.x, distanceAnchor.y, effectColor);
+        if (!actionPlan.ok) {
+            if (actionPlan.reason === combat_action_types_1.CombatRejectReason.NoRuntimeTargetsInWarningCells
+                && (actionPlan.hasAnchoredCast || actionPlan.warningCells?.length > 0)
+                && actionPlan.distanceAnchor
+                && monster
+                && skill) {
+                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    deps,
+                    effectsService: this.worldRuntimeCombatEffectsService,
+                    instanceId: action.instanceId,
+                    actionLabel: { x: monster.x, y: monster.y, text: skill.name },
+                    attack: { fromX: monster.x, fromY: monster.y, toX: actionPlan.distanceAnchor.x, toY: actionPlan.distanceAnchor.y, color: effectColor },
+                });
             }
-            return;
-        }
-        const selfBuffTarget = skill.requiresTarget === false
-            ? this.playerRuntimeService.getPlayer(action.targetPlayerId)
-            : null;
-        if (skill.requiresTarget === false && (!selfBuffTarget || selfBuffTarget.hp <= 0)) {
+            this.recordMonsterActionReject(deps, action, actionPlan.reason, actionPlan.details ?? {}, { severity: actionPlan.severity ?? 'warn' });
             return;
         }
         try {
             const currentTick = instance.tick;
-            const targetEntries = skill.requiresTarget === false
-                ? [{ player: selfBuffTarget, position: runtimeTargetPosition }]
-                : selectedTargets;
+            const targetEntries = actionPlan.targetEntries;
             let labelPushed = false;
             let qiSpent = false;
+            let resolvedTargetCount = 0;
+            const skippedTargets = [];
             for (let index = 0; index < targetEntries.length; index += 1) {
                 const entry = targetEntries[index];
-                const player = entry.player;
-                if (!player || player.hp <= 0 || !isPlayerLocatedInActionInstance(deps, player.playerId, action.instanceId)) {
+                const applyTarget = this.revalidateMonsterSkillTargetForApply(deps, instance, action, entry, targetEntries.length);
+                if (!applyTarget.ok) {
+                    const skippedTarget = {
+                        reason: applyTarget.reason,
+                        ...applyTarget.details,
+                    };
+                    skippedTargets.push(skippedTarget);
+                    this.recordMonsterActionReject(deps, action, applyTarget.reason, {
+                        phase: 'monster_skill_target_apply',
+                        ...skippedTarget,
+                    }, { severity: applyTarget.severity ?? 'debug', log: false });
                     continue;
                 }
+                const player = applyTarget.player;
+                const targetPosition = applyTarget.position;
+                resolvedTargetCount += 1;
                 const result = this.playerCombatService.castMonsterSkill({
                     runtimeId: monster.runtimeId,
                     monsterId: monster.monsterId,
@@ -352,7 +332,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                         ratioDivisors: monster.ratioDivisors,
                     },
                     buffs: monster.buffs,
-                }, player, action.skillId, currentTick, distance, (buff) => {
+                }, player, action.skillId, currentTick, actionPlan.distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, (buff) => {
                     this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
@@ -365,48 +345,231 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                     instance.markMonsterRuntimePersistenceDirty(monster.runtimeId);
                 }, {
                     skipResourceAndCooldown: index > 0,
+                    skipTargetDamageApplication: true,
                     targetCount: Math.max(1, targetEntries.length),
                 });
                 if (skill && !labelPushed) {
-                    this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
+                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                        deps,
+                        effectsService: this.worldRuntimeCombatEffectsService,
+                        instanceId: action.instanceId,
+                        actionLabel: {
+                            x: monster.x,
+                            y: monster.y,
+                            text: skill.name,
+                        },
+                    });
                     labelPushed = true;
                 }
                 if (skill.requiresTarget === false) {
                     continue;
                 }
-                const targetPosition = entry.position;
-                this.worldRuntimeCombatEffectsService.pushAttackEffect(action.instanceId, monster.x, monster.y, targetPosition.x, targetPosition.y, effectColor);
                 const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
-                pushCombatResolutionFloat(this.worldRuntimeCombatEffectsService, action.instanceId, targetPosition.x, targetPosition.y, primaryRoll, effectColor);
-                if (result.totalDamage > 0) {
-                    this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(action.instanceId, targetPosition.x, targetPosition.y, result.totalDamage, effectColor);
-                    deps.queuePlayerNotice?.(
-                        player.playerId,
-                        `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
-                        'combat',
-                    );
-                    this.playerRuntimeService.activateAutoRetaliate(player.playerId, currentTick);
-                }
-                else {
-                    deps.queuePlayerNotice?.(
-                        player.playerId,
-                        `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
-                        'combat',
-                    );
-                }
-                this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
-                    interruptCultivation: true,
+                this.applyMonsterCombatOutcome({
+                    ...deps,
+                    currentTick,
+                }, action, {
+                    kind: combat_action_types_1.CombatTargetKind.Player,
+                    id: player.playerId,
+                }, {
+                    targetPlayerId: player.playerId,
+                    targetX: targetPosition.x,
+                    targetY: targetPosition.y,
+                    targetSource: entry.source,
+                    targetCount: Math.max(1, targetEntries.length),
+                    damageKind: primaryRoll.damageKind ?? result.damageKind ?? 'spell',
+                    element: primaryRoll.element ?? result.damageElement,
+                    damage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
+                    rawDamage: primaryRoll.rawDamage,
+                    dodged: primaryRoll.dodged === true,
+                    crit: primaryRoll.crit === true,
+                    resolved: primaryRoll.resolved === true,
+                    broken: primaryRoll.broken === true,
+                    autoRetaliate: result.totalDamage > 0,
+                    defeated: projectDamageDefeated(player, result.totalDamage),
+                    applyDefeat: false,
+                });
+                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    deps,
+                    effectsService: this.worldRuntimeCombatEffectsService,
+                    instanceId: action.instanceId,
+                    attack: { fromX: monster.x, fromY: monster.y, toX: targetPosition.x, toY: targetPosition.y, color: effectColor },
+                    resolutionFloat: { x: targetPosition.x, y: targetPosition.y, resolution: primaryRoll, fallbackColor: effectColor },
+                    damageFloat: { x: targetPosition.x, y: targetPosition.y, damage: result.totalDamage, color: effectColor },
+                    notices: [{
+                        playerId: player.playerId,
+                        text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                    }],
                 });
                 const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
                 if (updatedPlayer && updatedPlayer.hp <= 0) {
                     deps.handlePlayerDefeat(updatedPlayer.playerId);
                 }
             }
+            if (skill.requiresTarget !== false && resolvedTargetCount === 0) {
+                this.recordMonsterActionReject(deps, action, combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState, {
+                    selectedTargetCount: actionPlan.selectedTargets.length,
+                    rejectedTargets: actionPlan.targetCollection.rejected,
+                    skippedTargets,
+                }, { severity: 'warn' });
+            }
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
+            this.recordMonsterActionReject(deps, action, combat_action_types_1.CombatRejectReason.CastFailed, {
+                error: message,
+            }, { severity: 'warn' });
             (deps.logger ?? this.logger).warn(`处理妖兽技能 ${action.skillId}（来源 ${action.runtimeId}）失败：${message}`);
         }
+    }
+
+    recordMonsterActionReject(deps, action, reason, details = {}, options = undefined) {
+        if (this.worldRuntimeCombatActionService?.recordMonsterActionReject) {
+            return this.worldRuntimeCombatActionService.recordMonsterActionReject(deps, action, reason, details, options);
+        }
+        const logger = deps?.logger ?? this.logger;
+        logger.warn?.(`combat_action_rejected reason=${reason} action=${action?.skillId ?? action?.kind ?? 'unknown'} instance=${action?.instanceId ?? 'unknown'} runtime=${action?.runtimeId ?? 'unknown'}`);
+        return null;
+    }
+    recordMonsterActionOutcome(deps, action, target, result = {}, options = undefined) {
+        if (this.worldRuntimeCombatActionService?.recordMonsterActionOutcome) {
+            return this.worldRuntimeCombatActionService.recordMonsterActionOutcome(deps, action, target, result, options);
+        }
+        if (Array.isArray(deps?.combatOutcomes)) {
+            deps.combatOutcomes.push({
+                ok: true,
+                actionId: action?.skillId ?? action?.kind ?? 'unknown',
+                instanceId: action?.instanceId,
+                target,
+                result,
+            });
+        }
+        return null;
+    }
+    resolveMonsterBasicAttackPlayerTarget(deps, action) {
+        if (this.worldRuntimeCombatActionService?.resolveMonsterBasicAttackPlayerTarget) {
+            return this.worldRuntimeCombatActionService.resolveMonsterBasicAttackPlayerTarget({
+                deps,
+                action,
+                playerRuntimeService: this.playerRuntimeService,
+            });
+        }
+        return {
+            ok: false,
+            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            details: {},
+            severity: 'warn',
+        };
+    }
+    collectMonsterSkillPlayerTargets(instance, deps, action, skill, fallbackPosition) {
+        if (this.worldRuntimeCombatActionService?.collectMonsterSkillPlayerTargets) {
+            return this.worldRuntimeCombatActionService.collectMonsterSkillPlayerTargets({
+                instance,
+                deps,
+                action,
+                skill,
+                fallbackPosition,
+                playerRuntimeService: this.playerRuntimeService,
+            });
+        }
+        return {
+            targets: collectMonsterSkillRuntimeTargets(instance, this.playerRuntimeService, deps, action, fallbackPosition, action.warningCells, skill),
+            warningCells: Array.isArray(action.warningCells) ? action.warningCells : [],
+            rejected: [],
+        };
+    }
+    resolveMonsterSkillActionPlan(instance, deps, action, skill, monster) {
+        if (this.worldRuntimeCombatActionService?.resolveMonsterSkillActionPlan) {
+            return this.worldRuntimeCombatActionService.resolveMonsterSkillActionPlan({
+                instance,
+                deps,
+                action,
+                skill,
+                monster,
+                playerRuntimeService: this.playerRuntimeService,
+            });
+        }
+        return {
+            ok: false,
+            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            severity: 'warn',
+            details: {},
+            warningCells: Array.isArray(action?.warningCells) ? action.warningCells : [],
+            targetCollection: { targets: [], rejected: [] },
+            selectedTargets: [],
+            targetEntries: [],
+        };
+    }
+    resolveMonsterSkillChantStartPlan(instance, action, skill, monster) {
+        if (this.worldRuntimeCombatActionService?.resolveMonsterSkillChantStartPlan) {
+            return this.worldRuntimeCombatActionService.resolveMonsterSkillChantStartPlan({
+                instance,
+                action,
+                skill,
+                monster,
+            });
+        }
+        return {
+            ok: false,
+            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            severity: 'warn',
+            details: {},
+            warningCells: Array.isArray(action?.warningCells) ? action.warningCells : [],
+        };
+    }
+    revalidateMonsterSkillTargetForApply(deps, instance, action, entry, targetCount) {
+        if (this.worldRuntimeCombatActionService?.revalidateMonsterSkillTargetForApply) {
+            return this.worldRuntimeCombatActionService.revalidateMonsterSkillTargetForApply({
+                deps,
+                instance,
+                action,
+                entry,
+                targetCount,
+            });
+        }
+        return {
+            ok: false,
+            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            severity: 'warn',
+            details: {
+                targetPlayerId: entry?.player?.playerId ?? entry?.playerId,
+                source: entry?.source,
+                targetCount,
+            },
+        };
+    }
+    applyMonsterCombatOutcome(deps, action, target, result = {}) {
+        if (!this.worldRuntimeCombatActionService?.applyCombatOutcome) {
+            return null;
+        }
+        const phase = action?.kind === 'skill'
+            ? combat_action_types_1.CombatActionPhase.ChantResolve
+            : action?.kind === 'skill_chant'
+                ? combat_action_types_1.CombatActionPhase.ChantStart
+                : combat_action_types_1.CombatActionPhase.Instant;
+        return this.worldRuntimeCombatActionService.applyCombatOutcome({
+            phase,
+            actor: {
+                kind: combat_action_types_1.CombatActorKind.Monster,
+                id: action?.runtimeId ?? null,
+            },
+            actionId: action?.skillId ?? (action?.kind === 'skill' ? null : combat_action_types_1.CombatActionKind.BasicAttack),
+            instanceId: action?.instanceId ?? null,
+            target,
+            result: {
+                actionKind: action?.kind ?? 'basic',
+                runtimeId: action?.runtimeId,
+                skillId: action?.skillId,
+                ...result,
+            },
+            deps: {
+                ...deps,
+                playerRuntimeService: this.playerRuntimeService,
+            },
+            adapters: (0, combat_outcome_apply_adapters_1.createCombatOutcomeApplyAdapters)(),
+            mergeAdapterResultToOutcome: true,
+            record: true,
+        });
     }
 };
 exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplyService;
@@ -414,7 +577,8 @@ exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplySe
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         player_combat_service_1.PlayerCombatService,
-        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService])
+        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
+        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
 ], WorldRuntimeMonsterActionApplyService);
 
 export { WorldRuntimeMonsterActionApplyService };
@@ -428,7 +592,7 @@ function collectMonsterSkillRuntimeTargets(instance, playerRuntimeService, deps,
             return;
         }
         const player = playerRuntimeService.getPlayer(playerId);
-        if (!player || player.hp <= 0 || !isPlayerLocatedInActionInstance(deps, playerId, action.instanceId)) {
+        if (!player || player.hp <= 0 || !isPlayerLocatedInActionInstance(deps, instance, playerId, action.instanceId)) {
             return;
         }
         seenPlayerIds.add(playerId);
@@ -462,7 +626,10 @@ function collectMonsterSkillRuntimeTargets(instance, playerRuntimeService, deps,
     pushPlayerAtPosition(action.targetPlayerId, fallbackPosition);
     return entries;
 }
-function isPlayerLocatedInActionInstance(deps, playerId, instanceId) {
+function isPlayerLocatedInActionInstance(deps, instance, playerId, instanceId) {
+    if (typeof instance?.getPlayerPosition === 'function' && instance.getPlayerPosition(playerId)) {
+        return true;
+    }
     const location = typeof deps?.getPlayerLocation === 'function'
         ? deps.getPlayerLocation(playerId)
         : null;
@@ -498,14 +665,20 @@ function resolveMonsterSkillMaxTargets(skill) {
     return Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
 }
 
+function resolveMonsterSkillCancelRejectReason(reason) {
+    if (reason === 'actor_dead') return combat_action_types_1.CombatRejectReason.ActorDead;
+    if (reason === 'expired') return combat_action_types_1.CombatRejectReason.PendingCastExpired;
+    if (reason === 'config_revision_mismatch') return combat_action_types_1.CombatRejectReason.PendingCastConfigRevisionMismatch;
+    return combat_action_types_1.CombatRejectReason.PendingCastCancelled;
+}
+
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
-    const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
     const progressionService = playerRuntimeService?.playerProgressionService;
     if (typeof progressionService?.getMonsterCombatExpEquivalent === 'function') {
-        const resolved = progressionService.getMonsterCombatExpEquivalent(level);
+        const resolved = progressionService.getMonsterCombatExpEquivalent(monster);
         if (Number.isFinite(resolved) && resolved > 0) {
             return Math.floor(resolved);
         }
     }
-    return level * 100;
+    return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(monster);
 }

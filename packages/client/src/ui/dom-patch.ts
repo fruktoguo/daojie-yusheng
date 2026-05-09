@@ -19,17 +19,36 @@ const NODE_KEY_ATTRIBUTES = [
   'data-ui-key',
   'data-key',
   'data-id',
+  // 邮件
   'data-mail-id',
   'data-mail-select',
   'data-mail-check',
+  // 建议 / GM 建议
   'data-suggestion-select',
+  'data-gm-suggestion-id',
+  // 拍卖 / 市场
   'data-auction-select-item',
+  'data-auction-lot-key',
+  'data-auction-countdown',
   'data-market-select-group',
   'data-market-select-item',
+  'data-market-order-id',
+  // 背包 / 物品
   'data-inventory-slot',
   'data-item-id',
   'data-item-key',
+  // 任务 / 技术卡 / 动作
   'data-quest-id',
+  'data-quest-card-id',
+  'data-tech-card',
+  'data-action-row',
+  // 聊天
+  'data-chat-message-id',
+  // 炼丹 / 制作
+  'data-craft-recipe-id',
+  // 建造 / 定义
+  'data-def-id',
+  // 通用 id 兜底
   'id',
 ];
 
@@ -165,25 +184,37 @@ function patchAttributes(current: Element, next: Element): void {
 
 function patchFormControl(current: Element, next: Element): void {
   if (current instanceof HTMLInputElement && next instanceof HTMLInputElement) {
-    current.checked = next.checked;
-    current.disabled = next.disabled;
-    if (document.activeElement !== current) {
+    const isFocused = document.activeElement === current;
+    // 复选框 / 单选按钮被用户正点中或刚切换、但服务端回包还没到之前，
+    // 不要把 checked 翻回旧值，避免打断用户 intent。
+    if (!isFocused || current.checked === next.checked) {
+      current.checked = next.checked;
+    }
+    if (!isFocused || current.disabled === next.disabled) {
+      current.disabled = next.disabled;
+    }
+    if (!isFocused) {
       current.value = next.value;
     }
     return;
   }
   if (current instanceof HTMLTextAreaElement && next instanceof HTMLTextAreaElement) {
-    current.disabled = next.disabled;
-    if (document.activeElement !== current) {
+    const isFocused = document.activeElement === current;
+    if (!isFocused || current.disabled === next.disabled) {
+      current.disabled = next.disabled;
+    }
+    if (!isFocused) {
       current.value = next.value;
     }
     return;
   }
   if (current instanceof HTMLSelectElement && next instanceof HTMLSelectElement) {
-    current.disabled = next.disabled;
-    const active = document.activeElement === current;
+    const isFocused = document.activeElement === current;
+    if (!isFocused || current.disabled === next.disabled) {
+      current.disabled = next.disabled;
+    }
     patchChildList(current, Array.from(next.childNodes));
-    if (!active) {
+    if (!isFocused) {
       current.value = next.value;
     }
   }
@@ -247,14 +278,45 @@ function restoreFocus(root: HTMLElement, snapshot: FocusSnapshot | null): void {
 }
 
 function captureScroll(root: HTMLElement): ScrollSnapshot[] {
-  return [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
-    .filter((node) => node.scrollTop > 0 || node.scrollLeft > 0)
-    .map((node) => ({
-      selector: getStableSelector(node, root) ?? '',
-      top: node.scrollTop,
-      left: node.scrollLeft,
-    }))
-    .filter((item) => item.selector.length > 0);
+  const snapshots: ScrollSnapshot[] = [];
+  const appendSnapshot = (node: HTMLElement): void => {
+    if (node.scrollTop <= 0 && node.scrollLeft <= 0) {
+      return;
+    }
+    const selector = getStableSelector(node, root);
+    if (!selector) {
+      return;
+    }
+    snapshots.push({ selector, top: node.scrollTop, left: node.scrollLeft });
+  };
+
+  appendSnapshot(root);
+
+  // 绝大多数面板里可滚动容器只有寥寥几个，用 TreeWalker 提前剪枝，
+  // 避免在 action/market/inventory 这类千节点面板上每次 patch 都 O(N) 遍历。
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode(node) {
+      if (!(node instanceof HTMLElement)) {
+        return NodeFilter.FILTER_SKIP;
+      }
+      if (node === root) {
+        return NodeFilter.FILTER_SKIP;
+      }
+      if (node.scrollTop > 0 || node.scrollLeft > 0) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+      // 非滚动容器不需要记录，但仍要继续向下搜索它的子树。
+      return NodeFilter.FILTER_SKIP;
+    },
+  });
+  let current = walker.nextNode();
+  while (current) {
+    if (current instanceof HTMLElement) {
+      appendSnapshot(current);
+    }
+    current = walker.nextNode();
+  }
+  return snapshots;
 }
 
 function restoreScroll(root: HTMLElement, snapshots: ScrollSnapshot[]): void {

@@ -239,6 +239,18 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         if (normalizedCodes.length === 0) {
             throw new common_1.BadRequestException('请至少填写一个兑换码');
         }
+        if (normalizedCodes.length > 5) {
+            throw new common_1.BadRequestException('单次最多兑换 5 个兑换码');
+        }
+        const now = Date.now();
+        if (!this._redeemRateMap) {
+            this._redeemRateMap = new Map();
+        }
+        const lastAttempt = this._redeemRateMap.get(playerId) ?? 0;
+        if (now - lastAttempt < 3000) {
+            throw new common_1.BadRequestException('操作过于频繁，请稍后再试');
+        }
+        this._redeemRateMap.set(playerId, now);
         return this.runExclusive(async () => {
 
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -254,7 +266,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     results.push({
                         code: submittedCode,
                         ok: false,
-                        message: '兑换码不存在',
+                        message: '兑换码无效或已过期',
                     });
                     continue;
                 }
@@ -266,7 +278,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     results.push({
                         code: submittedCode,
                         ok: false,
-                        message: '兑换码已被使用',
+                        message: '兑换码无效或已过期',
                         groupName,
                     });
                     continue;
@@ -275,7 +287,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     results.push({
                         code: submittedCode,
                         ok: false,
-                        message: '兑换码已被销毁',
+                        message: '兑换码无效或已过期',
                         groupName,
                     });
                     continue;
@@ -286,7 +298,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     results.push({
                         code: submittedCode,
                         ok: false,
-                        message: '兑换码奖励配置无效',
+                        message: '兑换码无效或已过期',
                         groupName,
                     });
                     continue;

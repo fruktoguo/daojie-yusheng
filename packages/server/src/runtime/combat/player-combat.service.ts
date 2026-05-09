@@ -21,6 +21,7 @@ const shared_1 = require("@mud/shared");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const combat_resolution_helpers_1 = require("./combat-resolution.helpers");
+const monster_combat_exp_equivalent_helper_1 = require("./monster-combat-exp-equivalent.helper");
 
 /** 战斗运行时技能结算服务：负责技能解析、施放校验与战斗结果写回。 */
 let PlayerCombatService = class PlayerCombatService {
@@ -69,8 +70,10 @@ let PlayerCombatService = class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             },
         }, options);
-        this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
-        if (result.totalDamage > 0) {
+        if (options?.skipTargetRetaliation !== true) {
+            this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
+        }
+        if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
         return {
@@ -152,7 +155,7 @@ let PlayerCombatService = class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             }),
         }, options);
-        if (result.totalDamage > 0) {
+        if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
         return {
@@ -411,7 +414,9 @@ function resolveDamage(attacker, target, effect, baseDamage) {
 
     const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
 
-    const resolved = (0, combat_resolution_helpers_1.resolveCombatHit)({
+    const resolved = (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+        actor: attacker,
+        target,
         attackerStats,
         attackerRatios,
         attackerRealmLv: resolveCombatantRealmLv(attacker),
@@ -449,8 +454,7 @@ function resolveCombatantCombatExp(combatant) {
     if (Number.isFinite(combatant?.combatExp)) {
         return Math.max(0, Math.floor(Number(combatant.combatExp)));
     }
-    const level = resolveCombatantRealmLv(combatant);
-    return level * 100;
+    return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(combatant);
 }
 /**
  * toTemporaryBuff：执行toTemporaryBuff相关逻辑。
@@ -556,6 +560,9 @@ function resolveSkillFormulaVar(variable, context) {
     if (variable === 'techLevel') {
         return context.techLevel;
     }
+    if (variable === 'caster.realmLv') {
+        return context.attacker.realmLv ?? context.attacker.level ?? context.techLevel ?? 0;
+    }
     if (variable === 'targetCount') {
         return context.targetCount;
     }
@@ -586,22 +593,22 @@ function resolveSkillFormulaVar(variable, context) {
     if (variable.startsWith('caster.attr.')) {
 
         const key = variable.slice('caster.attr.'.length);
-        return context.attacker.attrs.finalAttrs[key] ?? 0;
+        return Object.hasOwn(context.attacker.attrs.finalAttrs, key) ? context.attacker.attrs.finalAttrs[key] : 0;
     }
     if (variable.startsWith('target.attr.')) {
 
         const key = variable.slice('target.attr.'.length);
-        return context.target.attrs.finalAttrs[key] ?? 0;
+        return Object.hasOwn(context.target.attrs.finalAttrs, key) ? context.target.attrs.finalAttrs[key] : 0;
     }
     if (variable.startsWith('caster.stat.')) {
 
         const key = variable.slice('caster.stat.'.length);
-        return context.attacker.attrs.numericStats[key] ?? 0;
+        return Object.hasOwn(context.attacker.attrs.numericStats, key) ? context.attacker.attrs.numericStats[key] : 0;
     }
     if (variable.startsWith('target.stat.')) {
 
         const key = variable.slice('target.stat.'.length);
-        return context.target.attrs.numericStats[key] ?? 0;
+        return Object.hasOwn(context.target.attrs.numericStats, key) ? context.target.attrs.numericStats[key] : 0;
     }
     if (variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
 

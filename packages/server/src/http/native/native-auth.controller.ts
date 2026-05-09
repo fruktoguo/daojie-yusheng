@@ -142,9 +142,11 @@ function pickAuthRequestContext(request: RequestLike, body: AuthBody): AuthReque
   const headers = request.headers as Record<string, unknown> | undefined;
   const headerDeviceId = headers?.['x-device-id'] ?? headers?.['X-Device-Id'];
   const forwardedFor = pickString(headers?.['x-forwarded-for']);
-  const ip = forwardedFor.split(',')[0]?.trim()
-    || pickString(headers?.['x-real-ip'])
-    || pickString((request as { ip?: unknown }).ip);
+  const trustedProxies = (process.env.SERVER_TRUSTED_PROXIES ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const useForwardedFor = trustedProxies.length > 0 || process.env.SERVER_TRUST_PROXY === '1' || process.env.SERVER_TRUST_PROXY === 'true';
+  const ip = (useForwardedFor && forwardedFor ? forwardedFor.split(',')[0]?.trim() : '')
+    || pickString((request as { ip?: unknown }).ip)
+    || pickString(headers?.['x-real-ip']);
   const userAgent = pickString(headers?.['user-agent']).slice(0, 255);
   const deviceId = pickString(body?.deviceId) || pickString(headerDeviceId);
   return {

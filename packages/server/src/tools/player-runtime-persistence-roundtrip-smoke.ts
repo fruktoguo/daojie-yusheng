@@ -274,6 +274,24 @@ function testSectIdRoundtrip() {
     assert.equal(persisted.sectId, 'sect:player:alpha');
 }
 
+function testPendingSkillCastIsRuntimeOnly() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.combat.pendingSkillCast = {
+        skillId: 'skill:stale',
+        remainingTicks: 2,
+    };
+    const player = service.hydrateFromSnapshot('player:pending', 'session:pending', snapshot);
+    assert.equal(player.combat.pendingSkillCast, undefined);
+    player.combat.pendingSkillCast = {
+        skillId: 'skill:runtime-only',
+        remainingTicks: 2,
+    };
+    service.players.set('player:pending', player);
+    const persisted = service.buildPersistenceSnapshot('player:pending');
+    assert.equal(persisted.combat.pendingSkillCast, undefined);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -281,5 +299,6 @@ testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();
 testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();
 testSectIdRoundtrip();
+testPendingSkillCastIsRuntimeOnly();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));

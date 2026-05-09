@@ -414,8 +414,23 @@ function validateBreakthroughRefs(errors, itemIds) {
   const breakthroughs = loadJson("data/content/breakthroughs.json");
   for (const transition of breakthroughs?.transitions ?? []) {
     for (const requirement of transition?.requirements ?? []) {
+      if (requirement?.type === "item" && requirement.itemId === "spirit_stone") {
+        errors.push(`breakthrough ${transition.fromRealmLv}->${transition.toRealmLv}: 灵石需求属于凝练根基，请改用 rootFoundationItems`);
+      }
       if (requirement?.type === "item" && typeof requirement.itemId === "string" && !itemIds.has(requirement.itemId)) {
         errors.push(`breakthrough ${transition.fromRealmLv}->${transition.toRealmLv}: item requirement 不存在 -> ${requirement.itemId}`);
+      }
+    }
+    for (const item of transition?.rootFoundationItems ?? []) {
+      if (typeof item?.itemId !== "string" || item.itemId.length === 0) {
+        errors.push(`breakthrough ${transition.fromRealmLv}->${transition.toRealmLv}: rootFoundationItems 缺少 itemId`);
+        continue;
+      }
+      if (typeof item?.count !== "number" || !Number.isFinite(item.count) || item.count <= 0) {
+        errors.push(`breakthrough ${transition.fromRealmLv}->${transition.toRealmLv}: rootFoundationItems 数量无效 -> ${item.itemId}`);
+      }
+      if (!itemIds.has(item.itemId)) {
+        errors.push(`breakthrough ${transition.fromRealmLv}->${transition.toRealmLv}: rootFoundationItems 道具不存在 -> ${item.itemId}`);
       }
     }
   }
@@ -696,7 +711,7 @@ function main() {
   process.stdout.write(`- checked technique ids: ${techniqueIds.size}\n`);
   process.stdout.write(`- checked technique buff ids: ${techniqueBuffRefs.size}\n`);
   process.stdout.write(`- checked skill ids: ${skillIds.size}\n`);
-  process.stdout.write("- validated monster drops/equipment/skills, map monster spawns, item external refs, breakthrough item refs, resource-node item refs, alchemy/enhancement refs, quest refs, technique buff refs, buff numeric stat keys\n");
+  process.stdout.write("- validated monster drops/equipment/skills, map monster spawns, item external refs, root-foundation item refs, resource-node item refs, alchemy/enhancement refs, quest refs, technique buff refs, buff numeric stat keys\n");
 }
 
 main();

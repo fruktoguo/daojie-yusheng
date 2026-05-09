@@ -794,6 +794,7 @@ function getFormulaVarLabel(variable: SkillFormulaVar): string {
 
   const labels: Partial<Record<SkillFormulaVar, string>> = {
     techLevel: '功法层数',
+    'caster.realmLv': '自身境界等级',
     targetCount: '目标数量',
     'caster.hp': '自身当前生命',
     'caster.maxHp': '自身最大生命',
@@ -868,7 +869,7 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
     };
   }
 
-  if (variable === 'techLevel' || variable === 'targetCount' || variable === 'caster.hp' || variable === 'caster.qi' || variable === 'target.debuffCount') {
+  if (variable === 'techLevel' || variable === 'caster.realmLv' || variable === 'targetCount' || variable === 'caster.hp' || variable === 'caster.qi' || variable === 'target.debuffCount') {
     return {
       quantifiedValue: 0,
       unquantified: [describeFormulaVar(variable, scale)],

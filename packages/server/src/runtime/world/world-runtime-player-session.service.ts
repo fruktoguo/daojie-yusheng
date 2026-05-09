@@ -69,6 +69,13 @@ interface WorldRuntimePlayerSessionDeps {
     ensureSectRuntimeInstanceByTemplateId?(templateId: string, deps: WorldRuntimePlayerSessionDeps): InstanceRuntimeLike | null;
     reconcilePlayerSectId?(playerId: string): string | null;
   };
+  worldRuntimeTongtianTowerService?: {
+    ensureLayerInstanceForRestore?(
+      input: { instanceId?: string | null; templateId?: string | null },
+      deps: WorldRuntimePlayerSessionDeps,
+    ): InstanceRuntimeLike | null;
+    onPlayerSessionAttachedToLayer?(instance: InstanceRuntimeLike, deps: WorldRuntimePlayerSessionDeps): void;
+  };
   worldSessionService: {
     purgePlayerSession(playerId: string, reason: string): void;
   };
@@ -83,6 +90,7 @@ interface WorldRuntimePlayerSessionDeps {
   clearPlayerLocation(playerId: string): void;
   clearPendingCommand(playerId: string): void;
   getInstanceRuntime(instanceId: string): InstanceRuntimeLike | null;
+  refreshPlayerContextActions?(playerId: string, view?: unknown): unknown;
 }
 
 interface ResolveTargetInstanceInput {
@@ -151,9 +159,13 @@ export class WorldRuntimePlayerSessionService {
       instanceId: targetInstance.meta.instanceId,
       sessionId: runtimePlayer.sessionId,
     });
+    deps.worldRuntimeTongtianTowerService?.onPlayerSessionAttachedToLayer?.(targetInstance, deps);
     deps.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
     deps.logger.debug(`玩家 ${playerId} 已附着到实例 ${targetInstance.meta.instanceId}`);
     const view = this.worldRuntimeWorldAccessService.getPlayerViewOrThrow(playerId, deps);
+    if (typeof deps.refreshPlayerContextActions === 'function') {
+      deps.refreshPlayerContextActions(playerId, view);
+    }
     if (typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
       deps.playerRuntimeService.syncFromWorldView(playerId, runtimePlayer.sessionId, view);
     }
@@ -255,6 +267,17 @@ export class WorldRuntimePlayerSessionService {
         );
       }
       return requestedInstance;
+    }
+
+    const towerInstance = deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore?.(
+      {
+        instanceId: input.requestedInstanceId,
+        templateId: input.requestedMapId,
+      },
+      deps,
+    );
+    if (towerInstance) {
+      return towerInstance;
     }
 
     const publicMapIdFromInstance = resolvePublicMapIdFromInstanceId(

@@ -1,3 +1,5 @@
+import { applyAsymptoticSuccessModifier } from './craft-success';
+
 /** 强化成功率表：按目标强化等级索引。 */
 const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
   0.5,
@@ -98,28 +100,7 @@ function clampUnitRate(value: number | undefined): number {
 
 /** applyEnhancementSuccessModifier：应用强化Success Modifier。 */
 function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const normalizedRate = clampUnitRate(rate);
-  if (normalizedRate <= 0 || normalizedRate >= 1) {
-    return normalizedRate;
-  }
-  const normalizedModifier = Number.isFinite(modifier) ? Number(modifier) : 0;
-  if (normalizedModifier === 0) {
-    return normalizedRate;
-  }
-  if (normalizedModifier < 0) {
-    return normalizedRate / (1 + Math.abs(normalizedModifier));
-  }
-  const factor = 1 + normalizedModifier;
-  if (normalizedRate <= 0.5) {
-    const scaledSuccess = normalizedRate * factor;
-    if (scaledSuccess <= 0.5) {
-      return scaledSuccess;
-    }
-    return 1 - (0.25 / scaledSuccess);
-  }
-  return 1 - ((1 - normalizedRate) / factor);
+  return applyAsymptoticSuccessModifier(clampUnitRate(rate), modifier);
 }
 
 /** getEnhancementTargetSuccessRate：读取强化目标Success速率。 */
@@ -415,5 +396,4 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
 
   return b;
 }
-
 

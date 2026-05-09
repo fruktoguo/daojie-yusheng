@@ -124,7 +124,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     }
         async handleConnection(client) {
         this.attachPerfObservers(client);
+        this.attachRateLimitGuard(client);
         return this.gatewayBootstrapHelper.handleConnection(client);
+    }
+        attachRateLimitGuard(client) {
+        if (!client || typeof client.use !== 'function') {
+            return;
+        }
+        client.use((packet, next) => {
+            const event = Array.isArray(packet) ? packet[0] : '';
+            if (!this.gatewayGuardHelper.checkRateLimit(client, event, 60, 1000)) {
+                return next(new Error('RATE_LIMIT_EXCEEDED'));
+            }
+            next();
+        });
     }
         attachPerfObservers(client) {
         if (!client || client.data?.gmPerfObserversAttached === true) {

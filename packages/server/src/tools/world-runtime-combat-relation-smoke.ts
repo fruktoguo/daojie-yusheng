@@ -8,9 +8,11 @@ const {
   canPlayerDealDamageToPlayer,
 } = require('../runtime/player/player-combat-config.helpers');
 const { PlayerCombatService } = require('../runtime/combat/player-combat.service');
+const { resolveMonsterCombatExpEquivalentFallback } = require('../runtime/combat/monster-combat-exp-equivalent.helper');
 const { WorldRuntimeAutoCombatService } = require('../runtime/world/world-runtime-auto-combat.service');
 const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
 const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
+const { WorldRuntimeCombatActionService } = require('../runtime/world/world-runtime-combat-action.service');
 const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/world-runtime-player-skill-dispatch.service');
 
 function createPlayer(overrides = {}) {
@@ -627,7 +629,8 @@ async function testSkillDispatchLogsFormationDamage() {
     castSkillToMonster() {
       return { totalDamage: 120, hitCount: 1, qiCost: 0 };
     },
-  });
+  }, new WorldRuntimeCombatActionService());
+  const combatOutcomes = [];
   await service.dispatchSkillTargets(attacker, 'skill.formation', attacker.techniques.techniques[0].skills[0], [{
     kind: 'formation',
     formationId: 'formation:test',
@@ -642,6 +645,7 @@ async function testSkillDispatchLogsFormationDamage() {
       assert.equal(playerId, attacker.playerId);
       return 10;
     },
+    combatOutcomes,
     pushActionLabelEffect(instanceId, x, y, label) {
       log.push(['label', instanceId, x, y, label]);
     },
@@ -685,6 +689,11 @@ async function testSkillDispatchLogsFormationDamage() {
     && entry[2].includes('造成')
     && entry[2].includes('削减阵法灵力 12')
     && entry[3] === 'combat'));
+  assert.equal(combatOutcomes.length, 1);
+  assert.equal(combatOutcomes[0].target.kind, 'formation');
+  assert.equal(combatOutcomes[0].target.id, 'formation:test');
+  assert.equal(combatOutcomes[0].result.targetType, 'formation');
+  assert.equal(combatOutcomes[0].result.damage, 120);
 }
 
 async function testSkillDispatchLogsMonsterAndPlayerDamage() {
@@ -697,6 +706,10 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
   };
   const attacker = createPlayer({
     name: '攻击者',
+    combat: {
+      ...createPlayer().combat,
+      allowAoePlayerHit: true,
+    },
     techniques: {
       techniques: [{
         skills: [skill],
@@ -727,7 +740,7 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
   const service = new WorldRuntimePlayerSkillDispatchService({
     playerProgressionService: {
       getMonsterCombatExpEquivalent(level) {
-        return level * 100;
+        return resolveMonsterCombatExpEquivalentFallback(level);
       },
     },
     getPlayerOrThrow(playerId) {
@@ -755,7 +768,8 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
     castSkill() {
       return { totalDamage: 17, hitCount: 1, qiCost: 0 };
     },
-  });
+  }, new WorldRuntimeCombatActionService());
+  const combatOutcomes = [];
   await service.dispatchSkillTargets(attacker, skill.id, skill, [
     {
       kind: 'monster',
@@ -773,6 +787,7 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
     getInstanceRuntimeOrThrow(instanceId) {
       assert.equal(instanceId, attacker.instanceId);
       return {
+        meta: { supportsPvp: true, canDamageTile: false },
         getMonster(runtimeId) {
           return runtimeId === monster.runtimeId ? monster : null;
         },
@@ -786,6 +801,7 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
       assert.equal(playerId, attacker.playerId);
       return 18;
     },
+    combatOutcomes,
     pushActionLabelEffect(instanceId, x, y, label) {
       log.push(['label', instanceId, x, y, label]);
     },
@@ -828,6 +844,11 @@ async function testSkillDispatchLogsMonsterAndPlayerDamage() {
     && entry[2] === targetPlayer.x
     && entry[3] === targetPlayer.y
     && entry[4] === 17));
+  assert.equal(combatOutcomes.length, 2);
+  assert.equal(combatOutcomes[0].target.kind, 'monster');
+  assert.equal(combatOutcomes[0].result.damage, 23);
+  assert.equal(combatOutcomes[1].target.kind, 'player');
+  assert.equal(combatOutcomes[1].result.damage, 17);
 }
 
 async function testMissedPlayerSkillStillAggrosMonster() {
@@ -869,7 +890,7 @@ async function testMissedPlayerSkillStillAggrosMonster() {
   const service = new WorldRuntimePlayerSkillDispatchService({
     playerProgressionService: {
       getMonsterCombatExpEquivalent(level) {
-        return level * 100;
+        return resolveMonsterCombatExpEquivalentFallback(level);
       },
     },
     getPlayerOrThrow(playerId) {
@@ -900,7 +921,8 @@ async function testMissedPlayerSkillStillAggrosMonster() {
         }],
       };
     },
-  });
+  }, new WorldRuntimeCombatActionService());
+  const combatOutcomes = [];
   await service.dispatchSkillTargets(attacker, skill.id, skill, [{
     kind: 'monster',
     monsterId: monster.runtimeId,
@@ -923,6 +945,7 @@ async function testMissedPlayerSkillStillAggrosMonster() {
       assert.equal(playerId, attacker.playerId);
       return 19;
     },
+    combatOutcomes,
     pushActionLabelEffect(instanceId, x, y, label) {
       log.push(['label', instanceId, x, y, label]);
     },
@@ -943,6 +966,10 @@ async function testMissedPlayerSkillStillAggrosMonster() {
     && entry[1] === monster.runtimeId
     && entry[2] === 0
     && entry[3] === attacker.playerId), `expected zero-damage skill to aggro monster, log=${JSON.stringify(log)}`);
+  assert.equal(combatOutcomes.length, 1);
+  assert.equal(combatOutcomes[0].target.kind, 'monster');
+  assert.equal(combatOutcomes[0].result.damage, 0);
+  assert.equal(combatOutcomes[0].result.dodged, true);
 }
 
 async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
@@ -1010,7 +1037,8 @@ async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
       castTargets.push(target.runtimeId);
       return { totalDamage: 10, hitCount: 1, qiCost: 0, damageKind: 'spell' };
     },
-  });
+  }, new WorldRuntimeCombatActionService());
+  const combatOutcomes = [];
   await service.dispatchCastSkill(attacker.playerId, 'skill.terrain_box', null, null, 'tile:12:10', {
     resolveCurrentTickForPlayerId(playerId) {
       assert.equal(playerId, attacker.playerId);
@@ -1024,6 +1052,7 @@ async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
     ensureAttackAllowed() {
       return undefined;
     },
+    combatOutcomes,
     getInstanceRuntimeOrThrow(instanceId) {
       assert.equal(instanceId, attacker.instanceId);
       return instance;
@@ -1048,6 +1077,182 @@ async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
     && entry[1].includes('你对地块施展裂地术')
     && entry[1].includes('原始 10 - 实际 10 - 法术')
     && entry[2] === 'combat'));
+  assert.equal(combatOutcomes.length, 2);
+  assert.deepEqual(combatOutcomes.map((entry) => `${entry.target.x},${entry.target.y}`).sort(), ['11,10', '13,10']);
+  assert.ok(combatOutcomes.every((entry) => entry.target.kind === 'tile' && entry.result.damage === 10));
+}
+
+async function testSkillDispatchConsumesProductionActionPlanTargets() {
+  const skill = {
+    id: 'skill.plan_filter',
+    name: '筛选术',
+    effects: [{ type: 'damage', damageKind: 'spell' }],
+    range: 3,
+    targeting: { range: 3, maxTargets: 99 },
+  };
+  const attacker = createPlayer({
+    techniques: { techniques: [{ skills: [skill] }] },
+  });
+  const validMonster = {
+    runtimeId: 'monster:valid',
+    monsterId: 'monster.valid',
+    name: '合法妖兽',
+    alive: true,
+    hp: 100,
+    maxHp: 100,
+    x: 11,
+    y: 10,
+    level: 1,
+    attrs: {},
+    numericStats: {},
+    ratioDivisors: {},
+    buffs: [],
+  };
+  const deadMonster = {
+    ...validMonster,
+    runtimeId: 'monster:dead',
+    alive: false,
+    hp: 0,
+    x: 12,
+    y: 10,
+  };
+  const castTargets = [];
+  const diagnostics = [];
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    playerProgressionService: {
+      getMonsterCombatExpEquivalent(level) {
+        return resolveMonsterCombatExpEquivalentFallback(level);
+      },
+    },
+    getPlayer(playerId) {
+      return playerId === attacker.playerId ? attacker : null;
+    },
+    listPlayerSnapshots() {
+      return [];
+    },
+    recordActivity() {
+      return undefined;
+    },
+  }, {
+    castSkillToMonster(_attacker, target) {
+      castTargets.push(target.runtimeId);
+      return { totalDamage: 7, hitCount: 1, qiCost: 0, damageKind: 'spell' };
+    },
+  }, new WorldRuntimeCombatActionService());
+  await service.dispatchSkillTargets(attacker, skill.id, skill, [
+    { kind: 'monster', monsterId: validMonster.runtimeId, x: validMonster.x, y: validMonster.y },
+    { kind: 'monster', monsterId: deadMonster.runtimeId, x: deadMonster.x, y: deadMonster.y },
+  ], {
+    combatDiagnostics: diagnostics,
+    getInstanceRuntimeOrThrow() {
+      return {
+        meta: { supportsPvp: false, canDamageTile: false },
+        getMonster(runtimeId) {
+          if (runtimeId === validMonster.runtimeId) return validMonster;
+          if (runtimeId === deadMonster.runtimeId) return deadMonster;
+          return null;
+        },
+        applyDamageToMonster(runtimeId, damage) {
+          return { defeated: false, monster: validMonster, appliedDamage: damage };
+        },
+        canSeeTileFrom() {
+          return true;
+        },
+      };
+    },
+    resolveCurrentTickForPlayerId() {
+      return 30;
+    },
+    pushActionLabelEffect() {},
+    pushAttackEffect() {},
+    pushDamageFloatEffect() {},
+    queuePlayerNotice() {},
+  });
+  assert.deepEqual(castTargets, [validMonster.runtimeId]);
+  assert.ok(diagnostics.some((entry) => entry.reason === 'monster_dead'));
+}
+
+async function testSkillDispatchKeepsFormationBoundaryPlanMapping() {
+  const skill = {
+    id: 'skill.boundary_plan',
+    name: '破界术',
+    effects: [{ type: 'damage', damageKind: 'spell' }],
+    range: 3,
+    targeting: { range: 3 },
+  };
+  const attacker = createPlayer({
+    techniques: { techniques: [{ skills: [skill] }] },
+  });
+  const calls = [];
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    getPlayer(playerId) {
+      return playerId === attacker.playerId ? attacker : null;
+    },
+    listPlayerSnapshots() {
+      return [];
+    },
+    recordActivity() {
+      return undefined;
+    },
+  }, {
+    castSkillToMonster(_attacker, target) {
+      calls.push(['cast', target.runtimeId]);
+      return { totalDamage: 18, hitCount: 1, qiCost: 0, damageKind: 'spell' };
+    },
+  }, new WorldRuntimeCombatActionService());
+  await service.dispatchSkillTargets(attacker, skill.id, skill, [{
+    kind: 'formation_boundary',
+    formationId: 'formation:boundary',
+    x: 11,
+    y: 10,
+  }], {
+    getInstanceRuntimeOrThrow() {
+      return {
+        meta: { supportsPvp: false, canDamageTile: false },
+        getMonster() {
+          return null;
+        },
+        canSeeTileFrom() {
+          return true;
+        },
+      };
+    },
+    resolveCurrentTickForPlayerId() {
+      return 31;
+    },
+    pushActionLabelEffect() {},
+    pushAttackEffect() {},
+    pushDamageFloatEffect() {},
+    queuePlayerNotice() {},
+    worldRuntimeFormationService: {
+      getBoundaryBarrierCombatState(instanceId, x, y) {
+        assert.equal(instanceId, attacker.instanceId);
+        assert.equal(x, 11);
+        assert.equal(y, 10);
+        return {
+          formationId: 'formation:boundary',
+          name: '边界阵法',
+          remainingAuraBudget: 10,
+          damagePerAura: 10,
+        };
+      },
+      getFormationCombatState() {
+        return null;
+      },
+      applyDamageToBoundaryBarrier(instanceId, x, y, damage) {
+        calls.push(['boundary', instanceId, x, y, damage]);
+        return { appliedDamage: damage, auraDamage: 1.8, destroyed: false };
+      },
+      applyDamageToFormation() {
+        calls.push(['formation']);
+        return { appliedDamage: 0, auraDamage: 0 };
+      },
+    },
+  });
+  assert.deepEqual(calls, [
+    ['cast', 'formation-boundary:formation:boundary:11:10'],
+    ['boundary', attacker.instanceId, 11, 10, 18],
+  ]);
 }
 
 async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
@@ -1119,6 +1324,8 @@ Promise.resolve()
   .then(() => testSkillDispatchLogsMonsterAndPlayerDamage())
   .then(() => testMissedPlayerSkillStillAggrosMonster())
   .then(() => testSkillDispatchKeepsTileAnchorForAreaTerrainDamage())
+  .then(() => testSkillDispatchConsumesProductionActionPlanTargets())
+  .then(() => testSkillDispatchKeepsFormationBoundaryPlanMapping())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-relation' }, null, 2));

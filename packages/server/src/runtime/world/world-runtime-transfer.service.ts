@@ -45,6 +45,11 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         if (runtimePlayer && typeof deps.playerRuntimeService?.beginTransfer === 'function') {
             deps.playerRuntimeService.beginTransfer(runtimePlayer, transfer.targetMapId);
         }
+        // 阶段 9 收口：实例迁移前静默清理玩家 pending cast，避免在旧实例 tick 或新实例 tick 里触发错位结算。
+        // 资源/冷却保持 committed_no_refund / committed_no_rollback，不产生玩家通知，仅走结构化诊断。
+        if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
+            deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
+        }
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.transfer.apply', {
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,
@@ -88,6 +93,9 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         const view = typeof deps.getPlayerViewOrThrow === 'function'
             ? deps.getPlayerViewOrThrow(transfer.playerId)
             : null;
+        if (view && typeof deps.refreshPlayerContextActions === 'function') {
+            deps.refreshPlayerContextActions(transfer.playerId, view);
+        }
         if (view && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
             deps.playerRuntimeService.syncFromWorldView(transfer.playerId, transfer.sessionId, view);
         }

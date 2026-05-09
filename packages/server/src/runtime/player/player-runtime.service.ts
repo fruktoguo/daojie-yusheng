@@ -38,6 +38,8 @@ const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
 
+const MAX_ITEM_COUNT = 2_147_483_647;
+
 /** 等待写入 logbook 的消息上限，避免队列无限膨胀。 */
 const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 /** 玩家跨节点转移超时时间，超时后自动回滚 transfer 态。 */
@@ -1140,7 +1142,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
         if (existing) {
-            existing.count += item.count;
+            existing.count = Math.min(existing.count + item.count, MAX_ITEM_COUNT);
         } else {
             player.inventory.items.push(item);
         }
@@ -1592,7 +1594,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const normalized = this.contentTemplateRepository.normalizeItem(item);
         const existing = player.inventory.items.find((entry) => entry.itemId === normalized.itemId);
         if (existing) {
-            existing.count += normalized.count;
+            existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
         }
         else {
             player.inventory.items.push({ ...normalized });

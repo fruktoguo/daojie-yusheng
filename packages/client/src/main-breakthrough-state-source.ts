@@ -105,14 +105,47 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
 
       const preview = player?.realm?.breakthrough;
       const currentRealm = player?.realm;
-      if (!preview || !currentRealm) {
+      if (!currentRealm) {
         options.showToast(t('breakthrough.toast.not-ready'));
+        return;
+      }
+      if (!preview) {
+        detailModalHost.open({
+          ownerId: 'realm:breakthrough',
+          size: 'sm',
+          variantClass: 'detail-modal--breakthrough',
+          title: '突破',
+          subtitle: currentRealm.displayName,
+          hint: '当前境界修为未满，暂时不能确认突破。',
+          bodyHtml: `
+            <div class="panel-section breakthrough-requirements-panel">
+              <div class="panel-section-title">突破要求</div>
+              <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
+                <div class="action-copy">
+                  <div class="breakthrough-requirement-head ui-requirement-entry-head">
+                    <span class="action-name">境界修为圆满</span>
+                    <span class="action-type breakthrough-requirement-status ui-requirement-status is-unmet">[未达成]</span>
+                  </div>
+                  <div class="action-desc">当前境界修为 ${formatDisplayInteger(currentRealm.progress)} / ${formatDisplayInteger(currentRealm.progressToNext)}</div>
+                </div>
+              </div>
+              <div class="empty-hint ui-empty-hint">突破信息同步后会显示凝练根基与完整条件。</div>
+            </div>
+          `,
+        });
         return;
       }
 
       const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
       const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
-      const rootFoundation = preview.rootFoundation;
+      const rootFoundation = preview.rootFoundation
+        ? {
+          ...preview.rootFoundation,
+          progress: currentRealm.progress,
+          costProgress: currentRealm.progressToNext,
+          canRefine: preview.rootFoundation.canRefine && currentRealm.breakthroughReady,
+        }
+        : undefined;
       const autoRootFoundation = player?.autoRootFoundation === true;
       const rootFoundationReachedCap = rootFoundation ? rootFoundation.current >= rootFoundation.cap : false;
       const rootFoundationStatusLabel = rootFoundation?.canRefine
@@ -185,11 +218,6 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
               ` : '<div class="empty-hint ui-empty-hint">当前暂不可凝练根基。</div>'}
             </div>
           </div>
-          ${hasIncreaseRequirements ? `
-            <div class="panel-section">
-              <div class="empty-hint ui-empty-hint">赤者为未达，+%者将抬全属门槛。绿者已达。</div>
-            </div>
-          ` : ''}
           <div class="breakthrough-action-grid">
             <div class="breakthrough-action-cell">
               <button class="small-btn breakthrough-action-btn breakthrough-confirm-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>确认突破</button>

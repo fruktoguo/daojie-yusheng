@@ -605,11 +605,12 @@ let currentNetworkInPage = 1;
 /** currentNetworkOutPage：当前下行榜分页。 */
 let currentNetworkOutPage = 1;
 const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
-type GmPositionMapCategory = 'void' | 'real' | 'sect' | 'map';
+type GmPositionMapCategory = 'void' | 'real' | 'sect' | 'secret' | 'map';
 const GM_POSITION_MAP_CATEGORY_OPTIONS: readonly { id: GmPositionMapCategory; label: string }[] = [
   { id: 'void', label: t('gm.client.position.category.void') },
   { id: 'real', label: t('gm.client.position.category.real') },
   { id: 'sect', label: t('gm.client.position.category.sect') },
+  { id: 'secret', label: t('gm.client.position.category.secret') },
 ];
 let gmMapSummaries: GmMapSummary[] = [];
 let gmWorldInstances: GmWorldInstanceSummary[] = [];
@@ -3574,8 +3575,16 @@ function isGmSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanc
   return isGmSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
 }
 
+function isGmSecretRealmRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId' | 'mapGroupId' | 'mapGroupName'>): boolean {
+  return instance.instanceId.startsWith('tower:tongtian:layer:')
+    || instance.templateId.startsWith('tongtian_tower_layer_')
+    || instance.mapGroupId === 'secret_realm'
+    || instance.mapGroupName === '秘境';
+}
+
 function resolvePositionMapCategory(instance: GmWorldInstanceSummary): GmPositionMapCategory {
   if (isGmSectRuntimeInstance(instance)) return 'sect';
+  if (isGmSecretRealmRuntimeInstance(instance)) return 'secret';
   return instance.linePreset === 'real' ? 'real' : 'void';
 }
 

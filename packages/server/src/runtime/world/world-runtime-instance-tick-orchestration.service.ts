@@ -135,7 +135,13 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                         steppedPlayerIds.add(playerId);
                     }
                 }
+                if (typeof deps.worldRuntimeTongtianTowerService?.advanceInstance === 'function') {
+                    deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps);
+                }
             }
+        }
+        if (typeof deps.worldRuntimeTongtianTowerService?.cleanupIdleInstances === 'function') {
+            await deps.worldRuntimeTongtianTowerService.cleanupIdleInstances(deps);
         }
         const instanceTicksMs = performance.now() - instanceTicksStartedAt;
         const transfersMs = 0;

@@ -83,7 +83,13 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         const targetMapId = previousMapId === PRISON_MAP_ID
             ? PRISON_MAP_ID
             : boundRespawnMapId || deps.resolveDefaultRespawnMapId();
-        const targetInstance = deps.getOrCreatePublicInstance(targetMapId);
+        let targetInstance = deps.getOrCreatePublicInstance(targetMapId);
+        if (!targetInstance && targetMapId !== deps.resolveDefaultRespawnMapId()) {
+            targetInstance = deps.getOrCreatePublicInstance(deps.resolveDefaultRespawnMapId());
+        }
+        if (!targetInstance) {
+            return;
+        }
         if (previous) {
             previousInstance?.disconnectPlayer(playerId);
         }

@@ -302,7 +302,16 @@ let MailRuntimeService = class MailRuntimeService {
             if (this.durableOperationService?.isEnabled?.()) {
                 try {
                     await this.claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, resolution.walletCredits);
-                    this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...entry.rawPayload })));
+                    const revalidatedInventory = this.buildNextInventoryItems(playerId, resolution.inventoryItems);
+                    if (!revalidatedInventory) {
+                        return {
+                            operation: 'claim',
+                            ok: false,
+                            mailIds: visible.map((entry) => entry.mailId),
+                            message: '背包空间不足，无法领取全部附件。',
+                        };
+                    }
+                    this.playerRuntimeService.replaceInventoryItems(playerId, revalidatedInventory.map((entry) => ({ ...entry.rawPayload })));
                     for (const credit of resolution.walletCredits) {
                         this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
                     }

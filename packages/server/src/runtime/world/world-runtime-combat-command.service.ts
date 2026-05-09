@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
+const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
 
 /** world-runtime combat-command orchestration：统一承接普攻、施法与接敌入口 facade。 */
 let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
@@ -38,6 +39,11 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
 
     worldRuntimeBattleEngageService;    
     /**
+ * worldRuntimeCombatActionService：统一战斗动作编排服务引用。
+ */
+
+    worldRuntimeCombatActionService;
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeBasicAttackService 参数说明。
  * @param worldRuntimePlayerSkillDispatchService 参数说明。
@@ -45,10 +51,11 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService) {
+    constructor(worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeCombatActionService) {
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
+        this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
     }    
     /**
  * dispatchBasicAttack：判断BasicAttack是否满足条件。
@@ -62,6 +69,15 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  */
 
     async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
+        if (this.worldRuntimeCombatActionService?.dispatchPlayerBasicAttack) {
+            return this.worldRuntimeCombatActionService.dispatchPlayerBasicAttack({
+                playerId,
+                targetPlayerId,
+                targetMonsterId,
+                targetX,
+                targetY,
+            }, deps, () => this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps));
+        }
         return this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
     }    
     /**
@@ -76,6 +92,15 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  */
 
     async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
+        if (this.worldRuntimeCombatActionService?.dispatchPlayerSkill) {
+            return this.worldRuntimeCombatActionService.dispatchPlayerSkill({
+                playerId,
+                skillId,
+                targetPlayerId,
+                targetMonsterId,
+                targetRef,
+            }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps));
+        }
         return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
     }    
     /**
@@ -136,7 +161,8 @@ exports.WorldRuntimeCombatCommandService = WorldRuntimeCombatCommandService = __
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
-        world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService])
+        world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
+        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
 ], WorldRuntimeCombatCommandService);
 
 export { WorldRuntimeCombatCommandService };

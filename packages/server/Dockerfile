@@ -27,6 +27,9 @@ COPY --from=builder /app/packages/server/package.json packages/server/
 COPY --from=builder /app/packages/server/dist packages/server/dist
 COPY --from=builder /app/packages/server/node_modules packages/server/node_modules
 COPY --from=builder /app/packages/server/data packages/server/data
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p /var/lib/server && chown -R appuser:appgroup /var/lib/server
+USER appuser
 WORKDIR /app/packages/server
 EXPOSE 13001
 CMD ["node", "dist/main.js"]

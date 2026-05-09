@@ -73,6 +73,16 @@
       border-color: rgba(17, 17, 17, 0.32);
       color: var(--stamp-red-hover);
     }
+    .hud-realm-action.is-unavailable {
+      background: rgba(17, 17, 17, 0.06);
+      border-color: rgba(17, 17, 17, 0.14);
+      color: var(--ink-grey);
+    }
+    .hud-realm-action.is-unavailable:hover {
+      background: rgba(17, 17, 17, 0.1);
+      border-color: rgba(17, 17, 17, 0.22);
+      color: var(--ink-black);
+    }
     .hud-realm-main {
       display: flex;
       flex: 1 1 auto;

@@ -51,9 +51,9 @@ function createTierPercentProfile(allPercent: number, hpPercent: number): Numeri
 /** createGlobalMonsterPercentProfile：创建Global妖兽Percent Profile。 */
 function createGlobalMonsterPercentProfile(): NumericStatPercentages {
   const result = createUniformPercentProfile(100);
-  result.hpRegenRate = 10;
-  result.dodge = 10;
-  result.resolvePower = 10;
+  result.hpRegenRate = 25;
+  result.dodge = 25;
+  result.antiCrit = 25;
   return result;
 }
 
@@ -114,7 +114,6 @@ export const MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES: Record<MonsterTier, number
 
 /** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
 export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;
-
 
 
 

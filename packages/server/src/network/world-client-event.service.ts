@@ -298,7 +298,7 @@ let WorldClientEventService = class WorldClientEventService {
                 : player.playerId;
 
         const chatMsg = {
-            text: message.slice(0, 200),
+            text: message.slice(0, 200).replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch] || ch),
             kind: 'chat',
             from: chatLabel,
         };

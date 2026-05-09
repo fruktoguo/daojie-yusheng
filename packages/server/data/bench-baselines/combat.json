@@ -1,0 +1,129 @@
+{
+  "ok": true,
+  "iterations": 20000,
+  "avgMs": 0.007689,
+  "p95Ms": 0.014654,
+  "p99Ms": 0.029906,
+  "thresholds": {
+    "skillSingleTargetP95LtMs": 5,
+    "basicAttackSingleTargetP95LtMs": 1,
+    "actionDryRunSingleTargetP95LtMs": 10,
+    "skillFiveTargetsP95LtMs": 5,
+    "targetCollection100P95LtMs": 1,
+    "targetValidationSingleP95LtMs": 0.5,
+    "hitResolutionSingleP95LtMs": 0.5,
+    "eventBuild100P95LtMs": 10,
+    "aoiBroadcastSerialization100P95LtMs": 10,
+    "batch100PlayerBasicAttacksP95LtMs": 50,
+    "batch50MonsterSkillsP95LtMs": 100,
+    "fullInstanceTick100PlayersP95LtMs": 50,
+    "fullInstanceTick50MonsterSkillsP95LtMs": 100
+  },
+  "hotPath": {
+    "iterations": 10000,
+    "dryRunSingle": {
+      "avgMs": 0.107904,
+      "p95Ms": 0.149225,
+      "p99Ms": 0.229053
+    },
+    "basicAttackSingle": {
+      "avgMs": 0.000893,
+      "p95Ms": 0.001461,
+      "p99Ms": 0.002261
+    },
+    "skillFiveTargets": {
+      "avgMs": 0.027043,
+      "p95Ms": 0.035628,
+      "p99Ms": 0.061154
+    },
+    "targetCollection100": {
+      "avgMs": 0.004196,
+      "p95Ms": 0.004631,
+      "p99Ms": 0.021846
+    },
+    "targetValidationSingle": {
+      "avgMs": 0.000602,
+      "p95Ms": 0.0008,
+      "p99Ms": 0.00143
+    },
+    "hitResolutionSingle": {
+      "avgMs": 0.000852,
+      "p95Ms": 0.00119,
+      "p99Ms": 0.001991
+    },
+    "eventBuild100": {
+      "iterations": 1000,
+      "eventsPerIteration": 100,
+      "avgMs": 0.08169,
+      "p95Ms": 0.12762,
+      "p99Ms": 0.268783
+    },
+    "aoiBroadcastSerialization100": {
+      "iterations": 1000,
+      "eventsPerIteration": 100,
+      "avgMs": 0.122502,
+      "p95Ms": 0.17538,
+      "p99Ms": 0.508177
+    },
+    "batch100PlayerBasicAttacks": {
+      "iterations": 1000,
+      "actionsPerIteration": 100,
+      "avgMs": 0.117464,
+      "p95Ms": 0.189813,
+      "p99Ms": 0.335947
+    },
+    "batch50MonsterSkills": {
+      "iterations": 1000,
+      "actionsPerIteration": 50,
+      "avgMs": 0.07217,
+      "p95Ms": 0.170589,
+      "p99Ms": 0.239065
+    },
+    "fullInstanceTick100Players": {
+      "iterations": 1000,
+      "playersPerIteration": 100,
+      "avgMs": 0.071297,
+      "p95Ms": 0.114576,
+      "p99Ms": 0.229623
+    },
+    "fullInstanceTick50MonsterSkills": {
+      "iterations": 1000,
+      "monsterActionsPerIteration": 50,
+      "avgMs": 0.043011,
+      "p95Ms": 0.066535,
+      "p99Ms": 0.102634
+    },
+    "passed": {
+      "actionDryRunSingleTargetP95Lt10Ms": true,
+      "basicAttackSingleTargetP95Lt1Ms": true,
+      "skillFiveTargetsP95Lt5Ms": true,
+      "targetCollection100P95Lt1Ms": true,
+      "targetValidationSingleP95Lt05Ms": true,
+      "hitResolutionSingleP95Lt05Ms": true,
+      "eventBuild100P95Lt10Ms": true,
+      "aoiBroadcastSerialization100P95Lt10Ms": true,
+      "batch100PlayerBasicAttacksP95Lt50Ms": true,
+      "batch50MonsterSkillsP95Lt100Ms": true,
+      "fullInstanceTick100PlayersP95Lt50Ms": true,
+      "fullInstanceTick50MonsterSkillsP95Lt100Ms": true
+    }
+  },
+  "passed": {
+    "skillSingleTargetP95Lt5Ms": true,
+    "actionDryRunSingleTargetP95Lt10Ms": true,
+    "basicAttackSingleTargetP95Lt1Ms": true,
+    "skillFiveTargetsP95Lt5Ms": true,
+    "targetCollection100P95Lt1Ms": true,
+    "targetValidationSingleP95Lt05Ms": true,
+    "hitResolutionSingleP95Lt05Ms": true,
+    "eventBuild100P95Lt10Ms": true,
+    "aoiBroadcastSerialization100P95Lt10Ms": true,
+    "batch100PlayerBasicAttacksP95Lt50Ms": true,
+    "batch50MonsterSkillsP95Lt100Ms": true,
+    "fullInstanceTick100PlayersP95Lt50Ms": true,
+    "fullInstanceTick50MonsterSkillsP95Lt100Ms": true
+  },
+  "avgDamage": 20.004,
+  "avgQiCost": 1,
+  "lastCooldownReadyTick": 340000
+}

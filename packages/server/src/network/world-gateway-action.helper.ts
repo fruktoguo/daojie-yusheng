@@ -20,6 +20,7 @@ interface ProtocolActionResult {
 interface WorldGatewayActionDeps {
   gatewayGuardHelper: {
     requirePlayerId(client: Socket): string | null | undefined;
+    requireActivePlayerId(client: Socket): string | null | undefined;
   };
   worldClientEventService: {
     markProtocol(client: Socket, protocol: 'mainline'): void;
@@ -66,6 +67,9 @@ interface WorldGatewayActionDeps {
       ): void;
       enqueueCastSkillTargetRef(playerId: string, actionId: string, target: string, deps: unknown): void;
     };
+    worldRuntimeTongtianTowerService?: {
+      flushPlayerProgress(playerId: string): Promise<void>;
+    };
   };
   worldSyncService?: {
     emitDeltaSync(playerId: string, socketOverride?: Socket): void;
@@ -97,7 +101,7 @@ export class WorldGatewayActionHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.UseAction>,
   ): Promise<void> {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
@@ -205,6 +209,11 @@ export class WorldGatewayActionHelper {
       this.gateway.worldRuntimeService,
     );
     this.emitProtocolActionResult(client, playerId, result);
+    if (actionId.startsWith('tower:tongtian:')) {
+      await this.gateway.worldRuntimeService.worldRuntimeTongtianTowerService?.flushPlayerProgress(playerId);
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
+      return;
+    }
     if (actionId === 'portal:travel') {
       this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     }
@@ -247,7 +256,7 @@ export class WorldGatewayActionHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.RedeemCodes>,
   ): void {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
@@ -260,7 +269,7 @@ export class WorldGatewayActionHelper {
   }
 
   handleUsePortal(client: Socket): void {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
@@ -277,7 +286,7 @@ export class WorldGatewayActionHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.Cultivate>,
   ): void {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
@@ -300,7 +309,7 @@ export class WorldGatewayActionHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.CastSkill>,
   ): void {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }

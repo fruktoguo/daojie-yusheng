@@ -234,6 +234,9 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         if (typeof deps?.worldRuntimeSectService?.buildSectEntranceActions === 'function') {
             actions.push(...deps.worldRuntimeSectService.buildSectEntranceActions(view, deps));
         }
+        if (typeof deps?.worldRuntimeTongtianTowerService?.buildContextActions === 'function') {
+            actions.push(...deps.worldRuntimeTongtianTowerService.buildContextActions(view, deps));
+        }
         for (const portal of view.localPortals) {
             if (portal.trigger !== 'manual'
                 || chebyshevDistance(view.self.x, view.self.y, portal.x, portal.y) > 1) {

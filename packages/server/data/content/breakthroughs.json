@@ -5,15 +5,13 @@
       "fromRealmLv": 1,
       "toRealmLv": 2,
       "title": "炼皮试手",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_1_2_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 1,
-          "label": "备齐灵石 1 枚，凝练根基",
-          "increaseAttrRequirementPct": 10
-        },
+          "count": 1
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_1_2_total_attrs",
           "type": "attribute_total",
@@ -26,15 +24,13 @@
       "fromRealmLv": 2,
       "toRealmLv": 3,
       "title": "锻骨立根",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_2_3_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 3,
-          "label": "备齐灵石 3 枚，凝练根基",
-          "increaseAttrRequirementPct": 10
-        },
+          "count": 3
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_2_3_tech_level",
           "type": "technique",
@@ -55,15 +51,13 @@
       "fromRealmLv": 3,
       "toRealmLv": 4,
       "title": "易筋活络",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_3_4_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 5,
-          "label": "备齐灵石 5 枚，凝练根基",
-          "increaseAttrRequirementPct": 10
-        },
+          "count": 5
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_3_4_tech_level",
           "type": "technique",
@@ -84,15 +78,13 @@
       "fromRealmLv": 4,
       "toRealmLv": 5,
       "title": "洗髓聚势",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_4_5_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 8,
-          "label": "备齐灵石 8 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 8
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_4_5_tech_level",
           "type": "technique",
@@ -113,15 +105,13 @@
       "fromRealmLv": 5,
       "toRealmLv": 6,
       "title": "养气开门",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_5_6_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 11,
-          "label": "备齐灵石 11 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 11
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_5_6_tech_realm",
           "type": "technique",
@@ -142,15 +132,13 @@
       "fromRealmLv": 6,
       "toRealmLv": 7,
       "title": "通脉引息",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_6_7_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 15,
-          "label": "备齐灵石 15 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 15
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_6_7_tech_level",
           "type": "technique",
@@ -171,15 +159,13 @@
       "fromRealmLv": 7,
       "toRealmLv": 8,
       "title": "瑶光点命",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_7_8_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 19,
-          "label": "备齐灵石 19 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 19
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_7_8_tech_realm",
           "type": "technique",
@@ -200,15 +186,13 @@
       "fromRealmLv": 8,
       "toRealmLv": 9,
       "title": "开阳试锋",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_8_9_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 23,
-          "label": "备齐灵石 23 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 23
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_8_9_tech_realm",
           "type": "technique",
@@ -229,15 +213,13 @@
       "fromRealmLv": 9,
       "toRealmLv": 10,
       "title": "玉衡定势",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_9_10_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 27,
-          "label": "备齐灵石 27 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 27
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_9_10_tech_level",
           "type": "technique",
@@ -258,15 +240,13 @@
       "fromRealmLv": 10,
       "toRealmLv": 11,
       "title": "天权定衡",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_10_11_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 32,
-          "label": "备齐灵石 32 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 32
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_10_11_yellow_major",
           "type": "technique",
@@ -288,15 +268,13 @@
       "fromRealmLv": 11,
       "toRealmLv": 12,
       "title": "天玑藏锋",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_11_12_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 36,
-          "label": "备齐灵石 36 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 36
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_11_12_yellow_major",
           "type": "technique",
@@ -318,15 +296,13 @@
       "fromRealmLv": 12,
       "toRealmLv": 13,
       "title": "天璇试关",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_12_13_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 42,
-          "label": "备齐灵石 42 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 42
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_12_13_yellow_major",
           "type": "technique",
@@ -348,15 +324,13 @@
       "fromRealmLv": 13,
       "toRealmLv": 14,
       "title": "天枢归轴",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_13_14_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 47,
-          "label": "备齐灵石 47 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
-        },
+          "count": 47
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_13_14_yellow_major",
           "type": "technique",
@@ -378,15 +352,13 @@
       "fromRealmLv": 14,
       "toRealmLv": 15,
       "title": "宗师立势",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_14_15_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 52,
-          "label": "备齐灵石 52 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
-        },
+          "count": 52
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_14_15_yellow_perfect",
           "type": "technique",
@@ -408,15 +380,13 @@
       "fromRealmLv": 15,
       "toRealmLv": 16,
       "title": "大宗师归炁",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_15_16_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 58,
-          "label": "备齐灵石 58 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
-        },
+          "count": 58
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_15_16_yellow_perfect",
           "type": "technique",
@@ -438,15 +408,13 @@
       "fromRealmLv": 16,
       "toRealmLv": 17,
       "title": "临渊凝锋",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_16_17_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 64,
-          "label": "备齐灵石 64 枚，凝练根基",
-          "increaseAttrRequirementPct": 20
-        },
+          "count": 64
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_16_17_two_major",
           "type": "technique",
@@ -467,15 +435,13 @@
       "fromRealmLv": 17,
       "toRealmLv": 18,
       "title": "叩门问真",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_17_18_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 70,
-          "label": "备齐灵石 70 枚，凝练根基",
-          "increaseAttrRequirementPct": 20
-        },
+          "count": 70
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_17_18_yellow_perfect",
           "type": "technique",
@@ -497,15 +463,13 @@
       "fromRealmLv": 18,
       "toRealmLv": 19,
       "title": "破凡入真",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_18_19_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 76,
-          "label": "备齐灵石 76 枚，凝练根基",
-          "increaseAttrRequirementPct": 20
-        },
+          "count": 76
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_18_19_yellow_perfect",
           "type": "technique",
@@ -533,15 +497,13 @@
       "fromRealmLv": 19,
       "toRealmLv": 20,
       "title": "二层养脉",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_19_20_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 83,
-          "label": "备齐灵石 83 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 83
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_19_20_yellow_tech",
           "type": "technique",
@@ -562,15 +524,13 @@
       "fromRealmLv": 20,
       "toRealmLv": 21,
       "title": "三层凝露",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_20_21_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 89,
-          "label": "备齐灵石 89 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 89
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_20_21_yellow_tech",
           "type": "technique",
@@ -592,15 +552,13 @@
       "fromRealmLv": 21,
       "toRealmLv": 22,
       "title": "四层承岳",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_21_22_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 96,
-          "label": "备齐灵石 96 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 96
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_21_22_yellow_tech",
           "type": "technique",
@@ -622,15 +580,13 @@
       "fromRealmLv": 22,
       "toRealmLv": 23,
       "title": "五层熬火",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_22_23_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 103,
-          "label": "备齐灵石 103 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 103
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_22_23_yellow_tech",
           "type": "technique",
@@ -652,15 +608,13 @@
       "fromRealmLv": 23,
       "toRealmLv": 24,
       "title": "六层凝锋",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_23_24_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 110,
-          "label": "备齐灵石 110 枚，凝练根基",
-          "increaseAttrRequirementPct": 12
-        },
+          "count": 110
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_23_24_yellow_minor",
           "type": "technique",
@@ -682,15 +636,13 @@
       "fromRealmLv": 24,
       "toRealmLv": 25,
       "title": "七层续炁",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_24_25_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 118,
-          "label": "备齐灵石 118 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 118
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_24_25_yellow_tech",
           "type": "technique",
@@ -711,15 +663,13 @@
       "fromRealmLv": 25,
       "toRealmLv": 26,
       "title": "八层聚海",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_25_26_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 125,
-          "label": "备齐灵石 125 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 125
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_25_26_yellow_tech",
           "type": "technique",
@@ -740,15 +690,13 @@
       "fromRealmLv": 26,
       "toRealmLv": 27,
       "title": "九层凝真",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_26_27_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 133,
-          "label": "备齐灵石 133 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 133
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_26_27_yellow_tech",
           "type": "technique",
@@ -769,15 +717,13 @@
       "fromRealmLv": 27,
       "toRealmLv": 28,
       "title": "巅峰临门",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_27_28_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 140,
-          "label": "备齐灵石 140 枚，凝练根基",
-          "increaseAttrRequirementPct": 15
-        },
+          "count": 140
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_27_28_yellow_major",
           "type": "technique",
@@ -799,15 +745,13 @@
       "fromRealmLv": 28,
       "toRealmLv": 29,
       "title": "圆满归一",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_28_29_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 148,
-          "label": "备齐灵石 148 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
-        },
+          "count": 148
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_28_29_yellow_major",
           "type": "technique",
@@ -829,15 +773,13 @@
       "fromRealmLv": 29,
       "toRealmLv": 30,
       "title": "半步筑基",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_29_30_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 156,
-          "label": "备齐灵石 156 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
-        },
+          "count": 156
+        }
+      ],
+      "requirements": [
         {
           "id": "bw_29_30_yellow_perfect",
           "type": "technique",
@@ -859,196 +801,157 @@
       "fromRealmLv": 30,
       "toRealmLv": 31,
       "title": "筑基一层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_30_31_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 164,
-          "label": "备齐灵石 164 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 164
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 31,
       "toRealmLv": 32,
       "title": "筑基二层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_31_32_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 173,
-          "label": "备齐灵石 173 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 173
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 32,
       "toRealmLv": 33,
       "title": "筑基三层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_32_33_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 181,
-          "label": "备齐灵石 181 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 181
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 33,
       "toRealmLv": 34,
       "title": "筑基四层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_33_34_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 190,
-          "label": "备齐灵石 190 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 190
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 34,
       "toRealmLv": 35,
       "title": "筑基五层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_34_35_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 198,
-          "label": "备齐灵石 198 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 198
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 35,
       "toRealmLv": 36,
       "title": "筑基六层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_35_36_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 207,
-          "label": "备齐灵石 207 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 207
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 36,
       "toRealmLv": 37,
       "title": "筑基七层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_36_37_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 216,
-          "label": "备齐灵石 216 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 216
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 37,
       "toRealmLv": 38,
       "title": "筑基八层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_37_38_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 225,
-          "label": "备齐灵石 225 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 225
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 38,
       "toRealmLv": 39,
       "title": "筑基九层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_38_39_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 234,
-          "label": "备齐灵石 234 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 234
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 39,
       "toRealmLv": 40,
       "title": "筑基巅峰",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_39_40_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 244,
-          "label": "备齐灵石 244 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 244
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 40,
       "toRealmLv": 41,
       "title": "筑基大圆满",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_40_41_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 253,
-          "label": "备齐灵石 253 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 253
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 41,
       "toRealmLv": 42,
       "title": "半步金丹",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_41_42_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 263,
-          "label": "备齐灵石 263 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 263
         }
-      ]
+      ],
+      "requirements": []
     },
     {
       "fromRealmLv": 42,
       "toRealmLv": 43,
       "title": "金丹一层",
-      "requirements": [
+      "rootFoundationItems": [
         {
-          "id": "bw_42_43_spirit_stone",
-          "type": "item",
           "itemId": "spirit_stone",
-          "count": 272,
-          "label": "备齐灵石 272 枚，凝练根基",
-          "increaseAttrRequirementPct": 18
+          "count": 272
         }
-      ]
+      ],
+      "requirements": []
     }
   ]
 }

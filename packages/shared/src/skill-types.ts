@@ -12,6 +12,7 @@ export type SkillDamageKind = 'physical' | 'spell';
 /** 技能公式变量类型。 */
 export type SkillFormulaVar =
   | 'techLevel'
+  | 'caster.realmLv'
   | 'targetCount'
   | 'caster.hp'
   | 'caster.maxHp'

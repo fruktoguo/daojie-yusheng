@@ -9,7 +9,7 @@ export const ACCOUNT_MIN_LENGTH = 1;
 export const ACCOUNT_MAX_LENGTH = 20;
 
 /** 密码最小长度。 */
-export const PASSWORD_MIN_LENGTH = 6;
+export const PASSWORD_MIN_LENGTH = 8;
 
 /** 角色名称最大长度。 */
 export const ROLE_NAME_MAX_LENGTH = 7;

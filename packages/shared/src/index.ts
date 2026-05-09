@@ -47,6 +47,7 @@ export * from './display-number';
 export * from './value';
 export * from './monster';
 export * from './combat';
+export * from './combat-event-types';
 export * from './combat-relation';
 export * from './item-stack';
 export * from './network-protobuf';

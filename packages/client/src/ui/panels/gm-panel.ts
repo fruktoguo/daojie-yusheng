@@ -246,9 +246,7 @@ export class GmPanel {
     if (this.suggestions.length === 0) {
       const empty = document.createElement('div');
       empty.dataset.gmEmptyState = 'suggestions';
-      empty.style.color = '#666';
-      empty.style.padding = '10px';
-      empty.style.textAlign = 'center';
+      empty.className = 'empty-hint ui-empty-hint';
       empty.textContent = '暂无意见收集';
       patchElementChildren(this.suggestionListEl, empty);
       return;

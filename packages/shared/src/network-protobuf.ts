@@ -6,7 +6,11 @@ import { PROTOBUF_C2S_EVENTS, PROTOBUF_S2C_EVENTS } from './network-protobuf-sch
 import type { BinaryPayload } from './network-protobuf-wire-helpers';
 import { normalizeBinaryPayload } from './network-protobuf-wire-helpers';
 
-export { PROTOBUF_S2C_EVENTS, PROTOBUF_C2S_EVENTS } from './network-protobuf-schema';
+export {
+  PROTOBUF_S2C_EVENTS,
+  PROTOBUF_C2S_EVENTS,
+  tickPayloadType,
+} from './network-protobuf-schema';
 export type { BinaryPayload } from './network-protobuf-wire-helpers';
 export {
   decodeMessage,

@@ -8,7 +8,14 @@ import { ContentTemplateRepository } from '../content/content-template.repositor
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { buildMonsterObservation } from '../runtime/world/world-runtime.observation.helpers';
-import { Direction, formatDisplayCurrentMax, formatDisplayInteger, resolveMonsterTemplateRecord } from '@mud/shared';
+import {
+  Direction,
+  formatDisplayCurrentMax,
+  formatDisplayInteger,
+  MONSTER_GLOBAL_STAT_PERCENTS,
+  resolveMonsterNumericStatsFromTendency,
+  resolveMonsterTemplateRecord,
+} from '@mud/shared';
 
 const verdantMapIds = [
   'verdant_vine_vale_01_entry',
@@ -71,6 +78,8 @@ function main() {
   assertRuntimeMonsterStatsMatchGenerated(repository, mapTemplateRepository);
   assertOrdinaryMonsterSpawnAcceleration(repository, mapTemplateRepository);
   assertHuanlingZhenrenInitialWoundedBuff(repository, mapTemplateRepository);
+  assertHuanlingZhenrenSkillOrderAndCastConfig();
+  assertHuanlingZhenrenRuntimeSkillSelection(repository, mapTemplateRepository);
 
   console.log(JSON.stringify({
     ok: true,
@@ -96,7 +105,7 @@ function assertRuntimeMonsterStatsMatchGenerated(
     expected.attrs,
     'runtime monster attrs should use the same tendency formula as generated monster stats',
   );
-  for (const key of ['maxHp', 'maxQi', 'physAtk', 'spellAtk', 'moveSpeed']) {
+  for (const key of ['maxHp', 'maxQi', 'physAtk', 'spellAtk', 'dodge', 'antiCrit', 'hpRegenRate', 'moveSpeed']) {
     assert.equal(
       template.numericStats[key],
       expected.numericStats[key],
@@ -109,6 +118,18 @@ function assertRuntimeMonsterStatsMatchGenerated(
   const rawMonster = JSON.parse(fs.readFileSync(monsterContentPath, 'utf-8'))
     .find((entry) => entry.id === 'm_town_rat_south');
   const baselines = JSON.parse(fs.readFileSync(baselinesPath, 'utf-8'));
+  const unscaledStats = resolveMonsterNumericStatsFromTendency({
+    attrs: template.attrs,
+    statTendency: rawMonster.statTendency,
+    level: rawMonster.level,
+    grade: rawMonster.grade,
+    tier: rawMonster.tier,
+    baselines,
+  });
+  assert.equal(template.numericStats.hpRegenRate, Math.round(unscaledStats.hpRegenRate * (MONSTER_GLOBAL_STAT_PERCENTS.hpRegenRate ?? 100) / 100), 'monster hp regen should use the global monster multiplier');
+  assert.equal(template.numericStats.dodge, Math.round(unscaledStats.dodge * (MONSTER_GLOBAL_STAT_PERCENTS.dodge ?? 100) / 100), 'monster dodge should use the global monster multiplier');
+  assert.equal(template.numericStats.antiCrit, Math.round(unscaledStats.antiCrit * (MONSTER_GLOBAL_STAT_PERCENTS.antiCrit ?? 100) / 100), 'monster antiCrit should use the global monster multiplier');
+  assert.equal(template.numericStats.resolvePower, unscaledStats.resolvePower, 'monster resolvePower should not use the global defensive multiplier');
   const dynamicLevel2 = resolveMonsterTemplateRecord({ ...rawMonster, level: 2 }, undefined, baselines);
   const dynamicMapId = 'smoke_dynamic_monster_level';
   repository.monsterRuntimeStatesByMapId.set(dynamicMapId, [{
@@ -196,11 +217,16 @@ function assertHuanlingZhenrenInitialWoundedBuff(
   const spawns = repository.createRuntimeMonstersForMap('ruined_cavern_manor');
   const spawn = spawns.find((monster) => monster.monsterId === 'm_huanling_zhenren');
   assert.ok(spawn, 'ruined_cavern_manor should spawn 重伤的唤灵真人');
-  assert.equal(spawn.baseAttrs.spirit, Math.round(spawn.baseAttrs.constitution * 0.4), '重伤的唤灵真人 神识倾向 should resolve to 40%');
-  assert.equal(spawn.baseAttrs.strength, Math.round(spawn.baseAttrs.constitution * 0.4), '重伤的唤灵真人 力道倾向 should resolve to 40%');
-  assert.equal(spawn.baseAttrs.perception, spawn.baseAttrs.constitution, '重伤的唤灵真人 身法倾向 should resolve to 100%');
-  assert.equal(spawn.baseAttrs.talent, spawn.baseAttrs.constitution, '重伤的唤灵真人 根骨倾向 should resolve to 100%');
-  assert.equal(spawn.baseAttrs.meridians, spawn.baseAttrs.constitution, '重伤的唤灵真人 经脉倾向 should resolve to 100%');
+  const currentMonsterContentPath = path.resolve(__dirname, '../../data/content/monsters/破败洞府.json');
+  const currentHuanling = JSON.parse(fs.readFileSync(currentMonsterContentPath, 'utf-8'))
+    .find((entry) => entry.id === 'm_huanling_zhenren');
+  const attrTendency = currentHuanling?.attrTendency ?? {};
+  const constitutionTendency = Math.max(1, Math.round(Number(attrTendency.constitution) || 100));
+  assert.equal(spawn.baseAttrs.spirit, Math.round(spawn.baseAttrs.constitution * Math.round(Number(attrTendency.spirit) || 100) / constitutionTendency), '重伤的唤灵真人 神识倾向 should resolve from current attrTendency');
+  assert.equal(spawn.baseAttrs.strength, Math.round(spawn.baseAttrs.constitution * Math.round(Number(attrTendency.strength) || 100) / constitutionTendency), '重伤的唤灵真人 力道倾向 should resolve from current attrTendency');
+  assert.equal(spawn.baseAttrs.perception, Math.round(spawn.baseAttrs.constitution * Math.round(Number(attrTendency.perception) || 100) / constitutionTendency), '重伤的唤灵真人 身法倾向 should resolve from current attrTendency');
+  assert.equal(spawn.baseAttrs.talent, Math.round(spawn.baseAttrs.constitution * Math.round(Number(attrTendency.talent) || 100) / constitutionTendency), '重伤的唤灵真人 根骨倾向 should resolve from current attrTendency');
+  assert.equal(spawn.baseAttrs.meridians, Math.round(spawn.baseAttrs.constitution * Math.round(Number(attrTendency.meridians) || 100) / constitutionTendency), '重伤的唤灵真人 经脉倾向 should resolve from current attrTendency');
   assert.ok(
     spawn.initialBuffs?.some((buff) => buff.buffId === 'buff.huanling_zhenren_wounded'),
     '重伤的唤灵真人 runtime spawn should keep configured initial wounded debuff',
@@ -260,6 +286,177 @@ function assertHuanlingZhenrenInitialWoundedBuff(
     'respawned 重伤的唤灵真人 should rebuild initial wounded debuff',
   );
   assert.equal(respawned.qi, respawned.maxQi, 'respawned 重伤的唤灵真人 should recover full qi');
+}
+
+function assertHuanlingZhenrenSkillOrderAndCastConfig() {
+  const currentMonsterContentPath = path.resolve(__dirname, '../../data/content/monsters/破败洞府.json');
+  const referenceMonsterContentPath = path.resolve(__dirname, '../../../../参考/main-packages-ref/packages/server/data/content/monsters/破败洞府.json');
+  const currentTechniquePath = path.resolve(__dirname, '../../data/content/techniques/凡人期/术法/地阶.json');
+  const referenceTechniquePath = path.resolve(__dirname, '../../../../参考/main-packages-ref/packages/server/data/content/techniques/凡人期/术法/地阶.json');
+
+  const currentHuanling = JSON.parse(fs.readFileSync(currentMonsterContentPath, 'utf-8'))
+    .find((entry) => entry.id === 'm_huanling_zhenren');
+  const referenceHuanling = JSON.parse(fs.readFileSync(referenceMonsterContentPath, 'utf-8'))
+    .find((entry) => entry.id === 'm_huanling_zhenren');
+  assert.ok(currentHuanling, 'current content should include 重伤的唤灵真人');
+  assert.ok(referenceHuanling, 'reference main should include 重伤的唤灵真人');
+  assert.deepEqual(
+    currentHuanling.skills,
+    referenceHuanling.skills,
+    '重伤的唤灵真人 skill order should stay aligned with reference main',
+  );
+  assert.equal(
+    currentHuanling.skills[currentHuanling.skills.length - 1],
+    'skill.huanling_canpo_zhang',
+    '残魄掌 should remain the final fallback skill in 重伤的唤灵真人 skill order',
+  );
+
+  const currentSkills = flattenTechniqueSkills(JSON.parse(fs.readFileSync(currentTechniquePath, 'utf-8')));
+  const referenceSkills = flattenTechniqueSkills(JSON.parse(fs.readFileSync(referenceTechniquePath, 'utf-8')));
+  for (const skillId of currentHuanling.skills) {
+    const currentSkill = currentSkills.get(skillId);
+    assert.ok(currentSkill, `${skillId} should resolve from current 地阶 technique content`);
+    if (currentSkill.requiresTarget !== false) {
+      assert.ok(
+        Number(currentSkill.monsterCast?.windupTicks) > 0,
+        `${skillId} targeted monster skill should keep a positive windupTicks`,
+      );
+    }
+  }
+
+  const currentCanpo = currentSkills.get('skill.huanling_canpo_zhang');
+  const referenceCanpo = referenceSkills.get('skill.huanling_canpo_zhang');
+  assert.ok(currentCanpo, 'current content should include 残魄掌');
+  assert.ok(referenceCanpo, 'reference main should include 残魄掌');
+  assert.equal(currentCanpo.name, '残魄掌', '残魄掌 display name should stay stable');
+  assert.equal(currentCanpo.cooldown, 0, '残魄掌 should remain a zero-cooldown fallback');
+  assert.equal(currentCanpo.range, 5, '残魄掌 should keep reference range 5');
+  assert.deepEqual(currentCanpo.targeting, referenceCanpo.targeting, '残魄掌 targeting should stay aligned with reference main');
+  assert.deepEqual(currentCanpo.monsterCast, referenceCanpo.monsterCast, '残魄掌 monsterCast warning config should stay aligned with reference main');
+}
+
+function assertHuanlingZhenrenRuntimeSkillSelection(
+  repository: ContentTemplateRepository,
+  mapTemplateRepository: MapTemplateRepository,
+) {
+  const defaultFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  const defaultAction = firstMonsterAction(defaultFixture.instance);
+  assert.equal(
+    defaultAction?.skillId,
+    'skill.huanling_duanhun_ding',
+    '重伤的唤灵真人 should not default to 残魄掌 when 断魂灵钉 is castable',
+  );
+  assert.equal(defaultAction?.kind, 'skill_chant', '断魂灵钉 should be emitted as a chant action');
+  assert.equal(defaultAction?.durationMs, 1000, '断魂灵钉 should keep 1 tick chant warning');
+
+  const phaseFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  phaseFixture.monster.hp = Math.max(1, Math.floor(phaseFixture.monster.maxHp * 0.7));
+  const phaseAction = firstMonsterAction(phaseFixture.instance);
+  assert.equal(
+    phaseAction?.skillId,
+    'skill.huanling_candan_faxiang',
+    '重伤的唤灵真人 should prioritize 残丹法相虚影 when entering the 75% phase without 法相 buff',
+  );
+  assert.equal(phaseAction?.kind, 'skill', '残丹法相虚影 is a self-buff action and should not create warning cells');
+
+  const collapseFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  applyHuanlingFaxiangBuff(collapseFixture.monster);
+  collapseFixture.monster.hp = Math.max(1, Math.floor(collapseFixture.monster.maxHp * 0.45));
+  const collapseAction = firstMonsterAction(collapseFixture.instance);
+  assert.equal(
+    collapseAction?.skillId,
+    'skill.huanling_xingluo_canpan',
+    '重伤的唤灵真人 should prioritize 星罗残盘 when entering the 50% phase with 法相 buff',
+  );
+  assert.equal(collapseAction?.kind, 'skill_chant', '星罗残盘 should be emitted as a chant action');
+  assert.equal(collapseAction?.durationMs, 1000, '星罗残盘 should keep 1 tick chant warning');
+
+  const desperationFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  applyHuanlingFaxiangBuff(desperationFixture.monster);
+  desperationFixture.monster.hp = Math.max(1, Math.floor(desperationFixture.monster.maxHp * 0.2));
+  const desperationAction = firstMonsterAction(desperationFixture.instance);
+  assert.equal(
+    desperationAction?.skillId,
+    'skill.huanling_difu_chenyin',
+    '重伤的唤灵真人 should prioritize 地府沉印 when entering the 25% phase with 法相 buff',
+  );
+  assert.equal(desperationAction?.kind, 'skill_chant', '地府沉印 should be emitted as a chant action');
+  assert.equal(desperationAction?.durationMs, 1000, '地府沉印 should keep 1 tick chant warning');
+
+  const fallbackFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  for (const skill of fallbackFixture.monster.skills) {
+    if (skill.id !== 'skill.huanling_canpo_zhang') {
+      fallbackFixture.monster.cooldownReadyTickBySkillId[skill.id] = 99999;
+    }
+  }
+  const fallbackAction = firstMonsterAction(fallbackFixture.instance);
+  assert.equal(
+    fallbackAction?.skillId,
+    'skill.huanling_canpo_zhang',
+    '残魄掌 should be selected only as fallback when higher priority skills are unavailable',
+  );
+  assert.equal(fallbackAction?.kind, 'skill_chant', '残魄掌 fallback should still enter chant warning');
+  assert.equal(fallbackAction?.durationMs, 1000, '残魄掌 fallback should keep 1 tick chant warning');
+}
+
+function createHuanlingCombatFixture(
+  repository: ContentTemplateRepository,
+  mapTemplateRepository: MapTemplateRepository,
+) {
+  const spawns = repository.createRuntimeMonstersForMap('ruined_cavern_manor');
+  const instance = new MapInstanceRuntime({
+    instanceId: `smoke:huanling:${Math.random().toString(36).slice(2)}`,
+    template: mapTemplateRepository.getOrThrow('ruined_cavern_manor'),
+    monsterSpawns: spawns,
+    kind: 'public',
+    persistent: false,
+    createdAt: Date.now(),
+  });
+  const snapshot = instance.listMonsters().find((entry) => entry.monsterId === 'm_huanling_zhenren');
+  assert.ok(snapshot, 'runtime selection smoke should include 重伤的唤灵真人');
+  const monster = instance.monstersByRuntimeId.get(snapshot.runtimeId);
+  assert.ok(monster, 'runtime selection smoke should access live 重伤的唤灵真人 state');
+  const player = instance.connectPlayer({
+    playerId: `player:huanling:${Math.random().toString(36).slice(2)}`,
+    sessionId: 'smoke-session',
+    preferredX: monster.x + 1,
+    preferredY: monster.y,
+  });
+  assert.ok(
+    Math.max(Math.abs(player.x - monster.x), Math.abs(player.y - monster.y)) <= 5,
+    'runtime selection smoke target should start within 残魄掌 range',
+  );
+  return { instance, monster, player };
+}
+
+function applyHuanlingFaxiangBuff(monster: Record<string, any>) {
+  monster.buffs.push({
+    buffId: 'buff.huanling_candan_faxiang',
+    name: '残丹法相虚影',
+    category: 'buff',
+    visibility: 'public',
+    remainingTicks: 120,
+    duration: 120,
+    stacks: 1,
+    maxStacks: 1,
+  });
+}
+
+function firstMonsterAction(instance: MapInstanceRuntime) {
+  const result = instance.tickOnce();
+  return result.monsterActions.find((action) => action.runtimeId?.includes('m_huanling_zhenren')) ?? result.monsterActions[0] ?? null;
+}
+
+function flattenTechniqueSkills(techniques: Array<Record<string, any>>) {
+  const skills = new Map<string, Record<string, any>>();
+  for (const technique of techniques) {
+    for (const skill of technique.skills ?? []) {
+      if (typeof skill?.id === 'string') {
+        skills.set(skill.id, skill);
+      }
+    }
+  }
+  return skills;
 }
 
 main();

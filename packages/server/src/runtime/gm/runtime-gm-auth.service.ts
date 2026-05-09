@@ -118,8 +118,8 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
 
         const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
-        if (normalizedPassword.length < 6) {
-            throw new common_1.BadRequestException('GM 密码至少需要 6 位');
+        if (normalizedPassword.length < 12) {
+            throw new common_1.BadRequestException('GM 密码至少需要 12 位');
         }
         if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
             throw new common_1.BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
@@ -206,7 +206,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         if (source) {
             return `${source.hash}:${source.salt}:${source.updatedAt}`;
         }
-        return 'server-gm-http-auth';
+        throw new Error('GM 签名密钥未配置：请设置 SERVER_GM_AUTH_SECRET 环境变量或确保数据库中存在密码记录。');
     }
     /** 读取 token 的有效期。 */
     getTokenTtlSec() {

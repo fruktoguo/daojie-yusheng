@@ -1,0 +1,82 @@
+[
+  {
+    "id": "m_tongtian_shadow",
+    "name": "虚影",
+    "char": "影",
+    "color": "#8f9bb8",
+    "radius": 4,
+    "respawnTicks": 60,
+    "level": 1,
+    "drops": [],
+    "suppressSpiritStoneDrop": true,
+    "grade": "mortal",
+    "tier": "mortal_blood",
+    "count": 1,
+    "aggroRange": 8,
+    "skills": [
+      "skill.tongtian_shadow_strike"
+    ],
+    "attrTendency": {
+      "constitution": 100,
+      "spirit": 100,
+      "perception": 100,
+      "talent": 100,
+      "strength": 100,
+      "meridians": 100
+    },
+    "statTendency": {
+      "maxQi": 100,
+      "physAtk": 100,
+      "spellAtk": 100,
+      "physDef": 100,
+      "spellDef": 100,
+      "hit": 100,
+      "dodge": 100,
+      "crit": 100,
+      "breakPower": 100,
+      "resolvePower": 100,
+      "maxQiOutputPerTick": 100,
+      "moveSpeed": 100
+    }
+  },
+  {
+    "id": "m_tongtian_shadow_elite",
+    "name": "虚影·精英",
+    "char": "影",
+    "color": "#b7c2e8",
+    "radius": 4,
+    "respawnTicks": 60,
+    "level": 1,
+    "drops": [],
+    "suppressSpiritStoneDrop": true,
+    "grade": "mortal",
+    "tier": "variant",
+    "count": 1,
+    "aggroRange": 8,
+    "skills": [
+      "skill.tongtian_shadow_strike"
+    ],
+    "attrTendency": {
+      "constitution": 100,
+      "spirit": 100,
+      "perception": 100,
+      "talent": 100,
+      "strength": 100,
+      "meridians": 100
+    },
+    "statTendency": {
+      "maxQi": 100,
+      "physAtk": 100,
+      "spellAtk": 100,
+      "physDef": 100,
+      "spellDef": 100,
+      "hit": 100,
+      "dodge": 100,
+      "crit": 100,
+      "breakPower": 100,
+      "resolvePower": 100,
+      "maxQiOutputPerTick": 100,
+      "moveSpeed": 100
+    }
+  }
+]

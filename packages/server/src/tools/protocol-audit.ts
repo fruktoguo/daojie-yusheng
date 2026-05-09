@@ -344,7 +344,92 @@ async function emitAndWait(socket, emitEvent, payload, responseEvent, predicate,
  */
   var afterCount = socket.getEventCount(responseEvent);
   socket.emit(emitEvent, payload);
-  return socket.waitForEventAfter(responseEvent, afterCount, predicate, timeoutMs);
+  try {
+    return await socket.waitForEventAfter(responseEvent, afterCount, predicate, timeoutMs);
+  }
+  catch (error) {
+    throw enrichEmitAndWaitError(socket, error, emitEvent, responseEvent, afterCount);
+  }
+}
+
+/**
+ * enrichEmitAndWaitError：失败时附带近期协议摘要，避免审计超时只留下 after 计数。
+ */
+function enrichEmitAndWaitError(socket, error, emitEvent, responseEvent, afterCount) {
+  var responseEvents = typeof socket.getEvents === 'function' ? socket.getEvents(responseEvent) : [];
+  var recentResponses = responseEvents.slice(Math.max(0, afterCount - 2)).map(summarizeProtocolAuditPayload);
+  var notices = typeof socket.getEvents === 'function' ? socket.getEvents(S2C.Notice).slice(-3).map(summarizeProtocolAuditPayload) : [];
+  var errors = typeof socket.getEvents === 'function' ? socket.getEvents(S2C.Error).slice(-3).map(summarizeProtocolAuditPayload) : [];
+  var detail = {
+    emitEvent,
+    responseEvent,
+    afterCount,
+    responseCount: responseEvents.length,
+    recentResponses,
+    notices,
+    errors,
+  };
+  var message = error && error.message ? error.message : String(error);
+  var enriched = new Error(message + " | recent=" + JSON.stringify(detail));
+  if (error?.stack) {
+    var stackLines = String(error.stack).split('\n');
+    enriched.stack = [enriched.message].concat(stackLines.slice(1)).join('\n');
+  }
+  return enriched;
+}
+
+/**
+ * summarizeProtocolAuditPayload：压缩面板/通知事件，只输出定位协议等待条件所需字段。
+ */
+function summarizeProtocolAuditPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+  var state = payload.state && typeof payload.state === 'object' ? payload.state : null;
+  var statePatch = payload.statePatch && typeof payload.statePatch === 'object' ? payload.statePatch : null;
+  var runtimeState = getCraftPanelRuntimeState(payload);
+  var job = runtimeState?.job && typeof runtimeState.job === 'object' ? runtimeState.job : null;
+  return {
+    kind: payload.kind,
+    ok: payload.ok,
+    error: payload.error,
+    message: payload.message,
+    code: payload.code,
+    catalogVersion: payload.catalogVersion,
+    catalogLen: Array.isArray(payload.catalog) ? payload.catalog.length : undefined,
+    presetsLen: Array.isArray(payload.presets) ? payload.presets.length : undefined,
+    statePatchKeys: statePatch ? Object.keys(statePatch) : undefined,
+    furnaceItemId: state?.furnaceItemId,
+    toolItemId: state?.toolItemId,
+    active: state?.active,
+    job: job ? {
+      kind: job.kind,
+      targetItemId: job.targetItemId,
+      desiredTargetLevel: job.desiredTargetLevel,
+      protectionUsed: job.protectionUsed,
+      recipeId: job.recipeId,
+      phase: job.phase,
+      pausedTicks: job.pausedTicks,
+      remainingTicks: job.remainingTicks,
+      totalTicks: job.totalTicks,
+    } : runtimeState?.job,
+  };
+}
+
+/**
+ * getCraftPanelRuntimeState：兼容面板全量 state 与高频 statePatch。
+ */
+function getCraftPanelRuntimeState(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  if (payload.state && typeof payload.state === 'object') {
+    return payload.state;
+  }
+  if (payload.statePatch && typeof payload.statePatch === 'object') {
+    return payload.statePatch;
+  }
+  return null;
 }
 /**
  * 轮询市场成交历史，直到查询结果出现有效记录。
@@ -1371,24 +1456,27 @@ async function craftPanelCase(runtime) {
     }),
     quantity: 1,
   }, S2C.AlchemyPanel, function (payload) {
+    var state = getCraftPanelRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.job
-      && payload.state.job.recipeId === alchemyEntry.recipeId;
+      && state
+      && state.job
+      && state.job.recipeId === alchemyEntry.recipeId;
   }, 5000);
   await emitAndWait(socket, C2S.Move, { d: Direction.North }, S2C.AlchemyPanel, function (payload) {
+    var state = getCraftPanelRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.job
-      && payload.state.job.recipeId === alchemyEntry.recipeId
-      && payload.state.job.phase === "paused"
-      && payload.state.job.pausedTicks > 0;
+      && state
+      && state.job
+      && state.job.recipeId === alchemyEntry.recipeId
+      && state.job.phase === "paused"
+      && state.job.pausedTicks > 0;
   }, 5000);
   await emitAndWait(socket, C2S.CancelAlchemy, {}, S2C.AlchemyPanel, function (payload) {
+    var state = getCraftPanelRuntimeState(payload);
     return payload
-      && payload.state
-      && payload.state.furnaceItemId === "equip.copper_pill_furnace"
-      && payload.state.job === null;
+      && state
+      && (payload.statePatch || payload.state?.furnaceItemId === "equip.copper_pill_furnace")
+      && state.job === null;
   }, 5000);
   player = (await runtime.api.fetchState(playerId)).player;
   socket.emit(C2S.Equip, { slotIndex: slot(player, "equip.copper_enhancement_hammer") });
@@ -1459,7 +1547,7 @@ async function craftPanelCase(runtime) {
       && state.job.targetItemId === "equip.geng_gate_blade"
       && state.job.desiredTargetLevel === desiredTargetLevel
       && state.job.protectionUsed === Boolean(protectionCandidate)
-      && (!payload.statePatch || (!("candidates" in payload.statePatch) && !("records" in payload.statePatch)));
+      && (!payload.statePatch || (!("candidates" in payload.statePatch) && (!("records" in payload.statePatch) || payload.statePatch.records === undefined || Array.isArray(payload.statePatch.records))));
   }, 5000);
   await emitAndWait(socket, C2S.Move, { d: Direction.South }, S2C.EnhancementPanel, function (payload) {
     var state = getEnhancementRuntimeState(payload);
@@ -1469,7 +1557,7 @@ async function craftPanelCase(runtime) {
       && state.job.targetItemId === "equip.geng_gate_blade"
       && state.job.phase === "paused"
       && state.job.pausedTicks > 0
-      && (!payload.statePatch || (!("candidates" in payload.statePatch) && !("records" in payload.statePatch)));
+      && (!payload.statePatch || (!("candidates" in payload.statePatch) && (!("records" in payload.statePatch) || payload.statePatch.records === undefined || Array.isArray(payload.statePatch.records))));
   }, 5000);
   await emitAndWait(socket, C2S.CancelEnhancement, {}, S2C.EnhancementPanel, function (payload) {
     var state = getEnhancementRuntimeState(payload);

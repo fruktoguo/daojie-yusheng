@@ -881,6 +881,16 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (!buildIsContainerSourceId(sourceId)) {
+            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+            const pile = instance.getGroundPileBySourceId(sourceId);
+            if (pile && Number.isFinite(pile.x) && Number.isFinite(pile.y)) {
+                const dist = Math.max(Math.abs(player.x - pile.x), Math.abs(player.y - pile.y));
+                if (dist > 1) {
+                    throw new common_1.BadRequestException('拾取距离过远，请靠近目标。');
+                }
+            }
+        }
         if (buildIsContainerSourceId(sourceId)) {
             if (this.canUseDurableInventoryGrant(player, deps)) {
                 const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);

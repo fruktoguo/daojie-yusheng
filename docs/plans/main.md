@@ -1,0 +1,43 @@
+# 生产主线维护任务计划
+
+更新时间：2026-05-10
+
+这份文档是当前生产主线总索引。
+
+使用规则：
+
+- `[ ]` 代表未完成
+- `[x]` 代表已完成
+- 如果某项不做了，直接删掉，不保留僵尸任务
+
+---
+
+## 已完成里程碑（归档）
+
+以下里程碑已全部完成，详细历史记录见 [archive/](../archive/)：
+
+---
+
+## 当前进行中
+
+### 1. server TS 类型补强
+
+- [x] `.js` 真源清零
+- [x] `env-alias.js` 兼容壳移除
+- [ ] 逐步去掉迁移期 `// @ts-nocheck` 并补强类型约束
+
+### 2. 后续专项通用化规划
+
+对应专题文档：
+
+- [12 气机资源统一化规划](./12-qi-resource-unification.md)
+- [13 敌我判定规则统一化规划](./13-combat-relation-rules-unification.md)
+- [14 技艺活动框架统一化规划](./14-technique-activity-framework.md)
+- [15 地图地块特征统一化规划](./15-map-tile-feature-unification.md)
+
+执行顺序：
+
+- [ ] 先把 `qi / craft-skill / craft-duration / craft-success` 这类 shared 纯函数合同固定下来
+- [ ] 再收口手动技能 / 普攻 / 自动战斗的统一敌我关系判定
+- [ ] 再把地块单值 `aura` 升成通用 tile resource runtime
+- [ ] 最后把炼丹 / 强化 / 采集收口为统一技艺活动框架

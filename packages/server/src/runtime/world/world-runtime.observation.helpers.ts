@@ -78,7 +78,7 @@ function createTileCombatRatioDivisors() {
 function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return (0, combat_resolution_helpers_1.resolveCombatHit)({
+    return (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
         attackerStats,
         attackerRatios,
         attackerRealmLv: 1,

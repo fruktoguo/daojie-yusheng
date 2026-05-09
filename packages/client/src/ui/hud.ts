@@ -104,7 +104,10 @@ export class HUD {
   /** cultivateBar：cultivate Bar。 */
   private cultivateBar = document.getElementById('hud-cultivate-bar')!;
   /** onBreakthrough：on Breakthrough。 */
-  private onBreakthrough: (() => void) | null = null;  
+  private onBreakthrough: (() => void) | null = null;
+
+  /** HUD 最近一次写入的显示签名，做短路避免无意义的 DOM 写入。 */
+  private lastSignatures: Record<string, string> = Object.create(null);  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -131,52 +134,95 @@ export class HUD {
   update(player: PlayerState, meta?: HUDMeta) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    this.nameDiv.textContent = player.displayName ?? player.name;
-    this.titleDiv.textContent = meta?.titleLabel ?? t('hud.title.default', undefined);
-    this.posDiv.textContent = `(${player.x}, ${player.y})`;
-    this.mapDiv.textContent = meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId);
-    this.objectiveDiv.textContent = meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player);
-    this.threatDiv.textContent = meta?.lifespanLabel ?? this.buildLifespanLabel(player);
+    this.setText(this.nameDiv, 'name', player.displayName ?? player.name);
+    this.setText(this.titleDiv, 'title', meta?.titleLabel ?? t('hud.title.default', undefined));
+    this.setText(this.posDiv, 'pos', `(${player.x}, ${player.y})`);
+    this.setText(
+      this.mapDiv,
+      'map',
+      meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId),
+    );
+    this.setText(this.objectiveDiv, 'objective', meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player));
+    this.setText(this.threatDiv, 'threat', meta?.lifespanLabel ?? this.buildLifespanLabel(player));
 
     const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
-    this.realmValue.textContent = realmLabel;
+    this.setText(this.realmValue, 'realm', realmLabel);
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
-    this.realmSub.textContent = realmReviewLabel;
+    this.setText(this.realmSub, 'realm-sub', realmReviewLabel);
     const breakthroughPreview = player.realm?.breakthrough;
     if (this.breakthroughButton) {
-      const canBreakthrough = player.realm?.breakthroughReady && breakthroughPreview;
-      const showRealmAction = meta?.showRealmAction ?? canBreakthrough;
-      this.breakthroughButton.hidden = !showRealmAction;
-      this.breakthroughButton.textContent = meta?.realmActionLabel ?? (
-        canBreakthrough
+      const canBreakthrough = player.realm?.breakthroughReady === true && breakthroughPreview?.canBreakthrough === true;
+      const hasSpecialRealmAction = meta?.showRealmAction === true && Boolean(meta.realmActionLabel);
+      const isActionAvailable = hasSpecialRealmAction || Boolean(canBreakthrough);
+      const showRealmAction = meta?.showRealmAction ?? true;
+      const nextHidden = !showRealmAction;
+      if (this.breakthroughButton.hidden !== nextHidden) {
+        this.breakthroughButton.hidden = nextHidden;
+      }
+      const nextLabel = meta?.realmActionLabel ?? (
+        breakthroughPreview
           ? t('hud.action.breakthrough-target', { target: breakthroughPreview.targetDisplayName })
           : t('hud.action.breakthrough', undefined)
       );
-      this.breakthroughButton.disabled = !showRealmAction;
+      this.setText(this.breakthroughButton, 'breakthrough-label', nextLabel);
+      if (this.breakthroughButton.disabled) {
+        this.breakthroughButton.disabled = false;
+      }
+      const unavailableFlag = isActionAvailable ? '0' : '1';
+      if (this.lastSignatures['breakthrough-available'] !== unavailableFlag) {
+        this.lastSignatures['breakthrough-available'] = unavailableFlag;
+        this.breakthroughButton.classList.toggle('is-unavailable', !isActionAvailable);
+        this.breakthroughButton.setAttribute('aria-disabled', isActionAvailable ? 'false' : 'true');
+      }
     }
 
-    this.setResource(this.hpBar, this.hpText, player.hp, player.maxHp);
+    this.setResource('hp', this.hpBar, this.hpText, player.hp, player.maxHp);
     const qiMax = Math.max(0, Math.round(player.numericStats?.maxQi ?? 0));
     const qiCurrent = Math.max(0, Math.round(player.qi));
-    this.setResource(this.qiBar, this.qiText, qiCurrent, qiMax);
+    this.setResource('qi', this.qiBar, this.qiText, qiCurrent, qiMax);
 
     if (player.realm && player.realm.progressToNext > 0) {
       const ratio = Math.min(1, player.realm.progress / player.realm.progressToNext);
-      this.cultivateBar.style.width = `${Math.round(ratio * 100)}%`;
+      const nextWidth = `${Math.round(ratio * 100)}%`;
+      if (this.lastSignatures['cultivate-width'] !== nextWidth) {
+        this.lastSignatures['cultivate-width'] = nextWidth;
+        this.cultivateBar.style.width = nextWidth;
+      }
       const current = formatDisplayInteger(player.realm.progress);
       const next = formatDisplayInteger(player.realm.progressToNext);
-      this.cultivateText.textContent = t('hud.cultivate.progress', { current, next });
+      this.setText(this.cultivateText, 'cultivate-text', t('hud.cultivate.progress', { current, next }));
     } else {
-      this.cultivateBar.style.width = '0%';
-      this.cultivateText.textContent = t('hud.cultivate.complete', undefined);
+      if (this.lastSignatures['cultivate-width'] !== '0%') {
+        this.lastSignatures['cultivate-width'] = '0%';
+        this.cultivateBar.style.width = '0%';
+      }
+      this.setText(this.cultivateText, 'cultivate-text', t('hud.cultivate.complete', undefined));
     }
   }
 
   /** setResource：处理set资源。 */
-  private setResource(bar: HTMLElement, text: HTMLElement, value: number, max: number) {
+  private setResource(prefix: string, bar: HTMLElement, text: HTMLElement, value: number, max: number) {
     const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, value / max));
-    bar.style.width = `${Math.round(ratio * 100)}%`;
-    text.textContent = formatDisplayCurrentMax(Math.max(0, Math.round(value)), Math.max(0, Math.round(max)));
+    const nextWidth = `${Math.round(ratio * 100)}%`;
+    const widthKey = `${prefix}-width`;
+    if (this.lastSignatures[widthKey] !== nextWidth) {
+      this.lastSignatures[widthKey] = nextWidth;
+      bar.style.width = nextWidth;
+    }
+    this.setText(
+      text,
+      `${prefix}-text`,
+      formatDisplayCurrentMax(Math.max(0, Math.round(value)), Math.max(0, Math.round(max))),
+    );
+  }
+
+  /** setText：只有文本真的变化时再写 textContent，避免覆盖屏幕阅读器朗读和 CSS 过渡。 */
+  private setText(node: HTMLElement, key: string, value: string): void {
+    if (this.lastSignatures[key] === value) {
+      return;
+    }
+    this.lastSignatures[key] = value;
+    node.textContent = value;
   }
 
   /** buildBoneAgeLabel：构建Bone Age标签。 */

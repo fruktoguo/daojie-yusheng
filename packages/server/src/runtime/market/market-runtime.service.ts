@@ -144,7 +144,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const page = Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1;
 
-        const pageSize = Number.isFinite(payload?.pageSize) ? Math.max(1, Math.trunc(payload.pageSize)) : 20;
+        const pageSize = Number.isFinite(payload?.pageSize) ? Math.min(100, Math.max(1, Math.trunc(payload.pageSize))) : 20;
 
         const category = typeof payload?.category === 'string' ? payload.category : 'all';
 
@@ -857,6 +857,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!order) {
                 return this.singleMessage(playerId, '未找到可取消的订单。');
             }
+            if (order.status === 'cancelled' || order.remainingQuantity <= 0) {
+                return this.singleMessage(playerId, '该订单已被取消或已完成。');
+            }
             const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
             if (order.side !== 'buy' && playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
                 const operationId = `market-cancel-order:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
@@ -882,6 +885,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                         nextWalletBalances,
                     });
                     if (durableResult?.ok) {
+                        if (order.status === 'cancelled' || order.remainingQuantity <= 0) {
+                            return this.singleMessage(playerId, '该订单已被取消或已完成。');
+                        }
                         this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
                         if (order.side === 'buy') {
                             this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice));

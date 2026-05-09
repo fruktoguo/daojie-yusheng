@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-daojie_yusheng}
     volumes:
       - pgdata_server:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-15432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-daojie_yusheng}"]
       interval: 5s
@@ -19,10 +17,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: daojie-local-redis
-    ports:
-      - "${REDIS_PORT:-16379}:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-changeme_redis_secret}"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme_redis_secret}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,12 +29,14 @@ services:
       context: .
       dockerfile: packages/server/Dockerfile
     environment:
+      SERVER_RUNTIME_ENV: production
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}
-      SERVER_GM_PASSWORD: ${SERVER_GM_PASSWORD:-${GM_PASSWORD:-}}
+      SERVER_REDIS_URL: redis://:${REDIS_PASSWORD:-changeme_redis_secret}@redis:6379
+      SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
+      SERVER_GM_PASSWORD: ${SERVER_GM_PASSWORD}
       GM_PASSWORD: ${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}
       SERVER_RUNTIME_TOKEN: ${SERVER_RUNTIME_TOKEN}
       SERVER_ALLOW_LEGACY_HTTP_COMPAT: ${SERVER_ALLOW_LEGACY_HTTP_COMPAT:-0}

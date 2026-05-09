@@ -73,7 +73,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
                 enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
                 job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
                 queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
-                records: activeRecord ? [cloneEnhancementRecord(activeRecord)] : undefined,
+                ...(activeRecord ? { records: [cloneEnhancementRecord(activeRecord)] } : {}),
             },
         };
     }    
@@ -414,15 +414,7 @@ function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel
  */
 
 function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {
-    const base = getEnhancementTargetSuccessRate(targetEnhanceLevel);
-    const normalizedRoleLevel = Math.max(1, normalizeEnhanceLevel(roleEnhancementLevel));
-    const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
-    const lowerLevelGap = Math.max(0, targetLevel - normalizedRoleLevel);
-    const upperLevelGap = Math.max(0, normalizedRoleLevel - targetLevel);
-    const adjustedBaseRate = base * ((1 - ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY) ** lowerLevelGap);
-    const totalSuccessModifier = (Number.isFinite(toolSuccessRateModifier) ? Number(toolSuccessRateModifier) : 0)
-        + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
-    return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
+    return shared_1.computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier);
 }
 /**
  * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
@@ -463,26 +455,5 @@ function computeEnhancementJobBaseTicks(itemLevel) {
  */
 
 function applyEnhancementSuccessModifier(baseRate, modifier) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalizedBaseRate = Math.max(0, Math.min(1, Number.isFinite(baseRate) ? Number(baseRate) : 0));
-    if (normalizedBaseRate <= 0 || normalizedBaseRate >= 1) {
-        return normalizedBaseRate;
-    }
-    const normalizedModifier = Number.isFinite(modifier) ? Number(modifier) : 0;
-    if (normalizedModifier === 0) {
-        return normalizedBaseRate;
-    }
-    if (normalizedModifier < 0) {
-        return normalizedBaseRate / (1 + Math.abs(normalizedModifier));
-    }
-    const factor = 1 + normalizedModifier;
-    if (normalizedBaseRate <= 0.5) {
-        const scaledSuccess = normalizedBaseRate * factor;
-        if (scaledSuccess <= 0.5) {
-            return scaledSuccess;
-        }
-        return 1 - (0.25 / scaledSuccess);
-    }
-    return 1 - ((1 - normalizedBaseRate) / factor);
+    return shared_1.applyAsymptoticSuccessModifier(baseRate, modifier);
 }

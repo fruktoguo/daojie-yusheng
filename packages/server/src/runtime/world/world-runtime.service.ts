@@ -154,6 +154,7 @@ const world_runtime_action_execution_service_1 = require("./world-runtime-action
 const world_runtime_formation_service_1 = require("./world-runtime-formation.service");
 const world_runtime_sect_service_1 = require("./world-runtime-sect.service");
 const world_runtime_system_command_enqueue_service_1 = require("./world-runtime-system-command-enqueue.service");
+const world_runtime_tongtian_tower_service_1 = require("./world-runtime-tongtian-tower.service");
 const mail_runtime_service_1 = require("../mail/mail-runtime.service");
 
 const player_combat_service_1 = require("../combat/player-combat.service");
@@ -411,6 +412,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     
     worldRuntimeSystemCommandEnqueueService;    
 
+    worldRuntimeTongtianTowerService;
+
     nodeRegistryService;    
 
     playerPersistenceFlushService;    
@@ -424,8 +427,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tick = 0;    
     buildingOperationResultsByKey = new Map();
     buildingOperationAuditLog = [];
+    combatDiagnostics = [];
     
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, instanceDomainPersistenceService, instanceCatalogService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService, nodeRegistryService, playerPersistenceFlushService, mailRuntimeService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, instanceDomainPersistenceService, instanceCatalogService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService, worldRuntimeTongtianTowerService, nodeRegistryService, playerPersistenceFlushService, mailRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -499,6 +503,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeFormationService = new world_runtime_formation_service_1.WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService);
         this.worldRuntimeSectService = new world_runtime_sect_service_1.WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService);
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
+        this.worldRuntimeTongtianTowerService = worldRuntimeTongtianTowerService;
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
@@ -662,6 +667,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     
     getInstanceCount() {
         return this.worldRuntimeStateFacadeService.getInstanceCount(this);
+    }
+    recordCombatDiagnostic(entry) {
+        if (!entry) return;
+        this.combatDiagnostics.push(entry);
+        if (this.combatDiagnostics.length > 200) this.combatDiagnostics.splice(0, this.combatDiagnostics.length - 200);
+    }
+    listCombatDiagnostics(limit = 50) {
+        const safeLimit = Math.max(1, Math.min(200, Math.trunc(Number(limit) || 50)));
+        return this.combatDiagnostics.slice(-safeLimit);
     }
         async onModuleInit() {
         this.bootstrapPublicInstances();
@@ -1175,6 +1189,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
         world_runtime_action_execution_service_1.WorldRuntimeActionExecutionService,
         world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService,
+        world_runtime_tongtian_tower_service_1.WorldRuntimeTongtianTowerService,
         node_registry_service_1.NodeRegistryService,
         player_persistence_flush_service_1.PlayerPersistenceFlushService,
         mail_runtime_service_1.MailRuntimeService])

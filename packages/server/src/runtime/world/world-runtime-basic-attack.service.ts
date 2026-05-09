@@ -19,7 +19,12 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
+const combat_outcome_apply_adapters_1 = require("../combat/combat-outcome-apply-adapters");
+const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
 const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
+const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
+const combat_action_types_1 = require("./combat-action.types");
+const combat_presentation_helpers_1 = require("./world-runtime-combat-presentation.helpers");
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
@@ -29,8 +34,6 @@ const {
     createTileCombatRatioDivisors,
     formatCombatDamageBreakdown,
     formatCombatResolutionOutcome,
-    formatCombatResolutionFloatText,
-    getCombatResolutionFloatColor,
     formatCombatActionClause,
 } = world_runtime_observation_helpers_1;
 
@@ -65,29 +68,11 @@ function formatAuraDamage(value) {
     }
     return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
 }
-function pushCombatResolutionFloat(deps, instanceId, x, y, resolution, fallbackColor) {
-    const text = formatCombatResolutionFloatText(resolution);
-    if (!text) {
-        return;
+function normalizeAppliedDamage(value, fallback = 0) {
+    if (Number.isFinite(Number(value))) {
+        return Math.max(0, Math.round(Number(value)));
     }
-    if (typeof deps.pushCombatTextFloatEffect === 'function') {
-        deps.pushCombatTextFloatEffect(
-            instanceId,
-            x,
-            y,
-            text,
-            getCombatResolutionFloatColor(resolution, fallbackColor),
-            920,
-        );
-        return;
-    }
-    deps.pushActionLabelEffect?.(
-        instanceId,
-        x,
-        y,
-        text,
-        { durationMs: 920 },
-    );
+    return Math.max(0, Math.round(Number(fallback) || 0));
 }
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
@@ -97,14 +82,16 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  */
 
     playerRuntimeService;
+    worldRuntimeCombatActionService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(playerRuntimeService, worldRuntimeCombatActionService) {
         this.playerRuntimeService = playerRuntimeService;
+        this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
     }
     /**
  * dispatchBasicAttack：判断BasicAttack是否满足条件。
@@ -134,22 +121,96 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? attacker.attrs.numericStats.spellAtk
             : attacker.attrs.numericStats.physAtk));
-        if (targetMonsterId) {
-            const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
-                ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, targetMonsterId)
-                : null;
-            if (formation) {
-                return this.dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps);
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const actionPlan = this.resolvePlayerBasicAttackActionPlan(
+            attacker,
+            {
+                playerId,
+                targetPlayerId,
+                targetMonsterId,
+                targetX,
+                targetY,
+            },
+            instance,
+            deps,
+        );
+        if (!actionPlan.ok) {
+            throw this.createBasicAttackRejectException(actionPlan);
+        }
+        const plannedTarget = actionPlan.selectedTargets?.[0] ?? actionPlan.targetEntries?.[0] ?? null;
+        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Formation) {
+            if (plannedTarget.source === 'formation_boundary') {
+                return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
             }
-            return this.dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps);
+            return this.dispatchBasicAttackToFormation(attacker, plannedTarget.runtime ?? {
+                id: plannedTarget.id,
+                name: plannedTarget.name ?? plannedTarget.id,
+                x: plannedTarget.x,
+                y: plannedTarget.y,
+            }, damageKind, baseDamage, deps);
         }
-        if (targetPlayerId) {
-            return this.dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps);
+        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Monster) {
+            return this.dispatchBasicAttackToMonster(attacker, plannedTarget.id, damageKind, baseDamage, deps);
         }
-        if (targetX !== null && targetY !== null) {
-            return this.dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick);
+        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Player) {
+            return this.dispatchBasicAttackToPlayer(attacker, plannedTarget.id, damageKind, baseDamage, currentTick, deps);
+        }
+        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Tile || plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Container) {
+            return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
         }
         throw new common_1.BadRequestException('必须指定目标');
+    }
+    resolvePlayerBasicAttackActionPlan(attacker, targetInput, instance, deps) {
+        return this.worldRuntimeCombatActionService.resolvePlayerBasicAttackActionPlan({
+            ...targetInput,
+            attacker,
+            instanceId: attacker.instanceId,
+            instance,
+            deps,
+            playerRuntimeService: this.playerRuntimeService,
+            formationService: deps.worldRuntimeFormationService,
+            supportsPvp: instance?.meta?.supportsPvp === true,
+            canDamageTile: instance?.meta?.canDamageTile === true,
+            resolveCombatRelation: (_actor, target) => {
+                if (target.kind === combat_action_types_1.CombatTargetKind.Player) {
+                    const playerTarget = target.runtime ?? this.playerRuntimeService.getPlayer(target.id);
+                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                        kind: 'player',
+                        target: playerTarget,
+                    });
+                }
+                if (target.kind === combat_action_types_1.CombatTargetKind.Monster) {
+                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' });
+                }
+                return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' });
+            },
+        });
+    }
+    createBasicAttackRejectException(actionPlan) {
+        const reason = actionPlan?.reason;
+        if (reason === combat_action_types_1.CombatRejectReason.MissingMonster || reason === combat_action_types_1.CombatRejectReason.MonsterDead) {
+            return new common_1.NotFoundException(`妖兽不存在：${actionPlan?.action?.target?.id ?? ''}`);
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.ActorDead) {
+            return new common_1.BadRequestException('你已经重伤，无法攻击');
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.TargetInstanceMismatch) {
+            return new common_1.BadRequestException('目标不在同一地图');
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.OutOfRange) {
+            return new common_1.BadRequestException('目标超出攻击距离');
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.MapCapabilityDisabled) {
+            const capability = actionPlan?.details?.rejectedTargets?.[0]?.details?.capability;
+            return new common_1.BadRequestException(capability === 'supportsPvp' ? '当前实例不允许玩家互攻' : '当前实例不允许攻击地块');
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.CombatRelationNotAllowed) {
+            return new common_1.BadRequestException('当前目标不在敌方判定规则内');
+        }
+        if (reason === combat_action_types_1.CombatRejectReason.TargetDead || reason === combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState) {
+            return new common_1.BadRequestException('该目标无法被攻击');
+        }
+        return new common_1.BadRequestException('必须指定目标');
     }
     dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps) {
   // 阵法无生命条，承受伤害时直接按配置折算扣除阵眼剩余灵力。
@@ -159,24 +220,34 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             throw new common_1.BadRequestException('目标超出攻击距离');
         }
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, formation.x, formation.y, effectColor);
-        const outcome = deps.worldRuntimeFormationService.applyDamageToFormation(
-            attacker.instanceId,
-            formation.id,
-            baseDamage,
-            attacker.playerId,
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome(deps, attacker, {
+            kind: combat_action_types_1.CombatTargetKind.Formation,
+            id: formation.id,
+            x: formation.x,
+            y: formation.y,
+        }, {
+            targetType: 'formation',
+            targetId: formation.id,
+            targetX: formation.x,
+            targetY: formation.y,
+            damageKind,
+            damage: baseDamage,
+            rawDamage: baseDamage,
+        });
+        const adapterResult = appliedOutcome?.adapterResult ?? {};
+        const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
+        const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
             deps,
-        );
-        const appliedDamage = Math.max(0, Math.round(Number(outcome?.appliedDamage) || 0));
-        if (appliedDamage > 0) {
-            deps.pushDamageFloatEffect(attacker.instanceId, formation.x, formation.y, appliedDamage, effectColor);
-        }
-        deps.queuePlayerNotice(
-            attacker.playerId,
-            `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(outcome?.auraDamage)}。`,
-            'combat',
-        );
+            instanceId: attacker.instanceId,
+            actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+            attack: { fromX: attacker.x, fromY: attacker.y, toX: formation.x, toY: formation.y, color: effectColor },
+            damageFloat: { x: formation.x, y: formation.y, damage: appliedDamage, color: effectColor },
+            notices: [{
+                playerId: attacker.playerId,
+                text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+            }],
+        });
     }
 
     /**
@@ -203,17 +274,39 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         }
         const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind);
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
-        if (resolvedDamage.damage > 0) {
-            deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
-        }
-        pushCombatResolutionFloat(deps, attacker.instanceId, monster.x, monster.y, resolvedDamage, effectColor);
-        const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+            kind: combat_action_types_1.CombatTargetKind.Monster,
+            id: targetMonsterId,
+        }, {
+            targetType: 'monster',
+            targetMonsterId,
+            targetX: monster.x,
+            targetY: monster.y,
+            damageKind,
+            damage: resolvedDamage.damage,
+            rawDamage: resolvedDamage.rawDamage,
+            dodged: resolvedDamage.dodged === true,
+            crit: resolvedDamage.crit === true,
+            resolved: resolvedDamage.resolved === true,
+            broken: resolvedDamage.broken === true,
+            applyKillReward: false,
+        });
+        const outcome = appliedOutcome?.adapterResult;
         if (outcome?.defeated) {
             await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
         }
-        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            instanceId: attacker.instanceId,
+            actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+            attack: { fromX: attacker.x, fromY: attacker.y, toX: monster.x, toY: monster.y, color: effectColor },
+            resolutionFloat: { x: monster.x, y: monster.y, resolution: resolvedDamage, fallbackColor: effectColor },
+            damageFloat: { x: monster.x, y: monster.y, damage: resolvedDamage.damage, color: effectColor },
+            notices: [{
+                playerId: attacker.playerId,
+                text: `${formatCombatActionClause('你', monster.name, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+            }],
+        });
     }
     /**
  * dispatchBasicAttackToPlayer：判断BasicAttackTo玩家是否满足条件。
@@ -244,22 +337,61 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         }
         const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind);
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        if (resolvedDamage.damage > 0) {
-            deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
-        }
-        pushCombatResolutionFloat(deps, attacker.instanceId, target.x, target.y, resolvedDamage, effectColor);
-        this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
-        const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            instanceId: attacker.instanceId,
+            actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+            attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
+            damageFloat: { x: target.x, y: target.y, damage: resolvedDamage.damage, color: effectColor },
+        });
+        const projectedDefeated = Math.max(0, Math.round(Number(target.hp) || 0)) - Math.max(0, Math.round(Number(resolvedDamage.damage) || 0)) <= 0;
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome({
+            ...deps,
+            currentTick,
+        }, attacker, {
+            kind: combat_action_types_1.CombatTargetKind.Player,
+            id: target.playerId,
+        }, {
+            targetType: 'player',
+            targetPlayerId: target.playerId,
+            targetX: target.x,
+            targetY: target.y,
+            damageKind,
+            damage: resolvedDamage.damage,
+            rawDamage: resolvedDamage.rawDamage,
+            dodged: resolvedDamage.dodged === true,
+            crit: resolvedDamage.crit === true,
+            resolved: resolvedDamage.resolved === true,
+            broken: resolvedDamage.broken === true,
+            retaliatePlayerTargetId: attacker.playerId,
+            recordActivity: false,
+            defeated: projectedDefeated,
+            applyDefeat: false,
+        });
+        const updated = typeof this.playerRuntimeService.getPlayer === 'function'
+            ? (this.playerRuntimeService.getPlayer(target.playerId) ?? target)
+            : this.playerRuntimeService.getPlayerOrThrow(target.playerId);
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
             interruptCultivation: true,
         });
-        if (updated.hp <= 0) {
+        if (updated.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
             await deps.handlePlayerDefeat(updated.playerId, attacker.playerId);
         }
-        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
-        deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`, 'combat');
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            instanceId: attacker.instanceId,
+            resolutionFloat: { x: target.x, y: target.y, resolution: resolvedDamage, fallbackColor: effectColor },
+            notices: [
+                {
+                    playerId: attacker.playerId,
+                    text: `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                },
+                {
+                    playerId: target.playerId,
+                    text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                },
+            ],
+        });
     }
     /**
  * dispatchBasicAttackToTile：判断BasicAttackToTile是否满足条件。
@@ -272,11 +404,15 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackToTile相关状态。
  */
 
-    dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick = undefined) {
+    dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick = undefined, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const plannedTarget = options?.plannedTarget ?? null;
+        const planTargetsBoundary = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Formation && plannedTarget.source === 'formation_boundary';
+        const planTargetsContainer = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Container;
+        const planTargetsTile = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Tile;
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
-        const boundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+        const boundary = !planTargetsTile && !planTargetsContainer && typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
             ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, targetX, targetY)
             : null;
         if (boundary) {
@@ -285,60 +421,113 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
             const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-            deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
-            const outcome = deps.worldRuntimeFormationService.applyDamageToBoundaryBarrier(
-                attacker.instanceId,
+            const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+                kind: combat_action_types_1.CombatTargetKind.Formation,
+                id: boundary.id ?? boundary.formationId,
+                x: targetX,
+                y: targetY,
+            }, {
+                targetType: 'formation_boundary',
+                targetId: boundary.id ?? boundary.formationId,
                 targetX,
                 targetY,
-                baseDamage,
-                attacker.playerId,
+                damageKind,
+                damage: baseDamage,
+                rawDamage: baseDamage,
+                formationBoundary: true,
+            });
+            const adapterResult = appliedOutcome?.adapterResult ?? {};
+            const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
+            const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
+            (0, combat_presentation_helpers_1.emitCombatPresentation)({
                 deps,
-            );
-            const appliedDamage = Math.max(0, Math.round(Number(outcome?.appliedDamage) || 0));
-            if (appliedDamage > 0) {
-                deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, appliedDamage, effectColor);
-            }
-            deps.queuePlayerNotice(
-                attacker.playerId,
-                `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(outcome?.auraDamage)}。`,
-                'combat',
-            );
+                instanceId: attacker.instanceId,
+                actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+                attack: { fromX: attacker.x, fromY: attacker.y, toX: targetX, toY: targetY, color: effectColor },
+                damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
+                notices: [{
+                    playerId: attacker.playerId,
+                    text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+                }],
+            });
             return;
         }
-        ensureInstanceSupportsTileDamage(instance);
+        if (planTargetsBoundary) {
+            throw new common_1.BadRequestException('该目标无法被攻击');
+        }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');
         }
-        const container = typeof instance.getContainerAtTile === 'function' ? instance.getContainerAtTile(targetX, targetY) : null;
+        const container = !planTargetsTile && !planTargetsBoundary && typeof instance.getContainerAtTile === 'function' ? instance.getContainerAtTile(targetX, targetY) : null;
         const lootContainerService = deps.worldRuntimeLootContainerService;
         const damageContainerAtTile = typeof lootContainerService?.damageAttackableContainerAtTile === 'function'
             ? lootContainerService.damageAttackableContainerAtTile.bind(lootContainerService)
             : typeof lootContainerService?.damageHerbContainerAtTile === 'function'
                 ? lootContainerService.damageHerbContainerAtTile.bind(lootContainerService)
                 : null;
-        const containerAttackResult = container && damageContainerAtTile
-            ? damageContainerAtTile(attacker.instanceId, container, currentTick ?? deps.tick ?? 0)
+        const containerAttackOutcome = (!planTargetsTile && !planTargetsBoundary && (planTargetsContainer || !plannedTarget)) && container && damageContainerAtTile
+            ? this.applyPlayerBasicAttackOutcome({
+                ...deps,
+                instance,
+                currentTick: currentTick ?? deps.tick ?? 0,
+            }, attacker, {
+                kind: combat_action_types_1.CombatTargetKind.Container,
+                id: container.id,
+                x: targetX,
+                y: targetY,
+                runtime: container,
+            }, {
+                targetType: 'container',
+                targetId: container.id,
+                targetX,
+                targetY,
+                damageKind,
+                damage: baseDamage,
+                rawDamage: baseDamage,
+                container,
+                currentTick: currentTick ?? deps.tick ?? 0,
+            })
             : null;
+        const containerAttackResult = containerAttackOutcome?.ok === true ? containerAttackOutcome.adapterResult : null;
         if (containerAttackResult) {
             const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-            deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
             if (containerAttackResult.appliedDamage > 0) {
-                deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, containerAttackResult.appliedDamage, effectColor);
                 const countdown = containerAttackResult.remainingCount <= 0 && containerAttackResult.respawnRemainingTicks !== undefined
                     ? `，药性回生还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息`
                     : '';
-                deps.queuePlayerNotice(attacker.playerId, `你攻击 ${containerAttackResult.title}，打落 1 朵，剩余 ${Math.max(0, containerAttackResult.remainingCount)} 朵${countdown}`, 'combat');
+                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    deps,
+                    instanceId: attacker.instanceId,
+                    actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+                    attack: { fromX: attacker.x, fromY: attacker.y, toX: targetX, toY: targetY, color: effectColor },
+                    damageFloat: { x: targetX, y: targetY, damage: containerAttackResult.appliedDamage, color: effectColor },
+                    notices: [{
+                        playerId: attacker.playerId,
+                        text: `你攻击 ${containerAttackResult.title}，打落 1 朵，剩余 ${Math.max(0, containerAttackResult.remainingCount)} 朵${countdown}`,
+                    }],
+                });
                 return;
             }
             const countdown = containerAttackResult.respawnRemainingTicks !== undefined
                 ? `还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息。`
                 : '暂时无法再生。';
-            deps.queuePlayerNotice(attacker.playerId, `${containerAttackResult.title} 当前没有可打落的草药，${countdown}`, 'combat');
+            (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                deps,
+                instanceId: attacker.instanceId,
+                actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+                attack: { fromX: attacker.x, fromY: attacker.y, toX: targetX, toY: targetY, color: effectColor },
+                notices: [{
+                    playerId: attacker.playerId,
+                    text: `${containerAttackResult.title} 当前没有可打落的草药，${countdown}`,
+                }],
+            });
             return;
         }
+        if (planTargetsContainer) {
+            throw new common_1.BadRequestException('该目标无法被攻击');
+        }
+        ensureInstanceSupportsTileDamage(instance);
         if (typeof instance.getTileCombatState === 'function') {
             const tileState = instance.getTileCombatState(targetX, targetY);
             if (!tileState || tileState.destroyed === true) {
@@ -348,21 +537,36 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, baseDamage)
             : baseDamage;
-        const result = instance.damageTile(targetX, targetY, mitigatedDamage);
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+            kind: combat_action_types_1.CombatTargetKind.Tile,
+            x: targetX,
+            y: targetY,
+        }, {
+            targetType: 'tile',
+            targetX,
+            targetY,
+            damageKind,
+            damage: mitigatedDamage,
+            rawDamage: baseDamage,
+            mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
+        });
+        const result = appliedOutcome?.adapterResult;
         if (!result) {
             throw new common_1.BadRequestException('该目标无法被攻击');
         }
         const appliedDamage = Number.isFinite(result.appliedDamage) ? Math.max(0, Math.round(result.appliedDamage)) : 0;
         const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
-        if (appliedDamage > 0) {
-            deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, appliedDamage, effectColor);
-        }
-        if (result.destroyed === true) {
-            deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, targetX, targetY, deps);
-        }
-        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`, 'combat');
+        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            deps,
+            instanceId: attacker.instanceId,
+            actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
+            attack: { fromX: attacker.x, fromY: attacker.y, toX: targetX, toY: targetY, color: effectColor },
+            damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
+            notices: [{
+                playerId: attacker.playerId,
+                text: `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
+            }],
+        });
     }
     /**
  * resolveBasicAttackDamageAgainstMonster：按 legacy 普攻口径结算对怪物伤害。
@@ -391,15 +595,14 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         );
     }
     resolveMonsterCombatExpEquivalent(monster) {
-        const level = Math.max(1, Math.floor(Number(monster?.level) || 1));
         const progressionService = this.playerRuntimeService?.playerProgressionService;
         if (typeof progressionService?.getMonsterCombatExpEquivalent === 'function') {
-            const resolved = progressionService.getMonsterCombatExpEquivalent(level);
+            const resolved = progressionService.getMonsterCombatExpEquivalent(monster);
             if (Number.isFinite(resolved) && resolved > 0) {
                 return Math.floor(resolved);
             }
         }
-        return level * 100;
+        return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(monster);
     }
     /**
  * resolveBasicAttackDamageAgainstPlayer：按 legacy 普攻口径结算对玩家伤害。
@@ -439,7 +642,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  */
 
     resolveBasicAttackDamage(attackerStats, attackerRatios, attackerRealmLv, attackerCombatExp, targetStats, targetRatios, targetRealmLv, targetCombatExp, baseDamage, damageKind, extraMultiplier = 1) {
-        return (0, combat_resolution_helpers_1.resolveCombatHit)({
+        return (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
             attackerStats,
             attackerRatios,
             attackerRealmLv,
@@ -453,11 +656,70 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             damageMultiplier: extraMultiplier,
         });
     }
+    applyPlayerBasicAttackOutcome(deps, attacker, target, result = {}) {
+        if (!this.worldRuntimeCombatActionService?.applyCombatOutcome) {
+            return null;
+        }
+        return this.worldRuntimeCombatActionService.applyCombatOutcome({
+            phase: combat_action_types_1.CombatActionPhase.Instant,
+            actor: {
+                kind: combat_action_types_1.CombatActorKind.Player,
+                id: attacker.playerId,
+            },
+            actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+            instanceId: attacker.instanceId,
+            target,
+            result: {
+                actionKind: 'basic_attack',
+                attackerPlayerId: attacker.playerId,
+                ...result,
+            },
+            deps: {
+                ...deps,
+                playerRuntimeService: this.playerRuntimeService,
+            },
+            adapters: (0, combat_outcome_apply_adapters_1.createCombatOutcomeApplyAdapters)({
+                handleMonsterDefeat: () => ({ deferred: true }),
+            }),
+            mergeAdapterResultToOutcome: true,
+            record: true,
+        });
+    }
+    recordPlayerBasicAttackOutcome(deps, attacker, target, result = {}) {
+        if (this.worldRuntimeCombatActionService?.recordOutcome) {
+            return this.worldRuntimeCombatActionService.recordOutcome(deps, {
+                phase: combat_action_types_1.CombatActionPhase.Instant,
+                actor: {
+                    kind: combat_action_types_1.CombatActorKind.Player,
+                    id: attacker.playerId,
+                },
+                actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+                instanceId: attacker.instanceId,
+                target,
+                result: {
+                    actionKind: 'basic_attack',
+                    attackerPlayerId: attacker.playerId,
+                    ...result,
+                },
+            });
+        }
+        if (Array.isArray(deps?.combatOutcomes)) {
+            deps.combatOutcomes.push({
+                ok: true,
+                actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+                instanceId: attacker.instanceId,
+                target,
+                result,
+            });
+        }
+        return null;
+    }
 };
 exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService;
 exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
+    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
+        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
 ], WorldRuntimeBasicAttackService);
 
 export { WorldRuntimeBasicAttackService };

@@ -322,9 +322,23 @@ export class BodyTrainingPanel {
       && this.foundationNoteNode
       && this.previewNode
       && this.detailNode
-      && this.buttonNode) {
+      && this.buttonNode
+      && this.pane.contains(this.levelNode)) {
       return;
     }
+
+    // 布局切换/语言切换可能会把 pane 的 children 搬走或替换，
+    // 内部引用虽然还在 JS 里但已不再连通 pane，此时必须重建壳体。
+    this.levelNode = null;
+    this.progressNode = null;
+    this.fillNode = null;
+    this.remainNode = null;
+    this.bonusNode = null;
+    this.foundationNode = null;
+    this.foundationNoteNode = null;
+    this.previewNode = null;
+    this.detailNode = null;
+    this.buttonNode = null;
 
     const panel = document.createElement('div');
     panel.className = 'body-training-panel';

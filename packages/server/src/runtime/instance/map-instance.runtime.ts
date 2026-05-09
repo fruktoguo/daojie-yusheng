@@ -12,6 +12,7 @@ const building_topology_index_service_1 = require("../building/building-topology
 const room_detection_service_1 = require("../building/room-detection.service");
 const fengshui_calculator_service_1 = require("../building/fengshui-calculator.service");
 const building_default_content_1 = require("../building/building-default-content");
+const pending_combat_cast_helpers_1 = require("../combat/pending-combat-cast.helpers");
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = shared_1.TILE_AURA_HALF_LIFE_RATE_SCALE ?? shared_1.QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -2888,6 +2889,113 @@ class MapInstanceRuntime {
         return Array.from(this.monstersByRuntimeId.values(), (monster) => snapshotMonster(monster))
             .sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-Hans-CN'));
     }
+    /** addRuntimeMonster：添加运行时动态妖兽，不绑定普通地图刷新点持久化。 */
+    addRuntimeMonster(monster) {
+        if (!monster || typeof monster.runtimeId !== 'string' || !monster.runtimeId.trim()) {
+            return null;
+        }
+        const runtimeId = monster.runtimeId.trim();
+        if (this.monstersByRuntimeId.has(runtimeId)) {
+            return this.getMonster(runtimeId);
+        }
+        const x = Number.isFinite(Number(monster.x)) ? Math.trunc(Number(monster.x)) : 0;
+        const y = Number.isFinite(Number(monster.y)) ? Math.trunc(Number(monster.y)) : 0;
+        const spawnX = Number.isFinite(Number(monster.spawnOriginX)) ? Math.trunc(Number(monster.spawnOriginX)) : x;
+        const spawnY = Number.isFinite(Number(monster.spawnOriginY)) ? Math.trunc(Number(monster.spawnOriginY)) : y;
+        const spawnKey = typeof monster.spawnKey === 'string' && monster.spawnKey.trim()
+            ? monster.spawnKey.trim()
+            : buildMonsterSpawnKey(monster.monsterId, spawnX, spawnY);
+        const state = {
+            runtimeId,
+            monsterId: monster.monsterId,
+            spawnKey,
+            spawnX,
+            spawnY,
+            x,
+            y,
+            hp: monster.alive === false ? 0 : Math.max(1, Math.min(monster.hp, monster.maxHp)),
+            maxHp: monster.maxHp,
+            qi: monster.alive === false ? 0 : Math.max(0, Math.round(monster.baseNumericStats?.maxQi ?? 0)),
+            maxQi: Math.max(0, Math.round(monster.baseNumericStats?.maxQi ?? 0)),
+            alive: monster.alive === false ? false : true,
+            respawnLeft: monster.alive === false ? Math.max(0, Math.trunc(Number(monster.respawnLeft) || 0)) : 0,
+            respawnTicks: Math.max(1, Math.trunc(Number(monster.respawnTicks) || 1)),
+            facing: monster.facing,
+            name: monster.name,
+            char: monster.char,
+            color: monster.color,
+            level: monster.level,
+            tier: monster.tier,
+            expMultiplier: monster.expMultiplier,
+            baseAttrs: cloneAttributes(monster.baseAttrs),
+            attrs: cloneAttributes(monster.baseAttrs),
+            baseNumericStats: cloneNumericStats(monster.baseNumericStats),
+            numericStats: cloneNumericStats(monster.baseNumericStats),
+            ratioDivisors: cloneNumericRatioDivisors(monster.ratioDivisors),
+            statFormula: cloneMonsterStatFormula(monster.statFormula),
+            initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs.map((entry) => cloneInitialBuff(entry)) : [],
+            buffs: [],
+            skills: monster.skills.map((entry) => cloneSkill(entry)),
+            cooldownReadyTickBySkillId: {},
+            damageContributors: {},
+            aggroTargetPlayerId: null,
+            lastSeenTargetX: undefined,
+            lastSeenTargetY: undefined,
+            lastSeenTargetTick: undefined,
+            aggroRange: monster.aggroRange,
+            leashRange: monster.leashRange,
+            wanderRadius: Number.isFinite(Number(monster.wanderRadius)) ? Math.max(0, Math.trunc(Number(monster.wanderRadius))) : 0,
+            attackRange: monster.attackRange,
+            attackCooldownTicks: monster.attackCooldownTicks,
+            attackReadyTick: 0,
+        };
+        if (state.alive) {
+            applyMonsterInitialBuffs(state);
+            recalculateMonsterDerivedState(state);
+        }
+        this.monstersByRuntimeId.set(runtimeId, state);
+        this.monsterSpawnKeyByRuntimeId.set(runtimeId, spawnKey);
+        const group = this.monsterSpawnGroupsByKey.get(spawnKey);
+        if (group) {
+            group.push(state);
+        }
+        else {
+            this.monsterSpawnGroupsByKey.set(spawnKey, [state]);
+        }
+        if (state.alive) {
+            this.monsterRuntimeIdByTile.set(this.toTileIndex(state.x, state.y), runtimeId);
+        }
+        this.worldRevision += 1;
+        return snapshotMonster(state);
+    }
+    /** removeRuntimeMonster：移除运行时动态妖兽，不触发死亡、经验、掉落或击杀。 */
+    removeRuntimeMonster(runtimeIdInput) {
+        const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
+        if (!runtimeId) {
+            return false;
+        }
+        const monster = this.monstersByRuntimeId.get(runtimeId);
+        if (!monster) {
+            return false;
+        }
+        this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
+        this.monstersByRuntimeId.delete(runtimeId);
+        this.monsterSpawnKeyByRuntimeId.delete(runtimeId);
+        this.dirtyMonsterRuntimeIds?.delete?.(runtimeId);
+        const group = this.monsterSpawnGroupsByKey.get(monster.spawnKey);
+        if (group) {
+            const nextGroup = group.filter((entry) => entry.runtimeId !== runtimeId);
+            if (nextGroup.length > 0) {
+                this.monsterSpawnGroupsByKey.set(monster.spawnKey, nextGroup);
+            }
+            else {
+                this.monsterSpawnGroupsByKey.delete(monster.spawnKey);
+                this.monsterSpawnAccelerationStatesByKey.delete(monster.spawnKey);
+            }
+        }
+        this.worldRevision += 1;
+        return true;
+    }
     /** getMonster：按运行时 ID 读取妖兽。 */
     getMonster(runtimeId) {
 
@@ -3453,6 +3561,7 @@ class MapInstanceRuntime {
             }
             if (entry.statePayload && typeof entry.statePayload === 'object') {
                 const payload = entry.statePayload;
+                monster.pendingCast = undefined;
                 if (Array.isArray(payload.buffs)) {
                     monster.buffs = payload.buffs.map((buff) => ({ ...buff }));
                 }
@@ -4090,7 +4199,7 @@ class MapInstanceRuntime {
 
         let moved = false;
 
-        let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.trunc(maxSteps)) : Number.POSITIVE_INFINITY;
+        let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.min(20, Math.trunc(maxSteps))) : 20;
 
         const remainingPath = Array.isArray(path) && path.length > 0 ? path : null;
         let rechargedMoveBudget = false;
@@ -4521,7 +4630,17 @@ class MapInstanceRuntime {
         let changed = false;
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
-                monster.pendingCast = undefined;
+                if (monster.pendingCast) {
+                    const cancelledPendingCast = (0, pending_combat_cast_helpers_1.cancelPendingCombatCast)(monster.pendingCast, {
+                        reason: pending_combat_cast_helpers_1.CombatPendingCastCancelReason.ActorDead,
+                        cancelledTick: this.tick,
+                    });
+                    monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillCancelActionFromPendingCast)(cancelledPendingCast, {
+                        instanceId: this.meta.instanceId,
+                        runtimeId: monster.runtimeId,
+                    }));
+                    monster.pendingCast = undefined;
+                }
                 if (monster.respawnLeft <= 0) {
                     continue;
                 }
@@ -4540,6 +4659,20 @@ class MapInstanceRuntime {
             changed = recoverMonsterHp(monster) || recoverMonsterQi(monster) || changed;
 
             if (monster.pendingCast) {
+                const pendingSkill = monster.skills.find((entry) => entry.id === (monster.pendingCast.actionId ?? monster.pendingCast.skillId));
+                const cancelledPendingCast = (0, pending_combat_cast_helpers_1.resolvePendingCombatCastCancellation)(monster.pendingCast, {
+                    actorAlive: monster.alive,
+                    currentTick: this.tick,
+                    configRevision: pendingSkill?.version ?? pendingSkill?.revision,
+                });
+                if (cancelledPendingCast) {
+                    monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillCancelActionFromPendingCast)(cancelledPendingCast, {
+                        instanceId: this.meta.instanceId,
+                        runtimeId: monster.runtimeId,
+                    }));
+                    monster.pendingCast = undefined;
+                    continue;
+                }
                 monster.pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(monster.pendingCast.remainingTicks) || 0) - 1);
                 if (monster.pendingCast.remainingTicks > 0) {
                     continue;
@@ -4547,20 +4680,11 @@ class MapInstanceRuntime {
                 const pendingCast = monster.pendingCast;
                 monster.pendingCast = undefined;
                 const pendingTarget = this.playersById.get(pendingCast.targetPlayerId);
-                if (pendingTarget) {
-                    monsterActions.push({
-                        instanceId: this.meta.instanceId,
-                        runtimeId: monster.runtimeId,
-                        targetPlayerId: pendingTarget.playerId,
-                        kind: 'skill',
-                        skillId: pendingCast.skillId,
-                        targetX: pendingCast.targetX,
-                        targetY: pendingCast.targetY,
-                        warningCells: Array.isArray(pendingCast.warningCells)
-                            ? pendingCast.warningCells.map((cell) => ({ x: cell.x, y: cell.y }))
-                            : undefined,
-                    });
-                }
+                monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillActionFromPendingCast)(pendingCast, {
+                    instanceId: this.meta.instanceId,
+                    runtimeId: monster.runtimeId,
+                    targetPlayerId: pendingTarget?.playerId ?? pendingCast.targetPlayerId,
+                }));
                 continue;
             }
 
@@ -4585,7 +4709,12 @@ class MapInstanceRuntime {
 
             const skill = chooseMonsterSkill(monster, target, distance, this.tick);
             if (skill) {
-                monster.cooldownReadyTickBySkillId[skill.id] = this.tick + Math.max(1, Math.round(skill.cooldown));
+                const committedSkillCast = commitMonsterSkillCast(monster, skill, this.tick);
+                if (!committedSkillCast.ok) {
+                    continue;
+                }
+                this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+                changed = true;
                 const windupTicks = getMonsterSkillWindupTicks(skill);
                 if (windupTicks > 0) {
                     const warningCells = buildMonsterSkillAffectedCells(monster, skill, { x: target.x, y: target.y });
@@ -4595,15 +4724,28 @@ class MapInstanceRuntime {
                             ? { x: monster.x, y: monster.y }
                             : { x: target.x, y: target.y };
                         monster.facing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
-                        monster.pendingCast = {
+                        monster.pendingCast = (0, pending_combat_cast_helpers_1.createMonsterPendingCombatCast)({
+                            runtimeId: monster.runtimeId,
+                            instanceId: this.meta.instanceId,
                             skillId: skill.id,
                             targetPlayerId: target.playerId,
-                            targetX: target.x,
-                            targetY: target.y,
-                            warningCells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
+                            anchor: { x: target.x, y: target.y },
+                            warningCells,
+                            warningOrigin,
                             remainingTicks: windupTicks,
                             warningColor: getMonsterSkillWarningColor(skill),
-                        };
+                            startedTick: this.tick,
+                            resolveTick: this.tick + windupTicks,
+                            committedCooldownSnapshot: {
+                                actionId: skill.id,
+                                readyTick: committedSkillCast.cooldownReadyTick,
+                            },
+                            committedResourceSnapshot: {
+                                kind: 'qi',
+                                spent: committedSkillCast.qiCost,
+                            },
+                            configRevision: skill.version ?? skill.revision,
+                        });
                         monsterActions.push({
                             instanceId: this.meta.instanceId,
                             runtimeId: monster.runtimeId,
@@ -6219,6 +6361,33 @@ function recoverMonsterQi(monster) {
     monster.qi = nextQi;
     return true;
 }
+function resolveMonsterSkillQiCost(monster, skill) {
+    return Math.round((0, shared_1.calcQiCostWithOutputLimit)(
+        Math.max(0, Math.round(Number(skill?.cost) || 0)),
+        Math.max(0, monster?.numericStats?.maxQiOutputPerTick ?? 0),
+    ));
+}
+function commitMonsterSkillCast(monster, skill, currentTick) {
+    const qiCost = resolveMonsterSkillQiCost(monster, skill);
+    const cooldownReadyTick = Math.max(0, Math.trunc(Number(currentTick) || 0)) + Math.max(1, Math.round(Number(skill?.cooldown) || 1));
+    if (qiCost > 0 && (monster.qi ?? 0) < qiCost) {
+        return {
+            ok: false,
+            reason: 'insufficient_qi',
+            qiCost,
+            cooldownReadyTick,
+        };
+    }
+    if (qiCost > 0) {
+        monster.qi = Math.max(0, Math.round((monster.qi ?? 0) - qiCost));
+    }
+    monster.cooldownReadyTickBySkillId[skill.id] = cooldownReadyTick;
+    return {
+        ok: true,
+        qiCost,
+        cooldownReadyTick,
+    };
+}
 /** chooseMonsterSkill：选择妖兽技能。 */
 function chooseMonsterSkill(monster, target, distance, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -6391,10 +6560,7 @@ function canMonsterCastSkill(monster, skill, distance, currentTick) {
         return false;
     }
 
-    const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(
-        Math.max(0, Math.round(Number(skill.cost) || 0)),
-        Math.max(0, monster.numericStats?.maxQiOutputPerTick ?? 0),
-    ));
+    const qiCost = resolveMonsterSkillQiCost(monster, skill);
     if (qiCost > 0 && (monster.qi ?? 0) < qiCost) {
         return false;
     }

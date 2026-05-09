@@ -28,6 +28,19 @@ export type {
   CombatEffectWarningZone,
 } from './action-combat-types';
 export type {
+  CombatAoiEffect,
+  CombatAoiResultEvent,
+  CombatAuditEvent,
+  CombatDiagnosticEvent,
+  CombatLayeredEvents,
+  CombatNoticeEvent,
+  CombatProtocolDelivery,
+  CombatProtocolFrequency,
+  CombatProtocolLayer,
+  CombatProtocolLayerSpec,
+  CombatProtocolResult,
+} from './combat-event-types';
+export type {
   AttrBonus,
   AttrKey,
   Attributes,

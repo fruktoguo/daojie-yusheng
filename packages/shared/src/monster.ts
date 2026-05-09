@@ -1152,7 +1152,6 @@ export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaIn
   applyNumericStatPercentages(scaled, normalizeMonsterStatPercents(input.statPercents));
   applyNumericStatPercentages(scaled, MONSTER_GRADE_STAT_PERCENTS[input.grade ?? 'mortal']);
   applyNumericStatPercentages(scaled, MONSTER_TIER_STAT_PERCENTS[normalizeMonsterTier(input.tier)]);
-  applyNumericStatPercentages(scaled, MONSTER_GLOBAL_STAT_PERCENTS);
   return scaled;
 }
 
@@ -1438,6 +1437,7 @@ export function resolveMonsterTemplateRecord(
         tier,
       })
     : applyNumericStatPercentages(resolveMonsterNumericStatsFromValueStats(valueStats, level), resolvedStatPercents);
+  applyNumericStatPercentages(computedStats, MONSTER_GLOBAL_STAT_PERCENTS);
   computedStats.moveSpeed = Math.max(0, Math.round(getEffectiveMoveSpeed(computedStats.moveSpeed)));
   const count = Number.isFinite(monster.count)
     ? Math.max(1, Math.floor(Number(monster.count)))

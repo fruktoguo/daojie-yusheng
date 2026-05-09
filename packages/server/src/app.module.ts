@@ -79,6 +79,7 @@ import { WorldRuntimeNpcQuestWriteService } from './runtime/world/world-runtime-
 import { WorldRuntimeLootContainerService } from './runtime/world/world-runtime-loot-container.service';
 import { WorldRuntimeNavigationService } from './runtime/world/world-runtime-navigation.service';
 import { WorldRuntimeCombatEffectsService } from './runtime/world/world-runtime-combat-effects.service';
+import { WorldRuntimeCombatActionService } from './runtime/world/world-runtime-combat-action.service';
 import { WorldRuntimeMonsterActionApplyService } from './runtime/world/world-runtime-monster-action-apply.service';
 import { WorldRuntimeBasicAttackService } from './runtime/world/world-runtime-basic-attack.service';
 import { WorldRuntimeMonsterSystemCommandService } from './runtime/world/world-runtime-monster-system-command.service';
@@ -103,6 +104,7 @@ import { WorldRuntimeAutoCombatService } from './runtime/world/world-runtime-aut
 import { WorldRuntimeCombatCommandService } from './runtime/world/world-runtime-combat-command.service';
 import { WorldRuntimeActionExecutionService } from './runtime/world/world-runtime-action-execution.service';
 import { WorldRuntimeSystemCommandEnqueueService } from './runtime/world/world-runtime-system-command-enqueue.service';
+import { WorldRuntimeTongtianTowerService } from './runtime/world/world-runtime-tongtian-tower.service';
 import { MapTemplateRepository } from './runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from './runtime/map/runtime-map-config.service';
 import { PlayerAttributesService } from './runtime/player/player-attributes.service';
@@ -112,6 +114,7 @@ import { MapPersistenceFlushService } from './persistence/map-persistence-flush.
 import { DurableOperationService } from './persistence/durable-operation.service';
 import { MapPersistenceService } from './persistence/map-persistence.service';
 import { DatabasePoolProvider } from './persistence/database-pool.provider';
+import { CombatAuditOutboxService } from './persistence/combat-audit-outbox.service';
 import { FlushWakeupService } from './persistence/flush-wakeup.service';
 import { InstanceCatalogService } from './persistence/instance-catalog.service';
 import { InstanceDomainPersistenceService } from './persistence/instance-domain-persistence.service';
@@ -131,6 +134,7 @@ import { OutboxEventConsumerRegistryService } from './persistence/outbox-event-c
 import { OutboxDispatcherRuntimeService } from './persistence/outbox-dispatcher-runtime.service';
 import { SuggestionPersistenceService } from './persistence/suggestion-persistence.service';
 import { RedeemCodePersistenceService } from './persistence/redeem-code-persistence.service';
+import { TongtianTowerPersistenceService } from './persistence/tongtian-tower-persistence.service';
 import { MailRuntimeService } from './runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from './runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from './runtime/player/player-runtime.service';
@@ -212,6 +216,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldRuntimeLootContainerService,
     WorldRuntimeNavigationService,
     WorldRuntimeCombatEffectsService,
+    WorldRuntimeCombatActionService,
     WorldRuntimeMonsterActionApplyService,
     WorldRuntimeBasicAttackService,
     WorldRuntimeMonsterSystemCommandService,
@@ -236,10 +241,12 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldRuntimeCombatCommandService,
     WorldRuntimeActionExecutionService,
     WorldRuntimeSystemCommandEnqueueService,
+    WorldRuntimeTongtianTowerService,
     RuntimeMapConfigService,
     PlayerCombatService,
     MapPersistenceService,
     DatabasePoolProvider,
+    CombatAuditOutboxService,
     FlushWakeupService,
     InstanceCatalogService,
     InstanceDomainPersistenceService,
@@ -261,6 +268,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     PlayerPersistenceFlushService,
     SuggestionPersistenceService,
     RedeemCodePersistenceService,
+    TongtianTowerPersistenceService,
     PlayerAttributesService,
     LeaderboardRuntimeService,
     PlayerProgressionService,

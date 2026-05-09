@@ -591,6 +591,69 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return spawns;
     }
     /**
+ * createRuntimeMonsterSpawn：按模板和覆盖项构造单只运行态妖兽。
+ * @param monsterId 妖兽模板 ID。
+ * @param options 运行态覆盖项。
+ * @returns 妖兽运行态生成记录；模板不存在时返回 null。
+ */
+
+    createRuntimeMonsterSpawn(monsterId, options = {}) {
+        const normalizedMonsterId = typeof monsterId === 'string' ? monsterId.trim() : '';
+        if (!normalizedMonsterId) {
+            return null;
+        }
+        const template = this.monsterRuntimeTemplates.get(normalizedMonsterId);
+        if (!template) {
+            return null;
+        }
+        const x = Number.isFinite(Number(options.x)) ? Math.trunc(Number(options.x)) : 0;
+        const y = Number.isFinite(Number(options.y)) ? Math.trunc(Number(options.y)) : 0;
+        const spawnOriginX = Number.isFinite(Number(options.spawnOriginX)) ? Math.trunc(Number(options.spawnOriginX)) : x;
+        const spawnOriginY = Number.isFinite(Number(options.spawnOriginY)) ? Math.trunc(Number(options.spawnOriginY)) : y;
+        const resolvedStats = resolveMonsterRuntimeTemplateStats(template, {
+            level: options.level,
+            tier: options.tier,
+        });
+        return {
+            runtimeId: typeof options.runtimeId === 'string' && options.runtimeId.trim()
+                ? options.runtimeId.trim()
+                : `monster:dynamic:${normalizedMonsterId}:${Date.now()}`,
+            monsterId: normalizedMonsterId,
+            x,
+            y,
+            spawnOriginX,
+            spawnOriginY,
+            spawnKey: typeof options.spawnKey === 'string' && options.spawnKey.trim()
+                ? options.spawnKey.trim()
+                : buildMonsterSpawnKey('dynamic', normalizedMonsterId, spawnOriginX, spawnOriginY),
+            hp: resolvedStats.maxHp,
+            maxHp: resolvedStats.maxHp,
+            respawnTicks: Number.isFinite(Number(options.respawnTicks))
+                ? Math.max(1, Math.trunc(Number(options.respawnTicks)))
+                : template.respawnTicks,
+            alive: options.alive === false ? false : true,
+            respawnLeft: 0,
+            facing: shared_1.Direction.South,
+            name: typeof options.name === 'string' && options.name.trim() ? options.name.trim() : template.name,
+            char: template.char,
+            color: template.color,
+            level: resolvedStats.level,
+            tier: resolvedStats.tier,
+            expMultiplier: resolvedStats.expMultiplier,
+            baseAttrs: cloneMonsterAttributes(resolvedStats.attrs),
+            baseNumericStats: (0, shared_1.cloneNumericStats)(resolvedStats.numericStats),
+            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            statFormula: cloneMonsterStatFormula(template.statFormula),
+            initialBuffs: template.initialBuffs?.map((entry) => ({ ...entry })),
+            skills: template.skills.map((entry) => cloneSkill(entry)),
+            aggroRange: template.aggroRange,
+            leashRange: template.leashRange,
+            attackRange: template.attackRange,
+            attackCooldownTicks: template.attackCooldownTicks,
+            wanderRadius: Number.isFinite(Number(options.wanderRadius)) ? Math.max(0, Math.trunc(Number(options.wanderRadius))) : 0,
+        };
+    }
+    /**
  * buildFallbackMonsterRuntimeStatesForMap：构建并返回目标对象。
  * @param mapId 地图 ID。
  * @returns 无返回值，直接更新Fallback怪物运行态状态For地图相关状态。
@@ -862,6 +925,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                     level: typeof monster.level === 'number' && Number.isFinite(monster.level)
                         ? Math.max(1, Math.trunc(monster.level))
                         : undefined,
+                    suppressSpiritStoneDrop: monster.suppressSpiritStoneDrop === true,
                 });
                 if (drops.length > 0) {
                     this.monsterDropsByMonsterId.set(monsterId, drops);
@@ -923,7 +987,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
 
-        const spiritStoneDrop = this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
+        const spiritStoneDrop = context?.suppressSpiritStoneDrop === true
+            ? null
+            : this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
         if (spiritStoneDrop) {
             drops.push(spiritStoneDrop);
         }

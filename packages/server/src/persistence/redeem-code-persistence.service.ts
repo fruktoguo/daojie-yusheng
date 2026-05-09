@@ -164,8 +164,6 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
                 `,
                 [REDEEM_CODE_STATE_KEY, normalized.revision],
             );
-            await client.query(`DELETE FROM ${REDEEM_CODE_TABLE}`);
-            await client.query(`DELETE FROM ${REDEEM_CODE_GROUP_TABLE}`);
             for (const group of normalized.groups) {
                 await client.query(
                     `
@@ -178,6 +176,12 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
                         raw_payload
                       )
                       VALUES ($1, $2, $3::jsonb, $4::timestamptz, $5::timestamptz, $6::jsonb)
+                      ON CONFLICT (group_id)
+                      DO UPDATE SET
+                        name = EXCLUDED.name,
+                        rewards_payload = EXCLUDED.rewards_payload,
+                        updated_at = EXCLUDED.updated_at,
+                        raw_payload = EXCLUDED.raw_payload
                     `,
                     [
                         group.id,
@@ -206,6 +210,15 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
                         raw_payload
                       )
                       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::jsonb)
+                      ON CONFLICT (code_id)
+                      DO UPDATE SET
+                        status = EXCLUDED.status,
+                        used_by_player_id = EXCLUDED.used_by_player_id,
+                        used_by_role_name = EXCLUDED.used_by_role_name,
+                        used_at = EXCLUDED.used_at,
+                        destroyed_at = EXCLUDED.destroyed_at,
+                        updated_at = EXCLUDED.updated_at,
+                        raw_payload = EXCLUDED.raw_payload
                     `,
                     [
                         code.id,

@@ -6662,6 +6662,57 @@
       ]
     },
     {
+      "id": "tongtian_shadow_art",
+      "name": "通天虚影诀",
+      "desc": "通天塔虚影凝出的本能攻势。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "skills": [
+        {
+          "id": "skill.tongtian_shadow_strike",
+          "name": "虚影重击",
+          "desc": "虚影以自身境界压下重击，造成随境界等级提升的物理伤害。",
+          "cooldown": 10,
+          "costMultiplier": 0,
+          "range": 1,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 1
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "caster.realmLv",
+                        "scale": 0.5
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 0
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 0
+        }
+      ]
+    },
+    {
       "id": "wanzhi_huichun",
       "name": "万枝回春卷",
       "desc": "木意锁魂，直压单敌。",

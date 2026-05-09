@@ -2,8 +2,10 @@
 
 const assert = require('node:assert/strict');
 
+const { resolveMonsterCombatExpEquivalentFallback } = require('../runtime/combat/monster-combat-exp-equivalent.helper');
 const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
 const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
+const { WorldRuntimeCombatActionService } = require('../runtime/world/world-runtime-combat-action.service');
 const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/world-runtime-monster-action-apply.service');
 
 function createAttacker(overrides = {}) {
@@ -157,13 +159,14 @@ function createBasicAttackService(attacker, target, log = []) {
       log.push(['recordActivity', playerId, tick, payload]);
     },
   };
-  const service = new WorldRuntimeBasicAttackService(playerRuntimeService);
+  const service = new WorldRuntimeBasicAttackService(playerRuntimeService, new WorldRuntimeCombatActionService());
   service.resolveBasicAttackDamageAgainstPlayer = () => ({ rawDamage: 14, damage: 9 });
   return service;
 }
 
 function createBasicAttackDeps(instance, log = []) {
   return {
+    combatOutcomes: [],
     getInstanceRuntimeOrThrow(instanceId) {
       log.push(['getInstanceRuntimeOrThrow', instanceId]);
       return instance;
@@ -204,10 +207,13 @@ function createMonsterActionApplyService(player, log = [], playerCombatService =
   const playerRuntimeService = {
     playerProgressionService: {
       getMonsterCombatExpEquivalent(level) {
-        return level * 100;
+        return resolveMonsterCombatExpEquivalentFallback(level);
       },
     },
     getPlayer(playerId) {
+      if (player instanceof Map) {
+        return player.get(playerId) ?? null;
+      }
       return playerId === player.playerId ? player : null;
     },
     applyDamage(playerId, amount) {
@@ -246,14 +252,18 @@ function createMonsterActionApplyService(player, log = [], playerCombatService =
     playerRuntimeService,
     playerCombatService,
     combatEffectsService,
+    new WorldRuntimeCombatActionService(),
   );
 }
 
 function createMonsterActionDeps(instance, player, log = []) {
   return {
+    combatOutcomes: [],
+    combatDiagnostics: [],
     getPlayerLocation(playerId) {
       log.push(['getPlayerLocation', playerId]);
-      return playerId === player.playerId ? { instanceId: player.instanceId, x: player.x, y: player.y } : null;
+      const resolvedPlayer = player instanceof Map ? player.get(playerId) : player;
+      return playerId === resolvedPlayer?.playerId ? { instanceId: resolvedPlayer.instanceId, x: resolvedPlayer.x, y: resolvedPlayer.y } : null;
     },
     getInstanceRuntime(instanceId) {
       log.push(['getInstanceRuntime', instanceId]);
@@ -363,6 +373,84 @@ async function testRealLineAllowsPlayerBasicAttack() {
   assert.deepEqual(log[8].slice(0, 2), ['queuePlayerNotice', 'player:target']);
   assert.match(log[8][2], /发起攻击/);
   assert.match(log[8][2], /原始 14 - 实际 9 - 法术/);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'player');
+  assert.equal(deps.combatOutcomes[0].target.id, target.playerId);
+  assert.equal(deps.combatOutcomes[0].result.damage, 9);
+}
+
+async function testPlayerBasicAttackMonsterRecordsCombatOutcome() {
+  const log = [];
+  const attacker = createAttacker();
+  const target = createTarget();
+  const monster = createMonster({
+    runtimeId: 'monster:target',
+    name: '靶妖',
+    x: 11,
+    y: 10,
+    numericStats: {
+      physDef: 0,
+      spellDef: 0,
+      dodge: 0,
+      resolvePower: 0,
+      antiCrit: 0,
+      elementDamageReduce: {},
+    },
+    ratioDivisors: {
+      dodge: 1,
+      elementDamageReduce: {},
+    },
+  });
+  const instance = createInstance({
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    applyDamageToMonster(runtimeId, amount, playerId) {
+      log.push(['applyDamageToMonster', runtimeId, amount, playerId]);
+      return { monster, defeated: false };
+    },
+  });
+  const service = createBasicAttackService(attacker, target, log);
+  const deps = createBasicAttackDeps(instance, log);
+  await service.dispatchBasicAttackToMonster(attacker, monster.runtimeId, 'physical', 12, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'applyDamageToMonster'), `expected monster damage application, log=${JSON.stringify(log)}`);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'monster');
+  assert.equal(deps.combatOutcomes[0].target.id, monster.runtimeId);
+  assert.equal(deps.combatOutcomes[0].result.targetType, 'monster');
+  assert.equal(deps.combatOutcomes[0].result.damage > 0, true);
+}
+
+function testPlayerBasicAttackFormationRecordsCombatOutcome() {
+  const log = [];
+  const attacker = createAttacker();
+  const formation = {
+    id: 'formation:eye',
+    name: '护山阵眼',
+    x: 11,
+    y: 10,
+  };
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(createInstance(), log);
+  deps.worldRuntimeFormationService = {
+    applyDamageToFormation(instanceId, formationId, amount, playerId) {
+      log.push(['applyDamageToFormation', instanceId, formationId, amount, playerId]);
+      return {
+        appliedDamage: 6,
+        auraDamage: 1.25,
+      };
+    },
+  };
+  service.dispatchBasicAttackToFormation(attacker, formation, 'physical', 12, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'applyDamageToFormation'), `expected formation damage application, log=${JSON.stringify(log)}`);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'formation');
+  assert.equal(deps.combatOutcomes[0].target.id, formation.id);
+  assert.equal(deps.combatOutcomes[0].result.targetType, 'formation');
+  assert.equal(deps.combatOutcomes[0].result.damage, 6);
+  assert.equal(deps.combatOutcomes[0].result.auraDamage, 1.25);
 }
 
 function testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat() {
@@ -419,6 +507,208 @@ function testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat() {
   assert.match(notice[2], /唤灵真人对你发起攻击/);
   assert.match(notice[2], new RegExp(`实际 ${float[4]} - 物理`));
   assert.equal(notice[3], 'combat');
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.id, player.playerId);
+  assert.equal(deps.combatOutcomes[0].result.damage, float[4]);
+}
+
+function testMonsterBasicAttackDodgeQueuesCombatNoticeAndOutcome() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    hp: 100,
+    x: 11,
+    y: 10,
+    attrs: {
+      numericStats: {
+        physDef: 0,
+        spellDef: 0,
+        dodge: 100,
+        resolvePower: 0,
+        antiCrit: 0,
+        elementDamageReduce: {},
+      },
+      ratioDivisors: {
+        dodge: 1,
+        elementDamageReduce: {},
+      },
+    },
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const service = createMonsterActionApplyService(player, log);
+  const deps = createMonsterActionDeps(instance, player, log);
+  const random = Math.random;
+  Math.random = () => 0;
+  const { setCombatRngForTesting, resetCombatRngForTesting } = require('../runtime/combat/combat-resolution.helpers');
+  setCombatRngForTesting(() => 0);
+  try {
+    service.applyMonsterBasicAttack({
+      kind: 'basic-attack',
+      instanceId: instance.meta.instanceId,
+      runtimeId: monster.runtimeId,
+      targetPlayerId: player.playerId,
+    }, deps);
+  }
+  finally {
+    Math.random = random;
+    resetCombatRngForTesting();
+  }
+
+  assert.equal(log.some((entry) => entry[0] === 'applyDamage'), false, `dodged monster basic attack should not apply damage, log=${JSON.stringify(log)}`);
+  assert.equal(log.some((entry) => entry[0] === 'pushDamageFloatEffect'), false, `dodged monster basic attack should not enqueue damage float, log=${JSON.stringify(log)}`);
+  const notice = log.find((entry) => entry[0] === 'queuePlayerNotice');
+  assert.ok(notice, `expected monster basic attack dodge notice, log=${JSON.stringify(log)}`);
+  assert.match(notice[2], /唤灵真人对你发起攻击/);
+  assert.match(notice[2], /被闪避/);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.id, player.playerId);
+  assert.equal(deps.combatOutcomes[0].result.damage, 0);
+  assert.equal(deps.combatOutcomes[0].result.dodged, true);
+}
+
+function testMonsterBasicAttackRejectsTargetInstanceMismatchWithDiagnostic() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    instanceId: 'stale:previous',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const service = createMonsterActionApplyService(player, log);
+  const deps = createMonsterActionDeps(instance, player, log);
+  deps.getPlayerLocation = (playerId) => {
+    log.push(['getPlayerLocation', playerId]);
+    return playerId === player.playerId
+      ? { instanceId: instance.meta.instanceId, x: player.x, y: player.y }
+      : null;
+  };
+  service.applyMonsterBasicAttack({
+    kind: 'basic-attack',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+  }, deps);
+
+  assert.equal(log.some((entry) => entry[0] === 'applyDamage'), false, `instance-mismatched target should not take damage, log=${JSON.stringify(log)}`);
+  assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice'), false, `instance-mismatched target should not receive combat notice, log=${JSON.stringify(log)}`);
+  assert.equal(deps.combatOutcomes.length, 0);
+  assert.equal(deps.combatDiagnostics.length, 1);
+  assert.equal(deps.combatDiagnostics[0].reason, 'target_instance_mismatch');
+}
+
+function testMonsterBasicAttackRejectsGuardFailuresWithDiagnostics() {
+  const cases = [
+    {
+      name: 'dead monster',
+      expectedReason: 'monster_dead',
+      monster: { alive: false, hp: 0 },
+    },
+    {
+      name: 'dead target',
+      expectedReason: 'target_dead',
+      player: { hp: 0 },
+    },
+    {
+      name: 'missing target position',
+      expectedReason: 'missing_runtime_target_position',
+      instance: {
+        getPlayerPosition() {
+          return null;
+        },
+      },
+    },
+    {
+      name: 'out of range',
+      expectedReason: 'out_of_range',
+      player: { x: 15, y: 10 },
+    },
+    {
+      name: 'line of sight blocked',
+      expectedReason: 'line_of_sight_blocked',
+      instance: {
+        canSeeTileFrom() {
+          return false;
+        },
+      },
+    },
+    {
+      name: 'missing target location',
+      expectedReason: 'missing_target_location',
+      deps: {
+        getPlayerLocation() {
+          return null;
+        },
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const log = [];
+    const player = createTarget({
+      playerId: 'player:victim',
+      name: '受击者',
+      hp: 100,
+      x: 11,
+      y: 10,
+      ...testCase.player,
+    });
+    const monster = createMonster(testCase.monster);
+    const instance = createInstance({
+      getMonster(runtimeId) {
+        return runtimeId === monster.runtimeId ? monster : null;
+      },
+      getPlayerPosition(playerId) {
+        return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+      },
+      canSeeTileFrom() {
+        return true;
+      },
+      ...testCase.instance,
+    });
+    const service = createMonsterActionApplyService(player, log);
+    const deps = {
+      ...createMonsterActionDeps(instance, player, log),
+      ...testCase.deps,
+    };
+    service.applyMonsterBasicAttack({
+      kind: 'basic-attack',
+      instanceId: instance.meta.instanceId,
+      runtimeId: monster.runtimeId,
+      targetPlayerId: player.playerId,
+    }, deps);
+
+    assert.equal(log.some((entry) => entry[0] === 'applyDamage'), false, `${testCase.name} should not apply damage, log=${JSON.stringify(log)}`);
+    assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice'), false, `${testCase.name} should not queue combat notice, log=${JSON.stringify(log)}`);
+    assert.equal(deps.combatOutcomes.length, 0, `${testCase.name} should not record success outcome`);
+    assert.equal(deps.combatDiagnostics.length, 1, `${testCase.name} should record one diagnostic`);
+    assert.equal(deps.combatDiagnostics[0].reason, testCase.expectedReason, `${testCase.name} diagnostic reason`);
+  }
 }
 
 function testMonsterSkillQueuesCombatNoticeAndDamageFloat() {
@@ -477,6 +767,53 @@ function testMonsterSkillQueuesCombatNoticeAndDamageFloat() {
   assert.match(notice[2], /唤灵真人对你施展唤灵火/);
   assert.match(notice[2], /原始 17 - 实际 17 - 法术/);
   assert.equal(notice[3], 'combat');
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.id, player.playerId);
+  assert.equal(deps.combatOutcomes[0].result.damage, 17);
+}
+
+function testDeadMonsterSkillRejectsWithoutResolvingCombat() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster({ alive: false, hp: 0 });
+  const instance = createInstance({
+    tick: 31,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill() {
+      throw new Error('dead monster skill should not resolve combat');
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: player.playerId,
+    skillId: 'monster:soul_flame',
+  }, deps);
+
+  assert.equal(log.some((entry) => entry[0] === 'castMonsterSkill'), false, `dead monster skill should not cast, log=${JSON.stringify(log)}`);
+  assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice'), false, `dead monster skill should not notify target, log=${JSON.stringify(log)}`);
+  assert.equal(deps.combatOutcomes.length, 0);
+  assert.equal(deps.combatDiagnostics.length, 1);
+  assert.equal(deps.combatDiagnostics[0].reason, 'monster_dead');
 }
 
 function testMonsterSkillUsesRuntimeLocationBeforeCombatStateSync() {
@@ -542,6 +879,8 @@ function testMonsterSkillUsesRuntimeLocationBeforeCombatStateSync() {
   assert.ok(notice, `expected monster skill dodge notice before combat state sync, log=${JSON.stringify(log)}`);
   assert.match(notice[2], /唤灵真人对你施展唤灵火/);
   assert.match(notice[2], /被闪避/);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].result.dodged, true);
 }
 
 function testAnchoredMonsterChantMissStillShowsCast() {
@@ -601,6 +940,165 @@ function testAnchoredMonsterChantMissStillShowsCast() {
   assert.ok(!log.some((entry) => entry[0] === 'queuePlayerNotice'), `anchored miss should not report a hit notice, log=${JSON.stringify(log)}`);
 }
 
+function testAnchoredMonsterChantHitsWarningCellPlayerWithoutPrimaryTargetLocation() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:victim',
+    name: '受击者',
+    instanceId: 'stale:previous',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster();
+  const instance = createInstance({
+    tick: 33,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition() {
+      return null;
+    },
+    getPlayersAtTile(x, y) {
+      return x === player.x && y === player.y
+        ? [{ playerId: player.playerId, x, y }]
+        : [];
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill(attacker, target, skillId, currentTick, distance) {
+      log.push(['castMonsterSkill', attacker.runtimeId, target.playerId, skillId, currentTick, distance]);
+      return {
+        skillId,
+        totalDamage: 0,
+        hitCount: 0,
+        damageKind: 'spell',
+        damageRolls: [{
+          hit: false,
+          rawDamage: 17,
+          damage: 0,
+          dodged: true,
+          damageKind: 'spell',
+        }],
+        targetPlayerId: target.playerId,
+      };
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  deps.getPlayerLocation = () => null;
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: 'player:no-longer-authoritative',
+    skillId: 'monster:soul_flame',
+    targetX: 11,
+    targetY: 10,
+    warningCells: [{ x: 11, y: 10 }],
+  }, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'castMonsterSkill'
+    && entry[2] === player.playerId), `expected warning-cell player to be resolved even when primary target location is missing, log=${JSON.stringify(log)}`);
+  const notice = log.find((entry) => entry[0] === 'queuePlayerNotice');
+  assert.ok(notice, `expected dodge notice for warning-cell target, log=${JSON.stringify(log)}`);
+  assert.match(notice[2], /唤灵真人对你施展唤灵火/);
+  assert.match(notice[2], /被闪避/);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.id, player.playerId);
+  assert.equal(deps.combatOutcomes[0].result.targetSource, 'warning_cell');
+}
+
+function testMonsterSkillConsumesMultiplePlanTargetsOncePerTarget() {
+  const log = [];
+  const playerA = createTarget({
+    playerId: 'player:a',
+    name: '甲',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const playerB = createTarget({
+    playerId: 'player:b',
+    name: '乙',
+    hp: 100,
+    x: 12,
+    y: 10,
+  });
+  const players = new Map([
+    [playerA.playerId, playerA],
+    [playerB.playerId, playerB],
+  ]);
+  const monster = createMonster({
+    skills: [{
+      id: 'monster:soul_flame',
+      name: '唤灵火',
+      range: 3,
+      cooldown: { ticks: 1 },
+      cost: {},
+      targeting: { shape: 'line', maxTargets: 2 },
+      effects: [],
+    }],
+  });
+  const instance = createInstance({
+    tick: 34,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      const player = players.get(playerId);
+      return player ? { x: player.x, y: player.y } : null;
+    },
+    getPlayersAtTile(x, y) {
+      return [...players.values()]
+        .filter((player) => player.x === x && player.y === y)
+        .map((player) => ({ playerId: player.playerId, x, y }));
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+    markMonsterRuntimePersistenceDirty(runtimeId) {
+      log.push(['markMonsterRuntimePersistenceDirty', runtimeId]);
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill(attacker, target, skillId, _currentTick, _distance, _applySelfBuff, _applyTargetBuff, _spendQi, options) {
+      log.push(['castMonsterSkill', attacker.runtimeId, target.playerId, skillId, options?.skipResourceAndCooldown, options?.targetCount]);
+      return {
+        skillId,
+        totalDamage: target.playerId === playerA.playerId ? 9 : 7,
+        hitCount: 1,
+        damageKind: 'spell',
+        targetPlayerId: target.playerId,
+      };
+    },
+  };
+  const service = createMonsterActionApplyService(players, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, players, log);
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: playerA.playerId,
+    skillId: 'monster:soul_flame',
+    targetX: 11,
+    targetY: 10,
+    warningCells: [{ x: 11, y: 10 }, { x: 12, y: 10 }],
+  }, deps);
+
+  const castCalls = log.filter((entry) => entry[0] === 'castMonsterSkill');
+  assert.deepEqual(castCalls.map((entry) => [entry[2], entry[4], entry[5]]), [
+    [playerA.playerId, false, 2],
+    [playerB.playerId, true, 2],
+  ]);
+  assert.equal(deps.combatOutcomes.length, 2);
+  assert.deepEqual(deps.combatOutcomes.map((entry) => entry.target.id), [playerA.playerId, playerB.playerId]);
+  assert.deepEqual(deps.combatOutcomes.map((entry) => entry.result.damage), [9, 7]);
+}
+
 function testPeacefulLineAllowsTileAttack() {
   const log = [];
   const attacker = createAttacker();
@@ -627,6 +1125,9 @@ function testPeacefulLineAllowsTileAttack() {
   assert.deepEqual(log[5].slice(0, 2), ['queuePlayerNotice', 'player:attacker']);
   assert.match(log[5][2], /攻击/);
   assert.match(log[5][2], /原始 12 - 实际 5 - 物理/);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'tile');
+  assert.equal(deps.combatOutcomes[0].result.damage, 5);
 }
 
 function testTileAttackHitsHerbContainerBeforeTerrainDamage() {
@@ -661,6 +1162,155 @@ function testTileAttackHitsHerbContainerBeforeTerrainDamage() {
   assert.match(log[6][2], /打落 1 朵/);
   assert.match(log[6][2], /还需 5 息/);
   assert.equal(log.some((entry) => entry[0] === 'damageTile'), false);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'container');
+  assert.equal(deps.combatOutcomes[0].target.id, 'herb1');
+  assert.equal(deps.combatOutcomes[0].result.damage, 1);
+}
+
+function testPlannedTileAttackDoesNotRetargetHerbContainer() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return {
+        id: 'herb1',
+        name: '月露草',
+        x,
+        y,
+        variant: 'herb',
+      };
+    },
+    damageTile(x, y, amount) {
+      log.push(['damageTile', x, y, amount]);
+      return { appliedDamage: 5 };
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22, {
+    plannedTarget: {
+      kind: 'tile',
+      x: 11,
+      y: 10,
+    },
+  });
+  assert.equal(log.some((entry) => entry[0] === 'getContainerAtTile'), false);
+  assert.deepEqual(log[1], ['damageTile', 11, 10, 12]);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'tile');
+  assert.equal(deps.combatOutcomes[0].result.damage, 5);
+}
+
+function testPlannedContainerAttackDoesNotRequireTerrainDamageCapability() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    meta: {
+      instanceId: 'public:yunlai_town',
+      supportsPvp: false,
+      canDamageTile: false,
+    },
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return {
+        id: 'herb1',
+        name: '月露草',
+        x,
+        y,
+        variant: 'herb',
+      };
+    },
+    damageTile() {
+      throw new Error('planned container attack must not damage tile');
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22, {
+    plannedTarget: {
+      kind: 'container',
+      id: 'herb1',
+      x: 11,
+      y: 10,
+    },
+  });
+  assert.deepEqual(log[1], ['getContainerAtTile', 11, 10]);
+  assert.deepEqual(log[2], ['damageHerbContainerAtTile', 'public:yunlai_town', 'herb1', 22]);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.kind, 'container');
+  assert.equal(deps.combatOutcomes[0].target.id, 'herb1');
+}
+
+function testPlannedContainerAttackDoesNotFallbackToTerrainWhenContainerGone() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return null;
+    },
+    damageTile() {
+      throw new Error('planned stale container must not fall back to terrain');
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  assert.throws(
+    () => service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22, {
+      plannedTarget: {
+        kind: 'container',
+        id: 'herb1',
+        x: 11,
+        y: 10,
+      },
+    }),
+    /该目标无法被攻击/,
+  );
+  assert.deepEqual(log, [
+    ['getInstanceRuntimeOrThrow', 'public:yunlai_town'],
+    ['getContainerAtTile', 11, 10],
+  ]);
+  assert.equal(deps.combatOutcomes.length, 0);
+}
+
+function testPlannedFormationBoundaryAttackDoesNotFallbackWhenBoundaryGone() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile() {
+      throw new Error('planned stale boundary must not retarget container');
+    },
+    damageTile() {
+      throw new Error('planned stale boundary must not fall back to terrain');
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  deps.worldRuntimeFormationService = {
+    getBoundaryBarrierCombatState(instanceId, x, y) {
+      log.push(['getBoundaryBarrierCombatState', instanceId, x, y]);
+      return null;
+    },
+  };
+  assert.throws(
+    () => service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22, {
+      plannedTarget: {
+        kind: 'formation',
+        id: 'boundary:11:10',
+        source: 'formation_boundary',
+        x: 11,
+        y: 10,
+      },
+    }),
+    /该目标无法被攻击/,
+  );
+  assert.deepEqual(log, [
+    ['getInstanceRuntimeOrThrow', 'public:yunlai_town'],
+    ['getBoundaryBarrierCombatState', 'public:yunlai_town', 11, 10],
+  ]);
+  assert.equal(deps.combatOutcomes.length, 0);
 }
 
 function testTileAttackFallsBackToTerrainWhenContainerIsNotHerb() {
@@ -792,12 +1442,24 @@ async function testRealLineAllowsTileLockOnAndDispatch() {
 Promise.resolve()
   .then(() => testPeacefulLineRejectsPlayerBasicAttack())
   .then(() => testRealLineAllowsPlayerBasicAttack())
+  .then(() => testPlayerBasicAttackMonsterRecordsCombatOutcome())
+  .then(() => testPlayerBasicAttackFormationRecordsCombatOutcome())
   .then(() => testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat())
+  .then(() => testMonsterBasicAttackDodgeQueuesCombatNoticeAndOutcome())
+  .then(() => testMonsterBasicAttackRejectsTargetInstanceMismatchWithDiagnostic())
+  .then(() => testMonsterBasicAttackRejectsGuardFailuresWithDiagnostics())
   .then(() => testMonsterSkillQueuesCombatNoticeAndDamageFloat())
+  .then(() => testDeadMonsterSkillRejectsWithoutResolvingCombat())
   .then(() => testMonsterSkillUsesRuntimeLocationBeforeCombatStateSync())
   .then(() => testAnchoredMonsterChantMissStillShowsCast())
+  .then(() => testAnchoredMonsterChantHitsWarningCellPlayerWithoutPrimaryTargetLocation())
+  .then(() => testMonsterSkillConsumesMultiplePlanTargetsOncePerTarget())
   .then(() => testPeacefulLineAllowsTileAttack())
   .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
+  .then(() => testPlannedTileAttackDoesNotRetargetHerbContainer())
+  .then(() => testPlannedContainerAttackDoesNotRequireTerrainDamageCapability())
+  .then(() => testPlannedContainerAttackDoesNotFallbackToTerrainWhenContainerGone())
+  .then(() => testPlannedFormationBoundaryAttackDoesNotFallbackWhenBoundaryGone())
   .then(() => testTileAttackFallsBackToTerrainWhenContainerIsNotHerb())
   .then(() => testTileAttackWithoutLootContainerServiceFallsBackToTerrain())
   .then(() => testRealLineAllowsTileAttack())

@@ -33,6 +33,8 @@ async function testGroundTakeDurableGrant() {
   const takenItems: Array<string> = [];
   const restoredItems: Array<string> = [];
   const player = buildPlayer('player:ground:one', 'instance:ground:1', 'runtime:ground:1', 15);
+  player.x = 3;
+  player.y = 4;
   const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
   const instance = {
     getGroundPileBySourceId(sourceId: string) {
@@ -127,6 +129,8 @@ async function testGroundTakeAllDurableGrant() {
   const durableCalls: Array<Record<string, unknown>> = [];
   let resolveDurable = () => {};
   const player = buildPlayer('player:ground:all', 'instance:ground:2', 'runtime:ground:2', 16);
+  player.x = 6;
+  player.y = 7;
   const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
   const pileItems = [
     { itemKey: 'pile:item:1', item: { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' } },

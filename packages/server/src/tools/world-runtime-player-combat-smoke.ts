@@ -7,16 +7,148 @@ async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
   await testMonsterLootDurableGrant();
-  await testMonsterLootUsesRuntimeInventoryWithoutDurableContext();
+  await testMonsterLootRequiresDurableContext();
   await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
   await testPvPLootDurableGrant();
+  await testPvPLootRequiresDurableContext();
   await testPvPKillClearsMatchedRetaliateTarget();
+  await testCombatSemanticAuditEvents();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会优先走 grantInventoryItems durable 主链；缺少 durable 上下文时回退到运行态背包并标记 inventory 脏域，只有 durable 提交失败或背包满才落地，不再让正常击杀掉落直接掉地上；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID',
+    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会走 grantInventoryItems durable 主链；缺少 durable 上下文时 fail closed，不再回退到运行态背包；只有 durable 提交失败或背包满才落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；真实怪物击杀、经验、掉落和玩家死亡副作用点会产出语义化 combat audit action',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testCombatSemanticAuditEvents() {
+  const auditEvents: Array<Record<string, unknown>> = [];
+  const notices: Array<unknown[]> = [];
+  const killer = {
+    playerId: 'player:combat:audit:killer',
+    name: '甲',
+    instanceId: 'instance:combat:audit',
+    x: 1,
+    y: 2,
+    realm: { realmLv: 3, progress: 10 },
+    foundation: 0,
+    combatExp: 0,
+    attrs: {
+      numericStats: {
+        lootRate: 0,
+        rareLootRate: 0,
+      },
+    },
+  };
+  const victim = {
+    playerId: 'player:combat:audit:victim',
+    name: '乙',
+    instanceId: 'instance:combat:audit',
+    hp: 0,
+    x: 4,
+    y: 5,
+  };
+  const players = new Map<string, Record<string, unknown>>([
+    [killer.playerId, killer],
+    [victim.playerId, victim],
+  ]);
+  const item = { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
+  const monster = {
+    runtimeId: 'monster:audit:1',
+    monsterId: 'monster:audit',
+    name: '审计妖兽',
+    level: 2,
+    tier: 'mortal_blood',
+    x: 7,
+    y: 8,
+  };
+  const instance = {
+    meta: { instanceId: 'instance:combat:audit' },
+    getMonsterDamageContributionEntries(runtimeId: string) {
+      assert.equal(runtimeId, monster.runtimeId);
+      return [{ playerId: killer.playerId, damage: 3 }];
+    },
+  };
+  const contentTemplateRepository = {
+    rollMonsterDrops(monsterId: string) {
+      assert.equal(monsterId, monster.monsterId);
+      return [item];
+    },
+    getMonsterCombatProfile() {
+      return { expMultiplier: 1 };
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return players.get(playerId) ?? null;
+    },
+    canReceiveInventoryItem(playerId: string, itemId: string) {
+      assert.equal(playerId, killer.playerId);
+      assert.equal(itemId, item.itemId);
+      return false;
+    },
+    grantMonsterKillProgress(playerId: string) {
+      assert.equal(playerId, killer.playerId);
+      killer.combatExp += 12;
+      killer.realm.progress += 2;
+      return {
+        changed: true,
+        dirtyDomains: ['progression'],
+        notices: [{ text: '战斗经验 +12', kind: 'info' }],
+      };
+    },
+    applyShaInfusionDeathPenalty(playerId: string) {
+      assert.equal(playerId, victim.playerId);
+      return {
+        consumedProgress: 1,
+        consumedFoundation: 0,
+        backlashAddedStacks: 0,
+        backlashTotalStacks: 0,
+        remainingInfusionStacks: 0,
+      };
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService(
+    contentTemplateRepository as never,
+    playerRuntimeService as never,
+    { enqueue(event: Record<string, unknown>) { auditEvents.push(event); return true; } } as never,
+  );
+  const deps = {
+    queuePlayerNotice(playerId: string, text: string, kind: string) {
+      notices.push(['queuePlayerNotice', playerId, text, kind]);
+    },
+    advanceKillQuestProgress(playerId: string, monsterId: string) {
+      notices.push(['advanceKillQuestProgress', playerId, monsterId]);
+    },
+    resolveCurrentTickForPlayerId(playerId: string) {
+      assert.equal(playerId, killer.playerId);
+      return 123;
+    },
+    spawnGroundItem(runtime: unknown, x: number, y: number, droppedItem: unknown) {
+      notices.push(['spawnGroundItem', runtime === instance, x, y, droppedItem]);
+    },
+    getInstanceRuntime(instanceId: string) {
+      assert.equal(instanceId, victim.instanceId);
+      return instance;
+    },
+    clearPendingCommand(playerId: string) {
+      notices.push(['clearPendingCommand', playerId]);
+    },
+    worldRuntimeGmQueueService: {
+      markPendingRespawn(playerId: string) {
+        notices.push(['markPendingRespawn', playerId]);
+      },
+    },
+  };
+
+  await service.handlePlayerMonsterKill(instance as never, monster as never, killer.playerId, deps as never);
+  await service.handlePlayerDefeat(victim.playerId, deps as never, monster.runtimeId);
+
+  const actions = auditEvents.map((event) => event.action);
+  assert.deepEqual(actions, ['kill', 'exp_gain', 'loot_drop', 'death']);
+  assert.equal((auditEvents.find((event) => event.action === 'exp_gain')?.result as Record<string, unknown>)?.delta?.['combatExp'], 12);
+  assert.equal((auditEvents.find((event) => event.action === 'loot_drop')?.result as Record<string, unknown>)?.reason, 'inventory_full');
+  assert.equal((auditEvents.find((event) => event.action === 'death')?.actor as Record<string, unknown>)?.kind, 'monster');
 }
 
 function testMonsterEquipmentDropDefaultsMatchMainTierBuckets() {
@@ -207,7 +339,7 @@ async function testMonsterLootDurableGrant() {
   ]);
 }
 
-async function testMonsterLootUsesRuntimeInventoryWithoutDurableContext() {
+async function testMonsterLootRequiresDurableContext() {
   const log: Array<unknown[]> = [];
   const player = {
     playerId: 'player:combat:no-durable-context',
@@ -250,13 +382,14 @@ async function testMonsterLootUsesRuntimeInventoryWithoutDurableContext() {
     },
   };
 
-  await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context');
+  await assert.rejects(
+    () => service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context'),
+    /durable_inventory_grant_required:monster_loot:player:combat:no-durable-context:rat_tail/,
+  );
 
-  assert.deepEqual(log, [
-    ['queuePlayerNotice', player.playerId, '获得 鼠尾', 'loot'],
-  ]);
-  assert.deepEqual(player.inventory.items, [item]);
-  assert.equal(player.inventory.revision, 1);
+  assert.deepEqual(log, []);
+  assert.deepEqual(player.inventory.items, []);
+  assert.equal(player.inventory.revision, 0);
 }
 
 async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {
@@ -473,6 +606,81 @@ async function testPvPLootDurableGrant() {
   assert.deepEqual(log, [
     ['queuePlayerNotice', 'player:combat:killer', '你从 乙 体内掠得 血精 x4。', 'loot'],
   ]);
+}
+
+async function testPvPLootRequiresDurableContext() {
+  const log: Array<unknown[]> = [];
+  const killer = {
+    playerId: 'player:combat:killer:no-durable',
+    name: '甲',
+    instanceId: 'instance:combat:pvp',
+    runtimeOwnerId: null,
+    sessionEpoch: 0,
+    inventory: {
+      items: [],
+      revision: 0,
+      capacity: 20,
+    },
+    combat: {
+      allowAoePlayerHit: false,
+    },
+    isBot: false,
+  };
+  const victim = {
+    playerId: 'player:combat:victim:no-durable',
+    name: '乙',
+    realm: { realmLv: 2 },
+    isBot: false,
+  };
+  const reward = { itemId: 'stone.blood_essence', name: '血精', count: 4, type: 'material' };
+  const deathSite = {
+    x: 3,
+    y: 4,
+    instance: {
+      meta: { instanceId: 'instance:combat:pvp' },
+    },
+  };
+  const contentTemplateRepository = {
+    createItem(itemId: string, count: number) {
+      assert.equal(itemId, 'stone.blood_essence');
+      return { ...reward, count };
+    },
+  };
+  const playerRuntimeService = {
+    canReceiveInventoryItem(playerId: string, itemId: string) {
+      assert.equal(playerId, killer.playerId);
+      assert.equal(itemId, reward.itemId);
+      return true;
+    },
+    receiveInventoryItem() {
+      throw new Error('pvp reward without durable context must not mutate runtime inventory');
+    },
+    hasActiveBuff() {
+      return true;
+    },
+    addPvPShaInfusionStack() {
+      return 1;
+    },
+    applyPvPSoulInjury() {},
+  };
+  const service = new WorldRuntimePlayerCombatService(contentTemplateRepository as never, playerRuntimeService as never);
+  const deps = {
+    queuePlayerNotice(playerId: string, text: string, kind: string) {
+      log.push(['queuePlayerNotice', playerId, text, kind]);
+    },
+    spawnGroundItem(runtime: unknown, x: number, y: number, droppedItem: unknown) {
+      log.push(['spawnGroundItem', runtime === deathSite.instance, x, y, droppedItem]);
+    },
+  };
+
+  await assert.rejects(
+    () => service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never),
+    /durable_inventory_grant_required:pvp_loot:player:combat:killer:no-durable:stone\.blood_essence/,
+  );
+
+  assert.deepEqual(log, []);
+  assert.deepEqual(killer.inventory.items, []);
+  assert.equal(killer.inventory.revision, 0);
 }
 
 async function testPvPKillClearsMatchedRetaliateTarget() {

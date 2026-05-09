@@ -131,6 +131,12 @@ const RULES: AuditRule[] = [
       { pattern: 'consumeInventoryWalletFallback', reason: '钱包扣费不得消费背包物品兼容兜底' },
     ],
   },
+  {
+    file: 'packages/server/src/runtime/world/world-runtime-player-combat.service.ts',
+    banned: [
+      { pattern: 'grantInventoryItemInRuntime(', reason: '战斗掉落和 PvP 奖励缺少 durable 条件时不得回退到运行态背包' },
+    ],
+  },
 ];
 
 function main(): void {

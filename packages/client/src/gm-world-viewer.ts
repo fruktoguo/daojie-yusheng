@@ -60,7 +60,30 @@ function isSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceI
   return isSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
 }
 
+function isTongtianTowerInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): boolean {
+  return instance.instanceId.startsWith('tower:tongtian:layer:')
+    || instance.templateId.startsWith('tongtian_tower_layer_');
+}
+
+function parseTongtianTowerLayer(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): number {
+  const instancePrefix = 'tower:tongtian:layer:';
+  if (instance.instanceId.startsWith(instancePrefix)) {
+    const layer = Number.parseInt(instance.instanceId.slice(instancePrefix.length), 10);
+    return Number.isFinite(layer) ? Math.max(1, layer) : Number.MAX_SAFE_INTEGER;
+  }
+  const templatePrefix = 'tongtian_tower_layer_';
+  if (instance.templateId.startsWith(templatePrefix)) {
+    const layer = Number.parseInt(instance.templateId.slice(templatePrefix.length), 10);
+    return Number.isFinite(layer) ? Math.max(1, layer) : Number.MAX_SAFE_INTEGER;
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
 function buildInstanceLineBadge(instance: GmWorldInstanceSummary): string {
+  if (isTongtianTowerInstance(instance)) {
+    const layer = parseTongtianTowerLayer(instance);
+    return Number.isSafeInteger(layer) ? `第 ${layer} 层` : '通天塔';
+  }
   if (isSectRuntimeInstance(instance)) {
     return '宗门';
   }
@@ -68,6 +91,9 @@ function buildInstanceLineBadge(instance: GmWorldInstanceSummary): string {
 }
 
 function resolveInstanceListTab(instance: GmWorldInstanceSummary): GmWorldInstanceListTab {
+  if (isTongtianTowerInstance(instance)) {
+    return 'secret';
+  }
   if (isSectRuntimeInstance(instance)) {
     return 'sect';
   }
@@ -75,6 +101,9 @@ function resolveInstanceListTab(instance: GmWorldInstanceSummary): GmWorldInstan
 }
 
 function resolveInstanceGroupKey(instance: GmWorldInstanceSummary): string {
+  if (isTongtianTowerInstance(instance)) {
+    return 'tower|||通天塔';
+  }
   if (isSectRuntimeInstance(instance)) {
     return `sect|||${instance.templateName || instance.displayName || '宗门'}`;
   }
@@ -84,6 +113,9 @@ function resolveInstanceGroupKey(instance: GmWorldInstanceSummary): string {
 }
 
 function resolveInstanceGroupTitle(instance: GmWorldInstanceSummary): string {
+  if (isTongtianTowerInstance(instance)) {
+    return '通天塔';
+  }
   if (isSectRuntimeInstance(instance)) {
     return instance.templateName || instance.displayName || '宗门';
   }
@@ -92,6 +124,11 @@ function resolveInstanceGroupTitle(instance: GmWorldInstanceSummary): string {
 }
 
 function compareWorldInstancesForGmList(left: GmWorldInstanceSummary, right: GmWorldInstanceSummary): number {
+  if (isTongtianTowerInstance(left) || isTongtianTowerInstance(right)) {
+    const layerGap = parseTongtianTowerLayer(left) - parseTongtianTowerLayer(right);
+    if (layerGap !== 0) return layerGap;
+    return left.instanceId.localeCompare(right.instanceId);
+  }
   const lineGap = (left.linePreset === 'peaceful' ? 0 : 1) - (right.linePreset === 'peaceful' ? 0 : 1);
   if (lineGap !== 0) return lineGap;
   const groupOrderGap = (left.mapGroupOrder ?? 1000) - (right.mapGroupOrder ?? 1000);
@@ -104,6 +141,11 @@ function compareWorldInstancesForGmList(left: GmWorldInstanceSummary, right: GmW
 }
 
 function buildInstanceCapabilityText(instance: GmWorldInstanceSummary): string {
+  if (isTongtianTowerInstance(instance)) {
+    const layer = parseTongtianTowerLayer(instance);
+    const layerText = Number.isSafeInteger(layer) ? `第 ${layer} 层` : '动态层';
+    return `通天塔 · ${layerText} · ${instance.playerCount}人`;
+  }
   if (isSectRuntimeInstance(instance)) {
     return `宗门 · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}`;
   }

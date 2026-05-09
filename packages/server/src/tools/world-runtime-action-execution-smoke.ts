@@ -228,6 +228,9 @@ function createDeps(log = []) {
                 return { tick: 9 };
             },
         },
+        refreshPlayerContextActions(playerId, view) {
+            log.push(['refreshPlayerContextActions', playerId, view?.tick]);
+        },
     };
 }
 
@@ -254,6 +257,29 @@ function testPortalTravel() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['usePortal', 'player:1'],
+    ]);
+}
+
+function testTongtianTowerActionRefreshesContextActions() {
+    const log = [];
+    const service = createService({
+        combat: {},
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    deps.worldRuntimeTongtianTowerService = {
+        executeAction(playerId, actionId) {
+            log.push(['tongtianExecuteAction', playerId, actionId]);
+            return { tick: 33 };
+        },
+    };
+    const result = service.executeAction('player:1', 'tower:tongtian:enter', undefined, deps);
+    assertQueuedViewTick(result, 33);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['tongtianExecuteAction', 'player:1', 'tower:tongtian:enter'],
+        ['refreshPlayerContextActions', 'player:1', 33],
     ]);
 }
 /**
@@ -735,6 +761,7 @@ async function testInvalidManualCastClearsPendingCommand() {
 
 async function run() {
     testPortalTravel();
+    testTongtianTowerActionRefreshesContextActions();
     testBreakthroughQueuesPendingCommand();
     testBodyTrainingInfuse();
     testToggleAutoBattle();

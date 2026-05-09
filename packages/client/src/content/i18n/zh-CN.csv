@@ -3242,6 +3242,7 @@ gm.client.editor.subtitle.runtime-player,GM,最近落盘: 运行时角色,缺失
 gm.client.player-list.identity-with-risk-tags,GM,{identity} · 命中: {tags},缺失 key 自动补齐
 gm.client.player-list.meta,GM,账号: {accountName} · 状态: {status} · 风险: {riskScore} ({riskLevel}),缺失 key 自动补齐
 gm.client.position.category.real,GM,现世,缺失 key 自动补齐
+gm.client.position.category.secret,GM,秘境,缺失 key 自动补齐
 gm.client.position.category.sect,GM,宗门,缺失 key 自动补齐
 gm.client.position.category.void,GM,虚境,缺失 key 自动补齐
 gm.client.risk-level.critical,GM,极高风险,缺失 key 自动补齐

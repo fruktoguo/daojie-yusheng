@@ -2,6 +2,13 @@
 
 const assert = require("node:assert/strict");
 
+const {
+    tickPayloadType,
+    toWireTick,
+    encodeMessage,
+    decodeMessage,
+    fromWireTick,
+} = require("@mud/shared");
 const { WorldSyncEnvelopeService } = require("../network/world-sync-envelope.service");
 /**
  * testEnvelopeService：执行testEnvelope服务相关逻辑。
@@ -89,6 +96,18 @@ function testEnvelopeService() {
     assert.equal(envelope.worldDelta.fx.length, 2);
     assert.equal(envelope.worldDelta.fx[0].label, 'keep');
     assert.equal(envelope.worldDelta.fx[1].label, 'warning-keep');
+    assert.equal(envelope.worldDelta.fx.some((entry) => entry.label === 'drop'), false);
+    assert.equal(envelope.worldDelta.fx.some((entry) => entry.label === 'warning-drop'), false);
+    const wire = toWireTick({ p: [], e: [], fx: envelope.worldDelta.fx });
+    const encoded = encodeMessage(tickPayloadType, wire);
+    assert.ok(encoded.byteLength > 0);
+    const decoded = fromWireTick(decodeMessage(tickPayloadType, encoded));
+    assert.equal(decoded.fx.length, 2);
+    assert.equal(decoded.fx[0].type, 'attack');
+    assert.equal(decoded.fx[0].fromX, 3);
+    assert.equal(decoded.fx[0].toX, 7);
+    assert.equal(decoded.fx[1].type, 'warning_zone');
+    assert.equal(decoded.fx[1].cells.length, 2);
     const delta = service.createDeltaEnvelope('player:1', { ...view, tick: 11, worldRevision: 21, selfRevision: 31 }, {});
     assert.equal(delta.worldDelta.fx.length, 2);
     service.clearPlayerCache('player:1');

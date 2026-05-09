@@ -1,6 +1,6 @@
 import { readTrimmedEnv } from './env-alias';
 
-const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
+const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 const DEFAULT_CORS_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
 const DEFAULT_CORS_HEADERS = ['Content-Type', 'Authorization', 'X-Requested-With'];
 /**
@@ -46,15 +46,15 @@ export interface ServerNextCorsOptions {
 export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const enabled = readBooleanEnv(['SERVER_CORS_ENABLED', 'SERVER_CORS_ENABLED'], true);
+  const enabled = readBooleanEnv(['SERVER_CORS_ENABLED', 'CORS_ENABLED'], true);
   if (!enabled) {
     return false;
   }
 
-  const allowedOrigins = readCsvEnv(['SERVER_CORS_ORIGINS', 'SERVER_CORS_ORIGINS']);
-  const methods = readCsvEnv(['SERVER_CORS_METHODS', 'SERVER_CORS_METHODS'], DEFAULT_CORS_METHODS);
-  const allowedHeaders = readCsvEnv(['SERVER_CORS_HEADERS', 'SERVER_CORS_HEADERS'], DEFAULT_CORS_HEADERS);
-  const credentials = readBooleanEnv(['SERVER_CORS_CREDENTIALS', 'SERVER_CORS_CREDENTIALS'], false);
+  const allowedOrigins = readCsvEnv(['SERVER_CORS_ORIGINS', 'CORS_ORIGINS']);
+  const methods = readCsvEnv(['SERVER_CORS_METHODS', 'CORS_METHODS'], DEFAULT_CORS_METHODS);
+  const allowedHeaders = readCsvEnv(['SERVER_CORS_HEADERS', 'CORS_HEADERS'], DEFAULT_CORS_HEADERS);
+  const credentials = readBooleanEnv(['SERVER_CORS_CREDENTIALS', 'CORS_CREDENTIALS'], false);
 
   if (allowedOrigins.length === 0 && !isDevelopmentLikeEnv()) {
     throw new Error('非开发环境必须显式配置 SERVER_CORS_ORIGINS 或 SERVER_CORS_ORIGINS，禁止继续使用全开 CORS。');

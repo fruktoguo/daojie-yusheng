@@ -8,7 +8,7 @@ import type {
   TechniqueGrade,
 } from './types';
 import { computeAdjustedCraftTicks } from './craft-duration';
-import { applyAsymptoticSuccessModifier, clampUnitSuccessRate } from './craft-success';
+import { computeCraftAdjustedSuccessRate } from './craft-success';
 
 export const ALCHEMY_MAX_PRESET_COUNT = 24;
 export const ALCHEMY_PREPARATION_TICKS = 10;
@@ -169,16 +169,7 @@ export function computeAlchemyAdjustedSuccessRate(
   alchemyLevel: number | undefined,
   furnaceSuccessRate = 0,
 ): number {
-  let nextRate = clampUnitSuccessRate(baseRate);
-  const normalizedRecipeLevel = normalizeAlchemyLevel(recipeLevel);
-  const normalizedAlchemyLevel = normalizeAlchemyLevel(alchemyLevel);
-  const levelDelta = normalizedRecipeLevel - normalizedAlchemyLevel;
-  if (levelDelta > 0) {
-    nextRate *= 0.9 ** levelDelta;
-  } else if (levelDelta < 0) {
-    nextRate = applyAsymptoticSuccessModifier(nextRate, Math.abs(levelDelta) * Math.log(1 / 0.98));
-  }
-  return applyAsymptoticSuccessModifier(nextRate, furnaceSuccessRate);
+  return computeCraftAdjustedSuccessRate(baseRate, recipeLevel, alchemyLevel, furnaceSuccessRate);
 }
 
 export function computeAlchemyBrewTicks(

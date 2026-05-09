@@ -200,7 +200,10 @@ export class LootPanel {
       const nextSection = this.createSourceSection(source);
       const existing = staleSections.get(source.sourceId);
       if (existing) {
-        existing.replaceWith(nextSection);
+        // 保留旧 section 节点本身，只按 diff 迁移属性与子树，
+        // 避免 replaceWith 把用户正 hover/mousedown 的按钮直接抹掉。
+        this.mergeSectionAttributes(existing, nextSection);
+        patchElementChildren(existing, Array.from(nextSection.childNodes));
         staleSections.delete(source.sourceId);
       } else {
         shell.append(nextSection);
@@ -208,6 +211,22 @@ export class LootPanel {
     }
     staleSections.forEach((section) => section.remove());
     return true;
+  }
+
+  /** mergeSectionAttributes：把新 section 的属性合并到旧节点上，不替换节点本体。 */
+  private mergeSectionAttributes(current: HTMLElement, next: HTMLElement): void {
+    const currentAttrNames = new Set(current.getAttributeNames());
+    for (const name of currentAttrNames) {
+      if (!next.hasAttribute(name)) {
+        current.removeAttribute(name);
+      }
+    }
+    for (const name of next.getAttributeNames()) {
+      const value = next.getAttribute(name) ?? '';
+      if (current.getAttribute(name) !== value) {
+        current.setAttribute(name, value);
+      }
+    }
   }
 
   /** bindEvents：绑定事件。 */

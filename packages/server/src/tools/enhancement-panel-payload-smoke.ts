@@ -2,9 +2,16 @@
 
 const assert = require("node:assert/strict");
 
+const {
+  computeAlchemyAdjustedSuccessRate,
+  computeCraftAdjustedSuccessRate,
+  computeEnhancementAdjustedSuccessRate,
+  getEnhancementTargetSuccessRate,
+} = require("@mud/shared");
+const { CraftPanelRuntimeService } = require("../runtime/craft/craft-panel-runtime.service");
 const { CraftPanelEnhancementQueryService } = require("../runtime/craft/craft-panel-enhancement-query.service");
 
-function createEquipment(itemId, count = 1) {
+function createEquipment(itemId, count = 1, overrides = {}) {
   return {
     itemId,
     name: itemId === "equip.test_blade" ? "测试剑" : "测试护符",
@@ -29,6 +36,7 @@ function createEquipment(itemId, count = 1) {
     tags: ["static-tag"],
     count,
     enhanceLevel: 0,
+    ...overrides,
   };
 }
 
@@ -81,6 +89,15 @@ function main() {
       return itemId;
     },
   };
+  const expectedAlchemyRate = computeCraftAdjustedSuccessRate(0.64, 30, 24, 0.15);
+  assert.equal(computeAlchemyAdjustedSuccessRate(0.64, 30, 24, 0.15), expectedAlchemyRate, "alchemy success modifier must use common craft formula");
+  assert.equal(computeAlchemyAdjustedSuccessRate(0.64, 30, 24, 0.15), expectedAlchemyRate, "forging reuses alchemy-like success modifier and must use common craft formula");
+  assert.equal(
+    computeEnhancementAdjustedSuccessRate(1, 24, 30, 0.15),
+    computeCraftAdjustedSuccessRate(getEnhancementTargetSuccessRate(1), 30, 24, 0.15),
+    "enhancement success modifier must use common craft formula",
+  );
+
   const service = new CraftPanelEnhancementQueryService(repository);
   const player = createPlayer();
   const fullPayload = service.buildEnhancementPanelPayload(player, new Map());
@@ -89,6 +106,26 @@ function main() {
   assertCompactItem(candidate.item, "candidate item");
   assert.ok(candidate.protectionCandidates.length > 0, "expected protection candidate");
   assertCompactItem(candidate.protectionCandidates[0].item, "protection item");
+
+  const highLevelTarget = createEquipment("equip.high_level_blade", 1, { level: 30 });
+  player.enhancementSkill.level = 30;
+  player.enhancementSkillLevel = 30;
+  player.inventory.items = [highLevelTarget];
+  const highLevelPayload = service.buildEnhancementPanelPayload(player, new Map());
+  const highLevelCandidate = highLevelPayload.state.candidates.find((entry) => entry.item.itemId === "equip.high_level_blade");
+  const expectedHighLevelRate = computeEnhancementAdjustedSuccessRate(1, 30, 30, 0);
+  assert.equal(highLevelCandidate?.successRate, expectedHighLevelRate, "query success rate must follow main shared formula without capping role enhancement level at 20");
+
+  const runtimeService = new CraftPanelRuntimeService(repository, null, null, null, service);
+  const runtimeCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", slotIndex: 0 }, highLevelTarget);
+  assert.equal(runtimeCandidate?.successRate, expectedHighLevelRate, "runtime success rate must follow main shared formula without capping role enhancement level at 20");
+
+  player.enhancementSkill.level = 8;
+  player.enhancementSkillLevel = 8;
+  player.inventory.items = [
+    createEquipment("equip.test_blade", 1),
+    createEquipment("equip.test_blade", 2),
+  ];
 
   player.enhancementJob = {
     jobRunId: "job:test:enhancement:1",

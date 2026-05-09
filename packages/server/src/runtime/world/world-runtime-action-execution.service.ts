@@ -87,6 +87,19 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
                 view: deps.usePortal(playerId),
             };
         }
+        if (actionId.startsWith('tower:tongtian:')) {
+            const view = deps.worldRuntimeTongtianTowerService?.executeAction?.(playerId, actionId, deps);
+            if (!view) {
+                throw new common_1.BadRequestException('未知的通天塔动作');
+            }
+            if (typeof deps.refreshPlayerContextActions === 'function') {
+                deps.refreshPlayerContextActions(playerId, view);
+            }
+            return {
+                kind: 'queued',
+                view,
+            };
+        }
         if (actionId === 'world:migrate') {
             return this.executeWorldMigration(playerId, targetInput, deps);
         }

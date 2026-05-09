@@ -114,6 +114,25 @@ class WorldGatewayGuardHelper {
         this.gateway.worldClientEventService.emitError(client, 'GM_FORBIDDEN', 'GM 权限不足');
         return null;
     }
+    checkRateLimit(client, eventCategory = 'default', maxPerWindow = 30, windowMs = 1000) {
+        if (!client.data) {
+            client.data = {};
+        }
+        if (!client.data._rateLimits) {
+            client.data._rateLimits = {};
+        }
+        const now = Date.now();
+        const bucket = client.data._rateLimits[eventCategory];
+        if (!bucket || now - bucket.windowStart >= windowMs) {
+            client.data._rateLimits[eventCategory] = { windowStart: now, count: 1 };
+            return true;
+        }
+        bucket.count += 1;
+        if (bucket.count > maxPerWindow) {
+            return false;
+        }
+        return true;
+    }
 }
 exports.WorldGatewayGuardHelper = WorldGatewayGuardHelper;
 
