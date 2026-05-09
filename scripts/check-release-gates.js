@@ -39,6 +39,9 @@ function main() {
 
   const requiredRootScripts = [
     'verify:quick',
+    'verify:client',
+    'verify:building',
+    'verify:building:perf',
     'verify:standard',
     'verify:release',
     'verify:release:local',
@@ -224,6 +227,16 @@ function main() {
   );
   assertIncludes(
     plan09,
+    /\| 房间\/风水改动 \| `pnpm verify:quick` \+ `pnpm verify:building` \|/,
+    '09 文档必须继续记录房间/风水专项门禁入口',
+  );
+  assertIncludes(
+    plan09,
+    /\| 客户端 UI 或客户端运行态改动 \| `pnpm verify:client` \|/,
+    '09 文档必须继续记录客户端专项门禁入口',
+  );
+  assertIncludes(
+    plan09,
     /shadow target probe/,
     '09 文档必须继续记录 shadow target probe 的口径',
   );
@@ -236,6 +249,11 @@ function main() {
     serverTesting,
     /`full`：数据库、shadow、GM 密码都齐备时，最严格自动化门禁是否全绿；默认不重复跑 `with-db` 已覆盖的 `gm-database`。/,
     'TESTING 文档必须继续保留 full gate 定义',
+  );
+  assertIncludes(
+    serverTesting,
+    /房间\/风水改动：`pnpm verify:quick` \+ `pnpm verify:building`/,
+    'TESTING 文档必须继续记录房间/风水专项门禁入口',
   );
   assertIncludes(
     serverRunbook,

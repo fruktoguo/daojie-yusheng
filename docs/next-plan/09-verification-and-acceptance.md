@@ -46,6 +46,20 @@
 | `shadow-destructive` | `pnpm verify:release:shadow:destructive` | shadow 维护窗口下 `backup -> download -> restore` 是否可控 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）+ 维护窗口 | 日常发布是否完成 |
 | `shadow-destructive:preflight` | `pnpm verify:release:shadow:destructive:preflight` | destructive 开关与 target maintenance-active 是否就绪 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`） | destructive proof 本身是否已执行 |
 
+### Codex 日常与领域入口
+
+| 场景 | 推荐命令 | 说明 |
+| --- | --- | --- |
+| 小型服务端改动 | `pnpm verify:quick` | 快速覆盖 server 编译、生产边界、核心 runtime/session/readiness smoke |
+| 房间/风水改动 | `pnpm verify:quick` + `pnpm verify:building` | 额外覆盖房间/风水领域 smoke，不把领域回归塞进 quick |
+| 房间/风水性能路径改动 | 再补 `pnpm verify:building:perf` | 只回答该领域性能基准，不替代功能 smoke |
+| 客户端 UI 或客户端运行态改动 | `pnpm verify:client` | 语义化 client build 入口，并写入 verification timing |
+| shared/protocol 改动 | `pnpm build:shared` + `pnpm audit:protocol` | 覆盖共享层构建和协议审计 |
+| 持久化/DB 改动 | `pnpm verify:release:with-db` | 覆盖带库持久化 proof，不代表 shadow 或 full |
+| 合并前或大范围修改 | `pnpm verify:standard` | 本地 release 主链，不作为每个小任务默认门禁 |
+| 发布前 | `pnpm verify:release` | 发布组合门禁 |
+| 严格上线前 | `pnpm verify:release:full` | 最严格自动化链 |
+
 ## 当前环境就绪度
 
 当前这份计划只记录“如何判断环境 ready”，不把某一台机器的 env 文件路径当长期事实。根级 `verify:release*` 和 `packages/server` 包内直接执行的 `verify/smoke` 当前都会默认尝试加载：

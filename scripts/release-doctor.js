@@ -56,6 +56,9 @@ async function main() {
   lines.push('');
   lines.push('recommended commands:');
   lines.push('- quick: pnpm verify:quick');
+  lines.push('- client: pnpm verify:client');
+  lines.push('- building: pnpm verify:building');
+  lines.push('- building perf: pnpm verify:building:perf');
   lines.push('- standard: pnpm verify:standard');
   lines.push('- release: pnpm verify:release');
   lines.push('- local: pnpm verify:release:local');
@@ -92,6 +95,9 @@ async function main() {
   lines.push('');
   lines.push('package-level current commands:');
   lines.push('- pnpm verify:quick');
+  lines.push('- pnpm verify:client');
+  lines.push('- pnpm verify:building');
+  lines.push('- pnpm verify:building:perf');
   lines.push('- pnpm verify:standard');
   lines.push('- pnpm verify:release');
   lines.push('- pnpm verify:release:local');

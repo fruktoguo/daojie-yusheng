@@ -40,6 +40,9 @@
 
 - `pnpm verify:release:doctor`
 - `pnpm verify:quick`
+- `pnpm verify:client`
+- `pnpm verify:building`
+- `pnpm verify:building:perf`
 - `pnpm verify:standard`
 - `pnpm verify:release`
 - `pnpm verify:release:local`
@@ -50,6 +53,18 @@
 - `pnpm verify:release:full`
 - `pnpm verify:release:shadow:destructive:preflight`
 - `pnpm verify:release:shadow:destructive`
+
+## 按改动范围选择
+
+- 小型服务端改动：`pnpm verify:quick`
+- 房间/风水改动：`pnpm verify:quick` + `pnpm verify:building`
+- 房间/风水性能路径改动：再补 `pnpm verify:building:perf`
+- 客户端 UI 或客户端运行态改动：`pnpm verify:client`
+- shared/protocol 改动：`pnpm build:shared` + `pnpm audit:protocol`
+- 持久化/DB 改动：`pnpm verify:release:with-db`
+- 合并前或大范围修改：`pnpm verify:standard`
+- 发布前：`pnpm verify:release`
+- 严格上线前：`pnpm verify:release:full`
 
 ## 细粒度工具
 

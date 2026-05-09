@@ -7,6 +7,9 @@
 ## 快速入口
 
 - 快速反馈：`pnpm verify:quick`
+- 客户端专项：`pnpm verify:client`
+- 房间/风水专项：`pnpm verify:building`
+- 房间/风水性能基准：`pnpm verify:building:perf`
 - 提交前标准门禁：`pnpm verify:standard`
 - 发布前组合门禁：`pnpm verify:release`
 - 本地：`pnpm verify:release:local`
