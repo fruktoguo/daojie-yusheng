@@ -6,10 +6,10 @@
 
 - [RUNBOOK.md](./RUNBOOK.md)
 
-更完整的当前任务总表与验证门禁，统一看：
+更完整的当前文档总览与验证门禁，统一看：
 
-- [docs/next-plan/main.md](../../docs/next-plan/main.md)
-- [docs/next-plan/09-verification-and-acceptance.md](../../docs/next-plan/09-verification-and-acceptance.md)
+- [docs/README.md](../../docs/README.md)
+- [docs/archive/09-verification-and-acceptance.md](../../docs/archive/09-verification-and-acceptance.md)
 
 ## 当前口径
 

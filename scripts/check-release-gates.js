@@ -33,7 +33,7 @@ function main() {
   const shadowDestructiveScript = read('scripts/release-shadow-destructive.js');
   const acceptanceScript = read('scripts/release-acceptance.js');
   const fullScript = read('scripts/release-full.js');
-  const plan09 = read('docs/next-plan/09-verification-and-acceptance.md');
+  const plan09 = read('docs/archive/09-verification-and-acceptance.md');
   const serverTesting = read('packages/server/TESTING.md');
   const serverRunbook = read('packages/server/RUNBOOK.md');
 

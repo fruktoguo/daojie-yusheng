@@ -186,6 +186,9 @@ function createBasicAttackDeps(instance, log = []) {
     handlePlayerDefeat(playerId, sourcePlayerId) {
       log.push(['handlePlayerDefeat', playerId, sourcePlayerId]);
     },
+    handlePlayerMonsterKill(instanceArg, monster, playerId) {
+      log.push(['handlePlayerMonsterKill', instanceArg?.meta?.instanceId, monster?.runtimeId, playerId]);
+    },
     worldRuntimeLootContainerService: {
       damageHerbContainerAtTile(instanceId, container, currentTick) {
         if (!container || container.variant !== 'herb') {
@@ -420,6 +423,48 @@ async function testPlayerBasicAttackMonsterRecordsCombatOutcome() {
   assert.equal(deps.combatOutcomes[0].target.id, monster.runtimeId);
   assert.equal(deps.combatOutcomes[0].result.targetType, 'monster');
   assert.equal(deps.combatOutcomes[0].result.damage > 0, true);
+}
+
+async function testPlayerBasicAttackMonsterKillKeepsRewardAndDamageFloat() {
+  const log = [];
+  const attacker = createAttacker();
+  const target = createTarget();
+  const monster = createMonster({
+    runtimeId: 'monster:target',
+    name: '通天塔虚影',
+    x: 11,
+    y: 10,
+  });
+  const instance = createInstance({
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    applyDamageToMonster(runtimeId, amount, playerId) {
+      log.push(['applyDamageToMonster', runtimeId, amount, playerId]);
+      return { monster, appliedDamage: amount, defeated: true };
+    },
+  });
+  const service = createBasicAttackService(attacker, target, log);
+  service.resolveBasicAttackDamageAgainstMonster = () => ({ rawDamage: 12, damage: 12 });
+  const deps = createBasicAttackDeps(instance, log);
+
+  await service.dispatchBasicAttackToMonster(attacker, monster.runtimeId, 'physical', 12, deps);
+
+  assert.ok(
+    log.some((entry) => entry[0] === 'handlePlayerMonsterKill'
+      && entry[1] === instance.meta.instanceId
+      && entry[2] === monster.runtimeId
+      && entry[3] === attacker.playerId),
+    `expected monster kill reward settlement to receive defeated monster snapshot, log=${JSON.stringify(log)}`,
+  );
+  assert.ok(
+    log.some((entry) => entry[0] === 'pushDamageFloatEffect'
+      && entry[1] === instance.meta.instanceId
+      && entry[2] === monster.x
+      && entry[3] === monster.y
+      && entry[4] === 12),
+    `expected killing hit to still enqueue damage float, log=${JSON.stringify(log)}`,
+  );
 }
 
 function testPlayerBasicAttackFormationRecordsCombatOutcome() {
@@ -1443,6 +1488,7 @@ Promise.resolve()
   .then(() => testPeacefulLineRejectsPlayerBasicAttack())
   .then(() => testRealLineAllowsPlayerBasicAttack())
   .then(() => testPlayerBasicAttackMonsterRecordsCombatOutcome())
+  .then(() => testPlayerBasicAttackMonsterKillKeepsRewardAndDamageFloat())
   .then(() => testPlayerBasicAttackFormationRecordsCombatOutcome())
   .then(() => testMonsterBasicAttackQueuesCombatNoticeAndDamageFloat())
   .then(() => testMonsterBasicAttackDodgeQueuesCombatNoticeAndOutcome())

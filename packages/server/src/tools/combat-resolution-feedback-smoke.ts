@@ -13,6 +13,7 @@ import {
   formatCombatResolutionOutcome,
 } from '../runtime/world/world-runtime.observation.helpers';
 import { WorldRuntimeCombatEffectsService } from '../runtime/world/world-runtime-combat-effects.service';
+import { emitCombatPresentation } from '../runtime/world/world-runtime-combat-presentation.helpers';
 
 function createCombatStats(overrides: Record<string, unknown> = {}) {
   return {
@@ -115,27 +116,41 @@ function testSkillResolutionKeepsDodgedFeedback(): void {
   }
 }
 
-function testCombatTextFloatEffect(): void {
+function testCombatPresentationSuppressesJudgementFloatText(): void {
   const service = new WorldRuntimeCombatEffectsService();
-  service.pushCombatTextFloatEffect('instance:feedback', 1, 2, '闪避', '#7dd3fc', 920);
+  const notices: string[] = [];
+  emitCombatPresentation({
+    deps: {
+      worldRuntimeCombatEffectsService: service,
+      queuePlayerNotice(_playerId: string, text: string) {
+        notices.push(text);
+      },
+    },
+    instanceId: 'instance:feedback',
+    actionLabel: { x: 1, y: 2, text: '攻击' },
+    resolutionFloat: { x: 1, y: 2, resolution: { dodged: true, damage: 0 }, fallbackColor: '#7dd3fc' },
+    notices: [{ playerId: 'player:1', text: '你对目标发起攻击，被闪避，未造成伤害。' }],
+  });
   assert.deepEqual(service.getCombatEffects('instance:feedback'), [{
     type: 'float',
     x: 1,
     y: 2,
-    text: '闪避',
-    color: '#7dd3fc',
+    text: '攻击',
+    color: '#efe3c2',
     variant: 'action',
-    durationMs: 920,
+    actionStyle: undefined,
+    durationMs: undefined,
   }]);
+  assert.equal(notices[0], '你对目标发起攻击，被闪避，未造成伤害。');
 }
 
 function main(): void {
   testSkillResolutionKeepsDodgedFeedback();
-  testCombatTextFloatEffect();
+  testCombatPresentationSuppressesJudgementFloatText();
   console.log(JSON.stringify({
     ok: true,
     case: 'combat-resolution-feedback',
-    answers: '技能结算会保留闪避/破招/拆招/暴击判定，0 伤害不再被静默吞掉；战斗浮字可发送短判定文本。',
+    answers: '技能结算仍保留闪避/破招/拆招/暴击判定并写入战斗日志；地图飘字保留攻击/技能名和实际伤害数字，不再发送判定短文本。',
   }, null, 2));
 }
 

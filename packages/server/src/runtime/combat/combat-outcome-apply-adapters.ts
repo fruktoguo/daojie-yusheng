@@ -98,6 +98,7 @@ export function createMonsterOutcomeApplyAdapter(handlers = {}) {
       ok: true,
       targetKind: CombatTargetKind.Monster,
       targetMonsterId,
+      monster: applied?.monster ?? null,
       appliedDamage: normalizeAppliedDamage(applied?.appliedDamage, damage),
       defeated,
       dirtyDomains: application?.dirtyDomains ?? [],

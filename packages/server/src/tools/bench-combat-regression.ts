@@ -28,6 +28,8 @@ const SCALAR_THRESHOLDS = {
   // 只对 avg / p95 做回归检测：p99 属于 1% 尾部，单次运行波动极大，易产生误报。
   'p95Ms': REGRESSION_RATIO,
   'avgMs': REGRESSION_RATIO,
+  'p95Bytes': REGRESSION_RATIO,
+  'avgBytes': REGRESSION_RATIO,
 };
 
 const BASELINE_PATH = 'packages/server/data/bench-baselines/combat.json';

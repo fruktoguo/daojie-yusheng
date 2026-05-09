@@ -8,13 +8,13 @@
 
 | 目录 | 说明 | 文档数 |
 |------|------|--------|
-| [architecture/](./architecture/) | 架构决策记录（ADR） | 9 |
-| [chains/](./chains/) | 链路文档（数据流与职责边界） | 4 |
+| [architecture/](./architecture/) | 架构决策记录（ADR） | 12 |
+| [chains/](./chains/) | 链路文档（数据流与职责边界） | 6 |
 | [design/](./design/) | 游戏设计（玩法、数值） | 20+ |
 | [plans/](./plans/) | 开发计划（进行中/待开始） | 17 |
-| [runbook/](./runbook/) | 运维手册（部署、故障、验证） | 6 |
-| [config/](./config/) | 配置文档（配置文件说明） | 4 |
-| [content/](./content/) | 内容生产指南（怎么加内容） | 6 |
+| [runbook/](./runbook/) | 运维手册（部署、故障、验证） | 9 |
+| [config/](./config/) | 配置文档（配置文件说明） | 5 |
+| [content/](./content/) | 内容生产指南（怎么加内容） | 10 |
 | [story/](./story/) | 剧情与世界观 | 20+ |
 | [archive/](./archive/) | 已完成文档归档 | 10 |
 

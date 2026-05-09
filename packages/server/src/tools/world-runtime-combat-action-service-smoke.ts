@@ -1752,6 +1752,7 @@ async function run() {
   });
   assert.equal(monsterAdapterApply.ok, true);
   assert.equal(monsterAdapterApply.adapterResult.defeated, true);
+  assert.deepEqual(monsterAdapterApply.adapterResult.monster, { runtimeId: 'monster:target' });
   assert.deepEqual(monsterAdapterApply.dirtyDomains, ['instance:monster_runtime', 'instance:ground_items', 'player:progression']);
   const tileAdapterApply = service.applyCombatOutcome({
     actor: { kind: 'player', id: 'player:attacker' },

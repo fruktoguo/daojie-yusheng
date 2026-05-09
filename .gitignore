@@ -4,6 +4,7 @@ dist/
 *.log
 .DS_Store
 .codex/tmp/
+.codex-loop/
 .runtime/
 .playwright-mcp/
 packages/server/.runtime/

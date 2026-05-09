@@ -1,11 +1,5 @@
 // @ts-nocheck
 
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
-const {
-  formatCombatResolutionFloatText,
-  getCombatResolutionFloatColor,
-} = world_runtime_observation_helpers_1;
-
 function resolveCombatPresentationEffects(input = {}) {
   const deps = input.deps ?? {};
   const effects = input.effectsService ?? deps.worldRuntimeCombatEffectsService ?? deps;
@@ -80,15 +74,6 @@ function emitCombatPresentation(input = {}) {
     }
   }
 
-  const resolutionFloat = input.resolutionFloat;
-  if (resolutionFloat) {
-    emitCombatResolutionFloat({
-      ...resolutionFloat,
-      instanceId: resolutionFloat.instanceId ?? instanceId,
-      effects,
-    });
-  }
-
   const damageFloat = input.damageFloat;
   const damage = Math.max(0, Math.round(Number(damageFloat?.damage ?? 0) || 0));
   if (damageFloat && damage > 0 && effects.pushDamageFloatEffect) {
@@ -105,22 +90,7 @@ function emitCombatPresentation(input = {}) {
 }
 
 function emitCombatResolutionFloat(input = {}) {
-  const resolution = input.resolution ?? {};
-  const text = typeof input.text === 'string' && input.text.trim().length > 0
-    ? input.text.trim()
-    : formatCombatResolutionFloatText(resolution);
-  if (!text) {
-    return;
-  }
-  const color = input.color ?? getCombatResolutionFloatColor(resolution, input.fallbackColor);
-  const durationMs = input.durationMs ?? 920;
-  if (typeof input.effects?.pushCombatTextFloatEffect === 'function') {
-    input.effects.pushCombatTextFloatEffect(input.instanceId, input.x, input.y, text, color, durationMs);
-    return;
-  }
-  if (typeof input.effects?.pushActionLabelEffect === 'function') {
-    input.effects.pushActionLabelEffect(input.instanceId, input.x, input.y, text, { durationMs });
-  }
+  return;
 }
 
 function emitCombatNotices(deps, notices) {

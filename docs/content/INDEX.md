@@ -10,6 +10,10 @@
 | 物品 | [items](items.md) | `packages/server/data/content/items/` |
 | 技能/功法 | [skills](skills.md) | `packages/server/data/content/techniques/` |
 | 地图 | [maps](maps.md) | `packages/server/data/maps/` |
+| 炼丹 | [alchemy](alchemy.md) | `packages/server/data/content/alchemy/` |
+| 炼器 | [forging](forging.md) | `packages/server/data/content/forging/` |
+| 任务 | [quests](quests.md) | `packages/server/data/content/quests/` |
+| NPC | [npcs](npcs.md) | 嵌入地图配置 |
 
 ## 使用说明
 

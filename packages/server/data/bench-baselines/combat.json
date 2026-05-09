@@ -1,13 +1,14 @@
 {
   "ok": true,
   "iterations": 20000,
-  "avgMs": 0.007689,
-  "p95Ms": 0.014654,
-  "p99Ms": 0.029906,
+  "avgMs": 0.007528,
+  "p95Ms": 0.01468,
+  "p99Ms": 0.02851,
   "thresholds": {
     "skillSingleTargetP95LtMs": 5,
     "basicAttackSingleTargetP95LtMs": 1,
     "actionDryRunSingleTargetP95LtMs": 10,
+    "actionDryRunSingleHeapAvgLtBytes": 10240,
     "skillFiveTargetsP95LtMs": 5,
     "targetCollection100P95LtMs": 1,
     "targetValidationSingleP95LtMs": 0.5,
@@ -22,79 +23,85 @@
   "hotPath": {
     "iterations": 10000,
     "dryRunSingle": {
-      "avgMs": 0.107904,
-      "p95Ms": 0.149225,
-      "p99Ms": 0.229053
+      "avgMs": 0.102975,
+      "p95Ms": 0.13243,
+      "p99Ms": 0.181739
+    },
+    "dryRunSingleHeapDelta": {
+      "avgBytes": 5856.339,
+      "p95Bytes": 5592,
+      "p99Bytes": 5880
     },
     "basicAttackSingle": {
-      "avgMs": 0.000893,
-      "p95Ms": 0.001461,
-      "p99Ms": 0.002261
+      "avgMs": 0.001355,
+      "p95Ms": 0.0027,
+      "p99Ms": 0.00367
     },
     "skillFiveTargets": {
-      "avgMs": 0.027043,
-      "p95Ms": 0.035628,
-      "p99Ms": 0.061154
+      "avgMs": 0.027414,
+      "p95Ms": 0.03615,
+      "p99Ms": 0.06257
     },
     "targetCollection100": {
-      "avgMs": 0.004196,
-      "p95Ms": 0.004631,
-      "p99Ms": 0.021846
+      "avgMs": 0.004032,
+      "p95Ms": 0.00375,
+      "p99Ms": 0.02207
     },
     "targetValidationSingle": {
-      "avgMs": 0.000602,
-      "p95Ms": 0.0008,
-      "p99Ms": 0.00143
+      "avgMs": 0.000588,
+      "p95Ms": 0.00081,
+      "p99Ms": 0.00132
     },
     "hitResolutionSingle": {
-      "avgMs": 0.000852,
-      "p95Ms": 0.00119,
-      "p99Ms": 0.001991
+      "avgMs": 0.000812,
+      "p95Ms": 0.00118,
+      "p99Ms": 0.00147
     },
     "eventBuild100": {
       "iterations": 1000,
       "eventsPerIteration": 100,
-      "avgMs": 0.08169,
-      "p95Ms": 0.12762,
-      "p99Ms": 0.268783
+      "avgMs": 0.081717,
+      "p95Ms": 0.127459,
+      "p99Ms": 0.238128
     },
     "aoiBroadcastSerialization100": {
       "iterations": 1000,
       "eventsPerIteration": 100,
-      "avgMs": 0.122502,
-      "p95Ms": 0.17538,
-      "p99Ms": 0.508177
+      "avgMs": 0.126979,
+      "p95Ms": 0.174319,
+      "p99Ms": 0.611506
     },
     "batch100PlayerBasicAttacks": {
       "iterations": 1000,
       "actionsPerIteration": 100,
-      "avgMs": 0.117464,
-      "p95Ms": 0.189813,
-      "p99Ms": 0.335947
+      "avgMs": 0.112677,
+      "p95Ms": 0.174479,
+      "p99Ms": 0.340748
     },
     "batch50MonsterSkills": {
       "iterations": 1000,
       "actionsPerIteration": 50,
-      "avgMs": 0.07217,
-      "p95Ms": 0.170589,
-      "p99Ms": 0.239065
+      "avgMs": 0.073704,
+      "p95Ms": 0.167539,
+      "p99Ms": 0.261348
     },
     "fullInstanceTick100Players": {
       "iterations": 1000,
       "playersPerIteration": 100,
-      "avgMs": 0.071297,
-      "p95Ms": 0.114576,
-      "p99Ms": 0.229623
+      "avgMs": 0.072196,
+      "p95Ms": 0.114399,
+      "p99Ms": 0.232789
     },
     "fullInstanceTick50MonsterSkills": {
       "iterations": 1000,
       "monsterActionsPerIteration": 50,
-      "avgMs": 0.043011,
-      "p95Ms": 0.066535,
-      "p99Ms": 0.102634
+      "avgMs": 0.044068,
+      "p95Ms": 0.0655,
+      "p99Ms": 0.09812
     },
     "passed": {
       "actionDryRunSingleTargetP95Lt10Ms": true,
+      "actionDryRunSingleHeapAvgLt10Kb": true,
       "basicAttackSingleTargetP95Lt1Ms": true,
       "skillFiveTargetsP95Lt5Ms": true,
       "targetCollection100P95Lt1Ms": true,
@@ -111,6 +118,7 @@
   "passed": {
     "skillSingleTargetP95Lt5Ms": true,
     "actionDryRunSingleTargetP95Lt10Ms": true,
+    "actionDryRunSingleHeapAvgLt10Kb": true,
     "basicAttackSingleTargetP95Lt1Ms": true,
     "skillFiveTargetsP95Lt5Ms": true,
     "targetCollection100P95Lt1Ms": true,
@@ -123,7 +131,7 @@
     "fullInstanceTick100PlayersP95Lt50Ms": true,
     "fullInstanceTick50MonsterSkillsP95Lt100Ms": true
   },
-  "avgDamage": 20.004,
+  "avgDamage": 20.03,
   "avgQiCost": 1,
   "lastCooldownReadyTick": 340000
 }

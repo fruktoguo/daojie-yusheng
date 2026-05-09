@@ -10,6 +10,9 @@
 | 0002 | [Tick 调度模型](0002-tick-model.md) | 已采纳 |
 | 0003 | [网络同步分层](0003-network-sync-layers.md) | 已采纳 |
 | 0004 | [持久化分层策略](0004-persistence-layers.md) | 已采纳 |
+| 0005 | [AOI 与视野同步](0005-aoi-system.md) | 已采纳 |
+| 0006 | [地图实例化](0006-map-instance.md) | 已采纳 |
+| 0007 | [断线重连机制](0007-reconnection.md) | 已采纳 |
 | - | [战斗链路统一分层与过渡迁移](ADR-战斗链路统一分层与过渡迁移.md) | 已采纳 |
 
 ## 持久化架构

@@ -89,6 +89,7 @@ async function main() {
             skillSingleTargetP95LtMs: 5,
             basicAttackSingleTargetP95LtMs: 1,
             actionDryRunSingleTargetP95LtMs: 10,
+            actionDryRunSingleHeapAvgLtBytes: 10 * 1024,
             skillFiveTargetsP95LtMs: 5,
             targetCollection100P95LtMs: 1,
             targetValidationSingleP95LtMs: 0.5,
@@ -169,6 +170,11 @@ async function benchmarkCombatHotPath(attacker, defender) {
     const dryRunSingle = measureBenchmark(HOT_PATH_ITERATIONS, () => {
         const result = service.dryRunCombatAction(dryRunInput);
         if (!result.ok) throw new Error(`dry-run failed: ${result.reason}`);
+    });
+    const dryRunSingleHeapDelta = measureBenchmarkValues(HOT_PATH_ITERATIONS, () => {
+        const result = service.dryRunCombatAction(dryRunInput);
+        if (!result.ok) throw new Error(`dry-run heap probe failed: ${result.reason}`);
+        return Math.max(0, Number(result.heapDeltaBytes) || 0);
     });
     const basicAttackSingle = measureBenchmark(HOT_PATH_ITERATIONS, () => {
         const result = basicAttackService.resolveBasicAttackDamage(
@@ -388,6 +394,7 @@ async function benchmarkCombatHotPath(attacker, defender) {
     return {
         iterations: HOT_PATH_ITERATIONS,
         dryRunSingle,
+        dryRunSingleHeapDelta,
         basicAttackSingle,
         skillFiveTargets,
         targetCollection100,
@@ -425,6 +432,7 @@ async function benchmarkCombatHotPath(attacker, defender) {
         },
         passed: {
             actionDryRunSingleTargetP95Lt10Ms: dryRunSingle.p95Ms < 10,
+            actionDryRunSingleHeapAvgLt10Kb: dryRunSingleHeapDelta.avgBytes < 10 * 1024,
             basicAttackSingleTargetP95Lt1Ms: basicAttackSingle.p95Ms < 1,
             skillFiveTargetsP95Lt5Ms: skillFiveTargets.p95Ms < 5,
             targetCollection100P95Lt1Ms: targetCollection100.p95Ms < 1,
@@ -451,6 +459,18 @@ function measureBenchmark(iterations, run) {
         avgMs: round6(average(durationsMs)),
         p95Ms: round6(percentile(durationsMs, 0.95)),
         p99Ms: round6(percentile(durationsMs, 0.99)),
+    };
+}
+
+function measureBenchmarkValues(iterations, run) {
+    const values = [];
+    for (let index = 0; index < iterations; index += 1) {
+        values.push(Math.max(0, Number(run(index)) || 0));
+    }
+    return {
+        avgBytes: round3(average(values)),
+        p95Bytes: round3(percentile(values, 0.95)),
+        p99Bytes: round3(percentile(values, 0.99)),
     };
 }
 
