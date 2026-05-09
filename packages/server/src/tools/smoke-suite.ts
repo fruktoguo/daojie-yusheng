@@ -412,6 +412,7 @@ async function startServer(port, extraEnv = {}) {
         env: {
             ...process.env,
             ...extraEnv,
+            SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
             SERVER_PORT: String(port),
             SERVER_RUNTIME_HTTP: '1',
             ...(allowUnreadyTraffic
@@ -481,6 +482,7 @@ async function runNodeScript(scriptPath, extraEnv) {
             env: {
                 ...process.env,
                 ...extraEnv,
+                SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
             },
             stdio: 'inherit',
         });
