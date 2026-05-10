@@ -303,6 +303,7 @@ export class PlayerRuntimeService {
                 quests: [],
             },
             alchemySkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            forgingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             buildingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
@@ -1426,6 +1427,7 @@ export class PlayerRuntimeService {
             id: player.notices.nextId,
             kind: input.kind,
             text,
+            ...(input.castId ? { castId: input.castId } : undefined),
         };
         player.notices.nextId += 1;
         if (player.transferState === 'in_transfer') {
@@ -3332,6 +3334,7 @@ export class PlayerRuntimeService {
             heavenGate: normalizeHeavenGateState(snapshot.progression?.heavenGate),
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
             alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            forgingSkill: normalizeCraftSkillState(snapshot.progression?.forgingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
@@ -3944,6 +3947,7 @@ function cloneRuntimePlayerState(player) {
             })),
         },
         alchemySkill: cloneCraftSkillState(player.alchemySkill),
+        forgingSkill: cloneCraftSkillState(player.forgingSkill),
         gatherSkill: cloneCraftSkillState(player.gatherSkill),
         buildingSkill: cloneCraftSkillState(player.buildingSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
@@ -4573,6 +4577,7 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null, play
         techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
         professions: [
             buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill, resolveProfessionExpToNext),
+            buildOfflineGainProfessionSnapshot('forging', '炼器', player?.forgingSkill, resolveProfessionExpToNext),
             buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill, resolveProfessionExpToNext),
             buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill, resolveProfessionExpToNext),
             buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill, resolveProfessionExpToNext),
@@ -5239,6 +5244,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             heavenGate: cloneHeavenGateState(player.heavenGate),
             spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
             alchemySkill: cloneCraftSkillState(player.alchemySkill),
+            forgingSkill: cloneCraftSkillState(player.forgingSkill),
             gatherSkill: cloneCraftSkillState(player.gatherSkill),
             buildingSkill: cloneCraftSkillState(player.buildingSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,

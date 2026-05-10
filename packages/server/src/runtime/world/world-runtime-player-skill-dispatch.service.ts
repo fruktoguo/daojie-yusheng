@@ -1,5 +1,5 @@
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
+import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
@@ -7,7 +7,7 @@ import { isHostileCombatRelationResolution, resolveCombatRelation } from '../pla
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
-import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
@@ -22,6 +22,7 @@ const {
     formatCombatActionClause,
     formatCombatDamageBreakdown,
     formatCombatResolutionOutcome,
+    formatTargetLabelWithHp,
 } = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
@@ -697,7 +698,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             qiCost,
             warningColor: getPlayerSkillWarningColor(skill),
             startedTick: currentTick,
-            resolveTick: currentTick + windupTicks,
+            resolveTick: currentTick + windupTicks + (attacker.combat?.autoBattle !== true ? 1 : 0),
             committedResourceSnapshot: {
                 kind: 'qi',
                 spent: qiCost,
@@ -1110,6 +1111,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (targets.length === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
+        const castId = nextCastId();
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
@@ -1232,11 +1234,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
+                        castId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: monster.x, toY: monster.y, color: effectColor },
                         resolutionFloat: { x: monster.x, y: monster.y, resolution: primaryRoll, fallbackColor: effectColor },
                         notices: [{
                             playerId: attacker.playerId,
-                            text: `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, monster.hp, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                         }],
                     });
                     continue;
@@ -1266,12 +1269,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
+                    castId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: monster.x, toY: monster.y, color: effectColor },
                     resolutionFloat: { x: monster.x, y: monster.y, resolution: primaryRoll, fallbackColor: effectColor },
                     damageFloat: { x: monster.x, y: monster.y, damage: result.totalDamage, color: effectColor },
                     notices: [{
                         playerId: attacker.playerId,
-                        text: `${formatCombatActionClause('你', monster.name ?? monster.monsterId ?? monster.runtimeId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, outcome?.hp ?? 0, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                     }],
                 });
                 continue;
@@ -1332,13 +1336,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
+                    castId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: targetPlayer.x, toY: targetPlayer.y, color: effectColor },
                     resolutionFloat: { x: targetPlayer.x, y: targetPlayer.y, resolution: primaryRoll, fallbackColor: effectColor },
                     damageFloat: { x: targetPlayer.x, y: targetPlayer.y, damage: result.totalDamage, color: effectColor },
                     notices: [
                         {
                             playerId: attacker.playerId,
-                            text: `${formatCombatActionClause('你', targetPlayer.name ?? targetPlayer.playerId, skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(targetPlayer.name ?? targetPlayer.playerId, updatedTarget?.hp ?? targetPlayer.hp, targetPlayer.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
                         },
                         {
                             playerId: targetPlayer.playerId,
@@ -1375,7 +1380,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         ratioDivisors: createTileCombatRatioDivisors(),
                     },
                     buffs: [],
-                }, skillId, currentTick, distance, () => undefined, options);
+                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
                 castIndex += 1;
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
@@ -1417,6 +1422,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
+                    castId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: formation.x, toY: formation.y, color: effectColor },
                     damageFloat: { x: formation.x, y: formation.y, damage: appliedDamage, color: effectColor },
                     notices: [{
@@ -1455,7 +1461,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         ratioDivisors: createTileCombatRatioDivisors(),
                     },
                     buffs: [],
-                }, skillId, currentTick, distance, () => undefined, options);
+                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
                 castIndex += 1;
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
@@ -1499,6 +1505,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
+                    castId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
                     damageFloat: { x: target.x, y: target.y, damage: appliedDamage, color: effectColor },
                     notices: [{
@@ -1535,7 +1542,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     ratioDivisors: createTileCombatRatioDivisors(),
                 },
                 buffs: [],
-            }, skillId, currentTick, distance, () => undefined, options);
+            }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
             castIndex += 1;
             if (result.totalDamage <= 0) {
                 this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
@@ -1576,11 +1583,12 @@ export class WorldRuntimePlayerSkillDispatchService {
             emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
+                castId,
                 attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
                 damageFloat: { x: target.x, y: target.y, damage: appliedDamage, color: effectColor },
                 notices: [{
                     playerId: attacker.playerId,
-                    text: `${formatCombatActionClause('你', '地块', skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
+                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', tileDamageResult?.hp ?? 0, tileState.maxHp), skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
                 }],
             });
             if (tileDamageResult?.destroyed === true) {

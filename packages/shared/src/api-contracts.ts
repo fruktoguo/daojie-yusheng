@@ -3319,3 +3319,29 @@ export interface GmBroadcastMailRes {
 
 /** GM 发邮件响应。 */
 export type GmSendMailRes = GmSendPlayerMailRes | GmBroadcastMailRes;
+
+// ─── GM 密钥管理 ───
+
+/** GM 密钥列表项（不含明文值）。 */
+export interface GmSecretListItem {
+  key: string;
+  description: string;
+  maskedValue: string;
+  updatedAt: string;
+}
+
+/** GM 设置密钥请求。 */
+export interface GmSetSecretReq {
+  key: string;
+  value: string;
+  description: string;
+}
+
+/** GM 密钥详情响应。 */
+export interface GmSecretDetailRes {
+  found: boolean;
+  key?: string;
+  value?: string;
+  description?: string;
+  updatedAt?: string;
+}

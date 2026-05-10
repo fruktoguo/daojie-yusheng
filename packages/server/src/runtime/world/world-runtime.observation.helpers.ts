@@ -142,6 +142,10 @@ export function getCombatResolutionFloatColor(resolution, fallbackColor) {
     }
     return fallbackColor;
 }
+/** 生成带生命值后缀的目标标签，客户端解析 ‹hp/maxHp› 后缀渲染为胶囊内 HP 信息。 */
+export function formatTargetLabelWithHp(name: string, hp: number, maxHp: number): string {
+    return `${name}‹${Math.max(0, Math.round(hp))}/${Math.max(1, Math.round(maxHp))}›`;
+}
 /** 生成“攻击/施展技能”类的动作描述语句。 */
 export function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
     return actionLabel === '攻击'

@@ -1,3 +1,8 @@
+let _castIdSeq = 0;
+function nextCastId(): string {
+  return `c${(++_castIdSeq).toString(36)}`;
+}
+
 interface CombatPresentationEffectSource {
   pushActionLabelEffect?: (
     instanceId: string,
@@ -26,7 +31,7 @@ interface CombatPresentationDeps {
   pushAttackEffect?: CombatPresentationEffectSource['pushAttackEffect'];
   pushDamageFloatEffect?: CombatPresentationEffectSource['pushDamageFloatEffect'];
   pushCombatTextFloatEffect?: CombatPresentationEffectSource['pushCombatTextFloatEffect'];
-  queuePlayerNotice?: (playerId: string, text: string, kind: string) => void;
+  queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string) => void;
 }
 
 interface CombatPresentationActionLabel {
@@ -71,12 +76,14 @@ interface CombatPresentationNotice {
   playerId?: string | null;
   text?: string;
   kind?: string;
+  castId?: string;
 }
 
 interface CombatPresentationInput {
   deps?: CombatPresentationDeps;
   effectsService?: CombatPresentationEffectSource | null;
   instanceId?: string | null;
+  castId?: string;
   actionLabel?: CombatPresentationActionLabel | null;
   attack?: CombatPresentationAttack | null;
   combatEffects?: unknown[];
@@ -130,7 +137,7 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
   const effects = resolveCombatPresentationEffects(input);
   const instanceId = input.instanceId ?? input.attack?.instanceId ?? input.actionLabel?.instanceId ?? input.damageFloat?.instanceId ?? input.resolutionFloat?.instanceId;
   if (!instanceId) {
-    emitCombatNotices(deps, input.notices);
+    emitCombatNotices(deps, input.notices, input.castId);
     return;
   }
 
@@ -180,7 +187,7 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
     );
   }
 
-  emitCombatNotices(deps, input.notices);
+  emitCombatNotices(deps, input.notices, input.castId);
 }
 
 function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
@@ -188,7 +195,7 @@ function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
   return;
 }
 
-function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: CombatPresentationNotice[] | undefined): void {
+function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: CombatPresentationNotice[] | undefined, castId?: string): void {
   if (typeof deps?.queuePlayerNotice !== 'function' || !Array.isArray(notices)) {
     return;
   }
@@ -196,7 +203,7 @@ function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: Co
     if (!notice?.playerId || typeof notice.text !== 'string' || notice.text.length <= 0) {
       continue;
     }
-    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat');
+    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId);
   }
 }
 
@@ -205,4 +212,5 @@ export {
   emitCombatResolutionFloat,
   emitCombatNotices,
   resolveCombatPresentationEffects,
+  nextCastId,
 };

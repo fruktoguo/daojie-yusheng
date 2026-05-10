@@ -1,32 +1,44 @@
+/**
+ * 玩家战斗运行时服务：负责技能施放校验、伤害结算和 buff 应用。
+ *
+ * 职责：
+ * - 玩家对玩家/怪物/自身的技能施放入口
+ * - 怪物对玩家的技能施放入口
+ * - 技能合法性校验（解锁、冷却、元气、射程、存活）
+ * - 伤害公式求值和战斗结算调用
+ * - buff 生成和应用
+ * - 冷却计算（含冷却速度属性加成）
+ *
+ * 设计：
+ * - 所有施放入口最终汇聚到 executeResolvedSkillCast 统一处理
+ * - 通过 handlers 回调解耦资源扣除、冷却设置、buff 应用等副作用
+ * - 支持 skipResourceAndCooldown / skipTargetDamageApplication 等选项用于特殊场景
+ */
+
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCombatHitForAction } from './combat-resolution.helpers';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
+import { createCombatResolveContext, type CombatResolveContext } from './combat-pipeline';
+import { runTilePipeline } from './combat-pipeline-compose';
 
-/** 战斗运行时技能结算服务：负责技能解析、施放校验与战斗结果写回。 */
+/** 战斗运行时技能结算服务。 */
 @Injectable()
 export class PlayerCombatService {
-/**
- * playerRuntimeService：玩家运行态服务引用。
- */
-
-    playerRuntimeService;    
-    /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param playerRuntimeService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    playerRuntimeService;
 
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
     ) {
         this.playerRuntimeService = playerRuntimeService;
     }
-    /** 玩家对目标执行技能，先做合法性校验，再落到元气、冷却和伤害结算。 */
-    castSkill(attacker, target, skillId, currentTick, distance, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    /**
+     * 玩家对目标玩家施放技能。
+     * 流程：校验自攻击 → 解析技能 → 执行结算 → 设置反击目标 → 应用伤害。
+     */
+    castSkill(attacker, target, skillId, currentTick, distance, options = undefined) {
         if (attacker.playerId === target.playerId) {
             throw new BadRequestException('不能以自己为攻击目标');
         }
@@ -65,7 +77,10 @@ export class PlayerCombatService {
             targetPlayerId: target.playerId,
         };
     }
-    /** 玩家对自身执行无目标 Buff 技能，不进入敌对目标校验。 */
+
+    /**
+     * 玩家对自身施放 buff 技能（无目标校验）。
+     */
     castSelfSkill(attacker, skillId, currentTick, options = undefined) {
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
         normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
@@ -95,9 +110,12 @@ export class PlayerCombatService {
             targetPlayerId: attacker.playerId,
         };
     }
-    /** 玩家对妖兽施放技能，复用同一条施放流水线并允许写入目标 buff。 */
-    castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
 
+    /**
+     * 玩家对妖兽施放技能。
+     * 与 castSkill 类似，但目标 buff 通过外部回调应用（怪物 buff 系统不同）。
+     */
+    castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
         normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
 
@@ -124,10 +142,12 @@ export class PlayerCombatService {
             targetMonsterId: target.runtimeId,
         };
     }
-    /** 妖兽技能施放到玩家目标的统一处理分支。 */
-    castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    /**
+     * 妖兽对玩家施放技能。
+     * 怪物侧跳过元气和冷却检查（由 AI 层保证），伤害直接应用到玩家。
+     */
+    castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi, options = undefined) {
         const resolved = resolveMonsterSkill(attacker, skillId);
 
         const result = this.executeResolvedSkillCast(attacker, toCombatPlayerState(target), resolved, currentTick, distance, {
@@ -146,10 +166,12 @@ export class PlayerCombatService {
             targetPlayerId: target.playerId,
         };
     }
-    /** 执行已解析技能：判定范围、冷却、元气消耗以及伤害和 buff。 */
-    executeResolvedSkillCast(attacker, target, resolved, currentTick, distance, handlers, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    /**
+     * 统一技能施放执行：校验存活/射程/冷却/元气 → 扣资源 → 设冷却 → 逐效果结算。
+     * 支持多段伤害（多个 damage effect）和 buff effect。
+     */
+    executeResolvedSkillCast(attacker, target, resolved, currentTick, distance, handlers, options = undefined) {
         if (attacker.hp <= 0) {
             throw new BadRequestException('施法者已死亡');
         }
@@ -157,17 +179,19 @@ export class PlayerCombatService {
             throw new BadRequestException('目标已经死亡');
         }
 
+        // 射程校验
         const range = resolveEffectiveSkillCastRange(resolved.skill, options);
         if (distance > range) {
             throw new BadRequestException(`技能 ${resolved.skill.id} 超出范围`);
         }
+        // 冷却校验
         if (options?.skipResourceAndCooldown !== true && !resolved.skipCooldownCheck && currentTick < resolved.readyTick) {
             throw new BadRequestException(`技能 ${resolved.skill.id} 尚在冷却`);
         }
 
+        // 元气消耗（受 maxQiOutputPerTick 限制）
         let qiCost = 0;
         if (options?.skipResourceAndCooldown !== true && !resolved.skipQiCost) {
-
             const plannedCost = normalizeSkillQiCost(resolved.skill.cost);
             qiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
             if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
@@ -177,8 +201,10 @@ export class PlayerCombatService {
                 handlers.spendQi?.(qiCost);
             }
         }
+        // 设置冷却（含冷却速度加成）
         handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
 
+        // 逐效果结算
         let totalDamage = 0;
         let totalRawDamage = 0;
         let primaryDamageKind = null;
@@ -188,6 +214,7 @@ export class PlayerCombatService {
         let hitCount = 0;
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
+                // 伤害效果：求值公式 → 结算命中/暴击/防御
                 const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, {
                     attacker,
                     target,
@@ -195,7 +222,7 @@ export class PlayerCombatService {
                     targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
                 })));
 
-                const damageRoll = resolveDamage(attacker, target, effect, baseDamage);
+                const damageRoll = options?.isTileTarget ? resolveTileDamage(attacker, target, effect, baseDamage) : resolveDamage(attacker, target, effect, baseDamage);
                 damageRolls.push(damageRoll);
                 totalRawDamage += Math.max(0, Math.round(damageRoll.rawDamage ?? 0));
                 if (!primaryDamageKind) {
@@ -209,6 +236,7 @@ export class PlayerCombatService {
                 continue;
             }
 
+            // buff 效果：生成临时 buff 并应用到自身或目标
             const buff = toTemporaryBuff(effect, resolved.skill);
             if (effect.target === 'self') {
                 handlers.applySelfBuff?.(buff);
@@ -233,17 +261,14 @@ export class PlayerCombatService {
         };
     }
 };
+
+// ─── 内部工具函数 ───
+
 /**
- * resolvePlayerSkill：规范化或转换玩家技能。
- * @param techniques 参数说明。
- * @param cooldownReadyTickBySkillId cooldownReadyTickBySkill ID。
- * @param skillId skill ID。
- * @returns 无返回值，直接更新玩家技能相关状态。
+ * 从功法列表中解析指定技能，校验解锁等级。
+ * 返回 skill 对象、功法等级和冷却就绪 tick。
  */
-
 function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     for (const technique of techniques) {
         const skill = technique.skills?.find((entry) => entry.id === skillId);
         if (!skill) {
@@ -263,6 +288,10 @@ function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
     throw new NotFoundException(`技能不存在：${skillId}`);
 }
 
+/**
+ * 规范化已解析技能的冷却状态。
+ * 如果剩余冷却超过技能最大冷却（可能是旧数据），则清除冷却。
+ */
 function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
     const cooldowns = attacker?.combat?.cooldownReadyTickBySkillId;
     if (!cooldowns || !resolved?.skill?.id) {
@@ -284,16 +313,12 @@ function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
     }
     resolved.readyTick = readyTick;
 }
+
 /**
- * resolveMonsterSkill：规范化或转换怪物技能。
- * @param attacker 参数说明。
- * @param skillId skill ID。
- * @returns 无返回值，直接更新怪物技能相关状态。
+ * 从怪物技能列表中解析指定技能。
+ * 怪物侧跳过元气和冷却检查。
  */
-
 function resolveMonsterSkill(attacker, skillId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const skill = attacker.skills.find((entry) => entry.id === skillId);
     if (!skill) {
         throw new NotFoundException(`妖兽技能不存在：${skillId}`);
@@ -306,12 +331,8 @@ function resolveMonsterSkill(attacker, skillId) {
         skipCooldownCheck: true,
     };
 }
-/**
- * toCombatPlayerState：执行to战斗玩家状态相关逻辑。
- * @param player 玩家对象。
- * @returns 无返回值，直接更新to战斗玩家状态相关状态。
- */
 
+/** 将玩家运行时对象转换为战斗结算所需的精简状态。 */
 function toCombatPlayerState(player) {
     return {
         playerId: player.playerId,
@@ -330,21 +351,17 @@ function toCombatPlayerState(player) {
         buffs: player.buffs.buffs,
     };
 }
-/**
- * resolveSkillRange：规范化或转换技能范围。
- * @param skill 参数说明。
- * @returns 无返回值，直接更新技能范围相关状态。
- */
 
+/** 获取技能射程（优先 targeting.range，兜底 skill.range）。 */
 function resolveSkillRange(skill) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
         return Math.max(1, Math.round(targetingRange));
     }
     return Math.max(1, Math.round(skill.range));
 }
+
+/** 获取有效施放射程（options 可覆盖）。 */
 function resolveEffectiveSkillCastRange(skill, options) {
     const optionRange = Number(options?.range);
     if (Number.isFinite(optionRange)) {
@@ -352,40 +369,21 @@ function resolveEffectiveSkillCastRange(skill, options) {
     }
     return resolveSkillRange(skill);
 }
-/**
- * normalizeSkillQiCost：规范化或转换技能Qi消耗。
- * @param rawCost 参数说明。
- * @returns 无返回值，直接更新技能Qi消耗相关状态。
- */
 
+/** 规范化技能元气消耗为非负整数。 */
 function normalizeSkillQiCost(rawCost) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!Number.isFinite(rawCost)) {
         return 0;
     }
     return Math.max(0, Math.round(Number(rawCost)));
 }
-/**
- * resolveDamage：规范化或转换Damage。
- * @param attacker 参数说明。
- * @param target 目标对象。
- * @param effect 参数说明。
- * @param baseDamage 参数说明。
- * @returns 无返回值，直接更新Damage相关状态。
- */
 
+/** 调用 resolveCombatHitForAction 执行单次伤害结算。 */
 function resolveDamage(attacker, target, effect, baseDamage) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const attackerStats = attacker.attrs.numericStats;
-
     const targetStats = target.attrs.numericStats;
-
     const attackerRatios = attacker.attrs.ratioDivisors;
-
     const targetRatios = target.attrs.ratioDivisors;
-
     const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
 
     const resolved = resolveCombatHitForAction({
@@ -410,33 +408,57 @@ function resolveDamage(attacker, target, effect, baseDamage) {
         element: effect.element,
     };
 }
-/**
- * inferDamageKind：执行inferDamageKind相关逻辑。
- * @param stats 参数说明。
- * @returns 无返回值，直接更新inferDamageKind相关状态。
- */
 
+/** 地块伤害结算：只走五行加成和额外乘区，不吃境界压制/暴击/命中/破招/防御。 */
+function resolveTileDamage(attacker, _target, effect, baseDamage) {
+    const attackerStats = attacker.attrs.numericStats;
+    const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
+    const ctx = createCombatResolveContext({
+        attackerStats,
+        attackerRatios: attacker.attrs.ratioDivisors,
+        targetStats: {},
+        targetRatios: {},
+        baseDamage,
+        damageKind,
+        element: effect.element,
+        extraMultiplier: 1,
+    });
+    runTilePipeline(ctx);
+    return {
+        hit: true,
+        rawDamage: ctx.rawDamage,
+        damage: ctx.damage,
+        crit: false,
+        dodged: false,
+        resolved: false,
+        broken: false,
+        damageKind,
+        element: effect.element,
+    };
+}
+
+/** 推断伤害类型：法攻 >= 物攻时为 spell，否则 physical。 */
 function inferDamageKind(stats) {
     return stats.spellAtk >= stats.physAtk ? 'spell' : 'physical';
 }
 
+/** 获取战斗者境界等级（兼容多种数据结构）。 */
 function resolveCombatantRealmLv(combatant) {
     return Math.max(1, Math.floor(Number(combatant?.realm?.realmLv ?? combatant?.realmLv ?? combatant?.level ?? 1) || 1));
 }
 
+/** 获取战斗者战斗经验（怪物使用等价值计算）。 */
 function resolveCombatantCombatExp(combatant) {
     if (Number.isFinite(combatant?.combatExp)) {
         return Math.max(0, Math.floor(Number(combatant.combatExp)));
     }
     return resolveMonsterCombatExpEquivalentFallback(combatant);
 }
-/**
- * toTemporaryBuff：执行toTemporaryBuff相关逻辑。
- * @param effect 参数说明。
- * @param skill 参数说明。
- * @returns 无返回值，直接更新toTemporaryBuff相关状态。
- */
 
+/**
+ * 从技能效果生成临时 buff 对象。
+ * 包含名称、描述、持续时间、层数、属性加成、元气投影等。
+ */
 function toTemporaryBuff(effect, skill) {
     const fallbackName = typeof effect.name === 'string' && effect.name.trim()
         ? effect.name.trim()
@@ -469,6 +491,10 @@ function toTemporaryBuff(effect, skill) {
     };
 }
 
+/**
+ * 计算技能实际冷却 tick 数（含冷却速度属性加成）。
+ * 冷却速度越高，实际冷却越短，最低 1 tick。
+ */
 function resolveSkillCooldownTicks(attacker, cooldown) {
     const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
     const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
@@ -477,16 +503,12 @@ function resolveSkillCooldownTicks(attacker, cooldown) {
     const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
+
 /**
- * evaluateSkillFormula：执行evaluate技能Formula相关逻辑。
- * @param formula 参数说明。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新evaluate技能Formula相关状态。
+ * 递归求值技能伤害公式。
+ * 支持：数值字面量、变量引用（var）、运算符（add/sub/mul/div/min/max/clamp）。
  */
-
 function evaluateSkillFormula(formula, context) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (typeof formula === 'number') {
         return formula;
     }
@@ -494,11 +516,8 @@ function evaluateSkillFormula(formula, context) {
         return resolveSkillFormulaVar(formula.var, context) * (formula.scale ?? 1);
     }
     if (formula.op === 'clamp') {
-
         const value = evaluateSkillFormula(formula.value, context);
-
         const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : evaluateSkillFormula(formula.min, context);
-
         const max = formula.max === undefined ? Number.POSITIVE_INFINITY : evaluateSkillFormula(formula.max, context);
         return Math.min(max, Math.max(min, value));
     }
@@ -521,16 +540,13 @@ function evaluateSkillFormula(formula, context) {
             return 0;
     }
 }
+
 /**
- * resolveSkillFormulaVar：规范化或转换技能FormulaVar。
- * @param variable 参数说明。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新技能FormulaVar相关状态。
+ * 解析技能公式变量引用。
+ * 支持：techLevel、caster/target 的 hp/maxHp/qi/maxQi/realmLv、
+ * caster/target 的 attr.*、stat.*、buff.*.stacks。
  */
-
 function resolveSkillFormulaVar(variable, context) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (variable === 'techLevel') {
         return context.techLevel;
     }
@@ -565,51 +581,37 @@ function resolveSkillFormulaVar(variable, context) {
         return context.target.maxQi;
     }
     if (variable.startsWith('caster.attr.')) {
-
         const key = variable.slice('caster.attr.'.length);
         return Object.hasOwn(context.attacker.attrs.finalAttrs, key) ? context.attacker.attrs.finalAttrs[key] : 0;
     }
     if (variable.startsWith('target.attr.')) {
-
         const key = variable.slice('target.attr.'.length);
         return Object.hasOwn(context.target.attrs.finalAttrs, key) ? context.target.attrs.finalAttrs[key] : 0;
     }
     if (variable.startsWith('caster.stat.')) {
-
         const key = variable.slice('caster.stat.'.length);
         return Object.hasOwn(context.attacker.attrs.numericStats, key) ? context.attacker.attrs.numericStats[key] : 0;
     }
     if (variable.startsWith('target.stat.')) {
-
         const key = variable.slice('target.stat.'.length);
         return Object.hasOwn(context.target.attrs.numericStats, key) ? context.target.attrs.numericStats[key] : 0;
     }
     if (variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
-
         const buffId = variable.slice('caster.buff.'.length, -'.stacks'.length);
         return resolveBuffStacks(context.attacker.buffs, buffId);
     }
     if (variable.startsWith('target.buff.') && variable.endsWith('.stacks')) {
-
         const buffId = variable.slice('target.buff.'.length, -'.stacks'.length);
         return resolveBuffStacks(context.target.buffs, buffId);
     }
     return 0;
 }
-/**
- * resolveBuffStacks：规范化或转换BuffStack。
- * @param buffs 参数说明。
- * @param buffId buff ID。
- * @returns 无返回值，直接更新BuffStack相关状态。
- */
 
+/** 获取指定 buff 的当前层数。 */
 function resolveBuffStacks(buffs, buffId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!buffs || !buffId) {
         return 0;
     }
-
     const target = buffs.find((entry) => entry.buffId === buffId);
     return target ? Math.max(0, target.stacks) : 0;
 }

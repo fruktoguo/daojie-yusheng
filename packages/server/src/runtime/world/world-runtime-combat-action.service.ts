@@ -1478,20 +1478,6 @@ export class WorldRuntimeCombatActionService {
           details: { distance, range },
         };
       }
-      if (input.requiresLineOfSight !== false
-        && typeof input.instance?.canSeeTileFrom === 'function'
-        && !input.instance.canSeeTileFrom(input.actorPosition.x, input.actorPosition.y, target.x, target.y, distance)) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.LineOfSightBlocked,
-          target,
-          details: {
-            distance,
-            targetX: target.x,
-            targetY: target.y,
-          },
-        };
-      }
     }
     return {
       ok: true,
@@ -1726,25 +1712,6 @@ export class WorldRuntimeCombatActionService {
     const distance = requiresTarget
       ? combatChebyshevDistance(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y)
       : 0;
-    if (typeof instance?.canSeeTileFrom === 'function'
-      && requiresTarget
-      && !instance.canSeeTileFrom(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y, distance)) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.LineOfSightBlocked,
-        severity: 'debug',
-        details: {
-          anchorX: distanceAnchor.x,
-          anchorY: distanceAnchor.y,
-          distance,
-        },
-        warningCells,
-        distanceAnchor,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
     if (!requiresTarget) {
       const selfBuffTarget = playerRuntimeService?.getPlayer?.(action.targetPlayerId) ?? null;
       if (!selfBuffTarget || selfBuffTarget.hp <= 0) {
@@ -2086,19 +2053,6 @@ export class WorldRuntimeCombatActionService {
         details: {
           distance,
           attackRange: monster.attackRange,
-        },
-        severity: 'debug',
-      };
-    }
-    if (typeof instance.canSeeTileFrom === 'function'
-      && !instance.canSeeTileFrom(monster.x, monster.y, normalizedPosition.x, normalizedPosition.y, distance)) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.LineOfSightBlocked,
-        details: {
-          targetX: normalizedPosition.x,
-          targetY: normalizedPosition.y,
-          distance,
         },
         severity: 'debug',
       };

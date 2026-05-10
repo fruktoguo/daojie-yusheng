@@ -8,7 +8,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeCombatEffectsService } from './world-runtime-combat-effects.service';
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
-import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
 
@@ -282,6 +282,7 @@ export class WorldRuntimeMonsterActionApplyService {
         }
         try {
             const currentTick = instance.tick;
+            const castId = nextCastId();
             const targetEntries = actionPlan.targetEntries;
             let labelPushed = false;
             let qiSpent = false;
@@ -383,6 +384,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     deps,
                     effectsService: this.worldRuntimeCombatEffectsService,
                     instanceId: action.instanceId,
+                    castId,
                     attack: { fromX: monster.x, fromY: monster.y, toX: targetPosition.x, toY: targetPosition.y, color: effectColor },
                     resolutionFloat: { x: targetPosition.x, y: targetPosition.y, resolution: primaryRoll, fallbackColor: effectColor },
                     damageFloat: { x: targetPosition.x, y: targetPosition.y, damage: result.totalDamage, color: effectColor },

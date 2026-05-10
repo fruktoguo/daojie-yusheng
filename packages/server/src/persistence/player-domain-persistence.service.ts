@@ -324,7 +324,7 @@ interface AttrStateRow {
 }
 
 interface ProfessionStateRow {
-  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement';
+  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging';
   level: number;
   exp: number | null;
   expToNext: number | null;
@@ -4426,6 +4426,16 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
     });
   }
 
+  const forging = asRecord(progression?.forgingSkill);
+  if (forging) {
+    rows.push({
+      professionType: 'forging',
+      level: normalizeMinimumInteger(forging.level, 1, 1),
+      exp: normalizeOptionalNumber(forging.exp),
+      expToNext: normalizeOptionalNumber(forging.expToNext),
+    });
+  }
+
   const enhancement = asRecord(progression?.enhancementSkill);
   const enhancementLevel = normalizeMinimumInteger(
     enhancement?.level ?? progression?.enhancementSkillLevel,
@@ -5255,6 +5265,8 @@ function applyProjectedProfessions(
     };
     if (professionType === 'alchemy') {
       snapshot.progression.alchemySkill = state;
+    } else if (professionType === 'forging') {
+      snapshot.progression.forgingSkill = state;
     } else if (professionType === 'building') {
       snapshot.progression.buildingSkill = state;
     } else if (professionType === 'gather') {

@@ -73,6 +73,7 @@ interface PlayerSnapshotProgression {
   luck?: number;
   bodyTraining: Record<string, unknown> | null;
   alchemySkill: Record<string, unknown> | null;
+  forgingSkill?: Record<string, unknown> | null;
   buildingSkill?: Record<string, unknown> | null;
   gatherSkill: Record<string, unknown> | null;
   gatherJob: Record<string, unknown> | null;
@@ -567,6 +568,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       luck: isFiniteNumber(progression?.luck) ? Math.max(0, Math.trunc(progression.luck)) : 0,
       bodyTraining: asRecordOrNull(progression?.bodyTraining),
       alchemySkill: asRecordOrNull(progression?.alchemySkill),
+      forgingSkill: asRecordOrNull(progression?.forgingSkill),
       buildingSkill: asRecordOrNull(progression?.buildingSkill),
       gatherSkill: asRecordOrNull(progression?.gatherSkill),
       gatherJob: asRecordOrNull(progression?.gatherJob),

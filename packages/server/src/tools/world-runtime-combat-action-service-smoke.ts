@@ -185,7 +185,7 @@ async function run() {
   assert.equal(beginCastAttacker.combat.pendingSkillCast.actorId, beginCastAttacker.playerId);
   assert.deepEqual(beginCastAttacker.combat.pendingSkillCast.anchor, { x: 1, y: 0 });
   assert.equal(beginCastAttacker.combat.pendingSkillCast.startedTick, 40);
-  assert.equal(beginCastAttacker.combat.pendingSkillCast.resolveTick, 42);
+  assert.equal(beginCastAttacker.combat.pendingSkillCast.resolveTick, 43);
   assert.equal(beginCastAttacker.combat.pendingSkillCast.committedResourceSnapshot.spent, 5);
   assert.equal(beginCastAttacker.combat.pendingSkillCast.committedCooldownSnapshot.readyTick, 43);
   assert.equal(beginCastAttacker.combat.pendingSkillCast.configRevision, 9);

@@ -18,6 +18,8 @@ import { NativeAccountController } from './native/native-account.controller';
 import { NativeGmAuthController } from './native/native-gm-auth.controller';
 import { NativeGmController } from './native/native-gm.controller';
 import { NativeGmAdminController } from './native/native-gm-admin.controller';
+import { NativeGmSecretController } from './native/native-gm-secret.controller';
+import { NativeGmSecretStoreService } from './native/native-gm-secret-store.service';
 import { GM_HTTP_CONTRACT } from './native/native-gm-contract';
 
 /** 原生主线 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
@@ -35,6 +37,7 @@ export const NATIVE_HTTP_CONTROLLERS = [
   NativeGmAuthController,
   NativeGmController,
   NativeGmAdminController,
+  NativeGmSecretController,
 ];
 
 /** 原生 HTTP 入口依赖：鉴权/GM/管理/数据库恢复服务的统一导出。 */
@@ -54,4 +57,5 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmSuggestionQueryService,
   NativeGmPlayerService,
   NativeGmWorldService,
+  NativeGmSecretStoreService,
 ];

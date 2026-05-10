@@ -1,5 +1,5 @@
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor } from '@mud/shared';
+import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
 import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
@@ -19,6 +19,7 @@ const {
     formatCombatDamageBreakdown,
     formatCombatResolutionOutcome,
     formatCombatActionClause,
+    formatTargetLabelWithHp,
 } = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
@@ -292,7 +293,7 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: monster.x, y: monster.y, damage: resolvedDamage.damage, color: effectColor },
             notices: [{
                 playerId: attacker.playerId,
-                text: `${formatCombatActionClause('你', monster.name, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name, outcome?.hp ?? monster.hp, monster.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
             }],
         });
     }
@@ -372,7 +373,7 @@ export class WorldRuntimeBasicAttackService {
             notices: [
                 {
                     playerId: attacker.playerId,
-                    text: `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(target.name ?? target.playerId, updated.hp, updated.maxHp ?? target.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
                 },
                 {
                     playerId: target.playerId,
@@ -516,11 +517,15 @@ export class WorldRuntimeBasicAttackService {
             throw new BadRequestException('该目标无法被攻击');
         }
         ensureInstanceSupportsTileDamage(instance);
+        let tileType: string | undefined;
+        let tileMaxHp = 0;
         if (typeof instance.getTileCombatState === 'function') {
             const tileState = instance.getTileCombatState(targetX, targetY);
             if (!tileState || tileState.destroyed === true) {
                 throw new BadRequestException('该目标无法被攻击');
             }
+            tileType = tileState.tileType;
+            tileMaxHp = tileState.maxHp ?? 0;
         }
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, baseDamage)
@@ -552,7 +557,7 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
             notices: [{
                 playerId: attacker.playerId,
-                text: `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
+                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileType] ?? '地块', result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
             }],
         });
     }

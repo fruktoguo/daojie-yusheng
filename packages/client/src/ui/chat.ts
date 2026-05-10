@@ -424,7 +424,7 @@ function appendBeforeWithPills(container: DocumentFragment | HTMLElement, before
   const fullMatch = BEFORE_FULL_PATTERN.exec(before);
   if (fullMatch) {
     container.append(prefix + fullMatch[1]);
-    container.appendChild(buildTargetPill(fullMatch[2]));
+    appendTargetPill(container, fullMatch[2]);
     container.append(fullMatch[3]);
     container.appendChild(buildSkillPill(fullMatch[4]));
     return;
@@ -433,7 +433,7 @@ function appendBeforeWithPills(container: DocumentFragment | HTMLElement, before
   const attackMatch = BEFORE_ATTACK_PATTERN.exec(before);
   if (attackMatch) {
     container.append(prefix + attackMatch[1]);
-    container.appendChild(buildTargetPill(attackMatch[2]));
+    appendTargetPill(container, attackMatch[2]);
     container.appendChild(buildSkillPill(attackMatch[3]));
     return;
   }
@@ -441,7 +441,7 @@ function appendBeforeWithPills(container: DocumentFragment | HTMLElement, before
   const monsterMatch = BEFORE_MONSTER_PATTERN.exec(before);
   if (monsterMatch) {
     container.append(prefix);
-    container.appendChild(buildTargetPill(monsterMatch[1]));
+    appendTargetPill(container, monsterMatch[1]);
     container.append(monsterMatch[2]);
     if (monsterMatch[4]) {
       container.append('施展');
@@ -457,14 +457,14 @@ function appendBeforeWithPills(container: DocumentFragment | HTMLElement, before
     container.append(prefix + multiFirstMatch[1]);
     container.appendChild(buildSkillPill(multiFirstMatch[2]));
     container.append(multiFirstMatch[3]);
-    container.appendChild(buildTargetPill(multiFirstMatch[4]));
+    appendTargetPill(container, multiFirstMatch[4]);
     return;
   }
   // 格式5: 对{target}
   const subMatch = BEFORE_MULTI_SUB_PATTERN.exec(before);
   if (subMatch) {
     container.append(prefix + subMatch[1]);
-    container.appendChild(buildTargetPill(subMatch[2]));
+    appendTargetPill(container, subMatch[2]);
     return;
   }
   container.append(prefix + before);
@@ -508,8 +508,24 @@ function appendCombatLineContent(container: DocumentFragment | HTMLElement, text
 function buildTargetPill(name: string): HTMLSpanElement {
   const pill = document.createElement('span');
   pill.className = 'chat-target-pill';
-  pill.textContent = name;
+  const hpMatch = /^(.+?)‹(\d+)\/(\d+)›$/.exec(name);
+  if (hpMatch) {
+    const label = hpMatch[1];
+    const hp = Number(hpMatch[2]);
+    const maxHp = Number(hpMatch[3]);
+    const pct = maxHp > 0 ? Math.round((hp / maxHp) * 100) : 0;
+    pill.dataset.chatDamageTooltipTitle = label;
+    pill.dataset.chatDamageTooltipLines = `${formatDisplayNumber(hp, { maximumFractionDigits: 0, compactMaximumFractionDigits: 1 })} / ${formatDisplayNumber(maxHp, { maximumFractionDigits: 0, compactMaximumFractionDigits: 1 })}`;
+    pill.textContent = `${label} ${pct}%`;
+  } else {
+    pill.textContent = name;
+  }
   return pill;
+}
+
+/** 追加目标胶囊到容器。 */
+function appendTargetPill(container: DocumentFragment | HTMLElement, name: string): void {
+  container.appendChild(buildTargetPill(name));
 }
 
 /** 构建技能名胶囊。 */

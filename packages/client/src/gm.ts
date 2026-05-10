@@ -91,6 +91,8 @@ import {
   type RedeemCodeCodeView,
   type RedeemCodeGroupRewardItem,
   type RedeemCodeGroupView,
+  type GmSecretListItem,
+  type GmSetSecretReq,
 } from '@mud/shared';
 import {
   GM_FACING_OPTIONS,
@@ -396,6 +398,8 @@ const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLEle
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
 /** shortcutWorkspaceEl：shortcut Workspace El。 */
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
+/** secretsWorkspaceEl：密钥管理 workspace El。 */
+const secretsWorkspaceEl = document.getElementById('secrets-workspace') as HTMLElement;
 /** shortcutMailComposerEl：shortcut邮件Composer El。 */
 const shortcutMailComposerEl = document.getElementById('shortcut-mail-composer') as HTMLDivElement | null;
 /** serverTabBtn：服务端Tab Btn。 */
@@ -410,6 +414,8 @@ const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLBu
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
 /** shortcutTabBtn：shortcut Tab Btn。 */
 const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButtonElement;
+/** secretsTabBtn：密钥管理 Tab Btn。 */
+const secretsTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement;
 /** suggestionListEl：建议列表El。 */
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
 /** suggestionSearchInput：建议搜索输入。 */
@@ -568,7 +574,7 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
+let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
@@ -3263,7 +3269,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 }
 
 /** switchTab：处理switch Tab。 */
-function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
+function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   // 离开世界管理时停止轮询
@@ -3278,12 +3284,14 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   worldTabBtn.classList.toggle('active', tab === 'world');
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
+  secretsTabBtn.classList.toggle('active', tab === 'secrets');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
+  secretsWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
   if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
   } else if (tab === 'redeem') {
@@ -3298,6 +3306,8 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     worldViewer.startPolling();
   } else if (tab === 'server') {
     switchServerTab(currentServerTab);
+  } else if (tab === 'secrets') {
+    loadSecrets().catch(() => {});
   }
 }
 
@@ -6016,6 +6026,84 @@ async function login(): Promise<void> {
   }
 }
 
+// ─── 密钥管理 ───
+
+const secretListEl = document.getElementById('gm-secret-list') as HTMLElement;
+const secretForm = document.getElementById('gm-secret-form') as HTMLFormElement;
+const secretKeyInput = document.getElementById('gm-secret-key') as HTMLInputElement;
+const secretValueInput = document.getElementById('gm-secret-value') as HTMLInputElement;
+const secretDescInput = document.getElementById('gm-secret-desc') as HTMLInputElement;
+const secretSaveBtn = document.getElementById('gm-secret-save') as HTMLButtonElement;
+
+async function loadSecrets(): Promise<void> {
+  try {
+    const list = await request<GmSecretListItem[]>(`${GM_API_BASE_PATH}/secrets`);
+    renderSecretList(list);
+  } catch (error) {
+    secretListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+  }
+}
+
+function renderSecretList(list: GmSecretListItem[]): void {
+  if (list.length === 0) {
+    secretListEl.innerHTML = '<div class="empty-hint">暂无密钥，使用上方表单添加。</div>';
+    return;
+  }
+  secretListEl.innerHTML = list.map((item) => `
+    <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--wash-ink);">
+      <code style="font-weight:600; min-width:160px;">${escapeHtml(item.key)}</code>
+      <span style="color:var(--ink-grey); font-family:monospace;">${escapeHtml(item.maskedValue)}</span>
+      <span style="flex:1; color:var(--ink-grey); font-size:13px;">${escapeHtml(item.description)}</span>
+      <span style="font-size:12px; color:var(--light-ink);">${escapeHtml(item.updatedAt.slice(0, 19).replace('T', ' '))}</span>
+      <button class="small-btn danger" type="button" data-secret-delete="${escapeHtml(item.key)}">删除</button>
+    </div>
+  `).join('');
+
+  secretListEl.querySelectorAll('[data-secret-delete]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = (btn as HTMLElement).dataset.secretDelete!;
+      deleteSecret(key).catch(() => {});
+    });
+  });
+}
+
+async function saveSecret(): Promise<void> {
+  const key = secretKeyInput.value.trim();
+  const value = secretValueInput.value.trim();
+  const description = secretDescInput.value.trim();
+  if (!key || !value) {
+    setStatus('密钥名和密钥值不能为空', true);
+    return;
+  }
+  secretSaveBtn.disabled = true;
+  try {
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/secrets`, {
+      method: 'POST',
+      body: JSON.stringify({ key, value, description } satisfies GmSetSecretReq),
+    });
+    secretKeyInput.value = '';
+    secretValueInput.value = '';
+    secretDescInput.value = '';
+    setStatus('密钥已保存');
+    await loadSecrets();
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '保存失败', true);
+  } finally {
+    secretSaveBtn.disabled = false;
+  }
+}
+
+async function deleteSecret(key: string): Promise<void> {
+  if (!confirm(`确认删除密钥 "${key}"？`)) return;
+  try {
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/secrets/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    setStatus(`密钥 ${key} 已删除`);
+    await loadSecrets();
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '删除失败', true);
+  }
+}
+
 /** changeGmPassword：处理变更GM密码。 */
 async function changeGmPassword(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -7716,6 +7804,7 @@ suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
 shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
+secretsTabBtn.addEventListener('click', () => switchTab('secrets'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
@@ -8067,6 +8156,10 @@ serverPanelDatabaseEl.addEventListener('change', (event) => {
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   changeGmPassword().catch(() => {});
+});
+secretForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  saveSecret().catch(() => {});
 });
 savePlayerBtn.addEventListener('click', () => {
   saveSelectedPlayer().catch(() => {});

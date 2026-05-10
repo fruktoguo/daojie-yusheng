@@ -353,12 +353,13 @@ export class CraftPanelRuntimeService {
         }
         const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
         const baseSuccessRate = computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
+        const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
         const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
             recipe.baseBrewTicks,
             recipe,
             normalizedSelection.ingredients,
             recipe.outputLevel,
-            player.alchemySkill?.level ?? 1,
+            craftSkillLevel,
             this.getAlchemyLikeToolSpeedRate(player, jobKind),
             furnaceOutputCount
         );
@@ -367,7 +368,7 @@ export class CraftPanelRuntimeService {
         const successRate = computeAlchemyAdjustedSuccessRate(
             baseSuccessRate,
             recipe.outputLevel,
-            player.alchemySkill?.level ?? 1,
+            craftSkillLevel,
             this.getAlchemyLikeToolSuccessRate(player, jobKind)
         );
         const batchOutputCount = computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
@@ -690,8 +691,9 @@ export class CraftPanelRuntimeService {
                 groundDrops.push(outputItem);
             }
         }
-        const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, player.alchemySkill, successCount, failureCount);
-        const skillChanged = applyCraftSkillExp(player.alchemySkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
+        const craftSkill = jobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
+        const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, craftSkill, successCount, failureCount);
+        const skillChanged = applyCraftSkillExp(craftSkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
         const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
         this.finalizeMutation(player, {
             inventoryChanged,
@@ -1150,6 +1152,7 @@ export class CraftPanelRuntimeService {
 
         const resolveExpToNext = (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level);
         player.alchemySkill = normalizeCraftSkill(player.alchemySkill, resolveExpToNext);
+        player.forgingSkill = normalizeCraftSkill(player.forgingSkill, resolveExpToNext);
         player.gatherSkill = normalizeCraftSkill(player.gatherSkill, resolveExpToNext);
         player.enhancementSkill = normalizeCraftSkill(player.enhancementSkill ?? {
             level: player.enhancementSkillLevel,

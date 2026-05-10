@@ -3,14 +3,9 @@
  */
 
 import type { ChangelogEntry } from '../../ui/changelog-data';
-import { t } from '../../ui/i18n';
-
-function changelogText(key: string, _fallback?: string): string {
-  return t(key);
-}
 
 /** 当前内置的更新日志条目。 */
-const CHANGELOG_ENTRY_DEFS: ChangelogEntry[] = [
+export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     updatedAt: '2026-04-29 22:22',
     summary: '这一轮把后续修行主轴往前推进了一大步：宗门体系、虚境与现实分线、阵法、根基、六维、内功和突破规则开始串成一条更完整的长期养成线。',
@@ -191,8 +186,3 @@ const CHANGELOG_ENTRY_DEFS: ChangelogEntry[] = [
   },
 ];
 
-export const CHANGELOG_ENTRIES: ChangelogEntry[] = CHANGELOG_ENTRY_DEFS.map((entry, entryIndex) => ({
-  updatedAt: entry.updatedAt,
-  summary: changelogText(`changelog.entry.${entryIndex}.summary`, entry.summary),
-  items: entry.items.map((item, itemIndex) => changelogText(`changelog.entry.${entryIndex}.item.${itemIndex}`, item)),
-}));

@@ -47,6 +47,7 @@ class WorldGatewayReadModelHelper {
                 ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
                 numericStatBreakdowns,
                 alchemySkill: player.alchemySkill,
+                forgingSkill: player.forgingSkill,
                 buildingSkill: player.buildingSkill,
                 gatherSkill: player.gatherSkill,
                 enhancementSkill: player.enhancementSkill,

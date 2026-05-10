@@ -78,6 +78,7 @@ import { WorldRuntimeSystemCommandEnqueueService } from './world-runtime-system-
 import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
 import '../instance/map-instance.runtime';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -340,6 +341,8 @@ export class WorldRuntimeService {
 
     mailRuntimeService;
 
+    durableOperationService;
+
     instanceLeaseSyncTimer = null;
 
     logger = new Logger(WorldRuntimeService.name);
@@ -425,6 +428,7 @@ export class WorldRuntimeService {
         @Inject(NodeRegistryService) nodeRegistryService: any,
         @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any,
         @Inject(MailRuntimeService) mailRuntimeService: any,
+        @Inject(DurableOperationService) durableOperationService: any,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
@@ -503,6 +507,7 @@ export class WorldRuntimeService {
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
+        this.durableOperationService = durableOperationService;
     }
 
     get lastTickDurationMs() {
@@ -1090,8 +1095,8 @@ export class WorldRuntimeService {
         ensureAttackAllowed(player, skill) {
         this.worldRuntimeTickDispatchService.ensureAttackAllowed(player, skill, this);
     }
-        queuePlayerNotice(playerId, text, kind) {
-        this.worldRuntimeTickDispatchService.queuePlayerNotice(playerId, text, kind, this);
+        queuePlayerNotice(playerId, text, kind, castId) {
+        this.worldRuntimeTickDispatchService.queuePlayerNotice(playerId, text, kind, this, castId);
     }
         pushCombatEffect(instanceId, effect) {
         this.worldRuntimeTickDispatchService.pushCombatEffect(instanceId, effect, this);

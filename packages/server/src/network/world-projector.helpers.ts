@@ -380,6 +380,7 @@ interface ProjectorPlayerLike {
   };
   bodyTraining?: BodyTrainingState | null;
   alchemySkill?: S2C_PanelAttrDelta['alchemySkill'];
+  forgingSkill?: S2C_PanelAttrDelta['alchemySkill'];
   buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
@@ -502,6 +503,7 @@ interface ProjectedAttrPanelState {
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
   alchemySkill?: S2C_PanelAttrDelta['alchemySkill'];
+  forgingSkill?: S2C_PanelAttrDelta['alchemySkill'];
   buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
@@ -979,6 +981,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         realmProgressToNext: player.realm?.progressToNext,
         realmBreakthroughReady: player.realm?.breakthroughReady,
         alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+        forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
         buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
         gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
@@ -1054,6 +1057,7 @@ function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView
         realmProgressToNext: player.realm?.progressToNext,
         realmBreakthroughReady: player.realm?.breakthroughReady,
         alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+        forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
         buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
         gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
@@ -1107,6 +1111,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
     const realmProgressToNextChanged = previousAttr.realmProgressToNext !== player.realm?.progressToNext;
     const realmBreakthroughReadyChanged = previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady;
     const alchemySkillChanged = !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill);
+    const forgingSkillChanged = !isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill);
     const buildingSkillChanged = !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill);
     const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill);
     const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill);
@@ -1124,6 +1129,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         + (realmProgressToNextChanged ? 1 : 0)
         + (realmBreakthroughReadyChanged ? 1 : 0)
         + (alchemySkillChanged ? 1 : 0)
+        + (forgingSkillChanged ? 1 : 0)
         + (buildingSkillChanged ? 1 : 0)
         + (gatherSkillChanged ? 1 : 0)
         + (enhancementSkillChanged ? 1 : 0);
@@ -1146,6 +1152,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         realmProgressToNext: realmProgressToNextChanged ? player.realm?.progressToNext : undefined,
         realmBreakthroughReady: realmBreakthroughReadyChanged ? player.realm?.breakthroughReady : undefined,
         alchemySkill: alchemySkillChanged ? (player.alchemySkill ? { ...player.alchemySkill } : undefined) : undefined,
+        forgingSkill: forgingSkillChanged ? (player.forgingSkill ? { ...player.forgingSkill } : undefined) : undefined,
         buildingSkill: buildingSkillChanged ? (player.buildingSkill ? { ...player.buildingSkill } : undefined) : undefined,
         gatherSkill: gatherSkillChanged ? (player.gatherSkill ? { ...player.gatherSkill } : undefined) : undefined,
         enhancementSkill: enhancementSkillChanged ? (player.enhancementSkill ? { ...player.enhancementSkill } : undefined) : undefined,
@@ -1230,6 +1237,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || previousAttr.realmProgressToNext !== player.realm?.progressToNext
         || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
         || !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill)
+        || !isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill)
         || !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
         || !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
         || !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)

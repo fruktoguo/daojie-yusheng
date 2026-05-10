@@ -1,3 +1,18 @@
+/**
+ * 战斗吟唱 Redis 恢复工具。
+ *
+ * 职责：
+ * - 将进行中的吟唱状态序列化到 Redis（用于断线重连/服务重启恢复）
+ * - 从 Redis 反序列化并校验吟唱状态的有效性
+ * - 处理恢复失败的各种原因（过期、死亡、版本不匹配、fencing 不匹配等）
+ *
+ * 设计：
+ * - Redis key 格式：combat:pending-cast:{actorKind}:{actorId}
+ * - 带 schema version 做前向兼容，版本不匹配直接拒绝
+ * - 带 fencing（ownerNodeId + leaseToken）防止跨节点/跨租约误恢复
+ * - TTL 基于 resolveTick 剩余时间 + 安全余量，最大 120 秒
+ */
+
 import {
   cancelPendingCombatCast,
   CombatPendingCastCancelReason,
@@ -7,23 +22,31 @@ import {
 type PendingCastRecord = Record<string, any>;
 type PendingCastContext = Record<string, any>;
 
+/** Redis 存储的 schema 版本号，升级时递增以拒绝旧版本记录。 */
 const PENDING_CAST_REDIS_SCHEMA_VERSION = 1;
+/** 默认 TTL（秒），用于 resolveTick 无法推算时的兜底。 */
 const DEFAULT_PENDING_CAST_TTL_SECONDS = 30;
+/** TTL 上限（秒），防止异常值导致 Redis key 长期残留。 */
 const MAX_PENDING_CAST_TTL_SECONDS = 120;
 
+/** 恢复拒绝原因枚举。 */
 export const PendingCombatCastRestoreRejectReason = Object.freeze({
-  EmptyRecord: 'empty_record',
-  InvalidRecord: 'invalid_record',
-  SchemaVersionMismatch: 'schema_version_mismatch',
-  ActorMismatch: 'actor_mismatch',
-  InstanceMismatch: 'instance_mismatch',
-  FencingMismatch: 'fencing_mismatch',
-  NotCasting: 'not_casting',
-  Expired: 'expired',
-  ActorDead: 'actor_dead',
-  ConfigRevisionMismatch: 'config_revision_mismatch',
+  EmptyRecord: 'empty_record',                     // Redis 中无记录
+  InvalidRecord: 'invalid_record',                 // 记录格式无效
+  SchemaVersionMismatch: 'schema_version_mismatch', // schema 版本不匹配
+  ActorMismatch: 'actor_mismatch',                 // 施法者不匹配
+  InstanceMismatch: 'instance_mismatch',           // 地图实例不匹配
+  FencingMismatch: 'fencing_mismatch',             // 节点/租约 fencing 不匹配
+  NotCasting: 'not_casting',                       // 状态不是 casting
+  Expired: 'expired',                               // 已过期
+  ActorDead: 'actor_dead',                         // 施法者已死亡
+  ConfigRevisionMismatch: 'config_revision_mismatch', // 技能配置版本变更
 });
 
+/**
+ * 构建 Redis key。
+ * 格式：combat:pending-cast:{actorKind}:{actorId}
+ */
 export function buildPendingCombatCastRedisKey(input: PendingCastContext = {}) {
   const actorKind = normalizeString(input.actorKind ?? input.pendingCast?.actorKind);
   const actorId = normalizeString(input.actorId ?? input.pendingCast?.actorId);
@@ -33,6 +56,11 @@ export function buildPendingCombatCastRedisKey(input: PendingCastContext = {}) {
   return `combat:pending-cast:${actorKind}:${actorId}`;
 }
 
+/**
+ * 将吟唱状态序列化为 Redis 存储格式。
+ * 返回 JSON 字符串、key、TTL 和字节长度，供调用方写入 Redis。
+ * 不可恢复的 pending cast 会返回 ok: false。
+ */
 export function serializePendingCombatCastForRedis(pendingCast: PendingCastRecord = {}, context: PendingCastContext = {}) {
   if (!isRestorablePendingCast(pendingCast)) {
     return {
@@ -73,6 +101,11 @@ export function serializePendingCombatCastForRedis(pendingCast: PendingCastRecor
   };
 }
 
+/**
+ * 从 Redis 记录恢复吟唱状态。
+ * 依次校验：schema 版本 → 记录有效性 → 状态 → actor → instance → fencing → 过期 → 死亡 → 配置版本。
+ * 返回 ok: true 时包含可用的 pendingCast，否则包含拒绝原因和可能的 cancelAction。
+ */
 export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context: PendingCastContext = {}) {
   const record = parsePendingCastRecord(recordOrJson);
   if (!record) {
@@ -88,16 +121,19 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
   if (pendingCast.status !== CombatPendingCastStatus.Casting) {
     return createRestoreReject(PendingCombatCastRestoreRejectReason.NotCasting, record);
   }
+  // actor 匹配校验
   const expectedActorKind = normalizeString(context.actorKind);
   const expectedActorId = normalizeString(context.actorId);
   if ((expectedActorKind && expectedActorKind !== pendingCast.actorKind)
     || (expectedActorId && expectedActorId !== pendingCast.actorId)) {
     return createRestoreReject(PendingCombatCastRestoreRejectReason.ActorMismatch, record);
   }
+  // 地图实例匹配校验
   const expectedInstanceId = normalizeString(context.instanceId);
   if (expectedInstanceId && expectedInstanceId !== pendingCast.instanceId) {
     return createRestoreReject(PendingCombatCastRestoreRejectReason.InstanceMismatch, record);
   }
+  // fencing 校验（防止跨节点误恢复）
   const fencing = record.fencing ?? {};
   const expectedOwnerNodeId = normalizeString(context.ownerNodeId);
   const expectedLeaseToken = normalizeString(context.leaseToken);
@@ -105,6 +141,7 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
     || (expectedLeaseToken && normalizeString(fencing.leaseToken) !== expectedLeaseToken)) {
     return createRestoreReject(PendingCombatCastRestoreRejectReason.FencingMismatch, record, { deleteRedisKey: false });
   }
+  // 过期校验
   const currentTick = normalizeOptionalInteger(context.currentTick);
   const resolveTick = normalizeOptionalInteger(pendingCast.resolveTick);
   if (currentTick !== null && resolveTick !== null && currentTick > resolveTick) {
@@ -114,6 +151,7 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
       message: 'redis_pending_cast_expired',
     });
   }
+  // 施法者死亡校验
   if (context.actorAlive === false) {
     return createRestoreCancellation(record, pendingCast, PendingCombatCastRestoreRejectReason.ActorDead, {
       reason: CombatPendingCastCancelReason.ActorDead,
@@ -121,6 +159,7 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
       message: 'redis_pending_cast_actor_dead',
     });
   }
+  // 配置版本校验
   const expectedConfigRevision = normalizeOptionalInteger(context.configRevision);
   const pendingConfigRevision = normalizeOptionalInteger(pendingCast.configRevision);
   if (expectedConfigRevision !== null && pendingConfigRevision !== null && expectedConfigRevision !== pendingConfigRevision) {
@@ -130,6 +169,7 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
       message: 'redis_pending_cast_config_revision_mismatch',
     });
   }
+  // 恢复成功
   return {
     ok: true,
     pendingCast,
@@ -141,6 +181,9 @@ export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context
   };
 }
 
+// ─── 内部工具函数 ───
+
+/** 创建恢复拒绝结果（无 cancelAction）。 */
 function createRestoreReject(reason: string, record: PendingCastRecord | null, options: PendingCastContext = {}) {
   return {
     ok: false,
@@ -152,6 +195,7 @@ function createRestoreReject(reason: string, record: PendingCastRecord | null, o
   };
 }
 
+/** 创建恢复拒绝结果（带 cancelAction，用于需要产出取消 action 的场景）。 */
 function createRestoreCancellation(record: PendingCastRecord, pendingCast: PendingCastRecord, reason: string, cancelInput: PendingCastContext) {
   return {
     ok: false,
@@ -163,6 +207,7 @@ function createRestoreCancellation(record: PendingCastRecord, pendingCast: Pendi
   };
 }
 
+/** 解析 Redis 记录（支持 JSON 字符串或对象）。 */
 function parsePendingCastRecord(recordOrJson: unknown): PendingCastRecord | null {
   if (!recordOrJson) {
     return null;
@@ -179,6 +224,7 @@ function parsePendingCastRecord(recordOrJson: unknown): PendingCastRecord | null
   return typeof recordOrJson === 'object' ? recordOrJson : null;
 }
 
+/** 规范化 pending cast 快照，确保所有字段有安全默认值。 */
 function normalizePendingCastSnapshot(pendingCast: PendingCastRecord = {}) {
   return {
     kind: 'combat_pending_cast',
@@ -211,6 +257,7 @@ function normalizePendingCastSnapshot(pendingCast: PendingCastRecord = {}) {
   };
 }
 
+/** 判断 pending cast 是否具备恢复所需的最小字段。 */
 function isRestorablePendingCast(pendingCast: any) {
   return pendingCast
     && pendingCast.kind === 'combat_pending_cast'
@@ -220,6 +267,11 @@ function isRestorablePendingCast(pendingCast: any) {
     && normalizeString(pendingCast.actionId ?? pendingCast.skillId);
 }
 
+/**
+ * 计算 Redis TTL。
+ * 优先使用显式传入值，否则基于剩余 tick 数 + 安全余量计算。
+ * 上限 MAX_PENDING_CAST_TTL_SECONDS，下限 DEFAULT_PENDING_CAST_TTL_SECONDS。
+ */
 function normalizePendingCastTtlSeconds(inputTtlSeconds: unknown, currentTick: unknown, resolveTick: unknown) {
   if (Number.isFinite(Number(inputTtlSeconds)) && Number(inputTtlSeconds) > 0) {
     return Math.min(MAX_PENDING_CAST_TTL_SECONDS, Math.max(1, Math.ceil(Number(inputTtlSeconds))));
@@ -231,6 +283,7 @@ function normalizePendingCastTtlSeconds(inputTtlSeconds: unknown, currentTick: u
   );
 }
 
+/** 规范化坐标数组为 {x, y}[]。 */
 function normalizeCells(cells: unknown) {
   if (!Array.isArray(cells)) {
     return [];
@@ -245,6 +298,7 @@ function normalizeCells(cells: unknown) {
   return normalized;
 }
 
+/** 规范化坐标为 {x, y} 或 null。 */
 function normalizeAnchor(value: any) {
   const x = Math.trunc(Number(value?.x));
   const y = Math.trunc(Number(value?.y));
@@ -254,10 +308,12 @@ function normalizeAnchor(value: any) {
   return { x, y };
 }
 
+/** 规范化字符串：空白或非字符串返回 null。 */
 function normalizeString(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
+/** 规范化可选整数：无效返回 null。 */
 function normalizeOptionalInteger(value: unknown) {
   if (!Number.isFinite(Number(value))) {
     return null;
@@ -265,6 +321,7 @@ function normalizeOptionalInteger(value: unknown) {
   return Math.trunc(Number(value));
 }
 
+/** 规范化非负整数：无效或负数返回 0。 */
 function normalizeNonNegativeInteger(value: unknown) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;

@@ -45,7 +45,7 @@ export const DEFAULT_TILE_DURABILITY_MULTIPLIER_BY_TYPE: Partial<Record<TileType
   [TileType.Bamboo]: 8,
   [TileType.Cliff]: 50,
   [TileType.Stone]: 50,
-  [TileType.SpiritOre]: 100000,
+  [TileType.SpiritOre]: 10000,
   [TileType.BlackIronOre]: 2000,
   [TileType.BrokenSwordHeap]: 2,
   [TileType.Door]: 14,
