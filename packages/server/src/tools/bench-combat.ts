@@ -7,6 +7,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const shared_1 = require("@mud/shared");
 const combat_resolution_helpers_1 = require("../runtime/combat/combat-resolution.helpers");
+const combat_pipeline_compose_1 = require("../runtime/combat/combat-pipeline-compose");
 const player_combat_service_1 = require("../runtime/combat/player-combat.service");
 const world_runtime_basic_attack_service_1 = require("../runtime/world/world-runtime-basic-attack.service");
 const world_runtime_combat_action_service_1 = require("../runtime/world/world-runtime-combat-action.service");
@@ -230,8 +231,9 @@ async function benchmarkCombatHotPath(attacker, defender) {
         if (!result.ok) throw new Error(`target validation failed: ${result.reason}`);
     });
     const hitResolutionSingle = measureBenchmark(HOT_PATH_ITERATIONS, () => {
-        const result = (0, combat_resolution_helpers_1.resolveCombatHit)({
+        const result = (0, combat_pipeline_compose_1.resolveCombatDamage)({
             attackerStats: attacker.attrs.numericStats,
+            attackerRatios: attacker.attrs.ratioDivisors,
             targetStats: defender.attrs.numericStats,
             targetRatios: defender.attrs.ratioDivisors,
             baseDamage: 32,
@@ -241,7 +243,6 @@ async function benchmarkCombatHotPath(attacker, defender) {
             targetCombatExp: defender.combatExp,
             attackerRealmLv: 1,
             targetRealmLv: 1,
-            damageMultiplier: 1,
         });
         if (!Number.isFinite(Number(result.damage))) throw new Error('hit resolution returned invalid damage');
     });
@@ -346,8 +347,9 @@ async function benchmarkCombatHotPath(attacker, defender) {
                 resolveCombatRelation: () => ({ hostile: true }),
             });
             if (!validation.ok) throw new Error(`batch monster skill validation failed: ${validation.reason}`);
-            const hit = (0, combat_resolution_helpers_1.resolveCombatHit)({
+            const hit = (0, combat_pipeline_compose_1.resolveCombatDamage)({
                 attackerStats: attacker.attrs.numericStats,
+                attackerRatios: attacker.attrs.ratioDivisors,
                 targetStats: defender.attrs.numericStats,
                 targetRatios: defender.attrs.ratioDivisors,
                 baseDamage: 24,
@@ -357,7 +359,6 @@ async function benchmarkCombatHotPath(attacker, defender) {
                 targetCombatExp: defender.combatExp,
                 attackerRealmLv: 1,
                 targetRealmLv: 1,
-                damageMultiplier: 1,
             });
             const events = service.buildCombatEvents({
                 ok: true,

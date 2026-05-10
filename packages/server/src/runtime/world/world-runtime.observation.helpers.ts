@@ -1,7 +1,7 @@
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
 
 import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger } from '@mud/shared';
-import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
+import { resolveCombatDamage } from '../combat/combat-pipeline-compose';
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
 const OBSERVATION_BLIND_RATIO = 0.2;
@@ -75,7 +75,7 @@ export function createTileCombatRatioDivisors() {
 export function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return resolveCombatHitForAction({
+    return resolveCombatDamage({
         attackerStats,
         attackerRatios,
         attackerRealmLv: 1,
@@ -86,7 +86,6 @@ export function computeResolvedDamage(baseDamage, damageKind, attackerStats, att
         targetCombatExp: 0,
         baseDamage,
         damageKind,
-        damageMultiplier: 1,
     });
 }
 /** 生成中文的伤害明细字符串。 */

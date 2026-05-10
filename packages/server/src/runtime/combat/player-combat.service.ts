@@ -18,10 +18,8 @@
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { resolveCombatHitForAction } from './combat-resolution.helpers';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
-import { createCombatResolveContext, type CombatResolveContext } from './combat-pipeline';
-import { runTilePipeline } from './combat-pipeline-compose';
+import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
 
 /** 战斗运行时技能结算服务。 */
 @Injectable()
@@ -222,7 +220,7 @@ export class PlayerCombatService {
                     targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
                 })));
 
-                const damageRoll = options?.isTileTarget ? resolveTileDamage(attacker, target, effect, baseDamage) : resolveDamage(attacker, target, effect, baseDamage);
+                const damageRoll = resolveEffectDamage(attacker, target, effect, baseDamage, options?.isTileTarget === true);
                 damageRolls.push(damageRoll);
                 totalRawDamage += Math.max(0, Math.round(damageRoll.rawDamage ?? 0));
                 if (!primaryDamageKind) {
@@ -378,63 +376,25 @@ function normalizeSkillQiCost(rawCost) {
     return Math.max(0, Math.round(Number(rawCost)));
 }
 
-/** 调用 resolveCombatHitForAction 执行单次伤害结算。 */
-function resolveDamage(attacker, target, effect, baseDamage) {
-    const attackerStats = attacker.attrs.numericStats;
-    const targetStats = target.attrs.numericStats;
-    const attackerRatios = attacker.attrs.ratioDivisors;
-    const targetRatios = target.attrs.ratioDivisors;
-    const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
-
-    const resolved = resolveCombatHitForAction({
-        actor: attacker,
-        target,
-        attackerStats,
-        attackerRatios,
-        attackerRealmLv: resolveCombatantRealmLv(attacker),
-        attackerCombatExp: resolveCombatantCombatExp(attacker),
-        targetStats,
-        targetRatios,
-        targetRealmLv: resolveCombatantRealmLv(target),
-        targetCombatExp: resolveCombatantCombatExp(target),
-        baseDamage,
-        damageKind,
-        element: effect.element,
-        damageMultiplier: 1,
-    });
-    return {
-        ...resolved,
-        damageKind,
-        element: effect.element,
-    };
-}
-
-/** 地块伤害结算：只走五行加成和额外乘区，不吃境界压制/暴击/命中/破招/防御。 */
-function resolveTileDamage(attacker, _target, effect, baseDamage) {
+/** 单次技能效果伤害结算：战斗者走完整管线，地块走地块管线。 */
+function resolveEffectDamage(attacker, target, effect, baseDamage, isTile = false) {
     const attackerStats = attacker.attrs.numericStats;
     const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
-    const ctx = createCombatResolveContext({
+    const resolve = isTile ? resolveTileCombatDamage : resolveCombatDamage;
+    const outcome = resolve({
         attackerStats,
         attackerRatios: attacker.attrs.ratioDivisors,
-        targetStats: {},
-        targetRatios: {},
+        attackerRealmLv: resolveCombatantRealmLv(attacker),
+        attackerCombatExp: resolveCombatantCombatExp(attacker),
+        targetStats: isTile ? {} : target.attrs.numericStats,
+        targetRatios: isTile ? {} : target.attrs.ratioDivisors,
+        targetRealmLv: isTile ? 1 : resolveCombatantRealmLv(target),
+        targetCombatExp: isTile ? 0 : resolveCombatantCombatExp(target),
         baseDamage,
         damageKind,
         element: effect.element,
-        extraMultiplier: 1,
     });
-    runTilePipeline(ctx);
-    return {
-        hit: true,
-        rawDamage: ctx.rawDamage,
-        damage: ctx.damage,
-        crit: false,
-        dodged: false,
-        resolved: false,
-        broken: false,
-        damageKind,
-        element: effect.element,
-    };
+    return { ...outcome, damageKind, element: effect.element };
 }
 
 /** 推断伤害类型：法攻 >= 物攻时为 spell，否则 physical。 */

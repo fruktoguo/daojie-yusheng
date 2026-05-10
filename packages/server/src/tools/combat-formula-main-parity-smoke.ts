@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const shared_1 = require("@mud/shared");
 const { PlayerCombatService } = require("../runtime/combat/player-combat.service");
 const combat_resolution_helpers_1 = require("../runtime/combat/combat-resolution.helpers");
+const combat_pipeline_compose_1 = require("../runtime/combat/combat-pipeline-compose");
 const { resolveMonsterCombatExpEquivalentFallback } = require("../runtime/combat/monster-combat-exp-equivalent.helper");
 
 function createStats(patch = {}) {
@@ -47,7 +48,7 @@ function withRandom(value, fn) {
 }
 
 function resolve(params) {
-    return (0, combat_resolution_helpers_1.resolveCombatHit)({
+    return (0, combat_pipeline_compose_1.resolveCombatDamage)({
         attackerStats: createStats(params.attackerStats),
         attackerRatios: createRatios(),
         attackerRealmLv: params.attackerRealmLv ?? 1,
@@ -58,7 +59,7 @@ function resolve(params) {
         targetCombatExp: params.targetCombatExp ?? 0,
         baseDamage: params.baseDamage ?? 100,
         damageKind: params.damageKind ?? 'physical',
-        damageMultiplier: params.damageMultiplier ?? 1,
+        extraMultiplier: params.damageMultiplier ?? 1,
     });
 }
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { getDamageTrailColor } from '@mud/shared';
 import { PlayerCombatService } from '../combat/player-combat.service';
-import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
+import { resolveCombatDamage } from '../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -191,9 +191,7 @@ export class WorldRuntimeMonsterActionApplyService {
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? monster.numericStats.spellAtk
             : monster.numericStats.physAtk));
-        const resolvedDamage = resolveCombatHitForAction({
-            actor: monster,
-            target: player,
+        const resolvedDamage = resolveCombatDamage({
             attackerStats: monster.numericStats,
             attackerRatios: monster.ratioDivisors,
             attackerRealmLv: Math.max(1, Math.floor(monster.level ?? 1)),
@@ -204,7 +202,6 @@ export class WorldRuntimeMonsterActionApplyService {
             targetCombatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
             baseDamage,
             damageKind,
-            damageMultiplier: 1,
         });
         const effectColor = getDamageTrailColor(damageKind);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);

@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
+import { resolveCombatDamage } from '../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../player/player-combat-config.helpers';
@@ -635,7 +635,7 @@ export class WorldRuntimeBasicAttackService {
  */
 
     resolveBasicAttackDamage(attackerStats, attackerRatios, attackerRealmLv, attackerCombatExp, targetStats, targetRatios, targetRealmLv, targetCombatExp, baseDamage, damageKind, extraMultiplier = 1) {
-        return resolveCombatHitForAction({
+        return resolveCombatDamage({
             attackerStats,
             attackerRatios,
             attackerRealmLv,
@@ -646,7 +646,7 @@ export class WorldRuntimeBasicAttackService {
             targetCombatExp,
             baseDamage,
             damageKind,
-            damageMultiplier: extraMultiplier,
+            extraMultiplier,
         });
     }
     applyPlayerBasicAttackOutcome(deps, attacker, target, result = {}) {
