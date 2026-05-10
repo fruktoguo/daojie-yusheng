@@ -6,7 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const assert = require('node:assert/strict');
-const { MailExpirationCleanupWorker } = require('../runtime/world/mail-expiration-cleanup.worker');
+const { MailExpirationCleanupWorker } = require('../runtime/world/worker/mail-expiration-cleanup.worker');
 
 function createWorker() {
   const calls = [];

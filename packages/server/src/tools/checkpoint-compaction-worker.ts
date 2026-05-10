@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { CheckpointCompactionWorker } from '../runtime/world/checkpoint-compaction.worker';
+import { CheckpointCompactionWorker } from '../runtime/world/worker/checkpoint-compaction.worker';
 
 const DEFAULT_IDLE_MS = 30_000;
 

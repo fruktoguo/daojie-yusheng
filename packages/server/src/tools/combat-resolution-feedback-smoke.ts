@@ -11,9 +11,9 @@ import { PlayerCombatService } from '../runtime/combat/player-combat.service';
 import {
   formatCombatResolutionFloatText,
   formatCombatResolutionOutcome,
-} from '../runtime/world/world-runtime.observation.helpers';
-import { WorldRuntimeCombatEffectsService } from '../runtime/world/world-runtime-combat-effects.service';
-import { emitCombatPresentation } from '../runtime/world/world-runtime-combat-presentation.helpers';
+} from '../runtime/world/query/world-runtime.observation.helpers';
+import { WorldRuntimeCombatEffectsService } from '../runtime/world/combat/world-runtime-combat-effects.service';
+import { emitCombatPresentation } from '../runtime/world/combat/world-runtime-combat-presentation.helpers';
 
 function createCombatStats(overrides: Record<string, unknown> = {}) {
   return {

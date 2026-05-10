@@ -3,10 +3,10 @@
 const assert = require('node:assert/strict');
 
 const { resolveMonsterCombatExpEquivalentFallback } = require('../runtime/combat/monster-combat-exp-equivalent.helper');
-const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
-const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
-const { WorldRuntimeCombatActionService } = require('../runtime/world/world-runtime-combat-action.service');
-const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/world-runtime-monster-action-apply.service');
+const { WorldRuntimeBasicAttackService } = require('../runtime/world/combat/world-runtime-basic-attack.service');
+const { WorldRuntimeBattleEngageService } = require('../runtime/world/combat/world-runtime-battle-engage.service');
+const { WorldRuntimeCombatActionService } = require('../runtime/world/combat/world-runtime-combat-action.service');
+const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/combat/world-runtime-monster-action-apply.service');
 
 function createAttacker(overrides = {}) {
   return {

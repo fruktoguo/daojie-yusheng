@@ -13,7 +13,7 @@
  * - callFirstDefined 实现优雅降级：优先用 handlers 覆盖，其次用 deps 中的服务
  */
 
-import { CombatTargetKind } from '../world/combat-action.types';
+import { CombatTargetKind } from '../world/combat/combat-action.types';
 
 type OutcomeHandlers = Record<string, any>;
 type OutcomeApplyInput = Record<string, any>;

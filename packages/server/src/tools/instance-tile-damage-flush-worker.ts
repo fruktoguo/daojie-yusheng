@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { InstanceTileDamageFlushWorker } from '../runtime/world/instance-tile-damage-flush.worker';
+import { InstanceTileDamageFlushWorker } from '../runtime/world/worker/instance-tile-damage-flush.worker';
 
 const DEFAULT_IDLE_MS = 2_000;
 

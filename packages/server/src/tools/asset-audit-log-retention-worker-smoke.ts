@@ -6,7 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const assert = require('node:assert/strict');
-const { AssetAuditLogRetentionWorker } = require('../runtime/world/asset-audit-log-retention.worker');
+const { AssetAuditLogRetentionWorker } = require('../runtime/world/worker/asset-audit-log-retention.worker');
 
 function createWorker() {
   const calls = [];

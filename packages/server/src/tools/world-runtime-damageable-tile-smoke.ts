@@ -14,8 +14,8 @@ import {
 
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
-import { WorldRuntimeDetailQueryService } from '../runtime/world/world-runtime-detail-query.service';
-import { buildPlayerObservation } from '../runtime/world/world-runtime.observation.helpers';
+import { WorldRuntimeDetailQueryService } from '../runtime/world/query/world-runtime-detail-query.service';
+import { buildPlayerObservation } from '../runtime/world/query/world-runtime.observation.helpers';
 import { findPathPointsOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 function createTemplate() {

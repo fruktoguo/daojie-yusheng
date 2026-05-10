@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { InstanceMonsterRuntimeFlushWorker } from '../runtime/world/instance-monster-runtime-flush.worker';
+import { InstanceMonsterRuntimeFlushWorker } from '../runtime/world/worker/instance-monster-runtime-flush.worker';
 
 const DEFAULT_IDLE_MS = 2_000;
 

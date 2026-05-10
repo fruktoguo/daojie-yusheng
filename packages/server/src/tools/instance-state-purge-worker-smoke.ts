@@ -6,7 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const assert = require('node:assert/strict');
-const { InstanceStatePurgeWorker } = require('../runtime/world/instance-state-purge.worker');
+const { InstanceStatePurgeWorker } = require('../runtime/world/worker/instance-state-purge.worker');
 
 function createService() {
   const purged = [];

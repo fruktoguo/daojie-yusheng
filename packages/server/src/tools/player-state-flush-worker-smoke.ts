@@ -15,7 +15,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { PlayerStateFlushWorker } from '../runtime/world/player-state-flush.worker';
+import { PlayerStateFlushWorker } from '../runtime/world/worker/player-state-flush.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
 

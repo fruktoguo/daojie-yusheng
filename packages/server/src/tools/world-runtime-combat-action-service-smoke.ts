@@ -14,7 +14,7 @@ const {
   CombatRejectReason,
   CombatTargetKind,
   WorldRuntimeCombatActionService,
-} = require('../runtime/world/world-runtime-combat-action.service');
+} = require('../runtime/world/combat/world-runtime-combat-action.service');
 const {
   cancelPendingCombatCast,
   CombatPendingCastCancelReason,
@@ -35,8 +35,8 @@ const {
   queryMonsterSkillFailureReasons,
   queryRecentCombatAuditEvents,
 } = require('../runtime/combat/combat-event-query');
-const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/world-runtime-monster-action-apply.service');
-const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/world-runtime-player-skill-dispatch.service');
+const { WorldRuntimeMonsterActionApplyService } = require('../runtime/world/combat/world-runtime-monster-action-apply.service');
+const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/combat/world-runtime-player-skill-dispatch.service');
 
 async function run() {
   const service = new WorldRuntimeCombatActionService();

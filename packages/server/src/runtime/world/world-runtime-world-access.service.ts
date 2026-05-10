@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { WorldRuntimeSummaryQueryService } from './world-runtime-summary-query.service';
+import { WorldRuntimeSummaryQueryService } from './query/world-runtime-summary-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { buildPublicInstanceId, buildRealInstanceId, normalizeRuntimeInstanceLinePreset } = world_runtime_normalization_helpers_1;

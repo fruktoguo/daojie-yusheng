@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { InstanceGroundItemFlushWorker } from '../runtime/world/instance-ground-item-flush.worker';
+import { InstanceGroundItemFlushWorker } from '../runtime/world/worker/instance-ground-item-flush.worker';
 
 const DEFAULT_IDLE_MS = 1_500;
 

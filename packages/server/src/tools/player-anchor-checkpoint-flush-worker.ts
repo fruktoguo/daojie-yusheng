@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/player-anchor-checkpoint-flush.worker';
+import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/worker/player-anchor-checkpoint-flush.worker';
 
 const DEFAULT_IDLE_MS = 1_000;
 

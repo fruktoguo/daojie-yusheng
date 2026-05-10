@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { AssetAuditLogRetentionWorker } from '../runtime/world/asset-audit-log-retention.worker';
+import { AssetAuditLogRetentionWorker } from '../runtime/world/worker/asset-audit-log-retention.worker';
 
 const DEFAULT_IDLE_MS = 30_000;
 

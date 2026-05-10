@@ -12,8 +12,8 @@ const assert = require('node:assert/strict');
 
 const {
   WorldRuntimeCombatActionService,
-} = require('../runtime/world/world-runtime-combat-action.service');
-const { CombatActionKind, CombatTargetKind } = require('../runtime/world/combat-action.types');
+} = require('../runtime/world/combat/world-runtime-combat-action.service');
+const { CombatActionKind, CombatTargetKind } = require('../runtime/world/combat/combat-action.types');
 const { installSmokeTimeout } = require('./smoke-timeout');
 
 installSmokeTimeout(__filename);

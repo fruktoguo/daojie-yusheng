@@ -6,7 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const assert = require('node:assert/strict');
-const { MailSoftDeletePurgeWorker } = require('../runtime/world/mail-soft-delete-purge.worker');
+const { MailSoftDeletePurgeWorker } = require('../runtime/world/worker/mail-soft-delete-purge.worker');
 
 function createWorker() {
   const calls = [];

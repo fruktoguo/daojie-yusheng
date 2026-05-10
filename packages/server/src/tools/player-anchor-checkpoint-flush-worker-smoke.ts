@@ -13,7 +13,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/player-anchor-checkpoint-flush.worker';
+import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/worker/player-anchor-checkpoint-flush.worker';
 import { Direction } from '@mud/shared';
 
 const databaseUrl = resolveServerDatabaseUrl();

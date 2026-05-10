@@ -6,7 +6,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { InstanceDomainPersistenceService } from '../persistence/instance-domain-persistence.service';
-import { InstanceOverlayFlushWorker } from '../runtime/world/instance-overlay-flush.worker';
+import { InstanceOverlayFlushWorker } from '../runtime/world/worker/instance-overlay-flush.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
 

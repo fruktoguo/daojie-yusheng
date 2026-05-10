@@ -9,11 +9,11 @@ const {
 } = require('../runtime/player/player-combat-config.helpers');
 const { PlayerCombatService } = require('../runtime/combat/player-combat.service');
 const { resolveMonsterCombatExpEquivalentFallback } = require('../runtime/combat/monster-combat-exp-equivalent.helper');
-const { WorldRuntimeAutoCombatService } = require('../runtime/world/world-runtime-auto-combat.service');
-const { WorldRuntimeBasicAttackService } = require('../runtime/world/world-runtime-basic-attack.service');
-const { WorldRuntimeBattleEngageService } = require('../runtime/world/world-runtime-battle-engage.service');
-const { WorldRuntimeCombatActionService } = require('../runtime/world/world-runtime-combat-action.service');
-const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/world-runtime-player-skill-dispatch.service');
+const { WorldRuntimeAutoCombatService } = require('../runtime/world/combat/world-runtime-auto-combat.service');
+const { WorldRuntimeBasicAttackService } = require('../runtime/world/combat/world-runtime-basic-attack.service');
+const { WorldRuntimeBattleEngageService } = require('../runtime/world/combat/world-runtime-battle-engage.service');
+const { WorldRuntimeCombatActionService } = require('../runtime/world/combat/world-runtime-combat-action.service');
+const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/combat/world-runtime-player-skill-dispatch.service');
 
 function createPlayer(overrides = {}) {
   return {

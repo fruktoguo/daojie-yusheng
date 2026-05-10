@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
-import { WorldRuntimePlayerCombatService } from '../runtime/world/world-runtime-player-combat.service';
+import { WorldRuntimePlayerCombatService } from '../runtime/world/combat/world-runtime-player-combat.service';
 
 async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();

@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { MailSoftDeletePurgeWorker } from '../runtime/world/mail-soft-delete-purge.worker';
+import { MailSoftDeletePurgeWorker } from '../runtime/world/worker/mail-soft-delete-purge.worker';
 
 const DEFAULT_IDLE_MS = 30_000;
 

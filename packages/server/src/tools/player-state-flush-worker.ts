@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { PlayerStateFlushWorker } from '../runtime/world/player-state-flush.worker';
+import { PlayerStateFlushWorker } from '../runtime/world/worker/player-state-flush.worker';
 
 const DEFAULT_IDLE_MS = 2_500;
 

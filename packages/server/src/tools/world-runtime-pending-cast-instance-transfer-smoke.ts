@@ -16,10 +16,10 @@ const {
   CombatRejectReason,
   CombatTargetKind,
   WorldRuntimeCombatActionService,
-} = require('../runtime/world/world-runtime-combat-action.service');
+} = require('../runtime/world/combat/world-runtime-combat-action.service');
 const {
   WorldRuntimePlayerSkillDispatchService,
-} = require('../runtime/world/world-runtime-player-skill-dispatch.service');
+} = require('../runtime/world/combat/world-runtime-player-skill-dispatch.service');
 const {
   WorldRuntimeTransferService,
 } = require('../runtime/world/world-runtime-transfer.service');

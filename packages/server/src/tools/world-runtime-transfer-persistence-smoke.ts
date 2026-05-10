@@ -8,7 +8,7 @@ import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/player-anchor-checkpoint-flush.worker';
+import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/worker/player-anchor-checkpoint-flush.worker';
 import { WorldRuntimeTransferService } from '../runtime/world/world-runtime-transfer.service';
 import { installSmokeTimeout } from './smoke-timeout';
 

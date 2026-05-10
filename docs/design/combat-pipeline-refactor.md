@@ -189,3 +189,40 @@ interface CombatantState {
 - AOI/广播优化
 - 持久化/审计链路
 - 战斗表现层重构
+
+## 已完成（2026-05-10）
+
+### 管线迁移
+
+- [x] `combat-pipeline.ts`：context 类型 + 9 个环节纯函数
+- [x] `combat-pipeline-compose.ts`：`resolveCombatDamage`（战斗者）/ `resolveTileCombatDamage`（地块）统一入口
+- [x] 所有调用方迁移到新 pipeline：
+  - `player-combat.service.ts`：`resolveEffectDamage` 统一技能效果结算，`isTileTarget` 区分地块
+  - `world-runtime-basic-attack.service.ts`：`resolveBasicAttackDamage` → `resolveCombatDamage`
+  - `world-runtime-monster-action-apply.service.ts`：怪物普攻 → `resolveCombatDamage`
+  - `world-runtime.observation.helpers.ts`：观察预估 → `resolveCombatDamage`
+- [x] 移除 `resolveCombatHit` / `resolveCombatHitForAction`
+- [x] `combat-resolution.helpers.ts` 精简为随机源管理 + 对抗率工具函数
+
+### 地块伤害修复
+
+- [x] `runTilePipeline` 只保留五行加成 + 额外乘区
+- [x] 地块不吃：境界压制、暴击、命中、破招、防御
+- [x] 阵法减伤（`mitigateTerrainDamage`）在 pipeline 外部正常应用
+
+### runtime/world 目录重组
+
+world/ 根目录从 95 个文件降到约 40 个：
+
+| 子目录 | 文件数 | 内容 |
+|--------|--------|------|
+| `world/worker/` | 14 | flush、cleanup、purge 等后台 worker |
+| `world/query/` | 11 | 查询服务、观察 helpers、read facade |
+| `world/command/` | 10 | 命令处理、GM 队列、系统命令 |
+| `world/combat/` | 13 | 战斗编排：普攻、技能、自动战斗、怪物行动、表现 |
+
+## 后续计划
+
+- [ ] 怪物技能结算（`castMonsterSkill`）迁移到新 pipeline
+- [ ] `world-runtime-combat-dispatch.service.ts` 统一入口（合并普攻/技能分发）
+- [ ] 战斗表现层抽象（减少 `emitCombatPresentation` 重复调用）

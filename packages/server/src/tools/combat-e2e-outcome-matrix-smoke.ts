@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 
 import { installSmokeTimeout } from './smoke-timeout';
-import { WorldRuntimeCombatActionService } from '../runtime/world/world-runtime-combat-action.service';
+import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
 import {
   CombatActorKind,
   CombatActionKind,
@@ -11,7 +11,7 @@ import {
   CombatEffectKind,
   CombatRejectReason,
   CombatTargetKind,
-} from '../runtime/world/combat-action.types';
+} from '../runtime/world/combat/combat-action.types';
 import { createCombatOutcomeApplyAdapters } from '../runtime/combat/combat-outcome-apply-adapters';
 
 installSmokeTimeout(__filename);

@@ -14,8 +14,8 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
-import { InstanceResourceFlushWorker } from '../runtime/world/instance-resource-flush.worker';
-import { PlayerStateFlushWorker } from '../runtime/world/player-state-flush.worker';
+import { InstanceResourceFlushWorker } from '../runtime/world/worker/instance-resource-flush.worker';
+import { PlayerStateFlushWorker } from '../runtime/world/worker/player-state-flush.worker';
 
 const DEFAULT_PLAYER_COUNT = 64;
 const DEFAULT_INSTANCE_COUNT = 32;

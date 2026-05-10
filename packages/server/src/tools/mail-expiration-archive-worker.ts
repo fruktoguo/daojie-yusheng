@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { MailExpirationCleanupWorker } from '../runtime/world/mail-expiration-cleanup.worker';
+import { MailExpirationCleanupWorker } from '../runtime/world/worker/mail-expiration-cleanup.worker';
 
 const DEFAULT_IDLE_MS = 5_000;
 

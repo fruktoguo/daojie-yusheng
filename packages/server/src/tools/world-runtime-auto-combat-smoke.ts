@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { WorldRuntimeAutoCombatService } from '../runtime/world/world-runtime-auto-combat.service';
+import { WorldRuntimeAutoCombatService } from '../runtime/world/combat/world-runtime-auto-combat.service';
 import { findPathToTargetWithinRangeOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 function createPlayerRuntimeService(player: Record<string, unknown>, extraPlayers: Array<Record<string, unknown>> = []) {

@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { InstanceOverlayFlushWorker } from '../runtime/world/instance-overlay-flush.worker';
+import { InstanceOverlayFlushWorker } from '../runtime/world/worker/instance-overlay-flush.worker';
 
 const DEFAULT_IDLE_MS = 2_000;
 

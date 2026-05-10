@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { WorldRuntimeNpcShopQueryService } from './world-runtime-npc-shop-query.service';
+import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 

@@ -15,7 +15,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { CheckpointCompactionWorker } from '../runtime/world/checkpoint-compaction.worker';
+import { CheckpointCompactionWorker } from '../runtime/world/worker/checkpoint-compaction.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
 

@@ -7,7 +7,7 @@ import path from 'node:path';
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
-import { buildMonsterObservation } from '../runtime/world/world-runtime.observation.helpers';
+import { buildMonsterObservation } from '../runtime/world/query/world-runtime.observation.helpers';
 import {
   Direction,
   formatDisplayCurrentMax,

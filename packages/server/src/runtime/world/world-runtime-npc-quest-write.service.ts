@@ -1,6 +1,6 @@
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
+import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;

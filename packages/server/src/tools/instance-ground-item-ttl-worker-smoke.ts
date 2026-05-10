@@ -6,7 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const assert = require('node:assert/strict');
-const { InstanceGroundItemTtlCleanupWorker } = require('../runtime/world/instance-ground-item-ttl.worker');
+const { InstanceGroundItemTtlCleanupWorker } = require('../runtime/world/worker/instance-ground-item-ttl.worker');
 
 function createService() {
   const removed = [];

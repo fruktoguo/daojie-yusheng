@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 
 import { encodeTileTargetRef } from '@mud/shared';
-import { WorldRuntimeBattleEngageService } from '../runtime/world/world-runtime-battle-engage.service';
-import { resolveAttackableTargetRef } from '../runtime/world/world-runtime.attack-target.helpers';
+import { WorldRuntimeBattleEngageService } from '../runtime/world/combat/world-runtime-battle-engage.service';
+import { resolveAttackableTargetRef } from '../runtime/world/combat/world-runtime.attack-target.helpers';
 
 function createDeferred() {
   let resolve!: () => void;

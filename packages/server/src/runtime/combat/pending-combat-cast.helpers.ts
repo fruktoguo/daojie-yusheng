@@ -26,7 +26,7 @@ import {
   CombatActorKind,
   CombatTargetKind,
   createCombatAction,
-} from '../world/combat-action.types';
+} from '../world/combat/combat-action.types';
 
 type PendingCombatCastInput = Record<string, any>;
 
