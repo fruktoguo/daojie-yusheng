@@ -221,6 +221,13 @@ function buildProtectionCandidates(player, ref, item, config) {
             return;
         }
         if (ref.source === 'inventory' && ref.slotIndex === slotIndex) {
+            const entryCount = Math.max(0, Math.floor(Number(entry.count) || 0));
+            if (entryCount < 2) {
+                return;
+            }
+            const summary = summarizeEnhancementItem(entry);
+            summary.count = entryCount - 1;
+            candidates.push({ ref: { source: 'inventory', slotIndex }, item: summary });
             return;
         }
         candidates.push({

@@ -1294,6 +1294,13 @@ export class CraftPanelRuntimeService {
                 return;
             }
             if (ref.source === 'inventory' && ref.slotIndex === slotIndex) {
+                const entryCount = Math.max(0, Math.floor(Number(entry.count) || 0));
+                if (entryCount < 2) {
+                    return;
+                }
+                const cloned = cloneItem(entry);
+                cloned.count = entryCount - 1;
+                candidates.push({ ref: { source: 'inventory', slotIndex }, item: cloned });
                 return;
             }
             candidates.push({
@@ -2507,7 +2514,16 @@ function extractInventoryItemAt(player, slotIndex) {
     if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= player.inventory.items.length) {
         return null;
     }
-    return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
+    const item = player.inventory.items[slotIndex];
+    if (!item) {
+        return null;
+    }
+    const count = Math.max(0, Math.floor(Number(item.count) || 0));
+    if (count <= 1) {
+        return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
+    }
+    item.count = count - 1;
+    return { ...item, count: 1 };
 }
 /**
  * setEquippedItem：写入Equipped道具。
