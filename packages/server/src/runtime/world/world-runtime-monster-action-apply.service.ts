@@ -14,6 +14,7 @@ import * as world_runtime_observation_helpers_1 from './world-runtime.observatio
 
 const { getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const {
+    buildCombatNoticePayload,
     formatCombatActionClause,
     formatCombatResolutionOutcome,
 } = world_runtime_observation_helpers_1;
@@ -238,6 +239,7 @@ export class WorldRuntimeMonsterActionApplyService {
             notices: [{
                 playerId: action.targetPlayerId,
                 text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
             }],
         });
         updated = this.playerRuntimeService.getPlayer(action.targetPlayerId) ?? player;
@@ -388,6 +390,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     notices: [{
                         playerId: player.playerId,
                         text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                        combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: skill?.name ?? action.skillId, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? result.damageKind ?? 'spell', element: primaryRoll.element ?? result.damageElement } }),
                     }],
                 });
                 const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);

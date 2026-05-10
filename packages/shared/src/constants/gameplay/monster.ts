@@ -103,7 +103,7 @@ export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID = 0.95;
 export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE = 0.92;
 
 /** 玩家等级高于怪物时，所有怪物通用的每级经验保留倍率。 */
-export const MONSTER_OVERLEVEL_EXP_MULTIPLIER = 0.5;
+export const MONSTER_OVERLEVEL_EXP_MULTIPLIER = 0.75;
 
 /** 玩家等级低于怪物时，各血脉层次每级增加的击杀经验比例。 */
 export const MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES: Record<MonsterTier, number> = {

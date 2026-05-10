@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { formatDisplayNumber, getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared';
+import { formatDisplayNumber, getDamageTrailColor, uiLabels, type CombatNoticePayload, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -73,6 +73,10 @@ interface ChatAddMessageOptions {
  */
 
   scope?: ChatMessageScope;
+  /** 结构化战斗数据。 */
+  combat?: unknown;
+  /** 多目标合并战斗数据。 */
+  combatGroup?: unknown[];
 }
 
 /** 解析后的战斗伤害或治疗文本片段。 */
@@ -364,16 +368,153 @@ function toAlphaColor(hex: string, alpha: number): string {
 }
 
 /** 构建聊天行中的可交互片段。 */
+/** 从结构化CombatNoticePayload渲染单行战斗消息。 */
+function appendStructuredCombatLine(
+  container: DocumentFragment | HTMLElement,
+  combat: CombatNoticePayload,
+  prefix: string,
+  subLine = false,
+): void {
+  const { caster, target, skill, resolution, formationResolution, killed } = combat;
+  const targetHp = combat.targetHp;
+  const targetMaxHp = combat.targetMaxHp;
+
+  // 构建目标标签（含HP百分比）
+  const targetLabel = targetHp != null && targetMaxHp != null && targetMaxHp > 0
+    ? `${target}‹${targetHp}/${targetMaxHp}›`
+    : target;
+
+  if (subLine) {
+    // 后续行只显示"对{target}，伤害"
+    container.append('对');
+    appendTargetPill(container, targetLabel);
+  } else if (caster === '你') {
+    container.append(prefix + '你施展');
+    container.appendChild(buildSkillPill(skill));
+    container.append(' 对');
+    appendTargetPill(container, targetLabel);
+  } else {
+    container.append(prefix);
+    appendTargetPill(container, caster);
+    container.append('对你施展');
+    container.appendChild(buildSkillPill(skill));
+  }
+
+  if (resolution) {
+    const damageKind = (resolution.damageKind ?? 'spell') as SkillDamageKind;
+    const element = resolution.element as ElementKey | undefined;
+    if (resolution.dodged) {
+      container.append('，');
+      const labels = getCombatResolutionLabels(resolution);
+      const pill = document.createElement('span');
+      pill.className = 'chat-damage-pill';
+      pill.textContent = '闪避';
+      pill.style.setProperty('--chat-damage-pill-color', '#7dd3fc');
+      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor('#7dd3fc', 0.16));
+      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor('#7dd3fc', 0.36));
+      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor('#7dd3fc', 0.22));
+      container.appendChild(pill);
+      container.append(' 未造成伤害');
+      for (const l of labels) container.appendChild(buildLabelBadge(l));
+    } else {
+      const color = getDamageTrailColor(damageKind, element);
+      const rawAmount = formatCombatLogAmount(String(resolution.rawDamage));
+      const actualAmount = formatCombatLogAmount(String(resolution.damage));
+      const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? ''}行` : '';
+      const kindLabel = damageKind === 'physical' ? '物理' : '法术';
+      const tooltipTitle = `${elementLabel}${kindLabel}伤害`;
+      container.append('，造成 ');
+      const pill = document.createElement('span');
+      pill.className = 'chat-damage-pill';
+      pill.textContent = actualAmount;
+      pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
+      pill.dataset.chatDamageTooltipTitle = tooltipTitle;
+      pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
+      pill.style.setProperty('--chat-damage-pill-color', color);
+      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      container.appendChild(pill);
+      container.append(' 伤害');
+      const labels = getCombatResolutionLabels(resolution);
+      if (killed) labels.push('击杀');
+      for (const l of labels) container.appendChild(buildLabelBadge(l));
+    }
+  } else if (formationResolution) {
+    const damageKind = (formationResolution.damageKind ?? 'spell') as SkillDamageKind;
+    const element = formationResolution.element as ElementKey | undefined;
+    const color = getDamageTrailColor(damageKind, element);
+    const rawAmount = formatCombatLogAmount(String(formationResolution.rawDamage));
+    const actualAmount = formatCombatLogAmount(String(formationResolution.damage));
+    const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? ''}行` : '';
+    const kindLabel = damageKind === 'physical' ? '物理' : '法术';
+    const tooltipTitle = `${elementLabel}${kindLabel}伤害`;
+    container.append('，造成 ');
+    const pill = document.createElement('span');
+    pill.className = 'chat-damage-pill';
+    pill.textContent = actualAmount;
+    pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
+    pill.dataset.chatDamageTooltipTitle = tooltipTitle;
+    pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
+    pill.style.setProperty('--chat-damage-pill-color', color);
+    pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+    pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+    pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+    container.appendChild(pill);
+    const auraDamage = formatCombatLogAmount(String(formationResolution.auraDamage));
+    container.append(` 伤害，削减灵力 ${auraDamage}`);
+  }
+}
+
+/** 从resolution中提取战斗标签。 */
+function getCombatResolutionLabels(resolution: { dodged?: boolean; crit?: boolean; broken?: boolean; resolved?: boolean }): string[] {
+  const labels: string[] = [];
+  if (resolution.broken) labels.push('破招');
+  if (resolution.resolved) labels.push('拆招');
+  if (resolution.crit) labels.push('暴击');
+  return labels;
+}
+
 function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const fragment = document.createDocumentFragment();
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
 
-  // 多行合并战斗消息
+  // 结构化战斗数据渲染
+  if (entry.kind === 'combat' && (entry.combat || entry.combatGroup)) {
+    const combatList = entry.combatGroup
+      ? entry.combatGroup as CombatNoticePayload[]
+      : [entry.combat as CombatNoticePayload];
+    if (combatList.length === 1) {
+      appendStructuredCombatLine(fragment, combatList[0], linePrefix);
+    } else {
+      const skill = combatList[0].skill;
+      for (let i = 0; i < combatList.length; i++) {
+        const c = combatList[i];
+        const lineEl = document.createElement('div');
+        lineEl.className = 'chat-merged-combat-line';
+        if (i === 0) {
+          appendStructuredCombatLine(lineEl, c, linePrefix);
+        } else {
+          // 后续行：隐藏对齐元素
+          const indent = document.createElement('span');
+          indent.className = 'chat-merged-combat-indent';
+          indent.append(linePrefix + '你施展');
+          indent.appendChild(buildSkillPill(skill));
+          indent.append(' ');
+          lineEl.appendChild(indent);
+          appendStructuredCombatLine(lineEl, c, '', true);
+        }
+        fragment.appendChild(lineEl);
+      }
+    }
+    return fragment;
+  }
+
+  // 旧文本fallback：多行合并战斗消息
   if (entry.kind === 'combat' && entry.text.includes('\n')) {
     const lines = entry.text.split('\n');
-    // 从第一行提取"你施展{skill} "前缀用于后续行对齐
     const firstLineSkillMatch = /^(你施展)(.+?)( 对)/.exec(lines[0]);
     for (let i = 0; i < lines.length; i++) {
       const lineText = lines[i];
@@ -382,13 +523,12 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
       if (i === 0) {
         appendCombatLineContent(lineEl, lineText, linePrefix);
       } else {
-        // 后续行：用与首行相同结构的隐藏元素对齐"对"字
         if (firstLineSkillMatch) {
           const indent = document.createElement('span');
           indent.className = 'chat-merged-combat-indent';
           indent.append(linePrefix + firstLineSkillMatch[1]);
           indent.appendChild(buildSkillPill(firstLineSkillMatch[2]));
-          indent.append(firstLineSkillMatch[3].slice(0, -1)); // " 对" → " "
+          indent.append(firstLineSkillMatch[3].slice(0, -1));
           lineEl.appendChild(indent);
         }
         appendCombatLineContent(lineEl, lineText, '');
@@ -756,6 +896,8 @@ export class ChatUI {
       from,
       kind,
       scope: resolvedScope,
+      ...(resolvedOptions?.combat ? { combat: resolvedOptions.combat } : undefined),
+      ...(resolvedOptions?.combatGroup ? { combatGroup: resolvedOptions.combatGroup } : undefined),
     };
     const channels = this.resolveChannels(entry);
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));

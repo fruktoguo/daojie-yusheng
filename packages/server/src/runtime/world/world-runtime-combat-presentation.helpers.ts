@@ -31,7 +31,7 @@ interface CombatPresentationDeps {
   pushAttackEffect?: CombatPresentationEffectSource['pushAttackEffect'];
   pushDamageFloatEffect?: CombatPresentationEffectSource['pushDamageFloatEffect'];
   pushCombatTextFloatEffect?: CombatPresentationEffectSource['pushCombatTextFloatEffect'];
-  queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string) => void;
+  queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string, combat?: unknown) => void;
 }
 
 interface CombatPresentationActionLabel {
@@ -77,6 +77,7 @@ interface CombatPresentationNotice {
   text?: string;
   kind?: string;
   castId?: string;
+  combat?: unknown;
 }
 
 interface CombatPresentationInput {
@@ -203,7 +204,7 @@ function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: Co
     if (!notice?.playerId || typeof notice.text !== 'string' || notice.text.length <= 0) {
       continue;
     }
-    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId);
+    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId, notice.combat);
   }
 }
 

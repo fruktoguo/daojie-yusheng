@@ -4,6 +4,7 @@ import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../constants/
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { applyDurableInventoryGrant, canUseDurableInventoryGrant } from './world-runtime-inventory-grant.helpers';
 import { CombatAuditOutboxService } from '../../persistence/combat-audit-outbox.service';
+import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
@@ -23,6 +24,7 @@ export class WorldRuntimePlayerCombatService {
 
     playerRuntimeService;
     combatAuditOutboxService;
+    playerCountersPersistenceService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
@@ -34,10 +36,12 @@ export class WorldRuntimePlayerCombatService {
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
         @Inject(CombatAuditOutboxService) combatAuditOutboxService: any = null,
+        @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.combatAuditOutboxService = combatAuditOutboxService;
+        this.playerCountersPersistenceService = playerCountersPersistenceService;
     }    
     /**
  * handlePlayerMonsterKill：处理玩家怪物Kill并更新相关状态。
@@ -72,6 +76,7 @@ export class WorldRuntimePlayerCombatService {
             },
             tags: ['semantic', 'monster_defeat'],
         });
+        this.incrementMonsterKillCounter(killerPlayerId, monster.tier);
         this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
         const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
@@ -411,6 +416,8 @@ export class WorldRuntimePlayerCombatService {
         if (killer.isBot || victim.isBot || killer.playerId === victim.playerId) {
             return;
         }
+        this.playerCountersPersistenceService?.increment?.(killer.playerId, 'playerKillCount');
+        this.playerCountersPersistenceService?.increment?.(victim.playerId, 'deathCount');
         if (killer.combat?.allowAoePlayerHit === true) {
             const nextStacks = this.playerRuntimeService.addPvPShaInfusionStack(killer.playerId);
             deps.queuePlayerNotice(killer.playerId, `杀念入体，煞气入体加深至 ${nextStacks} 层。`, 'combat');
@@ -560,6 +567,15 @@ export class WorldRuntimePlayerCombatService {
             createdAt: input.createdAt ?? new Date().toISOString(),
             tags: Array.isArray(input.tags) ? input.tags : ['semantic'],
         });
+    }
+
+    /** 递增怪物击杀计数器。 */
+    private incrementMonsterKillCounter(playerId: string, tier: string | undefined): void {
+        const counters = this.playerCountersPersistenceService;
+        if (!counters?.increment) return;
+        counters.increment(playerId, 'monsterKillCount');
+        if (tier === 'variant') counters.increment(playerId, 'eliteMonsterKillCount');
+        else if (tier === 'demon_king') counters.increment(playerId, 'bossMonsterKillCount');
     }
 };
 

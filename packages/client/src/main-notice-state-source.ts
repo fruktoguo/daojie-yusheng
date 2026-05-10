@@ -173,7 +173,16 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
     handleNotice(payload: S2C_Notice): void {
       const merged = mergeCombatSkillNotices(payload.items);
       for (const item of merged) {
-        this.handleSystemMsg(toSystemMsgFromNotice(item));
+        if (item.kind === 'combat' && item.combat) {
+          const label = item.from ?? t('notice.channel.combat', undefined);
+          const combatGroup = (item as any)._combatGroup as unknown[] | undefined;
+          void options.chatUI.addMessage(item.text, label, 'combat', {
+            combat: item.combat,
+            ...(combatGroup ? { combatGroup } : undefined),
+          });
+        } else {
+          this.handleSystemMsg(toSystemMsgFromNotice(item));
+        }
       }
     },
   };
@@ -203,7 +212,6 @@ function mergeCombatSkillNotices(items: S2C_NoticeItem[]): S2C_NoticeItem[] {
   // 按castId分组
   const castGroups = new Map<string, S2C_NoticeItem[]>();
   const result: S2C_NoticeItem[] = [];
-  // 记录每个castId第一次出现的位置，用于保持顺序
   const castOrder: string[] = [];
   const nonCastItems: { index: number; item: S2C_NoticeItem }[] = [];
 
@@ -220,25 +228,20 @@ function mergeCombatSkillNotices(items: S2C_NoticeItem[]): S2C_NoticeItem[] {
     }
   }
 
-  // 如果没有castId分组，回退到无castId的处理
   if (castGroups.size === 0) {
-    return mergeCombatSkillNoticesLegacy(items);
+    return items;
   }
 
-  // 按castId顺序处理每组
   let nonCastIdx = 0;
   for (const cid of castOrder) {
     const group = castGroups.get(cid)!;
-    // 输出在此castId之前的非castId消息
     const firstGroupItem = items.indexOf(group[0]);
     while (nonCastIdx < nonCastItems.length && nonCastItems[nonCastIdx].index < firstGroupItem) {
       result.push(nonCastItems[nonCastIdx].item);
       nonCastIdx++;
     }
-    // 合并此组
     result.push(mergeCastGroup(group));
   }
-  // 输出剩余的非castId消息
   while (nonCastIdx < nonCastItems.length) {
     result.push(nonCastItems[nonCastIdx].item);
     nonCastIdx++;
@@ -246,150 +249,40 @@ function mergeCombatSkillNotices(items: S2C_NoticeItem[]): S2C_NoticeItem[] {
   return result;
 }
 
-/** 合并同一castId的消息组为单条消息。 */
+/** 合并同一castId的消息组为单条消息（使用combat结构化数据）。 */
 function mergeCastGroup(group: S2C_NoticeItem[]): S2C_NoticeItem {
-  // 收集kills和damages
+  // 过滤出有combat字段的消息（击杀消息没有combat）
+  const combatItems = group.filter(g => g.combat);
+  const killItems = group.filter(g => !g.combat && KILL_PATTERN.test(g.text));
+
+  // 如果没有combat字段，保留原始文本
+  if (combatItems.length === 0) {
+    return group[0];
+  }
+
+  // 收集击杀目标
   const pendingKills = new Map<string, number>();
-  interface HitEntry { target: string; suffix: string; killed: boolean }
-  const hits: HitEntry[] = [];
-  let skillName = '';
+  for (const ki of killItems) {
+    const m = KILL_PATTERN.exec(ki.text);
+    if (m) pendingKills.set(m[1], (pendingKills.get(m[1]) ?? 0) + 1);
+  }
 
-  for (const item of group) {
-    const killMatch = KILL_PATTERN.exec(item.text);
-    if (killMatch) {
-      pendingKills.set(killMatch[1], (pendingKills.get(killMatch[1]) ?? 0) + 1);
-      continue;
-    }
-    const damageMatch = SKILL_CAST_PATTERN.exec(item.text);
-    if (damageMatch) {
-      if (!skillName) skillName = damageMatch[2];
-      const target = damageMatch[1];
-      const killCount = pendingKills.get(target) ?? 0;
-      const killed = killCount > 0;
-      if (killed) {
-        if (killCount <= 1) pendingKills.delete(target);
-        else pendingKills.set(target, killCount - 1);
-      }
-      hits.push({ target, suffix: damageMatch[3], killed });
+  // 标记击杀
+  for (const ci of combatItems) {
+    const target = ci.combat!.target;
+    const killCount = pendingKills.get(target) ?? 0;
+    if (killCount > 0) {
+      ci.combat!.killed = true;
+      if (killCount <= 1) pendingKills.delete(target);
+      else pendingKills.set(target, killCount - 1);
     }
   }
 
-  const baseItem = group.find(g => SKILL_CAST_PATTERN.test(g.text)) ?? group[0];
-  if (hits.length <= 1) {
-    const hit = hits[0];
-    if (!hit) return baseItem;
-    const text = hit.killed
-      ? `你对${hit.target}施展${skillName}，${appendKillLabel(hit.suffix)}`
-      : `你对${hit.target}施展${skillName}，${hit.suffix}`;
-    return { ...baseItem, text };
+  const baseItem = combatItems[0];
+  if (combatItems.length === 1) {
+    return baseItem;
   }
 
-  const lines: string[] = [];
-  for (let j = 0; j < hits.length; j++) {
-    const hit = hits[j];
-    const suffixText = hit.killed ? appendKillLabel(hit.suffix) : hit.suffix;
-    if (j === 0) {
-      lines.push(`你施展${skillName} 对${hit.target}，${suffixText}`);
-    } else {
-      lines.push(`对${hit.target}，${suffixText}`);
-    }
-  }
-  return { ...baseItem, text: lines.join('\n') };
-}
-
-/** 无castId时的回退合并逻辑（兼容旧消息）。 */
-function mergeCombatSkillNoticesLegacy(items: S2C_NoticeItem[]): S2C_NoticeItem[] {
-  const result: S2C_NoticeItem[] = [];
-  let i = 0;
-  while (i < items.length) {
-    const item = items[i];
-    if (item.kind !== 'combat') {
-      result.push(item);
-      i += 1;
-      continue;
-    }
-    let firstDamageIdx = -1;
-    for (let j = i; j < items.length; j++) {
-      if (items[j].kind !== 'combat') break;
-      if (SKILL_CAST_PATTERN.test(items[j].text)) {
-        firstDamageIdx = j;
-        break;
-      }
-    }
-    if (firstDamageIdx < 0) {
-      result.push(item);
-      i += 1;
-      continue;
-    }
-    const firstDamageMatch = SKILL_CAST_PATTERN.exec(items[firstDamageIdx].text)!;
-    const skillName = firstDamageMatch[2];
-    const pendingKills = new Map<string, number>();
-    interface HitEntry { target: string; suffix: string; killed: boolean }
-    const hits: HitEntry[] = [];
-    const otherCombatItems: S2C_NoticeItem[] = [];
-    while (i < items.length) {
-      const cur = items[i];
-      if (cur.kind !== 'combat') break;
-      const curKill = KILL_PATTERN.exec(cur.text);
-      if (curKill) {
-        pendingKills.set(curKill[1], (pendingKills.get(curKill[1]) ?? 0) + 1);
-        i += 1;
-        continue;
-      }
-      const curDamage = SKILL_CAST_PATTERN.exec(cur.text);
-      if (curDamage && curDamage[2] === skillName) {
-        const target = curDamage[1];
-        const killCount = pendingKills.get(target) ?? 0;
-        const killed = killCount > 0;
-        if (killed) {
-          if (killCount <= 1) pendingKills.delete(target);
-          else pendingKills.set(target, killCount - 1);
-        }
-        hits.push({ target, suffix: curDamage[3], killed });
-        i += 1;
-        continue;
-      }
-      otherCombatItems.push(cur);
-      i += 1;
-    }
-    if (hits.length === 0) {
-      result.push(item);
-      continue;
-    }
-    const baseItem = items[firstDamageIdx];
-    if (hits.length === 1) {
-      const hit = hits[0];
-      if (hit.killed) {
-        result.push({ ...baseItem, text: `你对${hit.target}施展${skillName}，${appendKillLabel(hit.suffix)}` });
-      } else {
-        result.push({ ...baseItem, text: `你对${hit.target}施展${skillName}，${hit.suffix}` });
-      }
-    } else {
-      const lines: string[] = [];
-      for (let j = 0; j < hits.length; j++) {
-        const hit = hits[j];
-        const suffixText = hit.killed ? appendKillLabel(hit.suffix) : hit.suffix;
-        if (j === 0) {
-          lines.push(`你施展${skillName} 对${hit.target}，${suffixText}`);
-        } else {
-          lines.push(`对${hit.target}，${suffixText}`);
-        }
-      }
-      result.push({ ...baseItem, text: lines.join('\n') });
-    }
-    for (const other of otherCombatItems) {
-      result.push(other);
-    }
-  }
-  return result;
-}
-/** 在伤害后缀的括号内追加"击杀"标签。 */
-function appendKillLabel(suffix: string): string {
-  // 匹配末尾的（...）括号
-  const bracketMatch = /（([^）]+)）$/.exec(suffix);
-  if (bracketMatch) {
-    return suffix.slice(0, bracketMatch.index) + `（${bracketMatch[1]}、击杀）`;
-  }
-  // 没有括号则追加
-  return suffix + '（击杀）';
+  // 多目标：合并combat数组到第一条消息
+  return { ...baseItem, combat: baseItem.combat, _combatGroup: combatItems.map(i => i.combat!) } as any;
 }

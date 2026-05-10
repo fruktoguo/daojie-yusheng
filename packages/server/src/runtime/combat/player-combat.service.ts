@@ -179,7 +179,7 @@ export class PlayerCombatService {
 
         // 射程校验
         const range = resolveEffectiveSkillCastRange(resolved.skill, options);
-        if (distance > range) {
+        if (range > 0 && distance > range) {
             throw new BadRequestException(`技能 ${resolved.skill.id} 超出范围`);
         }
         // 冷却校验
@@ -354,16 +354,21 @@ function toCombatPlayerState(player) {
 function resolveSkillRange(skill) {
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
-        return Math.max(1, Math.round(targetingRange));
+        return skill.requiresTarget === false
+            ? Math.max(0, Math.round(targetingRange))
+            : Math.max(1, Math.round(targetingRange));
     }
-    return Math.max(1, Math.round(skill.range));
+    const raw = Math.round(skill.range);
+    return skill.requiresTarget === false ? Math.max(0, raw) : Math.max(1, raw);
 }
 
 /** 获取有效施放射程（options 可覆盖）。 */
 function resolveEffectiveSkillCastRange(skill, options) {
     const optionRange = Number(options?.range);
     if (Number.isFinite(optionRange)) {
-        return Math.max(1, Math.round(optionRange));
+        return skill?.requiresTarget === false
+            ? Math.max(0, Math.round(optionRange))
+            : Math.max(1, Math.round(optionRange));
     }
     return resolveSkillRange(skill);
 }

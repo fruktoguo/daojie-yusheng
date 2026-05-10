@@ -8,6 +8,23 @@ import { buildBasicAttackCommandFromAttackableTarget, resolveAttackableTargetRef
 const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance, findPathToTargetWithinRangeOnMap, directionFromStep, resolveInitialRunLength } = world_runtime_path_planning_helpers_1;
 
+/** 计算原地释放 AOE 技能以玩家为中心时能覆盖到的最大 chebyshev 距离。 */
+function resolveSkillAoeCoverRadius(skill) {
+    const targeting = skill.targeting;
+    if (!targeting) {
+        return 0;
+    }
+    if (targeting.shape === 'box' || targeting.shape === 'orientedBox') {
+        const w = Math.max(1, Math.floor(Number(targeting.width) || 1));
+        const h = Math.max(1, Math.floor(Number(targeting.height) || 1));
+        return Math.floor((Math.max(w, h) - 1) / 2);
+    }
+    if (targeting.shape === 'area' || targeting.shape === 'ring' || targeting.shape === 'checkerboard') {
+        return Math.max(0, Math.floor(Number(targeting.radius) || 0));
+    }
+    return 0;
+}
+
 function isHostileRelation(resolution) {
     return isHostileCombatRelationResolution(resolution);
 }
@@ -322,6 +339,16 @@ export class WorldRuntimeAutoCombatService {
             ? null
             : this.resolveAutoBattleSkillChoice(player, distance, options);
         if (skillChoice?.skillId) {
+            if (skillChoice.selfCast) {
+                return {
+                    kind: 'castSkill',
+                    skillId: skillChoice.skillId,
+                    targetPlayerId: null,
+                    targetMonsterId: null,
+                    targetRef: null,
+                    autoCombat: true,
+                };
+            }
             if (target.targetMonsterId) {
                 return {
                     kind: 'castSkill',
@@ -627,7 +654,6 @@ export class WorldRuntimeAutoCombatService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
-            const range = Math.max(1, Math.round(action.range ?? 1));
             const skill = findPlayerSkill(player, action.id);
             if (!skill) {
                 continue;
@@ -638,6 +664,16 @@ export class WorldRuntimeAutoCombatService {
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
                 continue;
             }
+            // 原地释放技能（requiresTarget:false + range:0）：以玩家为中心，用 AOE 覆盖半径判断能否命中目标
+            if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
+                const aoeRadius = resolveSkillAoeCoverRadius(skill);
+                if (distance <= aoeRadius) {
+                    return { skillId: skill.id, range: aoeRadius, selfCast: true };
+                }
+                chaseRange = Math.max(chaseRange, aoeRadius);
+                continue;
+            }
+            const range = Math.max(1, Math.round(action.range ?? 1));
             if (distance <= range) {
                 return {
                     skillId: skill.id,
@@ -693,7 +729,11 @@ export class WorldRuntimeAutoCombatService {
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
                 continue;
             }
-            desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
+            if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
+                desiredRange = Math.max(desiredRange, resolveSkillAoeCoverRadius(skill));
+            } else {
+                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
+            }
         }
         return desiredRange;
     }

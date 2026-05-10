@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
 import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
 import { PlayerAttributesService } from './player-attributes.service';
+import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 
 /** 境界配置文件路径，启动时从这里加载所有境界参数。 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
@@ -124,6 +125,8 @@ export class PlayerProgressionService {
     contentTemplateRepository;
     /** 属性结算器，用于境界变化后重算最终面板。 */
     playerAttributesService;
+    /** 玩家计数器持久化服务，用于记录逆天改命次数等。 */
+    playerCountersPersistenceService;
     /** 运行时日志器，记录境界加载和结算异常。 */
     logger = new Logger(PlayerProgressionService.name);
     /** 已加载的境界表，按 realmLv 索引。 */
@@ -133,9 +136,14 @@ export class PlayerProgressionService {
     /** 已加载的突破配置，按来源境界等级索引。 */
     breakthroughTransitions = new Map();
     /** 注入内容仓库和属性结算器。 */
-    constructor(contentTemplateRepository: ContentTemplateRepository, playerAttributesService: PlayerAttributesService) {
+    constructor(
+        contentTemplateRepository: ContentTemplateRepository,
+        playerAttributesService: PlayerAttributesService,
+        @Optional() @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerAttributesService = playerAttributesService;
+        this.playerCountersPersistenceService = playerCountersPersistenceService;
     }
     /** 模块初始化时加载境界表。 */
     onModuleInit() {
@@ -149,6 +157,11 @@ export class PlayerProgressionService {
         this.playerAttributesService.recalculate(player);
         player.hp = clamp(player.hp, 0, player.maxHp);
         player.qi = clamp(player.qi, 0, player.maxQi);
+        // 启动时对比补齐 highestRealmLv
+        const currentRealmLv = resolved.realmLv ?? 1;
+        if (currentRealmLv > 1 && player.playerId) {
+            this.playerCountersPersistenceService?.setMax?.(player.playerId, 'highestRealmLv', currentRealmLv);
+        }
     }
     /** 只刷新境界展示态，不修改实际推进结果。 */
     refreshPreview(player) {
@@ -654,6 +667,7 @@ export class PlayerProgressionService {
                 entered: false,
                 averageBonus: nextAverageBonus,
             };
+            this.playerCountersPersistenceService?.increment?.(player.playerId, 'rerollCount');
             this.applyResolvedRealmState(player, this.createRealmStateFromLevel(realm.realmLv, Math.max(0, realm.progress - cost)));
             return {
                 changed: true,
@@ -751,6 +765,7 @@ export class PlayerProgressionService {
             entered: false,
             averageBonus: getHeavenGateAverageBonusFromRerollCount(nextRerollCount),
         };
+        this.playerCountersPersistenceService?.increment?.(player.playerId, 'rerollCount', gainedRerollCount);
         this.applyRealmPresentation(player, realm);
 
         const rootSummary = tier === 'divine'
@@ -790,6 +805,7 @@ export class PlayerProgressionService {
         const previousRerollCount = getHeavenGateRerollCount(heavenGate.averageBonus);
         const nextRerollCount = previousRerollCount + 1;
         const nextRealm = this.createRealmStateFromLevel(realm.realmLv, Math.max(0, realm.progress - cost));
+        this.playerCountersPersistenceService?.increment?.(player.playerId, 'rerollCount');
         this.applyHeavenGateResetState(player, nextRealm, getHeavenGateAverageBonusFromRerollCount(nextRerollCount), heavenGate.unlocked === true);
         return {
             changed: true,
@@ -861,6 +877,7 @@ export class PlayerProgressionService {
         }
         const targetRealm = this.createRealmStateFromLevel(preview.targetRealmLv, 0);
         this.applyResolvedRealmState(player, targetRealm);
+        this.playerCountersPersistenceService?.setMax?.(player.playerId, 'highestRealmLv', preview.targetRealmLv);
         player.hp = player.maxHp;
         player.qi = player.maxQi;
         return {
@@ -1275,9 +1292,15 @@ export class PlayerProgressionService {
             blockingRequirements,
             completedBlockingRequirements,
             requirements,
-            rootFoundation: this.buildRootFoundationPreview(player, realm),
+            rootFoundation: this.shouldShowRootFoundation(player) ? this.buildRootFoundationPreview(player, realm) : undefined,
             blockedReason,
         };
+    }
+    /** 历史最高境界 >= 半步筑基(30) 时才显示凝练根基。 */
+    private shouldShowRootFoundation(player): boolean {
+        const highestRealmLv = this.playerCountersPersistenceService?.get?.(player.playerId, 'highestRealmLv') ?? 0;
+        const currentRealmLv = player.realm?.realmLv ?? 1;
+        return Math.max(highestRealmLv, currentRealmLv) >= 30;
     }
     /** 构建凝练根基预览。 */
     buildRootFoundationPreview(player, realm) {

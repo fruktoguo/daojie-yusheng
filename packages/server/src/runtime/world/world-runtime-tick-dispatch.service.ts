@@ -270,9 +270,9 @@ export class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
-    queuePlayerNotice(playerId, text, kind, deps, castId) {
+    queuePlayerNotice(playerId, text, kind, deps, castId, combat = undefined) {
         try {
-            deps.playerRuntimeService.enqueueNotice(playerId, { text, kind, castId });
+            deps.playerRuntimeService.enqueueNotice(playerId, { text, kind, castId, combat });
         }
         catch {
             // 玩家已经不在线时忽略通知，避免影响主流程。

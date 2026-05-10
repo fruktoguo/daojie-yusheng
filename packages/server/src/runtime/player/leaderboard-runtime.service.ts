@@ -7,6 +7,7 @@ import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from './player-runtime.service';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
+import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 
 /** 排行榜运行时：按运行态与持久化玩家快照聚合榜单与世界摘要，结果做短缓存。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
@@ -54,6 +55,7 @@ export class LeaderboardRuntimeService {
  */
 
     playerIdentityPersistenceService;
+    playerCountersPersistenceService;
     /** 缓存后的排行榜结果。 */
     cachedLeaderboard = null;
     /** 排行榜缓存生成时的玩家位置索引，供击杀榜坐标追索复用。 */
@@ -67,12 +69,14 @@ export class LeaderboardRuntimeService {
         @Inject(MapTemplateRepository) mapTemplateRepository: any,
         @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any,
         @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any,
+        @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.playerIdentityPersistenceService = playerIdentityPersistenceService;
+        this.playerCountersPersistenceService = playerCountersPersistenceService;
     }
     /** 构造各榜单快照，按需截断返回。 */
     async buildLeaderboard(limit, sectService = null) {
@@ -294,13 +298,13 @@ export class LeaderboardRuntimeService {
                 : undefined,
             realmProgress: toNonNegativeInteger(player.realm?.progress, 0),
             foundation: toNonNegativeInteger(player.foundation, 0),
-            monsterKillCount: toNonNegativeInteger(player.monsterKillCount, 0),
-            eliteMonsterKillCount: toNonNegativeInteger(player.eliteMonsterKillCount, 0),
-            bossMonsterKillCount: toNonNegativeInteger(player.bossMonsterKillCount, 0),
+            monsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'monsterKillCount') ?? player.monsterKillCount, 0),
+            eliteMonsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'eliteMonsterKillCount') ?? player.eliteMonsterKillCount, 0),
+            bossMonsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'bossMonsterKillCount') ?? player.bossMonsterKillCount, 0),
             spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID),
             marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
-            playerKillCount: toNonNegativeInteger(player.playerKillCount, 0),
-            deathCount: toNonNegativeInteger(player.deathCount, 0),
+            playerKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'playerKillCount') ?? player.playerKillCount, 0),
+            deathCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'deathCount') ?? player.deathCount, 0),
             bodyTrainingLevel: toNonNegativeInteger(player.bodyTraining?.level, 0),
             bodyTrainingExp: toNonNegativeInteger(player.bodyTraining?.exp, 0),
             bodyTrainingExpToNext: toNonNegativeInteger(player.bodyTraining?.expToNext, 0),

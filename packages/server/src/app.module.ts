@@ -134,6 +134,7 @@ import { OutboxEventConsumerRegistryService } from './persistence/outbox-event-c
 import { OutboxDispatcherRuntimeService } from './persistence/outbox-dispatcher-runtime.service';
 import { SuggestionPersistenceService } from './persistence/suggestion-persistence.service';
 import { RedeemCodePersistenceService } from './persistence/redeem-code-persistence.service';
+import { PlayerCountersPersistenceService } from './persistence/player-counters-persistence.service';
 import { TongtianTowerPersistenceService } from './persistence/tongtian-tower-persistence.service';
 import { MailRuntimeService } from './runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from './runtime/market/market-runtime.service';
@@ -269,6 +270,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     SuggestionPersistenceService,
     RedeemCodePersistenceService,
     TongtianTowerPersistenceService,
+    PlayerCountersPersistenceService,
     PlayerAttributesService,
     LeaderboardRuntimeService,
     PlayerProgressionService,

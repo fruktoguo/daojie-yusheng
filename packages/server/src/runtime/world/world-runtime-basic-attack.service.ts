@@ -13,6 +13,7 @@ import * as world_runtime_observation_helpers_1 from './world-runtime.observatio
 
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const {
+    buildCombatNoticePayload,
     createTileCombatAttributes,
     createTileCombatNumericStats,
     createTileCombatRatioDivisors,
@@ -235,6 +236,7 @@ export class WorldRuntimeBasicAttackService {
             notices: [{
                 playerId: attacker.playerId,
                 text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+                combat: buildCombatNoticePayload({ caster: '你', target: formation.name, skill: '攻击', formationResolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind, auraDamage } }),
             }],
         });
     }
@@ -294,6 +296,7 @@ export class WorldRuntimeBasicAttackService {
             notices: [{
                 playerId: attacker.playerId,
                 text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name, outcome?.hp ?? monster.hp, monster.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                combat: buildCombatNoticePayload({ caster: '你', target: monster.name, targetHp: outcome?.hp ?? monster.hp, targetMaxHp: monster.maxHp, skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
             }],
         });
     }
@@ -374,10 +377,12 @@ export class WorldRuntimeBasicAttackService {
                 {
                     playerId: attacker.playerId,
                     text: `${formatCombatActionClause('你', formatTargetLabelWithHp(target.name ?? target.playerId, updated.hp, updated.maxHp ?? target.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: target.name ?? target.playerId, targetHp: updated.hp, targetMaxHp: updated.maxHp ?? target.maxHp, skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
                 },
                 {
                     playerId: target.playerId,
                     text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                    combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
                 },
             ],
         });
@@ -437,6 +442,7 @@ export class WorldRuntimeBasicAttackService {
                 notices: [{
                     playerId: attacker.playerId,
                     text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: boundary.name, skill: '攻击', formationResolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind, auraDamage } }),
                 }],
             });
             return;
@@ -558,6 +564,7 @@ export class WorldRuntimeBasicAttackService {
             notices: [{
                 playerId: attacker.playerId,
                 text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileType] ?? '地块', result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
+                combat: buildCombatNoticePayload({ caster: '你', target: uiLabels.TILE_TYPE_LABELS[tileType] ?? '地块', targetHp: result.hp ?? 0, targetMaxHp: tileMaxHp, skill: '攻击', resolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind } }),
             }],
         });
     }

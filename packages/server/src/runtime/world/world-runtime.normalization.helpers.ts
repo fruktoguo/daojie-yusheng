@@ -679,9 +679,12 @@ export function resolveRuntimeSkillRange(skill) {
 
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
-        return Math.max(1, Math.round(targetingRange));
+        return skill.requiresTarget === false
+            ? Math.max(0, Math.round(targetingRange))
+            : Math.max(1, Math.round(targetingRange));
     }
-    return Math.max(1, Math.round(skill.range ?? 1));
+    const raw = Math.round(skill.range ?? 1);
+    return skill.requiresTarget === false ? Math.max(0, raw) : Math.max(1, raw);
 }
 /** 计算自动战斗可允许的技能气耗上限。 */
 export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {

@@ -1095,8 +1095,8 @@ export class WorldRuntimeService {
         ensureAttackAllowed(player, skill) {
         this.worldRuntimeTickDispatchService.ensureAttackAllowed(player, skill, this);
     }
-        queuePlayerNotice(playerId, text, kind, castId) {
-        this.worldRuntimeTickDispatchService.queuePlayerNotice(playerId, text, kind, this, castId);
+        queuePlayerNotice(playerId, text, kind, castId, combat = undefined) {
+        this.worldRuntimeTickDispatchService.queuePlayerNotice(playerId, text, kind, this, castId, combat);
     }
         pushCombatEffect(instanceId, effect) {
         this.worldRuntimeTickDispatchService.pushCombatEffect(instanceId, effect, this);

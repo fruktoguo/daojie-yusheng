@@ -19,6 +19,7 @@ const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
 const {
+    buildCombatNoticePayload,
     formatCombatActionClause,
     formatCombatDamageBreakdown,
     formatCombatResolutionOutcome,
@@ -1240,6 +1241,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         notices: [{
                             playerId: attacker.playerId,
                             text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, monster.hp, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: monster.hp, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         }],
                     });
                     continue;
@@ -1276,6 +1278,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     notices: [{
                         playerId: attacker.playerId,
                         text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, outcome?.hp ?? 0, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                     }],
                 });
                 continue;
@@ -1344,10 +1347,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                         {
                             playerId: attacker.playerId,
                             text: `${formatCombatActionClause('你', formatTargetLabelWithHp(targetPlayer.name ?? targetPlayer.playerId, updatedTarget?.hp ?? targetPlayer.hp, targetPlayer.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: targetPlayer.name ?? targetPlayer.playerId, targetHp: updatedTarget?.hp ?? targetPlayer.hp, targetMaxHp: targetPlayer.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         },
                         {
                             playerId: targetPlayer.playerId,
                             text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         },
                     ],
                 });
@@ -1428,6 +1433,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     notices: [{
                         playerId: attacker.playerId,
                         text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell', result.damageElement)} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
+                        combat: buildCombatNoticePayload({ caster: '你', target: formation.name, skill: '攻击', formationResolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind: result.damageKind ?? 'spell', element: result.damageElement, auraDamage } }),
                     }],
                 });
                 continue;
@@ -1511,6 +1517,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     notices: [{
                         playerId: attacker.playerId,
                         text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell', result.damageElement)} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
+                        combat: buildCombatNoticePayload({ caster: '你', target: boundary.name, skill: '攻击', formationResolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind: result.damageKind ?? 'spell', element: result.damageElement, auraDamage } }),
                     }],
                 });
                 continue;
@@ -1589,6 +1596,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 notices: [{
                     playerId: attacker.playerId,
                     text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', tileDamageResult?.hp ?? 0, tileState.maxHp), skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', targetHp: tileDamageResult?.hp ?? 0, targetMaxHp: tileState.maxHp, skill: skill.name, resolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind, element: damageElement } }),
                 }],
             });
             if (tileDamageResult?.destroyed === true) {

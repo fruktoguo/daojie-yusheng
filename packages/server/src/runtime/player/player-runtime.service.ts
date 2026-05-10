@@ -1428,6 +1428,7 @@ export class PlayerRuntimeService {
             kind: input.kind,
             text,
             ...(input.castId ? { castId: input.castId } : undefined),
+            ...(input.combat ? { combat: input.combat } : undefined),
         };
         player.notices.nextId += 1;
         if (player.transferState === 'in_transfer') {

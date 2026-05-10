@@ -193,9 +193,8 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
               <div class="panel-section-title">突破要求</div>
               ${requirementRows}
             </div>
-            <div class="panel-section breakthrough-root-foundation-panel">
+            ${rootFoundation ? `<div class="panel-section breakthrough-root-foundation-panel">
               <div class="panel-section-title">凝练根基</div>
-              ${rootFoundation ? `
                 <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
                   <div class="action-copy">
                     <div class="breakthrough-requirement-head ui-requirement-entry-head">
@@ -215,8 +214,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
                     </label>
                   </div>
                 </div>
-              ` : '<div class="empty-hint ui-empty-hint">当前暂不可凝练根基。</div>'}
-            </div>
+            </div>` : ''}
           </div>
           <div class="breakthrough-action-grid">
             <div class="breakthrough-action-cell">

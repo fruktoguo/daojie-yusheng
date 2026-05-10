@@ -145,6 +145,52 @@ export function getCombatResolutionFloatColor(resolution, fallbackColor) {
 export function formatTargetLabelWithHp(name: string, hp: number, maxHp: number): string {
     return `${name}‹${Math.max(0, Math.round(hp))}/${Math.max(1, Math.round(maxHp))}›`;
 }
+/** 构建结构化战斗消息payload。 */
+export function buildCombatNoticePayload(opts: {
+    caster: string;
+    target: string;
+    targetHp?: number;
+    targetMaxHp?: number;
+    skill: string;
+    resolution?: { rawDamage?: number; damage?: number; damageKind?: string; element?: string; dodged?: boolean; crit?: boolean; broken?: boolean; resolved?: boolean };
+    formationResolution?: { rawDamage: number; damage: number; damageKind?: string; element?: string; auraDamage: number };
+    killed?: boolean;
+}): unknown {
+    const payload: Record<string, unknown> = {
+        caster: opts.caster,
+        target: opts.target,
+        skill: opts.skill,
+    };
+    if (opts.targetHp != null) payload.targetHp = Math.max(0, Math.round(opts.targetHp));
+    if (opts.targetMaxHp != null) payload.targetMaxHp = Math.max(1, Math.round(opts.targetMaxHp));
+    if (opts.killed) payload.killed = true;
+    if (opts.resolution) {
+        const r = opts.resolution;
+        const res: Record<string, unknown> = {
+            rawDamage: Math.max(0, Math.round(Number(r.rawDamage) || 0)),
+            damage: Math.max(0, Math.round(Number(r.damage) || 0)),
+            damageKind: r.damageKind ?? 'spell',
+        };
+        if (r.element) res.element = r.element;
+        if (r.dodged) res.dodged = true;
+        if (r.crit) res.crit = true;
+        if (r.broken) res.broken = true;
+        if (r.resolved) res.resolved = true;
+        payload.resolution = res;
+    }
+    if (opts.formationResolution) {
+        const f = opts.formationResolution;
+        const res: Record<string, unknown> = {
+            rawDamage: Math.max(0, Math.round(Number(f.rawDamage) || 0)),
+            damage: Math.max(0, Math.round(Number(f.damage) || 0)),
+            damageKind: f.damageKind ?? 'spell',
+            auraDamage: Math.max(0, Number(f.auraDamage) || 0),
+        };
+        if (f.element) res.element = f.element;
+        payload.formationResolution = res;
+    }
+    return payload;
+}
 /** 生成“攻击/施展技能”类的动作描述语句。 */
 export function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
     return actionLabel === '攻击'
