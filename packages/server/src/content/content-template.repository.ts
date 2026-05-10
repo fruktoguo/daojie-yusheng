@@ -1,74 +1,17 @@
-// @ts-nocheck
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-
-var ContentTemplateRepository_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ContentTemplateRepository = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const fs = __importStar(require("fs"));
-
-const path = __importStar(require("path"));
-
-const project_path_1 = require("../common/project-path");
+import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, deriveTechniqueRealm, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp } from '@mud/shared';
+import { resolveProjectPath } from '../common/project-path';
 
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1;
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7;
 
 /** 内容模板仓库：集中加载物品、功法、妖兽掉落和怪物运行时模板。 */
-let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTemplateRepository {
+@Injectable()
+export class ContentTemplateRepository {
     /** 运行时日志器，记录内容加载与校验失败。 */
-    logger = new common_1.Logger(ContentTemplateRepository_1.name);
+    logger = new Logger(ContentTemplateRepository.name);
     /** 物品模板表，按 itemId 查找。 */
     itemTemplates = new Map();
     /** 功法模板表，按 techniqueId 查找。 */
@@ -94,7 +37,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     /** 生成新玩家的起始背包。 */
     createStarterInventory() {
         return {
-            capacity: shared_1.DEFAULT_INVENTORY_CAPACITY,
+            capacity: DEFAULT_INVENTORY_CAPACITY,
             items: this.starterInventoryEntries
                 .map((entry) => this.createItem(entry.itemId, entry.count ?? 1))
                 .filter((entry) => Boolean(entry)),
@@ -311,7 +254,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             exp: 0,
             expToNext: template.layers.find((entry) => entry.level === 1)?.expToNext ?? 0,
             realmLv: template.realmLv,
-            realm: shared_1.TechniqueRealm.Entry,
+            realm: TechniqueRealm.Entry,
             skills: template.skills.map((entry) => ({ ...entry })),
             grade: template.grade,
             category: template.category,
@@ -373,7 +316,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             ? Math.max(1, Math.trunc(Number(input.realmLv)))
             : (template?.realmLv ?? 1);
 
-        const templateLayerByLevel = new Map((template?.layers ?? []).map((entry) => [entry.level, entry]));
+        const templateLayerByLevel: Map<any, any> = new Map((template?.layers ?? []).map((entry) => [entry.level, entry]));
         const layers = Array.isArray(input.layers) && input.layers.length > 0
             ? input.layers.map((entry) => {
                 const layerLevel = Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1;
@@ -400,13 +343,13 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const expToNext = Number.isFinite(input.expToNext)
             ? Math.max(0, Math.trunc(Number(input.expToNext)))
-            : ((0, shared_1.getTechniqueExpToNext)(level, layers) ?? 0);
+            : (getTechniqueExpToNext(level, layers) ?? 0);
 
         const grade = typeof input.grade === 'string' ? input.grade : template?.grade;
 
         const category = typeof input.category === 'string' ? input.category : template?.category;
 
-        const templateSkillById = new Map((template?.skills ?? []).map((entry) => [entry.id, entry]));
+        const templateSkillById: Map<any, any> = new Map((template?.skills ?? []).map((entry) => [entry.id, entry]));
         const skills = Array.isArray(input.skills) && input.skills.length > 0
             ? input.skills.map((entry) => {
                 const templateSkill = typeof entry?.id === 'string' ? templateSkillById.get(entry.id) : null;
@@ -431,7 +374,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             exp: Number.isFinite(input.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0,
             expToNext,
             realmLv,
-            realm: Number.isFinite(input.realm) ? Math.max(0, Math.trunc(Number(input.realm))) : (0, shared_1.deriveTechniqueRealm)(level, layers, attrCurves),
+            realm: Number.isFinite(input.realm) ? Math.max(0, Math.trunc(Number(input.realm))) : deriveTechniqueRealm(level, layers, attrCurves),
             skills,
             grade,
             category,
@@ -576,8 +519,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 tier: resolvedStats.tier,
                 expMultiplier: resolvedStats.expMultiplier,
                 baseAttrs: cloneMonsterAttributes(resolvedStats.attrs),
-                baseNumericStats: (0, shared_1.cloneNumericStats)(resolvedStats.numericStats),
-                ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+                baseNumericStats: cloneNumericStats(resolvedStats.numericStats),
+                ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
                 statFormula: cloneMonsterStatFormula(template.statFormula),
                 initialBuffs: template.initialBuffs?.map((entry) => ({ ...entry })),
                 skills: template.skills.map((entry) => cloneSkill(entry)),
@@ -597,7 +540,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
  * @returns 妖兽运行态生成记录；模板不存在时返回 null。
  */
 
-    createRuntimeMonsterSpawn(monsterId, options = {}) {
+    createRuntimeMonsterSpawn(monsterId, options: any = {}) {
         const normalizedMonsterId = typeof monsterId === 'string' ? monsterId.trim() : '';
         if (!normalizedMonsterId) {
             return null;
@@ -633,7 +576,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 : template.respawnTicks,
             alive: options.alive === false ? false : true,
             respawnLeft: 0,
-            facing: shared_1.Direction.South,
+            facing: Direction.South,
             name: typeof options.name === 'string' && options.name.trim() ? options.name.trim() : template.name,
             char: template.char,
             color: template.color,
@@ -641,8 +584,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             tier: resolvedStats.tier,
             expMultiplier: resolvedStats.expMultiplier,
             baseAttrs: cloneMonsterAttributes(resolvedStats.attrs),
-            baseNumericStats: (0, shared_1.cloneNumericStats)(resolvedStats.numericStats),
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            baseNumericStats: cloneNumericStats(resolvedStats.numericStats),
+            ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
             statFormula: cloneMonsterStatFormula(template.statFormula),
             initialBuffs: template.initialBuffs?.map((entry) => ({ ...entry })),
             skills: template.skills.map((entry) => cloneSkill(entry)),
@@ -670,7 +613,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 
-        const document = (0, shared_1.normalizeEditableMapDocument)(raw);
+        const document = normalizeEditableMapDocument(raw);
 
         const spawns = Array.isArray(document.monsterSpawns) ? document.monsterSpawns : [];
         const rawSpawns = Array.isArray(raw?.monsterSpawns) ? raw.monsterSpawns : [];
@@ -732,7 +675,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                     alive,
                     respawnLeft: alive ? 0 : respawnTicks,
                     respawnTicks,
-                    facing: shared_1.Direction.South,
+                    facing: Direction.South,
                     wanderRadius,
                     level: Number.isFinite(rawSpawn.level)
                         ? Math.max(1, Math.trunc(Number(rawSpawn.level)))
@@ -765,8 +708,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         return {
             attrs: cloneMonsterAttributes(template.attrs),
-            numericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            numericStats: cloneNumericStats(template.numericStats),
+            ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
             expMultiplier: template.expMultiplier,
         };
     }
@@ -796,7 +739,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const sharedBuffFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'technique-buffs'));
+        const sharedBuffFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'technique-buffs'));
         for (const file of sharedBuffFiles) {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
             if (!Array.isArray(parsed)) {
@@ -830,7 +773,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         this.starterInventoryEntries = [];
         resetMapDocumentFileIndex();
 
-        const itemFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'items'));
+        const itemFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'items'));
         for (const file of itemFiles) {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
             if (!Array.isArray(parsed)) {
@@ -846,7 +789,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         this.loadSharedTechniqueBuffs();
 
-        const formationsPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'formations.json');
+        const formationsPath = resolveProjectPath('packages', 'server', 'data', 'content', 'formations.json');
         if (fs.existsSync(formationsPath)) {
             const parsedFormations = JSON.parse(fs.readFileSync(formationsPath, 'utf-8'));
             if (Array.isArray(parsedFormations)) {
@@ -859,7 +802,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
 
-        const techniqueFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'techniques'));
+        const techniqueFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'techniques'));
         for (const file of techniqueFiles) {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
             if (!Array.isArray(parsed)) {
@@ -874,7 +817,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
 
-        const starterPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'starter-inventory.json');
+        const starterPath = resolveProjectPath('packages', 'server', 'data', 'content', 'starter-inventory.json');
 
         const starterRaw = JSON.parse(fs.readFileSync(starterPath, 'utf-8'));
         this.starterInventoryEntries = Array.isArray(starterRaw.items)
@@ -895,7 +838,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const monsterFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'monsters'));
+        const monsterFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'monsters'));
         for (const file of monsterFiles) {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
             if (!Array.isArray(parsed)) {
@@ -920,7 +863,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
                 const drops = this.buildMonsterDrops(monster.drops, monster.equipment, {
                     grade: normalizeTechniqueGrade(monster.grade),
-                    tier: normalizeMonsterTier(monster.tier ?? (0, shared_1.inferMonsterTierFromName)(monster.name)),
+                    tier: normalizeMonsterTier(monster.tier ?? inferMonsterTierFromName(monster.name)),
 
                     level: typeof monster.level === 'number' && Number.isFinite(monster.level)
                         ? Math.max(1, Math.trunc(monster.level))
@@ -967,7 +910,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         if (rawEquipment && typeof rawEquipment === 'object') {
 
             const equipment = rawEquipment;
-            for (const slot of shared_1.EQUIP_SLOTS) {
+            for (const slot of EQUIP_SLOTS) {
                 const itemId = this.resolveRawEquipmentItemId(equipment[slot]);
                 if (!itemId || existingItemIds.has(itemId)) {
                     continue;
@@ -1076,7 +1019,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }
     getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context) {
-        if (drop.itemId !== 'spirit_stone' || (0, shared_1.normalizeMonsterTier)(context?.monsterTier) !== 'mortal_blood') {
+        if (drop.itemId !== 'spirit_stone' || normalizeSharedMonsterTier(context?.monsterTier) !== 'mortal_blood') {
             return 1;
         }
         const playerRealmLv = Math.max(1, Math.floor(Number(context?.playerRealmLv) || 1));
@@ -1307,7 +1250,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return null;
         }
 
-        const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, this.monsterRealmBaselines);
+        const resolved = resolveMonsterTemplateRecord(raw, undefined, this.monsterRealmBaselines);
 
         const tier = resolved.tier;
 
@@ -1315,7 +1258,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const attrs = cloneMonsterAttributes(resolved.resolvedAttrs);
 
-        const numericStats = (0, shared_1.cloneNumericStats)(resolved.computedStats);
+        const numericStats = cloneNumericStats(resolved.computedStats);
 
         const maxHp = normalizeMonsterMaxHp(raw.maxHp, raw.hp, attrs, numericStats);
         if (maxHp <= 0) {
@@ -1339,7 +1282,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             respawnTicks: normalizeMonsterRespawnTicks(raw.respawnTicks, raw.respawnSec),
             attrs,
             numericStats,
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors),
+            ratioDivisors: cloneNumericRatioDivisors(PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE].ratioDivisors),
             expMultiplier: resolved.expMultiplier,
             statFormula: createMonsterStatFormula(raw, this.monsterRealmBaselines),
             initialBuffs: normalizeMonsterInitialBuffs(raw.initialBuffs),
@@ -1409,7 +1352,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const runtimePath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'runtime', 'map-monster-runtime-state.json');
+        const runtimePath = resolveProjectPath('packages', 'server', 'data', 'runtime', 'map-monster-runtime-state.json');
         if (!fs.existsSync(runtimePath)) {
             return;
         }
@@ -1437,11 +1380,6 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }
 };
-exports.ContentTemplateRepository = ContentTemplateRepository;
-exports.ContentTemplateRepository = ContentTemplateRepository = ContentTemplateRepository_1 = __decorate([
-    (0, common_1.Injectable)()
-], ContentTemplateRepository);
-export { ContentTemplateRepository };
 /**
  * parseMonsterIdFromRuntimeId：规范化或转换怪物IDFrom运行态ID。
  * @param runtimeId runtime ID。
@@ -1464,13 +1402,13 @@ function findMapDocumentFile(mapId) {
     if (!normalizedMapId) {
         return '';
     }
-    const directPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps', `${normalizedMapId}.json`);
+    const directPath = resolveProjectPath('packages', 'server', 'data', 'maps', `${normalizedMapId}.json`);
     if (fs.existsSync(directPath)) {
         return directPath;
     }
     if (!mapDocumentFileIndexLoaded) {
         mapDocumentFileIndexLoaded = true;
-        const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
+        const mapsDir = resolveProjectPath('packages', 'server', 'data', 'maps');
         if (fs.existsSync(mapsDir)) {
             for (const filePath of collectJsonFiles(mapsDir)) {
                 try {
@@ -1521,7 +1459,7 @@ function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
 function loadMonsterRealmBaselines() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const baselinesPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
+    const baselinesPath = resolveProjectPath('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
     if (!fs.existsSync(baselinesPath)) {
         return undefined;
     }
@@ -1551,7 +1489,7 @@ function createMonsterStatFormula(raw, baselines) {
  * @returns 妖兽当前基础属性。
  */
 
-function resolveMonsterRuntimeTemplateStats(template, overrides = {}) {
+function resolveMonsterRuntimeTemplateStats(template, overrides: any = {}) {
     const formula = template.statFormula;
     if (!formula?.raw) {
         return {
@@ -1559,20 +1497,20 @@ function resolveMonsterRuntimeTemplateStats(template, overrides = {}) {
             tier: template.tier,
             expMultiplier: template.expMultiplier,
             attrs: cloneMonsterAttributes(template.attrs),
-            numericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
+            numericStats: cloneNumericStats(template.numericStats),
             maxHp: template.maxHp,
         };
     }
-    const raw = cloneMonsterFormulaRaw(formula.raw);
+    const raw: any = cloneMonsterFormulaRaw(formula.raw);
     if (Number.isFinite(Number(overrides.level))) {
         raw.level = Math.max(1, Math.trunc(Number(overrides.level)));
     }
     if (typeof overrides.tier === 'string' && overrides.tier.trim()) {
         raw.tier = overrides.tier.trim();
     }
-    const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, formula.baselines);
+    const resolved = resolveMonsterTemplateRecord(raw, undefined, formula.baselines);
     const attrs = cloneMonsterAttributes(resolved.resolvedAttrs);
-    const numericStats = (0, shared_1.cloneNumericStats)(resolved.computedStats);
+    const numericStats = cloneNumericStats(resolved.computedStats);
     return {
         level: resolved.level ?? template.level,
         tier: resolved.tier,
@@ -1829,7 +1767,7 @@ function normalizeMonsterRuntimeStateRecord(raw) {
 
         facing: typeof entry.facing === 'number' && Number.isFinite(entry.facing)
             ? Math.trunc(entry.facing)
-            : shared_1.Direction.South,
+            : Direction.South,
     };
 }
 const ORDINARY_MONSTER_SPAWN_COUNT = 4;
@@ -1960,8 +1898,8 @@ function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
                     continue;
                 }
 
-                const tileType = (0, shared_1.getTileTypeFromMapChar)(document.tiles[y]?.[x] ?? '#');
-                if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
+                const tileType = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
+                if (!isTileTypeWalkable(tileType)) {
                     continue;
                 }
                 occupied.add(key);
@@ -2020,7 +1958,7 @@ function normalizeMaterialElementValues(raw) {
         return undefined;
     }
     const result = {};
-    for (const element of shared_1.ELEMENT_KEYS) {
+    for (const element of ELEMENT_KEYS) {
         const value = Number(raw[element]);
         if (!Number.isFinite(value) || value <= 0) {
             continue;
@@ -2062,10 +2000,10 @@ function normalizeMaterialScalarValues(raw) {
 function normalizeMaterialValues(raw, legacyElements) {
   // 当前只启用 elements，容器结构为后续其他材料属性预留同层扩展口。
 
-    const candidate = raw && typeof raw === 'object' ? raw : {};
+    const candidate: any = raw && typeof raw === 'object' ? raw : {};
     const elements = normalizeMaterialElementValues(candidate.elements ?? legacyElements);
     const scalars = normalizeMaterialScalarValues(candidate.scalars);
-    const result = {};
+    const result: any = {};
     if (elements) {
         result.elements = elements;
     }
@@ -2123,7 +2061,7 @@ function normalizeItemTemplate(raw) {
     if (typeof candidate.itemId !== 'string' || !candidate.itemId.trim()) {
         return null;
     }
-    const defaultTileAuraResourceKey = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+    const defaultTileAuraResourceKey = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
     const normalizedTileAuraGainAmount = Number.isFinite(candidate.tileAuraGainAmount)
         ? Number(candidate.tileAuraGainAmount)
         : undefined;
@@ -2145,7 +2083,7 @@ function normalizeItemTemplate(raw) {
     const synthesizedTileAuraGainAmount = normalizedTileAuraGainAmount
         ?? normalizedTileResourceGains?.find((entry) => entry.resourceKey === defaultTileAuraResourceKey)?.amount;
     const materialCategory = normalizeMaterialCategory(candidate.materialCategory);
-    const compiledEquipBaselineStats = (0, shared_1.compileEquipmentBaselinePercentsToActualStats)(candidate.equipBaselinePercents, {
+    const compiledEquipBaselineStats = compileEquipmentBaselinePercentsToActualStats(candidate.equipBaselinePercents, {
         grade: candidate.grade,
         level: candidate.level,
     });
@@ -2163,7 +2101,7 @@ function normalizeItemTemplate(raw) {
         materialCategory,
         materialValues: normalizeMaterialValues(candidate.materialValues, candidate.materialElementValues),
 
-        equipSlot: typeof candidate.equipSlot === 'string' && shared_1.EQUIP_SLOTS.includes(candidate.equipSlot)
+        equipSlot: typeof candidate.equipSlot === 'string' && EQUIP_SLOTS.includes(candidate.equipSlot)
             ? candidate.equipSlot
             : undefined,
         equipAttrs: candidate.equipAttrs ? { ...candidate.equipAttrs } : undefined,
@@ -2481,7 +2419,7 @@ function normalizePartialNumericStats(input) {
         return undefined;
     }
     const stats = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const value = Number(input[key]);
         if (!Number.isFinite(value) || value === 0) {
             continue;
@@ -2494,7 +2432,7 @@ function normalizePartialNumericStats(input) {
             continue;
         }
         const normalizedGroup = {};
-        for (const element of shared_1.ELEMENT_KEYS) {
+        for (const element of ELEMENT_KEYS) {
             const value = Number(group[element]);
             if (!Number.isFinite(value) || value === 0) {
                 continue;
@@ -2511,7 +2449,7 @@ function normalizePartialNumericStats(input) {
 function resolveConfiguredBuffStats(stats, valueStats, mode) {
     if (mode === 'flat') {
         return normalizePartialNumericStats(stats)
-            ?? (isRecord(valueStats) ? (0, shared_1.compileValueStatsToActualStats)(valueStats) : undefined);
+            ?? (isRecord(valueStats) ? compileValueStatsToActualStats(valueStats) : undefined);
     }
     return normalizePartialNumericStats(stats) ?? normalizePartialNumericStats(valueStats);
 }
@@ -2639,14 +2577,14 @@ function cloneQiProjectionModifiers(source) {
 }
 
 function scaleTechniqueExpCompat(expFactor, realmLv) {
-  if (typeof shared_1.scaleTechniqueExp === 'function') {
-    return (0, shared_1.scaleTechniqueExp)(expFactor, realmLv);
+  if (typeof scaleTechniqueExp === 'function') {
+    return scaleTechniqueExp(expFactor, realmLv);
   }
   if (expFactor <= 0) {
     return 0;
   }
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : 1;
-  const expBase = Number.isFinite(shared_1.TECHNIQUE_EXP_BASE) ? Number(shared_1.TECHNIQUE_EXP_BASE) : 100;
+  const expBase = Number.isFinite(TECHNIQUE_EXP_BASE) ? Number(TECHNIQUE_EXP_BASE) : 100;
   return Math.max(0, Math.round(expFactor * expBase * normalizedRealmLv));
 }
 /**
@@ -2792,7 +2730,7 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
 
     const unlockRealm = typeof candidate.unlockRealm === 'number' ? candidate.unlockRealm : undefined;
 
-    const unlockLevel = (0, shared_1.resolveSkillUnlockLevel)({
+    const unlockLevel = resolveSkillUnlockLevel({
         unlockLevel: candidate.unlockLevel,
         unlockRealm,
     });
@@ -2807,7 +2745,7 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         name: candidate.name,
         desc: candidate.desc,
         cooldown,
-        cost: (0, shared_1.calculateTechniqueSkillQiCost)(costMultiplier, grade, realmLv),
+        cost: calculateTechniqueSkillQiCost(costMultiplier, grade, realmLv),
         costMultiplier,
         range,
         targeting: candidate.targeting ? { ...candidate.targeting } : undefined,
@@ -2827,7 +2765,7 @@ function normalizeSkillCastDef(raw, includeConditions = false) {
     }
     const candidate = raw;
     const windupTicks = Number(candidate.windupTicks);
-    const normalized = {};
+    const normalized: any = {};
     if (Number.isFinite(windupTicks)) {
         normalized.windupTicks = Math.max(0, Math.floor(windupTicks));
     }

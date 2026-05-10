@@ -1,41 +1,27 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerAttributesService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-const pvp_1 = require("../../constants/gameplay/pvp");
+import { Injectable } from '@nestjs/common';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addPartialNumericStats, applyEnhancementToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
-let PlayerAttributesService = class PlayerAttributesService {
+@Injectable()
+export class PlayerAttributesService {
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
 
-        const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(shared_1.DEFAULT_PLAYER_REALM_STAGE);
+        const template = resolvePlayerRealmNumericTemplate(DEFAULT_PLAYER_REALM_STAGE);
         return {
             revision: 1,
-            stage: shared_1.DEFAULT_PLAYER_REALM_STAGE,
+            stage: DEFAULT_PLAYER_REALM_STAGE,
             rawBaseAttrs: createBaseAttributes(),
             baseAttrs: createBaseAttributes(),
             finalAttrs: createBaseAttributes(),
-            numericStats: (0, shared_1.cloneNumericStats)(template.stats),
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            numericStats: cloneNumericStats(template.stats),
+            ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
         };
     }
     /** 重新计算玩家的最终属性和数值面板。 */
     recalculate(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const previousMaxHp = Math.max(1, Math.round(player.maxHp));
 
@@ -76,12 +62,11 @@ let PlayerAttributesService = class PlayerAttributesService {
     buildState(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const stage = player.realm?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
+        const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
 
         const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
 
-        const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(stage);
+        const template = resolvePlayerRealmNumericTemplate(stage);
 
         const runtimeBonuses = Array.isArray(player.runtimeBonuses) ? player.runtimeBonuses : [];
 
@@ -96,7 +81,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
 
         const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
-        addAttributes(realmBaseAttrs, (0, shared_1.resolvePlayerRealmAttributeBonus)(stage));
+        addAttributes(realmBaseAttrs, resolvePlayerRealmAttributeBonus(stage));
 
         const baseAttrs = cloneAttributes(realmBaseAttrs);
         addAttributes(baseAttrs, techniqueAttrBonus);
@@ -111,7 +96,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             if (!item) {
                 continue;
             }
-            const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
+            const enhancedItem = applyEnhancementToItemStack(item);
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
         const attrPercentBonuses = createAttributePercentBonusAccumulator();
@@ -120,7 +105,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             accumulateUniformAttributePercentBonus(attrPercentBonuses.realm, rootFoundation);
         }
         if (bodyTrainingLevel > 0) {
-            accumulateAttributePercentBonus(attrPercentBonuses.bodyTraining, (0, shared_1.calcBodyTrainingAttrPercentBonus)(bodyTrainingLevel));
+            accumulateAttributePercentBonus(attrPercentBonuses.bodyTraining, calcBodyTrainingAttrPercentBonus(bodyTrainingLevel));
         }
         const flatBuffAttrs = createEmptyAttributes();
         for (const buff of getActiveBuffs(player.buffs.buffs)) {
@@ -144,11 +129,11 @@ let PlayerAttributesService = class PlayerAttributesService {
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.pill);
         clampAttributes(finalAttrs);
 
-        const numericStats = (0, shared_1.cloneNumericStats)(template.stats);
+        const numericStats = cloneNumericStats(template.stats);
 
         const percentBonuses = createPercentBonusAccumulator();
         const buffStatPercentBonuses = createNumericStatPercentBonusAccumulator();
-        for (const key of shared_1.ATTR_KEYS) {
+        for (const key of ATTR_KEYS) {
             const value = finalAttrs[key];
             if (value === 0) {
                 continue;
@@ -162,18 +147,18 @@ let PlayerAttributesService = class PlayerAttributesService {
             if (!item) {
                 continue;
             }
-            const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
-            (0, shared_1.addPartialNumericStats)(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
+            const enhancedItem = applyEnhancementToItemStack(item);
+            addPartialNumericStats(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
             for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
                 const effectStats = resolveItemStats(effect.stats, effect.valueStats);
                 if (!effectStats) {
                     continue;
                 }
                 if (resolveBuffModifierMode(effect.statMode) === 'percent') {
-                    (0, shared_1.addPartialNumericStats)(percentBonuses, effectStats);
+                    addPartialNumericStats(percentBonuses, effectStats);
                 }
                 else {
-                    (0, shared_1.addPartialNumericStats)(numericStats, effectStats);
+                    addPartialNumericStats(numericStats, effectStats);
                 }
             }
         }
@@ -191,21 +176,21 @@ let PlayerAttributesService = class PlayerAttributesService {
             }
             if (resolveBuffModifierMode(buff.statMode) === 'percent') {
                 const target = isPillAttributeBuff(buff) ? buffStatPercentBonuses.pill : buffStatPercentBonuses.buff;
-                (0, shared_1.addPartialNumericStats)(target, scaledStats);
+                addPartialNumericStats(target, scaledStats);
             }
             else {
-                (0, shared_1.addPartialNumericStats)(numericStats, scaledStats);
+                addPartialNumericStats(numericStats, scaledStats);
             }
         }
         for (const bonus of projectedRuntimeBonuses) {
-            (0, shared_1.addPartialNumericStats)(numericStats, bonus.stats);
+            addPartialNumericStats(numericStats, bonus.stats);
         }
         applyActiveCultivationStats(numericStats, player);
         applyPercentBonuses(numericStats, percentBonuses);
         applyRealmNumericScaling(numericStats, realmLv);
         applySpiritualRoots(numericStats, player.spiritualRoots);
         if (vitalBaselineBonus?.stats) {
-            (0, shared_1.addPartialNumericStats)(numericStats, vitalBaselineBonus.stats);
+            addPartialNumericStats(numericStats, vitalBaselineBonus.stats);
         }
         applyPercentBonuses(numericStats, buffStatPercentBonuses.buff);
         applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
@@ -217,15 +202,10 @@ let PlayerAttributesService = class PlayerAttributesService {
             baseAttrs,
             finalAttrs,
             numericStats,
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
         };
     }
 };
-exports.PlayerAttributesService = PlayerAttributesService;
-exports.PlayerAttributesService = PlayerAttributesService = __decorate([
-    (0, common_1.Injectable)()
-], PlayerAttributesService);
-export { PlayerAttributesService };
 /**
  * applySpiritualRoots：处理Spiritual根容器并更新相关状态。
  * @param target 目标对象。
@@ -255,22 +235,22 @@ function applyActiveCultivationStats(target, player) {
     if (player?.combat?.cultivationActive !== true) {
         return;
     }
-    target.realmExpPerTick += shared_1.CULTIVATION_REALM_EXP_PER_TICK;
-    target.techniqueExpPerTick += shared_1.CULTIVATE_EXP_PER_TICK;
+    target.realmExpPerTick += CULTIVATION_REALM_EXP_PER_TICK;
+    target.techniqueExpPerTick += CULTIVATE_EXP_PER_TICK;
 }
 /**
  * createBaseAttributes：构建并返回目标对象。
  * @returns 无返回值，直接更新BaseAttribute相关状态。
  */
 
-function createBaseAttributes() {
+function createBaseAttributes(): Record<string, number> {
     return {
-        constitution: shared_1.DEFAULT_BASE_ATTRS.constitution,
-        spirit: shared_1.DEFAULT_BASE_ATTRS.spirit,
-        perception: shared_1.DEFAULT_BASE_ATTRS.perception,
-        talent: shared_1.DEFAULT_BASE_ATTRS.talent,
-        strength: shared_1.DEFAULT_BASE_ATTRS.strength,
-        meridians: shared_1.DEFAULT_BASE_ATTRS.meridians,
+        constitution: DEFAULT_BASE_ATTRS.constitution,
+        spirit: DEFAULT_BASE_ATTRS.spirit,
+        perception: DEFAULT_BASE_ATTRS.perception,
+        talent: DEFAULT_BASE_ATTRS.talent,
+        strength: DEFAULT_BASE_ATTRS.strength,
+        meridians: DEFAULT_BASE_ATTRS.meridians,
     };
 }
 
@@ -279,7 +259,7 @@ function normalizeRawBaseAttributes(source) {
     if (!source || typeof source !== 'object') {
         return attrs;
     }
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(source[key]);
         if (Number.isFinite(value)) {
             attrs[key] = Math.max(0, Math.trunc(value));
@@ -301,13 +281,13 @@ function normalizeRawBaseAttributes(source) {
  */
 
 function createPercentBonusAccumulator() {
-    return (0, shared_1.createNumericStats)();
+    return createNumericStats();
 }
 
 function createNumericStatPercentBonusAccumulator() {
     return {
-        buff: (0, shared_1.createNumericStats)(),
-        pill: (0, shared_1.createNumericStats)(),
+        buff: createNumericStats(),
+        pill: createNumericStats(),
     };
 }
 
@@ -396,7 +376,7 @@ function addAttributes(target, patch) {
     if (!patch) {
         return;
     }
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = patch[key];
         if (value !== undefined) {
             target[key] += value;
@@ -405,12 +385,12 @@ function addAttributes(target, patch) {
 }
 
 function scaleAttributes(source, multiplier = 1) {
-    const scaled = {};
+    const scaled: Record<string, number> = {};
     if (!source) {
         return scaled;
     }
     const normalizedMultiplier = Number.isFinite(multiplier) ? multiplier : 1;
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(source[key]);
         if (Number.isFinite(value) && value !== 0) {
             scaled[key] = value * normalizedMultiplier;
@@ -424,7 +404,7 @@ function accumulateUniformAttributePercentBonus(target, amount) {
     if (!Number.isFinite(normalized) || normalized === 0) {
         return;
     }
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         target[key] += normalized;
     }
 }
@@ -434,7 +414,7 @@ function accumulateAttributePercentBonus(target, attrs, factor = 1) {
         return;
     }
     const normalizedFactor = Number.isFinite(Number(factor)) ? Number(factor) : 1;
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(attrs[key]);
         if (Number.isFinite(value) && value !== 0) {
             target[key] += value * normalizedFactor;
@@ -443,13 +423,13 @@ function accumulateAttributePercentBonus(target, attrs, factor = 1) {
 }
 
 function applySingleAttributePercentBonuses(target, bonuses) {
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         target[key] = Math.max(0, target[key] * attributePercentToMultiplier(bonuses[key]));
     }
 }
 
 function attributePercentToMultiplier(percent) {
-    return (0, shared_1.percentModifierToMultiplier)(Number(percent));
+    return percentModifierToMultiplier(Number(percent));
 }
 
 function isPillAttributeBuff(buff) {
@@ -464,7 +444,7 @@ function isPillAttributeBuff(buff) {
  */
 
 function clampAttributes(target) {
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         target[key] = Math.max(0, target[key]);
     }
 }
@@ -479,12 +459,11 @@ function clampAttributes(target) {
 function applyAttrWeight(target, key, value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const weight = shared_1.ATTR_TO_NUMERIC_WEIGHTS[key];
+    const weight = ATTR_TO_NUMERIC_WEIGHTS[key];
     if (!weight) {
         return;
     }
-    (0, shared_1.addPartialNumericStats)(target, scalePartialNumericStats(weight, value));
+    addPartialNumericStats(target, scalePartialNumericStats(weight, value));
 }
 /**
  * accumulateAttrPercentBonus：执行accumulateAttrPercentBonu相关逻辑。
@@ -497,12 +476,11 @@ function applyAttrWeight(target, key, value) {
 function accumulateAttrPercentBonus(target, key, value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const weight = shared_1.ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
+    const weight = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
     if (!weight) {
         return;
     }
-    (0, shared_1.addPartialNumericStats)(target, scalePartialNumericStats(weight, value));
+    addPartialNumericStats(target, scalePartialNumericStats(weight, value));
 }
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {
@@ -531,7 +509,7 @@ function resolveEquipmentSpecialStats(player) {
         if (!item) {
             continue;
         }
-        const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
+        const enhancedItem = applyEnhancementToItemStack(item);
         result.comprehension += Math.max(0, Math.trunc(Number(enhancedItem.equipSpecialStats?.comprehension ?? 0) || 0));
         result.luck += Math.max(0, Math.trunc(Number(enhancedItem.equipSpecialStats?.luck ?? 0) || 0));
     }
@@ -547,37 +525,37 @@ function resolveEquipmentSpecialStats(player) {
 function applyPercentBonuses(target, bonuses) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const bonus = bonuses[key];
         if (!Number.isFinite(bonus) || bonus === 0) {
             continue;
         }
         const floor = getNumericStatMultiplierFloor(key);
         const current = key === 'moveSpeed' ? target[key] + floor : target[key];
-        const multiplier = (0, shared_1.percentModifierToMultiplier)(bonus);
+        const multiplier = percentModifierToMultiplier(bonus);
         const nextValue = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
         target[key] = key === 'moveSpeed' ? nextValue - floor : nextValue;
     }
-    for (const element of shared_1.ELEMENT_KEYS) {
+    for (const element of ELEMENT_KEYS) {
         const damageBonus = bonuses.elementDamageBonus?.[element] ?? 0;
         if (damageBonus !== 0) {
-            const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageBonus[element] ?? 0;
+            const floor = NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageBonus[element] ?? 0;
             const current = target.elementDamageBonus[element];
-            const multiplier = (0, shared_1.percentModifierToMultiplier)(damageBonus);
+            const multiplier = percentModifierToMultiplier(damageBonus);
             target.elementDamageBonus[element] = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
         }
         const damageReduce = bonuses.elementDamageReduce?.[element] ?? 0;
         if (damageReduce !== 0) {
-            const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageReduce[element] ?? 0;
+            const floor = NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageReduce[element] ?? 0;
             const current = target.elementDamageReduce[element];
-            const multiplier = (0, shared_1.percentModifierToMultiplier)(damageReduce);
+            const multiplier = percentModifierToMultiplier(damageReduce);
             target.elementDamageReduce[element] = current > 0 ? Math.max(0, current * multiplier) : floor * multiplier - floor;
         }
     }
 }
 
 function getNumericStatMultiplierFloor(key) {
-    return shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS[key] ?? 0;
+    return NUMERIC_STAT_MULTIPLIER_FLOORS[key] ?? 0;
 }
 
 function resolveBuffModifierMode(mode) {
@@ -606,25 +584,25 @@ function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
 
 function scaleBuffNumericStats(buff, factor) {
     const scaled = scalePartialNumericStats(buff.stats, factor);
-    if (!scaled || buff.buffId !== pvp_1.PVP_SHA_INFUSION_BUFF_ID) {
+    if (!scaled || buff.buffId !== PVP_SHA_INFUSION_BUFF_ID) {
         return scaled;
     }
     if (scaled.physAtk !== undefined) {
-        scaled.physAtk = Math.min(scaled.physAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+        scaled.physAtk = Math.min(scaled.physAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
     }
     if (scaled.spellAtk !== undefined) {
-        scaled.spellAtk = Math.min(scaled.spellAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+        scaled.spellAtk = Math.min(scaled.spellAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
     }
     return scaled;
 }
 
 function roundNumericStats(target) {
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
-        const sourceValue = key === 'moveSpeed' ? (0, shared_1.getEffectiveMoveSpeed)(target[key]) : target[key];
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+        const sourceValue = key === 'moveSpeed' ? getEffectiveMoveSpeed(target[key]) : target[key];
         const rounded = Math.round(sourceValue);
         target[key] = SIGNED_NUMERIC_STAT_KEYS.has(key) ? rounded : Math.max(0, rounded);
     }
-    for (const key of shared_1.ELEMENT_KEYS) {
+    for (const key of ELEMENT_KEYS) {
         target.elementDamageBonus[key] = Math.round(target.elementDamageBonus[key]);
         target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key]));
     }
@@ -633,14 +611,14 @@ function roundNumericStats(target) {
 function applyRealmNumericScaling(target, realmLv) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const exponentialMultiplier = (0, shared_1.getRealmAttributeMultiplier)(realmLv);
+    const exponentialMultiplier = getRealmAttributeMultiplier(realmLv);
     if (exponentialMultiplier !== 1) {
         for (const key of REALM_EXPONENTIAL_NUMERIC_KEYS) {
             target[key] = Math.max(0, Math.round(target[key] * exponentialMultiplier));
         }
     }
     for (const key of REALM_LINEAR_NUMERIC_KEYS) {
-        const linearMultiplier = (0, shared_1.getRealmLinearGrowthMultiplier)(realmLv, REALM_LINEAR_NUMERIC_GROWTH_RATES[key]);
+        const linearMultiplier = getRealmLinearGrowthMultiplier(realmLv, REALM_LINEAR_NUMERIC_GROWTH_RATES[key]);
         if (linearMultiplier === 1) {
             continue;
         }
@@ -675,7 +653,7 @@ function applyWorldTimeVisionModifier(target, player) {
  */
 
 function resolveItemStats(equipStats, equipValueStats) {
-    return equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(equipValueStats) : equipStats;
+    return equipValueStats ? compileValueStatsToActualStats(equipValueStats) : equipStats;
 }
 
 function resolveActiveEquipmentProgressEffects(item, player) {
@@ -735,8 +713,7 @@ function matchesEquipmentCondition(player, condition) {
 function scalePartialNumericStats(source, multiplier) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const scaled = {};
+    const scaled: Record<string, any> = {};
     for (const [key, value] of Object.entries(source)) {
         if (value === undefined) {
             continue;
@@ -747,7 +724,7 @@ function scalePartialNumericStats(source, multiplier) {
         }
         if (typeof value === 'object' && value) {
 
-            const group = {};
+            const group: Record<string, number> = {};
             for (const [nestedKey, nestedValue] of Object.entries(value)) {
                 if (typeof nestedValue === 'number') {
                     group[nestedKey] = nestedValue * multiplier;
@@ -816,11 +793,11 @@ function collectProjectedRuntimeBonuses(bonuses) {
 function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return (0, shared_1.calcTechniqueFinalAttrBonus)(techniques.map(toTechniqueState));
+    return calcTechniqueFinalAttrBonus(techniques.map(toTechniqueState));
 }
 
 function resolveTechniqueSpecialStatBonus(techniques) {
-    return (0, shared_1.calcTechniqueFinalSpecialStatBonus)(techniques.map(toTechniqueState));
+    return calcTechniqueFinalSpecialStatBonus(techniques.map(toTechniqueState));
 }
 /**
  * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。
@@ -874,7 +851,7 @@ function hasAttrStateChanged(previous, next) {
 function isSameAttributes(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         if (left[key] !== right[key]) {
             return false;
         }

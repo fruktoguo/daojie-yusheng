@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Pool } from 'pg';
 
@@ -33,7 +33,7 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   private flushing = false;
   private sequence = 0;
 
-  constructor(private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
+  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('combat-audit-outbox') ?? null;

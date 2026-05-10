@@ -1,45 +1,29 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var SuggestionPersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SuggestionPersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const pg_1 = require("pg");
-
-const env_alias_1 = require("../config/env-alias");
+import { Injectable, Logger } from '@nestjs/common';
+import { Pool } from 'pg';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
 
 const SUGGESTION_STATE_TABLE = 'server_suggestion_state';
 const SUGGESTION_TABLE = 'server_suggestion';
 const SUGGESTION_STATE_KEY = 'global';
 
 /** 建议持久化服务：保存/恢复全服建议与回复投票状态。 */
-let SuggestionPersistenceService = SuggestionPersistenceService_1 = class SuggestionPersistenceService {
+@Injectable()
+export class SuggestionPersistenceService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(SuggestionPersistenceService_1.name);    
+    logger = new Logger(SuggestionPersistenceService.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * enabled：启用开关或状态标识。
  */
 
-    enabled = false;    
+    enabled = false;
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -48,13 +32,12 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             this.logger.log('建议持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new pg_1.Pool({
+        this.pool = new Pool({
             connectionString: databaseUrl,
         });
         try {
@@ -66,7 +49,7 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
             this.logger.error('建议持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
             await this.safeClosePool();
         }
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -74,7 +57,7 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
 
     async onModuleDestroy() {
         await this.safeClosePool();
-    }    
+    }
     /**
  * loadSuggestions：读取Suggestion并返回结果。
  * @returns 无返回值，完成Suggestion的读取/组装。
@@ -120,7 +103,7 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
                 updatedAt: Number(row.updated_at_ms ?? row.created_at_ms ?? Date.now()),
             })),
         });
-    }    
+    }
     /**
  * saveSuggestions：执行saveSuggestion相关逻辑。
  * @param document 参数说明。
@@ -193,7 +176,7 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
         finally {
             client.release();
         }
-    }    
+    }
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
  * @returns 无返回值，直接更新safeClosePool相关状态。
@@ -202,7 +185,6 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
     async safeClosePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.enabled = false;
@@ -210,11 +192,7 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
             await pool.end().catch(() => undefined);
         }
     }
-};
-exports.SuggestionPersistenceService = SuggestionPersistenceService;
-exports.SuggestionPersistenceService = SuggestionPersistenceService = SuggestionPersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], SuggestionPersistenceService);
+}
 
 async function ensureSuggestionTables(pool) {
     const client = await pool.connect();
@@ -306,5 +284,3 @@ function normalizeInteger(value, fallback) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.trunc(numeric) : Math.trunc(Number(fallback ?? 0));
 }
-export { SuggestionPersistenceService };
-//# sourceMappingURL=suggestion-persistence.service.js.map

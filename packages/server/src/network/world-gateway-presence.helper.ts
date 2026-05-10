@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayPresenceHelper = void 0;
 
 const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
 
@@ -78,6 +73,5 @@ class WorldGatewayPresenceHelper {
         }
     }
 }
-exports.WorldGatewayPresenceHelper = WorldGatewayPresenceHelper;
 
 export { WorldGatewayPresenceHelper };

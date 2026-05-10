@@ -1,41 +1,27 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeRespawnService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
 const PRISON_MAP_ID = 'prison';
 
 /** world-runtime respawn orchestration：承接复生队列消费与单人复生编排。 */
-let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
+@Injectable()
+export class WorldRuntimeRespawnService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * processPendingRespawns：处理待处理重生并更新相关状态。
  * @param deps 运行时依赖。
@@ -56,7 +42,7 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
             }
             this.respawnPlayer(playerId, deps);
         }
-    }    
+    }
     /**
  * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
@@ -122,11 +108,6 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         deps.queuePlayerNotice(playerId, `已在 ${targetInstance.template.name} 复生`, 'travel');
     }
 };
-exports.WorldRuntimeRespawnService = WorldRuntimeRespawnService;
-exports.WorldRuntimeRespawnService = WorldRuntimeRespawnService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeRespawnService);
 
 function resolveRespawnPlacement(template, inputX, inputY) {
     const spawnX = Number.isFinite(template?.spawnX) ? Math.trunc(template.spawnX) : 0;
@@ -153,5 +134,3 @@ function isWalkableTemplatePoint(template, x, y) {
     }
     return mask[(y * width) + x] === 1;
 }
-
-export { WorldRuntimeRespawnService };

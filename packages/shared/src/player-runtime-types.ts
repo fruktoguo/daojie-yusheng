@@ -433,6 +433,11 @@ export interface PlayerState {
 
   alchemySkill?: AlchemySkillState;
   /**
+ * forgingSkill：炼器技能相关字段。
+ */
+
+  forgingSkill?: AlchemySkillState;
+  /**
  * gatherSkill：gather技能相关字段。
  */
 

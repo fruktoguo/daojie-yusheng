@@ -1,8 +1,11 @@
-// @ts-nocheck
-
 import { CombatTargetKind } from '../world/combat-action.types';
 
-export function createCombatOutcomeApplyAdapters(handlers = {}) {
+type OutcomeHandlers = Record<string, any>;
+type OutcomeApplyInput = Record<string, any>;
+
+// 战斗结果落地适配器：将结算结果应用到运行时状态
+// 策略：handlers 优先 → deps service → deps method，容错链式调用
+export function createCombatOutcomeApplyAdapters(handlers: OutcomeHandlers = {}) {
   return {
     player: createPlayerOutcomeApplyAdapter(handlers),
     self: createPlayerOutcomeApplyAdapter(handlers),
@@ -13,8 +16,8 @@ export function createCombatOutcomeApplyAdapters(handlers = {}) {
   };
 }
 
-export function createPlayerOutcomeApplyAdapter(handlers = {}) {
-  return ({ outcome, target, result, application, deps }) => {
+export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
+  return ({ outcome, target, result, application, deps }: OutcomeApplyInput) => {
     const targetPlayerId = target?.id ?? result?.targetPlayerId ?? null;
     const damage = normalizeDamage(result);
     if (targetPlayerId && result?.retaliatePlayerTargetId) {
@@ -70,8 +73,8 @@ export function createPlayerOutcomeApplyAdapter(handlers = {}) {
   };
 }
 
-export function createMonsterOutcomeApplyAdapter(handlers = {}) {
-  return ({ outcome, target, result, application, deps }) => {
+export function createMonsterOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
+  return ({ outcome, target, result, application, deps }: OutcomeApplyInput) => {
     const targetMonsterId = target?.id ?? result?.targetMonsterId ?? null;
     const damage = normalizeDamage(result);
     const instance = resolveInstance(deps, outcome?.instanceId);
@@ -106,8 +109,8 @@ export function createMonsterOutcomeApplyAdapter(handlers = {}) {
   };
 }
 
-export function createTileOutcomeApplyAdapter(handlers = {}) {
-  return ({ outcome, target, result, application, deps }) => {
+export function createTileOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
+  return ({ outcome, target, result, application, deps }: OutcomeApplyInput) => {
     const x = normalizeCoordinate(target?.x ?? result?.targetX);
     const y = normalizeCoordinate(target?.y ?? result?.targetY);
     const damage = normalizeDamage(result);
@@ -136,8 +139,8 @@ export function createTileOutcomeApplyAdapter(handlers = {}) {
   };
 }
 
-export function createFormationOutcomeApplyAdapter(handlers = {}) {
-  return ({ outcome, target, result, application, deps }) => {
+export function createFormationOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
+  return ({ outcome, target, result, application, deps }: OutcomeApplyInput) => {
     const targetId = target?.id ?? result?.targetId ?? null;
     const x = normalizeCoordinate(target?.x ?? result?.targetX);
     const y = normalizeCoordinate(target?.y ?? result?.targetY);
@@ -167,8 +170,8 @@ export function createFormationOutcomeApplyAdapter(handlers = {}) {
   };
 }
 
-export function createContainerOutcomeApplyAdapter(handlers = {}) {
-  return ({ outcome, target, result, application, deps }) => {
+export function createContainerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
+  return ({ outcome, target, result, application, deps }: OutcomeApplyInput) => {
     const targetId = target?.id ?? result?.targetId ?? null;
     const x = normalizeCoordinate(target?.x ?? result?.targetX);
     const y = normalizeCoordinate(target?.y ?? result?.targetY);
@@ -208,7 +211,7 @@ export function createContainerOutcomeApplyAdapter(handlers = {}) {
   };
 }
 
-function resolveInstance(deps, instanceId) {
+function resolveInstance(deps: any, instanceId: unknown) {
   if (deps?.instance) {
     return deps.instance;
   }
@@ -221,7 +224,7 @@ function resolveInstance(deps, instanceId) {
   return null;
 }
 
-function callFirstDefined(calls) {
+function callFirstDefined(calls: Array<() => any>) {
   for (const call of calls) {
     const value = call?.();
     if (value !== undefined && value !== null) {
@@ -231,22 +234,22 @@ function callFirstDefined(calls) {
   return null;
 }
 
-function normalizeDamage(result = {}) {
+function normalizeDamage(result: Record<string, any> = {}) {
   return Math.max(0, Math.round(Number(result.damage ?? result.totalDamage ?? result.appliedDamage) || 0));
 }
 
-function normalizeAppliedDamage(value, fallback) {
+function normalizeAppliedDamage(value: unknown, fallback: number) {
   if (value !== null && value !== undefined && Number.isFinite(Number(value))) {
     return Math.max(0, Math.round(Number(value)));
   }
   return Math.max(0, Math.round(Number(fallback) || 0));
 }
 
-function normalizeCoordinate(value) {
+function normalizeCoordinate(value: unknown) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) ? normalized : null;
 }
 
-function normalizeNumber(value) {
+function normalizeNumber(value: unknown) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
 }

@@ -1,14 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayGuardHelper = void 0;
 /**
  * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param key 参数说明。
  * @returns 无返回值，完成BooleanEnv的读取/组装。
  */
-
 
 function readBooleanEnv(key) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -134,6 +128,5 @@ class WorldGatewayGuardHelper {
         return true;
     }
 }
-exports.WorldGatewayGuardHelper = WorldGatewayGuardHelper;
 
 export { WorldGatewayGuardHelper };

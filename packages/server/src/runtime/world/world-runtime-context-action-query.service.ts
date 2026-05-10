@@ -1,42 +1,10 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") {
-        r = Reflect.decorate(decorators, target, key, desc);
-    }
-    else {
-        for (var i = decorators.length - 1; i >= 0; i--) {
-            if (d = decorators[i]) {
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-            }
-        }
-    }
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") {
-        return Reflect.metadata(k, v);
-    }
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeContextActionQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
-
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+import { Injectable } from '@nestjs/common';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '@mud/shared';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 
 const {
     compareStableStrings,
@@ -90,22 +58,23 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
 const WANG_QI_COMPASS_ITEM_ID = 'equip.copper_luopan';
 
 /** 世界运行时上下文动作查询服务：承接 contextActions 的只读组装。 */
-let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQueryService {
+@Injectable()
+export class WorldRuntimeContextActionQueryService {
 /**
  * templateRepository：template仓储引用。
  */
 
-    templateRepository;    
+    templateRepository;
     /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * worldRuntimeNpcQuestInteractionQueryService：世界运行态NPC任务InteractionQuery服务引用。
  */
 
-    worldRuntimeNpcQuestInteractionQueryService;    
+    worldRuntimeNpcQuestInteractionQueryService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param templateRepository 参数说明。
@@ -114,11 +83,15 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(templateRepository, playerRuntimeService, worldRuntimeNpcQuestInteractionQueryService) {
+    constructor(
+        templateRepository: MapTemplateRepository,
+        playerRuntimeService: PlayerRuntimeService,
+        worldRuntimeNpcQuestInteractionQueryService: WorldRuntimeNpcQuestInteractionQueryService,
+    ) {
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
-    }    
+    }
     /**
  * buildContextActions：构建并返回目标对象。
  * @param view 参数说明。
@@ -155,10 +128,10 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         const returnReadyTick = normalizeReturnToSpawnReadyTick(player, currentTick);
         const returnCooldownLeft = Math.max(0, returnReadyTick - currentTick);
         actions.push({
-            id: shared_1.RETURN_TO_SPAWN_ACTION_ID,
+            id: RETURN_TO_SPAWN_ACTION_ID,
             name: '遁返',
             type: 'travel',
-            desc: `催动归引灵符，遁返回 ${respawnTargetName}，之后需调息 ${shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS} 息。`,
+            desc: `催动归引灵符，遁返回 ${respawnTargetName}，之后需调息 ${RETURN_TO_SPAWN_COOLDOWN_TICKS} 息。`,
             cooldownLeft: returnCooldownLeft,
         });
         for (const action of STATIC_TOGGLE_CONTEXT_ACTIONS) {
@@ -348,20 +321,13 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
 function hasEquippedItem(player, itemId) {
     return (player?.equipment?.slots ?? []).some((entry) => entry?.item?.itemId === itemId);
 }
-exports.WorldRuntimeContextActionQueryService = WorldRuntimeContextActionQueryService;
-exports.WorldRuntimeContextActionQueryService = WorldRuntimeContextActionQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [map_template_repository_1.MapTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService])
-], WorldRuntimeContextActionQueryService);
 
 function normalizeReturnToSpawnReadyTick(player, currentTick) {
     const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
     if (!cooldowns) {
         return 0;
     }
-    const actionId = shared_1.RETURN_TO_SPAWN_ACTION_ID;
+    const actionId = RETURN_TO_SPAWN_ACTION_ID;
     const readyTick = Math.max(0, Math.trunc(Number(cooldowns[actionId] ?? 0)));
     if (readyTick <= 0) {
         return 0;
@@ -370,15 +336,13 @@ function normalizeReturnToSpawnReadyTick(player, currentTick) {
     const remainingTicks = readyTick - normalizedCurrentTick;
     if (normalizedCurrentTick <= 0) {
         // 查询路径可能没有地图 tick，只收敛显示值，不清运行时真源。
-        return readyTick > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
-            ? shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+        return readyTick > RETURN_TO_SPAWN_COOLDOWN_TICKS
+            ? RETURN_TO_SPAWN_COOLDOWN_TICKS
             : readyTick;
     }
-    if (remainingTicks <= 0 || remainingTicks > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS) {
+    if (remainingTicks <= 0 || remainingTicks > RETURN_TO_SPAWN_COOLDOWN_TICKS) {
         delete cooldowns[actionId];
         return 0;
     }
     return readyTick;
 }
-
-export { WorldRuntimeContextActionQueryService };

@@ -1,26 +1,15 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSyncService = void 0;
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
-const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
-const world_sync_aux_state_service_1 = require("./world-sync-aux-state.service");
-const world_sync_envelope_service_1 = require("./world-sync-envelope.service");
-const world_session_service_1 = require("./world-session.service");
-let WorldSyncService = class WorldSyncService {
+import { Inject, Injectable } from '@nestjs/common';
+import { S2C } from '@mud/shared';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
+import { WorldSyncProtocolService } from './world-sync-protocol.service';
+import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
+import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
+import { WorldSessionService } from './world-session.service';
+
+@Injectable()
+export class WorldSyncService {
         worldRuntimeService;
         playerRuntimeService;
         worldSessionService;
@@ -28,7 +17,15 @@ let WorldSyncService = class WorldSyncService {
         worldSyncProtocolService;
         worldSyncAuxStateService;
         worldSyncEnvelopeService;    
-    constructor(worldRuntimeService, playerRuntimeService, worldSessionService, worldSyncQuestLootService, worldSyncProtocolService, worldSyncAuxStateService, worldSyncEnvelopeService) {
+    constructor(
+        @Inject(WorldRuntimeService) worldRuntimeService: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldSessionService) worldSessionService: any,
+        @Inject(WorldSyncQuestLootService) worldSyncQuestLootService: any,
+        @Inject(WorldSyncProtocolService) worldSyncProtocolService: any,
+        @Inject(WorldSyncAuxStateService) worldSyncAuxStateService: any,
+        @Inject(WorldSyncEnvelopeService) worldSyncEnvelopeService: any,
+    ) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldSessionService = worldSessionService;
@@ -157,22 +154,9 @@ let WorldSyncService = class WorldSyncService {
         if ((!Array.isArray(records) || records.length === 0) && !totals) {
             return;
         }
-        socket.emit(shared_1.S2C.OfflineGainReports, {
+        socket.emit(S2C.OfflineGainReports, {
             reports: Array.isArray(records) ? records : [],
             ...(totals ? { totals } : {}),
         });
     }
 };
-exports.WorldSyncService = WorldSyncService;
-exports.WorldSyncService = WorldSyncService = __decorate([
-    (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_runtime_service_1.WorldRuntimeService))),
-    __metadata("design:paramtypes", [world_runtime_service_1.WorldRuntimeService,
-        player_runtime_service_1.PlayerRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_sync_quest_loot_service_1.WorldSyncQuestLootService,
-        world_sync_protocol_service_1.WorldSyncProtocolService,
-        world_sync_aux_state_service_1.WorldSyncAuxStateService,
-        world_sync_envelope_service_1.WorldSyncEnvelopeService])
-], WorldSyncService);
-export { WorldSyncService };

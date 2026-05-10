@@ -1,21 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSyncMinimapService = void 0;
-
-const common_1 = require("@nestjs/common");
+import { Injectable } from '@nestjs/common';
 
 /** minimap 冷路径同步服务：负责 marker cache、构造、过滤与 diff。 */
-let WorldSyncMinimapService = class WorldSyncMinimapService {
+@Injectable()
+export class WorldSyncMinimapService {
     /** 地图级 minimap marker 缓存。 */
     minimapMarkersByMapId = new Map();
     /** 构造 minimap 静态快照。 */
@@ -48,10 +35,6 @@ let WorldSyncMinimapService = class WorldSyncMinimapService {
         return diffVisibleMinimapMarkers(previous, current);
     }
 };
-exports.WorldSyncMinimapService = WorldSyncMinimapService;
-exports.WorldSyncMinimapService = WorldSyncMinimapService = __decorate([
-    (0, common_1.Injectable)()
-], WorldSyncMinimapService);
 /**
  * buildMinimapMarkers：构建并返回目标对象。
  * @param template 参数说明。
@@ -60,7 +43,6 @@ exports.WorldSyncMinimapService = WorldSyncMinimapService = __decorate([
 
 function buildMinimapMarkers(template) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const markers = [];
     for (const landmark of template.landmarks) {
@@ -140,7 +122,6 @@ function buildVisibleMinimapMarkers(markers, visibleTiles) {
 
 function diffVisibleMinimapMarkers(previous, current) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const previousById = new Map(previous.map((entry) => [entry.id, entry]));
 
@@ -224,5 +205,3 @@ function compareStableStrings(left, right) {
     }
     return 0;
 }
-
-export { WorldSyncMinimapService };

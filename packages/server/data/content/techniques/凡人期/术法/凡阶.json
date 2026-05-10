@@ -4,12 +4,10 @@
     "name": "通天虚影诀",
     "desc": "通天塔虚影凝出的本能攻势。",
     "grade": "mortal",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 1,
+    "maxLayer": 1,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.tongtian_shadow_strike",
@@ -45,53 +43,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 1,
-    "category": "arts"
+    ]
   },
   {
     "id": "qingmu_sword",
     "name": "青木剑诀",
     "desc": "青木剑气凝作一线，专取单体破敌。",
     "grade": "mortal",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 13
-      },
-      {
-        "level": 2,
-        "expFactor": 14
-      },
-      {
-        "level": 3,
-        "expFactor": 16
-      },
-      {
-        "level": 4,
-        "expFactor": 18
-      },
-      {
-        "level": 5,
-        "expFactor": 21
-      },
-      {
-        "level": 6,
-        "expFactor": 23
-      },
-      {
-        "level": 7,
-        "expFactor": 27
-      },
-      {
-        "level": 8,
-        "expFactor": 31
-      },
-      {
-        "level": 9,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 1,
+    "maxLayer": 9,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.qingmu_sword",
@@ -134,8 +96,6 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 1,
-    "category": "arts"
+    ]
   }
 ]

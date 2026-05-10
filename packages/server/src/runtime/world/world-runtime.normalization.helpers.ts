@@ -1,15 +1,11 @@
-// @ts-nocheck
-"use strict";
-/** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。 */
-Object.defineProperty(exports, "__esModule", { value: true });
+/** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
+ * 职责：输入校验、ID 构建、坐标/数值归一化。 */
+import { BadRequestException } from '@nestjs/common';
+import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, getDamageTrailColor } from '@mud/shared';
 
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
 /** 统一动作 ID。 */
-function normalizeRuntimeActionId(actionIdInput) {
+export function normalizeRuntimeActionId(actionIdInput) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
     if (!actionId) {
@@ -18,15 +14,15 @@ function normalizeRuntimeActionId(actionIdInput) {
     return actionId;
 }
 /** 生成公开实例 ID，统一使用 public 前缀。 */
-function buildPublicInstanceId(templateId) {
+export function buildPublicInstanceId(templateId) {
     return `public:${templateId}`;
 }
 /** 判断分线预设是否有效。 */
-function isRuntimeInstanceLinePreset(value) {
+export function isRuntimeInstanceLinePreset(value) {
     return value === 'peaceful' || value === 'real';
 }
 /** 归一化分线预设，非法值回退到和平线。 */
-function normalizeRuntimeInstanceLinePreset(value) {
+export function normalizeRuntimeInstanceLinePreset(value) {
     return isRuntimeInstanceLinePreset(value) ? value : 'peaceful';
 }
 /** 判断实例持久化策略是否有效。 */
@@ -34,22 +30,21 @@ function isRuntimeInstancePersistentPolicy(value) {
     return value === 'persistent' || value === 'long_lived' || value === 'session' || value === 'ephemeral';
 }
 /** 归一化实例持久化策略，非法值回退到 persistent。 */
-function normalizeRuntimeInstancePersistentPolicy(value) {
+export function normalizeRuntimeInstancePersistentPolicy(value) {
     return isRuntimeInstancePersistentPolicy(value) ? value : 'persistent';
 }
 /** 生成默认真实线实例 ID。 */
-function buildRealInstanceId(templateId) {
+export function buildRealInstanceId(templateId) {
     return `real:${templateId}`;
 }
 /** 生成手动扩线实例 ID。 */
-function buildManualLineInstanceId(templateId, linePreset, index) {
+export function buildManualLineInstanceId(templateId, linePreset, index) {
     const normalizedIndex = Number.isFinite(index) ? Math.max(2, Math.trunc(index)) : 2;
     return `line:${templateId}:${normalizeRuntimeInstanceLinePreset(linePreset)}:${normalizedIndex}`;
 }
 /** 解析实例 ID，统一提取模板、预设、序号与默认入口语义。 */
-function parseRuntimeInstanceDescriptor(instanceId) {
+export function parseRuntimeInstanceDescriptor(instanceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalized = typeof instanceId === 'string' ? instanceId.trim() : '';
     if (!normalized) {
@@ -103,7 +98,7 @@ function parseRuntimeInstanceDescriptor(instanceId) {
     };
 }
 /** 按实例预设生成展示名称。 */
-function buildRuntimeInstanceDisplayName(templateName, linePreset, lineIndex = 1, defaultEntry = true) {
+export function buildRuntimeInstanceDisplayName(templateName, linePreset, lineIndex = 1, defaultEntry = true) {
     const label = normalizeRuntimeInstanceLinePreset(linePreset) === 'real' ? '真实' : '和平';
     const resolvedTemplateName = typeof templateName === 'string' && templateName.trim()
         ? templateName.trim()
@@ -115,9 +110,8 @@ function buildRuntimeInstanceDisplayName(templateName, linePreset, lineIndex = 1
     return `${resolvedTemplateName}·${label}-${normalizedIndex}`;
 }
 /** 将分线预设收口为运行时实例元数据。 */
-function buildRuntimeInstancePresetMeta(input) {
+export function buildRuntimeInstancePresetMeta(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const defaultEntry = input?.defaultEntry !== false;
     const linePreset = normalizeRuntimeInstanceLinePreset(input?.linePreset);
@@ -138,15 +132,14 @@ function buildRuntimeInstancePresetMeta(input) {
     };
 }
 /** 生成物品堆叠用于列表展示的标签文本。 */
-function formatItemStackLabel(item) {
+export function formatItemStackLabel(item) {
 
     const label = item.name ?? item.itemId;
     return item.count > 1 ? `${label} x${item.count}` : label;
 }
 /** 将物品列表压缩成前若干项的摘要文本。 */
-function formatItemListSummary(items) {
+export function formatItemListSummary(items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const preview = items.slice(0, 3).map((entry) => formatItemStackLabel(entry));
     if (items.length <= 3) {
@@ -155,19 +148,19 @@ function formatItemListSummary(items) {
     return `${preview.join('、')} 等 ${items.length} 种物品`;
 }
 /** 浅拷贝战斗特效对象，避免共享引用。 */
-function cloneCombatEffect(source) {
+export function cloneCombatEffect(source) {
     return { ...source };
 }
 /** 按实例与容器 ID 拼接容器来源 key。 */
-function buildContainerSourceId(instanceId, containerId) {
+export function buildContainerSourceId(instanceId, containerId) {
     return `container:${instanceId}:${containerId}`;
 }
 /** 判断字符串是否为容器来源 ID。 */
-function isContainerSourceId(sourceId) {
+export function isContainerSourceId(sourceId) {
     return sourceId.startsWith('container:');
 }
 /** 解析容器来源 ID，提取实例和容器组件。 */
-function parseContainerSourceId(sourceId) {
+export function parseContainerSourceId(sourceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!isContainerSourceId(sourceId)) {
@@ -193,9 +186,8 @@ function parseContainerSourceId(sourceId) {
     };
 }
 /** 生成可稳定比较的物品签名用于同步比对。 */
-function createSyncedItemStackSignature(item) {
+export function createSyncedItemStackSignature(item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const comparableEntries = Object.entries(item)
         .filter(([key, value]) => key !== 'count' && value !== undefined)
@@ -210,7 +202,7 @@ function createSyncedItemStackSignature(item) {
     return signature;
 }
 /** 稳定 key 比较器。 */
-function compareStableKeys(left, right) {
+export function compareStableKeys(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (left < right) {
@@ -222,7 +214,7 @@ function compareStableKeys(left, right) {
     return 0;
 }
 /** 按类型序列化值，确保签名顺序稳定。 */
-function serializeStableComparableValue(value) {
+export function serializeStableComparableValue(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (value === null) {
@@ -270,9 +262,8 @@ function serializeStableComparableValue(value) {
     return `u:${typeof value}`;
 }
 /** 按物品签名将容器条目按时间归组并合并数量。 */
-function groupContainerLootRows(entries) {
+export function groupContainerLootRows(entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const rows = [];
 
@@ -299,29 +290,29 @@ function groupContainerLootRows(entries) {
     return rows;
 }
 /** 检测容器内是否存在未公开条目。 */
-function hasHiddenContainerEntries(entries) {
+export function hasHiddenContainerEntries(entries) {
     return entries.some((entry) => !entry.visible);
 }
 /** 构建容器窗口可见条目的展示列表。 */
-function buildContainerWindowItems(entries) {
+export function buildContainerWindowItems(entries) {
     return groupContainerLootRows(entries.filter((entry) => entry.visible)).map((entry) => ({
         itemKey: entry.itemKey,
         item: { ...entry.item },
     }));
 }
 /** 克隆背包快照用于容量模拟。 */
-function cloneInventorySimulation(items) {
+export function cloneInventorySimulation(items) {
     return items.map((entry) => ({ ...entry }));
 }
 /** 验证在不提交真实背包下，容器条目是否可放入。 */
-function canReceiveContainerEntries(simulatedInventory, capacity, entries) {
+export function canReceiveContainerEntries(simulatedInventory, capacity, entries) {
 
     const simulated = cloneInventorySimulation(simulatedInventory);
     applyContainerEntriesToInventorySimulation(simulated, entries);
     return simulated.length <= capacity;
 }
 /** 将容器条目应用到背包模拟状态。 */
-function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
+export function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
     for (const entry of entries) {
         const item = entry.item;
         const existing = simulatedInventory.find((candidate) => candidate.itemId === item.itemId);
@@ -333,11 +324,11 @@ function applyContainerEntriesToInventorySimulation(simulatedInventory, entries)
     }
 }
 /** 校验玩家背包是否可接收整行容器物品。 */
-function canReceiveContainerRow(player, entries) {
+export function canReceiveContainerRow(player, entries) {
     return canReceiveContainerEntries(cloneInventorySimulation(player.inventory.items), player.inventory.capacity, entries);
 }
 /** 从数组中移除指定容器条目。 */
-function removeContainerRowEntries(source, removed) {
+export function removeContainerRowEntries(source, removed) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (removed.length === 0) {
@@ -357,7 +348,7 @@ function removeContainerRowEntries(source, removed) {
     source.length = writeIndex;
 }
 /** 生成 NPC 任务进度的用户可读文本。 */
-function buildNpcQuestProgressText(quest) {
+export function buildNpcQuestProgressText(quest) {
     switch (quest.objectiveType) {
         case 'kill':
             return `去猎杀 ${quest.targetName}（${quest.progress}/${quest.required}）。`;
@@ -377,7 +368,7 @@ function buildNpcQuestProgressText(quest) {
     }
 }
 /** 判断单个物品堆叠是否可放入背包。 */
-function canReceiveItemStack(player, item) {
+export function canReceiveItemStack(player, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (player.inventory.items.some((entry) => entry.itemId === item.itemId)) {
@@ -386,7 +377,7 @@ function canReceiveItemStack(player, item) {
     return player.inventory.items.length < player.inventory.capacity;
 }
 /** 将任务奖励条目规范化为标准展示对象。 */
-function toQuestRewardItem(item, fallback) {
+export function toQuestRewardItem(item, fallback) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!item) {
@@ -402,11 +393,11 @@ function toQuestRewardItem(item, fallback) {
     };
 }
 /** 四舍五入到三位小数并返回毫秒数。 */
-function roundDurationMs(value) {
+export function roundDurationMs(value) {
     return Number(value.toFixed(3));
 }
 /** 维护固定窗口长度的耗时指标序列。 */
-function pushDurationMetric(history, value) {
+export function pushDurationMetric(history, value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     history.push(value);
@@ -415,7 +406,7 @@ function pushDurationMetric(history, value) {
     }
 }
 /** 汇总耗时序列，返回最近/平均/最大值。 */
-function summarizeDurations(last, history) {
+export function summarizeDurations(last, history) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (history.length === 0) {
@@ -444,11 +435,11 @@ function summarizeDurations(last, history) {
     };
 }
 /** 任务主线类型校验与兜底。 */
-function normalizeQuestLine(value) {
+export function normalizeQuestLine(value) {
     return value === 'main' || value === 'daily' || value === 'encounter' ? value : 'side';
 }
 /** 任务目标类型合法化，默认转为 kill。 */
-function normalizeQuestObjectiveType(value) {
+export function normalizeQuestObjectiveType(value) {
     return value === 'talk'
         || value === 'submit_item'
         || value === 'learn_technique'
@@ -458,7 +449,7 @@ function normalizeQuestObjectiveType(value) {
         : 'kill';
 }
 /** 任务目标数量归一化为正整数。 */
-function normalizeQuestRequired(quest, objectiveType) {
+export function normalizeQuestRequired(quest, objectiveType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (objectiveType === 'submit_item') {
@@ -475,19 +466,19 @@ function normalizeQuestRequired(quest, objectiveType) {
     return 1;
 }
 /** 任务境界目标归一为有效枚举值。 */
-function normalizeQuestRealmStage(value) {
+export function normalizeQuestRealmStage(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof value === 'number' && shared_1.PlayerRealmStage[value] !== undefined) {
+    if (typeof value === 'number' && PlayerRealmStage[value] !== undefined) {
         return value;
     }
-    if (typeof value === 'string' && shared_1.PlayerRealmStage[value] !== undefined) {
-        return shared_1.PlayerRealmStage[value];
+    if (typeof value === 'string' && PlayerRealmStage[value] !== undefined) {
+        return PlayerRealmStage[value];
     }
     return undefined;
 }
 /** 按目标类型解析任务面板显示标签。 */
-function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetNpcName, requiredItemName, techniqueName) {
+export function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetNpcName, requiredItemName, techniqueName) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof quest.targetName === 'string' && quest.targetName.trim()) {
@@ -505,7 +496,7 @@ function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetN
         return techniqueName || (typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : quest.title);
     }
     if ((objectiveType === 'realm_progress' || objectiveType === 'realm_stage') && targetRealmStage !== undefined) {
-        return shared_1.PLAYER_REALM_CONFIG[targetRealmStage]?.name ?? shared_1.PlayerRealmStage[targetRealmStage];
+        return PLAYER_REALM_CONFIG[targetRealmStage]?.name ?? PlayerRealmStage[targetRealmStage];
     }
     if (objectiveType === 'kill' && typeof quest.targetMonsterId === 'string' && quest.targetMonsterId.trim()) {
         return quest.targetMonsterId;
@@ -513,7 +504,7 @@ function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetN
     return quest.title;
 }
 /** 生成任务奖励展示文本。 */
-function buildQuestRewardText(quest, rewards) {
+export function buildQuestRewardText(quest, rewards) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof quest.rewardText === 'string' && quest.rewardText.trim()) {
@@ -525,7 +516,7 @@ function buildQuestRewardText(quest, rewards) {
     return rewards.map((entry) => formatItemStackLabel(entry)).join('、');
 }
 /** 深拷贝任务状态，避免运行时态被外部污染。 */
-function cloneQuestState(quest, status = quest.status) {
+export function cloneQuestState(quest, status = quest.status) {
     return {
         ...quest,
         status,
@@ -534,7 +525,7 @@ function cloneQuestState(quest, status = quest.status) {
     };
 }
 /** 任务列表稳定排序比较器。 */
-function compareQuestViews(left, right) {
+export function compareQuestViews(left, right) {
 
     const statusOrder = {
         ready: 0,
@@ -547,7 +538,7 @@ function compareQuestViews(left, right) {
         || compareStableStrings(left.id, right.id);
 }
 /** 稳定字符串比较函数。 */
-function compareStableStrings(left, right) {
+export function compareStableStrings(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (left < right) {
@@ -559,10 +550,10 @@ function compareStableStrings(left, right) {
     return 0;
 }
 /** 将外部输入解析为方向枚举。 */
-function parseDirection(input) {
+export function parseDirection(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof input === 'number' && shared_1.Direction[input] !== undefined) {
+    if (typeof input === 'number' && Direction[input] !== undefined) {
         return input;
     }
     if (typeof input === 'string') {
@@ -570,93 +561,92 @@ function parseDirection(input) {
             case '0':
             case 'north':
             case 'n':
-                return shared_1.Direction.North;
+                return Direction.North;
             case '1':
             case 'south':
             case 's':
-                return shared_1.Direction.South;
+                return Direction.South;
             case '2':
             case 'east':
             case 'e':
-                return shared_1.Direction.East;
+                return Direction.East;
             case '3':
             case 'west':
             case 'w':
-                return shared_1.Direction.West;
+                return Direction.West;
             default:
                 break;
         }
     }
-    throw new common_1.BadRequestException(`方向无效：${String(input)}`);
+    throw new BadRequestException(`方向无效：${String(input)}`);
 }
 /** 标准化物品槽位索引。 */
-function normalizeSlotIndex(input) {
+export function normalizeSlotIndex(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`背包槽位无效：${String(input)}`);
+        throw new BadRequestException(`背包槽位无效：${String(input)}`);
     }
     return Math.max(0, Math.trunc(Number(input)));
 }
 /** 验证并规范化装备槽位枚举。 */
-function normalizeEquipSlot(input) {
+export function normalizeEquipSlot(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const slot = typeof input === 'string' ? input.trim() : '';
-    if (!shared_1.EQUIP_SLOTS.includes(slot)) {
-        throw new common_1.BadRequestException(`装备槽位无效：${String(input)}`);
+    if (!(EQUIP_SLOTS as readonly string[]).includes(slot)) {
+        throw new BadRequestException(`装备槽位无效：${String(input)}`);
     }
     return slot;
 }
 /** 标准化功法 ID，空值返回 null。 */
-function normalizeTechniqueId(input) {
+export function normalizeTechniqueId(input) {
     return typeof input === 'string' && input.trim() ? input.trim() : null;
 }
 /** 标准化商店购买数量并确保合法。 */
-function normalizeShopQuantity(input) {
+export function normalizeShopQuantity(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof input !== 'number' || !Number.isSafeInteger(input) || input <= 0) {
-        throw new common_1.BadRequestException('购买数量无效');
+        throw new BadRequestException('购买数量无效');
     }
     return Math.trunc(input);
 }
 /** 标准化正整数计数值。 */
-function normalizePositiveCount(input) {
+export function normalizePositiveCount(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (input === undefined || input === null) {
         return 1;
     }
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`数量无效：${String(input)}`);
+        throw new BadRequestException(`数量无效：${String(input)}`);
     }
     return Math.max(1, Math.trunc(Number(input)));
 }
 /** 标准化坐标输入并取整。 */
-function normalizeCoordinate(input, label) {
+export function normalizeCoordinate(input, label) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`${label} 坐标无效：${String(input)}`);
+        throw new BadRequestException(`${label} 坐标无效：${String(input)}`);
     }
     return Math.trunc(Number(input));
 }
 /** 标准化掉落 roll 次数，限制上限。 */
-function normalizeRollCount(input) {
+export function normalizeRollCount(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (input === undefined || input === null) {
         return 1;
     }
     if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`掉落次数无效：${String(input)}`);
+        throw new BadRequestException(`掉落次数无效：${String(input)}`);
     }
     return Math.max(1, Math.min(1000, Math.trunc(Number(input))));
 }
 /** 按 ID 在玩家已学习技能中查找条目。 */
-function findPlayerSkill(player, skillId) {
+export function findPlayerSkill(player, skillId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     for (const technique of player.techniques.techniques) {
@@ -669,24 +659,23 @@ function findPlayerSkill(player, skillId) {
     return null;
 }
 /** 判断技能是否包含伤害/对目标生效效果。 */
-function isHostileSkill(skill) {
+export function isHostileSkill(skill) {
     return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
 }
 /** 读取技能首个伤害特效颜色，用于战斗表现。 */
-function getSkillEffectColor(skill) {
+export function getSkillEffectColor(skill) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     for (const effect of skill.effects) {
         if (effect.type === 'damage') {
-            return (0, shared_1.getDamageTrailColor)(effect.damageKind ?? 'spell', effect.element);
+            return getDamageTrailColor(effect.damageKind ?? 'spell', effect.element);
         }
     }
-    return (0, shared_1.getDamageTrailColor)('spell');
+    return getDamageTrailColor('spell');
 }
 /** 读取技能在运行时的实际攻击范围。 */
-function resolveRuntimeSkillRange(skill) {
+export function resolveRuntimeSkillRange(skill) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
@@ -695,9 +684,8 @@ function resolveRuntimeSkillRange(skill) {
     return Math.max(1, Math.round(skill.range ?? 1));
 }
 /** 计算自动战斗可允许的技能气耗上限。 */
-function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
+export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalizedBaseCost = Number.isFinite(baseCost) ? Math.max(0, Math.round(baseCost ?? 0)) : 0;
     if (normalizedBaseCost <= 0) {
@@ -705,118 +693,6 @@ function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
     }
 
     const outputCap = Number.isFinite(maxQiOutputPerTick) ? Math.max(0, Math.round(maxQiOutputPerTick)) : 0;
-    return Math.round((0, shared_1.calcQiCostWithOutputLimit)(normalizedBaseCost, outputCap));
+    return Math.round(calcQiCostWithOutputLimit(normalizedBaseCost, outputCap));
 }
-exports.normalizeRuntimeActionId = normalizeRuntimeActionId;
-exports.buildPublicInstanceId = buildPublicInstanceId;
-exports.isRuntimeInstanceLinePreset = isRuntimeInstanceLinePreset;
-exports.normalizeRuntimeInstanceLinePreset = normalizeRuntimeInstanceLinePreset;
-exports.normalizeRuntimeInstancePersistentPolicy = normalizeRuntimeInstancePersistentPolicy;
-exports.buildRealInstanceId = buildRealInstanceId;
-exports.buildManualLineInstanceId = buildManualLineInstanceId;
-exports.parseRuntimeInstanceDescriptor = parseRuntimeInstanceDescriptor;
-exports.buildRuntimeInstanceDisplayName = buildRuntimeInstanceDisplayName;
-exports.buildRuntimeInstancePresetMeta = buildRuntimeInstancePresetMeta;
-exports.formatItemStackLabel = formatItemStackLabel;
-exports.formatItemListSummary = formatItemListSummary;
-exports.cloneCombatEffect = cloneCombatEffect;
-exports.buildContainerSourceId = buildContainerSourceId;
-exports.isContainerSourceId = isContainerSourceId;
-exports.parseContainerSourceId = parseContainerSourceId;
-exports.createSyncedItemStackSignature = createSyncedItemStackSignature;
-exports.compareStableKeys = compareStableKeys;
-exports.serializeStableComparableValue = serializeStableComparableValue;
-exports.groupContainerLootRows = groupContainerLootRows;
-exports.hasHiddenContainerEntries = hasHiddenContainerEntries;
-exports.buildContainerWindowItems = buildContainerWindowItems;
-exports.cloneInventorySimulation = cloneInventorySimulation;
-exports.canReceiveContainerEntries = canReceiveContainerEntries;
-exports.applyContainerEntriesToInventorySimulation = applyContainerEntriesToInventorySimulation;
-exports.canReceiveContainerRow = canReceiveContainerRow;
-exports.removeContainerRowEntries = removeContainerRowEntries;
-exports.buildNpcQuestProgressText = buildNpcQuestProgressText;
-exports.buildLegacyNpcQuestProgressText = buildNpcQuestProgressText;
-exports.canReceiveItemStack = canReceiveItemStack;
-exports.toQuestRewardItem = toQuestRewardItem;
-exports.roundDurationMs = roundDurationMs;
-exports.pushDurationMetric = pushDurationMetric;
-exports.summarizeDurations = summarizeDurations;
-exports.normalizeQuestLine = normalizeQuestLine;
-exports.normalizeQuestObjectiveType = normalizeQuestObjectiveType;
-exports.normalizeQuestRequired = normalizeQuestRequired;
-exports.normalizeQuestRealmStage = normalizeQuestRealmStage;
-exports.resolveQuestTargetLabel = resolveQuestTargetLabel;
-exports.buildQuestRewardText = buildQuestRewardText;
-exports.cloneQuestState = cloneQuestState;
-exports.compareQuestViews = compareQuestViews;
-exports.compareStableStrings = compareStableStrings;
-exports.parseDirection = parseDirection;
-exports.normalizeSlotIndex = normalizeSlotIndex;
-exports.normalizeEquipSlot = normalizeEquipSlot;
-exports.normalizeTechniqueId = normalizeTechniqueId;
-exports.normalizeShopQuantity = normalizeShopQuantity;
-exports.normalizePositiveCount = normalizePositiveCount;
-exports.normalizeCoordinate = normalizeCoordinate;
-exports.normalizeRollCount = normalizeRollCount;
-exports.findPlayerSkill = findPlayerSkill;
-exports.isHostileSkill = isHostileSkill;
-exports.getSkillEffectColor = getSkillEffectColor;
-exports.resolveRuntimeSkillRange = resolveRuntimeSkillRange;
-exports.resolveAutoBattleSkillQiCost = resolveAutoBattleSkillQiCost;
-export {
-    normalizeRuntimeActionId,
-    buildPublicInstanceId,
-    isRuntimeInstanceLinePreset,
-    normalizeRuntimeInstanceLinePreset,
-    normalizeRuntimeInstancePersistentPolicy,
-    buildRealInstanceId,
-    buildManualLineInstanceId,
-    parseRuntimeInstanceDescriptor,
-    buildRuntimeInstanceDisplayName,
-    buildRuntimeInstancePresetMeta,
-    formatItemStackLabel,
-    formatItemListSummary,
-    cloneCombatEffect,
-    buildContainerSourceId,
-    isContainerSourceId,
-    parseContainerSourceId,
-    createSyncedItemStackSignature,
-    compareStableKeys,
-    serializeStableComparableValue,
-    groupContainerLootRows,
-    hasHiddenContainerEntries,
-    buildContainerWindowItems,
-    cloneInventorySimulation,
-    canReceiveContainerEntries,
-    applyContainerEntriesToInventorySimulation,
-    canReceiveContainerRow,
-    removeContainerRowEntries,
-    buildNpcQuestProgressText,
-    canReceiveItemStack,
-    toQuestRewardItem,
-    roundDurationMs,
-    pushDurationMetric,
-    summarizeDurations,
-    normalizeQuestLine,
-    normalizeQuestObjectiveType,
-    normalizeQuestRequired,
-    normalizeQuestRealmStage,
-    resolveQuestTargetLabel,
-    buildQuestRewardText,
-    cloneQuestState,
-    compareQuestViews,
-    compareStableStrings,
-    parseDirection,
-    normalizeSlotIndex,
-    normalizeEquipSlot,
-    normalizeTechniqueId,
-    normalizeShopQuantity,
-    normalizePositiveCount,
-    normalizeCoordinate,
-    normalizeRollCount,
-    findPlayerSkill,
-    isHostileSkill,
-    getSkillEffectColor,
-    resolveRuntimeSkillRange,
-    resolveAutoBattleSkillQiCost,
-};
+export const buildLegacyNpcQuestProgressText = buildNpcQuestProgressText;

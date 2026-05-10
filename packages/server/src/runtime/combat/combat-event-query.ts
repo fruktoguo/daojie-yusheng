@@ -1,6 +1,8 @@
-// @ts-nocheck
+// 战斗事件查询与聚合：用于运营分析、热力图、诊断
+type CombatEventRecord = Record<string, any>;
+type CombatEventQueryOptions = Record<string, any>;
 
-export function queryRecentCombatAuditEvents(events = [], options = {}) {
+export function queryRecentCombatAuditEvents(events: any[] = [], options: CombatEventQueryOptions = {}) {
   const limit = normalizeLimit(options.limit, 100);
   return flattenCombatEvents(events, 'auditEvent')
     .filter((event) => matchesInstance(event, options.instanceId))
@@ -10,7 +12,7 @@ export function queryRecentCombatAuditEvents(events = [], options = {}) {
     .slice(0, limit);
 }
 
-export function aggregateCombatDiagnostics(events = [], options = {}) {
+export function aggregateCombatDiagnostics(events: any[] = [], options: CombatEventQueryOptions = {}) {
   const diagnostics = flattenCombatEvents(events, 'diagnosticEvent')
     .filter((event) => matchesInstance(event, options.instanceId))
     .filter((event) => matchesReason(event, options.reason))
@@ -45,7 +47,7 @@ export function aggregateCombatDiagnostics(events = [], options = {}) {
   };
 }
 
-export function queryMonsterSkillFailureReasons(events = [], options = {}) {
+export function queryMonsterSkillFailureReasons(events: any[] = [], options: CombatEventQueryOptions = {}) {
   return flattenCombatEvents(events, 'diagnosticEvent')
     .filter((event) => matchesInstance(event, options.instanceId))
     .filter((event) => matchesTimeRange(event, options))
@@ -59,7 +61,7 @@ export function queryMonsterSkillFailureReasons(events = [], options = {}) {
     .sort(compareCreatedAtDesc);
 }
 
-export function buildCombatAuditHeatmap(events = [], options = {}) {
+export function buildCombatAuditHeatmap(events: any[] = [], options: CombatEventQueryOptions = {}) {
   const buckets = new Map();
   for (const event of flattenCombatEvents(events, 'auditEvent')) {
     if (!matchesInstance(event, options.instanceId) || !matchesTimeRange(event, options)) continue;
@@ -83,8 +85,8 @@ export function buildCombatAuditHeatmap(events = [], options = {}) {
   return Array.from(buckets.values()).sort((left, right) => right.count - left.count || left.x - right.x || left.y - right.y);
 }
 
-export function flattenCombatEvents(events = [], preferredKey = null) {
-  const flattened = [];
+export function flattenCombatEvents(events: any[] = [], preferredKey: string | null = null) {
+  const flattened: CombatEventRecord[] = [];
   for (const entry of Array.isArray(events) ? events : []) {
     if (!entry) continue;
     if (preferredKey && entry[preferredKey]) {
@@ -108,17 +110,17 @@ export function flattenCombatEvents(events = [], preferredKey = null) {
   return flattened;
 }
 
-function matchesInstance(event, instanceId) {
+function matchesInstance(event: CombatEventRecord, instanceId: unknown) {
   const expected = normalizeString(instanceId);
   return !expected || event.instanceId === expected;
 }
 
-function matchesReason(event, reason) {
+function matchesReason(event: CombatEventRecord, reason: unknown) {
   const expected = normalizeString(reason);
   return !expected || event.reason === expected;
 }
 
-function matchesTimeRange(event, options = {}) {
+function matchesTimeRange(event: CombatEventRecord, options: CombatEventQueryOptions = {}) {
   const createdAt = normalizeTime(event.createdAt);
   const since = normalizeTime(options.since ?? options.sinceAt);
   const until = normalizeTime(options.until ?? options.untilAt);
@@ -127,7 +129,7 @@ function matchesTimeRange(event, options = {}) {
   return true;
 }
 
-function matchesParticipant(event, options = {}) {
+function matchesParticipant(event: CombatEventRecord, options: CombatEventQueryOptions = {}) {
   const playerId = normalizeString(options.playerId);
   const monsterRuntimeId = normalizeString(options.monsterRuntimeId);
   if (!playerId && !monsterRuntimeId) return true;
@@ -142,15 +144,15 @@ function matchesParticipant(event, options = {}) {
   return false;
 }
 
-function matchesEntityRef(value, kind, id) {
+function matchesEntityRef(value: any, kind: string, id: string) {
   return value?.kind === kind && value?.id === id;
 }
 
-function readActorId(actor) {
+function readActorId(actor: any) {
   return normalizeString(actor?.id ?? actor?.runtimeId ?? actor?.playerId);
 }
 
-function readCombatEventPoint(event) {
+function readCombatEventPoint(event: CombatEventRecord) {
   const target = event.target ?? {};
   const result = event.result ?? {};
   const x = normalizeCoordinate(target.x ?? result.x ?? result.targetX);
@@ -158,30 +160,30 @@ function readCombatEventPoint(event) {
   return x === null || y === null ? null : { x, y };
 }
 
-function normalizeLimit(value, fallback) {
+function normalizeLimit(value: unknown, fallback: number) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) && normalized > 0 ? Math.min(normalized, 1000) : fallback;
 }
 
-function normalizeCoordinate(value) {
+function normalizeCoordinate(value: unknown) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) ? normalized : null;
 }
 
-function normalizeString(value) {
+function normalizeString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function normalizeTime(value) {
+function normalizeTime(value: unknown) {
   if (value === undefined || value === null || value === '') return null;
   const time = value instanceof Date ? value.getTime() : Date.parse(String(value));
   return Number.isFinite(time) ? time : null;
 }
 
-function compareCreatedAtDesc(left, right) {
+function compareCreatedAtDesc(left: CombatEventRecord, right: CombatEventRecord) {
   return (normalizeTime(right.createdAt) ?? 0) - (normalizeTime(left.createdAt) ?? 0);
 }
 
-function compareCreatedAtAsc(left, right) {
+function compareCreatedAtAsc(left: CombatEventRecord, right: CombatEventRecord) {
   return (normalizeTime(left.createdAt) ?? 0) - (normalizeTime(right.createdAt) ?? 0);
 }

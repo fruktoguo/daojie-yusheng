@@ -93,6 +93,7 @@ const EXPECTED_INTERFACES = {
     buildingSkill: { type: "PlayerState['buildingSkill']", optional: true },
     gatherSkill: { type: "PlayerState['gatherSkill']", optional: true },
     enhancementSkill: { type: "PlayerState['enhancementSkill']", optional: true },
+    forgingSkill: { type: "PlayerState['forgingSkill']", optional: true },
   },
 };
 

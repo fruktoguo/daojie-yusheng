@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayMarketHelper = void 0;
 
 /** 世界 socket 坊市 helper：只收敛 market 相关入口。 */
 class WorldGatewayMarketHelper {
@@ -415,6 +410,5 @@ class WorldGatewayMarketHelper {
         await this.executeClaimMarketStorage(client);
     }
 }
-exports.WorldGatewayMarketHelper = WorldGatewayMarketHelper;
 
 export { WorldGatewayMarketHelper };

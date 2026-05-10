@@ -1,15 +1,9 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeSectService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const pg_1 = require("pg");
-const env_alias_1 = require("../../config/env-alias");
-const runtime_tile_expansion_1 = require("../map/runtime-tile-expansion");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { FORMATION_AURA_PER_SPIRIT_STONE, TileType, formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
+import { Pool } from 'pg';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { createSquareExpansionShape, expandRuntimeTiles } from '../map/runtime-tile-expansion';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const SECT_TABLE = 'server_sect';
 const SECT_TEMPLATE_PREFIX = 'sect_domain:';
@@ -57,7 +51,7 @@ const { buildPublicInstanceId, parseRuntimeInstanceDescriptor } = world_runtime_
 
 /** world-runtime sect：宗门地图、入口、核心与护宗大阵运行时编排。 */
 class WorldRuntimeSectService {
-    logger = new common_1.Logger(WorldRuntimeSectService.name);
+    logger = new Logger(WorldRuntimeSectService.name);
     contentTemplateRepository;
     templateRepository;
     playerRuntimeService;
@@ -79,7 +73,7 @@ class WorldRuntimeSectService {
     dispatchCreateSect(playerId, slotIndex, item, deps, payload = null) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (normalizeOptionalString(player.sectId)) {
-            throw new common_1.BadRequestException('你已经有所属宗门');
+            throw new BadRequestException('你已经有所属宗门');
         }
         const sectId = buildSectId(playerId);
         const sectName = normalizeSectName(payload?.sectName, player);
@@ -90,7 +84,7 @@ class WorldRuntimeSectService {
         const descriptor = parseRuntimeInstanceDescriptor(location.instanceId);
         assertCanCreateSectAtInstance(entranceInstance, descriptor);
         if (entranceInstance.meta.kind !== 'public' && descriptor?.instanceOrigin !== 'public') {
-            throw new common_1.BadRequestException('当前地点无法开辟宗门入口');
+            throw new BadRequestException('当前地点无法开辟宗门入口');
         }
         assertSectFoundingAreaClear(Array.from(this.sectsById.values()), entranceInstance, location.instanceId, player.x, player.y);
         const bounds = buildInitialSectBounds();
@@ -241,7 +235,7 @@ class WorldRuntimeSectService {
             eyeX: sect.coreX,
             eyeY: sect.coreY,
             radius: 1,
-            spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / shared_1.FORMATION_AURA_PER_SPIRIT_STONE),
+            spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
             remainingAuraBudget: SECT_GUARDIAN_INITIAL_AURA,
             active: true,
         }, deps);
@@ -282,11 +276,11 @@ class WorldRuntimeSectService {
         }
         const sect = this.findSectById(player.sectId);
         if (!sect || sect.status === 'dissolved') {
-            throw new common_1.BadRequestException('你尚未加入宗门');
+            throw new BadRequestException('你尚未加入宗门');
         }
         ensureSectState(sect, this.playerRuntimeService);
         if (!isSectMember(sect, playerId)) {
-            throw new common_1.ForbiddenException('你不在该宗门成员名册中');
+            throw new ForbiddenException('你不在该宗门成员名册中');
         }
         if (actionId === 'sect:manage') {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
@@ -329,7 +323,7 @@ class WorldRuntimeSectService {
                 deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
                     instanceId: sect.entranceInstanceId,
                     formationInstanceId: guardianId,
-                    spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / shared_1.FORMATION_AURA_PER_SPIRIT_STONE),
+                    spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
                 }, deps);
             }
             deps.queuePlayerNotice(playerId, '护宗大阵已补充灵力。', 'success');
@@ -380,7 +374,7 @@ class WorldRuntimeSectService {
             this.toggleSectRolePermission(sect, roleId, permissionId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
-        throw new common_1.BadRequestException(`不支持的宗门动作：${actionId}`);
+        throw new BadRequestException(`不支持的宗门动作：${actionId}`);
     }
 
     buildSectEntranceActions(view, deps = null) {
@@ -440,18 +434,18 @@ class WorldRuntimeSectService {
         const sectId = decodeActionPart(encodedSectId);
         const sect = this.findSectById(sectId);
         if (!sect || sect.status === 'dissolved') {
-            throw new common_1.NotFoundException('山门气机已散，无法返回宗门');
+            throw new NotFoundException('山门气机已散，无法返回宗门');
         }
         ensureSectState(sect, this.playerRuntimeService);
         if (!isSectMember(sect, playerId)) {
-            throw new common_1.ForbiddenException('你尚未列入该宗门名册');
+            throw new ForbiddenException('你尚未列入该宗门名册');
         }
         const location = deps.getPlayerLocationOrThrow(playerId);
         if (location.instanceId !== sect.entranceInstanceId) {
-            throw new common_1.BadRequestException('需要在该宗门山门前返回宗门');
+            throw new BadRequestException('需要在该宗门山门前返回宗门');
         }
         if (chebyshevDistance(player.x, player.y, sect.entranceX, sect.entranceY) > SECT_ENTRANCE_INTERACTION_RADIUS) {
-            throw new common_1.BadRequestException('需要靠近护宗大阵前的山门传送点');
+            throw new BadRequestException('需要靠近护宗大阵前的山门传送点');
         }
         if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
             this.playerRuntimeService.setPlayerSectId(playerId, sect.sectId);
@@ -478,7 +472,7 @@ class WorldRuntimeSectService {
         const sectId = decodeActionPart(encodedSectId);
         const sect = this.findSectById(sectId);
         if (!sect || sect.status === 'dissolved') {
-            throw new common_1.NotFoundException('山门气机已散，无法递交拜帖');
+            throw new NotFoundException('山门气机已散，无法递交拜帖');
         }
         ensureSectState(sect, this.playerRuntimeService);
         if (isSectMember(sect, playerId)) {
@@ -491,10 +485,10 @@ class WorldRuntimeSectService {
         }
         const location = deps.getPlayerLocationOrThrow(playerId);
         if (location.instanceId !== sect.entranceInstanceId) {
-            throw new common_1.BadRequestException('需要在该宗门山门前递交拜帖');
+            throw new BadRequestException('需要在该宗门山门前递交拜帖');
         }
         if (chebyshevDistance(player.x, player.y, sect.entranceX, sect.entranceY) > SECT_ENTRANCE_INTERACTION_RADIUS) {
-            throw new common_1.BadRequestException('需要靠近护宗大阵前的山门传送点');
+            throw new BadRequestException('需要靠近护宗大阵前的山门传送点');
         }
         const application = upsertSectApplication(sect, player, Date.now());
         sect.updatedAt = Date.now();
@@ -521,7 +515,7 @@ class WorldRuntimeSectService {
         const targetId = normalizeOptionalString(targetPlayerId);
         const application = targetId ? findPendingSectApplication(sect, targetId) : null;
         if (!application) {
-            throw new common_1.NotFoundException('未找到待审批拜帖');
+            throw new NotFoundException('未找到待审批拜帖');
         }
         const applicant = this.playerRuntimeService.getPlayer?.(targetId) ?? null;
         if (applicant) {
@@ -560,7 +554,7 @@ class WorldRuntimeSectService {
         const targetId = normalizeOptionalString(targetPlayerId);
         const application = targetId ? findPendingSectApplication(sect, targetId) : null;
         if (!application) {
-            throw new common_1.NotFoundException('未找到待审批拜帖');
+            throw new NotFoundException('未找到待审批拜帖');
         }
         application.status = 'rejected';
         application.reviewedAt = Date.now();
@@ -577,12 +571,12 @@ class WorldRuntimeSectService {
 
     leaveSect(sect, playerId, deps) {
         if (sect.leaderPlayerId === playerId) {
-            throw new common_1.BadRequestException('宗主不能直接离开宗门，请先转让宗主之位或解散宗门');
+            throw new BadRequestException('宗主不能直接离开宗门，请先转让宗主之位或解散宗门');
         }
         const before = sect.members.length;
         sect.members = sect.members.filter((entry) => entry.playerId !== playerId);
         if (sect.members.length === before) {
-            throw new common_1.NotFoundException('你不在该宗门成员名册中');
+            throw new NotFoundException('你不在该宗门成员名册中');
         }
         const player = this.playerRuntimeService.getPlayer?.(playerId);
         if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
@@ -633,7 +627,7 @@ class WorldRuntimeSectService {
         }
         ensureSectState(currentSect, this.playerRuntimeService);
         if (currentSect.leaderPlayerId === playerId || currentSect.members.some((entry) => entry.playerId === playerId && entry.roleId === 'leader')) {
-            throw new common_1.BadRequestException('宗主不能直接改投其他宗门，请先转让宗主之位或解散原宗门');
+            throw new BadRequestException('宗主不能直接改投其他宗门，请先转让宗主之位或解散原宗门');
         }
         const before = currentSect.members.length;
         currentSect.members = currentSect.members.filter((entry) => entry.playerId !== playerId);
@@ -650,15 +644,15 @@ class WorldRuntimeSectService {
     removeSectMember(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
         if (!targetId || targetId === sect.leaderPlayerId) {
-            throw new common_1.BadRequestException('不能移除宗主');
+            throw new BadRequestException('不能移除宗主');
         }
         if (targetId === operatorPlayerId) {
-            throw new common_1.BadRequestException('不能移除自己');
+            throw new BadRequestException('不能移除自己');
         }
         const before = sect.members.length;
         sect.members = sect.members.filter((entry) => entry.playerId !== targetId);
         if (sect.members.length === before) {
-            throw new common_1.NotFoundException('该成员不在宗门名册中');
+            throw new NotFoundException('该成员不在宗门名册中');
         }
         this.playerSectId.delete(targetId);
         this.clearPlayerSectIdIfLoaded(targetId, sect.sectId);
@@ -672,10 +666,10 @@ class WorldRuntimeSectService {
         const targetId = normalizeOptionalString(targetPlayerId);
         const member = targetId ? sect.members.find((entry) => entry.playerId === targetId) : null;
         if (!member) {
-            throw new common_1.NotFoundException('该成员不在宗门名册中');
+            throw new NotFoundException('该成员不在宗门名册中');
         }
         if (targetId === sect.leaderPlayerId || member.roleId === 'leader') {
-            throw new common_1.BadRequestException('宗主职位只能通过转让改变');
+            throw new BadRequestException('宗主职位只能通过转让改变');
         }
         member.roleId = roleId;
         member.name = resolvePlayerDisplayName(this.playerRuntimeService.getPlayer?.(targetId), member.name || targetId);
@@ -687,11 +681,11 @@ class WorldRuntimeSectService {
     transferSectLeadership(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
         if (!targetId || targetId === operatorPlayerId) {
-            throw new common_1.BadRequestException('请选择其他成员接任宗主');
+            throw new BadRequestException('请选择其他成员接任宗主');
         }
         const target = sect.members.find((entry) => entry.playerId === targetId);
         if (!target) {
-            throw new common_1.NotFoundException('接任者不在宗门名册中');
+            throw new NotFoundException('接任者不在宗门名册中');
         }
         const previousLeader = sect.members.find((entry) => entry.playerId === operatorPlayerId);
         if (previousLeader) {
@@ -736,7 +730,7 @@ class WorldRuntimeSectService {
 
     toggleSectRolePermission(sect, roleId, permissionId, playerId, deps) {
         if (roleId === 'leader') {
-            throw new common_1.BadRequestException('宗主权限固定拥有全部管理权');
+            throw new BadRequestException('宗主权限固定拥有全部管理权');
         }
         const rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
         const nextRolePermissions = rolePermissions[roleId] ?? {};
@@ -828,14 +822,14 @@ class WorldRuntimeSectService {
         const tileState = typeof instance.getTileCombatState === 'function'
             ? instance.getTileCombatState(tx, ty)
             : null;
-        if (tileState?.destroyed !== true || tileState?.tileType !== shared_1.TileType.Stone) {
+        if (tileState?.destroyed !== true || tileState?.tileType !== TileType.Stone) {
             return false;
         }
         if (!isRuntimeBoundaryTile(instance, tx, ty)) {
             return false;
         }
-        const shape = (0, runtime_tile_expansion_1.createSquareExpansionShape)(SECT_SPARSE_EXPAND_RADIUS);
-        const result = (0, runtime_tile_expansion_1.expandRuntimeTiles)(instance, tx, ty, shape, SECT_TILE_GENERATOR, { sect });
+        const shape = createSquareExpansionShape(SECT_SPARSE_EXPAND_RADIUS);
+        const result = expandRuntimeTiles(instance, tx, ty, shape, SECT_TILE_GENERATOR, { sect });
         const created = result.created;
         if (created > 0) {
             deps.queuePlayerNotice?.(sect.leaderPlayerId, `${sect.name}边界被凿开，地脉显化了 ${created} 处新地块。`, 'info');
@@ -1160,11 +1154,11 @@ class WorldRuntimeSectService {
     }
 
     async initializePersistencePool() {
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             return;
         }
-        const pool = new pg_1.Pool({ connectionString: databaseUrl });
+        const pool = new Pool({ connectionString: databaseUrl });
         try {
             await ensureSectTable(pool);
             this.persistencePool = pool;
@@ -1184,7 +1178,6 @@ class WorldRuntimeSectService {
         }
     }
 }
-exports.WorldRuntimeSectService = WorldRuntimeSectService;
 export { WorldRuntimeSectService };
 
 async function ensureSectTable(pool) {
@@ -1249,12 +1242,12 @@ function normalizeSectName(input, player) {
     if (!sanitized) {
         return fallback;
     }
-    const count = typeof shared_1.getGraphemeCount === 'function' ? (0, shared_1.getGraphemeCount)(sanitized) : Array.from(sanitized).length;
+    const count = typeof getGraphemeCount === 'function' ? getGraphemeCount(sanitized) : Array.from(sanitized).length;
     if (count < 2 || count > 12) {
-        throw new common_1.BadRequestException('宗门名称需为 2 到 12 个字');
+        throw new BadRequestException('宗门名称需为 2 到 12 个字');
     }
     if (/[<>`"'\\]/.test(sanitized)) {
-        throw new common_1.BadRequestException('宗门名称包含不可用字符');
+        throw new BadRequestException('宗门名称包含不可用字符');
     }
     return sanitized;
 }
@@ -1263,13 +1256,13 @@ function normalizeSectMark(input, fallbackText) {
     const hasExplicitInput = normalizeOptionalString(input) !== null;
     const raw = normalizeOptionalString(input) || normalizeOptionalString(fallbackText) || SECT_CORE_CHAR;
     const normalized = raw.replace(/\s+/g, '').trim();
-    const first = typeof shared_1.getFirstGrapheme === 'function' ? (0, shared_1.getFirstGrapheme)(normalized) : (Array.from(normalized)[0] ?? '');
+    const first = typeof getFirstGrapheme === 'function' ? getFirstGrapheme(normalized) : (Array.from(normalized)[0] ?? '');
     if (!first || /[\s<>`"'\\]/.test(first)) {
-        throw new common_1.BadRequestException('宗门印记需为一个可见字符');
+        throw new BadRequestException('宗门印记需为一个可见字符');
     }
-    const count = typeof shared_1.getGraphemeCount === 'function' ? (0, shared_1.getGraphemeCount)(normalized) : Array.from(normalized).length;
+    const count = typeof getGraphemeCount === 'function' ? getGraphemeCount(normalized) : Array.from(normalized).length;
     if (hasExplicitInput && count !== 1) {
-        throw new common_1.BadRequestException('宗门印记只能是一个字');
+        throw new BadRequestException('宗门印记只能是一个字');
     }
     return first;
 }
@@ -1277,14 +1270,14 @@ function normalizeSectMark(input, fallbackText) {
 function assertSectMarkAvailable(sects, mark) {
     const normalizedMark = normalizeOptionalString(mark);
     if (!normalizedMark) {
-        throw new common_1.BadRequestException('宗门印记需为一个可见字符');
+        throw new BadRequestException('宗门印记需为一个可见字符');
     }
     for (const sect of sects) {
         if (normalizeOptionalString(sect?.status) === 'dissolved') {
             continue;
         }
         if (normalizeOptionalString(sect?.mark) === normalizedMark) {
-            throw new common_1.BadRequestException('宗门印记已被占用');
+            throw new BadRequestException('宗门印记已被占用');
         }
     }
 }
@@ -1292,7 +1285,7 @@ function assertSectMarkAvailable(sects, mark) {
 function normalizeNonNegativeInteger(input) {
     const value = Math.trunc(Number(input));
     if (!Number.isFinite(value) || value < 0) {
-        throw new common_1.BadRequestException('注入数量不能为负');
+        throw new BadRequestException('注入数量不能为负');
     }
     return value;
 }
@@ -1329,7 +1322,7 @@ function formatSectGuardianAuraLabel(formation) {
 
 function formatInteger(value) {
     const normalized = Math.max(0, Math.floor(Number(value) || 0));
-    return (0, shared_1.formatDisplayInteger)(normalized);
+    return formatDisplayInteger(normalized);
 }
 
 function buildSectManagementActionDesc(sect, view, deps, guardian) {
@@ -1446,7 +1439,7 @@ function upsertSectApplication(sect, player, now = Date.now()) {
     ensureSectState(sect);
     const playerId = normalizeOptionalString(player?.playerId) || normalizeOptionalString(player?.id);
     if (!playerId) {
-        throw new common_1.BadRequestException('申请人无效');
+        throw new BadRequestException('申请人无效');
     }
     const existing = findPendingSectApplication(sect, playerId);
     if (existing) {
@@ -1556,17 +1549,17 @@ function buildDefaultSectRolePermissions() {
     return Object.fromEntries(SECT_ROLES.map((role) => [role.id, { ...(DEFAULT_SECT_ROLE_PERMISSIONS[role.id] ?? {}) }]));
 }
 
-function normalizeSectRoleId(input, options = {}) {
+function normalizeSectRoleId(input, options: any = {}) {
     const fallback = options.fallback || 'outer';
     const normalized = normalizeOptionalString(input) || fallback;
     if (!SECT_ROLE_IDS.has(normalized)) {
         if (options.fallback) {
             return fallback;
         }
-        throw new common_1.BadRequestException('未知宗门职位');
+        throw new BadRequestException('未知宗门职位');
     }
     if (options.requireAssignable === true && !SECT_ASSIGNABLE_ROLE_IDS.has(normalized)) {
-        throw new common_1.BadRequestException(normalized === 'supreme_elder' ? '太上长老暂时无法任命' : '该职位不能直接任命');
+        throw new BadRequestException(normalized === 'supreme_elder' ? '太上长老暂时无法任命' : '该职位不能直接任命');
     }
     if (normalized === 'supreme_elder' && options.allowSupreme !== true && options.requireAssignable !== true) {
         return options.fallback || 'outer';
@@ -1577,7 +1570,7 @@ function normalizeSectRoleId(input, options = {}) {
 function normalizeSectPermissionId(input) {
     const normalized = normalizeOptionalString(input);
     if (!normalized || !SECT_PERMISSION_IDS.has(normalized)) {
-        throw new common_1.BadRequestException('未知宗门权限');
+        throw new BadRequestException('未知宗门权限');
     }
     return normalized;
 }
@@ -1614,13 +1607,13 @@ function hasSectPermission(sect, playerId, permissionId) {
 
 function assertSectLeader(sect, playerId) {
     if (sect.leaderPlayerId !== playerId) {
-        throw new common_1.ForbiddenException('只有宗主可以执行该操作');
+        throw new ForbiddenException('只有宗主可以执行该操作');
     }
 }
 
 function assertSectPermission(sect, playerId, permissionId) {
     if (!hasSectPermission(sect, playerId, permissionId)) {
-        throw new common_1.ForbiddenException('当前职位没有该宗门权限');
+        throw new ForbiddenException('当前职位没有该宗门权限');
     }
 }
 
@@ -1859,14 +1852,14 @@ function assertCanCreateSectAtInstance(instance, descriptor) {
     if (kind === 'public' && linePreset === 'real') {
         return;
     }
-    throw new common_1.BadRequestException('只能在大地图现世线建立宗门。');
+    throw new BadRequestException('只能在大地图现世线建立宗门。');
 }
 
 function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, centerY) {
     const x0 = Math.trunc(Number(centerX));
     const y0 = Math.trunc(Number(centerY));
     if (!Number.isFinite(x0) || !Number.isFinite(y0)) {
-        throw new common_1.BadRequestException('当前位置无法开辟宗门入口');
+        throw new BadRequestException('当前位置无法开辟宗门入口');
     }
     for (let y = y0 - SECT_FOUNDING_CLEAR_RADIUS; y <= y0 + SECT_FOUNDING_CLEAR_RADIUS; y += 1) {
         for (let x = x0 - SECT_FOUNDING_CLEAR_RADIUS; x <= x0 + SECT_FOUNDING_CLEAR_RADIUS; x += 1) {
@@ -1874,13 +1867,13 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
                 continue;
             }
             if (typeof instance?.getPortalAtTile === 'function' && instance.getPortalAtTile(x, y)) {
-                throw new common_1.BadRequestException('宗门山门五格阵基内不能有传送点');
+                throw new BadRequestException('宗门山门五格阵基内不能有传送点');
             }
             if (hasNpcAtTile(instance, x, y)) {
-                throw new common_1.BadRequestException('宗门山门五格阵基内不能有场景人物');
+                throw new BadRequestException('宗门山门五格阵基内不能有场景人物');
             }
             if (typeof instance?.getSafeZoneAtTile === 'function' && instance.getSafeZoneAtTile(x, y)) {
-                throw new common_1.BadRequestException('宗门山门五格阵基内不能有安全区');
+                throw new BadRequestException('宗门山门五格阵基内不能有安全区');
             }
         }
     }
@@ -1890,7 +1883,7 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
             continue;
         }
         if (chebyshevDistance(x0, y0, sect.entranceX, sect.entranceY) <= SECT_FOUNDING_CLEAR_RADIUS) {
-            throw new common_1.BadRequestException('宗门山门五格阵基内不能有其他宗门');
+            throw new BadRequestException('宗门山门五格阵基内不能有其他宗门');
         }
     }
 }
@@ -1954,7 +1947,7 @@ function resolveSectGeneratedTileType(sect, x, y) {
     const coreX = Math.trunc(Number(sect?.coreX) || 0);
     const coreY = Math.trunc(Number(sect?.coreY) || 0);
     const ring = Math.max(Math.abs(Math.trunc(Number(x)) - coreX), Math.abs(Math.trunc(Number(y)) - coreY));
-    return ring <= SECT_BASE_CLEAR_RADIUS ? shared_1.TileType.Floor : shared_1.TileType.Stone;
+    return ring <= SECT_BASE_CLEAR_RADIUS ? TileType.Floor : TileType.Stone;
 }
 
 const SECT_TILE_GENERATOR = {

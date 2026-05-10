@@ -1,27 +1,19 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveMonsterCombatExpEquivalentFallback = resolveMonsterCombatExpEquivalentFallback;
-exports.getMonsterCombatExpGradeFactor = getMonsterCombatExpGradeFactor;
-exports.resolveMonsterCombatExpTierFactor = resolveMonsterCombatExpTierFactor;
-
-const fs = require("fs");
-const shared_1 = require("@mud/shared");
-const project_path_1 = require("../../common/project-path");
+import { readFileSync } from 'fs';
+import { TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { resolveProjectPath } from '../../common/project-path';
 
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
 
-let realmCombatExpByLevel = null;
+let realmCombatExpByLevel: Map<number, number> | null = null;
 
 function loadRealmCombatExpByLevel() {
     if (realmCombatExpByLevel) {
         return realmCombatExpByLevel;
     }
     const next = new Map();
-    const filePath = (0, project_path_1.resolveProjectPath)(...REALM_LEVELS_PATH);
+    const filePath = resolveProjectPath(...REALM_LEVELS_PATH);
     try {
-        const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         const expMultiplier = normalizePositiveInt(raw?.expMultiplier, 1);
         for (const entry of raw?.levels ?? []) {
             const realmLv = normalizePositiveInt(entry?.realmLv, 0);
@@ -30,7 +22,7 @@ function loadRealmCombatExpByLevel() {
             }
             const expToNext = normalizePositiveInt(entry?.expToNext, 0) * expMultiplier;
             const grade = typeof entry?.grade === 'string' ? entry.grade : 'mortal';
-            const gradeIndex = Math.max(0, shared_1.TECHNIQUE_GRADE_ORDER.indexOf(grade));
+            const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
             const gradeFactor = getMonsterCombatExpGradeFactor(gradeIndex);
             next.set(realmLv, Math.max(0, Math.floor(expToNext * gradeFactor)));
         }
@@ -42,13 +34,13 @@ function loadRealmCombatExpByLevel() {
     return realmCombatExpByLevel;
 }
 
-function resolveMonsterCombatExpEquivalentFallback(monsterOrLevel) {
+export function resolveMonsterCombatExpEquivalentFallback(monsterOrLevel: any) {
     const level = Math.max(1, Math.floor(Number(typeof monsterOrLevel === 'object' ? monsterOrLevel?.level : monsterOrLevel) || 1));
     const tierFactor = resolveMonsterCombatExpTierFactor(typeof monsterOrLevel === 'object' ? monsterOrLevel?.tier : undefined);
     return Math.max(0, Math.floor((loadRealmCombatExpByLevel().get(level) ?? 0) * tierFactor));
 }
 
-function normalizePositiveInt(value, fallback) {
+function normalizePositiveInt(value: unknown, fallback: number) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) {
         return fallback;
@@ -56,11 +48,11 @@ function normalizePositiveInt(value, fallback) {
     return Math.max(0, Math.floor(numeric));
 }
 
-function getMonsterCombatExpGradeFactor(gradeIndex) {
+export function getMonsterCombatExpGradeFactor(gradeIndex: number) {
     return 0.25 * (2 ** Math.max(0, Math.floor(Number(gradeIndex) || 0)));
 }
 
-function resolveMonsterCombatExpTierFactor(tier) {
+export function resolveMonsterCombatExpTierFactor(tier: unknown) {
     if (tier === 'demon_king') {
         return 4;
     }
@@ -69,5 +61,3 @@ function resolveMonsterCombatExpTierFactor(tier) {
     }
     return 1;
 }
-
-export { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpEquivalentFallback, resolveMonsterCombatExpTierFactor };

@@ -1,6 +1,99 @@
-// @ts-nocheck
+interface CombatPresentationEffectSource {
+  pushActionLabelEffect?: (
+    instanceId: string,
+    x: number,
+    y: number,
+    text: string,
+    options?: unknown,
+  ) => void;
+  pushCombatEffect?: (instanceId: string, effect: unknown) => void;
+  pushAttackEffect?: (
+    instanceId: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    color?: string,
+  ) => void;
+  pushDamageFloatEffect?: (instanceId: string, x: number, y: number, damage: number, color?: string) => void;
+  pushCombatTextFloatEffect?: (instanceId: string, x: number, y: number, text: string, color?: string) => void;
+}
 
-function resolveCombatPresentationEffects(input = {}) {
+interface CombatPresentationDeps {
+  worldRuntimeCombatEffectsService?: CombatPresentationEffectSource | null;
+  pushActionLabelEffect?: CombatPresentationEffectSource['pushActionLabelEffect'];
+  pushCombatEffect?: CombatPresentationEffectSource['pushCombatEffect'];
+  pushAttackEffect?: CombatPresentationEffectSource['pushAttackEffect'];
+  pushDamageFloatEffect?: CombatPresentationEffectSource['pushDamageFloatEffect'];
+  pushCombatTextFloatEffect?: CombatPresentationEffectSource['pushCombatTextFloatEffect'];
+  queuePlayerNotice?: (playerId: string, text: string, kind: string) => void;
+}
+
+interface CombatPresentationActionLabel {
+  instanceId?: string | null;
+  x: number;
+  y: number;
+  text: string;
+  options?: unknown;
+}
+
+interface CombatPresentationAttack {
+  instanceId?: string | null;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  color?: string;
+}
+
+interface CombatPresentationCombatEffect {
+  instanceId?: string | null;
+  effect?: unknown;
+}
+
+interface CombatPresentationDamageFloat {
+  instanceId?: string | null;
+  x: number;
+  y: number;
+  damage: number;
+  color?: string;
+}
+
+interface CombatPresentationResolutionFloat {
+  instanceId?: string | null;
+  x?: number;
+  y?: number;
+  resolution?: unknown;
+  fallbackColor?: string;
+}
+
+interface CombatPresentationNotice {
+  playerId?: string | null;
+  text?: string;
+  kind?: string;
+}
+
+interface CombatPresentationInput {
+  deps?: CombatPresentationDeps;
+  effectsService?: CombatPresentationEffectSource | null;
+  instanceId?: string | null;
+  actionLabel?: CombatPresentationActionLabel | null;
+  attack?: CombatPresentationAttack | null;
+  combatEffects?: unknown[];
+  damageFloat?: CombatPresentationDamageFloat | null;
+  resolutionFloat?: CombatPresentationResolutionFloat | null;
+  notices?: CombatPresentationNotice[];
+}
+
+interface ResolvedCombatPresentationEffects {
+  pushActionLabelEffect: NonNullable<CombatPresentationEffectSource['pushActionLabelEffect']> | null;
+  pushCombatEffect: NonNullable<CombatPresentationEffectSource['pushCombatEffect']> | null;
+  pushAttackEffect: NonNullable<CombatPresentationEffectSource['pushAttackEffect']> | null;
+  pushDamageFloatEffect: NonNullable<CombatPresentationEffectSource['pushDamageFloatEffect']> | null;
+  pushCombatTextFloatEffect: NonNullable<CombatPresentationEffectSource['pushCombatTextFloatEffect']> | null;
+}
+
+function resolveCombatPresentationEffects(input: CombatPresentationInput = {}): ResolvedCombatPresentationEffects {
   const deps = input.deps ?? {};
   const effects = input.effectsService ?? deps.worldRuntimeCombatEffectsService ?? deps;
   return {
@@ -32,7 +125,7 @@ function resolveCombatPresentationEffects(input = {}) {
   };
 }
 
-function emitCombatPresentation(input = {}) {
+function emitCombatPresentation(input: CombatPresentationInput = {}): void {
   const deps = input.deps ?? {};
   const effects = resolveCombatPresentationEffects(input);
   const instanceId = input.instanceId ?? input.attack?.instanceId ?? input.actionLabel?.instanceId ?? input.damageFloat?.instanceId ?? input.resolutionFloat?.instanceId;
@@ -70,7 +163,8 @@ function emitCombatPresentation(input = {}) {
       if (!effect || typeof effect !== 'object') {
         continue;
       }
-      effects.pushCombatEffect(effect.instanceId ?? instanceId, effect.effect ?? effect);
+      const combatEffect = effect as CombatPresentationCombatEffect;
+      effects.pushCombatEffect(combatEffect.instanceId ?? instanceId, combatEffect.effect ?? effect);
     }
   }
 
@@ -89,11 +183,12 @@ function emitCombatPresentation(input = {}) {
   emitCombatNotices(deps, input.notices);
 }
 
-function emitCombatResolutionFloat(input = {}) {
+function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
+  void input;
   return;
 }
 
-function emitCombatNotices(deps, notices) {
+function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: CombatPresentationNotice[] | undefined): void {
   if (typeof deps?.queuePlayerNotice !== 'function' || !Array.isArray(notices)) {
     return;
   }
@@ -104,13 +199,6 @@ function emitCombatNotices(deps, notices) {
     deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat');
   }
 }
-
-module.exports = {
-  emitCombatPresentation,
-  emitCombatResolutionFloat,
-  emitCombatNotices,
-  resolveCombatPresentationEffects,
-};
 
 export {
   emitCombatPresentation,

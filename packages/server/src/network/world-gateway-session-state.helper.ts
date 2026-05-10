@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewaySessionStateHelper = void 0;
 
 /** 世界 socket 会话侧状态 helper：收敛坊市订阅、请求缓存与断线清理。 */
 class WorldGatewaySessionStateHelper {
@@ -155,6 +150,5 @@ class WorldGatewaySessionStateHelper {
         return this.marketTradeHistoryRequestsByPlayerId;
     }
 }
-exports.WorldGatewaySessionStateHelper = WorldGatewaySessionStateHelper;
 
 export { WorldGatewaySessionStateHelper };

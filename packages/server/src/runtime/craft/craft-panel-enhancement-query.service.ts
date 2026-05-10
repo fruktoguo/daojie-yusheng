@@ -1,23 +1,6 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CraftPanelEnhancementQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const content_template_repository_1 = require("../../content/content-template.repository");
+import { Injectable } from '@nestjs/common';
+import { EQUIP_SLOTS, applyAsymptoticSuccessModifier, computeAdjustedCraftTicks, computeEnhancementAdjustedSuccessRate as computeSharedEnhancementAdjustedSuccessRate } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
 
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
 const MAX_ENHANCE_LEVEL = 20;
@@ -30,7 +13,8 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 ];
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
-let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService {
+@Injectable()
+export class CraftPanelEnhancementQueryService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -42,7 +26,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository) {
+    constructor(contentTemplateRepository: ContentTemplateRepository) {
         this.contentTemplateRepository = contentTemplateRepository;
     }    
     /**
@@ -115,7 +99,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
                 candidates.push(candidate);
             }
         });
-        for (const slot of shared_1.EQUIP_SLOTS) {
+        for (const slot of EQUIP_SLOTS) {
             const item = getEquippedItem(player, slot);
             if (!item) {
                 continue;
@@ -184,12 +168,6 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
         };
     }
 };
-exports.CraftPanelEnhancementQueryService = CraftPanelEnhancementQueryService;
-exports.CraftPanelEnhancementQueryService = CraftPanelEnhancementQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository])
-], CraftPanelEnhancementQueryService);
-export { CraftPanelEnhancementQueryService };
 
 function cloneCraftQueue(queue) {
     return Array.isArray(queue)
@@ -202,7 +180,6 @@ function cloneCraftQueue(queue) {
  * @param targetLevel 参数说明。
  * @returns 无返回值，完成强化Requirement的读取/组装。
  */
-
 
 function getEnhancementRequirements(config, targetLevel) {
     const step = config?.steps.find((entry) => entry.targetEnhanceLevel === targetLevel);
@@ -414,7 +391,7 @@ function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel
  */
 
 function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {
-    return shared_1.computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier);
+    return computeSharedEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier);
 }
 /**
  * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
@@ -424,7 +401,7 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
  */
 
 function computeEnhancementJobTicks(itemLevel, totalSpeedRate) {
-    return shared_1.computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
+    return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
 }
 /**
  * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
@@ -455,5 +432,5 @@ function computeEnhancementJobBaseTicks(itemLevel) {
  */
 
 function applyEnhancementSuccessModifier(baseRate, modifier) {
-    return shared_1.applyAsymptoticSuccessModifier(baseRate, modifier);
+    return applyAsymptoticSuccessModifier(baseRate, modifier);
 }

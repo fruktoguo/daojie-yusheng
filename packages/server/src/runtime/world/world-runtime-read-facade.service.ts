@@ -1,24 +1,11 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeReadFacadeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable, BadRequestException } from '@nestjs/common';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { normalizeCoordinate } = world_runtime_normalization_helpers_1;
 
 /** world-runtime read facade：承接高层读侧 envelope、详情与只读校验 facade。 */
-let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
+@Injectable()
+export class WorldRuntimeReadFacadeService {
 /**
  * buildNpcShopView：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -33,10 +20,10 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         deps.getPlayerLocationOrThrow(playerId);
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         return deps.worldRuntimeNpcShopQueryService.buildNpcShopView(playerId, npcId, deps);
-    }    
+    }
     /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -49,7 +36,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         deps.getPlayerLocationOrThrow(playerId);
         deps.refreshQuestStates(playerId);
         return deps.worldRuntimeQuestQueryService.buildQuestListView(playerId);
-    }    
+    }
     /**
  * buildNpcQuestsView：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -64,11 +51,11 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         deps.getPlayerLocationOrThrow(playerId);
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         deps.refreshQuestStates(playerId);
         return deps.worldRuntimeQuestQueryService.buildNpcQuestsView(playerId, npcId, deps);
-    }    
+    }
     /**
  * buildDetail：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -84,16 +71,16 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         const kind = input.kind;
         const id = typeof input.id === 'string' ? input.id.trim() : '';
         if (!id) {
-            throw new common_1.BadRequestException('ID 不能为空');
+            throw new BadRequestException('ID 不能为空');
         }
         if (kind !== 'npc' && kind !== 'monster' && kind !== 'ground' && kind !== 'player' && kind !== 'portal' && kind !== 'container') {
-            throw new common_1.BadRequestException(`不支持的详情类型：${String(kind)}`);
+            throw new BadRequestException(`不支持的详情类型：${String(kind)}`);
         }
         const view = deps.getPlayerViewOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const viewer = deps.playerRuntimeService.getPlayerOrThrow(playerId);
         return deps.worldRuntimeDetailQueryService.buildDetail({ view, viewer, location, instance }, { kind, id });
-    }    
+    }
     /**
  * buildTileDetail：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -110,7 +97,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         const viewer = deps.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         return deps.worldRuntimeDetailQueryService.buildTileDetail({ view, viewer, location, instance }, { x, y });
-    }    
+    }
     /**
  * buildLootWindowSyncState：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -140,7 +127,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
             deps.worldRuntimeLootContainerService.prepareContainerLootSource(instance.meta.instanceId, container, instance.tick);
         }
         return deps.worldRuntimePlayerViewQueryService.buildLootWindowSyncState(deps, playerId, tileX, tileY);
-    }    
+    }
     /**
  * refreshPlayerContextActions：执行refresh玩家上下文Action相关逻辑。
  * @param playerId 玩家 ID。
@@ -158,7 +145,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         }
         deps.playerRuntimeService.setContextActions(playerId, this.buildContextActions(resolvedView, deps), resolvedView.tick);
         return resolvedView;
-    }    
+    }
     /**
  * getPlayerView：读取玩家视图。
  * @param playerId 玩家 ID。
@@ -169,7 +156,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     getPlayerView(playerId, radius, deps) {
         return deps.worldRuntimePlayerViewQueryService.getPlayerView(deps, playerId, radius);
-    }    
+    }
     /**
  * createNpcQuestsEnvelope：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -181,7 +168,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
     createNpcQuestsEnvelope(playerId, npcId, deps) {
         const npc = deps.worldRuntimeNpcAccessService.resolveAdjacentNpc(playerId, npcId, deps);
         return deps.worldRuntimeQuestQueryService.createNpcQuestsEnvelope(playerId, npc);
-    }    
+    }
     /**
  * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
@@ -192,7 +179,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     resolveQuestProgress(playerId, quest, deps) {
         return deps.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
-    }    
+    }
     /**
  * canQuestBecomeReady：读取任务BecomeReady并返回结果。
  * @param playerId 玩家 ID。
@@ -203,7 +190,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     canQuestBecomeReady(playerId, quest, deps) {
         return deps.worldRuntimeQuestQueryService.canQuestBecomeReady(playerId, quest);
-    }    
+    }
     /**
  * createQuestStateFromSource：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -215,7 +202,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     createQuestStateFromSource(playerId, questId, status, deps) {
         return deps.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, questId, status);
-    }    
+    }
     /**
  * buildQuestRewardItems：构建并返回目标对象。
  * @param quest 参数说明。
@@ -225,7 +212,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     buildQuestRewardItems(quest, deps) {
         return deps.worldRuntimeQuestQueryService.buildQuestRewardItems(quest);
-    }    
+    }
     /**
  * buildQuestRewardItemsFromRecord：构建并返回目标对象。
  * @param quest 参数说明。
@@ -235,7 +222,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     buildQuestRewardItemsFromRecord(quest, deps) {
         return deps.worldRuntimeQuestQueryService.buildQuestRewardItemsFromRecord(quest);
-    }    
+    }
     /**
  * resolveQuestNavigationTarget：读取任务导航目标并返回结果。
  * @param quest 参数说明。
@@ -245,7 +232,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     resolveQuestNavigationTarget(quest, deps) {
         return deps.worldRuntimeQuestQueryService.resolveQuestNavigationTarget(quest);
-    }    
+    }
     /**
  * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
@@ -258,7 +245,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
 
     validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
         return deps.worldRuntimeNpcShopQueryService.validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps);
-    }    
+    }
     /**
  * buildContextActions：构建并返回目标对象。
  * @param view 参数说明。
@@ -270,9 +257,3 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         return deps.worldRuntimeContextActionQueryService.buildContextActions(view, deps);
     }
 };
-exports.WorldRuntimeReadFacadeService = WorldRuntimeReadFacadeService;
-exports.WorldRuntimeReadFacadeService = WorldRuntimeReadFacadeService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeReadFacadeService);
-
-export { WorldRuntimeReadFacadeService };

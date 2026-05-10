@@ -1,61 +1,45 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
-var WorldGateway_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGateway = void 0;
-const websockets_1 = require("@nestjs/websockets");
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const socket_io_1 = require("socket.io");
-const server_cors_1 = require("../config/server-cors");
-const health_readiness_service_1 = require("../health/health-readiness.service");
-const player_domain_persistence_service_1 = require("../persistence/player-domain-persistence.service");
-const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
-const player_session_route_service_1 = require("../persistence/player-session-route.service");
-const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
-const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
-const craft_panel_runtime_service_1 = require("../runtime/craft/craft-panel-runtime.service");
-const leaderboard_runtime_service_1 = require("../runtime/player/leaderboard-runtime.service");
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
-const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.service");
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-const world_client_event_service_1 = require("./world-client-event.service");
-const world_gm_socket_service_1 = require("./world-gm-socket.service");
-const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
-const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
-const world_session_service_1 = require("./world-session.service");
-const world_sync_service_1 = require("./world-sync.service");
-const world_gateway_bootstrap_helper_1 = require("./world-gateway-bootstrap.helper");
-const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
-const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
-const world_gateway_suggestion_helper_1 = require("./world-gateway-suggestion.helper");
-const world_gateway_movement_helper_1 = require("./world-gateway-movement.helper");
-const world_gateway_inventory_helper_1 = require("./world-gateway-inventory.helper");
-const world_gateway_mail_helper_1 = require("./world-gateway-mail.helper");
-const world_gateway_player_controls_helper_1 = require("./world-gateway-player-controls.helper");
-const world_gateway_action_helper_1 = require("./world-gateway-action.helper");
-const world_gateway_npc_helper_1 = require("./world-gateway-npc.helper");
-const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
-const world_gateway_market_helper_1 = require("./world-gateway-market.helper");
-const world_gateway_read_model_helper_1 = require("./world-gateway-read-model.helper");
-const world_gateway_building_helper_1 = require("./world-gateway-building.helper");
-const world_gateway_client_emit_helper_1 = require("./world-gateway-client-emit.helper");
-const world_gateway_guard_helper_1 = require("./world-gateway-guard.helper");
-const world_gateway_session_state_helper_1 = require("./world-gateway-session-state.helper");
-const world_gateway_presence_helper_1 = require("./world-gateway-presence.helper");
+import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Inject, Logger } from '@nestjs/common';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, C2S, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { Server, Socket } from 'socket.io';
+import { resolveServerCorsOptions } from '../config/server-cors';
+import { HealthReadinessService } from '../health/health-readiness.service';
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
+import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
+import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
+import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
+import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
+import { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGmSocketService } from './world-gm-socket.service';
+import { WorldProtocolProjectionService } from './world-protocol-projection.service';
+import { WorldSessionBootstrapService } from './world-session-bootstrap.service';
+import { WorldSessionService } from './world-session.service';
+import { WorldSyncService } from './world-sync.service';
+import { WorldGatewayBootstrapHelper } from './world-gateway-bootstrap.helper';
+import { WorldGatewayGmCommandHelper } from './world-gateway-gm-command.helper';
+import { WorldGatewayGmSuggestionHelper } from './world-gateway-gm-suggestion.helper';
+import { WorldGatewaySuggestionHelper } from './world-gateway-suggestion.helper';
+import { WorldGatewayMovementHelper } from './world-gateway-movement.helper';
+import { WorldGatewayInventoryHelper } from './world-gateway-inventory.helper';
+import { WorldGatewayMailHelper } from './world-gateway-mail.helper';
+import { WorldGatewayPlayerControlsHelper } from './world-gateway-player-controls.helper';
+import { WorldGatewayActionHelper } from './world-gateway-action.helper';
+import { WorldGatewayNpcHelper } from './world-gateway-npc.helper';
+import { WorldGatewayCraftHelper } from './world-gateway-craft.helper';
+import { WorldGatewayMarketHelper } from './world-gateway-market.helper';
+import { WorldGatewayReadModelHelper } from './world-gateway-read-model.helper';
+import { WorldGatewayBuildingHelper } from './world-gateway-building.helper';
+import { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
+import { WorldGatewaySessionStateHelper } from './world-gateway-session-state.helper';
+import { WorldGatewayPresenceHelper } from './world-gateway-presence.helper';
+
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'mainline',
     'token',
@@ -72,19 +56,24 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
 });
-let WorldGateway = WorldGateway_1 = class WorldGateway {
-        worldGmSocketService; worldProtocolProjectionService; sessionBootstrapService; healthReadinessService;
-        playerDomainPersistenceService; playerPersistenceFlushService; playerRuntimeService; mailRuntimeService;
-        marketRuntimeService; craftPanelRuntimeService; suggestionRuntimeService; leaderboardRuntimeService;
-        runtimeGmStateService; worldRuntimeService; worldClientEventService; worldSessionService; playerSessionRouteService;
-        worldSyncService;
-        gatewayBootstrapHelper; gatewayGmCommandHelper; gatewayGmSuggestionHelper; gatewaySuggestionHelper;
-        gatewayMovementHelper; gatewayInventoryHelper; gatewayMailHelper; gatewayPlayerControlsHelper;
-        gatewayNpcHelper; gatewayCraftHelper; gatewayMarketHelper; gatewayReadModelHelper; gatewayActionHelper;
-        gatewayBuildingHelper;
-        gatewayClientEmitHelper; gatewayGuardHelper; gatewaySessionStateHelper; gatewayPresenceHelper;
-        server; logger = new common_1.Logger(WorldGateway_1.name);
-    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService, playerSessionRouteService, worldSyncService) {
+@WebSocketGateway({
+    cors: resolveServerCorsOptions(),
+    path: '/socket.io',
+})
+class WorldGateway {
+        worldGmSocketService: WorldGmSocketService; worldProtocolProjectionService: WorldProtocolProjectionService; sessionBootstrapService: WorldSessionBootstrapService; healthReadinessService: HealthReadinessService;
+        playerDomainPersistenceService: PlayerDomainPersistenceService; playerPersistenceFlushService: PlayerPersistenceFlushService; playerRuntimeService: PlayerRuntimeService; mailRuntimeService: MailRuntimeService;
+        marketRuntimeService: any; craftPanelRuntimeService: CraftPanelRuntimeService; suggestionRuntimeService: SuggestionRuntimeService; leaderboardRuntimeService: LeaderboardRuntimeService;
+        runtimeGmStateService: RuntimeGmStateService; worldRuntimeService: any; worldClientEventService: WorldClientEventService; worldSessionService: WorldSessionService; playerSessionRouteService: PlayerSessionRouteService;
+        worldSyncService: WorldSyncService;
+        gatewayBootstrapHelper: WorldGatewayBootstrapHelper; gatewayGmCommandHelper: WorldGatewayGmCommandHelper; gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper; gatewaySuggestionHelper: WorldGatewaySuggestionHelper;
+        gatewayMovementHelper: WorldGatewayMovementHelper; gatewayInventoryHelper: WorldGatewayInventoryHelper; gatewayMailHelper: WorldGatewayMailHelper; gatewayPlayerControlsHelper: WorldGatewayPlayerControlsHelper;
+        gatewayNpcHelper: WorldGatewayNpcHelper; gatewayCraftHelper: WorldGatewayCraftHelper; gatewayMarketHelper: WorldGatewayMarketHelper; gatewayReadModelHelper: WorldGatewayReadModelHelper; gatewayActionHelper: WorldGatewayActionHelper;
+        gatewayBuildingHelper: WorldGatewayBuildingHelper;
+        gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper; gatewayPresenceHelper: WorldGatewayPresenceHelper;
+        @WebSocketServer()
+        server!: Server; logger: Logger = new Logger(WorldGateway.name);
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: any, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: any, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -103,35 +92,35 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldSessionService = worldSessionService;
         this.playerSessionRouteService = playerSessionRouteService;
         this.worldSyncService = worldSyncService;
-        this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
-        this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
-        this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
-        this.gatewaySuggestionHelper = new world_gateway_suggestion_helper_1.WorldGatewaySuggestionHelper(this);
-        this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
-        this.gatewayInventoryHelper = new world_gateway_inventory_helper_1.WorldGatewayInventoryHelper(this);
-        this.gatewayMailHelper = new world_gateway_mail_helper_1.WorldGatewayMailHelper(this);
-        this.gatewayPlayerControlsHelper = new world_gateway_player_controls_helper_1.WorldGatewayPlayerControlsHelper(this);
-        this.gatewayNpcHelper = new world_gateway_npc_helper_1.WorldGatewayNpcHelper(this);
-        this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
-        this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
-        this.gatewayReadModelHelper = new world_gateway_read_model_helper_1.WorldGatewayReadModelHelper(this);
-        this.gatewayActionHelper = new world_gateway_action_helper_1.WorldGatewayActionHelper(this);
-        this.gatewayBuildingHelper = new world_gateway_building_helper_1.WorldGatewayBuildingHelper(this);
-        this.gatewayClientEmitHelper = new world_gateway_client_emit_helper_1.WorldGatewayClientEmitHelper(this);
-        this.gatewayGuardHelper = new world_gateway_guard_helper_1.WorldGatewayGuardHelper(this);
-        this.gatewaySessionStateHelper = new world_gateway_session_state_helper_1.WorldGatewaySessionStateHelper(this);
-        this.gatewayPresenceHelper = new world_gateway_presence_helper_1.WorldGatewayPresenceHelper(this);
+        this.gatewayBootstrapHelper = new WorldGatewayBootstrapHelper(this);
+        this.gatewayGmCommandHelper = new WorldGatewayGmCommandHelper(this);
+        this.gatewayGmSuggestionHelper = new WorldGatewayGmSuggestionHelper(this);
+        this.gatewaySuggestionHelper = new WorldGatewaySuggestionHelper(this);
+        this.gatewayMovementHelper = new WorldGatewayMovementHelper(this);
+        this.gatewayInventoryHelper = new WorldGatewayInventoryHelper(this);
+        this.gatewayMailHelper = new WorldGatewayMailHelper(this);
+        this.gatewayPlayerControlsHelper = new WorldGatewayPlayerControlsHelper(this);
+        this.gatewayNpcHelper = new WorldGatewayNpcHelper(this);
+        this.gatewayCraftHelper = new WorldGatewayCraftHelper(this);
+        this.gatewayMarketHelper = new WorldGatewayMarketHelper(this);
+        this.gatewayReadModelHelper = new WorldGatewayReadModelHelper(this);
+        this.gatewayActionHelper = new WorldGatewayActionHelper(this as any);
+        this.gatewayBuildingHelper = new WorldGatewayBuildingHelper(this);
+        this.gatewayClientEmitHelper = new WorldGatewayClientEmitHelper(this);
+        this.gatewayGuardHelper = new WorldGatewayGuardHelper(this);
+        this.gatewaySessionStateHelper = new WorldGatewaySessionStateHelper(this);
+        this.gatewayPresenceHelper = new WorldGatewayPresenceHelper(this);
     }
-        async handleConnection(client) {
+        async handleConnection(client: Socket) {
         this.attachPerfObservers(client);
         this.attachRateLimitGuard(client);
         return this.gatewayBootstrapHelper.handleConnection(client);
     }
-        attachRateLimitGuard(client) {
+        attachRateLimitGuard(client: Socket) {
         if (!client || typeof client.use !== 'function') {
             return;
         }
-        client.use((packet, next) => {
+        client.use((packet: any[], next: (error?: Error) => void) => {
             const event = Array.isArray(packet) ? packet[0] : '';
             if (!this.gatewayGuardHelper.checkRateLimit(client, event, 60, 1000)) {
                 return next(new Error('RATE_LIMIT_EXCEEDED'));
@@ -139,7 +128,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             next();
         });
     }
-        attachPerfObservers(client) {
+        attachPerfObservers(client: Socket) {
         if (!client || client.data?.gmPerfObserversAttached === true) {
             return;
         }
@@ -147,17 +136,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             client.data.gmPerfObserversAttached = true;
         }
         if (typeof client.onAny === 'function') {
-            client.onAny((event, ...args) => {
+            client.onAny((event: string, ...args: unknown[]) => {
                 this.runtimeGmStateService.recordNetworkIn(event, args.length <= 1 ? args[0] : args);
             });
         }
         if (typeof client.onAnyOutgoing === 'function') {
-            client.onAnyOutgoing((event, ...args) => {
+            client.onAnyOutgoing((event: string, ...args: unknown[]) => {
                 this.runtimeGmStateService.recordNetworkOut(event, args.length <= 1 ? args[0] : args);
             });
         }
     }
-        async handleDisconnect(client) {
+        async handleDisconnect(client: Socket) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         const binding = this.worldSessionService.unregisterSocket(client.id);
         if (!binding) {
@@ -173,931 +162,350 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         });
         this.logger.debug(`Socket 已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
-        async handleHello(client, payload) {
+        @SubscribeMessage(C2S.Hello)
+        async handleHello(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayBootstrapHelper.handleHello(client, payload);
     }
-    handleHeartbeat(client, _payload) {
+    @SubscribeMessage(C2S.Heartbeat)
+    handleHeartbeat(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         if (!this.gatewayGuardHelper.requirePlayerId(client)) {
             return;
         }
         return this.gatewayPresenceHelper.handleHeartbeat(client);
     }
-    shouldPersistHeartbeatPresence(playerId, now = Date.now()) {
+    shouldPersistHeartbeatPresence(playerId: string, now = Date.now()) {
         return this.gatewayPresenceHelper.shouldPersistHeartbeatPresence(playerId, now);
     }
-    clearHeartbeatPresencePersistThrottle(playerId) {
+    clearHeartbeatPresencePersistThrottle(playerId: string) {
         this.gatewayPresenceHelper.clearHeartbeatPresencePersistThrottle(playerId);
     }
-    handleSocketGmGetState(client, _payload) {
+    @SubscribeMessage(C2S.GmGetState)
+    handleSocketGmGetState(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayGmCommandHelper.handleGmGetState(client, _payload);
     }
-    handleSocketGmSpawnBots(client, payload) {
+    @SubscribeMessage(C2S.GmSpawnBots)
+    handleSocketGmSpawnBots(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayGmCommandHelper.handleGmSpawnBots(client, payload);
     }
-    handleSocketGmRemoveBots(client, payload) {
+    @SubscribeMessage(C2S.GmRemoveBots)
+    handleSocketGmRemoveBots(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayGmCommandHelper.handleGmRemoveBots(client, payload);
     }
-    handleSocketGmUpdatePlayer(client, payload) {
+    @SubscribeMessage(C2S.GmUpdatePlayer)
+    handleSocketGmUpdatePlayer(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayGmCommandHelper.handleGmUpdatePlayer(client, payload);
     }
-    handleSocketGmResetPlayer(client, payload) {
+    @SubscribeMessage(C2S.GmResetPlayer)
+    handleSocketGmResetPlayer(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayGmCommandHelper.handleGmResetPlayer(client, payload);
     }
-    handleMoveTo(client, payload) {
+    @SubscribeMessage(C2S.MoveTo)
+    handleMoveTo(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMovementHelper.handleMoveTo(client, payload);
     }
-    handleNavigateQuest(client, payload) {
+    @SubscribeMessage(C2S.NavigateQuest)
+    handleNavigateQuest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMovementHelper.handleNavigateQuest(client, payload);
     }
-    handleMove(client, payload) {
+    @SubscribeMessage(C2S.Move)
+    handleMove(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMovementHelper.handleMove(client, payload);
     }
-    handleDestroyItem(client, payload) {
+    @SubscribeMessage(C2S.DestroyItem)
+    handleDestroyItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleDestroyItem(client, payload);
     }
-    handleSortInventory(client, _payload) {
+    @SubscribeMessage(C2S.SortInventory)
+    handleSortInventory(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayInventoryHelper.handleSortInventory(client, _payload);
     }
-    handleChat(client, payload) {
+    @SubscribeMessage(C2S.Chat)
+    handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleChat(client, payload);
     }
-    handleAckSystemMessages(client, payload) {
+    @SubscribeMessage(C2S.AckSystemMessages)
+    handleAckSystemMessages(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleAckSystemMessages(client, payload);
     }
-    async handleAckOfflineGainReports(client, payload) { return this.gatewayPlayerControlsHelper.handleAckOfflineGainReports(client, payload); }
-    handleDebugResetSpawn(client, _payload) {
+    @SubscribeMessage(C2S.AckOfflineGainReports)
+    async handleAckOfflineGainReports(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayPlayerControlsHelper.handleAckOfflineGainReports(client, payload); }
+    @SubscribeMessage(C2S.DebugResetSpawn)
+    handleDebugResetSpawn(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayPlayerControlsHelper.handleDebugResetSpawn(client, _payload);
     }
-    handleUpdateAutoBattleSkills(client, payload) {
+    @SubscribeMessage(C2S.UpdateAutoBattleSkills)
+    handleUpdateAutoBattleSkills(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateAutoBattleSkills(client, payload);
     }
-    handleUpdateAutoUsePills(client, payload) {
+    @SubscribeMessage(C2S.UpdateAutoUsePills)
+    handleUpdateAutoUsePills(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateAutoUsePills(client, payload);
     }
-    handleUpdateCombatTargetingRules(client, payload) {
+    @SubscribeMessage(C2S.UpdateCombatTargetingRules)
+    handleUpdateCombatTargetingRules(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateCombatTargetingRules(client, payload);
     }
-    handleUpdateAutoBattleTargetingMode(client, payload) {
+    @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)
+    handleUpdateAutoBattleTargetingMode(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateAutoBattleTargetingMode(client, payload);
     }
-    handleUpdateTechniqueSkillAvailability(client, payload) {
+    @SubscribeMessage(C2S.UpdateTechniqueSkillAvailability)
+    handleUpdateTechniqueSkillAvailability(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateTechniqueSkillAvailability(client, payload);
     }
-    handleHeavenGateAction(client, payload) {
+    @SubscribeMessage(C2S.HeavenGateAction)
+    handleHeavenGateAction(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleHeavenGateAction(client, payload);
     }
-    handleUseAction(client, payload) {
+    @SubscribeMessage(C2S.UseAction)
+    handleUseAction(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleUseAction(client, payload);
     }
-    handleRequestQuests(client, _payload) {
+    @SubscribeMessage(C2S.RequestQuests)
+    handleRequestQuests(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestQuests(client, _payload);
     }
-    async handleRequestMailSummary(client, payload) {
+    @SubscribeMessage(C2S.RequestMailSummary)
+    async handleRequestMailSummary(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleRequestMailSummary(client, payload);
     }
-    handleRequestSuggestions(client, payload) {
+    @SubscribeMessage(C2S.RequestSuggestions)
+    handleRequestSuggestions(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewaySuggestionHelper.handleRequestSuggestions(client, payload);
     }
-    async handleRequestMailPage(client, payload) {
+    @SubscribeMessage(C2S.RequestMailPage)
+    async handleRequestMailPage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleRequestMailPage(client, payload);
     }
-    async handleRequestMailDetail(client, payload) {
+    @SubscribeMessage(C2S.RequestMailDetail)
+    async handleRequestMailDetail(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleRequestMailDetail(client, payload);
     }
-    handleRedeemCodes(client, payload) {
+    @SubscribeMessage(C2S.RedeemCodes)
+    handleRedeemCodes(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleRedeemCodes(client, payload);
     }
-    handleRequestMarket(client, payload) {
+    @SubscribeMessage(C2S.RequestMarket)
+    handleRequestMarket(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMarketHelper.handleRequestMarket(client, payload);
     }
-    handleRequestMarketListings(client, payload) {
+    @SubscribeMessage(C2S.RequestMarketListings)
+    handleRequestMarketListings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMarketHelper.handleRequestMarketListings(client, payload);
     }
-    handleRequestAuctionListings(client, payload) { return this.gatewayMarketHelper.handleRequestAuctionListings(client, payload); }
-    async handleMarkMailRead(client, payload) {
+    @SubscribeMessage(C2S.RequestAuctionListings)
+    handleRequestAuctionListings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleRequestAuctionListings(client, payload); }
+    @SubscribeMessage(C2S.MarkMailRead)
+    async handleMarkMailRead(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleMarkMailRead(client, payload);
     }
-    async handleCreateSuggestion(client, payload) {
+    @SubscribeMessage(C2S.CreateSuggestion)
+    async handleCreateSuggestion(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewaySuggestionHelper.handleCreateSuggestion(client, payload);
     }
-    async handleVoteSuggestion(client, payload) {
+    @SubscribeMessage(C2S.VoteSuggestion)
+    async handleVoteSuggestion(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewaySuggestionHelper.handleVoteSuggestion(client, payload);
     }
-    async handleReplySuggestion(client, payload) {
+    @SubscribeMessage(C2S.ReplySuggestion)
+    async handleReplySuggestion(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewaySuggestionHelper.handleReplySuggestion(client, payload);
     }
-    async handleMarkSuggestionRepliesRead(client, payload) {
+    @SubscribeMessage(C2S.MarkSuggestionRepliesRead)
+    async handleMarkSuggestionRepliesRead(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewaySuggestionHelper.handleMarkSuggestionRepliesRead(client, payload);
     }
-    async handleGmMarkSuggestionCompleted(client, payload) {
+    @SubscribeMessage(C2S.GmMarkSuggestionCompleted)
+    async handleGmMarkSuggestionCompleted(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewayGmSuggestionHelper.handleGmMarkSuggestionCompleted(client, payload);
     }
-    async handleGmRemoveSuggestion(client, payload) {
+    @SubscribeMessage(C2S.GmRemoveSuggestion)
+    async handleGmRemoveSuggestion(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         await this.gatewayGmSuggestionHelper.handleGmRemoveSuggestion(client, payload);
     }
-    async handleClaimMailAttachments(client, payload) {
+    @SubscribeMessage(C2S.ClaimMailAttachments)
+    async handleClaimMailAttachments(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleClaimMailAttachments(client, payload);
     }
-    async handleDeleteMail(client, payload) {
+    @SubscribeMessage(C2S.DeleteMail)
+    async handleDeleteMail(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleDeleteMail(client, payload);
     }
-    handleRequestMarketItemBook(client, payload) {
+    @SubscribeMessage(C2S.RequestMarketItemBook)
+    handleRequestMarketItemBook(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMarketHelper.handleRequestMarketItemBook(client, payload);
     }
-    handleRequestMarketTradeHistory(client, payload) {
+    @SubscribeMessage(C2S.RequestMarketTradeHistory)
+    handleRequestMarketTradeHistory(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMarketHelper.handleRequestMarketTradeHistory(client, payload);
     }
-    handleRequestAttrDetail(client, _payload) {
+    @SubscribeMessage(C2S.RequestAttrDetail)
+    handleRequestAttrDetail(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayReadModelHelper.handleRequestAttrDetail(client, _payload);
     }
-    handleRequestAlchemyPanel(client, payload) {
+    @SubscribeMessage(C2S.RequestAlchemyPanel)
+    handleRequestAlchemyPanel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleRequestAlchemyPanel(client, payload);
     }
-    handleRequestEnhancementPanel(client, _payload) {
+    @SubscribeMessage(C2S.RequestEnhancementPanel)
+    handleRequestEnhancementPanel(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayCraftHelper.handleRequestEnhancementPanel(client, _payload);
     }
-    handleStartAlchemy(client, payload) {
+    @SubscribeMessage(C2S.StartAlchemy)
+    handleStartAlchemy(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleStartAlchemy(client, payload);
     }
-    handleCancelAlchemy(client, _payload) {
+    @SubscribeMessage(C2S.CancelAlchemy)
+    handleCancelAlchemy(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayCraftHelper.handleCancelAlchemy(client, _payload);
     }
-    handleSaveAlchemyPreset(client, payload) {
+    @SubscribeMessage(C2S.SaveAlchemyPreset)
+    handleSaveAlchemyPreset(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleSaveAlchemyPreset(client, payload);
     }
-    handleDeleteAlchemyPreset(client, payload) {
+    @SubscribeMessage(C2S.DeleteAlchemyPreset)
+    handleDeleteAlchemyPreset(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleDeleteAlchemyPreset(client, payload);
     }
-    handleStartEnhancement(client, payload) {
+    @SubscribeMessage(C2S.StartEnhancement)
+    handleStartEnhancement(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleStartEnhancement(client, payload);
     }
-    handleCancelEnhancement(client, _payload) {
+    @SubscribeMessage(C2S.CancelEnhancement)
+    handleCancelEnhancement(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayCraftHelper.handleCancelEnhancement(client, _payload);
     }
-    handleRequestLeaderboard(client, payload) {
+    @SubscribeMessage(C2S.RequestLeaderboard)
+    handleRequestLeaderboard(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayReadModelHelper.handleRequestLeaderboard(client, payload);
     }
-    handleRequestLeaderboardPlayerLocations(client, payload) {
+    @SubscribeMessage(C2S.RequestLeaderboardPlayerLocations)
+    handleRequestLeaderboardPlayerLocations(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayReadModelHelper.handleRequestLeaderboardPlayerLocations(client, payload);
     }
-    handleRequestWorldSummary(client, _payload) {
+    @SubscribeMessage(C2S.RequestWorldSummary)
+    handleRequestWorldSummary(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayReadModelHelper.handleRequestWorldSummary(client, _payload);
     }
-    handleRequestDetail(client, payload) {
+    @SubscribeMessage(C2S.RequestDetail)
+    handleRequestDetail(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayReadModelHelper.handleRequestDetail(client, payload);
     }
-    handleRequestTileDetail(client, payload) {
+    @SubscribeMessage(C2S.RequestTileDetail)
+    handleRequestTileDetail(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayReadModelHelper.handleRequestTileDetail(client, payload);
     }
-    handleUsePortal(client) {
+    @SubscribeMessage(C2S.UsePortal)
+    handleUsePortal(@ConnectedSocket() client: Socket) {
         return this.gatewayActionHelper.handleUsePortal(client);
     }
-    handleUseItem(client, payload) {
+    @SubscribeMessage(C2S.UseItem)
+    handleUseItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleUseItem(client, payload);
     }
-    handleCreateFormation(client, payload) {
+    @SubscribeMessage(C2S.CreateFormation)
+    handleCreateFormation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleCreateFormation(client, payload);
     }
-    handleSetFormationActive(client, payload) {
+    @SubscribeMessage(C2S.SetFormationActive)
+    handleSetFormationActive(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleSetFormationActive(client, payload);
     }
-    handleRefillFormation(client, payload) {
+    @SubscribeMessage(C2S.RefillFormation)
+    handleRefillFormation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleRefillFormation(client, payload);
     }
-    handleBuildPlaceIntent(client, payload) { return this.gatewayBuildingHelper.handleBuildPlaceIntent(client, payload); }
-    handleBuildDeconstruct(client, payload) { return this.gatewayBuildingHelper.handleBuildDeconstruct(client, payload); }
-    handleRoomSetRole(client, payload) { return this.gatewayBuildingHelper.handleRoomSetRole(client, payload); }
-    handleFengShuiObserve(client, payload) { return this.gatewayBuildingHelper.handleFengShuiObserve(client, payload); }
-    handleDropItem(client, payload) {
+    @SubscribeMessage(C2S.BuildPlaceIntent)
+    handleBuildPlaceIntent(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayBuildingHelper.handleBuildPlaceIntent(client, payload); }
+    @SubscribeMessage(C2S.BuildDeconstruct)
+    handleBuildDeconstruct(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayBuildingHelper.handleBuildDeconstruct(client, payload); }
+    @SubscribeMessage(C2S.RoomSetRole)
+    handleRoomSetRole(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayBuildingHelper.handleRoomSetRole(client, payload); }
+    @SubscribeMessage(C2S.FengShuiObserve)
+    handleFengShuiObserve(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayBuildingHelper.handleFengShuiObserve(client, payload); }
+    @SubscribeMessage(C2S.DropItem)
+    handleDropItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleDropItem(client, payload);
     }
-    handleTakeGround(client, payload) {
+    @SubscribeMessage(C2S.TakeGround)
+    handleTakeGround(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleTakeGround(client, payload);
     }
-    handleStartGather(client, payload) {
+    @SubscribeMessage(C2S.StartGather)
+    handleStartGather(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleStartGather(client, payload);
     }
-    handleCancelGather(client, payload) {
+    @SubscribeMessage(C2S.CancelGather)
+    handleCancelGather(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleCancelGather(client, payload);
     }
-    handleStopLootHarvest(client, payload) {
+    @SubscribeMessage(C2S.StopLootHarvest)
+    handleStopLootHarvest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleStopLootHarvest(client, payload);
     }
-    handleEquip(client, payload) {
+    @SubscribeMessage(C2S.Equip)
+    handleEquip(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleEquip(client, payload);
     }
-    handleUnequip(client, payload) {
+    @SubscribeMessage(C2S.Unequip)
+    handleUnequip(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleUnequip(client, payload);
     }
-    handleCultivate(client, payload) {
+    @SubscribeMessage(C2S.Cultivate)
+    handleCultivate(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleCultivate(client, payload);
     }
-    handleCastSkill(client, payload) {
+    @SubscribeMessage(C2S.CastSkill)
+    handleCastSkill(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleCastSkill(client, payload);
     }
-    handleRequestNpcShop(client, payload) {
+    @SubscribeMessage(C2S.RequestNpcShop)
+    handleRequestNpcShop(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayNpcHelper.handleRequestNpcShop(client, payload);
     }
-    async handleCreateMarketSellOrder(client, payload) { return this.gatewayMarketHelper.handleCreateMarketSellOrder(client, payload); }
-    async handleCreateMarketBuyOrder(client, payload) { return this.gatewayMarketHelper.handleCreateMarketBuyOrder(client, payload); }
-    async handlePlaceAuctionBid(client, payload) { return this.gatewayMarketHelper.handlePlaceAuctionBid(client, payload); }
-    async handleBuyoutAuctionLot(client, payload) { return this.gatewayMarketHelper.handleBuyoutAuctionLot(client, payload); }
-    async handleBuyMarketItem(client, payload) { return this.gatewayMarketHelper.handleBuyMarketItem(client, payload); }
-    async handleSellMarketItem(client, payload) { return this.gatewayMarketHelper.handleSellMarketItem(client, payload); }
-    async handleCancelMarketOrder(client, payload) { return this.gatewayMarketHelper.handleCancelMarketOrder(client, payload); }
-    async handleClaimMarketStorage(client, payload) { return this.gatewayMarketHelper.handleClaimMarketStorage(client, payload); }
-    handleRequestNpcQuests(client, payload) {
+    @SubscribeMessage(C2S.CreateMarketSellOrder)
+    async handleCreateMarketSellOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleCreateMarketSellOrder(client, payload); }
+    @SubscribeMessage(C2S.CreateMarketBuyOrder)
+    async handleCreateMarketBuyOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleCreateMarketBuyOrder(client, payload); }
+    @SubscribeMessage(C2S.PlaceAuctionBid)
+    async handlePlaceAuctionBid(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handlePlaceAuctionBid(client, payload); }
+    @SubscribeMessage(C2S.BuyoutAuctionLot)
+    async handleBuyoutAuctionLot(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleBuyoutAuctionLot(client, payload); }
+    @SubscribeMessage(C2S.BuyMarketItem)
+    async handleBuyMarketItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleBuyMarketItem(client, payload); }
+    @SubscribeMessage(C2S.SellMarketItem)
+    async handleSellMarketItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleSellMarketItem(client, payload); }
+    @SubscribeMessage(C2S.CancelMarketOrder)
+    async handleCancelMarketOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleCancelMarketOrder(client, payload); }
+    @SubscribeMessage(C2S.ClaimMarketStorage)
+    async handleClaimMarketStorage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleClaimMarketStorage(client, payload); }
+    @SubscribeMessage(C2S.RequestNpcQuests)
+    handleRequestNpcQuests(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayNpcHelper.handleRequestNpcQuests(client, payload);
     }
-    handleAcceptNpcQuest(client, payload) {
+    @SubscribeMessage(C2S.AcceptNpcQuest)
+    handleAcceptNpcQuest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayNpcHelper.handleAcceptNpcQuest(client, payload);
     }
-    handleSubmitNpcQuest(client, payload) {
+    @SubscribeMessage(C2S.SubmitNpcQuest)
+    handleSubmitNpcQuest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayNpcHelper.handleSubmitNpcQuest(client, payload);
     }
-    handleBuyNpcShopItem(client, payload) {
+    @SubscribeMessage(C2S.BuyNpcShopItem)
+    handleBuyNpcShopItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayNpcHelper.handleBuyNpcShopItem(client, payload);
     }
-    handlePing(client, payload) {
+    @SubscribeMessage(C2S.Ping)
+    handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         this.worldClientEventService.emitPong(client, payload);
     }
-};
-exports.WorldGateway = WorldGateway;
-__decorate([
-    (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", socket_io_1.Server)
-], WorldGateway.prototype, "server", void 0);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Hello),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleHello", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Heartbeat),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleHeartbeat", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmGetState),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSocketGmGetState", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmSpawnBots),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSocketGmSpawnBots", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmRemoveBots),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSocketGmRemoveBots", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmUpdatePlayer),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSocketGmUpdatePlayer", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmResetPlayer),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSocketGmResetPlayer", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.MoveTo),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleMoveTo", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.NavigateQuest),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleNavigateQuest", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Move),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleMove", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.DestroyItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleDestroyItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SortInventory),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSortInventory", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Chat),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleChat", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.AckSystemMessages),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleAckSystemMessages", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.AckOfflineGainReports), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", Promise)], WorldGateway.prototype, "handleAckOfflineGainReports", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.DebugResetSpawn),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleDebugResetSpawn", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UpdateAutoBattleSkills),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUpdateAutoBattleSkills", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UpdateAutoUsePills),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUpdateAutoUsePills", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UpdateCombatTargetingRules),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUpdateCombatTargetingRules", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UpdateAutoBattleTargetingMode),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUpdateAutoBattleTargetingMode", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UpdateTechniqueSkillAvailability),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUpdateTechniqueSkillAvailability", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.HeavenGateAction),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleHeavenGateAction", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UseAction),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUseAction", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestQuests),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestQuests", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMailSummary),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleRequestMailSummary", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestSuggestions),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestSuggestions", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMailPage),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleRequestMailPage", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMailDetail),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleRequestMailDetail", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RedeemCodes),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRedeemCodes", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMarket),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestMarket", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMarketListings),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestMarketListings", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestAuctionListings), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", void 0)], WorldGateway.prototype, "handleRequestAuctionListings", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.MarkMailRead),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleMarkMailRead", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CreateSuggestion),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleCreateSuggestion", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.VoteSuggestion),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleVoteSuggestion", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.ReplySuggestion),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleReplySuggestion", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.MarkSuggestionRepliesRead),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleMarkSuggestionRepliesRead", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmMarkSuggestionCompleted),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleGmMarkSuggestionCompleted", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmRemoveSuggestion),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleGmRemoveSuggestion", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.ClaimMailAttachments),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleClaimMailAttachments", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.DeleteMail),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleDeleteMail", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMarketItemBook),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestMarketItemBook", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestMarketTradeHistory),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestMarketTradeHistory", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestAttrDetail),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestAttrDetail", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestAlchemyPanel),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestAlchemyPanel", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestEnhancementPanel),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestEnhancementPanel", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.StartAlchemy),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleStartAlchemy", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CancelAlchemy),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCancelAlchemy", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SaveAlchemyPreset),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSaveAlchemyPreset", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.DeleteAlchemyPreset),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleDeleteAlchemyPreset", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.StartEnhancement),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleStartEnhancement", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CancelEnhancement),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCancelEnhancement", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestLeaderboard),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestLeaderboard", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestLeaderboardPlayerLocations),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestLeaderboardPlayerLocations", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestWorldSummary),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestWorldSummary", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestDetail),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestDetail", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestTileDetail),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestTileDetail", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UsePortal),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUsePortal", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.UseItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUseItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CreateFormation),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCreateFormation", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SetFormationActive),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSetFormationActive", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RefillFormation),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRefillFormation", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.BuildPlaceIntent), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", void 0)], WorldGateway.prototype, "handleBuildPlaceIntent", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.BuildDeconstruct), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", void 0)], WorldGateway.prototype, "handleBuildDeconstruct", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.RoomSetRole), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", void 0)], WorldGateway.prototype, "handleRoomSetRole", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.FengShuiObserve), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", void 0)], WorldGateway.prototype, "handleFengShuiObserve", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.DropItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleDropItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.TakeGround),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleTakeGround", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.StartGather),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleStartGather", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CancelGather),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCancelGather", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.StopLootHarvest),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleStopLootHarvest", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Equip),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleEquip", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Unequip),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleUnequip", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Cultivate),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCultivate", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CastSkill),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleCastSkill", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestNpcShop),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestNpcShop", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.CreateMarketSellOrder), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", Promise)], WorldGateway.prototype, "handleCreateMarketSellOrder", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.CreateMarketBuyOrder), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", Promise)], WorldGateway.prototype, "handleCreateMarketBuyOrder", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.PlaceAuctionBid), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", Promise)], WorldGateway.prototype, "handlePlaceAuctionBid", null);
-__decorate([(0, websockets_1.SubscribeMessage)(shared_1.C2S.BuyoutAuctionLot), __param(0, (0, websockets_1.ConnectedSocket)()), __param(1, (0, websockets_1.MessageBody)()), __metadata("design:type", Function), __metadata("design:paramtypes", [socket_io_1.Socket, Object]), __metadata("design:returntype", Promise)], WorldGateway.prototype, "handleBuyoutAuctionLot", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.BuyMarketItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleBuyMarketItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SellMarketItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleSellMarketItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CancelMarketOrder),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleCancelMarketOrder", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.ClaimMarketStorage),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", Promise)
-], WorldGateway.prototype, "handleClaimMarketStorage", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RequestNpcQuests),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleRequestNpcQuests", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.AcceptNpcQuest),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleAcceptNpcQuest", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SubmitNpcQuest),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleSubmitNpcQuest", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.BuyNpcShopItem),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handleBuyNpcShopItem", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.C2S.Ping),
-    __param(0, (0, websockets_1.ConnectedSocket)()),
-    __param(1, (0, websockets_1.MessageBody)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
-], WorldGateway.prototype, "handlePing", null);
-exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
-    (0, websockets_1.WebSocketGateway)({
-        cors: (0, server_cors_1.resolveServerCorsOptions)(),
-        path: '/socket.io',
-    }),
-    __metadata("design:paramtypes", [world_gm_socket_service_1.WorldGmSocketService,
-        world_protocol_projection_service_1.WorldProtocolProjectionService,
-        world_session_bootstrap_service_1.WorldSessionBootstrapService,
-        health_readiness_service_1.HealthReadinessService,
-        player_domain_persistence_service_1.PlayerDomainPersistenceService,
-        player_persistence_flush_service_1.PlayerPersistenceFlushService,
-        player_runtime_service_1.PlayerRuntimeService,
-        mail_runtime_service_1.MailRuntimeService,
-        market_runtime_service_1.MarketRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        suggestion_runtime_service_1.SuggestionRuntimeService,
-        leaderboard_runtime_service_1.LeaderboardRuntimeService,
-        runtime_gm_state_service_1.RuntimeGmStateService,
-        world_runtime_service_1.WorldRuntimeService,
-        world_client_event_service_1.WorldClientEventService,
-        world_session_service_1.WorldSessionService,
-        player_session_route_service_1.PlayerSessionRouteService,
-        world_sync_service_1.WorldSyncService])
-], WorldGateway);
+}
 function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     const bonuses = [];
-    const realmStage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-    const realmConfig = shared_1.PLAYER_REALM_CONFIG[realmStage];
-    const realmAttrBonus = (0, shared_1.resolvePlayerRealmAttributeBonus)(realmStage);
+    const realmStage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const realmConfig = PLAYER_REALM_CONFIG[realmStage];
+    const realmAttrBonus = resolvePlayerRealmAttributeBonus(realmStage);
     if (realmConfig && hasNonZeroAttributes(realmAttrBonus)) {
         bonuses.push({
             source: `realm:${realmStage}`,
@@ -1107,8 +515,8 @@ function buildAttrDetailBonuses(player) {
     }
     for (const technique of player.techniques?.techniques ?? []) {
         const techniqueState = toTechniqueState(technique);
-        const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)([techniqueState]);
-        const qiProjection = (0, shared_1.calcTechniqueQiProjectionModifiers)(techniqueState.level, techniqueState.layers);
+        const techniqueAttrs = calcTechniqueFinalAttrBonus([techniqueState]);
+        const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
         if (!hasNonZeroAttributes(techniqueAttrs) && qiProjection.length === 0) {
             continue;
         }
@@ -1120,7 +528,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
+        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
             continue;
         }
@@ -1167,21 +575,21 @@ function buildAttrDetailBonuses(player) {
 }
 function buildAttrDetailNumericStatBreakdowns(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-    const stage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-    const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(stage);
-    const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
-    const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
-    const flatBuffStats = (0, shared_1.createNumericStats)();
-    const attrMultipliers = (0, shared_1.createNumericStats)();
+    const stage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const template = resolvePlayerRealmNumericTemplate(stage);
+    const realmBaseStats = template?.stats ? cloneNumericStats(template.stats) : createNumericStats();
+    const baseStats = cloneNumericStats(realmBaseStats);
+    const flatBuffStats = createNumericStats();
+    const attrMultipliers = createNumericStats();
     const finalAttrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs;
     if (finalAttrs) {
-        for (const key of shared_1.ATTR_KEYS) {
+        for (const key of ATTR_KEYS) {
             const value = Number(finalAttrs[key] ?? 0);
             if (value === 0) {
                 continue;
             }
-            (0, shared_1.addPartialNumericStats)(baseStats, scalePartialNumericStats(shared_1.ATTR_TO_NUMERIC_WEIGHTS[key], value));
-            (0, shared_1.addPartialNumericStats)(attrMultipliers, scalePartialNumericStats(shared_1.ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key], value));
+            addPartialNumericStats(baseStats, scalePartialNumericStats(ATTR_TO_NUMERIC_WEIGHTS[key], value));
+            addPartialNumericStats(attrMultipliers, scalePartialNumericStats(ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key], value));
         }
     }
     for (const entry of player.equipment?.slots ?? []) {
@@ -1189,27 +597,27 @@ function buildAttrDetailNumericStatBreakdowns(player) {
         if (!item) {
             continue;
         }
-        (0, shared_1.addPartialNumericStats)(baseStats, resolveItemNumericStats(item));
+        addPartialNumericStats(baseStats, resolveItemNumericStats(item));
     }
     for (const bonus of collectProjectedRuntimeBonuses(player.runtimeBonuses)) {
         if (bonus?.stats) {
-            (0, shared_1.addPartialNumericStats)(baseStats, bonus.stats);
+            addPartialNumericStats(baseStats, bonus.stats);
         }
     }
     const vitalBaselineBonus = resolveVitalBaselineBonus(player.runtimeBonuses);
     if (vitalBaselineBonus?.stats) {
-        (0, shared_1.addPartialNumericStats)(baseStats, vitalBaselineBonus.stats);
+        addPartialNumericStats(baseStats, vitalBaselineBonus.stats);
     }
     for (const buff of player.buffs?.buffs ?? []) {
         if (buff?.stats) {
-            (0, shared_1.addPartialNumericStats)(flatBuffStats, buff.stats);
+            addPartialNumericStats(flatBuffStats, buff.stats);
         }
     }
-    const preMultiplierStats = (0, shared_1.cloneNumericStats)(baseStats);
-    (0, shared_1.addPartialNumericStats)(preMultiplierStats, flatBuffStats);
+    const preMultiplierStats = cloneNumericStats(baseStats);
+    addPartialNumericStats(preMultiplierStats, flatBuffStats);
     const finalStats = player.attrs?.numericStats ?? preMultiplierStats;
     const breakdowns = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const realmBaseValue = getNumericStatValue(realmBaseStats, key);
         const baseValue = getNumericStatValue(baseStats, key);
         const flatBuffValue = getNumericStatValue(flatBuffStats, key);
@@ -1238,7 +646,7 @@ function scalePartialNumericStats(stats, factor) {
         return undefined;
     }
     const result = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const value = stats[key];
         if (value !== undefined) {
             result[key] = value * factor;
@@ -1250,7 +658,7 @@ function scalePartialNumericStats(stats, factor) {
             continue;
         }
         const scaledGroup = {};
-        for (const key of shared_1.ELEMENT_KEYS) {
+        for (const key of ELEMENT_KEYS) {
             const value = group[key];
             if (value !== undefined) {
                 scaledGroup[key] = value * factor;
@@ -1292,21 +700,21 @@ function isDerivedRuntimeBonusSource(source) {
         || source.startsWith('buff:');
 }
 function resolveItemNumericStats(item) {
-    return item?.equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(item.equipValueStats) : item?.equipStats;
+    return item?.equipValueStats ? compileValueStatsToActualStats(item.equipValueStats) : item?.equipStats;
 }
 function hasNonZeroAttributes(attrs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     if (!attrs) {
         return false;
     }
-    return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
+    return ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
 function hasNonZeroPartialNumericStats(stats) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     if (!stats) {
         return false;
     }
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         if (Number(stats[key] ?? 0) !== 0) {
             return true;
         }
@@ -1319,7 +727,7 @@ function hasNonZeroPartialNumericStats(stats) {
 function clonePartialAttributes(attrs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     const result = {};
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(attrs?.[key] ?? 0);
         if (value !== 0) {
             result[key] = value;
@@ -1332,8 +740,8 @@ function clonePartialNumericStats(stats) {
     if (!stats) {
         return undefined;
     }
-    const clone = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    const clone: any = {};
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         if (stats[key] !== undefined) {
             clone[key] = stats[key];
         }
@@ -1373,7 +781,7 @@ function toTechniqueState(entry) {
         exp: entry.exp ?? 0,
         expToNext: entry.expToNext ?? 0,
         realmLv: entry.realmLv ?? 1,
-        realm: entry.realm ?? shared_1.TechniqueRealm.Entry,
+        realm: entry.realm ?? TechniqueRealm.Entry,
         skillsEnabled: entry.skillsEnabled !== false,
         skills,
         grade: entry.grade ?? undefined,

@@ -1,36 +1,22 @@
-// @ts-nocheck
-"use strict";
+import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
+import { PlayerCombatService } from '../combat/player-combat.service';
+import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
+import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
+import { isHostileCombatRelationResolution, resolveCombatRelation } from '../player/player-combat-config.helpers';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
+import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
+import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
+import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
+type AnyRecord = Record<string, any>;
 
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePlayerSkillDispatchService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const player_combat_service_1 = require("../combat/player-combat.service");
-const combat_outcome_apply_adapters_1 = require("../combat/combat-outcome-apply-adapters");
-const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
-const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
-const combat_action_types_1 = require("./combat-action.types");
-const combat_presentation_helpers_1 = require("./world-runtime-combat-presentation.helpers");
-const pending_combat_cast_helpers_1 = require("../combat/pending-combat-cast.helpers");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
 const {
     formatCombatActionClause,
@@ -39,25 +25,25 @@ const {
 } = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
-    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
+    if (isHostileCombatRelationResolution(resolution)) {
         return;
     }
     if (resolution?.blockedReason === 'self_target') {
-        throw new common_1.BadRequestException('不能攻击自己');
+        throw new BadRequestException('不能攻击自己');
     }
-    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
+    throw new BadRequestException('当前目标不在敌方判定规则内');
 }
 function ensureInstanceSupportsPlayerCombat(instance) {
     if (instance?.meta?.supportsPvp === true) {
         return;
     }
-    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+    throw new BadRequestException('当前实例不允许玩家互攻');
 }
 function ensureInstanceSupportsTileDamage(instance) {
     if (instance?.meta?.canDamageTile === true) {
         return;
     }
-    throw new common_1.BadRequestException('当前实例不允许攻击地块');
+    throw new BadRequestException('当前实例不允许攻击地块');
 }
 function formatAuraDamage(value) {
     const amount = Math.max(0, Number(value) || 0);
@@ -67,7 +53,7 @@ function formatAuraDamage(value) {
     if (amount < 1) {
         return amount.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
     }
-    return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
+    return formatDisplayNumber(amount, { compactMaximumFractionDigits: 2 });
 }
 function resolveSkillDamageKind(skill) {
     const damageEffect = Array.isArray(skill?.effects)
@@ -118,7 +104,7 @@ function normalizeAppliedDamage(value, fallback = 0) {
 }
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
-    return (0, shared_1.buildEffectiveTargetingGeometry)({
+    return buildEffectiveTargetingGeometry({
         range: resolveRuntimeSkillRange(skill),
         shape: skill.targeting?.shape ?? 'single',
         radius: skill.targeting?.radius,
@@ -167,13 +153,13 @@ function resolveTechniqueLevelForSkill(player, skillId) {
 function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick) {
     const readyTick = normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick);
     if (currentTick < readyTick) {
-        throw new common_1.BadRequestException(`技能 ${skill.id} 尚在冷却`);
+        throw new BadRequestException(`技能 ${skill.id} 尚在冷却`);
     }
     const plannedCost = Math.max(0, Math.round(Number(skill.cost) || 0));
-    const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+    const qiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
     if (qiCost > 0) {
         if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
-            throw new common_1.BadRequestException(`技能 ${skill.id} 元气不足`);
+            throw new BadRequestException(`技能 ${skill.id} 元气不足`);
         }
         playerRuntimeService.spendQi(attacker.playerId, qiCost);
     }
@@ -202,8 +188,8 @@ function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
     const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
     const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
     const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
-    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
-    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
 function getPlayerSkillWindupTicks(skill) {
@@ -219,15 +205,15 @@ function getPlayerSkillWarningColor(skill) {
 }
 function resolveFacingToward(fromX, fromY, toX, toY) {
     if (toX > fromX) {
-        return shared_1.Direction.East;
+        return Direction.East;
     }
     if (toX < fromX) {
-        return shared_1.Direction.West;
+        return Direction.West;
     }
     if (toY > fromY) {
-        return shared_1.Direction.South;
+        return Direction.South;
     }
-    return shared_1.Direction.North;
+    return Direction.North;
 }
 function buildPlayerSkillAffectedCells(attacker, skill, anchor) {
     const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
@@ -237,7 +223,7 @@ function buildPlayerSkillAffectedCells(attacker, skill, anchor) {
             ? [{ x: anchor.x, y: anchor.y }]
             : [];
     }
-    return (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, anchor, geometry);
+    return computeAffectedCellsFromAnchor({ x: attacker.x, y: attacker.y }, anchor, geometry);
 }
 function resolveResolvedTargetAnchor(attacker, resolvedTarget, deps) {
     if (!resolvedTarget) {
@@ -432,15 +418,16 @@ function isResolvedSkillTargetInsideCells(attacker, target, cells, instance, pla
 function ensurePlayerSkillActionEnabled(player, skillId) {
     const action = player.actions?.actions?.find((entry) => entry.id === skillId && entry.type === 'skill');
     if (!action) {
-        throw new common_1.NotFoundException(`技能动作不存在：${skillId}`);
+        throw new NotFoundException(`技能动作不存在：${skillId}`);
     }
     if (action.skillEnabled === false) {
-        throw new common_1.BadRequestException('技能未启用，无法释放');
+        throw new BadRequestException('技能未启用，无法释放');
     }
 }
 
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
-let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispatchService {
+@Injectable()
+export class WorldRuntimePlayerSkillDispatchService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -459,10 +446,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, playerCombatService, worldRuntimeCombatActionService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(PlayerCombatService) playerCombatService: any,
+        @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
-        this.worldRuntimeCombatActionService = worldRuntimeCombatActionService ?? new world_runtime_combat_action_service_1.WorldRuntimeCombatActionService();
+        this.worldRuntimeCombatActionService = worldRuntimeCombatActionService ?? new WorldRuntimeCombatActionService();
     }    
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -480,35 +471,35 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
 
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (attacker.combat?.pendingSkillCast) {
-            throw new common_1.BadRequestException('正在吟唱中，无法继续施法。');
+            throw new BadRequestException('正在吟唱中，无法继续施法。');
         }
         ensurePlayerSkillActionEnabled(attacker, skillId);
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+            throw new NotFoundException(`技能不存在：${skillId}`);
         }
         deps.ensureAttackAllowed(attacker, skill);
         if (isTemporaryTileSkill(skill)) {
             if (!targetRef) {
-                throw new common_1.BadRequestException('必须选择地块目标');
+                throw new BadRequestException('必须选择地块目标');
             }
-            const tile = (0, shared_1.parseTileTargetRef)(targetRef);
+            const tile = parseTileTargetRef(targetRef);
             if (!tile) {
-                throw new common_1.BadRequestException('必须选择地块目标');
+                throw new BadRequestException('必须选择地块目标');
             }
             return this.dispatchTemporaryTileSkill(attacker, skill, tile.x, tile.y, currentTick, deps);
         }
         if (targetRef && !targetMonsterId && !targetPlayerId) {
-            const tileAnchor = (0, shared_1.parseTileTargetRef)(targetRef);
+            const tileAnchor = parseTileTargetRef(targetRef);
             const resolvedTarget = this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps);
             if (!resolvedTarget) {
-                throw new common_1.BadRequestException('没有可命中的目标');
+                throw new BadRequestException('没有可命中的目标');
             }
             if (tileAnchor) {
                 if (getPlayerSkillWindupTicks(skill) > 0) {
@@ -519,7 +510,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (getPlayerSkillWindupTicks(skill) > 0) {
                 const anchor = resolveResolvedTargetAnchor(attacker, resolvedTarget, deps);
                 if (!anchor) {
-                    throw new common_1.BadRequestException('目标不存在或不可选中');
+                    throw new BadRequestException('目标不存在或不可选中');
                 }
                 return this.beginPlayerSkillCast(attacker, skill, anchor, targetRef, deps);
             }
@@ -551,7 +542,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const instanceForAnchor = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
                 const monster = instanceForAnchor.getMonster(targetMonsterId);
                 if (!monster) {
-                    throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
+                    throw new NotFoundException(`妖兽不存在：${targetMonsterId}`);
                 }
                 return this.beginPlayerSkillCast(attacker, skill, { x: monster.x, y: monster.y }, targetMonsterId, deps);
             }
@@ -573,15 +564,15 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 }
                 return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
             }
-            throw new common_1.BadRequestException('必须指定玩家或妖兽目标');
+            throw new BadRequestException('必须指定玩家或妖兽目标');
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (attacker.instanceId !== target.instanceId) {
-            throw new common_1.BadRequestException(`目标 ${targetPlayerId} 不在同一地图实例`);
+            throw new BadRequestException(`目标 ${targetPlayerId} 不在同一地图实例`);
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+        ensureHostileRelation(resolveCombatRelation(attacker, {
             kind: 'player',
             target,
         }));
@@ -592,7 +583,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             y: target.y,
         });
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         if (getPlayerSkillWindupTicks(skill) > 0) {
             return this.beginPlayerSkillCast(attacker, skill, { x: target.x, y: target.y }, `player:${target.playerId}`, deps);
@@ -602,7 +593,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
     async dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, primaryTarget, deps) {
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }
@@ -610,9 +601,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const anchor = { x: Math.trunc(Number(targetX)), y: Math.trunc(Number(targetY)) };
-        const cells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, anchor, geometry);
+        const cells = computeAffectedCellsFromAnchor({ x: attacker.x, y: attacker.y }, anchor, geometry);
         if (cells.length === 0) {
-            throw new common_1.BadRequestException(`技能 ${skill.id} 超出范围`);
+            throw new BadRequestException(`技能 ${skill.id} 超出范围`);
         }
         const effects = getTemporaryTileEffects(skill);
         const techLevel = resolveTechniqueLevelForSkill(attacker, skill.id);
@@ -627,14 +618,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
             const hp = Math.max(1, Math.round(evaluateCasterSkillFormula(effect.hpFormula, attacker, techLevel, Math.max(1, targetCells.length))));
             const durationTicks = Math.max(1, Math.round(Number(effect.durationTicks) || 1));
-            const tileType = typeof effect.tileType === 'string' && effect.tileType.length > 0 ? effect.tileType : shared_1.TileType.Stone;
+            const tileType = typeof effect.tileType === 'string' && effect.tileType.length > 0 ? effect.tileType : TileType.Stone;
             plans.push({ effect, cells: availableCells, hp, durationTicks, tileType });
         }
         if (plans.length <= 0) {
-            throw new common_1.BadRequestException('没有可生成石头的地块');
+            throw new BadRequestException('没有可生成石头的地块');
         }
         spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: {
@@ -652,7 +643,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 });
                 if (result?.created === true) {
                     created += 1;
-                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: {
@@ -666,7 +657,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 }
             }
         }
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             notices: [{
@@ -683,7 +674,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         }
         const warningCells = buildPlayerSkillAffectedCells(attacker, skill, anchor);
         if (warningCells.length === 0) {
-            throw new common_1.BadRequestException('目标超出技能范围');
+            throw new BadRequestException('目标超出技能范围');
         }
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const qiCost = spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
@@ -694,7 +685,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const warningOrigin = (geometry.shape ?? 'single') === 'line'
             ? { x: attacker.x, y: attacker.y }
             : anchor;
-        attacker.combat.pendingSkillCast = (0, pending_combat_cast_helpers_1.createPlayerPendingCombatCast)({
+        attacker.combat.pendingSkillCast = createPlayerPendingCombatCast({
             playerId: attacker.playerId,
             instanceId: attacker.instanceId,
             skillId: skill.id,
@@ -720,7 +711,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             skipProgressThisTick: attacker.combat?.autoBattle !== true,
         });
         const durationMs = windupTicks * 1000;
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: {
@@ -753,12 +744,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ? deps.resolveCurrentTickForPlayerId(attacker.playerId)
             : null;
         if (attacker.hp <= 0) {
-            const cancelled = (0, pending_combat_cast_helpers_1.cancelPendingCombatCast)(pendingCast, {
-                reason: pending_combat_cast_helpers_1.CombatPendingCastCancelReason.ActorDead,
+            const cancelled = cancelPendingCombatCast(pendingCast, {
+                reason: CombatPendingCastCancelReason.ActorDead,
                 cancelledTick: currentTick,
             });
             attacker.combat.pendingSkillCast = undefined;
-            this.recordPlayerSkillReject(deps, attacker, null, cancelled, combat_action_types_1.CombatRejectReason.ActorDead, {
+            this.recordPlayerSkillReject(deps, attacker, null, cancelled, CombatRejectReason.ActorDead, {
                 cancelReason: cancelled.cancelReason,
                 phase: 'pending_cast_cancel',
                 resourcePolicy: cancelled.cancellation?.resourcePolicy,
@@ -766,13 +757,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             });
             return true;
         }
-        const expiredCancellation = (0, pending_combat_cast_helpers_1.resolvePendingCombatCastCancellation)(pendingCast, {
+        const expiredCancellation = resolvePendingCombatCastCancellation(pendingCast, {
             currentTick,
             cancelledTick: currentTick,
         });
         if (expiredCancellation) {
             attacker.combat.pendingSkillCast = undefined;
-            this.recordPlayerSkillReject(deps, attacker, null, expiredCancellation, combat_action_types_1.CombatRejectReason.PendingCastExpired, {
+            this.recordPlayerSkillReject(deps, attacker, null, expiredCancellation, CombatRejectReason.PendingCastExpired, {
                 cancelReason: expiredCancellation.cancelReason,
                 phase: 'pending_cast_cancel',
                 resourcePolicy: expiredCancellation.cancellation?.resourcePolicy,
@@ -792,7 +783,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const skill = findPlayerSkill(attacker, pendingCast.skillId);
         if (!skill) {
             attacker.combat.pendingSkillCast = undefined;
-            this.recordPlayerSkillReject(deps, attacker, null, pendingCast, combat_action_types_1.CombatRejectReason.MissingSkill, {
+            this.recordPlayerSkillReject(deps, attacker, null, pendingCast, CombatRejectReason.MissingSkill, {
                 targetX: pendingCast.targetX,
                 targetY: pendingCast.targetY,
                 targetRef: pendingCast.targetRef,
@@ -800,13 +791,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             });
             return true;
         }
-        const revisionCancellation = (0, pending_combat_cast_helpers_1.resolvePendingCombatCastCancellation)(pendingCast, {
+        const revisionCancellation = resolvePendingCombatCastCancellation(pendingCast, {
             configRevision: skill.version ?? skill.revision,
             cancelledTick: currentTick,
         });
         if (revisionCancellation) {
             attacker.combat.pendingSkillCast = undefined;
-            this.recordPlayerSkillReject(deps, attacker, skill, revisionCancellation, combat_action_types_1.CombatRejectReason.PendingCastConfigRevisionMismatch, {
+            this.recordPlayerSkillReject(deps, attacker, skill, revisionCancellation, CombatRejectReason.PendingCastConfigRevisionMismatch, {
                 cancelReason: revisionCancellation.cancelReason,
                 phase: 'pending_cast_cancel',
                 expectedConfigRevision: skill.version ?? skill.revision,
@@ -820,9 +811,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         attacker.combat.pendingSkillCast = undefined;
         const skillQiCost = Number.isFinite(skill.cost) ? Math.max(0, Math.round(Number(skill.cost))) : 0;
         if (skillQiCost > 0) {
-            const effectiveCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(skillQiCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+            const effectiveCost = Math.round(calcQiCostWithOutputLimit(skillQiCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
             if (Number.isFinite(effectiveCost) && attacker.qi < effectiveCost) {
-                this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, combat_action_types_1.CombatRejectReason.InsufficientResource, {
+                this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, CombatRejectReason.InsufficientResource, {
                     phase: 'pending_cast_resolve_resource_check',
                     requiredQi: effectiveCost,
                     currentQi: attacker.qi,
@@ -831,7 +822,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 return true;
             }
         }
-        const pendingCombatAction = (0, pending_combat_cast_helpers_1.createPlayerSkillActionFromPendingCast)(pendingCast, {
+        const pendingCombatAction = createPlayerSkillActionFromPendingCast(pendingCast, {
             actorId: attacker.playerId,
             instanceId: attacker.instanceId,
         });
@@ -843,7 +834,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ? this.resolveLegacySkillTargetRef(attacker, skill, pendingCast.targetRef, deps)
             : null;
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: {
@@ -853,7 +844,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             },
         });
         if (targets.length === 0) {
-            this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, combat_action_types_1.CombatRejectReason.NoTargets, {
+            this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, CombatRejectReason.NoTargets, {
                 targetX: anchor.x,
                 targetY: anchor.y,
                 targetRef: pendingCast.targetRef,
@@ -865,7 +856,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         await this.dispatchSkillTargets(attacker, skill.id, skill, targets, deps, {
             skipResourceAndCooldown: true,
             showActionLabel: false,
-            combatActionPhase: combat_action_types_1.CombatActionPhase.ChantResolve,
+            combatActionPhase: CombatActionPhase.ChantResolve,
         });
         return true;
     }
@@ -875,13 +866,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!player || !pendingCast) {
             return false;
         }
-        const cancelled = (0, pending_combat_cast_helpers_1.cancelPendingCombatCast)(pendingCast, {
-            reason: pending_combat_cast_helpers_1.CombatPendingCastCancelReason.Interrupted,
+        const cancelled = cancelPendingCombatCast(pendingCast, {
+            reason: CombatPendingCastCancelReason.Interrupted,
             message: reason,
             cancelledTick: deps.resolveCurrentTickForPlayerId?.(playerId),
         });
         player.combat.pendingSkillCast = undefined;
-        this.recordPlayerSkillReject(deps, player, null, cancelled, combat_action_types_1.CombatRejectReason.PendingCastCancelled, {
+        this.recordPlayerSkillReject(deps, player, null, cancelled, CombatRejectReason.PendingCastCancelled, {
             cancelReason: cancelled.cancelReason,
             cancelMessage: cancelled.cancelMessage,
             phase: 'pending_cast_cancel',
@@ -905,13 +896,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!player || !pendingCast) {
             return false;
         }
-        const cancelled = (0, pending_combat_cast_helpers_1.cancelPendingCombatCast)(pendingCast, {
-            reason: pending_combat_cast_helpers_1.CombatPendingCastCancelReason.InstanceTransfer,
+        const cancelled = cancelPendingCombatCast(pendingCast, {
+            reason: CombatPendingCastCancelReason.InstanceTransfer,
             message: 'instance_transfer',
             cancelledTick: deps?.resolveCurrentTickForPlayerId?.(playerId),
         });
         player.combat.pendingSkillCast = undefined;
-        this.recordPlayerSkillReject(deps, player, null, cancelled, combat_action_types_1.CombatRejectReason.PendingCastCancelled, {
+        this.recordPlayerSkillReject(deps, player, null, cancelled, CombatRejectReason.PendingCastCancelled, {
             cancelReason: cancelled.cancelReason,
             cancelMessage: cancelled.cancelMessage,
             phase: 'pending_cast_cancel',
@@ -950,7 +941,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
                 return null;
             }
-            if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+            if (!isHostileCombatRelationResolution(resolveCombatRelation(attacker, {
                 kind: 'player',
                 target,
             }))) {
@@ -963,7 +954,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, targetRef)
                 : null;
             if (formation) {
-                if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))) {
+                if (!isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'terrain' }))) {
                     return null;
                 }
                 return { kind: 'formation', formationId: formation.id };
@@ -972,18 +963,18 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!monster?.alive) {
                 return null;
             }
-            if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }))) {
+            if (!isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'monster' }))) {
                 return null;
             }
             return { kind: 'monster', monsterId: monster.runtimeId };
         }
-        const tile = (0, shared_1.parseTileTargetRef)(targetRef);
+        const tile = parseTileTargetRef(targetRef);
         if (!tile) {
             return null;
         }
         const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
-        const terrainHostile = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        const terrainHostile = isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'terrain' }));
         const directBoundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
             ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, tile.x, tile.y)
             : null;
@@ -1002,7 +993,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         ) {
             return { kind: 'tile', x: tile.x, y: tile.y };
         }
-        const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, geometry);
+        const affectedCells = computeAffectedCellsFromAnchor({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, geometry);
         if (affectedCells.length === 0) {
             return null;
         }
@@ -1013,7 +1004,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
             if (
                 monster
-                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }))
+                && isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'monster' }))
             ) {
                 return { kind: 'monster', monsterId: monster.runtimeId };
             }
@@ -1049,7 +1040,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 instance?.meta?.supportsPvp === true
                 && (
                 player
-                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                && isHostileCombatRelationResolution(resolveCombatRelation(attacker, {
                     kind: 'player',
                     target: player,
                 }))
@@ -1117,7 +1108,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
 
     async dispatchSkillTargets(attacker, skillId, skill, targets, deps, castOptions = undefined) {
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
@@ -1131,7 +1122,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             targetX: castOptions?.targetX,
             targetY: castOptions?.targetY,
             resolvedTargets: targets,
-            phase: castOptions?.combatActionPhase ?? combat_action_types_1.CombatActionPhase.Instant,
+            phase: castOptions?.combatActionPhase ?? CombatActionPhase.Instant,
             skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true,
             skipResolvedTargetRangeValidation: true,
             currentTick,
@@ -1145,14 +1136,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
         const plannedTargets = this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
         if (plannedTargets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         targets = plannedTargets;
         const outcomeDeps = castOptions?.combatActionPhase
             ? { ...deps, combatActionPhase: castOptions.combatActionPhase }
             : deps;
         if (castOptions?.showActionLabel !== false) {
-            (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
                 actionLabel: {
@@ -1173,7 +1164,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (target.kind === 'self') {
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
                 this.recordPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Self,
+                    kind: CombatTargetKind.Self,
                     id: attacker.playerId,
                 }, result, {
                     targetType: 'self',
@@ -1188,8 +1179,8 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const monster = instance.getMonster(target.monsterId);
                 if (!monster?.alive) {
                     this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, monster
-                        ? combat_action_types_1.CombatRejectReason.MonsterDead
-                        : combat_action_types_1.CombatRejectReason.MissingMonster, {
+                        ? CombatRejectReason.MonsterDead
+                        : CombatRejectReason.MissingMonster, {
                         targetMonsterId: target.monsterId,
                         targetCount: targets.length,
                         phase: 'skill_target_apply',
@@ -1220,7 +1211,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                        kind: combat_action_types_1.CombatTargetKind.Monster,
+                        kind: CombatTargetKind.Monster,
                         id: monster.runtimeId,
                     }, {
                         targetType: 'monster',
@@ -1238,7 +1229,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                         defeated: false,
                         applyKillReward: false,
                     });
-                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: monster.x, toY: monster.y, color: effectColor },
@@ -1251,7 +1242,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     continue;
                 }
                 const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Monster,
+                    kind: CombatTargetKind.Monster,
                     id: monster.runtimeId,
                 }, {
                     targetType: 'monster',
@@ -1272,7 +1263,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 if (outcome?.defeated) {
                     await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
                 }
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: monster.x, toY: monster.y, color: effectColor },
@@ -1289,10 +1280,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const targetPlayer = this.playerRuntimeService.getPlayer(target.playerId);
                 if (!targetPlayer || targetPlayer.instanceId !== attacker.instanceId || targetPlayer.hp <= 0) {
                     this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, !targetPlayer
-                        ? combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState
+                        ? CombatRejectReason.MissingTargetRuntimeState
                         : targetPlayer.hp <= 0
-                            ? combat_action_types_1.CombatRejectReason.TargetDead
-                            : combat_action_types_1.CombatRejectReason.TargetInstanceMismatch, {
+                            ? CombatRejectReason.TargetDead
+                            : CombatRejectReason.TargetInstanceMismatch, {
                         targetPlayerId: target.playerId,
                         targetPlayerInstanceId: targetPlayer?.instanceId,
                         attackerInstanceId: attacker.instanceId,
@@ -1314,7 +1305,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     ...outcomeDeps,
                     currentTick,
                 }, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Player,
+                    kind: CombatTargetKind.Player,
                     id: targetPlayer.playerId,
                 }, {
                     targetType: 'player',
@@ -1338,7 +1329,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 if (updatedTarget && updatedTarget.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
                     await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
                 }
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: targetPlayer.x, toY: targetPlayer.y, color: effectColor },
@@ -1362,7 +1353,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, target.formationId)
                     : null;
                 if (!formation) {
-                    this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState, {
+                    this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, CombatRejectReason.MissingTargetRuntimeState, {
                         targetFormationId: target.formationId,
                         targetCount: targets.length,
                         phase: 'skill_target_apply',
@@ -1388,7 +1379,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 castIndex += 1;
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                        kind: combat_action_types_1.CombatTargetKind.Formation,
+                        kind: CombatTargetKind.Formation,
                         id: formation.id,
                         x: formation.x,
                         y: formation.y,
@@ -1400,7 +1391,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                         damage: 0,
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     });
-                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: formation.x, toY: formation.y, color: effectColor },
@@ -1408,7 +1399,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     continue;
                 }
                 const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Formation,
+                    kind: CombatTargetKind.Formation,
                     id: formation.id,
                     x: formation.x,
                     y: formation.y,
@@ -1423,14 +1414,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: formation.x, toY: formation.y, color: effectColor },
                     damageFloat: { x: formation.x, y: formation.y, damage: appliedDamage, color: effectColor },
                     notices: [{
                         playerId: attacker.playerId,
-                        text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell')} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
+                        text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell', result.damageElement)} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
                     }],
                 });
                 continue;
@@ -1440,7 +1431,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, target.x, target.y)
                     : null;
                 if (!boundary) {
-                    this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState, {
+                    this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, CombatRejectReason.MissingTargetRuntimeState, {
                         targetFormationId: target.formationId,
                         targetX: target.x,
                         targetY: target.y,
@@ -1468,7 +1459,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 castIndex += 1;
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                        kind: combat_action_types_1.CombatTargetKind.Formation,
+                        kind: CombatTargetKind.Formation,
                         id: boundary.formationId,
                         x: target.x,
                         y: target.y,
@@ -1481,7 +1472,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                         formationBoundary: true,
                     });
-                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
@@ -1489,7 +1480,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     continue;
                 }
                 const appliedOutcome = this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Formation,
+                    kind: CombatTargetKind.Formation,
                     id: boundary.formationId,
                     x: target.x,
                     y: target.y,
@@ -1505,14 +1496,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
                     damageFloat: { x: target.x, y: target.y, damage: appliedDamage, color: effectColor },
                     notices: [{
                         playerId: attacker.playerId,
-                        text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell')} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
+                        text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell', result.damageElement)} 伤害，削减阵法灵力 ${formatAuraDamage(auraDamage)}。`,
                     }],
                 });
                 continue;
@@ -1520,8 +1511,8 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             const tileState = instance.getTileCombatState(target.x, target.y);
             if (!tileState || tileState.destroyed) {
                 this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, tileState?.destroyed
-                    ? combat_action_types_1.CombatRejectReason.TargetDead
-                    : combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState, {
+                    ? CombatRejectReason.TargetDead
+                    : CombatRejectReason.MissingTargetRuntimeState, {
                     targetX: target.x,
                     targetY: target.y,
                     destroyed: tileState?.destroyed === true,
@@ -1548,7 +1539,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             castIndex += 1;
             if (result.totalDamage <= 0) {
                 this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
-                    kind: combat_action_types_1.CombatTargetKind.Tile,
+                    kind: CombatTargetKind.Tile,
                     x: target.x,
                     y: target.y,
                 }, {
@@ -1558,7 +1549,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                     damage: 0,
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
@@ -1569,7 +1560,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, result.totalDamage)
                 : result.totalDamage;
             const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
-                kind: combat_action_types_1.CombatTargetKind.Tile,
+                kind: CombatTargetKind.Tile,
                 x: target.x,
                 y: target.y,
             }, {
@@ -1582,7 +1573,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             });
             const tileDamageResult = appliedOutcome?.adapterResult;
             const appliedDamage = normalizeAppliedDamage(tileDamageResult?.appliedDamage, mitigatedDamage);
-            (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
                 attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
@@ -1597,7 +1588,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
         }
         if (castIndex === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         for (const tile of destroyedTiles) {
             deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, tile.x, tile.y, deps);
@@ -1627,20 +1618,20 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             resources: attacker,
             cooldownReadyTickByActionId,
             resolveCombatRelation: (_actor, target) => {
-                if (target.kind === combat_action_types_1.CombatTargetKind.Player) {
+                if (target.kind === CombatTargetKind.Player) {
                     const playerTarget = target.runtime ?? this.playerRuntimeService.getPlayer(target.id);
-                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                    return resolveCombatRelation(attacker, {
                         kind: 'player',
                         target: playerTarget,
                     });
                 }
-                if (target.kind === combat_action_types_1.CombatTargetKind.Monster) {
-                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' });
+                if (target.kind === CombatTargetKind.Monster) {
+                    return resolveCombatRelation(attacker, { kind: 'monster' });
                 }
-                if (target.kind === combat_action_types_1.CombatTargetKind.Self) {
+                if (target.kind === CombatTargetKind.Self) {
                     return { hostile: true, canAttack: true, relation: 'self' };
                 }
-                return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' });
+                return resolveCombatRelation(attacker, { kind: 'terrain' });
             },
             ...input,
         });
@@ -1651,7 +1642,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!target || typeof target !== 'object') {
                 continue;
             }
-            if (target.kind === combat_action_types_1.CombatTargetKind.Self) {
+            if (target.kind === CombatTargetKind.Self) {
                 legacyTargets.push({
                     kind: 'self',
                     playerId: target.id ?? attacker.playerId,
@@ -1660,7 +1651,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 });
                 continue;
             }
-            if (target.kind === combat_action_types_1.CombatTargetKind.Monster) {
+            if (target.kind === CombatTargetKind.Monster) {
                 legacyTargets.push({
                     kind: 'monster',
                     monsterId: target.id,
@@ -1669,7 +1660,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 });
                 continue;
             }
-            if (target.kind === combat_action_types_1.CombatTargetKind.Player) {
+            if (target.kind === CombatTargetKind.Player) {
                 legacyTargets.push({
                     kind: 'player',
                     playerId: target.id,
@@ -1678,7 +1669,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 });
                 continue;
             }
-            if (target.kind === combat_action_types_1.CombatTargetKind.Formation) {
+            if (target.kind === CombatTargetKind.Formation) {
                 legacyTargets.push({
                     kind: target.source === 'formation_boundary' ? 'formation_boundary' : 'formation',
                     formationId: target.id,
@@ -1687,7 +1678,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 });
                 continue;
             }
-            if (target.kind === combat_action_types_1.CombatTargetKind.Tile) {
+            if (target.kind === CombatTargetKind.Tile) {
                 legacyTargets.push({
                     kind: 'tile',
                     x: target.x,
@@ -1716,44 +1707,44 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
     }
     createPlayerSkillActionRejectException(actionPlan, skill) {
         const reason = actionPlan?.reason;
-        if (reason === combat_action_types_1.CombatRejectReason.ActorDead) {
-            return new common_1.BadRequestException('施法者已死亡');
+        if (reason === CombatRejectReason.ActorDead) {
+            return new BadRequestException('施法者已死亡');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.MissingSkill) {
-            return new common_1.BadRequestException(`技能不存在：${skill?.id ?? actionPlan?.action?.actionId ?? ''}`);
+        if (reason === CombatRejectReason.MissingSkill) {
+            return new BadRequestException(`技能不存在：${skill?.id ?? actionPlan?.action?.actionId ?? ''}`);
         }
-        if (reason === combat_action_types_1.CombatRejectReason.MissingInstance) {
-            return new common_1.BadRequestException('当前地图实例不存在');
+        if (reason === CombatRejectReason.MissingInstance) {
+            return new BadRequestException('当前地图实例不存在');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.InsufficientResource) {
-            return new common_1.BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 元气不足`);
+        if (reason === CombatRejectReason.InsufficientResource) {
+            return new BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 元气不足`);
         }
-        if (reason === combat_action_types_1.CombatRejectReason.CooldownNotReady) {
-            return new common_1.BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 尚在冷却`);
+        if (reason === CombatRejectReason.CooldownNotReady) {
+            return new BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 尚在冷却`);
         }
-        if (reason === combat_action_types_1.CombatRejectReason.OutOfRange) {
-            return new common_1.BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 超出范围`);
+        if (reason === CombatRejectReason.OutOfRange) {
+            return new BadRequestException(`技能 ${skill?.id ?? actionPlan?.action?.actionId ?? ''} 超出范围`);
         }
-        if (reason === combat_action_types_1.CombatRejectReason.LineOfSightBlocked) {
-            return new common_1.BadRequestException('目标被遮挡');
+        if (reason === CombatRejectReason.LineOfSightBlocked) {
+            return new BadRequestException('目标被遮挡');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.MapCapabilityDisabled) {
+        if (reason === CombatRejectReason.MapCapabilityDisabled) {
             const capability = actionPlan?.details?.rejectedTargets?.[0]?.details?.capability;
-            return new common_1.BadRequestException(capability === 'supportsPvp' ? '当前实例不允许玩家互攻' : '当前实例不允许攻击地块');
+            return new BadRequestException(capability === 'supportsPvp' ? '当前实例不允许玩家互攻' : '当前实例不允许攻击地块');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.CombatRelationNotAllowed) {
-            return new common_1.BadRequestException('当前目标不在敌方判定规则内');
+        if (reason === CombatRejectReason.CombatRelationNotAllowed) {
+            return new BadRequestException('当前目标不在敌方判定规则内');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.TargetDead) {
-            return new common_1.BadRequestException('目标已经死亡');
+        if (reason === CombatRejectReason.TargetDead) {
+            return new BadRequestException('目标已经死亡');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.MissingMonster
-            || reason === combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState
-            || reason === combat_action_types_1.CombatRejectReason.TargetInstanceMismatch
-            || reason === combat_action_types_1.CombatRejectReason.TargetTypeNotAllowed) {
-            return new common_1.BadRequestException('没有可命中的目标');
+        if (reason === CombatRejectReason.MissingMonster
+            || reason === CombatRejectReason.MissingTargetRuntimeState
+            || reason === CombatRejectReason.TargetInstanceMismatch
+            || reason === CombatRejectReason.TargetTypeNotAllowed) {
+            return new BadRequestException('没有可命中的目标');
         }
-        return new common_1.BadRequestException('没有可命中的目标');
+        return new BadRequestException('没有可命中的目标');
     }
     resolvePlayerSkillActionPlanShadow(attacker, skill, input, instance, deps) {
         try {
@@ -1764,10 +1755,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!plan.ok && Array.isArray(deps?.combatActionPlanShadowDiagnostics)) {
                 deps.combatActionPlanShadowDiagnostics.push({
                     ok: false,
-                    phase: plan.action?.phase ?? input.phase ?? combat_action_types_1.CombatActionPhase.Instant,
+                    phase: plan.action?.phase ?? input.phase ?? CombatActionPhase.Instant,
                     reason: plan.reason,
                     actor: plan.action?.actor ?? {
-                        kind: combat_action_types_1.CombatActorKind.Player,
+                        kind: CombatActorKind.Player,
                         id: attacker.playerId,
                     },
                     actionId: skill?.id ?? null,
@@ -1787,10 +1778,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (Array.isArray(deps?.combatActionPlanShadowDiagnostics)) {
                 deps.combatActionPlanShadowDiagnostics.push({
                     ok: false,
-                    phase: input.phase ?? combat_action_types_1.CombatActionPhase.Instant,
-                    reason: combat_action_types_1.CombatRejectReason.CastFailed,
+                    phase: input.phase ?? CombatActionPhase.Instant,
+                    reason: CombatRejectReason.CastFailed,
                     actor: {
-                        kind: combat_action_types_1.CombatActorKind.Player,
+                        kind: CombatActorKind.Player,
                         id: attacker.playerId,
                     },
                     actionId: skill?.id ?? null,
@@ -1807,14 +1798,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         }
     }
 
-    applyPlayerSkillOutcome(deps, attacker, skill, target, result = {}) {
+    applyPlayerSkillOutcome(deps, attacker, skill, target, result: AnyRecord = {}) {
         if (!this.worldRuntimeCombatActionService?.applyCombatOutcome) {
             return null;
         }
         return this.worldRuntimeCombatActionService.applyCombatOutcome({
-            phase: deps?.combatActionPhase ?? combat_action_types_1.CombatActionPhase.Instant,
+            phase: deps?.combatActionPhase ?? CombatActionPhase.Instant,
             actor: {
-                kind: combat_action_types_1.CombatActorKind.Player,
+                kind: CombatActorKind.Player,
                 id: attacker.playerId,
             },
             actionId: skill?.id ?? result?.skillId ?? null,
@@ -1830,7 +1821,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 ...deps,
                 playerRuntimeService: this.playerRuntimeService,
             },
-            adapters: (0, combat_outcome_apply_adapters_1.createCombatOutcomeApplyAdapters)({
+            adapters: createCombatOutcomeApplyAdapters({
                 handleMonsterDefeat: () => ({ deferred: true }),
             }),
             mergeAdapterResultToOutcome: true,
@@ -1838,12 +1829,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         });
     }
 
-    recordPlayerSkillOutcome(deps, attacker, skill, target, result = {}, details = {}) {
+    recordPlayerSkillOutcome(deps, attacker, skill, target, result: AnyRecord = {}, details: AnyRecord = {}) {
         if (this.worldRuntimeCombatActionService?.recordOutcome) {
             return this.worldRuntimeCombatActionService.recordOutcome(deps, {
-                phase: deps?.combatActionPhase ?? combat_action_types_1.CombatActionPhase.Instant,
+                phase: deps?.combatActionPhase ?? CombatActionPhase.Instant,
                 actor: {
-                    kind: combat_action_types_1.CombatActorKind.Player,
+                    kind: CombatActorKind.Player,
                     id: attacker.playerId,
                 },
                 actionId: skill?.id ?? result?.skillId ?? null,
@@ -1871,7 +1862,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (Array.isArray(deps?.combatOutcomes)) {
             deps.combatOutcomes.push({
                 ok: true,
-                phase: deps?.combatActionPhase ?? combat_action_types_1.CombatActionPhase.Instant,
+                phase: deps?.combatActionPhase ?? CombatActionPhase.Instant,
                 actionId: skill?.id ?? result?.skillId ?? null,
                 instanceId: attacker.instanceId,
                 target,
@@ -1898,30 +1889,30 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             return null;
         }
         const action = pendingCast?.kind === 'combat_pending_cast'
-            ? (0, pending_combat_cast_helpers_1.createPlayerSkillActionFromPendingCast)(pendingCast, {
+            ? createPlayerSkillActionFromPendingCast(pendingCast, {
                 actorId: attacker.playerId,
                 instanceId: attacker.instanceId,
-                phase: pendingCast.status === pending_combat_cast_helpers_1.CombatPendingCastStatus.Cancelled
-                    ? combat_action_types_1.CombatActionPhase.Cancel
-                    : combat_action_types_1.CombatActionPhase.ChantResolve,
+                phase: pendingCast.status === CombatPendingCastStatus.Cancelled
+                    ? CombatActionPhase.Cancel
+                    : CombatActionPhase.ChantResolve,
             })
             : this.worldRuntimeCombatActionService.createPlayerSkillAction?.({
             playerId: attacker.playerId,
             skillId: skill?.id ?? pendingCast?.skillId,
             instanceId: attacker.instanceId,
-            phase: combat_action_types_1.CombatActionPhase.ChantResolve,
+            phase: CombatActionPhase.ChantResolve,
             targetRef: pendingCast?.targetRef,
             targetX: pendingCast?.targetX,
             targetY: pendingCast?.targetY,
         }) ?? null;
-        const phase = pendingCast?.status === pending_combat_cast_helpers_1.CombatPendingCastStatus.Cancelled
-            ? combat_action_types_1.CombatActionPhase.Cancel
-            : combat_action_types_1.CombatActionPhase.ChantResolve;
+        const phase = pendingCast?.status === CombatPendingCastStatus.Cancelled
+            ? CombatActionPhase.Cancel
+            : CombatActionPhase.ChantResolve;
         return this.worldRuntimeCombatActionService.recordReject(deps, {
             phase,
             reason,
             actor: action?.actor ?? {
-                kind: combat_action_types_1.CombatActorKind.Player,
+                kind: CombatActorKind.Player,
                 id: attacker.playerId,
             },
             actionId: skill?.id ?? pendingCast?.skillId ?? null,
@@ -1942,12 +1933,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, formationInstanceId)
             : null;
         if (!formation) {
-            throw new common_1.NotFoundException(`阵法不存在：${formationInstanceId}`);
+            throw new NotFoundException(`阵法不存在：${formationInstanceId}`);
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+            throw new NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: formation.x, y: formation.y }, deps, {
             kind: 'formation',
@@ -1956,7 +1947,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             y: formation.y,
         });
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
@@ -1976,12 +1967,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const target = instance.getMonster(targetMonsterId);
         if (!target) {
-            throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
+            throw new NotFoundException(`妖兽不存在：${targetMonsterId}`);
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'monster' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+            throw new NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: target.x, y: target.y }, deps, {
             kind: 'monster',
@@ -1990,7 +1981,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             y: target.y,
         });
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
@@ -2013,10 +2004,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, targetX, targetY)
             : null;
         if (boundary) {
-            ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+            ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
             const skill = findPlayerSkill(attacker, skillId);
             if (!skill) {
-                throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+                throw new NotFoundException(`技能不存在：${skillId}`);
             }
             const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
                 kind: 'formation_boundary',
@@ -2025,7 +2016,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 y: targetY,
             });
             if (targets.length === 0) {
-                throw new common_1.BadRequestException('没有可命中的目标');
+                throw new BadRequestException('没有可命中的目标');
             }
             await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
             return;
@@ -2033,12 +2024,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         ensureInstanceSupportsTileDamage(instance);
         const tileState = instance.getTileCombatState(targetX, targetY);
         if (!tileState || tileState.destroyed) {
-            throw new common_1.BadRequestException('该目标无法被攻击');
+            throw new BadRequestException('该目标无法被攻击');
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
-            throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+            throw new NotFoundException(`技能不存在：${skillId}`);
         }
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
             kind: 'tile',
@@ -2046,20 +2037,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             y: targetY,
         });
         if (targets.length === 0) {
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }
 };
-exports.WorldRuntimePlayerSkillDispatchService = WorldRuntimePlayerSkillDispatchService;
-exports.WorldRuntimePlayerSkillDispatchService = WorldRuntimePlayerSkillDispatchService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        player_combat_service_1.PlayerCombatService,
-        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
-], WorldRuntimePlayerSkillDispatchService);
-
-export { WorldRuntimePlayerSkillDispatchService };
 
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
     const progressionService = playerRuntimeService?.playerProgressionService;
@@ -2069,5 +2051,5 @@ function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
             return Math.floor(resolved);
         }
     }
-    return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(monster);
+    return resolveMonsterCombatExpEquivalentFallback(monster);
 }

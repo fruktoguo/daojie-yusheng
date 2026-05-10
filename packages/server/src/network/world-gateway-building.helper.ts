@@ -1,9 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayBuildingHelper = void 0;
-const shared_1 = require("@mud/shared");
+import { S2C } from '@mud/shared';
 
 class WorldGatewayBuildingHelper {
     gateway;
@@ -19,9 +14,9 @@ class WorldGatewayBuildingHelper {
         }
         try {
             const result = this.gateway.worldRuntimeService.handleBuildPlaceIntent(playerId, payload);
-            client.emit(shared_1.S2C.BuildResult, result);
+            client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
-                client.emit(shared_1.S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
             }
         }
         catch (error) {
@@ -36,9 +31,9 @@ class WorldGatewayBuildingHelper {
         }
         try {
             const result = this.gateway.worldRuntimeService.handleBuildDeconstructIntent(playerId, payload);
-            client.emit(shared_1.S2C.BuildResult, result);
+            client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
-                client.emit(shared_1.S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
             }
         }
         catch (error) {
@@ -54,13 +49,13 @@ class WorldGatewayBuildingHelper {
         try {
             const result = this.gateway.worldRuntimeService.handleRoomSetRoleIntent(playerId, payload);
             if (result?.ok !== true) {
-                client.emit(shared_1.S2C.BuildResult, result);
+                client.emit(S2C.BuildResult, result);
                 return;
             }
-            client.emit(shared_1.S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+            client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
             const view = this.gateway.worldRuntimeService.buildFengShuiObserveView(playerId, { roomId: payload?.roomId, overlay: false });
             if (view?.detail) {
-                client.emit(shared_1.S2C.FengShuiDetail, view.detail);
+                client.emit(S2C.FengShuiDetail, view.detail);
             }
         }
         catch (error) {
@@ -76,10 +71,10 @@ class WorldGatewayBuildingHelper {
         try {
             const view = this.gateway.worldRuntimeService.buildFengShuiObserveView(playerId, payload);
             if (view?.overlay) {
-                client.emit(shared_1.S2C.FengShuiOverlayPatch, view.overlay);
+                client.emit(S2C.FengShuiOverlayPatch, view.overlay);
             }
             if (view?.detail) {
-                client.emit(shared_1.S2C.FengShuiDetail, view.detail);
+                client.emit(S2C.FengShuiDetail, view.detail);
             }
         }
         catch (error) {
@@ -88,5 +83,4 @@ class WorldGatewayBuildingHelper {
     }
 }
 
-exports.WorldGatewayBuildingHelper = WorldGatewayBuildingHelper;
 export { WorldGatewayBuildingHelper };

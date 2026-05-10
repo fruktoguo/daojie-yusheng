@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 import { hostname } from 'node:os';
 
@@ -31,7 +31,7 @@ export class NodeRegistryService implements OnModuleInit, OnModuleDestroy {
   private enabled = false;
   private readonly nodeId = resolveNodeId();
 
-  constructor(private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
+  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('node-registry') ?? null;

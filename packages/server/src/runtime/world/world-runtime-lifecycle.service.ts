@@ -1,18 +1,6 @@
-// @ts-nocheck
-"use strict";
+import { Injectable } from '@nestjs/common';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeLifecycleService = void 0;
-
-const common_1 = require("@nestjs/common");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const {
     buildPublicInstanceId,
     buildRealInstanceId,
@@ -21,7 +9,8 @@ const {
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
-let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
+@Injectable()
+export class WorldRuntimeLifecycleService {
 /**
  * bootstrapPublicInstances：执行引导PublicInstance相关逻辑。
  * @param deps 运行时依赖。
@@ -265,12 +254,7 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
         await this.restorePublicInstancePersistence(deps);
     }
 };
-exports.WorldRuntimeLifecycleService = WorldRuntimeLifecycleService;
-exports.WorldRuntimeLifecycleService = WorldRuntimeLifecycleService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeLifecycleService);
 
-export { WorldRuntimeLifecycleService };
 function shouldRestoreCatalogEntry(entry) {
     if (entry?.status === 'destroyed' || entry?.runtime_status === 'stopped') {
         return false;

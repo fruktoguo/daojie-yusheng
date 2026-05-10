@@ -344,6 +344,7 @@ export class CraftWorkbenchModal {
   private alchemyCatalogVersion = 0;
   private alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
   private alchemySkillLevel = 1;
+  private forgingSkillLevel = 1;
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
@@ -381,6 +382,7 @@ export class CraftWorkbenchModal {
     this.inventory = player.inventory;
     this.equipment = player.equipment;
     this.alchemySkillLevel = Math.max(1, Math.floor(player.alchemySkill?.level ?? 1));
+    this.forgingSkillLevel = Math.max(1, Math.floor(player.forgingSkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
   }
@@ -388,6 +390,9 @@ export class CraftWorkbenchModal {
   syncAttrUpdate(update: S2C_AttrUpdate): void {
     if (update.alchemySkill) {
       this.alchemySkillLevel = Math.max(1, Math.floor(update.alchemySkill.level ?? this.alchemySkillLevel));
+    }
+    if (update.forgingSkill) {
+      this.forgingSkillLevel = Math.max(1, Math.floor(update.forgingSkill.level ?? this.forgingSkillLevel));
     }
     if (update.gatherSkill) {
       this.gatherSkillLevel = Math.max(1, Math.floor(update.gatherSkill.level ?? this.gatherSkillLevel));
@@ -878,7 +883,7 @@ export class CraftWorkbenchModal {
       return t('craft.workbench.modal.subtitle.alchemy', { level: formatDisplayInteger(this.alchemySkillLevel) });
     }
     if (this.activeMode === 'forging') {
-      return t('craft.workbench.modal.subtitle.forging', { level: formatDisplayInteger(this.alchemySkillLevel) });
+      return t('craft.workbench.modal.subtitle.forging', { level: formatDisplayInteger(this.forgingSkillLevel) });
     }
     if (this.activeMode === 'enhancement') {
       return t('craft.workbench.modal.subtitle.enhancement', { level: formatDisplayInteger(this.enhancementSkillLevel) });
@@ -1019,6 +1024,7 @@ export class CraftWorkbenchModal {
     return [
       this.activeMode ?? 'none',
       this.alchemySkillLevel,
+      this.forgingSkillLevel,
       this.enhancementSkillLevel,
       this.getCraftQueueSnapshot()
         .map((entry) => `${entry.queueId}:${entry.kind}:${entry.label}:${entry.quantity ?? ''}`)
@@ -1030,6 +1036,7 @@ export class CraftWorkbenchModal {
     return [
       this.activeMode ?? 'none',
       this.alchemySkillLevel,
+      this.forgingSkillLevel,
       this.enhancementSkillLevel,
     ].join(':');
   }
@@ -1037,7 +1044,7 @@ export class CraftWorkbenchModal {
   private renderCraftModeTabs(): string {
     const tabs: Array<{ mode: Exclude<CraftMode, null>; label: string; note: string }> = [
       { mode: 'alchemy', label: t('craft.workbench.mode.alchemy'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.alchemySkillLevel) }) },
-      { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.forging.beginner-recipes') },
+      { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
       { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
     ];
     return tabs.map((tab) => `
@@ -1506,7 +1513,7 @@ export class CraftWorkbenchModal {
       });
     }
     return this.activeMode === 'forging'
-      ? t('craft.workbench.alchemy.subtitle.forging', { level: formatDisplayInteger(this.alchemySkillLevel) })
+      ? t('craft.workbench.alchemy.subtitle.forging', { level: formatDisplayInteger(this.forgingSkillLevel) })
       : t('craft.workbench.alchemy.subtitle.alchemy', {
         alchemyLevel: formatDisplayInteger(this.alchemySkillLevel),
         gatherLevel: formatDisplayInteger(this.gatherSkillLevel),
@@ -1586,6 +1593,7 @@ export class CraftWorkbenchModal {
       this.activeAlchemyTab,
       selectedRecipe?.recipeId ?? 'empty',
       this.alchemySkillLevel,
+      this.forgingSkillLevel,
       this.gatherSkillLevel,
       inventoryRevision,
       equipmentRevision,
@@ -1649,10 +1657,11 @@ export class CraftWorkbenchModal {
   private renderAlchemyTopbar(): string {
     const isForging = this.activeMode === 'forging';
     const itemKind = isForging ? t('craft.workbench.alchemy.item-kind.forging') : t('craft.workbench.alchemy.item-kind.alchemy');
+    const displayLevel = isForging ? this.forgingSkillLevel : this.alchemySkillLevel;
     return `
       <div class="alchemy-topbar-main">
         <span class="alchemy-topbar-label">${escapeHtml(isForging ? t('craft.workbench.alchemy.topbar.level.forging') : t('craft.workbench.alchemy.topbar.level.alchemy'))}</span>
-        <strong class="alchemy-topbar-value">LV ${formatDisplayInteger(this.alchemySkillLevel)}</strong>
+        <strong class="alchemy-topbar-value">LV ${formatDisplayInteger(displayLevel)}</strong>
       </div>
       <div class="alchemy-topbar-note">${escapeHtml(t('craft.workbench.alchemy.topbar.note', { itemKind }))}</div>
     `;
@@ -3606,6 +3615,13 @@ export class CraftWorkbenchModal {
     return getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * normalizeAlchemyQuantity(quantity);
   }
 
+  private getCraftSkillLevelForActiveMode(): number {
+    if (this.activeMode === 'forging') {
+      return this.forgingSkillLevel;
+    }
+    return this.alchemySkillLevel;
+  }
+
   private getAlchemyAdjustedBrewTicks(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
@@ -3616,7 +3632,7 @@ export class CraftWorkbenchModal {
       recipe,
       ingredients,
       recipe.outputLevel,
-      this.alchemySkillLevel,
+      this.getCraftSkillLevelForActiveMode(),
       furnaceBonuses.speedRate,
       this.getAlchemyBatchOutputSize(recipe),
     );
@@ -3641,7 +3657,7 @@ export class CraftWorkbenchModal {
     const successRate = computeAlchemyAdjustedSuccessRate(
       baseSuccessRate,
       recipe.outputLevel,
-      this.alchemySkillLevel,
+      this.getCraftSkillLevelForActiveMode(),
       furnaceBonuses.successRate,
     );
     const brewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);

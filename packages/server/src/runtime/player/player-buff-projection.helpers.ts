@@ -8,6 +8,7 @@ import {
   type VisibleBuffState,
 } from '@mud/shared';
 
+// 玩家 buff 投影：将运行时 buff 状态转换为客户端可见状态
 type TechniqueLike = {
   techId?: string | null;
   name?: string | null;

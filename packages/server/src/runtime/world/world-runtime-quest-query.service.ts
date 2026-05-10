@@ -1,31 +1,9 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeQuestQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PLAYER_REALM_ORDER } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
     toQuestRewardItem,
@@ -40,7 +18,7 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 function getRealmStageOrderIndex(stage) {
-    return shared_1.PLAYER_REALM_ORDER.indexOf(stage);
+    return PLAYER_REALM_ORDER.indexOf(stage);
 }
 
 function isRealmStageReached(currentStage, targetStage, strict) {
@@ -53,7 +31,8 @@ function isRealmStageReached(currentStage, targetStage, strict) {
 }
 
 /** 任务只读查询服务：承接任务视图构造、奖励解析与导航目标解析。 */
-let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
+@Injectable()
+export class WorldRuntimeQuestQueryService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -77,7 +56,11 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
+    constructor(
+        contentTemplateRepository: ContentTemplateRepository,
+        templateRepository: MapTemplateRepository,
+        playerRuntimeService: PlayerRuntimeService,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -129,10 +112,9 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     collectNpcQuestViews(playerId, npc) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
 
-        const byQuestId = new Map(player.quests.quests.map((entry) => [entry.id, entry]));
+        const byQuestId = new Map<string, any>(player.quests.quests.map((entry) => [entry.id, entry]));
 
         const result = [];
         for (let index = 0; index < npc.quests.length; index += 1) {
@@ -229,10 +211,9 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     createQuestStateFromSource(playerId, questId, status = 'active') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const source = this.templateRepository.getQuestSource(questId);
         if (!source) {
-            throw new common_1.NotFoundException(`任务不存在：${questId}`);
+            throw new NotFoundException(`任务不存在：${questId}`);
         }
 
         const quest = source.quest;
@@ -350,7 +331,6 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     buildQuestRewardItemsFromRecord(quest) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const rewards = [];
         const rewardList = Array.isArray(quest.reward) ? quest.reward : [];
         for (const entry of rewardList) {
@@ -458,12 +438,3 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         return null;
     }
 };
-exports.WorldRuntimeQuestQueryService = WorldRuntimeQuestQueryService;
-exports.WorldRuntimeQuestQueryService = WorldRuntimeQuestQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        map_template_repository_1.MapTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeQuestQueryService);
-
-export { WorldRuntimeQuestQueryService };

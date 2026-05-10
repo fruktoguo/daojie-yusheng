@@ -1,38 +1,16 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
-        r = Reflect.decorate(decorators, target, key, desc);
-    else
-        for (var i = decorators.length - 1; i >= 0; i--)
-            if (d = decorators[i])
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeGmAuthService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const bcrypt = require("bcryptjs");
-
-const crypto = require("node:crypto");
-
-const pg_1 = require("pg");
-
-const next_gm_contract_1 = require("../../http/native/native-gm-contract");
-
-const env_alias_1 = require("../../config/env-alias");
+import { Injectable, BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { Pool } from 'pg';
+import { GM_AUTH_CONTRACT } from '../../http/native/native-gm-contract';
+import { resolveServerAllowInsecureLocalGmPassword, resolveServerDatabaseUrl, resolveServerGmPassword, resolveServerGmPasswordEnvSource } from '../../config/env-alias';
 
 /** GM 密码记录 key。 */
-const GM_AUTH_KEY = next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey;
+const GM_AUTH_KEY = GM_AUTH_CONTRACT.passwordRecordKey;
 const GM_AUTH_TABLE = 'server_gm_auth';
 
 /** 仅用于显式本地降级方案的默认 GM 密码。 */
-const DEFAULT_GM_PASSWORD = next_gm_contract_1.GM_AUTH_CONTRACT.defaultInsecurePassword;
+const DEFAULT_GM_PASSWORD = GM_AUTH_CONTRACT.defaultInsecurePassword;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 
 /** 默认 token 有效期。 */
@@ -41,9 +19,10 @@ const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
 /** 兼容旧 bcrypt 记录时使用的哨兵盐值。 */
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
 
-let RuntimeGmAuthService = class RuntimeGmAuthService {
+@Injectable()
+export class RuntimeGmAuthService {
     /** 运行时日志器，记录鉴权初始化和登录异常。 */
-    logger = new common_1.Logger(RuntimeGmAuthService.name);
+    logger = new Logger(RuntimeGmAuthService.name);
     /** 数据库连接池，未启用持久化时保持为空。 */
     pool = null;
     /** 是否已经成功接入持久化存储。 */
@@ -57,11 +36,11 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         assertConfiguredGmPassword();
         this.warnIfUsingInsecureLocalPassword();
 
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             return;
         }
-        this.pool = new pg_1.Pool({
+        this.pool = new Pool({
             connectionString: databaseUrl,
         });
         try {
@@ -81,7 +60,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     async login(password) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedPassword = typeof password === 'string' ? password : '';
 
         const record = await this.getOrCreatePasswordRecord();
@@ -94,7 +72,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
 
         if (!(await verifyPassword(normalizedPassword, record))) {
-            throw new common_1.UnauthorizedException('GM 密码错误');
+            throw new UnauthorizedException('GM 密码错误');
         }
         this.memoryRecord = record;
         return {
@@ -106,7 +84,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     async changePassword(currentPassword, newPassword) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedCurrentPassword = typeof currentPassword === 'string' ? currentPassword : '';
 
         const record = await this.getOrCreatePasswordRecord();
@@ -114,18 +91,18 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         const currentVerified = await verifyPassword(normalizedCurrentPassword, record);
 
         if (!currentVerified) {
-            throw new common_1.UnauthorizedException('当前 GM 密码错误');
+            throw new UnauthorizedException('当前 GM 密码错误');
         }
 
         const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
         if (normalizedPassword.length < 12) {
-            throw new common_1.BadRequestException('GM 密码至少需要 12 位');
+            throw new BadRequestException('GM 密码至少需要 12 位');
         }
         if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
-            throw new common_1.BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
+            throw new BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
         }
         if (!this.persistenceEnabled || !this.pool) {
-            throw new common_1.BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
+            throw new BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
         }
 
         const nextRecord = buildPasswordRecord(normalizedPassword);
@@ -134,7 +111,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     /** 校验签名 token 是否仍然有效。 */
     validateAccessToken(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedToken = typeof token === 'string' ? token.trim() : '';
         if (!normalizedToken) {
@@ -194,7 +170,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     getSigningSecret(record = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const configured = process.env.SERVER_GM_AUTH_SECRET?.trim()
             || process.env.GM_AUTH_SECRET?.trim()
             || '';
@@ -211,7 +186,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     /** 读取 token 的有效期。 */
     getTokenTtlSec() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const configured = Number(process.env.SERVER_GM_TOKEN_EXPIRES_IN ?? process.env.GM_TOKEN_EXPIRES_IN ?? Number.NaN);
         if (Number.isFinite(configured) && configured > 0) {
@@ -309,7 +283,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
 
     getInitialPassword() {
         assertConfiguredGmPassword();
-        const configuredPassword = (0, env_alias_1.resolveServerGmPassword)('');
+        const configuredPassword = resolveServerGmPassword('');
         if (configuredPassword) {
             return configuredPassword;
         }
@@ -334,7 +308,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     async closePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.persistenceEnabled = false;
@@ -343,11 +316,6 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
     }
 };
-exports.RuntimeGmAuthService = RuntimeGmAuthService;
-exports.RuntimeGmAuthService = RuntimeGmAuthService = __decorate([
-    (0, common_1.Injectable)()
-], RuntimeGmAuthService);
-export { RuntimeGmAuthService };
 
 async function ensureGmAuthTable(pool) {
     const client = await pool.connect();
@@ -408,7 +376,7 @@ function normalizePasswordRecord(raw) {
 
 function buildPasswordRecord(password) {
 
-    const salt = crypto.randomBytes(16).toString('hex');
+    const salt = randomBytes(16).toString('hex');
     return {
         salt,
         hash: hashPassword(password, salt),
@@ -423,7 +391,7 @@ function buildPasswordRecord(password) {
  */
 
 function hashPassword(password, salt) {
-    return crypto.scryptSync(password, salt, 64).toString('hex');
+    return scryptSync(password, salt, 64).toString('hex');
 }
 /**
  * verifyPassword：执行verifyPassword相关逻辑。
@@ -453,7 +421,7 @@ async function verifyPassword(password, record) {
  */
 
 function signTokenPayload(payloadBase64, secret) {
-    return encodeBase64Url(crypto.createHmac('sha256', secret).update(payloadBase64).digest());
+    return encodeBase64Url(createHmac('sha256', secret).update(payloadBase64).digest());
 }
 /**
  * encodeBase64Url：执行encodeBase64Url相关逻辑。
@@ -502,14 +470,13 @@ function decodeBase64Url(input) {
 function safeEqual(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const leftBuffer = Buffer.from(left, 'utf8');
 
     const rightBuffer = Buffer.from(right, 'utf8');
     if (leftBuffer.length !== rightBuffer.length) {
         return false;
     }
-    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+    return timingSafeEqual(leftBuffer, rightBuffer);
 }
 /**
  * assertConfiguredGmPassword：执行assertConfiguredGMPassword相关逻辑。
@@ -519,9 +486,9 @@ function safeEqual(left, right) {
 function assertConfiguredGmPassword() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const envSource = (0, env_alias_1.resolveServerGmPasswordEnvSource)();
-    const password = (0, env_alias_1.resolveServerGmPassword)('');
-    const allowInsecureLocalPassword = (0, env_alias_1.resolveServerAllowInsecureLocalGmPassword)();
+    const envSource = resolveServerGmPasswordEnvSource();
+    const password = resolveServerGmPassword('');
+    const allowInsecureLocalPassword = resolveServerAllowInsecureLocalGmPassword();
     if (allowInsecureLocalPassword && !isDevelopmentLikeEnv()) {
         throw new Error('SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD 或 GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD 只能在 development/dev/local/test 环境使用。');
     }
@@ -556,5 +523,5 @@ function isDevelopmentLikeEnv() {
  */
 
 function canUseInsecureLocalGmPassword() {
-    return isDevelopmentLikeEnv() && (0, env_alias_1.resolveServerAllowInsecureLocalGmPassword)();
+    return isDevelopmentLikeEnv() && resolveServerAllowInsecureLocalGmPassword();
 }

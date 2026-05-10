@@ -1,22 +1,9 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CraftPanelAlchemyQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-const craft_panel_alchemy_query_helpers_1 = require("./craft-panel-alchemy-query.helpers");
+import { Injectable } from '@nestjs/common';
+import { ALCHEMY_CATALOG_VERSION, ALCHEMY_FURNACE_TAG, cloneAlchemyCatalogEntry, cloneAlchemyJob, cloneAlchemyPreset } from './craft-panel-alchemy-query.helpers';
 
 /** 炼丹面板只读查询服务：负责炼丹面板状态与目录快照构造。 */
-let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
+@Injectable()
+export class CraftPanelAlchemyQueryService {
 /**
  * buildAlchemyPanelPayload：构建并返回目标对象。
  * @param player 玩家对象。
@@ -30,12 +17,12 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const state = this.buildAlchemyPanelState(player, equippedWeapon);
-        const payload = {
+        const payload: any = {
             state,
-            catalogVersion: craft_panel_alchemy_query_helpers_1.ALCHEMY_CATALOG_VERSION,
+            catalogVersion: ALCHEMY_CATALOG_VERSION,
         };
-        if (knownCatalogVersion !== craft_panel_alchemy_query_helpers_1.ALCHEMY_CATALOG_VERSION) {
-            payload.catalog = alchemyCatalog.map((entry) => (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyCatalogEntry)(entry));
+        if (knownCatalogVersion !== ALCHEMY_CATALOG_VERSION) {
+            payload.catalog = alchemyCatalog.map((entry) => cloneAlchemyCatalogEntry(entry));
         }
         return payload;
     }    
@@ -44,12 +31,12 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
         const normalizedKind = kind === 'forging' ? 'forging' : 'alchemy';
         const activeJob = player.alchemyJob
             && (player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy') === normalizedKind
-            ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob)
+            ? cloneAlchemyJob(player.alchemyJob)
             : null;
         return {
             kind: normalizedKind,
             state: null,
-            catalogVersion: craft_panel_alchemy_query_helpers_1.ALCHEMY_CATALOG_VERSION,
+            catalogVersion: ALCHEMY_CATALOG_VERSION,
             statePatch: {
                 job: activeJob,
                 queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
@@ -67,20 +54,15 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
     buildAlchemyPanelState(player, equippedWeapon) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const furnaceItemId = equippedWeapon?.tags?.includes(craft_panel_alchemy_query_helpers_1.ALCHEMY_FURNACE_TAG) ? equippedWeapon.itemId : undefined;
+        const furnaceItemId = equippedWeapon?.tags?.includes(ALCHEMY_FURNACE_TAG) ? equippedWeapon.itemId : undefined;
         return {
             furnaceItemId,
-            presets: (player.alchemyPresets ?? []).map((entry) => (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyPreset)(entry)),
-            job: player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob) : null,
+            presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
+            job: player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
         };
     }
 };
-exports.CraftPanelAlchemyQueryService = CraftPanelAlchemyQueryService;
-exports.CraftPanelAlchemyQueryService = CraftPanelAlchemyQueryService = __decorate([
-    (0, common_1.Injectable)()
-], CraftPanelAlchemyQueryService);
-export { CraftPanelAlchemyQueryService };
 
 function cloneCraftQueue(queue) {
     return Array.isArray(queue)

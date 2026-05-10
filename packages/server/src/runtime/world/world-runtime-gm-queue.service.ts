@@ -1,36 +1,24 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeGmQueueService = void 0;
-
-const common_1 = require("@nestjs/common");
-const next_gm_constants_1 = require("../../http/native/native-gm.constants");
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { NATIVE_GM_BOT_ID_PREFIX, isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 
 /** GM runtime queue 服务：承接 GM 命令归一、入队与执行。 */
-let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
+@Injectable()
+export class WorldRuntimeGmQueueService {
 /**
  * nextGmBotSequence：nextGMBotSequence相关字段。
  */
 
-    nextGmBotSequence = 1;    
+    nextGmBotSequence = 1;
     /**
  * pendingSystemCommands：pendingSystemCommand相关字段。
  */
 
-    pendingSystemCommands = [];    
+    pendingSystemCommands = [];
     /**
  * pendingRespawnPlayerIds：pending重生玩家ID相关字段。
  */
 
-    pendingRespawnPlayerIds = new Set();    
+    pendingRespawnPlayerIds = new Set();
     /**
  * enqueueSystemCommand：处理SystemCommand并更新相关状态。
  * @param command 输入指令。
@@ -40,7 +28,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
     enqueueSystemCommand(command) {
         this.pendingSystemCommands.push(command);
         return { queued: true };
-    }    
+    }
     /**
  * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
@@ -52,7 +40,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
         this.pendingSystemCommands.push({
             kind: 'gmUpdatePlayer',
@@ -65,7 +53,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             autoBattle: typeof input?.autoBattle === 'boolean' ? input.autoBattle : undefined,
         });
         return { queued: true };
-    }    
+    }
     /**
  * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -77,11 +65,11 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
         this.pendingSystemCommands.push({ kind: 'gmResetPlayer', playerId });
         return { queued: true };
-    }    
+    }
     /**
  * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
@@ -94,15 +82,15 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
         const anchorPlayerId = typeof anchorPlayerIdInput === 'string' ? anchorPlayerIdInput.trim() : '';
         if (!anchorPlayerId) {
-            throw new common_1.BadRequestException('锚点玩家 ID 不能为空');
+            throw new BadRequestException('锚点玩家 ID 不能为空');
         }
         const count = Math.max(0, Math.min(200, Math.trunc(countInput)));
         if (!Number.isFinite(count) || count <= 0) {
-            throw new common_1.BadRequestException('数量必须大于 0');
+            throw new BadRequestException('数量必须大于 0');
         }
         this.pendingSystemCommands.push({ kind: 'gmSpawnBots', anchorPlayerId, count });
         return { queued: true };
-    }    
+    }
     /**
  * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。
@@ -116,7 +104,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             : [];
         this.pendingSystemCommands.push({ kind: 'gmRemoveBots', playerIds, all: allInput === true });
         return { queued: true };
-    }    
+    }
     /**
  * markPendingRespawn：处理待处理重生并更新相关状态。
  * @param playerId 玩家 ID。
@@ -125,7 +113,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
     markPendingRespawn(playerId) {
         this.pendingRespawnPlayerIds.add(playerId);
-    }    
+    }
     /**
  * clearPendingRespawn：执行clear待处理重生相关逻辑。
  * @param playerId 玩家 ID。
@@ -134,7 +122,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
     clearPendingRespawn(playerId) {
         this.pendingRespawnPlayerIds.delete(playerId);
-    }    
+    }
     /**
  * getPendingSystemCommandCount：读取待处理SystemCommand数量。
  * @returns 无返回值，完成PendingSystemCommand数量的读取/组装。
@@ -142,7 +130,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
     getPendingSystemCommandCount() {
         return this.pendingSystemCommands.length;
-    }    
+    }
     /**
  * drainPendingSystemCommands：执行drain待处理SystemCommand相关逻辑。
  * @returns 无返回值，直接更新drainPendingSystemCommand相关状态。
@@ -155,7 +143,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             return [];
         }
         return this.pendingSystemCommands.splice(0, this.pendingSystemCommands.length);
-    }    
+    }
     /**
  * drainPendingRespawnPlayerIds：执行drain待处理重生玩家ID相关逻辑。
  * @returns 无返回值，直接更新drainPending重生玩家ID相关状态。
@@ -170,7 +158,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         const pending = Array.from(this.pendingRespawnPlayerIds);
         this.pendingRespawnPlayerIds.clear();
         return pending;
-    }    
+    }
     /**
  * hasPendingRespawns：判断待处理重生是否满足条件。
  * @returns 无返回值，完成Pending重生的条件判断。
@@ -178,7 +166,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 
   hasPendingRespawns() {
     return this.pendingRespawnPlayerIds.size > 0;
-  }    
+  }
   /**
  * hasPendingRespawn：判断指定玩家是否处于待复生队列。
  * @param playerId 玩家 ID。
@@ -191,7 +179,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
       return false;
     }
     return this.pendingRespawnPlayerIds.has(normalizedPlayerId);
-  }    
+  }
   /**
  * resetState：执行reset状态相关逻辑。
  * @returns 无返回值，直接更新reset状态相关状态。
@@ -200,7 +188,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
     resetState() {
         this.pendingSystemCommands.length = 0;
         this.pendingRespawnPlayerIds.clear();
-    }    
+    }
     /**
  * dispatchGmUpdatePlayer：判断GMUpdate玩家是否满足条件。
  * @param command 输入指令。
@@ -218,7 +206,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             ? deps.getInstanceRuntime(requestedInstanceId)
             : null;
         if (requestedInstanceId && !targetInstance) {
-            throw new common_1.BadRequestException(`地图实例不存在：${requestedInstanceId}`);
+            throw new BadRequestException(`地图实例不存在：${requestedInstanceId}`);
         }
         const nextMapId = command.mapId || player.templateId || deps.resolveDefaultRespawnMapId();
         const resolvedTargetInstance = targetInstance ?? deps.getOrCreatePublicInstance(nextMapId);
@@ -249,7 +237,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         if (command.autoBattle !== undefined) {
             deps.playerRuntimeService.updateCombatSettings(playerId, { autoBattle: command.autoBattle }, deps.resolveCurrentTickForPlayerId(playerId));
         }
-    }    
+    }
     /**
  * dispatchGmSpawnBots：判断GMSpawnBot是否满足条件。
  * @param anchorPlayerId anchorPlayer ID。
@@ -264,7 +252,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         const anchor = deps.playerRuntimeService.getPlayerOrThrow(anchorPlayerId);
         for (let index = 0; index < count; index += 1) {
             const sequence = this.nextGmBotSequence++;
-            const playerId = `${next_gm_constants_1.NATIVE_GM_BOT_ID_PREFIX}${Date.now().toString(36)}_${sequence.toString(36)}`;
+            const playerId = `${NATIVE_GM_BOT_ID_PREFIX}${Date.now().toString(36)}_${sequence.toString(36)}`;
             const sessionId = `bot:${playerId}`;
             deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
             deps.playerRuntimeService.setIdentity(playerId, {
@@ -283,7 +271,7 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
             deps.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
             deps.playerRuntimeService.updateCombatSettings(playerId, { autoBattle: true, autoRetaliate: true }, deps.resolveCurrentTickForPlayerId(playerId));
         }
-    }    
+    }
     /**
  * dispatchGmRemoveBots：判断GMRemoveBot是否满足条件。
  * @param playerIds player ID 集合。
@@ -296,19 +284,13 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const requestedIds = Array.isArray(playerIds)
-            ? playerIds.filter((entry) => typeof entry === 'string' && (0, next_gm_constants_1.isNativeGmBotPlayerId)(entry))
+            ? playerIds.filter((entry) => typeof entry === 'string' && isNativeGmBotPlayerId(entry))
             : [];
         const targets = removeAll
-            ? deps.playerRuntimeService.listPlayerSnapshots().map((player) => player.playerId).filter((playerId) => (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId))
+            ? deps.playerRuntimeService.listPlayerSnapshots().map((player) => player.playerId).filter((playerId) => isNativeGmBotPlayerId(playerId))
             : requestedIds;
         for (const playerId of targets) {
             deps.removePlayer(playerId);
         }
     }
 };
-exports.WorldRuntimeGmQueueService = WorldRuntimeGmQueueService;
-exports.WorldRuntimeGmQueueService = WorldRuntimeGmQueueService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeGmQueueService);
-
-export { WorldRuntimeGmQueueService };

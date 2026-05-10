@@ -1,9 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayInventoryHelper = void 0;
-const shared_1 = require("@mud/shared");
+import { S2C } from '@mud/shared';
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
@@ -254,7 +249,7 @@ class WorldGatewayInventoryHelper {
         }
         try {
             this.gateway.playerRuntimeService.clearLootWindow(playerId);
-            client.emit(shared_1.S2C.LootWindowUpdate, { window: null });
+            client.emit(S2C.LootWindowUpdate, { window: null });
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'STOP_LOOT_HARVEST_FAILED', error);
@@ -323,6 +318,5 @@ class WorldGatewayInventoryHelper {
         this.executeUnequip(client, payload);
     }
 }
-exports.WorldGatewayInventoryHelper = WorldGatewayInventoryHelper;
 
 export { WorldGatewayInventoryHelper };

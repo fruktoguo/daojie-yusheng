@@ -1,73 +1,10 @@
-// @ts-nocheck
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var PlayerProgressionService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerProgressionService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const fs = __importStar(require("fs"));
-
-const shared_1 = require("@mud/shared");
-
-const project_path_1 = require("../../common/project-path");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
-const player_attributes_service_1 = require("./player-attributes.service");
+import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
+import { resolveProjectPath } from '../../common/project-path';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
+import { PlayerAttributesService } from './player-attributes.service';
 
 /** 境界配置文件路径，启动时从这里加载所有境界参数。 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
@@ -114,7 +51,7 @@ const SPIRITUAL_ROOT_SEED_REROLL_COUNTS = {
     divine: 100,
 };
 
-const SHATTER_SPIRIT_PILL_COST_RATIO = shared_1.SHATTER_SPIRIT_PILL_COST_RATIO ?? 0.25;
+const SHATTER_SPIRIT_PILL_COST_RATIO = SHARED_SHATTER_SPIRIT_PILL_COST_RATIO ?? 0.25;
 const PATH_SEVERED_BREAKTHROUGH_LABEL = '仙路断绝';
 const PATH_SEVERED_BREAKTHROUGH_REASON = '仙路断绝，你的前路已被无形天堑阻断，暂时无法继续突破。';
 
@@ -181,13 +118,14 @@ const HEAVEN_GATE_DISTRIBUTION_SPREAD = {
 };
 
 /** 玩家成长结算器：负责境界、战力、道行和修炼态推进。 */
-let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgressionService {
+@Injectable()
+export class PlayerProgressionService {
     /** 内容仓库，用于境界描述、奖励和外部模板查询。 */
     contentTemplateRepository;
     /** 属性结算器，用于境界变化后重算最终面板。 */
     playerAttributesService;
     /** 运行时日志器，记录境界加载和结算异常。 */
-    logger = new common_1.Logger(PlayerProgressionService_1.name);
+    logger = new Logger(PlayerProgressionService.name);
     /** 已加载的境界表，按 realmLv 索引。 */
     realmLevels = new Map();
     /** 当前读取到的最大境界等级。 */
@@ -195,7 +133,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
     /** 已加载的突破配置，按来源境界等级索引。 */
     breakthroughTransitions = new Map();
     /** 注入内容仓库和属性结算器。 */
-    constructor(contentTemplateRepository, playerAttributesService) {
+    constructor(contentTemplateRepository: ContentTemplateRepository, playerAttributesService: PlayerAttributesService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerAttributesService = playerAttributesService;
     }
@@ -219,7 +157,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         this.applyRealmPresentation(player, resolved);
     }
     /** 增加境界经验并返回本次是否真的发生变化。 */
-    gainRealmProgress(player, amount, options = {}) {
+    gainRealmProgress(player, amount, options: any = {}) {
 
         const result = this.gainRealmProgressInternal(player, amount, options);
         this.finalizeProgressionMutation(player, result);
@@ -329,7 +267,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return toProgressionMutationResult(mutation);
     }
     /** 推进修炼 tick，处理境界经验、战斗经验和功法经验。 */
-    advanceProgressionTick(player, elapsedTicks = 1, options = {}) {
+    advanceProgressionTick(player, elapsedTicks = 1, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -424,7 +362,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return toProgressionMutationResult(result);
     }
     /** 推进闭关修炼 tick。 */
-    advanceCultivation(player, elapsedTicks = 1, options = {}) {
+    advanceCultivation(player, elapsedTicks = 1, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -474,7 +412,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return toProgressionMutationResult(mutation);
     }
     /** 统计击杀妖兽后获得的境界和功法经验。 */
-    grantMonsterKillProgress(player, input = {}) {
+    grantMonsterKillProgress(player, input: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -997,7 +935,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const filePath = (0, project_path_1.resolveProjectPath)(...REALM_LEVELS_PATH);
+        const filePath = resolveProjectPath(...REALM_LEVELS_PATH);
 
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         const expMultiplier = normalizePositiveInt(raw?.expMultiplier, 1);
@@ -1024,15 +962,15 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             });
         }
 
-        const finalRealmStage = shared_1.PLAYER_REALM_ORDER[shared_1.PLAYER_REALM_ORDER.length - 1] ?? shared_1.PlayerRealmStage.QiRefining;
-        const configuredMaxRealmLevel = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[finalRealmStage]?.levelTo ?? 30;
+        const finalRealmStage = PLAYER_REALM_ORDER[PLAYER_REALM_ORDER.length - 1] ?? PlayerRealmStage.QiRefining;
+        const configuredMaxRealmLevel = PLAYER_REALM_STAGE_LEVEL_RANGES[finalRealmStage]?.levelTo ?? 30;
         this.maxRealmLevel = Math.min(Math.max(1, ...this.realmLevels.keys()), configuredMaxRealmLevel);
         this.loadBreakthroughTransitions();
         this.logger.log(`已从 ${filePath} 加载 ${this.realmLevels.size} 个境界等级`);
     }
     /** 读取并缓存每级突破配置。 */
     loadBreakthroughTransitions() {
-        const filePath = (0, project_path_1.resolveProjectPath)(...BREAKTHROUGHS_PATH);
+        const filePath = resolveProjectPath(...BREAKTHROUGHS_PATH);
         this.breakthroughTransitions.clear();
         if (!fs.existsSync(filePath)) {
             return;
@@ -1070,9 +1008,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return 0;
         }
         const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(realmEntry.grade ?? 'mortal'));
-        const gradeFactor = (0, monster_combat_exp_equivalent_helper_1.getMonsterCombatExpGradeFactor)(gradeIndex);
+        const gradeFactor = getMonsterCombatExpGradeFactor(gradeIndex);
         const tier = typeof monsterOrLevel === 'object' ? monsterOrLevel?.tier : monsterTier;
-        const tierFactor = (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpTierFactor)(tier);
+        const tierFactor = resolveMonsterCombatExpTierFactor(tier);
         return Math.max(0, Math.floor(Math.max(0, Number(realmEntry.expToNext) || 0) * gradeFactor * tierFactor));
     }
     /**
@@ -1092,7 +1030,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return this.createRealmStateFromLevel(rawRealmLv, rawProgress);
         }
 
-        const stage = player.realm?.stage ?? shared_1.PLAYER_REALM_ORDER[0];
+        const stage = player.realm?.stage ?? PLAYER_REALM_ORDER[0];
         return this.createRealmStateFromLevel(resolveRealmLevelFromStage(stage), rawProgress);
     }
     /**
@@ -1124,7 +1062,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const stage = resolveStageForRealmLevel(realmLv);
 
-        const config = shared_1.PLAYER_REALM_CONFIG[stage];
+        const config = PLAYER_REALM_CONFIG[stage];
         const breakthroughTransition = this.breakthroughTransitions.get(realmLv);
 
         const progressToNext = Math.max(0, entry.expToNext);
@@ -1165,7 +1103,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
  * @returns 无返回值，直接更新ResolvedRealm状态相关状态。
  */
 
-    applyResolvedRealmState(player, realm, options) {
+    applyResolvedRealmState(player, realm, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -1886,7 +1824,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const level = Math.max(1, Math.floor(technique.level ?? 1));
 
-        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, level);
+        const maxLevel = getTechniqueMaxLevel(technique.layers ?? undefined, level);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }
     /** 判断已学功法是否全部圆满。 */
@@ -1901,7 +1839,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
  * @returns 无返回值，直接更新advance功法进度Internal相关状态。
  */
 
-    advanceTechniqueProgressInternal(player, amount, options = {}) {
+    advanceTechniqueProgressInternal(player, amount, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -1918,7 +1856,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const previousExp = Math.max(0, Math.floor(technique.exp ?? 0));
 
-        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, previousLevel);
+        const maxLevel = getTechniqueMaxLevel(technique.layers ?? undefined, previousLevel);
         if (previousLevel >= maxLevel || (technique.expToNext ?? 0) <= 0) {
             if (this.areAllTechniquesMaxed(player)) {
                 return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
@@ -1926,7 +1864,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return resolved;
         }
 
-        const techniqueExpAdjustment = (0, shared_1.getTechniqueExpLevelAdjustment)(player.realm?.realmLv, technique.realmLv);
+        const techniqueExpAdjustment = getTechniqueExpLevelAdjustment(player.realm?.realmLv, technique.realmLv);
 
         const normalized = applyTechniqueRateBonus(amount, techniqueExpAdjustment, options);
         if (normalized <= 0) {
@@ -1943,8 +1881,8 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         while ((technique.expToNext ?? 0) > 0 && technique.exp >= (technique.expToNext ?? 0) && technique.level < maxLevel) {
             technique.exp -= technique.expToNext ?? 0;
             technique.level += 1;
-            technique.expToNext = (0, shared_1.getTechniqueExpToNext)(technique.level, technique.layers ?? undefined);
-            technique.realm = (0, shared_1.deriveTechniqueRealm)(technique.level, technique.layers ?? undefined);
+            technique.expToNext = getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
+            technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
             notices.push({
                 text: (technique.expToNext ?? 0) > 0
                     ? `${technique.name ?? technique.techId} 提升至第 ${technique.level} 层。`
@@ -1955,7 +1893,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
         if (technique.level >= maxLevel && (technique.expToNext ?? 0) <= 0) {
             technique.exp = 0;
-            technique.realm = shared_1.TechniqueRealm.Perfection;
+            technique.realm = TechniqueRealm.Perfection;
         }
         if (technique.level === previousLevel && technique.exp === previousExp) {
             return resolved;
@@ -1991,7 +1929,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         if (normalized <= 0) {
             return resolved;
         }
-        const bodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const bodyTraining = normalizeBodyTrainingState(player.bodyTraining);
         const previousLevel = bodyTraining.level;
         const previousExp = bodyTraining.exp;
         const notices = [...resolved.notices];
@@ -1999,7 +1937,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         while (bodyTraining.expToNext > 0 && bodyTraining.exp >= bodyTraining.expToNext) {
             bodyTraining.exp -= bodyTraining.expToNext;
             bodyTraining.level += 1;
-            bodyTraining.expToNext = (0, shared_1.getBodyTrainingExpToNext)(bodyTraining.level);
+            bodyTraining.expToNext = getBodyTrainingExpToNext(bodyTraining.level);
             notices.push({
                 text: `炼体突破至第 ${bodyTraining.level} 层，全属性提升 1%。`,
                 kind: 'success',
@@ -2047,7 +1985,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
 
         const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-        const monsterLevelDecay = (0, shared_1.getMonsterLevelExpDecayMultiplier)(level);
+        const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
         return expToNext
             * Math.max(0, expMultiplier)
             * levelAdjustment
@@ -2077,7 +2015,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
 
         const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-        const monsterLevelDecay = (0, shared_1.getMonsterLevelExpDecayMultiplier)(level);
+        const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
         return expToNext
             * Math.max(0, expMultiplier)
             * levelAdjustment
@@ -2131,13 +2069,6 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         player.dead = false;
     }
 };
-exports.PlayerProgressionService = PlayerProgressionService;
-exports.PlayerProgressionService = PlayerProgressionService = PlayerProgressionService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_attributes_service_1.PlayerAttributesService])
-], PlayerProgressionService);
-export { PlayerProgressionService };
 /**
  * resolveStageForRealmLevel：规范化或转换StageForRealm等级。
  * @param realmLv 参数说明。
@@ -2148,14 +2079,14 @@ function resolveStageForRealmLevel(realmLv) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
-    for (let index = shared_1.PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
-        const stage = shared_1.PLAYER_REALM_ORDER[index];
-        const range = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
+    for (let index = PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
+        const stage = PLAYER_REALM_ORDER[index];
+        const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
         if (range && normalizedRealmLv >= range.levelFrom) {
             return stage;
         }
     }
-    return shared_1.DEFAULT_PLAYER_REALM_STAGE;
+    return DEFAULT_PLAYER_REALM_STAGE;
 }
 /**
  * resolveRealmLevelFromStage：规范化或转换Realm等级FromStage。
@@ -2164,7 +2095,7 @@ function resolveStageForRealmLevel(realmLv) {
  */
 
 function resolveRealmLevelFromStage(stage) {
-    return shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[stage]?.levelFrom ?? 1;
+    return PLAYER_REALM_STAGE_LEVEL_RANGES[stage]?.levelFrom ?? 1;
 }
 /**
  * formatTechniqueRealmLabel：规范化或转换功法RealmLabel。
@@ -2174,13 +2105,13 @@ function resolveRealmLevelFromStage(stage) {
 
 function formatTechniqueRealmLabel(value) {
     switch (value) {
-        case shared_1.TechniqueRealm.Perfection:
+        case TechniqueRealm.Perfection:
             return '圆满';
-        case shared_1.TechniqueRealm.Major:
+        case TechniqueRealm.Major:
             return '大成';
-        case shared_1.TechniqueRealm.Minor:
+        case TechniqueRealm.Minor:
             return '小成';
-        case shared_1.TechniqueRealm.Entry:
+        case TechniqueRealm.Entry:
         default:
             return '入门';
     }
@@ -2290,7 +2221,7 @@ function applyRateBonus(baseGain, bonusRateBp, minimumGain = 1) {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
 }
 
-function applyTechniqueRateBonus(baseGain, levelAdjustment = 1, options = {}) {
+function applyTechniqueRateBonus(baseGain, levelAdjustment = 1, options: any = {}) {
     const normalizedBaseGain = Number(baseGain);
     if (!Number.isFinite(normalizedBaseGain) || normalizedBaseGain <= 0) {
         return 0;
@@ -2360,7 +2291,7 @@ function rollFractionalGain(value) {
  */
 
 function getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier) {
-    return (0, shared_1.getMonsterKillExpLevelAdjustment)(playerRealmLv, monsterLevel, monsterTier);
+    return getMonsterKillExpLevelAdjustment(playerRealmLv, monsterLevel, monsterTier);
 }
 /**
  * snapshotCultivatingTechnique：执行快照Cultivating功法相关逻辑。
@@ -2730,7 +2661,7 @@ function isTechniqueRequirementCompleted(player, requirement) {
         if (requirement.minLevel > 0 && level < requirement.minLevel) {
             continue;
         }
-        const realm = technique.realm ?? shared_1.TechniqueRealm.Entry;
+        const realm = technique.realm ?? TechniqueRealm.Entry;
         if (requirement.minRealm !== undefined && realm < requirement.minRealm) {
             continue;
         }
@@ -2751,7 +2682,7 @@ function getPlayerTotalAttributes(player) {
         return 0;
     }
     let total = 0;
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(attrs[key]);
         if (Number.isFinite(value)) {
             total += Math.floor(value);
@@ -2831,21 +2762,21 @@ function formatTechniqueGradeLabel(value) {
 
 function normalizeTechniqueRealm(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
-        return clamp(Math.floor(value), shared_1.TechniqueRealm.Entry, shared_1.TechniqueRealm.Perfection);
+        return clamp(Math.floor(value), TechniqueRealm.Entry, TechniqueRealm.Perfection);
     }
     switch (value) {
         case 'Minor':
         case 'minor':
-            return shared_1.TechniqueRealm.Minor;
+            return TechniqueRealm.Minor;
         case 'Major':
         case 'major':
-            return shared_1.TechniqueRealm.Major;
+            return TechniqueRealm.Major;
         case 'Perfection':
         case 'perfection':
-            return shared_1.TechniqueRealm.Perfection;
+            return TechniqueRealm.Perfection;
         case 'Entry':
         case 'entry':
-            return shared_1.TechniqueRealm.Entry;
+            return TechniqueRealm.Entry;
         default:
             return undefined;
     }

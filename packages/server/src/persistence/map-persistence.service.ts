@@ -1,40 +1,26 @@
-// @ts-nocheck
-"use strict";
+import { Injectable, Logger } from '@nestjs/common';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from '@mud/shared';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var MapPersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MapPersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-
-const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 /** 旧地图整档快照服务：硬切后仅保留类型边界，运行时不得再读写。 */
-let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceService {
+@Injectable()
+export class MapPersistenceService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(MapPersistenceService_1.name);    
+    logger = new Logger(MapPersistenceService.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * enabled：启用开关或状态标识。
  */
 
-    enabled = false;    
+    enabled = false;
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -44,7 +30,7 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
         this.pool = null;
         this.enabled = false;
         this.logger.log('旧地图整档快照服务已禁用：地图真源必须使用 instance_* 分域表');
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -67,7 +53,7 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
         }
         void instanceId;
         return null;
-    }    
+    }
     /**
  * saveMapSnapshot：执行save地图快照相关逻辑。
  * @param instanceId instance ID。
@@ -87,7 +73,6 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
     async safeClosePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.enabled = false;
@@ -95,11 +80,7 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
             await pool.end().catch(() => undefined);
         }
     }
-};
-exports.MapPersistenceService = MapPersistenceService;
-exports.MapPersistenceService = MapPersistenceService = MapPersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], MapPersistenceService);
+}
 
 /** 清洗并标准化地图快照，过滤无效容器/道具条目。 */
 function normalizeMapSnapshot(raw) {
@@ -282,7 +263,6 @@ function normalizeTemporaryTileEntry(raw) {
         modifiedAt: Number.isFinite(Number(raw.modifiedAt)) ? Math.max(0, Math.trunc(Number(raw.modifiedAt))) : 0,
     };
 }
-export { MapPersistenceService };
 /**
  * normalizeContainerState：规范化或转换Container状态。
  * @param raw 参数说明。
@@ -416,4 +396,3 @@ function normalizePersistedGroundItem(raw) {
             : 1,
     };
 }
-//# sourceMappingURL=map-persistence.service.js.map

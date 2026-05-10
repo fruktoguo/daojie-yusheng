@@ -1,26 +1,14 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeTransferService = void 0;
-
-const common_1 = require("@nestjs/common");
-const movement_debug_1 = require("../../debug/movement-debug");
+import { Injectable, Logger } from '@nestjs/common';
+import { logServerNextMovement } from '../../debug/movement-debug';
 
 /** world-runtime transfer orchestration：承接跨实例传送写路径。 */
-let WorldRuntimeTransferService = class WorldRuntimeTransferService {
+@Injectable()
+export class WorldRuntimeTransferService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(WorldRuntimeTransferService.name);    
+    logger = new Logger(WorldRuntimeTransferService.name);
     /**
  * applyTransfer：处理Transfer并更新相关状态。
  * @param transfer 参数说明。
@@ -50,7 +38,7 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
             deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
         }
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.transfer.apply', {
+        logServerNextMovement(this.logger, 'runtime.transfer.apply', {
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,
             fromInstanceId: transfer.fromInstanceId,
@@ -105,9 +93,3 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         deps.worldRuntimeNavigationService.handleTransfer(transfer, deps);
     }
 };
-exports.WorldRuntimeTransferService = WorldRuntimeTransferService;
-exports.WorldRuntimeTransferService = WorldRuntimeTransferService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeTransferService);
-
-export { WorldRuntimeTransferService };

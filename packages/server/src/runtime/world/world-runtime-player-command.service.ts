@@ -1,34 +1,17 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePlayerCommandService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
-const world_runtime_equipment_service_1 = require("./world-runtime-equipment.service");
-const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
-const world_runtime_navigation_service_1 = require("./world-runtime-navigation.service");
-const world_runtime_combat_command_service_1 = require("./world-runtime-combat-command.service");
-const world_runtime_cultivation_service_1 = require("./world-runtime-cultivation.service");
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
-const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
-const world_runtime_redeem_code_service_1 = require("./world-runtime-redeem-code.service");
-const world_runtime_progression_service_1 = require("./world-runtime-progression.service");
-const world_runtime_npc_shop_service_1 = require("./world-runtime-npc-shop.service");
-const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeUseItemService } from './world-runtime-use-item.service';
+import { WorldRuntimeEquipmentService } from './world-runtime-equipment.service';
+import { WorldRuntimeItemGroundService } from './world-runtime-item-ground.service';
+import { WorldRuntimeNavigationService } from './world-runtime-navigation.service';
+import { WorldRuntimeCombatCommandService } from './world-runtime-combat-command.service';
+import { WorldRuntimeCultivationService } from './world-runtime-cultivation.service';
+import { WorldRuntimeAlchemyService } from './world-runtime-alchemy.service';
+import { WorldRuntimeEnhancementService } from './world-runtime-enhancement.service';
+import { WorldRuntimeRedeemCodeService } from './world-runtime-redeem-code.service';
+import { WorldRuntimeProgressionService } from './world-runtime-progression.service';
+import { WorldRuntimeNpcShopService } from './world-runtime-npc-shop.service';
+import { WorldRuntimeNpcQuestWriteService } from './world-runtime-npc-quest-write.service';
 
 const PLAYER_COMBAT_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 
@@ -59,7 +42,7 @@ function assertCombatActionReady(player, currentTick) {
     const actionsPerTurn = resolveActionsPerTurn(player);
     const used = normalizeCombatActionCounter(player, currentTick);
     if (used >= actionsPerTurn) {
-        throw new common_1.BadRequestException('本回合行动次数已用尽');
+        throw new BadRequestException('本回合行动次数已用尽');
     }
 }
 
@@ -72,72 +55,73 @@ function recordCombatAction(player, currentTick) {
 }
 
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
-let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
+@Injectable()
+export class WorldRuntimePlayerCommandService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * worldRuntimeUseItemService：世界运行态Use道具服务引用。
  */
 
-    worldRuntimeUseItemService;    
+    worldRuntimeUseItemService;
     /**
  * worldRuntimeEquipmentService：世界运行态装备服务引用。
  */
 
-    worldRuntimeEquipmentService;    
+    worldRuntimeEquipmentService;
     /**
  * worldRuntimeItemGroundService：世界运行态道具Ground服务引用。
  */
 
-    worldRuntimeItemGroundService;    
+    worldRuntimeItemGroundService;
     /**
  * worldRuntimeNavigationService：世界运行态导航服务引用。
  */
 
-    worldRuntimeNavigationService;    
+    worldRuntimeNavigationService;
     /**
  * worldRuntimeCombatCommandService：世界运行态战斗Command服务引用。
  */
 
-    worldRuntimeCombatCommandService;    
+    worldRuntimeCombatCommandService;
     /**
  * worldRuntimeCultivationService：世界运行态Cultivation服务引用。
  */
 
-    worldRuntimeCultivationService;    
+    worldRuntimeCultivationService;
     /**
  * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
  */
 
-    worldRuntimeAlchemyService;    
+    worldRuntimeAlchemyService;
     /**
  * worldRuntimeEnhancementService：世界运行态强化服务引用。
  */
 
-    worldRuntimeEnhancementService;    
+    worldRuntimeEnhancementService;
     /**
  * worldRuntimeRedeemCodeService：世界运行态RedeemCode服务引用。
  */
 
-    worldRuntimeRedeemCodeService;    
+    worldRuntimeRedeemCodeService;
     /**
  * worldRuntimeProgressionService：世界运行态修炼进度服务引用。
  */
 
-    worldRuntimeProgressionService;    
+    worldRuntimeProgressionService;
     /**
  * worldRuntimeNpcShopService：世界运行态NPCShop服务引用。
  */
 
-    worldRuntimeNpcShopService;    
+    worldRuntimeNpcShopService;
     /**
  * worldRuntimeNpcQuestWriteService：世界运行态NPC任务Write服务引用。
  */
 
-    worldRuntimeNpcQuestWriteService;    
+    worldRuntimeNpcQuestWriteService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -156,7 +140,21 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeUseItemService, worldRuntimeEquipmentService, worldRuntimeItemGroundService, worldRuntimeNavigationService, worldRuntimeCombatCommandService, worldRuntimeCultivationService, worldRuntimeAlchemyService, worldRuntimeEnhancementService, worldRuntimeRedeemCodeService, worldRuntimeProgressionService, worldRuntimeNpcShopService, worldRuntimeNpcQuestWriteService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldRuntimeUseItemService) worldRuntimeUseItemService: any,
+        @Inject(WorldRuntimeEquipmentService) worldRuntimeEquipmentService: any,
+        @Inject(WorldRuntimeItemGroundService) worldRuntimeItemGroundService: any,
+        @Inject(WorldRuntimeNavigationService) worldRuntimeNavigationService: any,
+        @Inject(WorldRuntimeCombatCommandService) worldRuntimeCombatCommandService: any,
+        @Inject(WorldRuntimeCultivationService) worldRuntimeCultivationService: any,
+        @Inject(WorldRuntimeAlchemyService) worldRuntimeAlchemyService: any,
+        @Inject(WorldRuntimeEnhancementService) worldRuntimeEnhancementService: any,
+        @Inject(WorldRuntimeRedeemCodeService) worldRuntimeRedeemCodeService: any,
+        @Inject(WorldRuntimeProgressionService) worldRuntimeProgressionService: any,
+        @Inject(WorldRuntimeNpcShopService) worldRuntimeNpcShopService: any,
+        @Inject(WorldRuntimeNpcQuestWriteService) worldRuntimeNpcQuestWriteService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimeEquipmentService = worldRuntimeEquipmentService;
@@ -170,7 +168,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         this.worldRuntimeProgressionService = worldRuntimeProgressionService;
         this.worldRuntimeNpcShopService = worldRuntimeNpcShopService;
         this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
-    }    
+    }
     /**
  * dispatchStartTechniqueActivity：统一开始技艺活动命令分发。
  * @param playerId 玩家 ID。
@@ -197,7 +195,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 );
                 return;
         }
-    }    
+    }
     /**
  * dispatchCancelTechniqueActivity：统一取消技艺活动命令分发。
  * @param playerId 玩家 ID。
@@ -223,7 +221,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 );
                 return;
         }
-    }    
+    }
     /**
  * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
@@ -352,7 +350,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
             ? Math.max(0, Math.trunc(deps.resolveCurrentTickForPlayerId(playerId)))
             : 0;
         if (player.combat?.pendingSkillCast) {
-            throw new common_1.BadRequestException(command.kind === 'castSkill'
+            throw new BadRequestException(command.kind === 'castSkill'
                 ? '正在吟唱中，无法继续施法。'
                 : '正在吟唱中，无法执行战斗动作。');
         }
@@ -366,22 +364,3 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         return result;
     }
 };
-exports.WorldRuntimePlayerCommandService = WorldRuntimePlayerCommandService;
-exports.WorldRuntimePlayerCommandService = WorldRuntimePlayerCommandService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_use_item_service_1.WorldRuntimeUseItemService,
-        world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
-        world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
-        world_runtime_navigation_service_1.WorldRuntimeNavigationService,
-        world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
-        world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
-        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
-        world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
-        world_runtime_progression_service_1.WorldRuntimeProgressionService,
-        world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
-        world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService])
-], WorldRuntimePlayerCommandService);
-
-export { WorldRuntimePlayerCommandService };

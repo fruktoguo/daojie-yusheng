@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -26,7 +26,7 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
   private initialized = false;
   private initPromise: Promise<void> | null = null;
 
-  constructor(private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
+  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
   async onModuleInit(): Promise<void> {
     await this.ensureInitialized();

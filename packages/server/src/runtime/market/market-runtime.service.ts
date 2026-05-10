@@ -1,45 +1,19 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var MarketRuntimeService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MarketRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const crypto_1 = require("crypto");
-
-const shared_1 = require("@mud/shared");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const market_1 = require("../../constants/gameplay/market");
-
-const market_persistence_service_1 = require("../../persistence/market-persistence.service");
-
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { createHash, randomUUID } from 'crypto';
+import { EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
+import { MarketPersistenceService } from '../../persistence/market-persistence.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
 const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
 
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
-let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
+@Injectable()
+export class MarketRuntimeService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -66,7 +40,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     instanceCatalogService;
     /** 运行时日志器，记录加载、撮合与持久化异常。 */
-    logger = new common_1.Logger(MarketRuntimeService_1.name);
+    logger = new Logger(MarketRuntimeService.name);
     /** 当前仍然有效的求购/出售挂单。 */
     openOrders = [];
     /** 最近成交记录，用于交易历史面板。 */
@@ -80,7 +54,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 串行化坊市写操作，避免并发修改同一份内存状态。 */
     marketOperationQueue = Promise.resolve();
     /** 注入内容、玩家与坊市持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, marketPersistenceService, durableOperationService, instanceCatalogService) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(MarketPersistenceService) marketPersistenceService: any,
+        @Inject(DurableOperationService) durableOperationService: any,
+        @Inject(InstanceCatalogService) instanceCatalogService: any,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.marketPersistenceService = marketPersistenceService;
@@ -132,7 +112,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 生成玩家进入坊市时需要的总览数据。 */
     buildMarketUpdate(playerId) {
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
             listedItems: [],
             myOrders: this.buildOwnOrders(playerId),
@@ -162,7 +142,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const start = (page - 1) * pageSize;
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
             page,
             pageSize,
@@ -198,7 +178,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const start = (page - 1) * request.pageSize;
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
             tab: request.tab,
             page,
@@ -250,7 +230,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         const categoryCounts = {
             all: this.groupMarketListingEntriesForPage(entries).length,
         };
-        for (const itemType of shared_1.ITEM_TYPES) {
+        for (const itemType of ITEM_TYPES) {
             categoryCounts[itemType] = this.groupMarketListingEntriesForPage(
                 this.filterMarketListingEntries(entries, itemType, 'all', 'all'),
             ).length;
@@ -259,7 +239,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         const equipmentSlotCounts = {
             all: this.groupMarketListingEntriesForPage(equipmentEntries).length,
         };
-        for (const slot of shared_1.EQUIP_SLOTS) {
+        for (const slot of EQUIP_SLOTS) {
             equipmentSlotCounts[slot] = this.groupMarketListingEntriesForPage(
                 this.filterMarketListingEntries(entries, 'equipment', slot, 'all'),
             ).length;
@@ -282,7 +262,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 构造玩家自己的挂单列表。 */
     buildMarketOrders(playerId) {
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
             orders: this.buildOwnOrders(playerId),
         };
@@ -311,7 +291,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             book.itemKey = responseItemKey;
         }
         return {
-            currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
             itemKey: responseItemKey,
             book,
@@ -322,21 +302,21 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const visibleRecords = this.tradeHistory
             .filter((entry) => entry.buyerId === playerId || entry.sellerId === playerId)
-            .slice(0, market_1.MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+            .slice(0, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
 
         const totalVisible = visibleRecords.length;
 
-        const totalPages = Math.max(1, Math.ceil(totalVisible / market_1.MARKET_TRADE_HISTORY_PAGE_SIZE));
+        const totalPages = Math.max(1, Math.ceil(totalVisible / MARKET_TRADE_HISTORY_PAGE_SIZE));
 
         const normalizedPage = Math.max(1, Math.min(totalPages, Math.trunc(Number.isFinite(page) ? page : 1)));
 
-        const start = (normalizedPage - 1) * market_1.MARKET_TRADE_HISTORY_PAGE_SIZE;
+        const start = (normalizedPage - 1) * MARKET_TRADE_HISTORY_PAGE_SIZE;
         return {
             page: normalizedPage,
-            pageSize: market_1.MARKET_TRADE_HISTORY_PAGE_SIZE,
+            pageSize: MARKET_TRADE_HISTORY_PAGE_SIZE,
             totalVisible,
             records: visibleRecords
-                .slice(start, start + market_1.MARKET_TRADE_HISTORY_PAGE_SIZE)
+                .slice(start, start + MARKET_TRADE_HISTORY_PAGE_SIZE)
                 .map((entry) => this.toTradeHistoryView(playerId, entry)),
         };
     }
@@ -356,7 +336,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!quantity || !unitPrice) {
                 return this.singleMessage(playerId, '挂售数量或单价无效。');
             }
-            if (!(0, shared_1.isValidMarketTradeQuantity)(unitPrice, quantity)) {
+            if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
             if (item.count < quantity) {
@@ -414,7 +394,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const order = {
                     version: 1,
-                    id: (0, crypto_1.randomUUID)(),
+                    id: randomUUID(),
                     ownerId: playerId,
                     side: 'sell',
                     status: 'open',
@@ -455,7 +435,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!quantity || !unitPrice) {
                 return this.singleMessage(playerId, '求购数量或单价无效。');
             }
-            if (!(0, shared_1.isValidMarketTradeQuantity)(unitPrice, quantity)) {
+            if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
 
@@ -466,7 +446,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '同一种物品已在挂售中，不能同时求购。');
             }
 
-            const totalCost = (0, shared_1.calculateMarketTradeTotalCost)(quantity, unitPrice);
+            const totalCost = calculateMarketTradeTotalCost(quantity, unitPrice);
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
@@ -500,7 +480,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     unitPrice: tradePrice,
                 }, context);
 
-                const reservedCost = (0, shared_1.calculateMarketTradeTotalCost)(tradeQuantity, unitPrice) ?? match.totalCost;
+                const reservedCost = calculateMarketTradeTotalCost(tradeQuantity, unitPrice) ?? match.totalCost;
 
                 const refund = Math.max(0, reservedCost - match.totalCost);
                 if (refund > 0) {
@@ -523,7 +503,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const order = {
                     version: 1,
-                    id: (0, crypto_1.randomUUID)(),
+                    id: randomUUID(),
                     ownerId: playerId,
                     side: 'buy',
                     status: 'open',
@@ -559,7 +539,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '当前没有可买入的挂售。');
             }
 
-            const plan = this.planOrderMatches(sells, quantity);
+            const plan = this.planOrderMatches(sells, quantity, Number.POSITIVE_INFINITY);
             if (plan.fulfilledQuantity < quantity) {
                 return this.singleMessage(playerId, `当前最多只能买到 ${plan.fulfilledQuantity} 件。`);
             }
@@ -582,7 +562,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                         break;
                     }
                     const nextSellerInventoryItems = applyMarketBuyNowToSellerInventory(sellerSnapshot.inventory.items ?? [], sellOrder.item, match.quantity);
-                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet.balances ?? [], MARKET_CURRENCY_ITEM_ID, match.totalCost);
                     if (!nextSellerInventoryItems || !nextSellerWalletBalances) {
                         matchedSellerPlans.length = 0;
                         break;
@@ -614,9 +594,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 if (buyerRuntimeOwnerId && buyerSessionEpoch > 0) {
                     const instanceLease = await this.resolveInstanceLeaseContext(buyerSnapshot.instanceId ?? null);
                     const nextBuyerInventoryItems = applyMarketSellNowToInventory(buyerSnapshot.inventory.items ?? [], item, quantity);
-                    const nextBuyerWalletBalances = applyMarketBuyNowToBuyerWalletBalances(buyerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+                    const nextBuyerWalletBalances = applyMarketBuyNowToBuyerWalletBalances(buyerSnapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, totalCost);
                     if (nextBuyerInventoryItems && nextBuyerWalletBalances) {
-                        const operationId = `market-buy-now:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                        const operationId = `market-buy-now:${playerId}:${Date.now()}:${randomUUID()}`;
                         const durableResult = await durableOperationService.settleMarketBuyNow({
                             operationId,
                             buyerId: playerId,
@@ -642,7 +622,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                                 const tradeQuantity = match.quantity;
                                 if (sellerPlan) {
                                     this.playerRuntimeService.replaceInventoryItems(sellOrder.ownerId, sellerPlan.nextSellerInventoryItems);
-                                    this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, sellerPlan.totalCost);
+                                    this.playerRuntimeService.creditWallet(sellOrder.ownerId, MARKET_CURRENCY_ITEM_ID, sellerPlan.totalCost);
                                 }
                                 this.recordTrade({
                                     buyerId: playerId,
@@ -724,7 +704,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '当前没有可直接成交的求购。');
             }
 
-            const plan = this.planOrderMatches(buys, quantity);
+            const plan = this.planOrderMatches(buys, quantity, Number.POSITIVE_INFINITY);
             if (plan.fulfilledQuantity < quantity) {
                 return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
@@ -766,9 +746,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 if (sellerRuntimeOwnerId && sellerSessionEpoch > 0) {
                     const instanceLease = await this.resolveInstanceLeaseContext(sellerSnapshot.instanceId ?? null);
                     const nextSellerInventoryItems = cloneInventoryItems(this.playerRuntimeService.getPlayerOrThrow(playerId).inventory.items ?? []);
-                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, totalIncome);
+                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, totalIncome);
                     if (nextSellerInventoryItems && nextSellerWalletBalances) {
-                        const operationId = `market-sell-now:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                        const operationId = `market-sell-now:${playerId}:${Date.now()}:${randomUUID()}`;
                         const durableResult = await durableOperationService.settleMarketSellNow({
                             operationId,
                             sellerId: playerId,
@@ -786,7 +766,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                             matches: matchedBuyerPlans,
                         });
                         if (durableResult?.ok) {
-                            this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalIncome);
+                            this.playerRuntimeService.creditWallet(playerId, MARKET_CURRENCY_ITEM_ID, totalIncome);
                             for (const match of plan.matches) {
                                 const buyOrder = match.order;
                                 const tradeQuantity = match.quantity;
@@ -862,12 +842,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
             if (order.side !== 'buy' && playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
-                const operationId = `market-cancel-order:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                const operationId = `market-cancel-order:${playerId}:${Date.now()}:${randomUUID()}`;
                 const nextInventoryItems = order.side === 'sell'
                     ? applyMarketSellNowToInventory(playerSnapshot.inventory.items ?? [], { ...order.item, count: order.remainingQuantity }, order.remainingQuantity)
                     : cloneInventoryItems(playerSnapshot.inventory.items ?? []);
                 const nextWalletBalances = order.side === 'buy'
-                    ? applyMarketSellNowToWalletBalances(playerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice))
+                    ? applyMarketSellNowToWalletBalances(playerSnapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice))
                     : cloneWalletBalances(playerSnapshot.wallet?.balances ?? []);
                 if (nextInventoryItems && nextWalletBalances) {
                     const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
@@ -890,7 +870,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                         }
                         this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
                         if (order.side === 'buy') {
-                            this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice));
+                            this.playerRuntimeService.creditWallet(playerId, MARKET_CURRENCY_ITEM_ID, calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice));
                         }
                         order.status = 'cancelled';
                         order.remainingQuantity = 0;
@@ -915,7 +895,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             else {
 
-                const refund = (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice);
+                const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
                 if (refund) {
                     this.deliverMarketCurrencyToPlayer(playerId, refund, context);
                 }
@@ -955,7 +935,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     }
                     const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
                     this.captureOnlinePlayerState(playerId, context);
-                    const operationId = `market-storage-claim:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                    const operationId = `market-storage-claim:${playerId}:${Date.now()}:${randomUUID()}`;
                     const result = await this.durableOperationService.claimMarketStorage({
                         operationId,
                         playerId,
@@ -1022,7 +1002,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     buildListedItems() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const grouped = new Map();
         for (const template of this.contentTemplateRepository.listItemTemplates()) {
@@ -1117,7 +1096,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     buildMarketListingEntries() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         return this.buildListedItems().map((entry) => ({
             itemKey: this.buildClientMarketKey(entry.itemKey),
@@ -1292,8 +1270,8 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (unitPrice < minBidPrice) {
                 return this.singleMessage(playerId, `最低加价为 ${this.formatUnitPrice(minBidPrice)} ${this.getCurrencyItemName()}。`);
             }
-            const quantity = (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice);
-            const totalCost = (0, shared_1.calculateMarketTradeTotalCost)(quantity, unitPrice);
+            const quantity = getMarketMinimumTradeQuantity(unitPrice);
+            const totalCost = calculateMarketTradeTotalCost(quantity, unitPrice);
             if (totalCost === null) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法出价。`);
             }
@@ -1360,7 +1338,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             const bids = this.getSortedAuctionBids(itemKey);
             const buyoutUnitPrice = Math.max(sellOrder.unitPrice, bids[0]?.unitPrice ?? sellOrder.unitPrice);
-            const totalCost = (0, shared_1.calculateMarketTradeTotalCost)(1, buyoutUnitPrice);
+            const totalCost = calculateMarketTradeTotalCost(1, buyoutUnitPrice);
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(buyoutUnitPrice));
             }
@@ -1638,7 +1616,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             this.clearAuctionStateForItemKey(normalizedItemKey, context);
             return true;
         }
-        const totalCost = (0, shared_1.calculateMarketTradeTotalCost)(1, highestBid.unitPrice);
+        const totalCost = calculateMarketTradeTotalCost(1, highestBid.unitPrice);
         if (totalCost === null || highestBid.reservedCost < totalCost) {
             this.refundAuctionBidReserves(normalizedItemKey, context, result, `拍卖行拍品结算失败，冻结灵石已退回。`);
             this.clearAuctionStateForItemKey(normalizedItemKey, context);
@@ -1692,10 +1670,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }
     /** 当前价向上走一档得到拍卖最低加价。 */
     getAuctionMinimumBidPrice(currentPrice) {
-        if (currentPrice >= shared_1.MARKET_MAX_UNIT_PRICE) {
-            return shared_1.MARKET_MAX_UNIT_PRICE;
+        if (currentPrice >= MARKET_MAX_UNIT_PRICE) {
+            return MARKET_MAX_UNIT_PRICE;
         }
-        return (0, shared_1.normalizeMarketPriceUp)(currentPrice + (0, shared_1.getMarketPriceStep)(currentPrice));
+        return normalizeMarketPriceUp(currentPrice + getMarketPriceStep(currentPrice));
     }
     /** 把内部买入结算结果改写成拍卖一口价提示。 */
     rewriteAuctionBuyoutNotices(result, playerId) {
@@ -1726,7 +1704,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     normalizeAuctionListingsRequest(payload) {
         const page = Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1;
         const requestedPageSize = Number.isFinite(payload?.pageSize) ? Math.max(1, Math.trunc(payload.pageSize)) : 10;
-        const category = typeof payload?.category === 'string' && (payload.category === 'all' || shared_1.ITEM_TYPES.includes(payload.category))
+        const category = typeof payload?.category === 'string' && (payload.category === 'all' || ITEM_TYPES.includes(payload.category))
             ? payload.category
             : 'all';
         return {
@@ -1760,7 +1738,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 构造拍卖行分类计数。 */
     buildAuctionListingCounts(entries) {
         const categoryCounts = { all: entries.length };
-        for (const itemType of shared_1.ITEM_TYPES) {
+        for (const itemType of ITEM_TYPES) {
             categoryCounts[itemType] = entries.filter((entry) => entry.itemType === itemType).length;
         }
         return { categoryCounts };
@@ -1926,7 +1904,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     buildItemBookView(itemKey) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey);
         if (!normalizedItemKey) {
             return null;
@@ -1951,7 +1928,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     buildPriceLevels(itemKey, side) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const grouped = new Map();
         for (const order of this.openOrders) {
@@ -2021,7 +1997,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     planOrderMatches(orders, quantity, takerUnitPrice) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         let remaining = quantity;
 
         let total = 0;
@@ -2039,7 +2014,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 continue;
             }
 
-            const tradeTotal = (0, shared_1.calculateMarketTradeTotalCost)(traded, order.unitPrice);
+            const tradeTotal = calculateMarketTradeTotalCost(traded, order.unitPrice);
             if (!tradeTotal) {
                 continue;
             }
@@ -2074,10 +2049,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         let quantityStep = 1;
         for (const unitPrice of unitPrices) {
-            if (!unitPrice || !(0, shared_1.isValidMarketPrice)(unitPrice)) {
+            if (!unitPrice || !isValidMarketPrice(unitPrice)) {
                 continue;
             }
-            quantityStep = this.leastCommonMultiple(quantityStep, (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice));
+            quantityStep = this.leastCommonMultiple(quantityStep, getMarketMinimumTradeQuantity(unitPrice));
         }
         return Math.floor(maxQuantity / quantityStep) * quantityStep;
     }
@@ -2106,7 +2081,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     greatestCommonDivisor(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         let currentLeft = Math.abs(Math.trunc(left));
 
         let currentRight = Math.abs(Math.trunc(right));
@@ -2126,7 +2100,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     buildItemKey(item) {
         const normalized = this.toOrderItem(item);
-        const identity = {
+        const identity: any = {
             itemId: normalized.itemId,
         };
         if (normalized.type === 'equipment') {
@@ -2156,7 +2130,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (!normalizedItemKey) {
             return '';
         }
-        return (0, crypto_1.createHash)('sha1').update(normalizedItemKey).digest('base64url').replace(/[-_]/g, '').slice(0, 18);
+        return createHash('sha1').update(normalizedItemKey).digest('base64url').replace(/[-_]/g, '').slice(0, 18);
     }
     /**
  * resolveInternalMarketItemKey：把客户端短 key 还原成内部完整签名。
@@ -2166,7 +2140,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     resolveInternalMarketItemKey(itemKey) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
         if (!normalizedItemKey) {
@@ -2216,7 +2189,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     resolveMarketItemForBuy(payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const itemKey = this.resolveInternalMarketItemKey(payload?.itemKey);
         if (itemKey) {
@@ -2295,8 +2267,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     createCurrencyItem(count) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const item = this.contentTemplateRepository.createItem(market_1.MARKET_CURRENCY_ITEM_ID, count);
+        const item = this.contentTemplateRepository.createItem(MARKET_CURRENCY_ITEM_ID, count);
         if (item) {
             return this.toFullItem({
                 ...item,
@@ -2304,7 +2275,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             });
         }
         return {
-            itemId: market_1.MARKET_CURRENCY_ITEM_ID,
+            itemId: MARKET_CURRENCY_ITEM_ID,
             name: this.getCurrencyItemName(),
             type: 'consumable',
             count,
@@ -2323,7 +2294,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (normalizedAmount <= 0) {
             return true;
         }
-        return this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, normalizedAmount);
+        return this.playerRuntimeService.canAffordWallet(playerId, MARKET_CURRENCY_ITEM_ID, normalizedAmount);
     }
     /**
  * consumeMarketCurrencyFromInventory：从背包扣除坊市结算灵石。
@@ -2338,7 +2309,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return true;
         }
         try {
-            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, normalizedAmount);
+            this.playerRuntimeService.debitWallet(playerId, MARKET_CURRENCY_ITEM_ID, normalizedAmount);
         }
         catch {
             return false;
@@ -2406,7 +2377,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  */
 
     canTradeItemOnMarket(item) {
-        return item.itemId !== market_1.MARKET_CURRENCY_ITEM_ID;
+        return item.itemId !== MARKET_CURRENCY_ITEM_ID;
     }
     /**
  * normalizeQuantity：规范化或转换Quantity。
@@ -2422,7 +2393,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         }
 
         const quantity = Math.trunc(value);
-        if (quantity <= 0 || quantity > market_1.MARKET_MAX_ORDER_QUANTITY) {
+        if (quantity <= 0 || quantity > MARKET_MAX_ORDER_QUANTITY) {
             return null;
         }
         return quantity;
@@ -2441,7 +2412,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         }
 
         const unitPrice = value;
-        if (unitPrice <= 0 || unitPrice > shared_1.MARKET_MAX_UNIT_PRICE || !(0, shared_1.isValidMarketPrice)(unitPrice)) {
+        if (unitPrice <= 0 || unitPrice > MARKET_MAX_UNIT_PRICE || !isValidMarketPrice(unitPrice)) {
             return null;
         }
         return unitPrice;
@@ -2455,8 +2426,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     buildTradeQuantityError(unitPrice) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const minimumQuantity = (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice);
+        const minimumQuantity = getMarketMinimumTradeQuantity(unitPrice);
         if (minimumQuantity <= 1) {
             return '挂售数量或单价无效。';
         }
@@ -2482,7 +2452,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     deliverItemToPlayer(playerId, item, context) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (player) {
             this.captureOnlinePlayerState(playerId, context);
@@ -2507,14 +2476,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     mergeStorageItem(playerId, item, context) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const current = this.storageByPlayerId.get(playerId);
 
         const next = cloneStorage(current);
 
-        const signature = (0, shared_1.createItemStackSignature)(item);
+        const signature = createItemStackSignature(item);
 
-        const existing = next.items.find((entry) => (0, shared_1.createItemStackSignature)(entry) === signature);
+        const existing = next.items.find((entry) => createItemStackSignature(entry) === signature);
         if (existing) {
             existing.count += item.count;
         }
@@ -2558,7 +2526,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     recordTrade(payload, context) {
         context.newTradeRecords.push({
             version: 1,
-            id: (0, crypto_1.randomUUID)(),
+            id: randomUUID(),
             buyerId: payload.buyerId,
             sellerId: payload.sellerId,
             itemId: payload.itemId,
@@ -2715,7 +2683,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  */
 
     getCurrencyItemName() {
-        return this.contentTemplateRepository.getItemName(market_1.MARKET_CURRENCY_ITEM_ID) ?? '灵石';
+        return this.contentTemplateRepository.getItemName(MARKET_CURRENCY_ITEM_ID) ?? '灵石';
     }
     /**
  * buildClaimStoragePlan：构建领取托管仓的目标背包与剩余仓库。
@@ -2869,7 +2837,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     async runExclusive(action) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const previous = this.marketOperationQueue;
 
         let release;
@@ -2884,17 +2851,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             release();
         }
     }
-};
-exports.MarketRuntimeService = MarketRuntimeService;
-exports.MarketRuntimeService = MarketRuntimeService = MarketRuntimeService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        market_persistence_service_1.MarketPersistenceService,
-        durable_operation_service_1.DurableOperationService,
-        instance_catalog_service_1.InstanceCatalogService])
-], MarketRuntimeService);
-export { MarketRuntimeService };
+}
 /**
  * cloneStorage：构建Storage。
  * @param storage 参数说明。

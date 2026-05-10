@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -38,7 +38,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
   private enabled = false;
 
-  constructor(private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
+  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('player-flush-ledger') ?? null;

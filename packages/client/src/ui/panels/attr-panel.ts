@@ -963,6 +963,7 @@ export class AttrPanel {
       data.gatherSkill,
       data.enhancementSkill,
       data.numericStatBreakdowns,
+      data.forgingSkill,
     );
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
@@ -996,6 +997,7 @@ export class AttrPanel {
       buildingSkill: player.buildingSkill,
       gatherSkill: player.gatherSkill,
       enhancementSkill: player.enhancementSkill,
+      forgingSkill: player.forgingSkill,
     };
     this.detailStale = false;
     const finalAttrs = player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses);
@@ -1018,6 +1020,7 @@ export class AttrPanel {
       player.gatherSkill,
       player.enhancementSkill,
       this.latestData.numericStatBreakdowns,
+      player.forgingSkill,
     );
     this.render(snapshot);
   }
@@ -1049,6 +1052,7 @@ export class AttrPanel {
       detail.gatherSkill,
       detail.enhancementSkill,
       detail.numericStatBreakdowns,
+      detail.forgingSkill,
     );
     this.render(snapshot);
   }
@@ -1107,6 +1111,7 @@ export class AttrPanel {
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
     numericStatBreakdowns?: NumericStatBreakdownMap,
+    forgingSkill?: PlayerState['forgingSkill'],
   ): AttrPanelSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1150,7 +1155,7 @@ export class AttrPanel {
           },
         }, final, numericStatBreakdowns),
         special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, final, numericStatBreakdowns),
-        craft: this.buildCraftPaneSnapshot(alchemySkill, buildingSkill, gatherSkill, enhancementSkill),
+        craft: this.buildCraftPaneSnapshot(alchemySkill, buildingSkill, gatherSkill, enhancementSkill, forgingSkill),
       },
     };
   }
@@ -1581,7 +1586,7 @@ export class AttrPanel {
  * buildCraftSkillSnapshot：构建并返回目标对象。
  * @param key string 参数说明。
  * @param label string 参数说明。
- * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] 参数说明。
+ * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] | PlayerState['forgingSkill'] | PlayerState['buildingSkill'] 参数说明。
  * @returns 返回炼制技能快照。
  */
 
@@ -1589,7 +1594,12 @@ export class AttrPanel {
   private buildCraftSkillSnapshot(
     key: string,
     label: string,
-    skill?: PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'],
+    skill?:
+      | PlayerState['alchemySkill']
+      | PlayerState['gatherSkill']
+      | PlayerState['enhancementSkill']
+      | PlayerState['forgingSkill']
+      | PlayerState['buildingSkill'],
   ): AttrCraftSkillSnapshot | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1629,6 +1639,7 @@ export class AttrPanel {
     buildingSkill?: PlayerState['buildingSkill'],
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
+    forgingSkill?: PlayerState['forgingSkill'],
   ): AttrPaneSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1636,7 +1647,7 @@ export class AttrPanel {
       this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
       this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
       this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
-      this.buildCraftSkillSnapshot('forging', '炼器', { level: 1, exp: 0, expToNext: 60 }),
+      this.buildCraftSkillSnapshot('forging', '炼器', forgingSkill),
       this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
     ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
     if (skills.length === 0) {

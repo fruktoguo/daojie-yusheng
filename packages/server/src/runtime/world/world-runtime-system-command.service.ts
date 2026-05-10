@@ -1,57 +1,38 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeSystemCommandService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-
-const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
-
-const world_runtime_monster_system_command_service_1 = require("./world-runtime-monster-system-command.service");
-
-const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-player-combat-outcome.service");
-const world_runtime_gm_system_command_service_1 = require("./world-runtime-gm-system-command.service");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '@mud/shared';
+import { WorldRuntimeGmQueueService } from './world-runtime-gm-queue.service';
+import { WorldRuntimeMonsterSystemCommandService } from './world-runtime-monster-system-command.service';
+import { WorldRuntimePlayerCombatOutcomeService } from './world-runtime-player-combat-outcome.service';
+import { WorldRuntimeGmSystemCommandService } from './world-runtime-gm-system-command.service';
 
 /** world-runtime system-command orchestration：承接系统命令队列消费与分发。 */
-let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
+@Injectable()
+export class WorldRuntimeSystemCommandService {
 /**
  * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
-    worldRuntimeGmQueueService;    
+    worldRuntimeGmQueueService;
     /**
  * worldRuntimeMonsterSystemCommandService：世界运行态怪物SystemCommand服务引用。
  */
 
-    worldRuntimeMonsterSystemCommandService;    
+    worldRuntimeMonsterSystemCommandService;
     /**
  * worldRuntimePlayerCombatOutcomeService：世界运行态玩家战斗Outcome服务引用。
  */
 
-    worldRuntimePlayerCombatOutcomeService;    
+    worldRuntimePlayerCombatOutcomeService;
     /**
  * worldRuntimeGmSystemCommandService：世界运行态GMSystemCommand服务引用。
  */
 
-    worldRuntimeGmSystemCommandService;    
+    worldRuntimeGmSystemCommandService;
     /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(WorldRuntimeSystemCommandService.name);    
+    logger = new Logger(WorldRuntimeSystemCommandService.name);
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeGmQueueService 参数说明。
@@ -61,12 +42,17 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeGmQueueService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimeGmSystemCommandService) {
+    constructor(
+        @Inject(WorldRuntimeGmQueueService) worldRuntimeGmQueueService: any,
+        @Inject(WorldRuntimeMonsterSystemCommandService) worldRuntimeMonsterSystemCommandService: any,
+        @Inject(WorldRuntimePlayerCombatOutcomeService) worldRuntimePlayerCombatOutcomeService: any,
+        @Inject(WorldRuntimeGmSystemCommandService) worldRuntimeGmSystemCommandService: any,
+    ) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeMonsterSystemCommandService = worldRuntimeMonsterSystemCommandService;
         this.worldRuntimePlayerCombatOutcomeService = worldRuntimePlayerCombatOutcomeService;
         this.worldRuntimeGmSystemCommandService = worldRuntimeGmSystemCommandService;
-    }    
+    }
     /**
  * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
  * @param deps 运行时依赖。
@@ -89,7 +75,7 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
                 this.logger.warn(`处理系统指令 ${command.kind} 失败：${message}`);
             }
         }
-    }    
+    }
     /**
  * dispatchSystemCommand：判断SystemCommand是否满足条件。
  * @param command 输入指令。
@@ -156,27 +142,19 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
             : currentTick;
         deps.playerRuntimeService.setSkillCooldownReadyTick(
             playerId,
-            shared_1.RETURN_TO_SPAWN_ACTION_ID,
-            nextTick + shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS,
+            RETURN_TO_SPAWN_ACTION_ID,
+            nextTick + RETURN_TO_SPAWN_COOLDOWN_TICKS,
             nextTick,
         );
     }
 };
-exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService;
-exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
-        world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
-        world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService,
-        world_runtime_gm_system_command_service_1.WorldRuntimeGmSystemCommandService])
-], WorldRuntimeSystemCommandService);
 
 function normalizeReturnToSpawnReadyTick(player, currentTick) {
     const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
     if (!cooldowns) {
         return 0;
     }
-    const actionId = shared_1.RETURN_TO_SPAWN_ACTION_ID;
+    const actionId = RETURN_TO_SPAWN_ACTION_ID;
     const readyTick = Math.max(0, Math.trunc(Number(cooldowns[actionId] ?? 0)));
     if (readyTick <= 0) {
         return 0;
@@ -185,15 +163,13 @@ function normalizeReturnToSpawnReadyTick(player, currentTick) {
     const remainingTicks = readyTick - normalizedCurrentTick;
     if (normalizedCurrentTick <= 0) {
         // 系统命令缺少地图 tick 时只收敛提示值，不清运行时真源。
-        return readyTick > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
-            ? shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS
+        return readyTick > RETURN_TO_SPAWN_COOLDOWN_TICKS
+            ? RETURN_TO_SPAWN_COOLDOWN_TICKS
             : readyTick;
     }
-    if (remainingTicks <= 0 || remainingTicks > shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS) {
+    if (remainingTicks <= 0 || remainingTicks > RETURN_TO_SPAWN_COOLDOWN_TICKS) {
         delete cooldowns[actionId];
         return 0;
     }
     return readyTick;
 }
-
-export { WorldRuntimeSystemCommandService };

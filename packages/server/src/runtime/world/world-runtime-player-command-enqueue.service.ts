@@ -1,34 +1,7 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") {
-        r = Reflect.decorate(decorators, target, key, desc);
-    }
-    else {
-        for (var i = decorators.length - 1; i >= 0; i--) {
-            if (d = decorators[i]) {
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-            }
-        }
-    }
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") {
-        return Reflect.metadata(k, v);
-    }
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePlayerCommandEnqueueService = void 0;
-
-const common_1 = require("@nestjs/common");
-const technique_activity_registry_helpers_1 = require("../craft/technique-activity-registry.helpers");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { buildTechniqueActivityCancelCommand, buildTechniqueActivityStartCommand } from '../craft/technique-activity-registry.helpers';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
     normalizeSlotIndex,
@@ -39,21 +12,24 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 /** world-runtime player-command enqueue orchestration：承接玩家命令入队前的归一化、校验与排队。 */
-let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnqueueService {
+@Injectable()
+export class WorldRuntimePlayerCommandEnqueueService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * enqueueBasicAttack：处理BasicAttack并更新相关状态。
  * @param playerId 玩家 ID。
@@ -72,7 +48,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             targetXInput,
             targetYInput,
         }, deps);
-    }    
+    }
     /**
  * enqueueBattleTarget：读取Battle目标并返回结果。
  * @param playerId 玩家 ID。
@@ -93,7 +69,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             targetYInput,
             locked,
         }, deps);
-    }    
+    }
     /**
  * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -109,7 +85,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             slotIndex: normalizeSlotIndex(payload?.slotIndex),
             payload: { ...(payload ?? {}) },
         }, deps);
-    }    
+    }
     enqueueCreateFormation(playerId, payload, deps) {
         deps.getPlayerLocationOrThrow(playerId);
         return this.enqueueNormalizedPlayerCommand(playerId, {
@@ -146,7 +122,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             slotIndex: normalizeSlotIndex(slotIndexInput),
             count: normalizePositiveCount(countInput),
         }, deps);
-    }    
+    }
     /**
  * enqueueTakeGround：处理Take地面并更新相关状态。
  * @param playerId 玩家 ID。
@@ -164,10 +140,10 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
         const itemKey = typeof itemKeyInput === 'string' ? itemKeyInput.trim() : '';
         if (!sourceId) {
-            throw new common_1.BadRequestException('来源 ID 不能为空');
+            throw new BadRequestException('来源 ID 不能为空');
         }
         if (!itemKey) {
-            throw new common_1.BadRequestException('物品键不能为空');
+            throw new BadRequestException('物品键不能为空');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'takeGround',
@@ -175,7 +151,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             itemKey,
         });
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * enqueueTakeGroundAll：处理Take地面All并更新相关状态。
  * @param playerId 玩家 ID。
@@ -191,14 +167,14 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
         if (!sourceId) {
-            throw new common_1.BadRequestException('来源 ID 不能为空');
+            throw new BadRequestException('来源 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'takeGroundAll',
             sourceId,
         });
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
@@ -212,7 +188,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'equip',
             slotIndex: normalizeSlotIndex(slotIndexInput),
         }, deps);
-    }    
+    }
     /**
  * enqueueUnequip：处理Unequip并更新相关状态。
  * @param playerId 玩家 ID。
@@ -226,7 +202,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'unequip',
             slot: normalizeEquipSlot(slotInput),
         }, deps);
-    }    
+    }
     /**
  * enqueueCultivate：处理Cultivate并更新相关状态。
  * @param playerId 玩家 ID。
@@ -240,7 +216,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'cultivate',
             techniqueId: normalizeTechniqueId(techniqueIdInput),
         }, deps);
-    }    
+    }
     /**
  * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。
@@ -251,7 +227,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
     enqueueStartAlchemy(playerId, payload, deps) {
         return this.enqueueStartTechniqueActivity(playerId, 'alchemy', this.cloneAlchemyPayload(payload), deps);
-    }    
+    }
     /**
  * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
@@ -261,7 +237,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
     enqueueCancelAlchemy(playerId, deps) {
         return this.enqueueCancelTechniqueActivity(playerId, 'alchemy', deps);
-    }    
+    }
     /**
  * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
@@ -275,7 +251,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'saveAlchemyPreset',
             payload: this.cloneAlchemyPayload(payload),
         }, deps);
-    }    
+    }
     /**
  * enqueueDeleteAlchemyPreset：处理Delete炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
@@ -289,7 +265,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'deleteAlchemyPreset',
             presetId: typeof presetId === 'string' ? presetId : '',
         }, deps);
-    }    
+    }
     /**
  * enqueueStartEnhancement：处理开始强化并更新相关状态。
  * @param playerId 玩家 ID。
@@ -300,7 +276,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
     enqueueStartEnhancement(playerId, payload, deps) {
         return this.enqueueStartTechniqueActivity(playerId, 'enhancement', this.cloneEnhancementPayload(payload), deps);
-    }    
+    }
     /**
  * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
@@ -310,7 +286,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
     enqueueCancelEnhancement(playerId, deps) {
         return this.enqueueCancelTechniqueActivity(playerId, 'enhancement', deps);
-    }    
+    }
     /**
  * enqueueStartTechniqueActivity：统一技艺活动开始入队。
  * @param playerId 玩家 ID。
@@ -323,10 +299,10 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
     enqueueStartTechniqueActivity(playerId, kind, payload, deps) {
         return this.enqueueNormalizedPlayerCommand(
             playerId,
-            (0, technique_activity_registry_helpers_1.buildTechniqueActivityStartCommand)(kind, payload),
+            buildTechniqueActivityStartCommand(kind, payload),
             deps,
         );
-    }    
+    }
     /**
  * enqueueCancelTechniqueActivity：统一技艺活动取消入队。
  * @param playerId 玩家 ID。
@@ -338,10 +314,10 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
     enqueueCancelTechniqueActivity(playerId, kind, deps) {
         return this.enqueueNormalizedPlayerCommand(
             playerId,
-            (0, technique_activity_registry_helpers_1.buildTechniqueActivityCancelCommand)(kind),
+            buildTechniqueActivityCancelCommand(kind),
             deps,
         );
-    }    
+    }
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
@@ -355,7 +331,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             kind: 'redeemCodes',
             codes: Array.isArray(codesInput) ? codesInput.filter((entry) => typeof entry === 'string') : [],
         }, deps);
-    }    
+    }
     /**
  * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -372,7 +348,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
         const action = typeof actionInput === 'string' ? actionInput.trim() : '';
         if (action !== 'sever' && action !== 'restore' && action !== 'open' && action !== 'reroll' && action !== 'enter') {
-            throw new common_1.BadRequestException('天门动作不能为空');
+            throw new BadRequestException('天门动作不能为空');
         }
 
         const element = typeof elementInput === 'string' ? elementInput.trim() : '';
@@ -384,7 +360,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
                 : undefined,
         });
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * enqueueCastSkill：处理Cast技能并更新相关状态。
  * @param playerId 玩家 ID。
@@ -406,19 +382,19 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
         const targetRef = typeof targetRefInput === 'string' ? targetRefInput.trim() : '';
         if (!skillId) {
-            throw new common_1.BadRequestException('技能 ID 不能为空');
+            throw new BadRequestException('技能 ID 不能为空');
         }
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const action = player.actions.actions.find((entry) => entry.id === skillId && entry.type === 'skill');
         if (!action) {
-            throw new common_1.NotFoundException(`技能动作不存在：${skillId}`);
+            throw new NotFoundException(`技能动作不存在：${skillId}`);
         }
         if (action.skillEnabled === false) {
-            throw new common_1.BadRequestException('技能未启用，无法释放');
+            throw new BadRequestException('技能未启用，无法释放');
         }
         if (!targetPlayerId && !targetMonsterId && !targetRef && action.requiresTarget !== false) {
-            throw new common_1.BadRequestException('必须指定目标');
+            throw new BadRequestException('必须指定目标');
         }
         deps.enqueuePendingCommand(playerId, {
             kind: 'castSkill',
@@ -428,7 +404,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             targetRef: targetRef || null,
         });
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * enqueueCastSkillTargetRef：读取Cast技能目标Ref并返回结果。
  * @param playerId 玩家 ID。
@@ -440,7 +416,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
 
     enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput, deps) {
         return this.enqueueCastSkill(playerId, skillIdInput, null, null, targetRefInput, deps);
-    }    
+    }
     /**
  * enqueueNormalizedPlayerCommand：规范化或转换Normalized玩家Command。
  * @param playerId 玩家 ID。
@@ -453,7 +429,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         deps.getPlayerLocationOrThrow(playerId);
         deps.enqueuePendingCommand(playerId, command);
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * enqueueCombatTargetCommand：读取战斗目标Command并返回结果。
  * @param playerId 玩家 ID。
@@ -486,7 +462,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
                 }
                 return deps.getPlayerViewOrThrow(playerId);
             }
-            throw new common_1.BadRequestException('必须指定目标');
+            throw new BadRequestException('必须指定目标');
         }
         deps.enqueuePendingCommand(playerId, {
             kind,
@@ -497,7 +473,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             locked: target.locked,
         });
         return deps.getPlayerViewOrThrow(playerId);
-    }    
+    }
     /**
  * cloneAlchemyPayload：读取炼丹载荷并返回结果。
  * @param payload 载荷参数。
@@ -513,7 +489,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
                     : [],
             }
             : {};
-    }    
+    }
     /**
  * cloneEnhancementPayload：读取强化载荷并返回结果。
  * @param payload 载荷参数。
@@ -534,10 +510,3 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             : {};
     }
 };
-exports.WorldRuntimePlayerCommandEnqueueService = WorldRuntimePlayerCommandEnqueueService;
-exports.WorldRuntimePlayerCommandEnqueueService = WorldRuntimePlayerCommandEnqueueService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimePlayerCommandEnqueueService);
-
-export { WorldRuntimePlayerCommandEnqueueService };

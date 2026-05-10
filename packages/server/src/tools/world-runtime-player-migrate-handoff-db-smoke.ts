@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);

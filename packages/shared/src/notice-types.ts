@@ -38,6 +38,8 @@ export interface NoticeItemView {
  */
 
   persistUntilAck?: boolean;
+  /** 技能施展批次ID，同一次施展的所有消息共享此ID。 */
+  castId?: string;
 }
 
 /** 通知批次视图。 */

@@ -1,4 +1,5 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -368,7 +369,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
   private enabled = false;
 
-  constructor(private readonly nodeRegistryService: NodeRegistryService | null = null) {}
+  constructor(@Inject(NodeRegistryService) private readonly nodeRegistryService: NodeRegistryService | null = null) {}
 
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
@@ -3980,5 +3981,5 @@ function resolveCurrentNodeId(): string {
       : process.env.SERVER_PORT,
   );
   const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
-  return `${require('node:os').hostname().trim() || 'node'}:${stablePort}`;
+  return `${hostname().trim() || 'node'}:${stablePort}`;
 }

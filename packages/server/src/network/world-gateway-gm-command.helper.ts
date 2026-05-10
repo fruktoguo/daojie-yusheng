@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayGmCommandHelper = void 0;
 
 /** 世界 socket GM 命令 helper：收敛维护命令。 */
 class WorldGatewayGmCommandHelper {
@@ -121,6 +116,5 @@ class WorldGatewayGmCommandHelper {
         }
     }
 }
-exports.WorldGatewayGmCommandHelper = WorldGatewayGmCommandHelper;
 
 export { WorldGatewayGmCommandHelper };

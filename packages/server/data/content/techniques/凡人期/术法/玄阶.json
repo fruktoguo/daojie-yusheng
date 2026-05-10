@@ -6,40 +6,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 18
-      },
-      {
-        "level": 2,
-        "expFactor": 20
-      },
-      {
-        "level": 3,
-        "expFactor": 23
-      },
-      {
-        "level": 4,
-        "expFactor": 26
-      },
-      {
-        "level": 5,
-        "expFactor": 30
-      },
-      {
-        "level": 6,
-        "expFactor": 35
-      },
-      {
-        "level": 7,
-        "expFactor": 41
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.soul_wail",
@@ -164,40 +132,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 20
-      },
-      {
-        "level": 2,
-        "expFactor": 23
-      },
-      {
-        "level": 3,
-        "expFactor": 26
-      },
-      {
-        "level": 4,
-        "expFactor": 30
-      },
-      {
-        "level": 5,
-        "expFactor": 35
-      },
-      {
-        "level": 6,
-        "expFactor": 40
-      },
-      {
-        "level": 7,
-        "expFactor": 46
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.core_smash",
@@ -321,40 +257,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 24
-      },
-      {
-        "level": 2,
-        "expFactor": 27
-      },
-      {
-        "level": 3,
-        "expFactor": 31
-      },
-      {
-        "level": 4,
-        "expFactor": 36
-      },
-      {
-        "level": 5,
-        "expFactor": 42
-      },
-      {
-        "level": 6,
-        "expFactor": 49
-      },
-      {
-        "level": 7,
-        "expFactor": 57
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.star_maw",
@@ -459,64 +363,10 @@
     "name": "惊雷掌",
     "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
     "grade": "mystic",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 39
-      },
-      {
-        "level": 2,
-        "expFactor": 42
-      },
-      {
-        "level": 3,
-        "expFactor": 45
-      },
-      {
-        "level": 4,
-        "expFactor": 50
-      },
-      {
-        "level": 5,
-        "expFactor": 55
-      },
-      {
-        "level": 6,
-        "expFactor": 61
-      },
-      {
-        "level": 7,
-        "expFactor": 68
-      },
-      {
-        "level": 8,
-        "expFactor": 75
-      },
-      {
-        "level": 9,
-        "expFactor": 83
-      },
-      {
-        "level": 10,
-        "expFactor": 92
-      },
-      {
-        "level": 11,
-        "expFactor": 103
-      },
-      {
-        "level": 12,
-        "expFactor": 114
-      },
-      {
-        "level": 13,
-        "expFactor": 127
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 14,
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.thunder_palm",
@@ -567,73 +417,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 14,
-    "category": "arts"
+    ]
   },
   {
     "id": "frost_sutra",
     "name": "寒魄经",
     "desc": "寒魄化霜，一念封身。",
     "grade": "mystic",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 37
-      },
-      {
-        "level": 2,
-        "expFactor": 40
-      },
-      {
-        "level": 3,
-        "expFactor": 43
-      },
-      {
-        "level": 4,
-        "expFactor": 48
-      },
-      {
-        "level": 5,
-        "expFactor": 53
-      },
-      {
-        "level": 6,
-        "expFactor": 60
-      },
-      {
-        "level": 7,
-        "expFactor": 69
-      },
-      {
-        "level": 8,
-        "expFactor": 78
-      },
-      {
-        "level": 9,
-        "expFactor": 89
-      },
-      {
-        "level": 10,
-        "expFactor": 101
-      },
-      {
-        "level": 11,
-        "expFactor": 115
-      },
-      {
-        "level": 12,
-        "expFactor": 131
-      },
-      {
-        "level": 13,
-        "expFactor": 150
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 16,
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.frost_sutra",
@@ -691,85 +485,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 16,
-    "category": "arts"
+    ]
   },
   {
     "id": "spirit_anchor",
     "name": "镇灵篇",
     "desc": "镇灵真意铺开，封镇大片气机。",
     "grade": "mystic",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 41
-      },
-      {
-        "level": 2,
-        "expFactor": 44
-      },
-      {
-        "level": 3,
-        "expFactor": 47
-      },
-      {
-        "level": 4,
-        "expFactor": 50
-      },
-      {
-        "level": 5,
-        "expFactor": 54
-      },
-      {
-        "level": 6,
-        "expFactor": 59
-      },
-      {
-        "level": 7,
-        "expFactor": 64
-      },
-      {
-        "level": 8,
-        "expFactor": 69
-      },
-      {
-        "level": 9,
-        "expFactor": 75
-      },
-      {
-        "level": 10,
-        "expFactor": 85
-      },
-      {
-        "level": 11,
-        "expFactor": 93
-      },
-      {
-        "level": 12,
-        "expFactor": 101
-      },
-      {
-        "level": 13,
-        "expFactor": 111
-      },
-      {
-        "level": 14,
-        "expFactor": 121
-      },
-      {
-        "level": 15,
-        "expFactor": 133
-      },
-      {
-        "level": 16,
-        "expFactor": 146
-      },
-      {
-        "level": 17,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 17,
+    "maxLayer": 17,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.spirit_anchor",
@@ -822,85 +548,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 17,
-    "category": "arts"
+    ]
   },
   {
     "id": "starfall_spear",
     "name": "陨星枪诀",
     "desc": "枪势贯空，距离越远，星坠越重。",
     "grade": "mystic",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 41
-      },
-      {
-        "level": 2,
-        "expFactor": 44
-      },
-      {
-        "level": 3,
-        "expFactor": 47
-      },
-      {
-        "level": 4,
-        "expFactor": 50
-      },
-      {
-        "level": 5,
-        "expFactor": 54
-      },
-      {
-        "level": 6,
-        "expFactor": 59
-      },
-      {
-        "level": 7,
-        "expFactor": 64
-      },
-      {
-        "level": 8,
-        "expFactor": 70
-      },
-      {
-        "level": 9,
-        "expFactor": 76
-      },
-      {
-        "level": 10,
-        "expFactor": 84
-      },
-      {
-        "level": 11,
-        "expFactor": 93
-      },
-      {
-        "level": 12,
-        "expFactor": 102
-      },
-      {
-        "level": 13,
-        "expFactor": 113
-      },
-      {
-        "level": 14,
-        "expFactor": 126
-      },
-      {
-        "level": 15,
-        "expFactor": 139
-      },
-      {
-        "level": 16,
-        "expFactor": 155
-      },
-      {
-        "level": 17,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 18,
+    "maxLayer": 17,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.starfall_spear",
@@ -950,8 +608,6 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 18,
-    "category": "arts"
+    ]
   }
 ]

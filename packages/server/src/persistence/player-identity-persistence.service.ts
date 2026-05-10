@@ -1,28 +1,7 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
-        r = Reflect.decorate(decorators, target, key, desc);
-    else
-        for (var i = decorators.length - 1; i >= 0; i--)
-            if (d = decorators[i])
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var PlayerIdentityPersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerIdentityPersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const pg_1 = require("pg");
-
-const env_alias_1 = require("../config/env-alias");
+import { Injectable, Logger } from '@nestjs/common';
+import { containsInvisibleOnlyNameGrapheme, getGraphemeCount, hasVisibleNameGrapheme, resolveDefaultVisibleDisplayName } from '@mud/shared';
+import { Pool } from 'pg';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
 
 const PLAYER_IDENTITY_SCOPE = 'server_player_identities_v1';
 
@@ -173,22 +152,23 @@ const PLAYER_IDENTITY_PERSISTED_SOURCE_LEGACY_SYNC = 'legacy_sync';
 const PLAYER_IDENTITY_PERSISTED_SOURCE_TOKEN_SEED = 'token_seed';
 
 /** 玩家身份持久化：维护 userId/username/playerId 映射及来源标签。 */
-let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = class PlayerIdentityPersistenceService {
+@Injectable()
+export class PlayerIdentityPersistenceService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(PlayerIdentityPersistenceService_1.name);    
+    logger = new Logger(PlayerIdentityPersistenceService.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * enabled：启用开关或状态标识。
  */
 
-    enabled = false;    
+    enabled = false;
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -197,13 +177,12 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             this.logger.log('玩家身份持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new pg_1.Pool({
+        this.pool = new Pool({
             connectionString: databaseUrl,
         });
         try {
@@ -233,7 +212,6 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
     /** 按用户 ID 查询身份持久化记录。 */
     async loadPlayerIdentity(userId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedUserId = normalizeRequiredString(userId);
         if (!this.pool || !this.enabled || !normalizedUserId) {
@@ -274,7 +252,6 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
     async listPlayerIdentitiesByPlayerIds(playerIds) {
   // 排行榜等低频读模型需要批量补角色名，避免逐玩家查询。
 
-
         const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
             .map((playerId) => normalizeRequiredString(playerId))
             .filter((playerId) => playerId.length > 0)));
@@ -314,7 +291,6 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
 
     async savePlayerIdentity(identity) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalized = normalizePlayerIdentity(identity);
         if (!this.pool || !this.enabled || !normalized) {
@@ -390,7 +366,6 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
     async safeClosePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.enabled = false;
@@ -398,11 +373,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             await pool.end().catch(() => undefined);
         }
     }
-};
-exports.PlayerIdentityPersistenceService = PlayerIdentityPersistenceService;
-exports.PlayerIdentityPersistenceService = PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], PlayerIdentityPersistenceService);
+}
 /**
  * ensurePlayerIdentityTable：执行ensure玩家Identity表相关逻辑。
  * @param pool 参数说明。
@@ -462,7 +433,6 @@ async function backfillPlayerIdentityNoWithClient(client) {
         AND ident.player_no IS NOT NULL
     `);
 }
-export { PlayerIdentityPersistenceService };
 /**
  * normalizePersistedPlayerIdentityRow：判断Persisted玩家IdentityRow是否满足条件。
  * @param row 参数说明。
@@ -595,12 +565,11 @@ function normalizeOptionalPlayerNo(value) {
 function normalizeDisplayName(displayName, username) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const normalized = typeof displayName === 'string' ? displayName.trim().normalize('NFC') : '';
     if (isValidVisibleDisplayName(normalized)) {
         return normalized;
     }
-    return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
+    return resolveDefaultVisibleDisplayName(username.normalize('NFC'));
 }
 /**
  * normalizePlayerName：规范化或转换玩家名称。
@@ -611,7 +580,6 @@ function normalizeDisplayName(displayName, username) {
 
 function normalizePlayerName(playerName, username) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
     if (normalized) {
@@ -628,7 +596,7 @@ function normalizePlayerName(playerName, username) {
 function isValidVisibleDisplayName(value) {
     return typeof value === 'string'
         && value.length > 0
-        && (0, shared_1.getGraphemeCount)(value) === 1
-        && (0, shared_1.hasVisibleNameGrapheme)(value)
-        && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
+        && getGraphemeCount(value) === 1
+        && hasVisibleNameGrapheme(value)
+        && !containsInvisibleOnlyNameGrapheme(value);
 }

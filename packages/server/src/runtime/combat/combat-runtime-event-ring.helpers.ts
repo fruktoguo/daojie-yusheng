@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export function recordBoundedCombatRing(entries = [], entry = null, capacity = 200) {
   if (!Array.isArray(entries) || !entry) return entries;
   entries.push(entry);

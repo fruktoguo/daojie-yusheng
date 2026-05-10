@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewaySuggestionHelper = void 0;
 
 /** 世界 socket suggestion helper：只收敛玩家建议写路径。 */
 class WorldGatewaySuggestionHelper {
@@ -125,6 +120,5 @@ class WorldGatewaySuggestionHelper {
         }
     }
 }
-exports.WorldGatewaySuggestionHelper = WorldGatewaySuggestionHelper;
 
 export { WorldGatewaySuggestionHelper };

@@ -1,25 +1,19 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildAttrDetailNumericStatBreakdowns = exports.buildAttrDetailBonuses = void 0;
-
-const shared_1 = require("@mud/shared");
-const pvp_1 = require("../constants/gameplay/pvp");
 /**
  * buildAttrDetailBonuses：构建并返回目标对象。
  * @param player 玩家对象。
  * @returns 无返回值，直接更新Attr详情Bonuse相关状态。
  */
 
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
+import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
 
-function buildAttrDetailBonuses(player) {
+export function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const bonuses = [];
-    const realmStage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-    const realmConfig = shared_1.PLAYER_REALM_CONFIG[realmStage];
-    const realmAttrBonus = (0, shared_1.resolvePlayerRealmAttributeBonus)(realmStage);
+    const realmStage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const realmConfig = PLAYER_REALM_CONFIG[realmStage];
+    const realmAttrBonus = resolvePlayerRealmAttributeBonus(realmStage);
     if (realmConfig && hasNonZeroAttributes(realmAttrBonus)) {
         bonuses.push({
             source: `realm:${realmStage}`,
@@ -28,7 +22,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     const techniqueStates = (player.techniques?.techniques ?? []).map(toTechniqueState);
-    const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)(techniqueStates);
+    const techniqueAttrs = calcTechniqueFinalAttrBonus(techniqueStates);
     if (hasNonZeroAttributes(techniqueAttrs)) {
         bonuses.push({
             source: 'technique:aggregate',
@@ -37,7 +31,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const techniqueState of techniqueStates) {
-        const qiProjection = (0, shared_1.calcTechniqueQiProjectionModifiers)(techniqueState.level, techniqueState.layers);
+        const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
         if (qiProjection.length === 0) {
             continue;
         }
@@ -49,7 +43,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
+        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
             for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
                 const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
@@ -118,56 +112,54 @@ function buildAttrDetailBonuses(player) {
     }
     return bonuses;
 }
-exports.buildAttrDetailBonuses = buildAttrDetailBonuses;
 /**
  * buildAttrDetailNumericStatBreakdowns：构建并返回目标对象。
  * @param player 玩家对象。
  * @returns 无返回值，直接更新Attr详情NumericStatBreakdown相关状态。
  */
 
-
-function buildAttrDetailNumericStatBreakdowns(player) {
+export function buildAttrDetailNumericStatBreakdowns(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const stage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-    const template = (0, shared_1.resolvePlayerRealmNumericTemplate)(stage);
+    const stage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const template = resolvePlayerRealmNumericTemplate(stage);
     const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
-    const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
-    const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
-    const flatBuffStats = (0, shared_1.createNumericStats)();
-    const buffMultiplierStats = (0, shared_1.createNumericStats)();
-    const pillMultiplierStats = (0, shared_1.createNumericStats)();
-    const attrMultipliers = (0, shared_1.createNumericStats)();
+    const realmBaseStats = template?.stats ? cloneNumericStats(template.stats) : createNumericStats();
+    const baseStats = cloneNumericStats(realmBaseStats);
+    const flatBuffStats = createNumericStats();
+    const buffMultiplierStats = createNumericStats();
+    const pillMultiplierStats = createNumericStats();
+    const attrMultipliers = createNumericStats();
     const finalAttrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs;
     if (finalAttrs) {
-        for (const key of shared_1.ATTR_KEYS) {
+        for (const key of ATTR_KEYS) {
             const value = Number(finalAttrs[key] ?? 0);
             if (value === 0) {
                 continue;
             }
-            (0, shared_1.addPartialNumericStats)(baseStats, scalePartialNumericStats(shared_1.ATTR_TO_NUMERIC_WEIGHTS[key], value));
-            (0, shared_1.addPartialNumericStats)(attrMultipliers, scalePartialNumericStats(shared_1.ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key], value));
+            addPartialNumericStats(baseStats, scalePartialNumericStats(ATTR_TO_NUMERIC_WEIGHTS[key], value));
+            addPartialNumericStats(attrMultipliers, scalePartialNumericStats(ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key], value));
         }
     }
     applySpecialStatWeights(baseStats, player, resolveTechniqueSpecialStatBonus(player.techniques?.techniques ?? []));
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
+        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
         if (!item) {
             continue;
         }
-        (0, shared_1.addPartialNumericStats)(baseStats, resolveItemNumericStats(item));
+        addPartialNumericStats(baseStats, resolveItemNumericStats(item));
         for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
-            (0, shared_1.addPartialNumericStats)(baseStats, resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats }));
+            addPartialNumericStats(baseStats, resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats }));
         }
     }
     for (const bonus of collectProjectedRuntimeBonuses(player.runtimeBonuses)) {
         if (bonus?.stats) {
-            (0, shared_1.addPartialNumericStats)(baseStats, bonus.stats);
+            addPartialNumericStats(baseStats, bonus.stats);
         }
     }
     const vitalBaselineBonus = resolveVitalBaselineBonus(player.runtimeBonuses);
     if (vitalBaselineBonus?.stats) {
-        (0, shared_1.addPartialNumericStats)(baseStats, vitalBaselineBonus.stats);
+        addPartialNumericStats(baseStats, vitalBaselineBonus.stats);
     }
     for (const buff of getActiveBuffs(player.buffs?.buffs)) {
         if (!buff?.stats) {
@@ -183,21 +175,21 @@ function buildAttrDetailNumericStatBreakdowns(player) {
         }
         if (resolveBuffModifierMode(buff.statMode) === 'percent') {
             const target = isPillStatBuff(buff) ? pillMultiplierStats : buffMultiplierStats;
-            (0, shared_1.addPartialNumericStats)(target, scaledStats);
+            addPartialNumericStats(target, scaledStats);
         }
         else {
-            (0, shared_1.addPartialNumericStats)(flatBuffStats, scaledStats);
+            addPartialNumericStats(flatBuffStats, scaledStats);
         }
     }
     if (player.combat?.cultivationActive === true) {
-        flatBuffStats.realmExpPerTick += shared_1.CULTIVATION_REALM_EXP_PER_TICK;
-        flatBuffStats.techniqueExpPerTick += shared_1.CULTIVATE_EXP_PER_TICK;
+        flatBuffStats.realmExpPerTick += CULTIVATION_REALM_EXP_PER_TICK;
+        flatBuffStats.techniqueExpPerTick += CULTIVATE_EXP_PER_TICK;
     }
-    const preMultiplierStats = (0, shared_1.cloneNumericStats)(baseStats);
-    (0, shared_1.addPartialNumericStats)(preMultiplierStats, flatBuffStats);
+    const preMultiplierStats = cloneNumericStats(baseStats);
+    addPartialNumericStats(preMultiplierStats, flatBuffStats);
     const finalStats = player.attrs?.numericStats ?? preMultiplierStats;
     const breakdowns = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const realmBaseValue = getNumericStatValue(realmBaseStats, key);
         const baseValue = getNumericStatValue(baseStats, key);
         const flatBuffValue = getNumericStatValue(flatBuffStats, key);
@@ -216,7 +208,6 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     }
     return breakdowns;
 }
-exports.buildAttrDetailNumericStatBreakdowns = buildAttrDetailNumericStatBreakdowns;
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {
     const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
@@ -251,7 +242,7 @@ function resolveEquipmentSpecialStats(player) {
 }
 
 function resolveTechniqueSpecialStatBonus(techniques) {
-    return (0, shared_1.calcTechniqueFinalSpecialStatBonus)(techniques.map(toTechniqueState));
+    return calcTechniqueFinalSpecialStatBonus(techniques.map(toTechniqueState));
 }
 /**
  * getNumericStatValue：读取NumericStat值。
@@ -259,7 +250,6 @@ function resolveTechniqueSpecialStatBonus(techniques) {
  * @param key 参数说明。
  * @returns 无返回值，完成NumericStat值的读取/组装。
  */
-
 
 function getNumericStatValue(stats, key) {
     const value = stats?.[key];
@@ -292,11 +282,11 @@ const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
 
 function getRealmNumericMultiplier(key, realmLv) {
     if (REALM_EXPONENTIAL_NUMERIC_KEY_SET.has(key)) {
-        return (0, shared_1.getRealmAttributeMultiplier)(realmLv);
+        return getRealmAttributeMultiplier(realmLv);
     }
     const linearGrowthRate = REALM_LINEAR_NUMERIC_GROWTH_RATES[key];
     if (typeof linearGrowthRate === 'number') {
-        return (0, shared_1.getRealmLinearGrowthMultiplier)(realmLv, linearGrowthRate);
+        return getRealmLinearGrowthMultiplier(realmLv, linearGrowthRate);
     }
     return 1;
 }
@@ -313,8 +303,8 @@ function scalePartialNumericStats(stats, factor) {
     if (!stats || factor === 0) {
         return undefined;
     }
-    const result = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    const result: PartialNumericStats = {};
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         const value = stats[key];
         if (value !== undefined) {
             result[key] = value * factor;
@@ -325,8 +315,8 @@ function scalePartialNumericStats(stats, factor) {
         if (!isPlainObject(group)) {
             continue;
         }
-        const scaledGroup = {};
-        for (const key of shared_1.ELEMENT_KEYS) {
+        const scaledGroup: Record<string, number> = {};
+        for (const key of ELEMENT_KEYS) {
             const value = group[key];
             if (value !== undefined) {
                 scaledGroup[key] = value * factor;
@@ -399,14 +389,14 @@ function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
 
 function scaleBuffNumericStats(buff, factor) {
     const scaled = scalePartialNumericStats(buff.stats, factor);
-    if (!scaled || buff.buffId !== pvp_1.PVP_SHA_INFUSION_BUFF_ID) {
+    if (!scaled || buff.buffId !== PVP_SHA_INFUSION_BUFF_ID) {
         return scaled;
     }
     if (scaled.physAtk !== undefined) {
-        scaled.physAtk = Math.min(scaled.physAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+        scaled.physAtk = Math.min(scaled.physAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
     }
     if (scaled.spellAtk !== undefined) {
-        scaled.spellAtk = Math.min(scaled.spellAtk, pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+        scaled.spellAtk = Math.min(scaled.spellAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
     }
     return scaled;
 }
@@ -438,7 +428,7 @@ function isDerivedRuntimeBonusSource(source) {
  */
 
 function resolveItemNumericStats(item) {
-    return item?.equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(item.equipValueStats) : item?.equipStats;
+    return item?.equipValueStats ? compileValueStatsToActualStats(item.equipValueStats) : item?.equipStats;
 }
 
 function resolveActiveEquipmentProgressEffects(item, player) {
@@ -500,7 +490,7 @@ function hasNonZeroAttributes(attrs) {
     if (!attrs) {
         return false;
     }
-    return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
+    return ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
 /**
  * hasNonZeroPartialNumericStats：判断NonZeroPartialNumericStat是否满足条件。
@@ -514,7 +504,7 @@ function hasNonZeroPartialNumericStats(stats) {
     if (!stats) {
         return false;
     }
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         if (Number(stats[key] ?? 0) !== 0) {
             return true;
         }
@@ -534,7 +524,7 @@ function clonePartialAttributes(attrs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const result = {};
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(attrs?.[key] ?? 0);
         if (value !== 0) {
             result[key] = value;
@@ -554,8 +544,8 @@ function clonePartialNumericStats(stats) {
     if (!stats) {
         return undefined;
     }
-    const clone = {};
-    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+    const clone: PartialNumericStats = {};
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
         if (stats[key] !== undefined) {
             clone[key] = stats[key];
         }
@@ -608,7 +598,7 @@ function toTechniqueState(entry) {
         exp: entry.exp ?? 0,
         expToNext: entry.expToNext ?? 0,
         realmLv: entry.realmLv ?? 1,
-        realm: entry.realm ?? shared_1.TechniqueRealm.Entry,
+        realm: entry.realm ?? TechniqueRealm.Entry,
         skillsEnabled: entry.skillsEnabled !== false,
         skills,
         grade: entry.grade ?? undefined,
@@ -645,5 +635,3 @@ function cloneTechniqueSkill(source) {
 function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-
-export { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns };

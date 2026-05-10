@@ -6,40 +6,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 18
-      },
-      {
-        "level": 2,
-        "expFactor": 22
-      },
-      {
-        "level": 3,
-        "expFactor": 28
-      },
-      {
-        "level": 4,
-        "expFactor": 34
-      },
-      {
-        "level": 5,
-        "expFactor": 42
-      },
-      {
-        "level": 6,
-        "expFactor": 50
-      },
-      {
-        "level": 7,
-        "expFactor": 60
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.huanling_candan_faxiang",

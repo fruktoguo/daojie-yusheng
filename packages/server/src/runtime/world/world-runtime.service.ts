@@ -1,177 +1,93 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import '../../debug/movement-debug';
+import '../../http/native/native-gm.constants';
+import '../../content/content-template.repository';
+import { WorldSessionService } from '../../network/world-session.service';
+import { WorldClientEventService } from '../../network/world-client-event.service';
+import { MapPersistenceService } from '../../persistence/map-persistence.service';
+import { InstanceDomainPersistenceService } from '../../persistence/instance-domain-persistence.service';
+import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
+import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
+import { RedeemCodeRuntimeService } from '../redeem/redeem-code-runtime.service';
+import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
+import { WorldRuntimeNpcShopQueryService } from './world-runtime-npc-shop-query.service';
+import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
+import { WorldRuntimeQuestStateService } from './world-runtime-quest-state.service';
+import { WorldRuntimeDetailQueryService } from './world-runtime-detail-query.service';
+import { WorldRuntimeContextActionQueryService } from './world-runtime-context-action-query.service';
+import { WorldRuntimePlayerViewQueryService } from './world-runtime-player-view-query.service';
+import { WorldRuntimeMetricsService } from './world-runtime-metrics.service';
+import { WorldRuntimeFrameService } from './world-runtime-frame.service';
+import { WorldRuntimeLifecycleService } from './world-runtime-lifecycle.service';
+import { WorldRuntimePersistenceStateService } from './world-runtime-persistence-state.service';
+import { WorldRuntimePlayerSessionService } from './world-runtime-player-session.service';
+import { WorldRuntimeCommandIntakeFacadeService } from './world-runtime-command-intake-facade.service';
+import { WorldRuntimeGameplayWriteFacadeService } from './world-runtime-gameplay-write-facade.service';
+import { WorldRuntimeInstanceReadFacadeService } from './world-runtime-instance-read-facade.service';
+import { WorldRuntimeQuestRuntimeFacadeService } from './world-runtime-quest-runtime-facade.service';
+import { WorldRuntimeReadFacadeService } from './world-runtime-read-facade.service';
+import { WorldRuntimeStateFacadeService } from './world-runtime-state-facade.service';
+import { WorldRuntimeTickDispatchService } from './world-runtime-tick-dispatch.service';
+import { WorldRuntimeWorldAccessService } from './world-runtime-world-access.service';
+import { WorldRuntimeInstanceTickOrchestrationService } from './world-runtime-instance-tick-orchestration.service';
+import { WorldRuntimeMovementService } from './world-runtime-movement.service';
+import { WorldRuntimeSummaryQueryService } from './world-runtime-summary-query.service';
+import { WorldRuntimeInstanceStateService } from './world-runtime-instance-state.service';
+import { WorldRuntimeInstanceQueryService } from './world-runtime-instance-query.service';
+import { WorldRuntimePendingCommandService } from './world-runtime-pending-command.service';
+import { WorldRuntimePlayerLocationService } from './world-runtime-player-location.service';
+import { WorldRuntimeTickProgressService } from './world-runtime-tick-progress.service';
+import { NodeRegistryService } from '../../persistence/node-registry.service';
+import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
+import { WorldRuntimeNpcShopService } from './world-runtime-npc-shop.service';
+import { WorldRuntimeGmQueueService } from './world-runtime-gm-queue.service';
+import { WorldRuntimeSystemCommandService } from './world-runtime-system-command.service';
+import { WorldRuntimeCraftTickService } from './world-runtime-craft-tick.service';
+import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
+import { WorldRuntimeCraftInterruptService } from './world-runtime-craft-interrupt.service';
+import { WorldRuntimeAlchemyService } from './world-runtime-alchemy.service';
+import { WorldRuntimeNpcQuestWriteService } from './world-runtime-npc-quest-write.service';
+import { WorldRuntimeLootContainerService } from './world-runtime-loot-container.service';
+import { WorldRuntimeNavigationService } from './world-runtime-navigation.service';
+import { WorldRuntimeCombatEffectsService } from './world-runtime-combat-effects.service';
+import { WorldRuntimeMonsterActionApplyService } from './world-runtime-monster-action-apply.service';
+import { WorldRuntimeBasicAttackService } from './world-runtime-basic-attack.service';
+import { WorldRuntimeMonsterSystemCommandService } from './world-runtime-monster-system-command.service';
+import { WorldRuntimePlayerCombatOutcomeService } from './world-runtime-player-combat-outcome.service';
+import { WorldRuntimePlayerCommandService } from './world-runtime-player-command.service';
+import { WorldRuntimePlayerCommandEnqueueService } from './world-runtime-player-command-enqueue.service';
+import { WorldRuntimeItemGroundService } from './world-runtime-item-ground.service';
+import { WorldRuntimeTransferService } from './world-runtime-transfer.service';
+import { WorldRuntimeNpcAccessService } from './world-runtime-npc-access.service';
+import { WorldRuntimeEquipmentService } from './world-runtime-equipment.service';
+import { WorldRuntimeCultivationService } from './world-runtime-cultivation.service';
+import { WorldRuntimeProgressionService } from './world-runtime-progression.service';
+import { WorldRuntimeEnhancementService } from './world-runtime-enhancement.service';
+import { WorldRuntimeUseItemService } from './world-runtime-use-item.service';
+import { WorldRuntimeRedeemCodeService } from './world-runtime-redeem-code.service';
+import { WorldRuntimePlayerSkillDispatchService } from './world-runtime-player-skill-dispatch.service';
+import { WorldRuntimeBattleEngageService } from './world-runtime-battle-engage.service';
+import { WorldRuntimeAutoCombatService } from './world-runtime-auto-combat.service';
+import { WorldRuntimeCombatCommandService } from './world-runtime-combat-command.service';
+import { WorldRuntimeActionExecutionService } from './world-runtime-action-execution.service';
+import { WorldRuntimeFormationService } from './world-runtime-formation.service';
+import { WorldRuntimeSectService } from './world-runtime-sect.service';
+import { WorldRuntimeSystemCommandEnqueueService } from './world-runtime-system-command-enqueue.service';
+import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower.service';
+import { MailRuntimeService } from '../mail/mail-runtime.service';
+import { PlayerCombatService } from '../combat/player-combat.service';
+import '../instance/map-instance.runtime';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
+import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
+import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, rebuildPersistentInstance, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); };
-};
-
-var WorldRuntimeService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const movement_debug_1 = require("../../debug/movement-debug");
-
-const next_gm_constants_1 = require("../../http/native/native-gm.constants");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const world_session_service_1 = require("../../network/world-session.service");
-
-const world_client_event_service_1 = require("../../network/world-client-event.service");
-
-const map_persistence_service_1 = require("../../persistence/map-persistence.service");
-
-const instance_domain_persistence_service_1 = require("../../persistence/instance-domain-persistence.service");
-
-const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
-const player_persistence_flush_service_1 = require("../../persistence/player-persistence-flush.service");
-
-const redeem_code_runtime_service_1 = require("../redeem/redeem-code-runtime.service");
-
-const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-
-const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
-
-const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
-
-const world_runtime_quest_state_service_1 = require("./world-runtime-quest-state.service");
-
-const world_runtime_detail_query_service_1 = require("./world-runtime-detail-query.service");
-
-const world_runtime_context_action_query_service_1 = require("./world-runtime-context-action-query.service");
-
-const world_runtime_player_view_query_service_1 = require("./world-runtime-player-view-query.service");
-
-const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service");
-
-const world_runtime_frame_service_1 = require("./world-runtime-frame.service");
-const world_runtime_lifecycle_service_1 = require("./world-runtime-lifecycle.service");
-const world_runtime_persistence_state_service_1 = require("./world-runtime-persistence-state.service");
-const world_runtime_player_session_service_1 = require("./world-runtime-player-session.service");
-const world_runtime_command_intake_facade_service_1 = require("./world-runtime-command-intake-facade.service");
-const world_runtime_gameplay_write_facade_service_1 = require("./world-runtime-gameplay-write-facade.service");
-const world_runtime_instance_read_facade_service_1 = require("./world-runtime-instance-read-facade.service");
-const world_runtime_quest_runtime_facade_service_1 = require("./world-runtime-quest-runtime-facade.service");
-const world_runtime_read_facade_service_1 = require("./world-runtime-read-facade.service");
-const world_runtime_state_facade_service_1 = require("./world-runtime-state-facade.service");
-const world_runtime_tick_dispatch_service_1 = require("./world-runtime-tick-dispatch.service");
-const world_runtime_world_access_service_1 = require("./world-runtime-world-access.service");
-
-const world_runtime_instance_tick_orchestration_service_1 = require("./world-runtime-instance-tick-orchestration.service");
-
-const world_runtime_movement_service_1 = require("./world-runtime-movement.service");
-
-const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
-
-const world_runtime_instance_state_service_1 = require("./world-runtime-instance-state.service");
-
-const world_runtime_instance_query_service_1 = require("./world-runtime-instance-query.service");
-
-const world_runtime_pending_command_service_1 = require("./world-runtime-pending-command.service");
-
-const world_runtime_player_location_service_1 = require("./world-runtime-player-location.service");
-
-const world_runtime_tick_progress_service_1 = require("./world-runtime-tick-progress.service");
-
-const node_registry_service_1 = require("../../persistence/node-registry.service");
-
-const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
-
-const world_runtime_npc_shop_service_1 = require("./world-runtime-npc-shop.service");
-
-const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
-
-const world_runtime_system_command_service_1 = require("./world-runtime-system-command.service");
-
-const world_runtime_craft_tick_service_1 = require("./world-runtime-craft-tick.service");
-
-const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
-
-const world_runtime_craft_interrupt_service_1 = require("./world-runtime-craft-interrupt.service");
-
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
-
-const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
-
-const world_runtime_loot_container_service_1 = require("./world-runtime-loot-container.service");
-
-const world_runtime_navigation_service_1 = require("./world-runtime-navigation.service");
-
-const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
-
-const world_runtime_monster_action_apply_service_1 = require("./world-runtime-monster-action-apply.service");
-
-const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
-
-const world_runtime_monster_system_command_service_1 = require("./world-runtime-monster-system-command.service");
-
-const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-player-combat-outcome.service");
-
-const world_runtime_player_command_service_1 = require("./world-runtime-player-command.service");
-const world_runtime_player_command_enqueue_service_1 = require("./world-runtime-player-command-enqueue.service");
-
-const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
-
-const world_runtime_transfer_service_1 = require("./world-runtime-transfer.service");
-
-const world_runtime_npc_access_service_1 = require("./world-runtime-npc-access.service");
-
-const world_runtime_equipment_service_1 = require("./world-runtime-equipment.service");
-
-const world_runtime_cultivation_service_1 = require("./world-runtime-cultivation.service");
-
-const world_runtime_progression_service_1 = require("./world-runtime-progression.service");
-
-const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
-
-const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
-
-const world_runtime_redeem_code_service_1 = require("./world-runtime-redeem-code.service");
-
-const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
-
-const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
-
-const world_runtime_auto_combat_service_1 = require("./world-runtime-auto-combat.service");
-const world_runtime_combat_command_service_1 = require("./world-runtime-combat-command.service");
-const world_runtime_action_execution_service_1 = require("./world-runtime-action-execution.service");
-const world_runtime_formation_service_1 = require("./world-runtime-formation.service");
-const world_runtime_sect_service_1 = require("./world-runtime-sect.service");
-const world_runtime_system_command_enqueue_service_1 = require("./world-runtime-system-command-enqueue.service");
-const world_runtime_tongtian_tower_service_1 = require("./world-runtime-tongtian-tower.service");
-const mail_runtime_service_1 = require("../mail/mail-runtime.service");
-
-const player_combat_service_1 = require("../combat/player-combat.service");
-
-const map_instance_runtime_1 = require("../instance/map-instance.runtime");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
-
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
-
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const world_runtime_building_service_1 = require("./world-runtime-building.service");
-const world_runtime_instance_lease_helpers_1 = require("./world-runtime-instance-lease.helpers");
 const {
     buildPublicInstanceId,
     parseRuntimeInstanceDescriptor,
@@ -270,166 +186,246 @@ const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 
 const TICK_METRIC_WINDOW_SIZE = 60;
 
-let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
+@Injectable()
+export class WorldRuntimeService {
 
-    contentTemplateRepository;    
-    
-    templateRepository;    
-    
-    mapPersistenceService;    
-    
-    instanceDomainPersistenceService;    
-    
-    playerRuntimeService;    
-    
-    playerCombatService;    
-    
-    worldSessionService;    
-    
-    worldClientEventService;    
-    
-    redeemCodeRuntimeService;    
-    
-    craftPanelRuntimeService;    
-    
-    worldRuntimeNpcShopQueryService;    
-    
-    worldRuntimeQuestQueryService;    
-    
-    worldRuntimeQuestStateService;    
-    
-    worldRuntimeDetailQueryService;    
-    
-    worldRuntimeContextActionQueryService;    
-    
-    worldRuntimePlayerViewQueryService;    
-    
-    worldRuntimeMetricsService;    
-    
-    worldRuntimeFrameService;    
-    
-    worldRuntimeLifecycleService;    
-    
-    worldRuntimePersistenceStateService;    
-    
-    worldRuntimePlayerSessionService;    
-    
-    worldRuntimeCommandIntakeFacadeService;    
-    
-    worldRuntimeGameplayWriteFacadeService;    
-    
-    worldRuntimeInstanceReadFacadeService;    
-    
-    worldRuntimeQuestRuntimeFacadeService;    
-    
-    worldRuntimeReadFacadeService;    
-    
-    worldRuntimeStateFacadeService;    
-    
-    worldRuntimeTickDispatchService;    
-    
-    worldRuntimeWorldAccessService;    
-    
-    worldRuntimeInstanceTickOrchestrationService;    
-    
-    worldRuntimeMovementService;    
-    
-    worldRuntimeSummaryQueryService;    
-    
-    worldRuntimeInstanceStateService;    
-    
-    worldRuntimeInstanceQueryService;    
-    
-    worldRuntimePendingCommandService;    
-    
-    worldRuntimePlayerLocationService;    
-    
-    worldRuntimeTickProgressService;    
-    
-    worldRuntimeNpcQuestInteractionQueryService;    
-    
-    worldRuntimeNpcShopService;    
-    
-    worldRuntimeGmQueueService;    
-    
-    worldRuntimeSystemCommandService;    
-    
-    worldRuntimeCraftTickService;    
-    
-    worldRuntimeCraftMutationService;    
-    
-    worldRuntimeCraftInterruptService;    
-    
-    worldRuntimeAlchemyService;    
-    
-    worldRuntimeNpcQuestWriteService;    
-    
-    worldRuntimeLootContainerService;    
-    
-    worldRuntimeNavigationService;    
-    
-    worldRuntimeCombatEffectsService;    
-    
-    worldRuntimeMonsterActionApplyService;    
-    
-    worldRuntimeBasicAttackService;    
-    
-    worldRuntimeMonsterSystemCommandService;    
-    
-    worldRuntimePlayerCombatOutcomeService;    
-    
-    worldRuntimePlayerCommandService;    
-    
-    worldRuntimePlayerCommandEnqueueService;    
-    
-    worldRuntimeItemGroundService;    
-    
-    worldRuntimeTransferService;    
-    
-    worldRuntimeNpcAccessService;    
-    
-    worldRuntimeEquipmentService;    
-    
-    worldRuntimeCultivationService;    
-    
-    worldRuntimeProgressionService;    
-    
-    worldRuntimeUseItemService;    
-    
-    worldRuntimeRedeemCodeService;    
-    
-    worldRuntimePlayerSkillDispatchService;    
-    
-    worldRuntimeBattleEngageService;    
-    
-    worldRuntimeAutoCombatService;    
-    
-    worldRuntimeCombatCommandService;    
-    
-    worldRuntimeActionExecutionService;    
+    contentTemplateRepository;
 
-    worldRuntimeFormationService;    
-    
-    worldRuntimeSystemCommandEnqueueService;    
+    templateRepository;
+
+    mapPersistenceService;
+
+    instanceDomainPersistenceService;
+    instanceCatalogService;
+
+    playerRuntimeService;
+
+    playerCombatService;
+
+    worldSessionService;
+
+    worldClientEventService;
+
+    redeemCodeRuntimeService;
+
+    craftPanelRuntimeService;
+
+    worldRuntimeNpcShopQueryService;
+
+    worldRuntimeQuestQueryService;
+
+    worldRuntimeQuestStateService;
+
+    worldRuntimeDetailQueryService;
+
+    worldRuntimeContextActionQueryService;
+
+    worldRuntimePlayerViewQueryService;
+
+    worldRuntimeMetricsService;
+
+    worldRuntimeFrameService;
+
+    worldRuntimeLifecycleService;
+
+    worldRuntimePersistenceStateService;
+
+    worldRuntimePlayerSessionService;
+
+    worldRuntimeCommandIntakeFacadeService;
+
+    worldRuntimeGameplayWriteFacadeService;
+
+    worldRuntimeInstanceReadFacadeService;
+
+    worldRuntimeQuestRuntimeFacadeService;
+
+    worldRuntimeReadFacadeService;
+
+    worldRuntimeStateFacadeService;
+
+    worldRuntimeTickDispatchService;
+
+    worldRuntimeWorldAccessService;
+
+    worldRuntimeInstanceTickOrchestrationService;
+
+    worldRuntimeMovementService;
+
+    worldRuntimeSummaryQueryService;
+
+    worldRuntimeInstanceStateService;
+
+    worldRuntimeInstanceQueryService;
+
+    worldRuntimePendingCommandService;
+
+    worldRuntimePlayerLocationService;
+
+    worldRuntimeTickProgressService;
+
+    worldRuntimeNpcQuestInteractionQueryService;
+
+    worldRuntimeNpcShopService;
+
+    worldRuntimeGmQueueService;
+
+    worldRuntimeSystemCommandService;
+
+    worldRuntimeCraftTickService;
+
+    worldRuntimeCraftMutationService;
+
+    worldRuntimeCraftInterruptService;
+
+    worldRuntimeAlchemyService;
+
+    worldRuntimeNpcQuestWriteService;
+
+    worldRuntimeLootContainerService;
+
+    worldRuntimeNavigationService;
+
+    worldRuntimeCombatEffectsService;
+
+    worldRuntimeMonsterActionApplyService;
+
+    worldRuntimeBasicAttackService;
+
+    worldRuntimeMonsterSystemCommandService;
+
+    worldRuntimePlayerCombatOutcomeService;
+
+    worldRuntimePlayerCommandService;
+
+    worldRuntimePlayerCommandEnqueueService;
+
+    worldRuntimeItemGroundService;
+
+    worldRuntimeTransferService;
+
+    worldRuntimeNpcAccessService;
+
+    worldRuntimeEquipmentService;
+
+    worldRuntimeCultivationService;
+
+    worldRuntimeProgressionService;
+    worldRuntimeEnhancementService;
+
+    worldRuntimeUseItemService;
+
+    worldRuntimeRedeemCodeService;
+
+    worldRuntimePlayerSkillDispatchService;
+
+    worldRuntimeBattleEngageService;
+
+    worldRuntimeAutoCombatService;
+
+    worldRuntimeCombatCommandService;
+
+    worldRuntimeActionExecutionService;
+
+    worldRuntimeFormationService;
+    worldRuntimeSectService;
+
+    worldRuntimeSystemCommandEnqueueService;
 
     worldRuntimeTongtianTowerService;
 
-    nodeRegistryService;    
+    nodeRegistryService;
 
-    playerPersistenceFlushService;    
+    playerPersistenceFlushService;
 
     mailRuntimeService;
 
-    instanceLeaseSyncTimer = null;    
-    
-    logger = new common_1.Logger(WorldRuntimeService_1.name);    
-    
-    tick = 0;    
+    instanceLeaseSyncTimer = null;
+
+    logger = new Logger(WorldRuntimeService.name);
+
+    tick = 0;
     buildingOperationResultsByKey = new Map();
     buildingOperationAuditLog = [];
     combatDiagnostics = [];
-    
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, instanceDomainPersistenceService, instanceCatalogService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService, worldRuntimeTongtianTowerService, nodeRegistryService, playerPersistenceFlushService, mailRuntimeService) {
+
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(MapTemplateRepository) templateRepository: any,
+        @Inject(MapPersistenceService) mapPersistenceService: any,
+        @Inject(InstanceDomainPersistenceService) instanceDomainPersistenceService: any,
+        @Inject(InstanceCatalogService) instanceCatalogService: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(PlayerCombatService) playerCombatService: any,
+        @Inject(WorldSessionService) worldSessionService: any,
+        @Inject(forwardRef(() => WorldClientEventService)) worldClientEventService: any,
+        @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: any,
+        @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
+        @Inject(WorldRuntimeNpcShopQueryService) worldRuntimeNpcShopQueryService: any,
+        @Inject(WorldRuntimeQuestQueryService) worldRuntimeQuestQueryService: any,
+        @Inject(WorldRuntimeQuestStateService) worldRuntimeQuestStateService: any,
+        @Inject(WorldRuntimeDetailQueryService) worldRuntimeDetailQueryService: any,
+        @Inject(WorldRuntimeContextActionQueryService) worldRuntimeContextActionQueryService: any,
+        @Inject(WorldRuntimePlayerViewQueryService) worldRuntimePlayerViewQueryService: any,
+        @Inject(WorldRuntimeMetricsService) worldRuntimeMetricsService: any,
+        @Inject(WorldRuntimeFrameService) worldRuntimeFrameService: any,
+        @Inject(WorldRuntimeLifecycleService) worldRuntimeLifecycleService: any,
+        @Inject(WorldRuntimePersistenceStateService) worldRuntimePersistenceStateService: any,
+        @Inject(WorldRuntimePlayerSessionService) worldRuntimePlayerSessionService: any,
+        @Inject(WorldRuntimeCommandIntakeFacadeService) worldRuntimeCommandIntakeFacadeService: any,
+        @Inject(WorldRuntimeGameplayWriteFacadeService) worldRuntimeGameplayWriteFacadeService: any,
+        @Inject(WorldRuntimeInstanceReadFacadeService) worldRuntimeInstanceReadFacadeService: any,
+        @Inject(WorldRuntimeQuestRuntimeFacadeService) worldRuntimeQuestRuntimeFacadeService: any,
+        @Inject(WorldRuntimeReadFacadeService) worldRuntimeReadFacadeService: any,
+        @Inject(WorldRuntimeStateFacadeService) worldRuntimeStateFacadeService: any,
+        @Inject(WorldRuntimeTickDispatchService) worldRuntimeTickDispatchService: any,
+        @Inject(WorldRuntimeWorldAccessService) worldRuntimeWorldAccessService: any,
+        @Inject(WorldRuntimeInstanceTickOrchestrationService) worldRuntimeInstanceTickOrchestrationService: any,
+        @Inject(WorldRuntimeMovementService) worldRuntimeMovementService: any,
+        @Inject(WorldRuntimeSummaryQueryService) worldRuntimeSummaryQueryService: any,
+        @Inject(WorldRuntimeInstanceStateService) worldRuntimeInstanceStateService: any,
+        @Inject(WorldRuntimeInstanceQueryService) worldRuntimeInstanceQueryService: any,
+        @Inject(WorldRuntimePendingCommandService) worldRuntimePendingCommandService: any,
+        @Inject(WorldRuntimePlayerLocationService) worldRuntimePlayerLocationService: any,
+        @Inject(WorldRuntimeTickProgressService) worldRuntimeTickProgressService: any,
+        @Inject(WorldRuntimeNpcQuestInteractionQueryService) worldRuntimeNpcQuestInteractionQueryService: any,
+        @Inject(WorldRuntimeNpcShopService) worldRuntimeNpcShopService: any,
+        @Inject(WorldRuntimeGmQueueService) worldRuntimeGmQueueService: any,
+        @Inject(WorldRuntimeSystemCommandService) worldRuntimeSystemCommandService: any,
+        @Inject(WorldRuntimeCraftTickService) worldRuntimeCraftTickService: any,
+        @Inject(WorldRuntimeCraftMutationService) worldRuntimeCraftMutationService: any,
+        @Inject(WorldRuntimeCraftInterruptService) worldRuntimeCraftInterruptService: any,
+        @Inject(WorldRuntimeAlchemyService) worldRuntimeAlchemyService: any,
+        @Inject(WorldRuntimeNpcQuestWriteService) worldRuntimeNpcQuestWriteService: any,
+        @Inject(WorldRuntimeLootContainerService) worldRuntimeLootContainerService: any,
+        @Inject(WorldRuntimeNavigationService) worldRuntimeNavigationService: any,
+        @Inject(WorldRuntimeCombatEffectsService) worldRuntimeCombatEffectsService: any,
+        @Inject(WorldRuntimeMonsterActionApplyService) worldRuntimeMonsterActionApplyService: any,
+        @Inject(WorldRuntimeBasicAttackService) worldRuntimeBasicAttackService: any,
+        @Inject(WorldRuntimeMonsterSystemCommandService) worldRuntimeMonsterSystemCommandService: any,
+        @Inject(WorldRuntimePlayerCombatOutcomeService) worldRuntimePlayerCombatOutcomeService: any,
+        @Inject(WorldRuntimePlayerCommandService) worldRuntimePlayerCommandService: any,
+        @Inject(WorldRuntimePlayerCommandEnqueueService) worldRuntimePlayerCommandEnqueueService: any,
+        @Inject(WorldRuntimeItemGroundService) worldRuntimeItemGroundService: any,
+        @Inject(WorldRuntimeTransferService) worldRuntimeTransferService: any,
+        @Inject(WorldRuntimeNpcAccessService) worldRuntimeNpcAccessService: any,
+        @Inject(WorldRuntimeEquipmentService) worldRuntimeEquipmentService: any,
+        @Inject(WorldRuntimeCultivationService) worldRuntimeCultivationService: any,
+        @Inject(WorldRuntimeProgressionService) worldRuntimeProgressionService: any,
+        @Inject(WorldRuntimeEnhancementService) worldRuntimeEnhancementService: any,
+        @Inject(WorldRuntimeUseItemService) worldRuntimeUseItemService: any,
+        @Inject(WorldRuntimeRedeemCodeService) worldRuntimeRedeemCodeService: any,
+        @Inject(WorldRuntimePlayerSkillDispatchService) worldRuntimePlayerSkillDispatchService: any,
+        @Inject(WorldRuntimeBattleEngageService) worldRuntimeBattleEngageService: any,
+        @Inject(WorldRuntimeAutoCombatService) worldRuntimeAutoCombatService: any,
+        @Inject(WorldRuntimeCombatCommandService) worldRuntimeCombatCommandService: any,
+        @Inject(WorldRuntimeActionExecutionService) worldRuntimeActionExecutionService: any,
+        @Inject(WorldRuntimeSystemCommandEnqueueService) worldRuntimeSystemCommandEnqueueService: any,
+        @Inject(WorldRuntimeTongtianTowerService) worldRuntimeTongtianTowerService: any,
+        @Inject(NodeRegistryService) nodeRegistryService: any,
+        @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any,
+        @Inject(MailRuntimeService) mailRuntimeService: any,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -500,98 +496,98 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
-        this.worldRuntimeFormationService = new world_runtime_formation_service_1.WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService);
-        this.worldRuntimeSectService = new world_runtime_sect_service_1.WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService);
+        this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService);
+        this.worldRuntimeSectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService);
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
         this.worldRuntimeTongtianTowerService = worldRuntimeTongtianTowerService;
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
     }
-    
+
     get lastTickDurationMs() {
         return this.worldRuntimeMetricsService.lastTickDurationMs;
-    }    
-    
+    }
+
     get lastSyncFlushDurationMs() {
         return this.worldRuntimeMetricsService.lastSyncFlushDurationMs;
-    }    
-    
+    }
+
     get lastTickPhaseDurations() {
         return this.worldRuntimeMetricsService.lastTickPhaseDurations;
-    }    
-    
+    }
+
     get tickDurationHistoryMs() {
         return this.worldRuntimeMetricsService.tickDurationHistoryMs;
-    }    
-    
+    }
+
     get syncFlushDurationHistoryMs() {
         return this.worldRuntimeMetricsService.syncFlushDurationHistoryMs;
-    }    
-    
+    }
+
     get tickPhaseDurationHistoryMs() {
         return this.worldRuntimeMetricsService.tickPhaseDurationHistoryMs;
-    }    
-    
+    }
+
     get instanceTickProgressById() {
         return this.worldRuntimeTickProgressService.instanceTickProgressById;
-    }    
-    
+    }
+
     enqueuePendingCommand(playerId, command) {
         this.worldRuntimeStateFacadeService.enqueuePendingCommand(playerId, command, this);
-    }    
-    
+    }
+
     getPendingCommand(playerId) {
         return this.worldRuntimeStateFacadeService.getPendingCommand(playerId, this);
-    }    
-    
+    }
+
     hasPendingCommand(playerId) {
         return this.worldRuntimeStateFacadeService.hasPendingCommand(playerId, this);
-    }    
-    
+    }
+
     clearPendingCommand(playerId) {
         this.worldRuntimeStateFacadeService.clearPendingCommand(playerId, this);
-    }    
-    
+    }
+
     getPendingCommandCount() {
         return this.worldRuntimeStateFacadeService.getPendingCommandCount(this);
-    }    
-    
+    }
+
     getPlayerLocation(playerId) {
         return this.worldRuntimeStateFacadeService.getPlayerLocation(playerId, this);
-    }    
-    
+    }
+
     setPlayerLocation(playerId, location) {
         this.worldRuntimeStateFacadeService.setPlayerLocation(playerId, location, this);
-    }    
-    
+    }
+
     clearPlayerLocation(playerId) {
         this.worldRuntimeStateFacadeService.clearPlayerLocation(playerId, this);
-    }    
-    
+    }
+
     getPlayerLocationCount() {
         return this.worldRuntimeStateFacadeService.getPlayerLocationCount(this);
-    }    
-    
+    }
+
     listConnectedPlayerIds() {
         return this.worldRuntimeStateFacadeService.listConnectedPlayerIds(this);
-    }    
-    
+    }
+
     getInstanceRuntime(instanceId) {
         return this.worldRuntimeStateFacadeService.getInstanceRuntime(instanceId, this);
-    }    
-    
+    }
+
     setInstanceRuntime(instanceId, instance) {
         this.worldRuntimeStateFacadeService.setInstanceRuntime(instanceId, instance, this);
-        (0, world_runtime_instance_lease_helpers_1.syncManagedInstanceRegistration)(this, instanceId, instance);
-    }    
+        syncManagedInstanceRegistration(this, instanceId, instance);
+    }
 
     isInstanceLeaseWritable(instance) {
-        return (0, world_runtime_instance_lease_helpers_1.isInstanceLeaseWritable)(this, instance);
+        return isInstanceLeaseWritable(this, instance);
     }
 
     fenceInstanceRuntime(instanceId, reason = 'lease_lost') {
-        (0, world_runtime_instance_lease_helpers_1.fenceInstanceRuntime)(this, instanceId, reason);
+        fenceInstanceRuntime(this, instanceId, reason);
     }
 
     freezeInstanceWriting(instanceId, reason = 'gm_freeze') {
@@ -599,19 +595,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
 
     unfreezeInstanceWriting(instanceId) {
-        return (0, world_runtime_instance_lease_helpers_1.unfreezeInstanceWriting)(this, instanceId);
+        return unfreezeInstanceWriting(this, instanceId);
     }
 
     async syncInstanceLease(instanceId) {
-        return (0, world_runtime_instance_lease_helpers_1.syncInstanceLease)(this, instanceId);
+        return syncInstanceLease(this, instanceId);
     }
 
     async rebuildPersistentInstance(instanceId) {
-        return (0, world_runtime_instance_lease_helpers_1.rebuildPersistentInstance)(this, instanceId);
+        return rebuildPersistentInstance(this, instanceId);
     }
 
     async migrateInstanceToNode(instanceId, targetNodeId) {
-        return (0, world_runtime_instance_lease_helpers_1.migrateInstanceToNode)(this, instanceId, targetNodeId);
+        return migrateInstanceToNode(this, instanceId, targetNodeId);
     }
 
     async migratePlayerToNode(playerId, targetNodeId) {
@@ -660,11 +656,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     listInstanceRuntimes() {
         return this.worldRuntimeStateFacadeService.listInstanceRuntimes(this);
     }
-    
+
     listInstanceEntries() {
         return this.worldRuntimeStateFacadeService.listInstanceEntries(this);
-    }    
-    
+    }
+
     getInstanceCount() {
         return this.worldRuntimeStateFacadeService.getInstanceCount(this);
     }
@@ -741,34 +737,34 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         return this.worldRuntimeReadFacadeService.buildTileDetail(playerId, input, this);
     }
         handleBuildPlaceIntent(playerId, payload) {
-        return world_runtime_building_service_1.handleBuildPlaceIntent(this, playerId, payload);
+        return handleBuildPlaceIntent(this, playerId, payload);
     }
         handleBuildDeconstructIntent(playerId, payload) {
-        return world_runtime_building_service_1.handleBuildDeconstructIntent(this, playerId, payload);
+        return handleBuildDeconstructIntent(this, playerId, payload);
     }
         handleStartBuildingConstruction(playerId, buildingId) {
-        return world_runtime_building_service_1.handleStartBuildingConstruction(this, playerId, buildingId);
+        return handleStartBuildingConstruction(this, playerId, buildingId);
     }
         dispatchStartBuildingConstruction(playerId, buildingId) {
-        return world_runtime_building_service_1.dispatchStartBuildingConstruction(this, playerId, buildingId);
+        return dispatchStartBuildingConstruction(this, playerId, buildingId);
     }
         interruptBuildingConstruction(playerId, reason) {
-        return world_runtime_building_service_1.interruptBuildingConstruction(this, playerId, reason);
+        return interruptBuildingConstruction(this, playerId, reason);
     }
         tickBuildingConstruction(playerId) {
-        return world_runtime_building_service_1.tickBuildingConstruction(this, playerId);
+        return tickBuildingConstruction(this, playerId);
     }
         listBuildingOperationAudit(limit = 50) {
-        return world_runtime_building_service_1.listBuildingOperationAudit(this, limit);
+        return listBuildingOperationAudit(this, limit);
     }
         handleRoomSetRoleIntent(playerId, payload) {
-        return world_runtime_building_service_1.handleRoomSetRoleIntent(this, playerId, payload);
+        return handleRoomSetRoleIntent(this, playerId, payload);
     }
         buildCurrentRoomSummaryPatch(playerId) {
-        return world_runtime_building_service_1.buildCurrentRoomSummaryPatch(this, playerId);
+        return buildCurrentRoomSummaryPatch(this, playerId);
     }
         buildFengShuiObserveView(playerId, payload) {
-        return world_runtime_building_service_1.buildFengShuiObserveView(this, playerId, payload);
+        return buildFengShuiObserveView(this, playerId, payload);
     }
         buildLootWindowSyncState(playerId, tileX, tileY) {
         return this.worldRuntimeReadFacadeService.buildLootWindowSyncState(playerId, tileX, tileY, this);
@@ -789,7 +785,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         return this.worldRuntimeWorldAccessService.getRuntimeSummary(this);
     }
     async getInstanceLeaseStatus(instanceId) {
-        return (0, world_runtime_instance_lease_helpers_1.getInstanceLeaseStatus)(this, instanceId);
+        return getInstanceLeaseStatus(this, instanceId);
     }
         listDirtyPersistentInstances() {
         return this.worldRuntimeStateFacadeService.listDirtyPersistentInstances(this);
@@ -828,13 +824,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         await this.worldRuntimeStateFacadeService.rebuildPersistentRuntimeAfterRestore(this);
     }
     async syncAllInstanceLeases() {
-        return (0, world_runtime_instance_lease_helpers_1.syncAllInstanceLeases)(this);
+        return syncAllInstanceLeases(this);
     }
     async claimRecoverableCatalogInstances() {
-        return (0, world_runtime_instance_lease_helpers_1.claimRecoverableCatalogInstances)(this);
+        return claimRecoverableCatalogInstances(this);
     }
     async hydratePersistentInstanceSnapshot(instanceId, instance) {
-        return (0, world_runtime_instance_lease_helpers_1.hydratePersistentInstanceSnapshot)(this, instanceId, instance);
+        return hydratePersistentInstanceSnapshot(this, instanceId, instance);
     }
         createInstance(input) {
         return this.worldRuntimeInstanceReadFacadeService.createInstance(input, this);
@@ -1113,85 +1109,3 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeTickDispatchService.pushAttackEffect(instanceId, fromX, fromY, toX, toY, color, this);
     }
 };
-exports.WorldRuntimeService = WorldRuntimeService;
-exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __decorate([
-    (0, common_1.Injectable)(),
-        __param(7, (0, common_1.Inject)(world_session_service_1.WorldSessionService)),
-        __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_client_event_service_1.WorldClientEventService))),
-        __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        map_template_repository_1.MapTemplateRepository,
-        map_persistence_service_1.MapPersistenceService,
-        instance_domain_persistence_service_1.InstanceDomainPersistenceService,
-        instance_catalog_service_1.InstanceCatalogService,
-        player_runtime_service_1.PlayerRuntimeService,
-        player_combat_service_1.PlayerCombatService,
-        world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService,
-        redeem_code_runtime_service_1.RedeemCodeRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
-        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
-        world_runtime_quest_state_service_1.WorldRuntimeQuestStateService,
-        world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
-        world_runtime_context_action_query_service_1.WorldRuntimeContextActionQueryService,
-        world_runtime_player_view_query_service_1.WorldRuntimePlayerViewQueryService,
-        world_runtime_metrics_service_1.WorldRuntimeMetricsService,
-        world_runtime_frame_service_1.WorldRuntimeFrameService,
-        world_runtime_lifecycle_service_1.WorldRuntimeLifecycleService,
-        world_runtime_persistence_state_service_1.WorldRuntimePersistenceStateService,
-        world_runtime_player_session_service_1.WorldRuntimePlayerSessionService,
-        world_runtime_command_intake_facade_service_1.WorldRuntimeCommandIntakeFacadeService,
-        world_runtime_gameplay_write_facade_service_1.WorldRuntimeGameplayWriteFacadeService,
-        world_runtime_instance_read_facade_service_1.WorldRuntimeInstanceReadFacadeService,
-        world_runtime_quest_runtime_facade_service_1.WorldRuntimeQuestRuntimeFacadeService,
-        world_runtime_read_facade_service_1.WorldRuntimeReadFacadeService,
-        world_runtime_state_facade_service_1.WorldRuntimeStateFacadeService,
-        world_runtime_tick_dispatch_service_1.WorldRuntimeTickDispatchService,
-        world_runtime_world_access_service_1.WorldRuntimeWorldAccessService,
-        world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
-        world_runtime_movement_service_1.WorldRuntimeMovementService,
-        world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
-        world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
-        world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
-        world_runtime_pending_command_service_1.WorldRuntimePendingCommandService,
-        world_runtime_player_location_service_1.WorldRuntimePlayerLocationService,
-        world_runtime_tick_progress_service_1.WorldRuntimeTickProgressService,
-        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
-        world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
-        world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
-        world_runtime_system_command_service_1.WorldRuntimeSystemCommandService,
-        world_runtime_craft_tick_service_1.WorldRuntimeCraftTickService,
-        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService,
-        world_runtime_craft_interrupt_service_1.WorldRuntimeCraftInterruptService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
-        world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService,
-        world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
-        world_runtime_navigation_service_1.WorldRuntimeNavigationService,
-        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
-        world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
-        world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
-        world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
-        world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService,
-        world_runtime_player_command_service_1.WorldRuntimePlayerCommandService,
-        world_runtime_player_command_enqueue_service_1.WorldRuntimePlayerCommandEnqueueService,
-        world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
-        world_runtime_transfer_service_1.WorldRuntimeTransferService,
-        world_runtime_npc_access_service_1.WorldRuntimeNpcAccessService,
-        world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
-        world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
-        world_runtime_progression_service_1.WorldRuntimeProgressionService,
-        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
-        world_runtime_use_item_service_1.WorldRuntimeUseItemService,
-        world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
-        world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
-        world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
-        world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService,
-        world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
-        world_runtime_action_execution_service_1.WorldRuntimeActionExecutionService,
-        world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService,
-        world_runtime_tongtian_tower_service_1.WorldRuntimeTongtianTowerService,
-        node_registry_service_1.NodeRegistryService,
-        player_persistence_flush_service_1.PlayerPersistenceFlushService,
-        mail_runtime_service_1.MailRuntimeService])
-], WorldRuntimeService);
-export { WorldRuntimeService };

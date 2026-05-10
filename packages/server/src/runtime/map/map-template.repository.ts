@@ -1,66 +1,22 @@
-// @ts-nocheck
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var MapTemplateRepository_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MapTemplateRepository = void 0;
-exports.getTileIndex = getTileIndex;
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
-const project_path_1 = require("../../common/project-path");
+import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
+import { resolveProjectPath } from '../../common/project-path';
 
-const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
-let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepository {
+const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+@Injectable()
+export class MapTemplateRepository {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(MapTemplateRepository_1.name);    
+    logger = new Logger(MapTemplateRepository.name);
     /**
  * templates：template相关字段。
  */
 
-    templates = new Map();    
+    templates = new Map();
     mapGroupMembersById = new Map();
     mapGroupNameById = new Map();
     mapGroupIdByAlias = new Map();
@@ -68,12 +24,12 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
  * npcLocationById：NPC位置ByID标识。
  */
 
-    npcLocationById = new Map();    
+    npcLocationById = new Map();
     /**
  * questSourceById：任务来源ByID标识。
  */
 
-    questSourceById = new Map();    
+    questSourceById = new Map();
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -81,7 +37,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
 
     onModuleInit() {
         this.loadAll();
-    }    
+    }
     /**
  * listSummaries：读取摘要并返回结果。
  * @returns 无返回值，完成摘要的读取/组装。
@@ -103,7 +59,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             landmarkCount: template.landmarks.length,
             containerCount: template.containers.length,
         }));
-    }    
+    }
     /**
  * list：读取列表并返回结果。
  * @returns 无返回值，完成结果的读取/组装。
@@ -111,7 +67,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
 
     list() {
         return Array.from(this.templates.values());
-    }    
+    }
     /**
  * getOrThrow：读取OrThrow。
  * @param templateId template ID。
@@ -126,7 +82,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             throw new Error(`未找到地图模板：${templateId}`);
         }
         return template;
-    }    
+    }
     /**
  * has：判断ha是否满足条件。
  * @param templateId template ID。
@@ -135,7 +91,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
 
     has(templateId) {
         return this.templates.has(templateId);
-    }    
+    }
     resolveMapGroupMembers(mapRef) {
         const normalized = normalizeMapGroupAlias(mapRef);
         if (!normalized) {
@@ -160,7 +116,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
     }
     /** registerRuntimeMapTemplate：注册运行时生成地图模板。 */
     registerRuntimeMapTemplate(document) {
-        const normalized = (0, shared_1.normalizeEditableMapDocument)(document);
+        const normalized = normalizeEditableMapDocument(document);
         copyRuntimeMapMetadata(document, normalized);
         const template = this.buildTemplate(normalized, new Map(), new Map());
         this.templates.set(template.id, template);
@@ -175,7 +131,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
 
     getNpcLocation(npcId) {
         return this.npcLocationById.get(npcId) ?? null;
-    }    
+    }
     /**
  * getQuestSource：读取任务来源。
  * @param questId quest ID。
@@ -184,7 +140,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
 
     getQuestSource(questId) {
         return this.questSourceById.get(questId) ?? null;
-    }    
+    }
     /**
  * loadAll：读取All并返回结果。
  * @returns 无返回值，完成All的读取/组装。
@@ -199,15 +155,15 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         this.mapGroupIdByAlias.clear();
         this.npcLocationById.clear();
         this.questSourceById.clear();
-        const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
+        const mapsDir = resolveProjectPath('packages', 'server', 'data', 'maps');
         const resourceNodeById = loadLandmarkResourceNodeDefinitions();
         const files = collectJsonFiles(mapsDir);
         const documents = [];
         for (const file of files) {
             const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
-            documents.push((0, shared_1.normalizeEditableMapDocument)(raw));
+            documents.push(normalizeEditableMapDocument(raw));
         }
-        const portalValidationError = (0, shared_1.validateEditableMapPortalReciprocity)(documents);
+        const portalValidationError = validateEditableMapPortalReciprocity(documents);
         if (portalValidationError) {
             throw new Error(`地图传送点校验失败: ${portalValidationError}`);
         }
@@ -238,7 +194,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         }
         this.rebuildMapGroupIndex();
         this.logger.log(`已加载 ${this.templates.size} 个地图模板`);
-    }    
+    }
     rebuildMapGroupIndex() {
         this.mapGroupMembersById.clear();
         this.mapGroupNameById.clear();
@@ -291,10 +247,10 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         for (let y = 0; y < height; y += 1) {
             const row = document.tiles[y] ?? '';
             for (let x = 0; x < width; x += 1) {
-                const tileType = (0, shared_1.getTileTypeFromMapChar)(row[x] ?? '#');
+                const tileType = getTileTypeFromMapChar(row[x] ?? '#');
                 const tileIndex = getTileIndex(x, y, width);
-                walkableMask[tileIndex] = (0, shared_1.isTileTypeWalkable)(tileType) ? 1 : 0;
-                blocksSightMask[tileIndex] = (0, shared_1.doesTileTypeBlockSight)(tileType) ? 1 : 0;
+                walkableMask[tileIndex] = isTileTypeWalkable(tileType) ? 1 : 0;
+                blocksSightMask[tileIndex] = doesTileTypeBlockSight(tileType) ? 1 : 0;
             }
         }
         const safeZones = normalizeSafeZones(document.safeZones, width, height);
@@ -398,7 +354,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 continue;
             }
             const tileIndex = getTileIndex(aura.x, aura.y, width);
-            const value = (0, shared_1.normalizeConfiguredAuraValue)(aura.value);
+            const value = normalizeConfiguredAuraValue(aura.value);
             baseAuraByTile[tileIndex] = value;
             if (value > 0) {
                 baseTileResourceEntryByKey.set(`${DEFAULT_TILE_AURA_RESOURCE_KEY}:${tileIndex}`, {
@@ -415,11 +371,11 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 continue;
             }
             const resourceKey = resource.resourceKey.trim();
-            if (!(0, shared_1.parseQiResourceKey)(resourceKey)) {
+            if (!parseQiResourceKey(resourceKey)) {
                 continue;
             }
             const tileIndex = getTileIndex(resource.x, resource.y, width);
-            const value = (0, shared_1.normalizeConfiguredAuraValue)(resource.value);
+            const value = normalizeConfiguredAuraValue(resource.value);
             if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
                 baseAuraByTile[tileIndex] = value;
             }
@@ -464,11 +420,6 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         };
     }
 };
-exports.MapTemplateRepository = MapTemplateRepository;
-exports.MapTemplateRepository = MapTemplateRepository = MapTemplateRepository_1 = __decorate([
-    (0, common_1.Injectable)()
-], MapTemplateRepository);
-export { MapTemplateRepository, getTileIndex };
 /**
  * collectJsonFiles：递归收集地图真源，包含 compose 子图。
  * @param dirPath 参数说明。
@@ -513,7 +464,7 @@ function buildNpcQuestGiverKey(mapId, npcId) {
 }
 
 function loadContentQuestEntriesByGiver(npcLocationById) {
-    const questsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'quests');
+    const questsDir = resolveProjectPath('packages', 'server', 'data', 'content', 'quests');
     const entriesByGiver = new Map();
     if (!fs.existsSync(questsDir)) {
         return entriesByGiver;
@@ -552,7 +503,7 @@ function loadContentQuestEntriesByGiver(npcLocationById) {
 }
 
 function loadLandmarkResourceNodeDefinitions() {
-    const filePath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'resource-nodes.json');
+    const filePath = resolveProjectPath('packages', 'server', 'data', 'content', 'resource-nodes.json');
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const definitions = new Map();
     for (const entry of raw?.resourceNodes ?? []) {
@@ -1071,6 +1022,6 @@ function isInBounds(x, y, width, height) {
  * @returns 无返回值，完成TileIndex的读取/组装。
  */
 
-function getTileIndex(x, y, width) {
+export function getTileIndex(x, y, width) {
     return (y * width) + x;
 }

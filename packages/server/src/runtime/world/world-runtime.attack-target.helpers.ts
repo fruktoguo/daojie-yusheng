@@ -1,16 +1,11 @@
-// @ts-nocheck
-"use strict";
+import { encodeTileTargetRef, isTileTargetRef, parseTileTargetRef } from '@mud/shared';
+import { isHostileCombatRelationResolution, resolveCombatRelation } from '../player/player-combat-config.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildBasicAttackCommandFromAttackableTarget = exports.resolveAttackableTargetRef = void 0;
-
-const shared_1 = require("@mud/shared");
-const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 
 function isHostileRelation(resolution) {
-    return (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution);
+    return isHostileCombatRelationResolution(resolution);
 }
 
 function isWithinMaxDistance(player, target, maxDistance) {
@@ -44,7 +39,6 @@ function buildBasicAttackCommandFromAttackableTarget(target) {
         autoCombat: true,
     };
 }
-exports.buildBasicAttackCommandFromAttackableTarget = buildBasicAttackCommandFromAttackableTarget;
 
 function buildFormationEntityAttackableTarget(formationState) {
     return buildAttackableTarget({
@@ -66,7 +60,7 @@ function resolveAttackablePlayerTarget(instance, playerRuntimeService, player, t
         return null;
     }
     const target = playerRuntimeService.getPlayer(targetPlayerId);
-    const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
+    const relation = resolveCombatRelation(player, {
         kind: 'player',
         target,
     });
@@ -101,7 +95,7 @@ function resolveAttackableMonsterAtTile(instance, player, tile, options) {
         .sort((left, right) => String(left.runtimeId).localeCompare(String(right.runtimeId), 'zh-Hans-CN'))[0];
     if (
         !monster
-        || !isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))
+        || !isHostileRelation(resolveCombatRelation(player, { kind: 'monster' }))
         || !isWithinMaxDistance(player, monster, options?.maxDistance)
     ) {
         return null;
@@ -134,7 +128,7 @@ function resolveAttackablePlayerAtTile(instance, playerRuntimeService, player, t
         const target = typeof playerRuntimeService.getPlayer === 'function'
             ? playerRuntimeService.getPlayer(snapshot.playerId) ?? snapshot
             : snapshot;
-        const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
+        const relation = resolveCombatRelation(player, {
             kind: 'player',
             target,
         });
@@ -178,7 +172,7 @@ function resolveAttackableTileTarget(instance, playerRuntimeService, player, til
     if (playerTarget) {
         return playerTarget;
     }
-    const terrainHostile = isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'terrain' }));
+    const terrainHostile = isHostileRelation(resolveCombatRelation(player, { kind: 'terrain' }));
     if (!terrainHostile) {
         return null;
     }
@@ -188,7 +182,7 @@ function resolveAttackableTileTarget(instance, playerRuntimeService, player, til
     if (formationTileState) {
         return buildAttackableTarget({
             kind: formationTileState.kind ?? 'tile',
-            targetRef: (0, shared_1.encodeTileTargetRef)(tile),
+            targetRef: encodeTileTargetRef(tile),
             x: tile.x,
             y: tile.y,
             hp: formationTileState.hp ?? formationTileState.remainingHp ?? formationTileState.remainingAuraBudget ?? 1,
@@ -208,7 +202,7 @@ function resolveAttackableTileTarget(instance, playerRuntimeService, player, til
         if (containerState) {
             return buildAttackableTarget({
                 kind: containerState.kind ?? 'tile',
-                targetRef: (0, shared_1.encodeTileTargetRef)(tile),
+                targetRef: encodeTileTargetRef(tile),
                 x: tile.x,
                 y: tile.y,
                 hp: containerState.hp ?? containerState.remainingCount ?? 1,
@@ -224,7 +218,7 @@ function resolveAttackableTileTarget(instance, playerRuntimeService, player, til
         if (tileState && tileState.destroyed !== true) {
             return buildAttackableTarget({
                 kind: 'tile',
-                targetRef: (0, shared_1.encodeTileTargetRef)(tile),
+                targetRef: encodeTileTargetRef(tile),
                 x: tile.x,
                 y: tile.y,
                 hp: tileState.hp,
@@ -249,7 +243,7 @@ function resolveAttackableIdTarget(instance, player, targetRef, deps, options) {
         : null;
     if (formationState) {
         if (
-            !isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'terrain' }))
+            !isHostileRelation(resolveCombatRelation(player, { kind: 'terrain' }))
             || !isWithinMaxDistance(player, formationState, options?.maxDistance)
         ) {
             return null;
@@ -264,7 +258,7 @@ function resolveAttackableIdTarget(instance, player, targetRef, deps, options) {
     const monster = typeof instance?.getMonster === 'function' ? instance.getMonster(targetRef) : null;
     if (
         !monster?.alive
-        || !isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))
+        || !isHostileRelation(resolveCombatRelation(player, { kind: 'monster' }))
         || !isWithinMaxDistance(player, monster, options?.maxDistance)
     ) {
         return null;
@@ -289,12 +283,11 @@ function resolveAttackableTargetRef(instance, playerRuntimeService, player, targ
     if (normalizedRef.startsWith('player:')) {
         return resolveAttackablePlayerTarget(instance, playerRuntimeService, player, normalizedRef, options);
     }
-    if ((0, shared_1.isTileTargetRef)(normalizedRef)) {
-        return resolveAttackableTileTarget(instance, playerRuntimeService, player, (0, shared_1.parseTileTargetRef)(normalizedRef), deps, options);
+    if (isTileTargetRef(normalizedRef)) {
+        return resolveAttackableTileTarget(instance, playerRuntimeService, player, parseTileTargetRef(normalizedRef), deps, options);
     }
     return resolveAttackableIdTarget(instance, player, normalizedRef, deps, options);
 }
-exports.resolveAttackableTargetRef = resolveAttackableTargetRef;
 
 export {
     buildBasicAttackCommandFromAttackableTarget,

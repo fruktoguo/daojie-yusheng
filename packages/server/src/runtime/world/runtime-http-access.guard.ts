@@ -1,18 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeHttpAccessGuard = void 0;
-exports.resolveRuntimeHttpAccessPolicy = resolveRuntimeHttpAccessPolicy;
-
-const common_1 = require("@nestjs/common");
+import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 
 const RUNTIME_HTTP_ENABLE_ENV_KEYS = [
     'SERVER_RUNTIME_HTTP',
@@ -29,7 +15,8 @@ const TRUE_FLAG_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']
 
 const FALSE_FLAG_VALUES = new Set(['0', 'false', 'no', 'off', 'disable', 'disabled']);
 
-let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
+@Injectable()
+class RuntimeHttpAccessGuard {
     /** 启动时解析并缓存 runtime HTTP 的访问策略。 */
     policy = resolveRuntimeHttpAccessPolicy(process.env);
     /** 检查请求是否允许访问 runtime HTTP 接口，并校验管理口令。 */
@@ -37,7 +24,7 @@ let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.policy.enabled) {
-            throw new common_1.ServiceUnavailableException('运行时调试 HTTP 未启用；如需使用，请显式设置 SERVER_RUNTIME_HTTP=1');
+            throw new ServiceUnavailableException('运行时调试 HTTP 未启用；如需使用，请显式设置 SERVER_RUNTIME_HTTP=1');
         }
         if (this.policy.token === null) {
             return true;
@@ -47,20 +34,15 @@ let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
 
         const token = readRuntimeAdminToken(request.headers);
         if (token !== this.policy.token) {
-            throw new common_1.UnauthorizedException('运行时调试 HTTP 需要有效的 x-runtime-admin-token 请求头或 Authorization: Bearer <token>');
+            throw new UnauthorizedException('运行时调试 HTTP 需要有效的 x-runtime-admin-token 请求头或 Authorization: Bearer <token>');
         }
         return true;
     }
 };
-exports.RuntimeHttpAccessGuard = RuntimeHttpAccessGuard;
-exports.RuntimeHttpAccessGuard = RuntimeHttpAccessGuard = __decorate([
-    (0, common_1.Injectable)()
-], RuntimeHttpAccessGuard);
 export { RuntimeHttpAccessGuard, resolveRuntimeHttpAccessPolicy };
 /** 解析运行时 HTTP 访问策略，按显式配置优先，再回退测试环境自动放开。 */
 function resolveRuntimeHttpAccessPolicy(env) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const explicitEnabled = readFirstBooleanFlag(env, RUNTIME_HTTP_ENABLE_ENV_KEYS);
     if (explicitEnabled !== undefined) {
@@ -77,7 +59,6 @@ function resolveRuntimeHttpAccessPolicy(env) {
 /** 在 test / verify / smoke 场景自动开启 runtime HTTP，便于验证链路。 */
 function isRuntimeHttpAutoEnabledForTest(env) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const nodeEnv = env.NODE_ENV?.trim().toLowerCase();
     if (nodeEnv === 'test') {
@@ -151,7 +132,6 @@ function readFirstBooleanFlag(env, keys) {
 /** 解析布尔环境变量取值（true/false）并兜底为 false。 */
 function parseBooleanFlag(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalized = value.trim().toLowerCase();
     if (TRUE_FLAG_VALUES.has(normalized)) {

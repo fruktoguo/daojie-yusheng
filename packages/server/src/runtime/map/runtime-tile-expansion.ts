@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.expandRuntimeTiles = exports.createSquareExpansionShape = void 0;
 
 /** createSquareExpansionShape：创建以 origin 为中心的方形候选坐标策略。 */
 function createSquareExpansionShape(radius) {
@@ -19,7 +14,6 @@ function createSquareExpansionShape(radius) {
         },
     };
 }
-exports.createSquareExpansionShape = createSquareExpansionShape;
 
 /** expandRuntimeTiles：按候选形状和生成器激活不存在的运行时地块。 */
 function expandRuntimeTiles(instance, originX, originY, shape, generator, context = null) {
@@ -64,5 +58,4 @@ function expandRuntimeTiles(instance, originX, originY, shape, generator, contex
         rejected,
     };
 }
-exports.expandRuntimeTiles = expandRuntimeTiles;
 export { createSquareExpansionShape, expandRuntimeTiles };

@@ -1,50 +1,38 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../debug/movement-debug';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldProjectorService } from './world-projector.service';
+import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSyncEnvelopeService = void 0;
-const common_1 = require("@nestjs/common");
-const movement_debug_1 = require("../debug/movement-debug");
-const map_template_repository_1 = require("../runtime/map/map-template.repository");
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-const world_projector_service_1 = require("./world-projector.service");
-const world_sync_map_snapshot_service_1 = require("./world-sync-map-snapshot.service");
 /** world envelope 服务：承接 envelope 生成、战斗特效附加与移动调试日志。 */
-let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
+@Injectable()
+export class WorldSyncEnvelopeService {
 /**
  * worldProjectorService：世界Projector服务引用。
  */
 
-    worldProjectorService;    
+    worldProjectorService;
     /**
  * worldRuntimeService：世界运行态服务引用。
  */
 
-    worldRuntimeService;    
+    worldRuntimeService;
     /**
  * templateRepository：template仓储引用。
  */
 
-    templateRepository;    
+    templateRepository;
     /**
  * worldSyncMapSnapshotService：世界Sync地图快照服务引用。
  */
 
-    worldSyncMapSnapshotService;    
+    worldSyncMapSnapshotService;
     /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(WorldSyncEnvelopeService.name);    
+    logger = new Logger(WorldSyncEnvelopeService.name);
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldProjectorService 参数说明。
@@ -54,12 +42,17 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldProjectorService, worldRuntimeService, templateRepository, worldSyncMapSnapshotService) {
+    constructor(
+        @Inject(WorldProjectorService) worldProjectorService: any,
+        @Inject(WorldRuntimeService) worldRuntimeService: any,
+        @Inject(MapTemplateRepository) templateRepository: any,
+        @Inject(WorldSyncMapSnapshotService) worldSyncMapSnapshotService: any,
+    ) {
         this.worldProjectorService = worldProjectorService;
         this.worldRuntimeService = worldRuntimeService;
         this.templateRepository = templateRepository;
         this.worldSyncMapSnapshotService = worldSyncMapSnapshotService;
-    }    
+    }
     /**
  * createInitialEnvelope：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -74,7 +67,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         const envelope = this.appendCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, projectedView, player), projectedView, player);
         this.logMovementEnvelope(playerId, 'initial', envelope);
         return envelope;
-    }    
+    }
     /**
  * createDeltaEnvelope：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -88,7 +81,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         const envelope = this.appendCombatEffects(this.worldProjectorService.createDeltaEnvelope(projectedView, player), projectedView, player);
         this.logMovementEnvelope(playerId, 'delta', envelope);
         return envelope;
-    }    
+    }
     /**
  * clearPlayerCache：执行clear玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
@@ -97,7 +90,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
 
     clearPlayerCache(playerId) {
         this.worldProjectorService.clear(playerId);
-    }    
+    }
 
     withContainerRespawnProjection(view) {
         if (!view || !Array.isArray(view.localContainers) || view.localContainers.length === 0) {
@@ -148,7 +141,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
             fx: effects.map((entry) => cloneCombatEffect(entry)),
         };
         return nextEnvelope;
-    }    
+    }
     /**
  * collectNextCombatEffects：执行Next战斗Effect相关逻辑。
  * @param view 参数说明。
@@ -160,7 +153,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
         return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
-    }    
+    }
     /**
  * logMovementEnvelope：执行logMovementEnvelope相关逻辑。
  * @param playerId 玩家 ID。
@@ -172,7 +165,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
     logMovementEnvelope(playerId, phase, envelope) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!(0, movement_debug_1.isServerNextMovementDebugEnabled)()) {
+        if (!isServerNextMovementDebugEnabled()) {
             return;
         }
         const worldSelfPatch = envelope?.worldDelta?.p?.find((patch) => patch?.id === playerId);
@@ -188,7 +181,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         if (!hasMovementSignal) {
             return;
         }
-        (0, movement_debug_1.logServerNextMovement)(this.logger, `sync.${phase}`, {
+        logServerNextMovement(this.logger, `sync.${phase}`, {
             playerId,
             initSession: envelope?.initSession
                 ? { sessionId: envelope.initSession.sid ?? null }
@@ -218,14 +211,6 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         });
     }
 };
-exports.WorldSyncEnvelopeService = WorldSyncEnvelopeService;
-exports.WorldSyncEnvelopeService = WorldSyncEnvelopeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_projector_service_1.WorldProjectorService,
-        world_runtime_service_1.WorldRuntimeService,
-        map_template_repository_1.MapTemplateRepository,
-        world_sync_map_snapshot_service_1.WorldSyncMapSnapshotService])
-], WorldSyncEnvelopeService);
 /**
  * buildCoordKey：构建并返回目标对象。
  * @param x X 坐标。
@@ -270,5 +255,3 @@ function filterCombatEffects(effects, visibleTiles) {
         })
         .map((entry) => cloneCombatEffect(entry));
 }
-
-export { WorldSyncEnvelopeService };

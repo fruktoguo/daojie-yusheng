@@ -1,34 +1,15 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSyncThreatService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { S2C } from '@mud/shared';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 /** threat 冷路径同步服务：负责 threat arrows 构造、diff 与下发。 */
-let WorldSyncThreatService = class WorldSyncThreatService {
+@Injectable()
+export class WorldSyncThreatService {
     /** 世界 runtime，用于读取 monster aggro 状态。 */
     worldRuntimeService;
     /** 玩家 runtime，用于读取 combat target。 */
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -36,7 +17,10 @@ let WorldSyncThreatService = class WorldSyncThreatService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeService, playerRuntimeService) {
+    constructor(
+        @Inject(WorldRuntimeService) worldRuntimeService: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
     }
@@ -45,7 +29,7 @@ let WorldSyncThreatService = class WorldSyncThreatService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (threatArrows.length > 0) {
-            socket.emit(shared_1.S2C.WorldDelta, {
+            socket.emit(S2C.WorldDelta, {
                 t: view.tick,
                 wr: view.worldRevision,
                 sr: view.selfRevision,
@@ -58,11 +42,10 @@ let WorldSyncThreatService = class WorldSyncThreatService {
     emitDeltaThreatSync(socket, view, previousThreatArrows, mapChanged) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const currentThreatArrows = this.buildThreatArrows(view);
         const threatArrowPatch = diffThreatArrows(previousThreatArrows ?? null, currentThreatArrows, mapChanged);
         if (threatArrowPatch.full || threatArrowPatch.adds.length > 0 || threatArrowPatch.removes.length > 0) {
-            socket.emit(shared_1.S2C.WorldDelta, {
+            socket.emit(S2C.WorldDelta, {
                 t: view.tick,
                 wr: view.worldRevision,
                 sr: view.selfRevision,
@@ -76,7 +59,6 @@ let WorldSyncThreatService = class WorldSyncThreatService {
     /** 构造当前玩家视野内的 threat arrows。 */
     buildThreatArrows(view) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visiblePlayerIds = new Set([
             view.playerId,
@@ -131,12 +113,6 @@ let WorldSyncThreatService = class WorldSyncThreatService {
         return arrows;
     }
 };
-exports.WorldSyncThreatService = WorldSyncThreatService;
-exports.WorldSyncThreatService = WorldSyncThreatService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_service_1.WorldRuntimeService,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldSyncThreatService);
 /**
  * cloneThreatArrows：构建ThreatArrow。
  * @param source 来源对象。
@@ -221,5 +197,3 @@ function compareStableStrings(left, right) {
     }
     return 0;
 }
-
-export { WorldSyncThreatService };

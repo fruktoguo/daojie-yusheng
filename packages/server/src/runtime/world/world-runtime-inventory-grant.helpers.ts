@@ -1,17 +1,11 @@
-// @ts-nocheck
-"use strict";
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.restoreInventoryGrantRollbackState = exports.captureInventoryGrantRollbackState = exports.buildGrantedInventorySnapshots = exports.buildNextInventorySnapshots = exports.resolveInventoryGrantLeaseContext = exports.canUseDurableInventoryGrant = exports.applyDurableInventoryGrant = void 0;
-
-function canUseDurableInventoryGrant(player, durableOperationService) {
+export function canUseDurableInventoryGrant(player, durableOperationService) {
     const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
     const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
     return Boolean(durableOperationService?.isEnabled?.() && typeof durableOperationService?.grantInventoryItems === 'function' && runtimeOwnerId && sessionEpoch > 0);
 }
-exports.canUseDurableInventoryGrant = canUseDurableInventoryGrant;
 
-async function resolveInventoryGrantLeaseContext(instanceId, instanceCatalogService) {
+export async function resolveInventoryGrantLeaseContext(instanceId, instanceCatalogService) {
     const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
     if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
         return null;
@@ -30,9 +24,8 @@ async function resolveInventoryGrantLeaseContext(instanceId, instanceCatalogServ
         ownershipEpoch,
     };
 }
-exports.resolveInventoryGrantLeaseContext = resolveInventoryGrantLeaseContext;
 
-function buildNextInventorySnapshots(items) {
+export function buildNextInventorySnapshots(items) {
     return Array.isArray(items)
         ? items.map((entry) => ({
             itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
@@ -41,9 +34,8 @@ function buildNextInventorySnapshots(items) {
         })).filter((entry) => entry.itemId)
         : [];
 }
-exports.buildNextInventorySnapshots = buildNextInventorySnapshots;
 
-function buildGrantedInventorySnapshots(items) {
+export function buildGrantedInventorySnapshots(items) {
     return Array.isArray(items)
         ? items.map((item) => ({
             itemId: typeof item?.itemId === 'string' ? item.itemId : '',
@@ -52,9 +44,8 @@ function buildGrantedInventorySnapshots(items) {
         })).filter((entry) => entry.itemId)
         : [];
 }
-exports.buildGrantedInventorySnapshots = buildGrantedInventorySnapshots;
 
-function captureInventoryGrantRollbackState(player) {
+export function captureInventoryGrantRollbackState(player) {
     return {
         suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
         inventoryItems: buildNextInventorySnapshots(player?.inventory?.items ?? []),
@@ -64,9 +55,8 @@ function captureInventoryGrantRollbackState(player) {
         dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
     };
 }
-exports.captureInventoryGrantRollbackState = captureInventoryGrantRollbackState;
 
-function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
+export function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
     player.inventory.items = Array.isArray(rollbackState.inventoryItems)
         ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
         : [];
@@ -77,9 +67,8 @@ function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntime
     player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
     playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
-exports.restoreInventoryGrantRollbackState = restoreInventoryGrantRollbackState;
 
-async function applyDurableInventoryGrant(input) {
+export async function applyDurableInventoryGrant(input) {
     const rollbackState = captureInventoryGrantRollbackState(input.player);
     input.player.suppressImmediateDomainPersistence = true;
     try {
@@ -120,6 +109,3 @@ async function applyDurableInventoryGrant(input) {
     }
     return true;
 }
-exports.applyDurableInventoryGrant = applyDurableInventoryGrant;
-
-export { applyDurableInventoryGrant, canUseDurableInventoryGrant, resolveInventoryGrantLeaseContext, buildNextInventorySnapshots, buildGrantedInventorySnapshots, captureInventoryGrantRollbackState, restoreInventoryGrantRollbackState };

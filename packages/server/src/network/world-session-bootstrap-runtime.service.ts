@@ -28,6 +28,7 @@ interface WorldRuntimeBootstrapLike {
 export class WorldSessionBootstrapRuntimeService {
     constructor(
         @Optional()
+        @Inject(WorldSessionService)
         private readonly worldSessionService: WorldSessionService | null = null,
         @Optional()
         @Inject(WorldSessionBootstrapContractService)

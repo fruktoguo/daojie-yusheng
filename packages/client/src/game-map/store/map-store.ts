@@ -1,3 +1,4 @@
+// 地图存储：客户端地图状态管理，维护地块缓存、玩家状态、实体与增量更新
 import {
   VIEW_RADIUS,
   type Direction,

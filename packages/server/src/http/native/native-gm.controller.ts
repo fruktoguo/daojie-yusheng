@@ -215,7 +215,6 @@ interface RedeemCodeRuntimeServicePort {
 
 @Controller(GM_HTTP_CONTRACT.gmBasePath)
 @UseGuards(NativeGmAuthGuard)
-@Reflect.metadata('design:paramtypes', [NativeGmWorldService, NativeManagedAccountService, NativeGmPlayerService, NativeGmMailService, RedeemCodeRuntimeService])
 export class NativeGmController {
 /**
  * redeemCodeRuntimeService：redeemCode运行态服务引用。

@@ -1,11 +1,24 @@
-const shared_1 = require("@mud/shared");
+import {
+  RUNTIME_TECHNIQUE_ACTIVITY_KINDS,
+  type RuntimeTechniqueActivityKind,
+  type TechniqueActivityInterruptReason,
+} from '@mud/shared';
+
+type TechniqueActivityRuntimePhase = 'preparing' | 'brewing' | 'enhancing' | 'paused';
+
+interface TechniqueActivityRuntimeJob {
+  phase: TechniqueActivityRuntimePhase;
+  pausedTicks: number;
+  remainingTicks: number;
+  totalTicks: number;
+}
 
 /**
  * hasTechniqueActivityJob：判断技艺活动 job 是否仍处于进行中。
  * @param job 活动 job。
  * @returns 返回是否仍在进行中。
  */
-function hasTechniqueActivityJob(job) {
+function hasTechniqueActivityJob(job: TechniqueActivityRuntimeJob | null | undefined): job is TechniqueActivityRuntimeJob {
   return Boolean(job && Number(job.remainingTicks) > 0);
 }
 
@@ -15,7 +28,7 @@ function hasTechniqueActivityJob(job) {
  * @param pauseTicks 暂停息数。
  * @returns 返回本次实际追加的暂停息数。
  */
-function applyTechniqueActivityInterrupt(job, pauseTicks) {
+function applyTechniqueActivityInterrupt(job: TechniqueActivityRuntimeJob | null | undefined, pauseTicks: number): number {
   if (!hasTechniqueActivityJob(job)) {
     return 0;
   }
@@ -41,7 +54,10 @@ function applyTechniqueActivityInterrupt(job, pauseTicks) {
  * @param resumePhase 恢复后的阶段。
  * @returns 返回是否恢复到运行态。
  */
-function advanceTechniqueActivityPause(job, resumePhase) {
+function advanceTechniqueActivityPause(
+  job: TechniqueActivityRuntimeJob | null | undefined,
+  resumePhase: Exclude<TechniqueActivityRuntimePhase, 'paused'>,
+): { resumed: boolean } {
   if (!hasTechniqueActivityJob(job) || job.phase !== 'paused') {
     return { resumed: false };
   }
@@ -61,7 +77,12 @@ function advanceTechniqueActivityPause(job, resumePhase) {
  * @param reason 中断原因。
  * @returns 返回统一提示文本。
  */
-function buildTechniqueActivityInterruptMessage(subjectLabel, activityLabel, pauseTicks, reason) {
+function buildTechniqueActivityInterruptMessage(
+  subjectLabel: string | null | undefined,
+  activityLabel: string | null | undefined,
+  pauseTicks: number,
+  reason: TechniqueActivityInterruptReason,
+): string {
   const normalizedSubjectLabel = typeof subjectLabel === 'string' && subjectLabel.trim() ? subjectLabel.trim() : '当前技艺活动';
   const normalizedActivityLabel = typeof activityLabel === 'string' && activityLabel.trim() ? activityLabel.trim() : '技艺活动';
   const normalizedPauseTicks = Math.max(0, Math.floor(Number(pauseTicks) || 0));
@@ -79,17 +100,9 @@ function buildTechniqueActivityInterruptMessage(subjectLabel, activityLabel, pau
  * listRuntimeTechniqueActivityKinds：返回已接入 runtime 的技艺活动键顺序。
  * @returns 返回活动键列表。
  */
-function listRuntimeTechniqueActivityKinds() {
-  return [...shared_1.RUNTIME_TECHNIQUE_ACTIVITY_KINDS];
+function listRuntimeTechniqueActivityKinds(): RuntimeTechniqueActivityKind[] {
+  return [...RUNTIME_TECHNIQUE_ACTIVITY_KINDS];
 }
-
-module.exports = {
-  advanceTechniqueActivityPause,
-  applyTechniqueActivityInterrupt,
-  buildTechniqueActivityInterruptMessage,
-  hasTechniqueActivityJob,
-  listRuntimeTechniqueActivityKinds,
-};
 
 export {
   advanceTechniqueActivityPause,

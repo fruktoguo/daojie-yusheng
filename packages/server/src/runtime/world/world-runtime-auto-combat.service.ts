@@ -1,31 +1,15 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable } from '@nestjs/common';
+import { isHostileCombatRelationResolution, resolveCombatRelation } from '../player/player-combat-config.helpers';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
+import { buildBasicAttackCommandFromAttackableTarget, resolveAttackableTargetRef } from './world-runtime.attack-target.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeAutoCombatService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normalization_helpers_1;
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance, findPathToTargetWithinRangeOnMap, directionFromStep, resolveInitialRunLength } = world_runtime_path_planning_helpers_1;
-const world_runtime_attack_target_helpers_1 = require("./world-runtime.attack-target.helpers");
 
 function isHostileRelation(resolution) {
-    return (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution);
+    return isHostileCombatRelationResolution(resolution);
 }
 
 function resolveAutoCombatPlayerPriority(resolution) {
@@ -191,7 +175,8 @@ function scoreAutoCombatCandidate(mode, candidate, metrics) {
 }
 
 /** 自动战斗编排服务：承接 auto-targeting 与 auto command 物化。 */
-let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
+@Injectable()
+export class WorldRuntimeAutoCombatService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -203,7 +188,9 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
     }
     /**
@@ -355,7 +342,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             };
         }
         if (distance <= 1) {
-            return (0, world_runtime_attack_target_helpers_1.buildBasicAttackCommandFromAttackableTarget)(target);
+            return buildBasicAttackCommandFromAttackableTarget(target);
         }
         if (player.combat.autoBattleStationary) {
             return null;
@@ -425,7 +412,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 continue;
             }
             const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
-            const monsterRelation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' });
+            const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
             const monsterHostile = isHostileRelation(monsterRelation);
             if (!player.combat.autoBattle && !retaliating) {
                 continue;
@@ -510,7 +497,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             return null;
         }
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-        return (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+        return resolveAttackableTargetRef(
             instance,
             this.playerRuntimeService,
             player,
@@ -539,7 +526,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             return null;
         }
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-        const trackedTarget = (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+        const trackedTarget = resolveAttackableTargetRef(
             instance,
             this.playerRuntimeService,
             player,
@@ -585,7 +572,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
                 continue;
             }
-            const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
+            const relation = resolveCombatRelation(player, {
                 kind: 'player',
                 target,
             });
@@ -711,10 +698,3 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         return desiredRange;
     }
 };
-exports.WorldRuntimeAutoCombatService = WorldRuntimeAutoCombatService;
-exports.WorldRuntimeAutoCombatService = WorldRuntimeAutoCombatService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeAutoCombatService);
-
-export { WorldRuntimeAutoCombatService };

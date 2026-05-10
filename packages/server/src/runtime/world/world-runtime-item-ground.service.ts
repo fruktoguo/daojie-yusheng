@@ -1,42 +1,28 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeItemGroundService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
 /** world-runtime item ground orchestration：承接丢弃/拾取地面与容器物品链路。 */
-let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
+@Injectable()
+export class WorldRuntimeItemGroundService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * dispatchDropItem：判断Drop道具是否满足条件。
  * @param playerId 玩家 ID。
@@ -56,11 +42,11 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
         const pile = instance.dropGroundItem(player.x, player.y, item);
         if (!pile) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            throw new common_1.BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
+            throw new BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
         }
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
-    }    
+    }
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
@@ -72,7 +58,7 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
 
     async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
         return deps.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
-    }    
+    }
     /**
  * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
@@ -83,7 +69,7 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
 
     async dispatchTakeGroundAll(playerId, sourceId, deps) {
         return deps.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, deps);
-    }    
+    }
     /**
  * spawnGroundItem：执行spawn地面道具相关逻辑。
  * @param instance 地图实例。
@@ -98,14 +84,7 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
 
         const pile = instance.dropGroundItem(x, y, item);
         if (!pile) {
-            throw new common_1.BadRequestException(`无法在 ${x},${y} 生成掉落`);
+            throw new BadRequestException(`无法在 ${x},${y} 生成掉落`);
         }
     }
 };
-exports.WorldRuntimeItemGroundService = WorldRuntimeItemGroundService;
-exports.WorldRuntimeItemGroundService = WorldRuntimeItemGroundService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeItemGroundService);
-
-export { WorldRuntimeItemGroundService };

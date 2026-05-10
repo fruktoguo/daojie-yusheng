@@ -1,6 +1,4 @@
-// @ts-nocheck
-
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   assertCombatAoiResultEventBudget,
   computeAffectedCellsFromAnchor,
@@ -31,15 +29,21 @@ import {
 } from '../combat/combat-event-query';
 import { CombatAuditOutboxService } from '../../persistence/combat-audit-outbox.service';
 
+type AnyRecord = Record<string, any>;
+
 /** 统一战斗主链路骨架：先承接动作规范化、结构化拒绝原因和诊断输出。 */
 @Injectable()
 export class WorldRuntimeCombatActionService {
   private readonly logger = new Logger(WorldRuntimeCombatActionService.name);
   private readonly combatEvents = [];
 
-  constructor(@Optional() private readonly combatAuditOutboxService: CombatAuditOutboxService | null = null) {}
+  constructor(
+    @Optional()
+    @Inject(CombatAuditOutboxService)
+    private readonly combatAuditOutboxService: CombatAuditOutboxService | null = null,
+  ) {}
 
-  createMonsterAction(action, phase = CombatActionPhase.Instant) {
+  createMonsterAction(action, phase: any = CombatActionPhase.Instant) {
     const kind = resolveMonsterCombatActionKind(action);
     return createCombatAction({
       actor: {
@@ -65,7 +69,7 @@ export class WorldRuntimeCombatActionService {
     });
   }
 
-  createPlayerBasicAttackAction(input = {}) {
+  createPlayerBasicAttackAction(input: AnyRecord = {}) {
     const normalizedTarget = input.target ?? resolvePlayerCommandTarget(input);
     return createCombatAction({
       actor: {
@@ -85,7 +89,7 @@ export class WorldRuntimeCombatActionService {
     });
   }
 
-  createPlayerSkillAction(input = {}) {
+  createPlayerSkillAction(input: AnyRecord = {}) {
     return createCombatAction({
       actor: {
         kind: CombatActorKind.Player,
@@ -148,15 +152,15 @@ export class WorldRuntimeCombatActionService {
     }
   }
 
-  createReject(input = {}) {
+  createReject(input: AnyRecord = {}) {
     return createCombatRejectOutcome(input);
   }
 
-  createSuccess(input = {}) {
+  createSuccess(input: AnyRecord = {}) {
     return createCombatSuccessOutcome(input);
   }
 
-  resolveActionDefinition(input = {}) {
+  resolveActionDefinition(input: AnyRecord = {}): AnyRecord {
     const action = input.action ?? null;
     if (!action?.actionId) {
       return {
@@ -194,7 +198,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  createBasicAttackDefinition(action, input = {}) {
+  createBasicAttackDefinition(action, input: AnyRecord = {}) {
     const actor = input.actor ?? input.monster ?? input.player ?? {};
     const actorKind = action?.actor?.kind ?? input.actorKind ?? null;
     const range = Number.isFinite(Number(input.range))
@@ -236,7 +240,7 @@ export class WorldRuntimeCombatActionService {
     });
   }
 
-  createSkillDefinition(action, skill, input = {}) {
+  createSkillDefinition(action, skill, input: AnyRecord = {}) {
     const geometry = normalizeSkillGeometry(skill);
     const maxTargets = resolveSkillMaxTargets(skill, geometry);
     return createCombatActionDefinition({
@@ -259,7 +263,7 @@ export class WorldRuntimeCombatActionService {
     });
   }
 
-  explainCombatAction(input = {}) {
+  explainCombatAction(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const definitionResult = this.resolveActionDefinition(input);
     if (!definitionResult.ok) {
@@ -299,12 +303,12 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  dryRunCombatAction(input = {}) {
+  dryRunCombatAction(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const phases = [];
     const startedAt = nowMs();
     const startedHeapBytes = heapUsedBytes();
-    const pushPhase = (name, result = {}, phaseStartedAt = nowMs(), phaseStartedHeapBytes = heapUsedBytes()) => {
+    const pushPhase = (name, result: AnyRecord = {}, phaseStartedAt = nowMs(), phaseStartedHeapBytes = heapUsedBytes()) => {
       const heapDeltaBytes = heapDeltaSince(phaseStartedHeapBytes);
       phases.push({
         name,
@@ -399,7 +403,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  collectCombatTargets(input = {}) {
+  collectCombatTargets(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const definitionResult = input.definition
       ? { ok: true, definition: input.definition }
@@ -545,7 +549,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  collectCombatTargetsFromCells(input = {}) {
+  collectCombatTargetsFromCells(input: AnyRecord = {}) {
     const instance = input.instance ?? null;
     const cells = Array.isArray(input.cells) ? input.cells : [];
     const definition = input.definition ?? {};
@@ -644,7 +648,7 @@ export class WorldRuntimeCombatActionService {
     }
   }
 
-  resolvePlayerBasicAttackActionPlan(input = {}) {
+  resolvePlayerBasicAttackActionPlan(input: AnyRecord = {}) {
     const attacker = input.attacker
       ?? input.player
       ?? input.playerRuntimeService?.getPlayer?.(input.playerId)
@@ -768,7 +772,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  resolvePlayerSkillActionPlan(input = {}) {
+  resolvePlayerSkillActionPlan(input: AnyRecord = {}) {
     const attacker = input.attacker
       ?? input.player
       ?? input.playerRuntimeService?.getPlayer?.(input.playerId)
@@ -912,7 +916,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  createPlayerSkillPlanDefinition(action, skill, input = {}, attacker = null) {
+  createPlayerSkillPlanDefinition(action, skill, input: AnyRecord = {}, attacker = null) {
     const baseDefinition = this.createSkillDefinition(action, skill, {
       ...input,
       actorKind: CombatActorKind.Player,
@@ -949,7 +953,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  normalizePlayerSkillPlanTargets(targets = [], input = {}) {
+  normalizePlayerSkillPlanTargets(targets = [], input: AnyRecord = {}) {
     const instance = input.instance ?? null;
     const attacker = input.attacker ?? null;
     const normalized = [];
@@ -1111,7 +1115,7 @@ export class WorldRuntimeCombatActionService {
     return null;
   }
 
-  resolveSingleCombatTarget(target, input = {}, action = null) {
+  resolveSingleCombatTarget(target, input: AnyRecord = {}, action = null) {
     const kind = target?.kind ?? null;
     const instance = input.instance ?? null;
     if (!kind) {
@@ -1260,7 +1264,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  validateCombatTargets(input = {}) {
+  validateCombatTargets(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const definition = input.definition ?? this.resolveActionDefinition(input).definition ?? null;
     const actorPosition = normalizeCombatCell(input.actorPosition ?? input.actor ?? input.monster ?? input.player);
@@ -1293,7 +1297,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  validateActionCostAndCooldown(input = {}) {
+  validateActionCostAndCooldown(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const definition = input.definition ?? this.resolveActionDefinition(input).definition ?? null;
     if (!definition) {
@@ -1346,7 +1350,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  computeCombatTargetCells(input = {}) {
+  computeCombatTargetCells(input: AnyRecord = {}) {
     const action = input.action ?? null;
     const definition = input.definition ?? this.resolveActionDefinition(input).definition ?? null;
     const origin = normalizeCombatCell(input.origin ?? input.actorPosition ?? input.actor ?? input.monster ?? input.player);
@@ -1388,7 +1392,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  validateSingleCombatTarget(input = {}) {
+  validateSingleCombatTarget(input: AnyRecord = {}) {
     const target = input.target;
     const definition = input.definition;
     if (!target) {
@@ -1495,7 +1499,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  collectMonsterSkillPlayerTargets(input = {}) {
+  collectMonsterSkillPlayerTargets(input: AnyRecord = {}) {
     const action = input.action ?? {};
     const instance = input.instance;
     const playerRuntimeService = input.playerRuntimeService;
@@ -1593,7 +1597,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  resolveMonsterSkillActionPlan(input = {}) {
+  resolveMonsterSkillActionPlan(input: AnyRecord = {}) {
     const action = input.action ?? {};
     const instance = input.instance ?? null;
     const monster = input.monster ?? null;
@@ -1846,7 +1850,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  resolveMonsterSkillChantStartPlan(input = {}) {
+  resolveMonsterSkillChantStartPlan(input: AnyRecord = {}) {
     const action = input.action ?? {};
     const instance = input.instance ?? null;
     const monster = input.monster ?? null;
@@ -1929,7 +1933,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  revalidateMonsterSkillTargetForApply(input = {}) {
+  revalidateMonsterSkillTargetForApply(input: AnyRecord = {}) {
     const entry = input.entry ?? {};
     const player = entry.player ?? null;
     const deps = input.deps ?? {};
@@ -1993,7 +1997,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  resolveMonsterBasicAttackPlayerTarget(input = {}) {
+  resolveMonsterBasicAttackPlayerTarget(input: AnyRecord = {}) {
     const action = input.action ?? {};
     const deps = input.deps;
     const playerRuntimeService = input.playerRuntimeService;
@@ -2110,7 +2114,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  explainMonsterBasicAttack(input = {}) {
+  explainMonsterBasicAttack(input: AnyRecord = {}) {
     const action = input.action ?? {};
     const combatAction = this.createMonsterAction(action, CombatActionPhase.Instant);
     const targetResolution = this.resolveMonsterBasicAttackPlayerTarget(input);
@@ -2166,7 +2170,7 @@ export class WorldRuntimeCombatActionService {
     return outcome;
   }
 
-  recordOutcome(deps, input = {}, options = undefined) {
+  recordOutcome(deps, input: AnyRecord = {}, options = undefined) {
     const normalizedResult = this.normalizeCombatOutcomeResult(input.result ?? {}, input);
     const outcome = createCombatSuccessOutcome({
       ...input,
@@ -2252,7 +2256,7 @@ export class WorldRuntimeCombatActionService {
     return buildCombatAuditHeatmap(this.combatEvents, options);
   }
 
-  normalizeCombatOutcomeResult(result = {}, input = {}) {
+  normalizeCombatOutcomeResult(result: AnyRecord = {}, input: AnyRecord = {}) {
     const normalized = {
       ...result,
     };
@@ -2283,7 +2287,7 @@ export class WorldRuntimeCombatActionService {
     return normalized;
   }
 
-  resolveCombatEffects(input = {}) {
+  resolveCombatEffects(input: AnyRecord = {}) {
     const result = input.result ?? {};
     const definition = input.definition ?? null;
     const effects = [];
@@ -2370,9 +2374,9 @@ export class WorldRuntimeCombatActionService {
         }
         const duplicate = effects.some((entry) => entry.kind === normalized.kind
           && entry.type === normalized.type
-          && entry.buffId === normalized.buffId
-          && entry.damageKind === normalized.damageKind
-          && entry.element === normalized.element);
+          && (entry as AnyRecord).buffId === (normalized as AnyRecord).buffId
+          && (entry as AnyRecord).damageKind === (normalized as AnyRecord).damageKind
+          && (entry as AnyRecord).element === (normalized as AnyRecord).element);
         if (!duplicate) {
           effects.push(normalized);
         }
@@ -2381,7 +2385,7 @@ export class WorldRuntimeCombatActionService {
     return effects;
   }
 
-  createDamageEffectResult(result = {}) {
+  createDamageEffectResult(result: AnyRecord = {}) {
     const damage = Math.max(0, Math.round(Number(result.damage ?? result.totalDamage) || 0));
     const rawDamage = Number.isFinite(Number(result.rawDamage ?? result.totalRawDamage))
       ? Math.max(0, Math.round(Number(result.rawDamage ?? result.totalRawDamage)))
@@ -2403,7 +2407,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  createCombatResultApplication(input = {}) {
+  createCombatResultApplication(input: AnyRecord = {}) {
     const target = input.target ?? {};
     const result = input.result ?? {};
     const targetKind = target.kind ?? null;
@@ -2423,7 +2427,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  applyCombatOutcome(input = {}) {
+  applyCombatOutcome(input: AnyRecord = {}) {
     const outcome = input.outcome ?? createCombatSuccessOutcome({
       phase: input.phase,
       actor: input.actor,
@@ -2481,11 +2485,11 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  mergeAdapterResultToOutcome(outcome, adapterResult = {}) {
+  mergeAdapterResultToOutcome(outcome, adapterResult: AnyRecord = {}) {
     if (!outcome?.result || !adapterResult || adapterResult.ok === false) {
       return outcome;
     }
-    const patch = {};
+    const patch: AnyRecord = {};
     if (Number.isFinite(Number(adapterResult.appliedDamage))) {
       patch.damage = Math.max(0, Math.round(Number(adapterResult.appliedDamage)));
       patch.appliedDamage = patch.damage;
@@ -2557,7 +2561,7 @@ export class WorldRuntimeCombatActionService {
     return outcome;
   }
 
-  resolveCombatDirtyDomains(input = {}) {
+  resolveCombatDirtyDomains(input: AnyRecord = {}) {
     const result = input.result ?? {};
     if (Array.isArray(result.dirtyDomains)) {
       return uniqueStrings(result.dirtyDomains);
@@ -2616,11 +2620,11 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  buildCombatAoiEvent(outcome, input = {}) {
-    const target = outcome.target ?? {};
-    const result = outcome.result ?? {};
+  buildCombatAoiEvent(outcome, input: AnyRecord = {}) {
+    const target: AnyRecord = outcome.target ?? {};
+    const result: AnyRecord = outcome.result ?? {};
     const event = {
-      type: 'combat_result',
+      type: 'combat_result' as const,
       instanceId: outcome.instanceId ?? null,
       actorId: outcome.actor?.id ?? null,
       actionId: outcome.actionId ?? null,
@@ -2635,9 +2639,9 @@ export class WorldRuntimeCombatActionService {
     return event;
   }
 
-  buildCombatNotificationEvent(outcome, input = {}) {
-    const target = outcome.target ?? {};
-    const result = outcome.result ?? {};
+  buildCombatNotificationEvent(outcome, input: AnyRecord = {}) {
+    const target: AnyRecord = outcome.target ?? {};
+    const result: AnyRecord = outcome.result ?? {};
     return {
       type: 'combat_notice',
       playerId: input.playerId ?? target.id ?? null,
@@ -2651,7 +2655,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  buildCombatAuditEvent(outcome, input = {}) {
+  buildCombatAuditEvent(outcome, input: AnyRecord = {}) {
     return {
       type: 'combat_audit',
       action: resolveCombatAuditEventAction(outcome, input),
@@ -2667,7 +2671,7 @@ export class WorldRuntimeCombatActionService {
     };
   }
 
-  buildCombatDiagnosticEvent(outcome, input = {}) {
+  buildCombatDiagnosticEvent(outcome, input: AnyRecord = {}) {
     return {
       type: 'combat_diagnostic',
       instanceId: outcome?.instanceId ?? null,
@@ -2708,7 +2712,7 @@ export class WorldRuntimeCombatActionService {
     }, options);
   }
 
-  recordMonsterActionOutcome(deps, action, target, result = {}, options = undefined) {
+  recordMonsterActionOutcome(deps, action, target, result: AnyRecord = {}, options = undefined) {
     const phase = action?.kind === 'skill'
       ? CombatActionPhase.ChantResolve
       : action?.kind === 'skill_chant'
@@ -2778,7 +2782,7 @@ function findSkillDefinition(actor, skillId) {
   return null;
 }
 
-function normalizeSkillGeometry(skill = {}) {
+function normalizeSkillGeometry(skill: AnyRecord = {}) {
   const targeting = skill.targeting ?? {};
   const range = Math.max(0, Math.floor(Number(targeting.range ?? skill.range) || 0));
   return {
@@ -2792,7 +2796,7 @@ function normalizeSkillGeometry(skill = {}) {
   };
 }
 
-function resolveSkillAllowedTargetKinds(skill = {}) {
+function resolveSkillAllowedTargetKinds(skill: AnyRecord = {}) {
   const explicit = skill.targeting?.allowedTargetKinds ?? skill.allowedTargetKinds;
   if (Array.isArray(explicit) && explicit.length > 0) {
     return explicit.filter(Boolean);
@@ -2826,14 +2830,14 @@ function resolveSkillAllowedTargetKinds(skill = {}) {
   ];
 }
 
-function isPlayerSelfOnlySkill(skill = {}) {
+function isPlayerSelfOnlySkill(skill: AnyRecord = {}) {
   const effects = Array.isArray(skill.effects) ? skill.effects : [];
   return skill.requiresTarget === false
     && effects.length > 0
     && effects.every((effect) => effect?.type === CombatEffectKind.Buff && effect.target === 'self');
 }
 
-function normalizeSkillCost(skill = {}) {
+function normalizeSkillCost(skill: AnyRecord = {}) {
   if (skill.cost && typeof skill.cost === 'object') {
     return { ...skill.cost };
   }
@@ -2848,11 +2852,11 @@ function normalizeCooldownTicks(cooldown) {
   return Math.max(0, Math.floor(Number(cooldown) || 0));
 }
 
-function normalizeWindupTicks(skill = {}) {
+function normalizeWindupTicks(skill: AnyRecord = {}) {
   return Math.max(0, Math.floor(Number(skill.monsterCast?.windupTicks ?? skill.cast?.windupTicks ?? skill.windupTicks ?? 0) || 0));
 }
 
-function resolveSkillMaxTargets(skill = {}, geometry = normalizeSkillGeometry(skill)) {
+function resolveSkillMaxTargets(skill: AnyRecord = {}, geometry = normalizeSkillGeometry(skill)) {
   const configured = Number(skill.targeting?.maxTargets ?? skill.maxTargets);
   if (Number.isFinite(configured) && configured > 0) {
     return Math.max(1, Math.floor(configured));
@@ -2879,7 +2883,7 @@ function normalizePositiveInteger(value) {
   return Number.isFinite(normalized) && normalized > 0 ? normalized : undefined;
 }
 
-function hasDamageResultSignal(result = {}) {
+function hasDamageResultSignal(result: AnyRecord = {}) {
   return Object.prototype.hasOwnProperty.call(result, 'damage')
     || Object.prototype.hasOwnProperty.call(result, 'totalDamage')
     || Object.prototype.hasOwnProperty.call(result, 'rawDamage')
@@ -2890,13 +2894,13 @@ function hasDamageResultSignal(result = {}) {
     || result.crit === true;
 }
 
-function hasBuffResultSignal(result = {}) {
+function hasBuffResultSignal(result: AnyRecord = {}) {
   return result.buffApplied === true
     || result.buffRemoved === true
     || (Array.isArray(result.effects) && result.effects.some((effect) => effect?.kind === CombatEffectKind.Buff || effect?.type === CombatEffectKind.Buff));
 }
 
-function normalizeCombatResolvedEffect(effect = {}) {
+function normalizeCombatResolvedEffect(effect: AnyRecord = {}) {
   if (!effect || typeof effect !== 'object') {
     return null;
   }
@@ -2974,7 +2978,7 @@ function normalizeCombatResolvedEffect(effect = {}) {
   return normalized;
 }
 
-function resolveCombatApplyAdapter(adapters = {}, targetKind) {
+function resolveCombatApplyAdapter(adapters: AnyRecord = {}, targetKind) {
   if (!adapters || typeof adapters !== 'object') {
     return null;
   }
@@ -2999,7 +3003,7 @@ function resolveCombatApplyAdapter(adapters = {}, targetKind) {
   return adapters[targetKind] ?? null;
 }
 
-function resolveOutcomeTargetCount(outcome = {}) {
+function resolveOutcomeTargetCount(outcome: AnyRecord = {}) {
   const detailsCount = Number(outcome.details?.targetCount ?? outcome.details?.selectedTargetCount);
   if (Number.isFinite(detailsCount) && detailsCount >= 0) {
     return Math.floor(detailsCount);
@@ -3011,7 +3015,7 @@ function resolveOutcomeTargetCount(outcome = {}) {
   return outcome.target ? 1 : 0;
 }
 
-function resolveCombatAuditEventAction(outcome = {}, input = {}) {
+function resolveCombatAuditEventAction(outcome: AnyRecord = {}, input: AnyRecord = {}) {
   if (typeof input.action === 'string' && input.action.trim().length > 0) {
     return input.action.trim();
   }
@@ -3024,7 +3028,7 @@ function resolveCombatAuditEventAction(outcome = {}, input = {}) {
   return 'resolve';
 }
 
-function resolveCombatOutcomeResult(result = {}) {
+function resolveCombatOutcomeResult(result: AnyRecord = {}) {
   if (result.dodged === true) return 'dodged';
   if (result.immune === true) return 'immune';
   if (result.resisted === true || result.resolved === true) return 'resisted';
@@ -3077,7 +3081,7 @@ function heapDeltaSince(startedHeapBytes) {
   return Math.max(0, Math.round(current - startedHeapBytes));
 }
 
-function resolvePlayerCommandTarget(input = {}) {
+function resolvePlayerCommandTarget(input: AnyRecord = {}) {
   if (input.targetPlayerId) {
     return { kind: CombatTargetKind.Player, id: input.targetPlayerId };
   }
@@ -3125,7 +3129,7 @@ function resolvePlayerCommandTarget(input = {}) {
   return null;
 }
 
-function resolveMonsterCombatActionKind(action = {}) {
+function resolveMonsterCombatActionKind(action: AnyRecord = {}) {
   if (action?.kind === 'skill_chant') {
     return CombatActionKind.SkillChant;
   }
@@ -3168,7 +3172,7 @@ function combatChebyshevDistance(ax, ay, bx, by) {
   return Math.max(Math.abs(Math.trunc(Number(ax)) - Math.trunc(Number(bx))), Math.abs(Math.trunc(Number(ay)) - Math.trunc(Number(by))));
 }
 
-function buildCombatTargetKey(target = {}) {
+function buildCombatTargetKey(target: AnyRecord = {}) {
   if (target.kind === CombatTargetKind.Player || target.kind === CombatTargetKind.Monster || target.kind === CombatTargetKind.Container) {
     return `${target.kind}:${target.id ?? ''}`;
   }

@@ -1,37 +1,34 @@
-// @ts-nocheck
-"use strict";
-/** 路径规划辅助：负责坐标判定、A* 寻路与移动方向计算。 */
-Object.defineProperty(exports, "__esModule", { value: true });
+/** 路径规划辅助：负责坐标判定、A* 寻路与移动方向计算。
+ * ⚠️ 寻路在 tick 外执行，不在热路径内做 A*。 */
+import { Direction, unpackDirections } from '@mud/shared';
+import { getTileIndex } from '../map/map-template.repository';
 
-const shared_1 = require("@mud/shared");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const DIRECTION_OFFSET = {
-    [shared_1.Direction.North]: { x: 0, y: -1 },
-    [shared_1.Direction.South]: { x: 0, y: 1 },
-    [shared_1.Direction.East]: { x: 1, y: 0 },
-    [shared_1.Direction.West]: { x: -1, y: 0 },
+export const DIRECTION_OFFSET = {
+    [Direction.North]: { x: 0, y: -1 },
+    [Direction.South]: { x: 0, y: 1 },
+    [Direction.East]: { x: 1, y: 0 },
+    [Direction.West]: { x: -1, y: 0 },
 };
 const PATH_DIRECTION_STEPS = [
-    { direction: shared_1.Direction.North, x: 0, y: -1 },
-    { direction: shared_1.Direction.South, x: 0, y: 1 },
-    { direction: shared_1.Direction.East, x: 1, y: 0 },
-    { direction: shared_1.Direction.West, x: -1, y: 0 },
+    { direction: Direction.North, x: 0, y: -1 },
+    { direction: Direction.South, x: 0, y: 1 },
+    { direction: Direction.East, x: 1, y: 0 },
+    { direction: Direction.West, x: -1, y: 0 },
 ];
+// A* 启发式最小步长成本
 const PATH_PLANNING_HEURISTIC_MIN_STEP_COST = 1;
+
 /** 计算切比雪夫距离，统一用作格子距离与范围判断。 */
-function chebyshevDistance(leftX, leftY, rightX, rightY) {
+export function chebyshevDistance(leftX, leftY, rightX, rightY) {
     return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY));
 }
 /** 判定坐标是否在地图宽高边界内。 */
-function isInBounds(x, y, width, height) {
+export function isInBounds(x, y, width, height) {
     return x >= 0 && y >= 0 && x < width && y < height;
 }
 /** 选择目标地图最近的传送门入口。 */
-function selectNearestPortal(portals, targetMapId, fromX, fromY) {
+export function selectNearestPortal(portals, targetMapId, fromX, fromY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     let best = null;
 
@@ -50,7 +47,7 @@ function selectNearestPortal(portals, targetMapId, fromX, fromY) {
     return best;
 }
 /** 按目标点构建可达目标列表，必要时返回最近可替代坐标。 */
-function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, playerId = null) {
+export function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, playerId = null) {
     const goals = [];
     if (instance.isInBounds?.(targetX, targetY) === true && instance.isWalkable(targetX, targetY, playerId)) {
         goals.push({ x: targetX, y: targetY });
@@ -75,14 +72,13 @@ function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, play
     return [];
 }
 /** 按地图模板从目标坐标推导可达目标点集合。 */
-function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestReachable) {
+export function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestReachable) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const goals = [];
     if (isInBounds(targetX, targetY, template.width, template.height)) {
 
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(targetX, targetY, template.width);
+        const tileIndex = getTileIndex(targetX, targetY, template.width);
         if (template.walkableMask[tileIndex] === 1) {
             goals.push({ x: targetX, y: targetY });
         }
@@ -97,7 +93,7 @@ function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestRea
                     continue;
                 }
 
-                const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
+                const tileIndex = getTileIndex(x, y, template.width);
                 if (template.walkableMask[tileIndex] !== 1) {
                     continue;
                 }
@@ -112,9 +108,8 @@ function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestRea
     return [];
 }
 /** 生成与给定坐标相邻且可行走的格子列表。 */
-function buildAdjacentGoalPoints(template, centerX, centerY) {
+export function buildAdjacentGoalPoints(template, centerX, centerY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const goals = [];
     for (const step of PATH_DIRECTION_STEPS) {
@@ -124,7 +119,7 @@ function buildAdjacentGoalPoints(template, centerX, centerY) {
             continue;
         }
 
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
+        const tileIndex = getTileIndex(x, y, template.width);
         if (template.walkableMask[tileIndex] !== 1) {
             continue;
         }
@@ -133,9 +128,8 @@ function buildAdjacentGoalPoints(template, centerX, centerY) {
     return dedupeGoalPoints(goals);
 }
 /** 对目标点集合按坐标去重。 */
-function dedupeGoalPoints(goals) {
+export function dedupeGoalPoints(goals) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const result = [];
 
@@ -151,9 +145,8 @@ function dedupeGoalPoints(goals) {
     return result;
 }
 /** 解析客户端压缩路径提示并还原坐标序列。 */
-function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
+export function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const packedPath = typeof packedPathInput === 'string' ? packedPathInput.trim() : '';
     if (!packedPath) {
@@ -170,7 +163,7 @@ function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXI
 
     const startY = Math.trunc(Number(pathStartYInput));
 
-    const directions = (0, shared_1.unpackDirections)(packedPath, Math.trunc(Number(packedPathStepsInput)));
+    const directions = unpackDirections(packedPath, Math.trunc(Number(packedPathStepsInput)));
     if (!directions || directions.length === 0) {
         return null;
     }
@@ -196,7 +189,7 @@ function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXI
     };
 }
 /** 统计路径开头连续同方向步数，用于路径提示优化。 */
-function resolveInitialRunLength(path, startX, startY, direction) {
+export function resolveInitialRunLength(path, startX, startY, direction) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Array.isArray(path) || path.length === 0) {
@@ -231,7 +224,7 @@ function resolveInitialRunLength(path, startX, startY, direction) {
     return Math.max(1, length);
 }
 /** 生成寻路阻塞掩码，按是否允许目标占用可回退目标格。 */
-function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
+export function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const blocked = new Set();
@@ -252,9 +245,8 @@ function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = t
     return blocked;
 }
 /** 计算路径总可行走代价，无穷大表示路径不可达。 */
-function computePathCost(instance, path, playerId = null) {
+export function computePathCost(instance, path, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     let cost = 0;
     for (const point of path) {
@@ -294,11 +286,11 @@ function estimateChebyshevCostToTargetRange(x, y, targetX, targetY, stopDistance
     return remainingDistance * PATH_PLANNING_HEURISTIC_MIN_STEP_COST;
 }
 /** 将坐标打包为稳定的字符串 key。 */
-function buildCoordKey(x, y) {
+export function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 /** 优先复用客户端路径Hint，在当前状态可接续时返回剩余坐标序列。 */
-function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
+export function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!clientPathHint || !Array.isArray(clientPathHint.points) || clientPathHint.points.length === 0) {
@@ -363,7 +355,7 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
     };
 }
 /** 在地图内执行寻路，返回最小代价路径。 */
-function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (goals.length === 0) {
@@ -462,7 +454,7 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
     return null;
 }
 /** 寻路到目标停止距离内，不预生成候选目标格。 */
-function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false) {
+export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (instance.isInBounds?.(targetX, targetY) !== true) {
@@ -557,9 +549,8 @@ function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, ta
     return null;
 }
 /** 根据寻路结果读取下一步移动方向。 */
-function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
     if (!result || result.points.length === 0) {
@@ -568,15 +559,14 @@ function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allow
     return directionFromStep(startX, startY, result.points[0].x, result.points[0].y);
 }
 /** 返回从起点到目标组的完整路径坐标序列。 */
-function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
 
     const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
     return result?.points ?? null;
 }
 /** 根据前驱表反向回放并恢复路径点顺序。 */
-function reconstructPathPoints(previous, goalIndex, startIndex, instance) {
+export function reconstructPathPoints(previous, goalIndex, startIndex, instance) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const path = [];
 
@@ -592,7 +582,7 @@ function reconstructPathPoints(previous, goalIndex, startIndex, instance) {
     return path;
 }
 /** 往小顶堆中插入路径节点。 */
-function pushPathNode(heap, node) {
+export function pushPathNode(heap, node) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     heap.push(node);
@@ -610,7 +600,7 @@ function pushPathNode(heap, node) {
     heap[index] = node;
 }
 /** 弹出小顶堆中的最优路径节点。 */
-function popPathNode(heap) {
+export function popPathNode(heap) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (heap.length === 0) {
@@ -648,7 +638,7 @@ function popPathNode(heap) {
     return root;
 }
 /** 通过起点与终点坐标计算当前步的方向。 */
-function directionFromStep(startX, startY, nextX, nextY) {
+export function directionFromStep(startX, startY, nextX, nextY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     for (const step of PATH_DIRECTION_STEPS) {
@@ -671,9 +661,8 @@ function resolveInstanceTileY(instance, tileIndex) {
     return Math.trunc(tileIndex / instance.template.width);
 }
 /** 按期望距离生成自动战斗移动目标点。 */
-function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
+export function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalizedRange = Math.max(1, Math.round(range));
 
@@ -699,7 +688,7 @@ function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
     return goals;
 }
 /** 基于视图内可见格判断目标地块是否可见。 */
-function isTileVisibleInView(view, x, y, radius) {
+export function isTileVisibleInView(view, x, y, radius) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (view.self.x === x && view.self.y === y) {
@@ -722,53 +711,3 @@ function isTileVisibleInView(view, x, y, radius) {
         || view.localGroundPiles.some((entry) => entry.x === x && entry.y === y)
         || chebyshevDistance(view.self.x, view.self.y, x, y) <= radius;
 }
-exports.chebyshevDistance = chebyshevDistance;
-exports.isInBounds = isInBounds;
-exports.selectNearestPortal = selectNearestPortal;
-exports.buildGoalPoints = buildGoalPoints;
-exports.buildGoalPointsFromTemplate = buildGoalPointsFromTemplate;
-exports.buildAdjacentGoalPoints = buildAdjacentGoalPoints;
-exports.dedupeGoalPoints = dedupeGoalPoints;
-exports.decodeClientPathHint = decodeClientPathHint;
-exports.resolveInitialRunLength = resolveInitialRunLength;
-exports.buildPathingBlockMask = buildPathingBlockMask;
-exports.computePathCost = computePathCost;
-exports.buildCoordKey = buildCoordKey;
-exports.resolvePreferredClientPathHint = resolvePreferredClientPathHint;
-exports.findOptimalPathOnMap = findOptimalPathOnMap;
-exports.findPathToTargetWithinRangeOnMap = findPathToTargetWithinRangeOnMap;
-exports.findNextDirectionOnMap = findNextDirectionOnMap;
-exports.findPathPointsOnMap = findPathPointsOnMap;
-exports.reconstructPathPoints = reconstructPathPoints;
-exports.pushPathNode = pushPathNode;
-exports.popPathNode = popPathNode;
-exports.directionFromStep = directionFromStep;
-exports.buildAutoBattleGoalPoints = buildAutoBattleGoalPoints;
-exports.isTileVisibleInView = isTileVisibleInView;
-exports.DIRECTION_OFFSET = DIRECTION_OFFSET;
-export {
-    chebyshevDistance,
-    isInBounds,
-    selectNearestPortal,
-    buildGoalPoints,
-    buildGoalPointsFromTemplate,
-    buildAdjacentGoalPoints,
-    dedupeGoalPoints,
-    decodeClientPathHint,
-    resolveInitialRunLength,
-    buildPathingBlockMask,
-    computePathCost,
-    buildCoordKey,
-    resolvePreferredClientPathHint,
-    findOptimalPathOnMap,
-    findPathToTargetWithinRangeOnMap,
-    findNextDirectionOnMap,
-    findPathPointsOnMap,
-    reconstructPathPoints,
-    pushPathNode,
-    popPathNode,
-    directionFromStep,
-    buildAutoBattleGoalPoints,
-    isTileVisibleInView,
-    DIRECTION_OFFSET,
-};

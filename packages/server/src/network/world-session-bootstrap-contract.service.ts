@@ -42,6 +42,7 @@ export class WorldSessionBootstrapContractService {
         @Inject(WorldSessionBootstrapContextHelper)
         private readonly contextHelper: WorldSessionBootstrapContextHelper | null = null,
         @Optional()
+        @Inject(WorldSessionService)
         private readonly worldSessionService: WorldSessionService | null = null,
     ) {}
 

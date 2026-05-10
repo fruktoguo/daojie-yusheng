@@ -1,28 +1,10 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSyncMapStaticAuxService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_sync_map_snapshot_service_1 = require("./world-sync-map-snapshot.service");
-
-const world_sync_minimap_service_1 = require("./world-sync-minimap.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
+import { WorldSyncMinimapService } from './world-sync-minimap.service';
 
 /** map/static aux cache 服务：承接 player 级 map cache 与 tile/minimap patch 规划。 */
-let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
+@Injectable()
+export class WorldSyncMapStaticAuxService {
 /**
  * worldSyncMapSnapshotService：世界Sync地图快照服务引用。
  */
@@ -45,7 +27,10 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldSyncMapSnapshotService, worldSyncMinimapService) {
+    constructor(
+        @Inject(WorldSyncMapSnapshotService) worldSyncMapSnapshotService: any,
+        @Inject(WorldSyncMinimapService) worldSyncMinimapService: any,
+    ) {
         this.worldSyncMapSnapshotService = worldSyncMapSnapshotService;
         this.worldSyncMinimapService = worldSyncMinimapService;
     }    
@@ -131,12 +116,6 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
         this.cacheByPlayerId.delete(playerId);
     }
 };
-exports.WorldSyncMapStaticAuxService = WorldSyncMapStaticAuxService;
-exports.WorldSyncMapStaticAuxService = WorldSyncMapStaticAuxService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_sync_map_snapshot_service_1.WorldSyncMapSnapshotService,
-        world_sync_minimap_service_1.WorldSyncMinimapService])
-], WorldSyncMapStaticAuxService);
 /**
  * buildCacheState：构建并返回目标对象。
  * @param view 参数说明。
@@ -189,7 +168,6 @@ function resolveRadiusFromVisibleTileKeys(view) {
 function diffVisibleTiles(previous, current) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const patches = [];
     for (const [key, tile] of current) {
         const prev = previous?.get(key) ?? null;
@@ -211,7 +189,7 @@ function diffVisibleTiles(previous, current) {
 }
 
 function cloneTilePatch(source) {
-    const tile = {
+    const tile: Record<string, any> = {
         type: source.type,
     };
     if (Number.isFinite(source.aura) && source.aura > 0) {
@@ -260,7 +238,6 @@ function cloneCompactTileResources(resources) {
 
 function parseCoordKey(key) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const separatorIndex = key.indexOf(',');
     if (separatorIndex < 0) {
@@ -371,5 +348,3 @@ function isSameTileResourceList(left, right) {
   }
   return true;
 }
-
-export { WorldSyncMapStaticAuxService };

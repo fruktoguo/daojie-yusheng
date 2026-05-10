@@ -57,6 +57,12 @@
 5. 热路径性能与长期运营稳定性
 6. 代码风格统一
 
+**TypeScript 规范**：
+- 禁止 `// @ts-nocheck`、`// @ts-ignore`、`// @ts-expect-error`（除非有明确的单行注释说明不可避免的原因）
+- 所有新增和修改的 `.ts` 文件必须是规范的 TypeScript：使用 `import/export` 语法、类型标注、接口定义
+- 禁止在 `.ts` 文件中写 CommonJS 风格代码（`require()`、`exports.xxx`、`module.exports`、`__decorate` 等）
+- 现有的假 TS 文件（实际是 CJS + `@ts-nocheck`）在修改时应逐步迁移为规范 TS
+
 ---
 
 ## 4. 商业级 MMO 口径

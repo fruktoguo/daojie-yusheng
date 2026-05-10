@@ -1,42 +1,23 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeQuestStateService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { cloneQuestState } = world_runtime_normalization_helpers_1;
 
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
-let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
+@Injectable()
+export class WorldRuntimeQuestStateService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * worldRuntimeQuestQueryService：世界运行态任务Query服务引用。
  */
 
-    worldRuntimeQuestQueryService;    
+    worldRuntimeQuestQueryService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -44,10 +25,10 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeQuestQueryService) {
+    constructor(playerRuntimeService: PlayerRuntimeService, worldRuntimeQuestQueryService: WorldRuntimeQuestQueryService) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
-    }    
+    }
     /**
  * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
@@ -82,7 +63,7 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         if (changed) {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
-    }    
+    }
     /**
  * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -104,7 +85,7 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         player.quests.quests.push(nextQuest);
         this.playerRuntimeService.markQuestStateDirty(playerId);
         return cloneQuestState(nextQuest);
-    }    
+    }
     /**
  * advanceKillQuestProgress：执行advanceKill任务进度相关逻辑。
  * @param playerId 玩家 ID。
@@ -137,7 +118,7 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         if (changed) {
             this.refreshQuestStates(playerId, true);
         }
-    }    
+    }
     /**
  * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -167,7 +148,7 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
             return;
         }
         this.refreshQuestStates(playerId);
-    }    
+    }
     /**
  * canReceiveRewardItems：判断ReceiveReward道具是否满足条件。
  * @param playerId 玩家 ID。
@@ -200,11 +181,3 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
 function isWalletRewardItemId(itemId) {
     return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
-exports.WorldRuntimeQuestStateService = WorldRuntimeQuestStateService;
-exports.WorldRuntimeQuestStateService = WorldRuntimeQuestStateService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService])
-], WorldRuntimeQuestStateService);
-
-export { WorldRuntimeQuestStateService };

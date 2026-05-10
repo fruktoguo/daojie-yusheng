@@ -263,6 +263,7 @@ export class NativeGmPlayerService {
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Inject(NativeManagedAccountService)
     private readonly nextManagedAccountService: NativeManagedAccountServiceLike,
+    @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider: DatabasePoolProvider | null = null,
   ) {}  
   /**

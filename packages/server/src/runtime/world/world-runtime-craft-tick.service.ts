@@ -1,54 +1,38 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeCraftTickService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
-const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
+import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
+import { WorldRuntimeAlchemyService } from './world-runtime-alchemy.service';
+import { WorldRuntimeEnhancementService } from './world-runtime-enhancement.service';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
-let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
+@Injectable()
+export class WorldRuntimeCraftTickService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
-    craftPanelRuntimeService;    
+    craftPanelRuntimeService;
     /**
  * worldRuntimeCraftMutationService：世界运行态技艺活动 mutation 服务引用。
  */
 
-    worldRuntimeCraftMutationService;    
+    worldRuntimeCraftMutationService;
     /**
  * worldRuntimeAlchemyService：世界运行态炼丹 tick 服务引用。
  */
 
-    worldRuntimeAlchemyService;    
+    worldRuntimeAlchemyService;
     /**
  * worldRuntimeEnhancementService：世界运行态强化 tick 服务引用。
  */
 
-    worldRuntimeEnhancementService;    
+    worldRuntimeEnhancementService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -59,13 +43,19 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService, worldRuntimeAlchemyService, worldRuntimeEnhancementService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
+        @Inject(WorldRuntimeCraftMutationService) worldRuntimeCraftMutationService: any,
+        @Inject(WorldRuntimeAlchemyService) worldRuntimeAlchemyService: any,
+        @Inject(WorldRuntimeEnhancementService) worldRuntimeEnhancementService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
         this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
         this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
-    }    
+    }
     /**
  * advanceCraftJobs：执行advance炼制Job相关逻辑。
  * @param playerIds player ID 集合。
@@ -110,14 +100,3 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
         }
     }
 };
-exports.WorldRuntimeCraftTickService = WorldRuntimeCraftTickService;
-exports.WorldRuntimeCraftTickService = WorldRuntimeCraftTickService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
-        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService])
-], WorldRuntimeCraftTickService);
-
-export { WorldRuntimeCraftTickService };

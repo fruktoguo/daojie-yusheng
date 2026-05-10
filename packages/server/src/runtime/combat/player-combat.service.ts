@@ -1,30 +1,12 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerCombatService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const combat_resolution_helpers_1 = require("./combat-resolution.helpers");
-const monster_combat_exp_equivalent_helper_1 = require("./monster-combat-exp-equivalent.helper");
+import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolveCombatHitForAction } from './combat-resolution.helpers';
+import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 
 /** 战斗运行时技能结算服务：负责技能解析、施放校验与战斗结果写回。 */
-let PlayerCombatService = class PlayerCombatService {
+@Injectable()
+export class PlayerCombatService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -36,7 +18,9 @@ let PlayerCombatService = class PlayerCombatService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
     }
     /** 玩家对目标执行技能，先做合法性校验，再落到元气、冷却和伤害结算。 */
@@ -44,7 +28,7 @@ let PlayerCombatService = class PlayerCombatService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (attacker.playerId === target.playerId) {
-            throw new common_1.BadRequestException('不能以自己为攻击目标');
+            throw new BadRequestException('不能以自己为攻击目标');
         }
 
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
@@ -144,7 +128,6 @@ let PlayerCombatService = class PlayerCombatService {
     castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const resolved = resolveMonsterSkill(attacker, skillId);
 
         const result = this.executeResolvedSkillCast(attacker, toCombatPlayerState(target), resolved, currentTick, distance, {
@@ -168,27 +151,27 @@ let PlayerCombatService = class PlayerCombatService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (attacker.hp <= 0) {
-            throw new common_1.BadRequestException('施法者已死亡');
+            throw new BadRequestException('施法者已死亡');
         }
         if (target.hp <= 0) {
-            throw new common_1.BadRequestException('目标已经死亡');
+            throw new BadRequestException('目标已经死亡');
         }
 
         const range = resolveEffectiveSkillCastRange(resolved.skill, options);
         if (distance > range) {
-            throw new common_1.BadRequestException(`技能 ${resolved.skill.id} 超出范围`);
+            throw new BadRequestException(`技能 ${resolved.skill.id} 超出范围`);
         }
         if (options?.skipResourceAndCooldown !== true && !resolved.skipCooldownCheck && currentTick < resolved.readyTick) {
-            throw new common_1.BadRequestException(`技能 ${resolved.skill.id} 尚在冷却`);
+            throw new BadRequestException(`技能 ${resolved.skill.id} 尚在冷却`);
         }
 
         let qiCost = 0;
         if (options?.skipResourceAndCooldown !== true && !resolved.skipQiCost) {
 
             const plannedCost = normalizeSkillQiCost(resolved.skill.cost);
-            qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
+            qiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
             if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
-                throw new common_1.BadRequestException(`技能 ${resolved.skill.id} 元气不足`);
+                throw new BadRequestException(`技能 ${resolved.skill.id} 元气不足`);
             }
             if (qiCost > 0) {
                 handlers.spendQi?.(qiCost);
@@ -250,12 +233,6 @@ let PlayerCombatService = class PlayerCombatService {
         };
     }
 };
-exports.PlayerCombatService = PlayerCombatService;
-exports.PlayerCombatService = PlayerCombatService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], PlayerCombatService);
-export { PlayerCombatService };
 /**
  * resolvePlayerSkill：规范化或转换玩家技能。
  * @param techniques 参数说明。
@@ -275,7 +252,7 @@ function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
 
         const unlockLevel = typeof skill.unlockLevel === 'number' ? skill.unlockLevel : 1;
         if ((technique.level ?? 1) < unlockLevel) {
-            throw new common_1.BadRequestException(`技能 ${skillId} 尚未解锁`);
+            throw new BadRequestException(`技能 ${skillId} 尚未解锁`);
         }
         return {
             skill,
@@ -283,7 +260,7 @@ function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
             readyTick: cooldownReadyTickBySkillId[skillId] ?? 0,
         };
     }
-    throw new common_1.NotFoundException(`技能不存在：${skillId}`);
+    throw new NotFoundException(`技能不存在：${skillId}`);
 }
 
 function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
@@ -317,10 +294,9 @@ function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
 function resolveMonsterSkill(attacker, skillId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const skill = attacker.skills.find((entry) => entry.id === skillId);
     if (!skill) {
-        throw new common_1.NotFoundException(`妖兽技能不存在：${skillId}`);
+        throw new NotFoundException(`妖兽技能不存在：${skillId}`);
     }
     return {
         skill,
@@ -363,7 +339,6 @@ function toCombatPlayerState(player) {
 function resolveSkillRange(skill) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
         return Math.max(1, Math.round(targetingRange));
@@ -403,7 +378,6 @@ function normalizeSkillQiCost(rawCost) {
 function resolveDamage(attacker, target, effect, baseDamage) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const attackerStats = attacker.attrs.numericStats;
 
     const targetStats = target.attrs.numericStats;
@@ -414,7 +388,7 @@ function resolveDamage(attacker, target, effect, baseDamage) {
 
     const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
 
-    const resolved = (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+    const resolved = resolveCombatHitForAction({
         actor: attacker,
         target,
         attackerStats,
@@ -454,7 +428,7 @@ function resolveCombatantCombatExp(combatant) {
     if (Number.isFinite(combatant?.combatExp)) {
         return Math.max(0, Math.floor(Number(combatant.combatExp)));
     }
-    return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(combatant);
+    return resolveMonsterCombatExpEquivalentFallback(combatant);
 }
 /**
  * toTemporaryBuff：执行toTemporaryBuff相关逻辑。
@@ -486,7 +460,7 @@ function toTemporaryBuff(effect, skill) {
         stats: effect.stats
             ? { ...effect.stats }
             : (effect.valueStats
-                ? (effect.statMode === 'flat' ? (0, shared_1.compileValueStatsToActualStats)(effect.valueStats) : { ...effect.valueStats })
+                ? (effect.statMode === 'flat' ? compileValueStatsToActualStats(effect.valueStats) : { ...effect.valueStats })
                 : undefined),
         statMode: effect.statMode,
         qiProjection: effect.qiProjection ? effect.qiProjection.map((entry) => ({ ...entry })) : undefined,
@@ -499,8 +473,8 @@ function resolveSkillCooldownTicks(attacker, cooldown) {
     const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
     const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
     const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
-    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
-    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
 /**

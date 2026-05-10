@@ -6,64 +6,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.baihong_duanyue",
@@ -130,64 +74,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.chiyao_fenmai",
@@ -259,64 +147,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.kunyue_zhenhai",
@@ -372,64 +204,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.wanzhi_huichun",
@@ -481,64 +257,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.xuanjin_huilan",
@@ -605,64 +325,8 @@
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 136
-      },
-      {
-        "level": 2,
-        "expFactor": 152
-      },
-      {
-        "level": 3,
-        "expFactor": 168
-      },
-      {
-        "level": 4,
-        "expFactor": 188
-      },
-      {
-        "level": 5,
-        "expFactor": 208
-      },
-      {
-        "level": 6,
-        "expFactor": 232
-      },
-      {
-        "level": 7,
-        "expFactor": 260
-      },
-      {
-        "level": 8,
-        "expFactor": 292
-      },
-      {
-        "level": 9,
-        "expFactor": 328
-      },
-      {
-        "level": 10,
-        "expFactor": 368
-      },
-      {
-        "level": 11,
-        "expFactor": 412
-      },
-      {
-        "level": 12,
-        "expFactor": 460
-      },
-      {
-        "level": 13,
-        "expFactor": 516
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.yi_kunlun_point_stone",

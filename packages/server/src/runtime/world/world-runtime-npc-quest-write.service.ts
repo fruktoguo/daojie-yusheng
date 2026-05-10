@@ -1,29 +1,13 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeNpcQuestWriteService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;
 
 /** NPC quest 写路径叶子服务：承接交互推进、接取与提交三个直接写入动作。 */
-let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
+@Injectable()
+export class WorldRuntimeNpcQuestWriteService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -36,7 +20,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeQuestQueryService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldRuntimeQuestQueryService) worldRuntimeQuestQueryService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
     }    
@@ -93,11 +80,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const questsView = deps.createNpcQuestsEnvelope(playerId, npcId).quests;
         const quest = questsView.find((entry) => entry.id === questId && entry.status === 'available');
         if (!quest) {
-            throw new common_1.NotFoundException('当前无法接取该任务');
+            throw new NotFoundException('当前无法接取该任务');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.quests.quests.some((entry) => entry.id === questId && entry.status !== 'completed')) {
-            throw new common_1.BadRequestException('该任务已经接取');
+            throw new BadRequestException('该任务已经接取');
         }
         player.quests.quests.push(cloneQuestState(quest, 'active'));
         this.playerRuntimeService.markQuestStateDirty(playerId);
@@ -121,10 +108,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         deps.refreshQuestStates(playerId);
         const quest = player.quests.quests.find((entry) => entry.id === questId);
         if (!quest || quest.status !== 'ready') {
-            throw new common_1.NotFoundException('该任务当前无法提交');
+            throw new NotFoundException('该任务当前无法提交');
         }
         if (quest.submitNpcId !== npcId) {
-            throw new common_1.BadRequestException('当前不是该任务的提交目标');
+            throw new BadRequestException('当前不是该任务的提交目标');
         }
         const rewards = deps.buildQuestRewardItems(quest);
         const walletRewards = rewards.filter((reward) => isWalletRewardItemId(reward.itemId));
@@ -133,14 +120,14 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const requiredItemCount = Math.max(0, Math.trunc(Number(quest.requiredItemCount ?? 0)));
         const nextInventoryItems = buildNextQuestInventorySnapshots(player.inventory.items, player.inventory.capacity, requiredItemId, requiredItemCount, inventoryRewards);
         if (nextInventoryItems == null) {
-            throw new common_1.BadRequestException('背包空间不足，无法领取奖励');
+            throw new BadRequestException('背包空间不足，无法领取奖励');
         }
         const nextWalletBalances = buildNextQuestWalletBalances(player.wallet?.balances ?? [], walletRewards);
         const nextQuestEntries = this.buildNextQuestEntries(playerId, player.quests.quests, quest.id, quest.nextQuestId);
         if (this.canUseDurableQuestSubmit(player, deps, requiredItemId, requiredItemCount, inventoryRewards, walletRewards)) {
             const leaseContext = await resolveQuestLeaseContext(player.instanceId, deps);
             if (typeof player?.instanceId === 'string' && player.instanceId.trim() && !leaseContext) {
-                throw new common_1.ServiceUnavailableException('npc_quest_reward_lease_context_required');
+                throw new ServiceUnavailableException('npc_quest_reward_lease_context_required');
             }
             await deps.durableOperationService.submitNpcQuestRewards({
                 operationId: buildQuestInventoryGrantOperationId(playerId, quest.id),
@@ -197,11 +184,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         deps.getPlayerLocationOrThrow(playerId);
         const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!actionId.startsWith('npc:')) {
-            throw new common_1.BadRequestException('场景人物动作 ID 不能为空');
+            throw new BadRequestException('场景人物动作 ID 不能为空');
         }
         const npcId = actionId.slice('npc:'.length).trim();
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'npcInteraction', npcId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -233,10 +220,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         if (!questId) {
-            throw new common_1.BadRequestException('任务 ID 不能为空');
+            throw new BadRequestException('任务 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'acceptNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -257,10 +244,10 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         if (!questId) {
-            throw new common_1.BadRequestException('任务 ID 不能为空');
+            throw new BadRequestException('任务 ID 不能为空');
         }
         deps.enqueuePendingCommand(playerId, { kind: 'submitNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
@@ -278,7 +265,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
 
         const normalizedNpcId = typeof npcId === 'string' ? npcId.trim() : '';
         if (!normalizedNpcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         const questsView = deps.buildNpcQuestsView(playerId, normalizedNpcId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -378,14 +365,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         return nextEntries;
     }
 };
-exports.WorldRuntimeNpcQuestWriteService = WorldRuntimeNpcQuestWriteService;
-exports.WorldRuntimeNpcQuestWriteService = WorldRuntimeNpcQuestWriteService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService])
-], WorldRuntimeNpcQuestWriteService);
 
-export { WorldRuntimeNpcQuestWriteService };
 function isWalletRewardItemId(itemId) {
     return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
@@ -413,7 +393,7 @@ function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId
                 : null;
         }
         if (remainingToConsume > 0) {
-            throw new common_1.BadRequestException('任务提交物品不足');
+            throw new BadRequestException('任务提交物品不足');
         }
     }
     const compacted = snapshot.filter((entry) => entry.count > 0);

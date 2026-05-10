@@ -1,33 +1,17 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor } from '@mud/shared';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
+import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
+import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
+import { isHostileCombatRelationResolution, resolveCombatRelation } from '../player/player-combat-config.helpers';
+import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
+import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
+import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
+import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeBasicAttackService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
-const combat_outcome_apply_adapters_1 = require("../combat/combat-outcome-apply-adapters");
-const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
-const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
-const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
-const combat_action_types_1 = require("./combat-action.types");
-const combat_presentation_helpers_1 = require("./world-runtime-combat-presentation.helpers");
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const {
     createTileCombatAttributes,
     createTileCombatNumericStats,
@@ -38,25 +22,25 @@ const {
 } = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
-    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
+    if (isHostileCombatRelationResolution(resolution)) {
         return;
     }
     if (resolution?.blockedReason === 'self_target') {
-        throw new common_1.BadRequestException('不能攻击自己');
+        throw new BadRequestException('不能攻击自己');
     }
-    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
+    throw new BadRequestException('当前目标不在敌方判定规则内');
 }
 function ensureInstanceSupportsPlayerCombat(instance) {
     if (instance?.meta?.supportsPvp === true) {
         return;
     }
-    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+    throw new BadRequestException('当前实例不允许玩家互攻');
 }
 function ensureInstanceSupportsTileDamage(instance) {
     if (instance?.meta?.canDamageTile === true) {
         return;
     }
-    throw new common_1.BadRequestException('当前实例不允许攻击地块');
+    throw new BadRequestException('当前实例不允许攻击地块');
 }
 function formatAuraDamage(value) {
     const amount = Math.max(0, Number(value) || 0);
@@ -66,7 +50,7 @@ function formatAuraDamage(value) {
     if (amount < 1) {
         return amount.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
     }
-    return (0, shared_1.formatDisplayNumber)(amount, { compactMaximumFractionDigits: 2 });
+    return formatDisplayNumber(amount, { compactMaximumFractionDigits: 2 });
 }
 function normalizeAppliedDamage(value, fallback = 0) {
     if (Number.isFinite(Number(value))) {
@@ -76,7 +60,8 @@ function normalizeAppliedDamage(value, fallback = 0) {
 }
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
-let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
+@Injectable()
+export class WorldRuntimeBasicAttackService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -89,7 +74,10 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeCombatActionService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
     }
@@ -114,7 +102,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         });
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         deps.ensureAttackAllowed(attacker);
         const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
@@ -138,7 +126,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             throw this.createBasicAttackRejectException(actionPlan);
         }
         const plannedTarget = actionPlan.selectedTargets?.[0] ?? actionPlan.targetEntries?.[0] ?? null;
-        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Formation) {
+        if (plannedTarget?.kind === CombatTargetKind.Formation) {
             if (plannedTarget.source === 'formation_boundary') {
                 return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
             }
@@ -149,16 +137,16 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
                 y: plannedTarget.y,
             }, damageKind, baseDamage, deps);
         }
-        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Monster) {
+        if (plannedTarget?.kind === CombatTargetKind.Monster) {
             return this.dispatchBasicAttackToMonster(attacker, plannedTarget.id, damageKind, baseDamage, deps);
         }
-        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Player) {
+        if (plannedTarget?.kind === CombatTargetKind.Player) {
             return this.dispatchBasicAttackToPlayer(attacker, plannedTarget.id, damageKind, baseDamage, currentTick, deps);
         }
-        if (plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Tile || plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Container) {
+        if (plannedTarget?.kind === CombatTargetKind.Tile || plannedTarget?.kind === CombatTargetKind.Container) {
             return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
         }
-        throw new common_1.BadRequestException('必须指定目标');
+        throw new BadRequestException('必须指定目标');
     }
     resolvePlayerBasicAttackActionPlan(attacker, targetInput, instance, deps) {
         return this.worldRuntimeCombatActionService.resolvePlayerBasicAttackActionPlan({
@@ -172,56 +160,56 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             supportsPvp: instance?.meta?.supportsPvp === true,
             canDamageTile: instance?.meta?.canDamageTile === true,
             resolveCombatRelation: (_actor, target) => {
-                if (target.kind === combat_action_types_1.CombatTargetKind.Player) {
+                if (target.kind === CombatTargetKind.Player) {
                     const playerTarget = target.runtime ?? this.playerRuntimeService.getPlayer(target.id);
-                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                    return resolveCombatRelation(attacker, {
                         kind: 'player',
                         target: playerTarget,
                     });
                 }
-                if (target.kind === combat_action_types_1.CombatTargetKind.Monster) {
-                    return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' });
+                if (target.kind === CombatTargetKind.Monster) {
+                    return resolveCombatRelation(attacker, { kind: 'monster' });
                 }
-                return (0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' });
+                return resolveCombatRelation(attacker, { kind: 'terrain' });
             },
         });
     }
     createBasicAttackRejectException(actionPlan) {
         const reason = actionPlan?.reason;
-        if (reason === combat_action_types_1.CombatRejectReason.MissingMonster || reason === combat_action_types_1.CombatRejectReason.MonsterDead) {
-            return new common_1.NotFoundException(`妖兽不存在：${actionPlan?.action?.target?.id ?? ''}`);
+        if (reason === CombatRejectReason.MissingMonster || reason === CombatRejectReason.MonsterDead) {
+            return new NotFoundException(`妖兽不存在：${actionPlan?.action?.target?.id ?? ''}`);
         }
-        if (reason === combat_action_types_1.CombatRejectReason.ActorDead) {
-            return new common_1.BadRequestException('你已经重伤，无法攻击');
+        if (reason === CombatRejectReason.ActorDead) {
+            return new BadRequestException('你已经重伤，无法攻击');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.TargetInstanceMismatch) {
-            return new common_1.BadRequestException('目标不在同一地图');
+        if (reason === CombatRejectReason.TargetInstanceMismatch) {
+            return new BadRequestException('目标不在同一地图');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.OutOfRange) {
-            return new common_1.BadRequestException('目标超出攻击距离');
+        if (reason === CombatRejectReason.OutOfRange) {
+            return new BadRequestException('目标超出攻击距离');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.MapCapabilityDisabled) {
+        if (reason === CombatRejectReason.MapCapabilityDisabled) {
             const capability = actionPlan?.details?.rejectedTargets?.[0]?.details?.capability;
-            return new common_1.BadRequestException(capability === 'supportsPvp' ? '当前实例不允许玩家互攻' : '当前实例不允许攻击地块');
+            return new BadRequestException(capability === 'supportsPvp' ? '当前实例不允许玩家互攻' : '当前实例不允许攻击地块');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.CombatRelationNotAllowed) {
-            return new common_1.BadRequestException('当前目标不在敌方判定规则内');
+        if (reason === CombatRejectReason.CombatRelationNotAllowed) {
+            return new BadRequestException('当前目标不在敌方判定规则内');
         }
-        if (reason === combat_action_types_1.CombatRejectReason.TargetDead || reason === combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState) {
-            return new common_1.BadRequestException('该目标无法被攻击');
+        if (reason === CombatRejectReason.TargetDead || reason === CombatRejectReason.MissingTargetRuntimeState) {
+            return new BadRequestException('该目标无法被攻击');
         }
-        return new common_1.BadRequestException('必须指定目标');
+        return new BadRequestException('必须指定目标');
     }
     dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps) {
   // 阵法无生命条，承受伤害时直接按配置折算扣除阵眼剩余灵力。
 
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y) > 1) {
-            throw new common_1.BadRequestException('目标超出攻击距离');
+            throw new BadRequestException('目标超出攻击距离');
         }
-        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        const effectColor = getDamageTrailColor(damageKind);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome(deps, attacker, {
-            kind: combat_action_types_1.CombatTargetKind.Formation,
+            kind: CombatTargetKind.Formation,
             id: formation.id,
             x: formation.x,
             y: formation.y,
@@ -237,7 +225,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const adapterResult = appliedOutcome?.adapterResult ?? {};
         const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
         const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -266,16 +254,16 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const monster = instance.getMonster(targetMonsterId);
         if (!monster || !monster.alive) {
-            throw new common_1.NotFoundException(`妖兽不存在：${targetMonsterId}`);
+            throw new NotFoundException(`妖兽不存在：${targetMonsterId}`);
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'monster' }));
         if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
-            throw new common_1.BadRequestException('目标超出攻击距离');
+            throw new BadRequestException('目标超出攻击距离');
         }
         const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind);
-        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        const effectColor = getDamageTrailColor(damageKind);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
-            kind: combat_action_types_1.CombatTargetKind.Monster,
+            kind: CombatTargetKind.Monster,
             id: targetMonsterId,
         }, {
             targetType: 'monster',
@@ -295,7 +283,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (outcome?.defeated) {
             await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
         }
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -326,18 +314,18 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         ensureInstanceSupportsPlayerCombat(instance);
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (target.instanceId !== attacker.instanceId) {
-            throw new common_1.BadRequestException('目标不在同一地图');
+            throw new BadRequestException('目标不在同一地图');
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+        ensureHostileRelation(resolveCombatRelation(attacker, {
             kind: 'player',
             target,
         }));
         if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
-            throw new common_1.BadRequestException('目标超出攻击距离');
+            throw new BadRequestException('目标超出攻击距离');
         }
         const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind);
-        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        const effectColor = getDamageTrailColor(damageKind);
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -349,7 +337,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             ...deps,
             currentTick,
         }, attacker, {
-            kind: combat_action_types_1.CombatTargetKind.Player,
+            kind: CombatTargetKind.Player,
             id: target.playerId,
         }, {
             targetType: 'player',
@@ -377,7 +365,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (updated.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
             await deps.handlePlayerDefeat(updated.playerId, attacker.playerId);
         }
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             resolutionFloat: { x: target.x, y: target.y, resolution: resolvedDamage, fallbackColor: effectColor },
@@ -408,21 +396,21 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const plannedTarget = options?.plannedTarget ?? null;
-        const planTargetsBoundary = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Formation && plannedTarget.source === 'formation_boundary';
-        const planTargetsContainer = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Container;
-        const planTargetsTile = plannedTarget?.kind === combat_action_types_1.CombatTargetKind.Tile;
+        const planTargetsBoundary = plannedTarget?.kind === CombatTargetKind.Formation && plannedTarget.source === 'formation_boundary';
+        const planTargetsContainer = plannedTarget?.kind === CombatTargetKind.Container;
+        const planTargetsTile = plannedTarget?.kind === CombatTargetKind.Tile;
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const boundary = !planTargetsTile && !planTargetsContainer && typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
             ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, targetX, targetY)
             : null;
         if (boundary) {
-            ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+            ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
             if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
-                throw new common_1.BadRequestException('目标超出攻击距离');
+                throw new BadRequestException('目标超出攻击距离');
             }
-            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+            const effectColor = getDamageTrailColor(damageKind);
             const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
-                kind: combat_action_types_1.CombatTargetKind.Formation,
+                kind: CombatTargetKind.Formation,
                 id: boundary.id ?? boundary.formationId,
                 x: targetX,
                 y: targetY,
@@ -439,7 +427,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             const adapterResult = appliedOutcome?.adapterResult ?? {};
             const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
             const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
-            (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
                 actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -453,11 +441,11 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             return;
         }
         if (planTargetsBoundary) {
-            throw new common_1.BadRequestException('该目标无法被攻击');
+            throw new BadRequestException('该目标无法被攻击');
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
-            throw new common_1.BadRequestException('目标超出攻击距离');
+            throw new BadRequestException('目标超出攻击距离');
         }
         const container = !planTargetsTile && !planTargetsBoundary && typeof instance.getContainerAtTile === 'function' ? instance.getContainerAtTile(targetX, targetY) : null;
         const lootContainerService = deps.worldRuntimeLootContainerService;
@@ -472,7 +460,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
                 instance,
                 currentTick: currentTick ?? deps.tick ?? 0,
             }, attacker, {
-                kind: combat_action_types_1.CombatTargetKind.Container,
+                kind: CombatTargetKind.Container,
                 id: container.id,
                 x: targetX,
                 y: targetY,
@@ -491,12 +479,12 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             : null;
         const containerAttackResult = containerAttackOutcome?.ok === true ? containerAttackOutcome.adapterResult : null;
         if (containerAttackResult) {
-            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+            const effectColor = getDamageTrailColor(damageKind);
             if (containerAttackResult.appliedDamage > 0) {
                 const countdown = containerAttackResult.remainingCount <= 0 && containerAttackResult.respawnRemainingTicks !== undefined
                     ? `，药性回生还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息`
                     : '';
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -512,7 +500,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             const countdown = containerAttackResult.respawnRemainingTicks !== undefined
                 ? `还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息。`
                 : '暂时无法再生。';
-            (0, combat_presentation_helpers_1.emitCombatPresentation)({
+            emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
                 actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -525,20 +513,20 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             return;
         }
         if (planTargetsContainer) {
-            throw new common_1.BadRequestException('该目标无法被攻击');
+            throw new BadRequestException('该目标无法被攻击');
         }
         ensureInstanceSupportsTileDamage(instance);
         if (typeof instance.getTileCombatState === 'function') {
             const tileState = instance.getTileCombatState(targetX, targetY);
             if (!tileState || tileState.destroyed === true) {
-                throw new common_1.BadRequestException('该目标无法被攻击');
+                throw new BadRequestException('该目标无法被攻击');
             }
         }
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, baseDamage)
             : baseDamage;
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
-            kind: combat_action_types_1.CombatTargetKind.Tile,
+            kind: CombatTargetKind.Tile,
             x: targetX,
             y: targetY,
         }, {
@@ -552,11 +540,11 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         });
         const result = appliedOutcome?.adapterResult;
         if (!result) {
-            throw new common_1.BadRequestException('该目标无法被攻击');
+            throw new BadRequestException('该目标无法被攻击');
         }
         const appliedDamage = Number.isFinite(result.appliedDamage) ? Math.max(0, Math.round(result.appliedDamage)) : 0;
-        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        const effectColor = getDamageTrailColor(damageKind);
+        emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             actionLabel: { x: attacker.x, y: attacker.y, text: '攻击' },
@@ -579,7 +567,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
 
     resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind) {
         const monsterCombatExp = this.resolveMonsterCombatExpEquivalent(monster);
-        const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
+        const combatExpMultiplier = getBasicAttackCombatExperienceDamageMultiplier(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
         return this.resolveBasicAttackDamage(
             attacker.attrs.numericStats,
             attacker.attrs.ratioDivisors,
@@ -602,7 +590,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
                 return Math.floor(resolved);
             }
         }
-        return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(monster);
+        return resolveMonsterCombatExpEquivalentFallback(monster);
     }
     /**
  * resolveBasicAttackDamageAgainstPlayer：按 legacy 普攻口径结算对玩家伤害。
@@ -614,7 +602,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  */
 
     resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind) {
-        const combatExpMultiplier = (0, shared_1.getBasicAttackCombatExperienceDamageMultiplier)(Math.max(1, attacker.combatExp ?? 0), Math.max(1, target.combatExp ?? 0));
+        const combatExpMultiplier = getBasicAttackCombatExperienceDamageMultiplier(Math.max(1, attacker.combatExp ?? 0), Math.max(1, target.combatExp ?? 0));
         return this.resolveBasicAttackDamage(
             attacker.attrs.numericStats,
             attacker.attrs.ratioDivisors,
@@ -642,7 +630,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  */
 
     resolveBasicAttackDamage(attackerStats, attackerRatios, attackerRealmLv, attackerCombatExp, targetStats, targetRatios, targetRealmLv, targetCombatExp, baseDamage, damageKind, extraMultiplier = 1) {
-        return (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+        return resolveCombatHitForAction({
             attackerStats,
             attackerRatios,
             attackerRealmLv,
@@ -661,12 +649,12 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             return null;
         }
         return this.worldRuntimeCombatActionService.applyCombatOutcome({
-            phase: combat_action_types_1.CombatActionPhase.Instant,
+            phase: CombatActionPhase.Instant,
             actor: {
-                kind: combat_action_types_1.CombatActorKind.Player,
+                kind: CombatActorKind.Player,
                 id: attacker.playerId,
             },
-            actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+            actionId: CombatActionKind.BasicAttack,
             instanceId: attacker.instanceId,
             target,
             result: {
@@ -678,7 +666,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
                 ...deps,
                 playerRuntimeService: this.playerRuntimeService,
             },
-            adapters: (0, combat_outcome_apply_adapters_1.createCombatOutcomeApplyAdapters)({
+            adapters: createCombatOutcomeApplyAdapters({
                 handleMonsterDefeat: () => ({ deferred: true }),
             }),
             mergeAdapterResultToOutcome: true,
@@ -688,12 +676,12 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
     recordPlayerBasicAttackOutcome(deps, attacker, target, result = {}) {
         if (this.worldRuntimeCombatActionService?.recordOutcome) {
             return this.worldRuntimeCombatActionService.recordOutcome(deps, {
-                phase: combat_action_types_1.CombatActionPhase.Instant,
+                phase: CombatActionPhase.Instant,
                 actor: {
-                    kind: combat_action_types_1.CombatActorKind.Player,
+                    kind: CombatActorKind.Player,
                     id: attacker.playerId,
                 },
-                actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+                actionId: CombatActionKind.BasicAttack,
                 instanceId: attacker.instanceId,
                 target,
                 result: {
@@ -706,7 +694,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (Array.isArray(deps?.combatOutcomes)) {
             deps.combatOutcomes.push({
                 ok: true,
-                actionId: combat_action_types_1.CombatActionKind.BasicAttack,
+                actionId: CombatActionKind.BasicAttack,
                 instanceId: attacker.instanceId,
                 target,
                 result,
@@ -715,11 +703,3 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         return null;
     }
 };
-exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService;
-exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
-], WorldRuntimeBasicAttackService);
-
-export { WorldRuntimeBasicAttackService };

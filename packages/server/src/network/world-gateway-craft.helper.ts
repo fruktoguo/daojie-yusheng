@@ -1,10 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayCraftHelper = void 0;
-
-const technique_activity_registry_helpers_1 = require("../runtime/craft/technique-activity-registry.helpers");
+import { emitTechniqueActivityPanel, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
 
 /** 世界 socket 采集/锻造 helper：只收敛 craft 相关入口。 */
 class WorldGatewayCraftHelper {
@@ -44,10 +38,10 @@ class WorldGatewayCraftHelper {
             }
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             const panelPayload = this.gateway.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, kind, payload?.knownCatalogVersion);
-            (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(client, kind, panelPayload);
+            emitTechniqueActivityPanel(client, kind, panelPayload);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, (0, technique_activity_registry_helpers_1.getTechniqueActivityMetadata)(kind).requestPanelErrorCode, error);
+            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).requestPanelErrorCode, error);
         }
     }    
     /**
@@ -70,7 +64,7 @@ class WorldGatewayCraftHelper {
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, kind, payload, this.gateway.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, (0, technique_activity_registry_helpers_1.getTechniqueActivityMetadata)(kind).startErrorCode, error);
+            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).startErrorCode, error);
         }
     }    
     /**
@@ -92,7 +86,7 @@ class WorldGatewayCraftHelper {
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.gateway.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, (0, technique_activity_registry_helpers_1.getTechniqueActivityMetadata)(kind).cancelErrorCode, error);
+            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).cancelErrorCode, error);
         }
     }    
     /**
@@ -202,6 +196,5 @@ class WorldGatewayCraftHelper {
         this.handleCancelTechniqueActivity(client, 'enhancement');
     }
 }
-exports.WorldGatewayCraftHelper = WorldGatewayCraftHelper;
 
 export { WorldGatewayCraftHelper };

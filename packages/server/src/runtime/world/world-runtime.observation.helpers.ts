@@ -1,10 +1,7 @@
-// @ts-nocheck
-"use strict";
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
-Object.defineProperty(exports, "__esModule", { value: true });
 
-const shared_1 = require("@mud/shared");
-const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
+import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger } from '@mud/shared';
+import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
 const OBSERVATION_BLIND_RATIO = 0.2;
@@ -12,7 +9,7 @@ const OBSERVATION_BLIND_RATIO = 0.2;
 /** 观察完整阈值：到达该比例时显示完整信息。 */
 const OBSERVATION_FULL_RATIO = 1.2;
 /** 生成地块默认战斗属性快照。 */
-function createTileCombatAttributes() {
+export function createTileCombatAttributes() {
     return {
         constitution: 0,
         spirit: 0,
@@ -23,9 +20,9 @@ function createTileCombatAttributes() {
     };
 }
 /** 生成可用于战斗计算的地块数值面板。 */
-function createTileCombatNumericStats(maxHp) {
+export function createTileCombatNumericStats(maxHp) {
     return {
-        ...(0, shared_1.cloneNumericStats)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].stats),
+        ...cloneNumericStats(PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE].stats),
         maxHp,
         maxQi: 0,
         physAtk: 0,
@@ -71,14 +68,14 @@ function createTileCombatNumericStats(maxHp) {
     };
 }
 /** 复用境界模板创建地块比率分母系数。 */
-function createTileCombatRatioDivisors() {
-    return (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors);
+export function createTileCombatRatioDivisors() {
+    return cloneNumericRatioDivisors(PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE].ratioDivisors);
 }
 /** 按命中、闪避、暴击与减伤规则输出真实伤害值。 */
-function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
+export function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+    return resolveCombatHitForAction({
         attackerStats,
         attackerRatios,
         attackerRealmLv: 1,
@@ -93,11 +90,11 @@ function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRa
     });
 }
 /** 生成中文的伤害明细字符串。 */
-function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {
-    return `原始 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(rawDamage)))} - 实际 ${(0, shared_1.formatDisplayInteger)(Math.max(0, Math.round(actualDamage)))} - ${formatCombatDamageType(damageKind, element)}`;
+export function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element = undefined) {
+    return `原始 ${formatDisplayInteger(Math.max(0, Math.round(rawDamage)))} - 实际 ${formatDisplayInteger(Math.max(0, Math.round(actualDamage)))} - ${formatCombatDamageType(damageKind, element)}`;
 }
 /** 提取玩家需要直接看见的战斗判定标签。 */
-function getCombatResolutionLabels(resolution) {
+export function getCombatResolutionLabels(resolution) {
     const labels = [];
     if (resolution?.dodged) {
         labels.push('闪避');
@@ -114,7 +111,7 @@ function getCombatResolutionLabels(resolution) {
     return labels;
 }
 /** 生成战斗判定结果文案，避免 0 伤害被误读成没有结算。 */
-function formatCombatResolutionOutcome(resolution, damageKind, element) {
+export function formatCombatResolutionOutcome(resolution, damageKind, element = undefined) {
     const labels = getCombatResolutionLabels(resolution);
     if (resolution?.dodged) {
         return labels.length > 0
@@ -125,12 +122,12 @@ function formatCombatResolutionOutcome(resolution, damageKind, element) {
     return `造成 ${formatCombatDamageBreakdown(resolution?.rawDamage ?? 0, resolution?.damage ?? 0, damageKind, element)} 伤害${suffix}`;
 }
 /** 地图浮字使用短标签，日志里再展示完整伤害明细。 */
-function formatCombatResolutionFloatText(resolution) {
+export function formatCombatResolutionFloatText(resolution) {
     const labels = getCombatResolutionLabels(resolution);
     return labels.join(' · ');
 }
 /** 按最高优先级挑选判定浮字颜色。 */
-function getCombatResolutionFloatColor(resolution, fallbackColor) {
+export function getCombatResolutionFloatColor(resolution, fallbackColor) {
     if (resolution?.dodged) {
         return '#7dd3fc';
     }
@@ -146,19 +143,19 @@ function getCombatResolutionFloatColor(resolution, fallbackColor) {
     return fallbackColor;
 }
 /** 生成“攻击/施展技能”类的动作描述语句。 */
-function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
+export function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
     return actionLabel === '攻击'
         ? `${casterLabel}对${targetLabel}发起攻击`
         : `${casterLabel}对${targetLabel}施展${actionLabel}`;
 }
 /** 生成伤害类型文本（物理/法术+元素）。 */
-function formatCombatDamageType(damageKind, element) {
+export function formatCombatDamageType(damageKind, element) {
 
-    const elementLabel = element ? `${shared_1.ELEMENT_KEY_LABELS[element] ?? element}行` : '';
+    const elementLabel = element ? `${ELEMENT_KEY_LABELS[element] ?? element}行` : '';
     return damageKind === 'physical' ? `${elementLabel}物理` : `${elementLabel}法术`;
 }
 /** 浅拷贝只读展示用 Buff，避免运行时引用污染。 */
-function cloneVisibleBuff(source) {
+export function cloneVisibleBuff(source) {
     return {
         ...source,
         attrs: source.attrs ? { ...source.attrs } : undefined,
@@ -178,7 +175,7 @@ function normalizeObservationSpirit(value) {
 }
 /** 输出整数展示文本，保持观察面板与主线口径一致。 */
 function formatWholeObservation(value) {
-    return (0, shared_1.formatDisplayInteger)(Math.max(0, normalizeObservationNumber(value)));
+    return formatDisplayInteger(Math.max(0, normalizeObservationNumber(value)));
 }
 /** 输出百分比展示文本，供回复/速率等属性复用。 */
 function formatRateObservation(value) {
@@ -231,7 +228,7 @@ function buildObservationLineSpecs(snapshot, includeResources) {
     return lines;
 }
 /** 构建玩家观察面板的属性项与可见度信息。 */
-function buildPlayerObservation(viewerSpirit, target, selfView = false) {
+export function buildPlayerObservation(viewerSpirit, target, selfView = false) {
     return buildObservationInsight(viewerSpirit, target.attrs.finalAttrs.spirit, buildObservationLineSpecs({
         hp: target.hp,
         maxHp: target.maxHp,
@@ -243,7 +240,7 @@ function buildPlayerObservation(viewerSpirit, target, selfView = false) {
     }, true), selfView);
 }
 /** 构建妖兽观察面板的属性项与清晰度。 */
-function buildMonsterObservation(viewerSpirit, monster) {
+export function buildMonsterObservation(viewerSpirit, monster) {
     return buildObservationInsight(viewerSpirit, monster.attrs.spirit, [
         ...buildObservationLineSpecs({
             hp: monster.hp,
@@ -253,12 +250,12 @@ function buildMonsterObservation(viewerSpirit, monster) {
             stats: monster.numericStats,
             attrs: monster.attrs,
         }, true),
-        { threshold: 0.28, label: '血脉层次', value: shared_1.MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
+        { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
         { threshold: 0.9, label: '境界', value: `等级 ${monster.level}` },
     ]);
 }
 /** 生成妖兽战利品预览列表与命中概率。 */
-function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
+export function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
 
     const dropTable = contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? [];
 
@@ -281,9 +278,8 @@ function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
     };
 }
 /** 依据观看者掉率属性，调整可见掉落概率。 */
-function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus) {
+export function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const baseChance = typeof baseChanceInput === 'number' ? Math.max(0, Math.min(1, baseChanceInput)) : 1;
     if (baseChance <= 0) {
@@ -302,7 +298,7 @@ function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateB
     return 1 - Math.pow(1 - baseChance, killEquivalent);
 }
 /** 稳定文本比较，给可复现的排序行为。 */
-function compareStableText(left, right) {
+export function compareStableText(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (left === right) {
@@ -311,9 +307,8 @@ function compareStableText(left, right) {
     return left < right ? -1 : 1;
 }
 /** 生成 NPC 可见信息中的身份、商铺与任务指示。 */
-function buildNpcObservation(npc) {
+export function buildNpcObservation(npc) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const lines = [
         { label: '身份', value: npc.role ?? '寻常人物' },
@@ -336,7 +331,7 @@ function buildNpcObservation(npc) {
     };
 }
 /** 生成传送点实体详情：类型、触发方式、目标坐标。 */
-function buildPortalTileEntityDetail(portal, targetMapName) {
+export function buildPortalTileEntityDetail(portal, targetMapName) {
 
     const destination = targetMapName
         ? `${targetMapName} (${portal.targetX}, ${portal.targetY})`
@@ -361,7 +356,7 @@ function buildPortalTileEntityDetail(portal, targetMapName) {
     };
 }
 /** 生成地面堆叠物实体详情与摘要文案。 */
-function buildGroundTileEntityDetail(groundPile) {
+export function buildGroundTileEntityDetail(groundPile) {
 
     const totalCount = groundPile.items.reduce((sum, entry) => sum + Math.max(0, Math.round(entry.count ?? 0)), 0);
 
@@ -396,7 +391,7 @@ function buildGroundTileEntityDetail(groundPile) {
     };
 }
 /** 生成容器实体详情与搜索状态。 */
-function buildContainerTileEntityDetail(container) {
+export function buildContainerTileEntityDetail(container) {
     return {
         id: `container:${container.id}`,
         name: container.name,
@@ -413,7 +408,7 @@ function buildContainerTileEntityDetail(container) {
     };
 }
 /** 构建可见度层级文本与详情条目。 */
-function buildObservationInsight(viewerSpirit, targetSpirit, lines, selfView = false) {
+export function buildObservationInsight(viewerSpirit, targetSpirit, lines, selfView = false) {
 
     const progress = selfView ? 1 : computeObservationProgress(viewerSpirit, targetSpirit);
     return {
@@ -427,9 +422,8 @@ function buildObservationInsight(viewerSpirit, targetSpirit, lines, selfView = f
     };
 }
 /** 计算观察进度百分比，用于盲/朦/清晰分级。 */
-function computeObservationProgress(viewerSpirit, targetSpirit) {
+export function computeObservationProgress(viewerSpirit, targetSpirit) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalizedViewer = normalizeObservationSpirit(viewerSpirit);
 
@@ -445,7 +439,7 @@ function computeObservationProgress(viewerSpirit, targetSpirit) {
     return Math.max(0, Math.min(1, (ratio - OBSERVATION_BLIND_RATIO) / (OBSERVATION_FULL_RATIO - OBSERVATION_BLIND_RATIO)));
 }
 /** 根据进度返回 clarity 分层（veiled/blurred/partial/clear/complete）。 */
-function resolveObservationClarity(progress) {
+export function resolveObservationClarity(progress) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (progress <= 0) {
@@ -463,7 +457,7 @@ function resolveObservationClarity(progress) {
     return 'complete';
 }
 /** 按 clarity 生成结论文案。 */
-function buildObservationVerdict(progress, selfView) {
+export function buildObservationVerdict(progress, selfView) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (selfView) {
@@ -484,17 +478,17 @@ function buildObservationVerdict(progress, selfView) {
     return '对方虚实已尽收眼底。';
 }
 /** 输出“当前值/最大值”数值文本。 */
-function formatCurrentMaxObservation(current, max) {
-    return (0, shared_1.formatDisplayCurrentMax)(Math.max(0, normalizeObservationNumber(current)), Math.max(0, normalizeObservationNumber(max)));
+export function formatCurrentMaxObservation(current, max) {
+    return formatDisplayCurrentMax(Math.max(0, normalizeObservationNumber(current)), Math.max(0, normalizeObservationNumber(max)));
 }
 /** 组合可读的传送点显示名。 */
-function buildPortalDisplayName(portal, targetMapName) {
+export function buildPortalDisplayName(portal, targetMapName) {
 
     const base = buildPortalKindLabel(portal.kind);
     return targetMapName ? `${base} · ${targetMapName}` : base;
 }
 /** 将传送点类型映射为界面标签。 */
-function buildPortalKindLabel(kind) {
+export function buildPortalKindLabel(kind) {
     switch (kind) {
         case 'stairs':
             return '楼梯';
@@ -509,70 +503,10 @@ function buildPortalKindLabel(kind) {
     }
 }
 /** 读取显式传送点 ID，兼容旧坐标 ID。 */
-function buildPortalId(portalOrX, y) {
+export function buildPortalId(portalOrX, y = undefined) {
     if (portalOrX && typeof portalOrX === 'object') {
         const explicit = typeof portalOrX.id === 'string' ? portalOrX.id.trim() : '';
         return explicit || `${portalOrX.x}:${portalOrX.y}`;
     }
     return `${portalOrX}:${y}`;
 }
-exports.createTileCombatAttributes = createTileCombatAttributes;
-exports.createTileCombatNumericStats = createTileCombatNumericStats;
-exports.createTileCombatRatioDivisors = createTileCombatRatioDivisors;
-exports.computeResolvedDamage = computeResolvedDamage;
-exports.formatCombatDamageBreakdown = formatCombatDamageBreakdown;
-exports.getCombatResolutionLabels = getCombatResolutionLabels;
-exports.formatCombatResolutionOutcome = formatCombatResolutionOutcome;
-exports.formatCombatResolutionFloatText = formatCombatResolutionFloatText;
-exports.getCombatResolutionFloatColor = getCombatResolutionFloatColor;
-exports.formatCombatActionClause = formatCombatActionClause;
-exports.formatCombatDamageType = formatCombatDamageType;
-exports.cloneVisibleBuff = cloneVisibleBuff;
-exports.buildPlayerObservation = buildPlayerObservation;
-exports.buildMonsterObservation = buildMonsterObservation;
-exports.buildMonsterLootPreview = buildMonsterLootPreview;
-exports.resolveObservedDropChance = resolveObservedDropChance;
-exports.compareStableText = compareStableText;
-exports.buildNpcObservation = buildNpcObservation;
-exports.buildPortalTileEntityDetail = buildPortalTileEntityDetail;
-exports.buildGroundTileEntityDetail = buildGroundTileEntityDetail;
-exports.buildContainerTileEntityDetail = buildContainerTileEntityDetail;
-exports.buildObservationInsight = buildObservationInsight;
-exports.computeObservationProgress = computeObservationProgress;
-exports.resolveObservationClarity = resolveObservationClarity;
-exports.buildObservationVerdict = buildObservationVerdict;
-exports.formatCurrentMaxObservation = formatCurrentMaxObservation;
-exports.buildPortalDisplayName = buildPortalDisplayName;
-exports.buildPortalKindLabel = buildPortalKindLabel;
-exports.buildPortalId = buildPortalId;
-export {
-    createTileCombatAttributes,
-    createTileCombatNumericStats,
-    createTileCombatRatioDivisors,
-    computeResolvedDamage,
-    formatCombatDamageBreakdown,
-    getCombatResolutionLabels,
-    formatCombatResolutionOutcome,
-    formatCombatResolutionFloatText,
-    getCombatResolutionFloatColor,
-    formatCombatActionClause,
-    formatCombatDamageType,
-    cloneVisibleBuff,
-    buildPlayerObservation,
-    buildMonsterObservation,
-    buildMonsterLootPreview,
-    resolveObservedDropChance,
-    compareStableText,
-    buildNpcObservation,
-    buildPortalTileEntityDetail,
-    buildGroundTileEntityDetail,
-    buildContainerTileEntityDetail,
-    buildObservationInsight,
-    computeObservationProgress,
-    resolveObservationClarity,
-    buildObservationVerdict,
-    formatCurrentMaxObservation,
-    buildPortalDisplayName,
-    buildPortalKindLabel,
-    buildPortalId,
-};

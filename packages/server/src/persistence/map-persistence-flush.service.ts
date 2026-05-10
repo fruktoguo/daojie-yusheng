@@ -1,29 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var MapPersistenceFlushService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MapPersistenceFlushService = void 0;
-
-const common_1 = require("@nestjs/common");
-const perf_hooks_1 = require("node:perf_hooks");
-
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-const env_alias_1 = require("../config/env-alias");
-
-const map_persistence_service_1 = require("./map-persistence.service");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { performance } from 'node:perf_hooks';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { readTrimmedEnv } from '../config/env-alias';
+import { MapPersistenceService } from './map-persistence.service';
 
 const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
@@ -32,12 +11,12 @@ const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
 const MAP_PERSISTENCE_TIME_DOMAIN = 'time';
 const MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN = 'monster_runtime';
-const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
-const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
-const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
-const MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE', 'MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE'), 16, 1, 256);
-const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
-const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
+const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
+const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
+const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
+const MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE', 'MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE'), 16, 1, 256);
+const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
+const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
 
 /**
  * normalizePositiveInteger：执行normalize正整数相关逻辑。
@@ -67,42 +46,43 @@ function normalizePositiveInteger(value, defaultValue, min, max) {
 }
 
 /** 地图快照脏实例定时刷盘服务：按周期落库并支持进程关闭前强刷。 */
-let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersistenceFlushService {
+@Injectable()
+export class MapPersistenceFlushService {
 /**
  * worldRuntimeService：世界运行态服务引用。
  */
 
-    worldRuntimeService;    
+    worldRuntimeService;
     /**
  * mapPersistenceService：地图Persistence服务引用。
  */
 
-    mapPersistenceService;    
+    mapPersistenceService;
     /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(MapPersistenceFlushService_1.name);    
+    logger = new Logger(MapPersistenceFlushService.name);
     /**
  * timer：timer相关字段。
  */
 
-    timer = null;    
+    timer = null;
     /**
 * flushPromise：flushPromise相关字段。
  */
 
-    flushPromise = null;    
+    flushPromise = null;
     /**
  * flushThrottleUntilAt：flushThrottleUntilAt相关字段。
  */
 
-    flushThrottleUntilAt = 0;    
+    flushThrottleUntilAt = 0;
     /**
  * nextTimeCheckpointFlushAt：下一次 interval 允许写入 time checkpoint 的时间。
  */
 
-    nextTimeCheckpointFlushAt = 0;    
+    nextTimeCheckpointFlushAt = 0;
     /**
      * nextMonsterRuntimeFlushAt：下一次 interval 允许写入高频妖兽运行态的时间。
      */
@@ -115,10 +95,13 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeService, mapPersistenceService) {
+    constructor(
+        @Inject(WorldRuntimeService) worldRuntimeService: any,
+        @Inject(MapPersistenceService) mapPersistenceService: any,
+    ) {
         this.worldRuntimeService = worldRuntimeService;
         this.mapPersistenceService = mapPersistenceService;
-    }    
+    }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -130,7 +113,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         }, MAP_PERSISTENCE_FLUSH_INTERVAL_MS);
         this.timer.unref();
         this.logger.log(`地图持久化刷新已启动，间隔 ${MAP_PERSISTENCE_FLUSH_INTERVAL_MS}ms，妖兽运行态降频 ${MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS}ms`);
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -159,7 +142,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             await this.flushPromise;
         }
         await this.runFlushCycle('shutdown');
-    }    
+    }
     /**
  * flushInstance：执行flush实例相关逻辑。
  * @param instanceId 实例 ID。
@@ -177,7 +160,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             return;
         }
         throw new Error(`instance_domain_flush_unavailable:${instanceId}`);
-    }    
+    }
     /**
  * flushDirtyInstances：执行刷新DirtyInstance相关逻辑。
  * @returns 无返回值，直接更新flushDirtyInstance相关状态。
@@ -203,7 +186,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         if (!domainPersistenceEnabled) {
             return;
         }
-        const startedAt = perf_hooks_1.performance.now();
+        const startedAt = performance.now();
         let dirtyInstanceCount = 0;
         let persistedInstanceCount = 0;
         let skippedInstanceCount = 0;
@@ -264,18 +247,35 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                 this.flushPromise = null;
             }
             if (reason === 'interval') {
-                const durationMs = perf_hooks_1.performance.now() - startedAt;
+                const durationMs = performance.now() - startedAt;
                 this.updateFlushThrottle(durationMs, dirtyInstanceCount, persistedInstanceCount, skippedInstanceCount, persistedDomainCounts);
             }
         }
     }
-};
-exports.MapPersistenceFlushService = MapPersistenceFlushService;
-exports.MapPersistenceFlushService = MapPersistenceFlushService = MapPersistenceFlushService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_service_1.WorldRuntimeService,
-        map_persistence_service_1.MapPersistenceService])
-], MapPersistenceFlushService);
+
+    isFlushThrottleActive() {
+        return Date.now() < this.flushThrottleUntilAt;
+    }
+
+    isDomainPersistenceEnabled() {
+        const service = this.worldRuntimeService?.instanceDomainPersistenceService;
+        return Boolean(service && typeof service.isEnabled === 'function' && service.isEnabled());
+    }
+
+    isLegacySnapshotWriteEnabled() {
+        return false;
+    }
+
+    updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0, skippedInstanceCount = 0, persistedDomainCounts = new Map()) {
+        const slowThresholdMs = resolveSlowFlushThresholdMs(persistedDomainCounts);
+        if (durationMs < slowThresholdMs) {
+            return;
+        }
+        this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
+        const domainCounts = formatDomainCounts(persistedDomainCounts);
+        this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${slowThresholdMs} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount} skippedInstanceCount=${skippedInstanceCount}${domainCounts ? ` domainCounts=${domainCounts}` : ''}`);
+    }
+}
 /**
  * isRestoreFreezeActive：判断RestoreFreeze激活是否满足条件。
  * @returns 无返回值，完成RestoreFreeze激活的条件判断。
@@ -286,7 +286,6 @@ function isRestoreFreezeActive() {
     const value = process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
-export { MapPersistenceFlushService };
 /**
  * prioritizeMapFlushTargets：读取prioritize地图刷新目标并返回结果。
  * @param instanceIds instance ID 集合。
@@ -375,37 +374,6 @@ function formatDomainCounts(counts) {
         .map(([domain, count]) => `${domain}:${count}`)
         .join(',');
 }
-/**
- * isFlushThrottleActive：判断FlushThrottle激活是否满足条件。
- * @returns 无返回值，完成FlushThrottle激活的条件判断。
- */
-
-MapPersistenceFlushService.prototype.isFlushThrottleActive = function isFlushThrottleActive() {
-    return Date.now() < this.flushThrottleUntilAt;
-};
-MapPersistenceFlushService.prototype.isDomainPersistenceEnabled = function isDomainPersistenceEnabled() {
-    const service = this.worldRuntimeService?.instanceDomainPersistenceService;
-    return Boolean(service && typeof service.isEnabled === 'function' && service.isEnabled());
-};
-MapPersistenceFlushService.prototype.isLegacySnapshotWriteEnabled = function isLegacySnapshotWriteEnabled() {
-    void this;
-    return false;
-};
-/**
- * updateFlushThrottle：执行updateFlushThrottle相关逻辑。
- * @param durationMs 参数说明。
- * @returns 无返回值，直接更新updateFlushThrottle相关状态。
- */
-
-MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0, skippedInstanceCount = 0, persistedDomainCounts = new Map()) {
-    const slowThresholdMs = resolveSlowFlushThresholdMs(persistedDomainCounts);
-    if (durationMs < slowThresholdMs) {
-        return;
-    }
-    this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
-    const domainCounts = formatDomainCounts(persistedDomainCounts);
-    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${slowThresholdMs} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount} skippedInstanceCount=${skippedInstanceCount}${domainCounts ? ` domainCounts=${domainCounts}` : ''}`);
-};
 function resolveSlowFlushThresholdMs(persistedDomainCounts) {
     if (persistedDomainCounts instanceof Map && persistedDomainCounts.has(MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN)) {
         return Math.max(MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS);
@@ -478,4 +446,3 @@ async function retryFlush(retryCount, work) {
     }
     throw lastError;
 }
-//# sourceMappingURL=map-persistence-flush.service.js.map

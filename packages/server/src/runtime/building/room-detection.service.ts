@@ -46,6 +46,7 @@ const NEIGHBORS = [
   [0, -1],
 ] as const;
 
+// 大型半户外房间面积阈值，超出此面积且屋顶覆盖率低于 60% 时不计入房间
 const LARGE_SEMI_OUTDOOR_ROOM_AREA = 256;
 const MIN_LARGE_ROOM_ROOF_COVERAGE_RATIO = 60;
 

@@ -1,10 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayNpcHelper = void 0;
-
-const shared_1 = require("@mud/shared");
+import { S2C } from '@mud/shared';
 
 /** 世界 socket NPC/quest/shop helper：只收敛最小 NPC/quest/shop 入口。 */
 class WorldGatewayNpcHelper {
@@ -58,7 +52,7 @@ class WorldGatewayNpcHelper {
             return;
         }
         try {
-            client.emit(shared_1.S2C.NpcQuests, toNpcQuestsSyncPayload(this.gateway.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId)));
+            client.emit(S2C.NpcQuests, toNpcQuestsSyncPayload(this.gateway.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId)));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_REQUEST_FAILED', error);
@@ -138,7 +132,6 @@ class WorldGatewayNpcHelper {
         this.executeBuyNpcShopItem(client, payload);
     }
 }
-exports.WorldGatewayNpcHelper = WorldGatewayNpcHelper;
 
 function toNpcQuestsSyncPayload(payload) {
     return {

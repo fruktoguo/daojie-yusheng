@@ -4,294 +4,48 @@
     "name": "镇骨功",
     "desc": "以气镇骨，由外而内固本培元。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 63,
-        "attrs": {
-          "constitution": 10,
-          "talent": 6,
-          "strength": 3
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 69.5,
-        "attrs": {
-          "constitution": 10,
-          "talent": 6,
-          "strength": 3
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 76.5,
-        "attrs": {
-          "constitution": 10,
-          "talent": 6,
-          "strength": 3
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 84,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 3
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 92,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 3
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 100.5,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 3
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 109.5,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 4
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 119,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 4
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 10,
-          "talent": 7,
-          "strength": 4
-        }
-      }
-    ],
-    "skills": [],
+    "category": "internal",
     "realmLv": 7,
-    "category": "internal"
+    "attrRatio": {
+      "constitution": 0.5,
+      "talent": 0.3333,
+      "strength": 0.1667
+    },
+    "attrFloat": 0.0112,
+    "maxLayer": 9,
+    "expDifficulty": 1
   },
   {
     "id": "golden_lock_body",
     "name": "固元功",
     "desc": "封关锁窍，使元气不泄、根基不摇。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 66,
-        "attrs": {
-          "spirit": 6,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 73,
-        "attrs": {
-          "spirit": 6,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 80.5,
-        "attrs": {
-          "spirit": 6,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 88.5,
-        "attrs": {
-          "spirit": 6,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 97,
-        "attrs": {
-          "spirit": 6,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 106,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 115.5,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 125.5,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 136,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      }
-    ],
-    "skills": [],
+    "category": "internal",
     "realmLv": 9,
-    "category": "internal"
+    "attrRatio": {
+      "spirit": 0.3158,
+      "talent": 0.3421,
+      "meridians": 0.3421
+    },
+    "attrFloat": 0.0215,
+    "maxLayer": 10,
+    "expDifficulty": 1
   },
   {
     "id": "hundred_temper_body",
     "name": "壮身功",
     "desc": "打熬筋骨，以外功催发内劲。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 69,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 8
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 76,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 8
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 83.5,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 8
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 91.5,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 8
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 100,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 8
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 109,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 9
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 118.5,
-        "attrs": {
-          "constitution": 7,
-          "perception": 4,
-          "strength": 9
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 128.5,
-        "attrs": {
-          "constitution": 7,
-          "perception": 5,
-          "strength": 9
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 139,
-        "attrs": {
-          "constitution": 8,
-          "perception": 5,
-          "strength": 9
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 8,
-          "perception": 5,
-          "strength": 9
-        }
-      }
-    ],
-    "skills": [],
+    "category": "internal",
     "realmLv": 10,
-    "category": "internal"
+    "attrRatio": {
+      "constitution": 0.36,
+      "perception": 0.215,
+      "strength": 0.425
+    },
+    "attrFloat": 0.0526,
+    "maxLayer": 10,
+    "expDifficulty": 1
   },
   {
     "id": "nourishing_qi_art",
@@ -299,201 +53,31 @@
     "desc": "养气如养珠，绵绵若存，渐成气候。",
     "grade": "yellow",
     "category": "internal",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 116,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 125,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 135,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 146,
-        "attrs": {
-          "spirit": 6,
-          "talent": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 158,
-        "attrs": {
-          "spirit": 7,
-          "talent": 7,
-          "meridians": 8
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 171,
-        "attrs": {
-          "spirit": 7,
-          "talent": 7,
-          "meridians": 8
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 185,
-        "attrs": {
-          "spirit": 7,
-          "talent": 7,
-          "meridians": 8
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 200,
-        "attrs": {
-          "spirit": 7,
-          "talent": 7,
-          "meridians": 8
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 7,
-          "talent": 7,
-          "meridians": 8
-        }
-      }
-    ],
-    "skills": [],
-    "realmLv": 11
+    "realmLv": 11,
+    "attrRatio": {
+      "spirit": 0.3095,
+      "talent": 0.3333,
+      "meridians": 0.3571
+    },
+    "attrFloat": 0.0825,
+    "maxLayer": 10,
+    "expDifficulty": 1
   },
   {
     "id": "cloudchase_steps",
     "name": "分光步",
     "desc": "步踏光影之间，身随念转而人已换位。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 28,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 31,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 34,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 38,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 42,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 46,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 51,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 57,
-        "attrs": {
-          "spirit": 4,
-          "perception": 11,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 63,
-        "attrs": {
-          "spirit": 4,
-          "perception": 12,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 5,
-          "perception": 12,
-          "meridians": 7
-        }
-      }
-    ],
-    "skills": [],
+    "category": "internal",
     "realmLv": 12,
-    "category": "internal"
+    "attrRatio": {
+      "spirit": 0.1907,
+      "perception": 0.5209,
+      "meridians": 0.2884
+    },
+    "attrFloat": 0.0859,
+    "maxLayer": 10,
+    "expDifficulty": 1
   },
   {
     "id": "bright_eye_sutra",
@@ -501,99 +85,14 @@
     "desc": "炼目如镜，照见秋毫，神识随之清明。",
     "grade": "yellow",
     "category": "internal",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 112,
-        "attrs": {
-          "spirit": 9,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 9,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 129,
-        "attrs": {
-          "spirit": 9,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 139,
-        "attrs": {
-          "spirit": 9,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 150,
-        "attrs": {
-          "spirit": 9,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 162,
-        "attrs": {
-          "spirit": 10,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 175,
-        "attrs": {
-          "spirit": 10,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 189,
-        "attrs": {
-          "spirit": 10,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 204,
-        "attrs": {
-          "spirit": 10,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 10,
-          "perception": 9,
-          "talent": 4
-        }
-      }
-    ],
-    "skills": [],
-    "realmLv": 12
+    "realmLv": 12,
+    "attrRatio": {
+      "spirit": 0.4419,
+      "perception": 0.3953,
+      "talent": 0.1628
+    },
+    "attrFloat": 0.0859,
+    "maxLayer": 10,
+    "expDifficulty": 1
   }
 ]

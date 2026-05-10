@@ -1,27 +1,11 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeEnhancementService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
+import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
 
 /** world-runtime enhancement orchestration：承接强化写路径与面板刷新。 */
-let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
+@Injectable()
+export class WorldRuntimeEnhancementService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -45,7 +29,11 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
+        @Inject(WorldRuntimeCraftMutationService) worldRuntimeCraftMutationService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
@@ -72,7 +60,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload);
             if (!result.ok) {
-                throw new common_1.BadRequestException(result.error ?? '启动强化失败');
+                throw new BadRequestException(result.error ?? '启动强化失败');
             }
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
             return;
@@ -105,7 +93,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
             result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload);
             if (!result.ok) {
                 restoreEnhancementRollbackState(player, rollbackState, this.playerRuntimeService);
-                throw new common_1.BadRequestException(result.error ?? '启动强化失败');
+                throw new BadRequestException(result.error ?? '启动强化失败');
             }
             const nextActiveJob = buildNextEnhancementActiveJobSnapshot(player);
             const nextInventoryItems = cloneInventoryItems(player.inventory?.items ?? []);
@@ -154,7 +142,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement');
             if (!result.ok) {
-                throw new common_1.BadRequestException(result.error ?? '取消强化失败');
+                throw new BadRequestException(result.error ?? '取消强化失败');
             }
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
             return;
@@ -182,7 +170,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         const rollbackState = captureEnhancementRollbackState(player);
         const activeJob = rollbackState.enhancementJob ? structuredClone(rollbackState.enhancementJob) : null;
         if (!activeJob?.jobRunId) {
-            throw new common_1.BadRequestException('当前没有可取消的强化任务。');
+            throw new BadRequestException('当前没有可取消的强化任务。');
         }
         player.suppressImmediateDomainPersistence = true;
         let result;
@@ -190,7 +178,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
             result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement');
             if (!result.ok) {
                 restoreEnhancementRollbackState(player, rollbackState, this.playerRuntimeService);
-                throw new common_1.BadRequestException(result.error ?? '取消强化失败');
+                throw new BadRequestException(result.error ?? '取消强化失败');
             }
             const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
             await durableOperationService.cancelActiveJobWithAssets({
@@ -313,15 +301,6 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         });
     }
 };
-exports.WorldRuntimeEnhancementService = WorldRuntimeEnhancementService;
-exports.WorldRuntimeEnhancementService = WorldRuntimeEnhancementService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
-], WorldRuntimeEnhancementService);
-
-export { WorldRuntimeEnhancementService };
 
 function cloneInventoryItems(items) {
     return Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];

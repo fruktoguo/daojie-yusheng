@@ -123,8 +123,11 @@ export class FengShuiCalculatorService {
   }
 }
 
+// 房间角色推断置信度阈值
 const ROOM_ROLE_MIN_CONFIDENCE = 60;
+// 房间角色推断领先优势阈值（第一名与第二名分数差）
 const ROOM_ROLE_MIN_LEAD = 30;
+// 风水分数首次计算倍率，最终会乘回
 const FENGSHUI_FIRST_PASS_SCORE_SCALE = 3;
 
 const ROOM_ROLE_TRAIT_HINTS: ReadonlyArray<{

@@ -1,40 +1,12 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
-        r = Reflect.decorate(decorators, target, key, desc);
-    else
-        for (var i = decorators.length - 1; i >= 0; i--)
-            if (d = decorators[i])
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function")
-        return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.LeaderboardRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const next_gm_constants_1 = require("../../http/native/native-gm.constants");
-
-const market_1 = require("../../constants/gameplay/market");
-
-const market_runtime_service_1 = require("../market/market-runtime.service");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("./player-runtime.service");
-const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
-const player_identity_persistence_service_1 = require("../../persistence/player-identity-persistence.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { calculateMarketTradeTotalCost } from '@mud/shared';
+import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
+import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
+import { MarketRuntimeService } from '../market/market-runtime.service';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from './player-runtime.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 
 /** 排行榜运行时：按运行态与持久化玩家快照聚合榜单与世界摘要，结果做短缓存。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
@@ -55,7 +27,8 @@ const SUPREME_ATTR_LABELS = {
     meridians: '经脉',
 };
 
-let LeaderboardRuntimeService = class LeaderboardRuntimeService {
+@Injectable()
+export class LeaderboardRuntimeService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -88,7 +61,13 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     /** 缓存后的世界摘要。 */
     cachedWorldSummary = null;
     /** 注入玩家运行时和坊市运行时。 */
-    constructor(playerRuntimeService, marketRuntimeService, mapTemplateRepository, playerDomainPersistenceService, playerIdentityPersistenceService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(MarketRuntimeService) marketRuntimeService: any,
+        @Inject(MapTemplateRepository) mapTemplateRepository: any,
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any,
+        @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.mapTemplateRepository = mapTemplateRepository;
@@ -98,7 +77,6 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     /** 构造各榜单快照，按需截断返回。 */
     async buildLeaderboard(limit, sectService = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const effectiveLimit = clampLeaderboardLimit(limit);
 
@@ -131,7 +109,6 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     async buildWorldSummary() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const cached = this.cachedWorldSummary;
         if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS) {
             return cached;
@@ -149,7 +126,6 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     /** 构造玩家击杀榜坐标追索快照。 */
     async buildLeaderboardPlayerLocations(playerIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedIds = Array.isArray(playerIds)
             ? playerIds
@@ -244,7 +220,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     collectRuntimeSnapshots() {
 
         const players = this.playerRuntimeService.listPlayerSnapshots()
-            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId));
+            .filter((player) => !isNativeGmBotPlayerId(player.playerId));
         return players;
     }
     /** 从分域持久化读取不在运行态中的离线玩家，供低频排行榜使用。 */
@@ -261,7 +237,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         const players = [];
         for (const entry of Array.isArray(entries) ? entries : []) {
             const playerId = typeof entry?.playerId === 'string' ? entry.playerId.trim() : '';
-            if (!playerId || (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId) || existingSnapshotsByPlayerId.has(playerId)) {
+            if (!playerId || isNativeGmBotPlayerId(playerId) || existingSnapshotsByPlayerId.has(playerId)) {
                 continue;
             }
             const player = this.createOfflineRuntimePlayerFromSnapshot(playerId, entry.snapshot);
@@ -321,8 +297,8 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             monsterKillCount: toNonNegativeInteger(player.monsterKillCount, 0),
             eliteMonsterKillCount: toNonNegativeInteger(player.eliteMonsterKillCount, 0),
             bossMonsterKillCount: toNonNegativeInteger(player.bossMonsterKillCount, 0),
-            spiritStoneCount: this.getWalletBalance(player, market_1.MARKET_CURRENCY_ITEM_ID),
-            marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, market_1.MARKET_CURRENCY_ITEM_ID),
+            spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID),
+            marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
             playerKillCount: toNonNegativeInteger(player.playerKillCount, 0),
             deathCount: toNonNegativeInteger(player.deathCount, 0),
             bodyTrainingLevel: toNonNegativeInteger(player.bodyTraining?.level, 0),
@@ -495,7 +471,6 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     collectReservedSpiritStoneTotal() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const openOrders = Array.isArray(this.marketRuntimeService.openOrders) ? this.marketRuntimeService.openOrders : [];
         let total = 0;
         for (const order of openOrders) {
@@ -503,7 +478,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
                 continue;
             }
 
-            const cost = (0, shared_1.calculateMarketTradeTotalCost)(toNonNegativeInteger(order.remainingQuantity, 0), toNonNegativeInteger(order.unitPrice, 0));
+            const cost = calculateMarketTradeTotalCost(toNonNegativeInteger(order.remainingQuantity, 0), toNonNegativeInteger(order.unitPrice, 0));
             total += cost ?? 0;
         }
         return total;
@@ -533,16 +508,6 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         return summary?.name ?? normalizedMapId;
     }
 };
-exports.LeaderboardRuntimeService = LeaderboardRuntimeService;
-exports.LeaderboardRuntimeService = LeaderboardRuntimeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        market_runtime_service_1.MarketRuntimeService,
-        map_template_repository_1.MapTemplateRepository,
-        player_domain_persistence_service_1.PlayerDomainPersistenceService,
-        player_identity_persistence_service_1.PlayerIdentityPersistenceService])
-], LeaderboardRuntimeService);
-export { LeaderboardRuntimeService };
 /**
  * clampLeaderboardLimit：执行clampLeaderboardLimit相关逻辑。
  * @param limit 参数说明。

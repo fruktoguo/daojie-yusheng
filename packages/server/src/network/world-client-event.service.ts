@@ -1,38 +1,11 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldClientEventService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
-
-const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
-
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-
-const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
-
-const world_session_service_1 = require("./world-session.service");
-
-const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { S2C, type QuestNavigateResultView } from '@mud/shared';
+import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
+import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { WorldSessionService } from './world-session.service';
+import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
 
 function normalizeClientVisibleErrorMessage(message) {
     const text = typeof message === 'string' ? message.trim() : '';
@@ -88,7 +61,8 @@ function normalizeClientVisibleErrorMessage(message) {
 }
 
 /** 世界客户端事件服务：把 runtime 结果翻译成 Socket 事件并按玩家维度下发。 */
-let WorldClientEventService = class WorldClientEventService {
+@Injectable()
+export class WorldClientEventService {
     /** 邮件 runtime，用于查询邮件摘要、分页和详情。 */
     mailRuntimeService;
     /** 坊市 runtime，用于查询订单、图鉴和成交历史。 */
@@ -112,7 +86,14 @@ let WorldClientEventService = class WorldClientEventService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService, worldSyncQuestLootService) {
+    constructor(
+        @Inject(MailRuntimeService) mailRuntimeService: any,
+        @Inject(MarketRuntimeService) marketRuntimeService: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(SuggestionRuntimeService) suggestionRuntimeService: any,
+        @Inject(WorldSessionService) worldSessionService: any,
+        @Inject(WorldSyncQuestLootService) worldSyncQuestLootService: any,
+    ) {
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
@@ -163,7 +144,7 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 发送标准错误包。 */
     emitError(client, code, message, extra = undefined) {
-        this.emit(client, shared_1.S2C.Error, { code, message: normalizeClientVisibleErrorMessage(message), ...(extra ?? {}) });
+        this.emit(client, S2C.Error, { code, message: normalizeClientVisibleErrorMessage(message), ...(extra ?? {}) });
     }
     /** 发送由异常对象转换来的错误包。 */
     emitGatewayError(client, code, error) {
@@ -171,12 +152,11 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 发送协议层错误，通常用于鉴权或消息格式错误。 */
     emitProtocolFailure(client, code, text) {
-        client.emit(shared_1.S2C.Error, { code, message: text });
+        client.emit(S2C.Error, { code, message: text });
     }
     /** 向客户端展示系统提示，供任务、聊天和操作反馈复用。 */
     emitSystemMessage(client, text, kind = 'info') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedText = typeof text === 'string' ? text.trim() : '';
         if (!normalizedText) {
@@ -197,7 +177,7 @@ let WorldClientEventService = class WorldClientEventService {
         if (normalizedItems.length <= 0) {
             return;
         }
-        client.emit(shared_1.S2C.Notice, {
+        client.emit(S2C.Notice, {
             items: normalizedItems,
         });
     }
@@ -223,14 +203,14 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送心跳响应。 */
     emitPong(client, payload) {
-        this.emit(client, shared_1.S2C.Pong, {
+        this.emit(client, S2C.Pong, {
             clientAt: payload?.clientAt,
             serverAt: Date.now(),
         });
     }
     /** 返回任务导航结果。 */
     emitQuestNavigateResult(client, questId, ok, error, path) {
-        const payload = {
+        const payload: QuestNavigateResultView = {
             questId,
             ok,
             error: error ? normalizeClientVisibleErrorMessage(error) : error,
@@ -238,17 +218,17 @@ let WorldClientEventService = class WorldClientEventService {
         if (Array.isArray(path)) {
             payload.path = path;
         }
-        this.emit(client, shared_1.S2C.QuestNavigateResult, payload);
+        this.emit(client, S2C.QuestNavigateResult, payload);
     }
     /** 打开或刷新拾取窗口。 */
     emitLootWindowUpdate(client, playerId, x, y) {
 
         const payload = this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
-        this.emit(client, shared_1.S2C.LootWindowUpdate, payload);
+        this.emit(client, S2C.LootWindowUpdate, payload);
     }
     /** 向客户端补发聊天风格通知。 */
     emitChatMessage(client, payload) {
-        client.emit(shared_1.S2C.Notice, {
+        client.emit(S2C.Notice, {
             items: [{
                     kind: 'chat',
                     text: payload.text,
@@ -259,7 +239,6 @@ let WorldClientEventService = class WorldClientEventService {
     /** 发送玩家进入后尚未确认的日志书消息。 */
     emitPendingLogbookMessages(client, playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const pending = this.playerRuntimeService.getPendingLogbookMessages(playerId);
         const prefilledMessageIds = client?.data?.prefilledPendingLogbookMessageIds instanceof Set
@@ -279,7 +258,6 @@ let WorldClientEventService = class WorldClientEventService {
     /** 将同实例内的聊天广播给所有在线玩家。 */
     broadcastChat(playerId, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
         if (!message) {
@@ -318,7 +296,6 @@ let WorldClientEventService = class WorldClientEventService {
     acknowledgeSystemMessages(playerId, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const ids = Array.isArray(payload?.ids)
             ? payload.ids.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
             : [];
@@ -329,17 +306,17 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送任务列表。 */
     emitQuests(client, payload) {
-        this.emit(client, shared_1.S2C.Quests, payload);
+        this.emit(client, S2C.Quests, payload);
     }
     /** 推送建议列表变更。 */
     emitSuggestionUpdate(client, suggestions) {
-        this.emit(client, shared_1.S2C.SuggestionUpdate, {
+        this.emit(client, S2C.SuggestionUpdate, {
             suggestions,
         });
     }
     /** 推送邮件摘要。 */
     emitMailSummary(client, summary) {
-        this.emit(client, shared_1.S2C.MailSummary, { summary });
+        this.emit(client, S2C.MailSummary, { summary });
     }
     /** 查询并推送指定玩家的邮件摘要。 */
     async emitMailSummaryForPlayer(client, playerId) {
@@ -347,51 +324,51 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送邮件分页。 */
     emitMailPage(client, page) {
-        this.emit(client, shared_1.S2C.MailPage, { page });
+        this.emit(client, S2C.MailPage, { page });
     }
     /** 推送邮件详情。 */
     emitMailDetail(client, detail) {
-        this.emit(client, shared_1.S2C.MailDetail, { detail });
+        this.emit(client, S2C.MailDetail, { detail });
     }
     /** 推送兑换码结果。 */
     emitRedeemCodesResult(client, payload) {
-        this.emit(client, shared_1.S2C.RedeemCodesResult, payload);
+        this.emit(client, S2C.RedeemCodesResult, payload);
     }
     /** 推送邮件操作结果。 */
     emitMailOperationResult(client, payload) {
-        this.emit(client, shared_1.S2C.MailOpResult, payload);
+        this.emit(client, S2C.MailOpResult, payload);
     }
     /** 推送坊市概览更新。 */
     emitMarketUpdate(client, payload) {
-        this.emit(client, shared_1.S2C.MarketUpdate, payload);
+        this.emit(client, S2C.MarketUpdate, payload);
     }
     /** 推送坊市列表。 */
     emitMarketListings(client, payload) {
-        this.emit(client, shared_1.S2C.MarketListings, payload);
+        this.emit(client, S2C.MarketListings, payload);
     }
     /** 推送拍卖行分页列表。 */
     emitAuctionListings(client, payload) {
-        this.emit(client, shared_1.S2C.AuctionListings, payload);
+        this.emit(client, S2C.AuctionListings, payload);
     }
     /** 推送坊市订单。 */
     emitMarketOrders(client, payload) {
-        this.emit(client, shared_1.S2C.MarketOrders, payload);
+        this.emit(client, S2C.MarketOrders, payload);
     }
     /** 推送坊市仓库。 */
     emitMarketStorage(client, payload) {
-        this.emit(client, shared_1.S2C.MarketStorage, payload);
+        this.emit(client, S2C.MarketStorage, payload);
     }
     /** 推送坊市图鉴。 */
     emitMarketItemBook(client, payload) {
-        this.emit(client, shared_1.S2C.MarketItemBook, payload);
+        this.emit(client, S2C.MarketItemBook, payload);
     }
     /** 推送坊市成交历史。 */
     emitMarketTradeHistory(client, payload) {
-        this.emit(client, shared_1.S2C.MarketTradeHistory, payload);
+        this.emit(client, S2C.MarketTradeHistory, payload);
     }
     /** 推送 NPC 商店数据。 */
     emitNpcShop(client, payload) {
-        this.emit(client, shared_1.S2C.NpcShop, payload);
+        this.emit(client, S2C.NpcShop, payload);
     }
     /**
  * normalizePlayerIds：规范化或转换玩家ID。
@@ -534,7 +511,6 @@ let WorldClientEventService = class WorldClientEventService {
     broadcastSuggestionUpdate() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const suggestions = this.suggestionRuntimeService.getAll();
         for (const binding of this.worldSessionService.listBindings()) {
             const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
@@ -544,15 +520,3 @@ let WorldClientEventService = class WorldClientEventService {
         }
     }
 };
-exports.WorldClientEventService = WorldClientEventService;
-exports.WorldClientEventService = WorldClientEventService = __decorate([
-    (0, common_1.Injectable)(),
-    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_sync_quest_loot_service_1.WorldSyncQuestLootService))),
-    __metadata("design:paramtypes", [mail_runtime_service_1.MailRuntimeService,
-        market_runtime_service_1.MarketRuntimeService,
-        player_runtime_service_1.PlayerRuntimeService,
-        suggestion_runtime_service_1.SuggestionRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_sync_quest_loot_service_1.WorldSyncQuestLootService])
-], WorldClientEventService);
-export { WorldClientEventService };

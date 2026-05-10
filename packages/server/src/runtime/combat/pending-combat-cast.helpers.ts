@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   CombatActionKind,
   CombatActionPhase,
@@ -8,6 +6,8 @@ import {
   CombatTargetKind,
   createCombatAction,
 } from '../world/combat-action.types';
+
+type PendingCombatCastInput = Record<string, any>;
 
 export const CombatPendingCastStatus = Object.freeze({
   Casting: 'casting',
@@ -25,7 +25,7 @@ export const CombatPendingCastCancelReason = Object.freeze({
   ServerRestart: 'server_restart',
 });
 
-export function createPlayerPendingCombatCast(input = {}) {
+export function createPlayerPendingCombatCast(input: PendingCombatCastInput = {}) {
   const anchor = normalizeAnchor(input.anchor ?? { x: input.targetX, y: input.targetY });
   const targetRef = normalizeString(input.targetRef);
   const remainingTicks = normalizeNonNegativeInteger(input.remainingTicks);
@@ -40,7 +40,6 @@ export function createPlayerPendingCombatCast(input = {}) {
     actionId: normalizeString(input.skillId),
     instanceId: normalizeString(input.instanceId),
     anchor,
-    targetRef,
     warningCells: normalizeCells(input.warningCells),
     warningColor: input.warningColor,
     warningOrigin: normalizeAnchor(input.warningOrigin),
@@ -62,12 +61,11 @@ export function createPlayerPendingCombatCast(input = {}) {
     targetY: anchor?.y,
     targetRef,
     qiCost: Math.max(0, Math.round(Number(input.qiCost) || 0)),
-    warningColor: input.warningColor,
     skipProgressThisTick: input.skipProgressThisTick === true,
   };
 }
 
-export function createMonsterPendingCombatCast(input = {}) {
+export function createMonsterPendingCombatCast(input: PendingCombatCastInput = {}) {
   const anchor = normalizeAnchor(input.anchor ?? { x: input.targetX, y: input.targetY });
   const targetPlayerId = normalizeString(input.targetPlayerId);
   const remainingTicks = normalizeNonNegativeInteger(input.remainingTicks);
@@ -102,7 +100,7 @@ export function createMonsterPendingCombatCast(input = {}) {
   };
 }
 
-export function createCombatActionFromPendingCast(pendingCast = {}, overrides = {}) {
+export function createCombatActionFromPendingCast(pendingCast: PendingCombatCastInput = {}, overrides: PendingCombatCastInput = {}) {
   const target = resolvePendingCastTarget(pendingCast, overrides);
   const anchor = normalizeAnchor(overrides.anchor ?? pendingCast.anchor ?? {
     x: pendingCast.targetX,
@@ -125,7 +123,7 @@ export function createCombatActionFromPendingCast(pendingCast = {}, overrides = 
   });
 }
 
-export function createMonsterSkillActionFromPendingCast(pendingCast = {}, overrides = {}) {
+export function createMonsterSkillActionFromPendingCast(pendingCast: PendingCombatCastInput = {}, overrides: PendingCombatCastInput = {}) {
   const combatAction = createCombatActionFromPendingCast(pendingCast, {
     ...overrides,
     actorKind: CombatActorKind.Monster,
@@ -146,7 +144,7 @@ export function createMonsterSkillActionFromPendingCast(pendingCast = {}, overri
   };
 }
 
-export function createMonsterSkillCancelActionFromPendingCast(pendingCast = {}, overrides = {}) {
+export function createMonsterSkillCancelActionFromPendingCast(pendingCast: PendingCombatCastInput = {}, overrides: PendingCombatCastInput = {}) {
   const combatAction = createCombatActionFromPendingCast(pendingCast, {
     ...overrides,
     actorKind: CombatActorKind.Monster,
@@ -170,7 +168,7 @@ export function createMonsterSkillCancelActionFromPendingCast(pendingCast = {}, 
   };
 }
 
-export function createPlayerSkillActionFromPendingCast(pendingCast = {}, overrides = {}) {
+export function createPlayerSkillActionFromPendingCast(pendingCast: PendingCombatCastInput = {}, overrides: PendingCombatCastInput = {}) {
   return createCombatActionFromPendingCast(pendingCast, {
     ...overrides,
     actorKind: CombatActorKind.Player,
@@ -180,7 +178,7 @@ export function createPlayerSkillActionFromPendingCast(pendingCast = {}, overrid
   });
 }
 
-export function cancelPendingCombatCast(pendingCast = {}, input = {}) {
+export function cancelPendingCombatCast(pendingCast: PendingCombatCastInput = {}, input: PendingCombatCastInput = {}) {
   const reason = normalizeString(input.reason) ?? CombatPendingCastCancelReason.Interrupted;
   const cancelledTick = normalizeOptionalInteger(input.cancelledTick);
   return {
@@ -200,7 +198,7 @@ export function cancelPendingCombatCast(pendingCast = {}, input = {}) {
   };
 }
 
-export function resolvePendingCombatCastCancellation(pendingCast = {}, input = {}) {
+export function resolvePendingCombatCastCancellation(pendingCast: PendingCombatCastInput = {}, input: PendingCombatCastInput = {}) {
   if (!pendingCast || pendingCast.kind !== 'combat_pending_cast') {
     return null;
   }
@@ -229,7 +227,7 @@ export function resolvePendingCombatCastCancellation(pendingCast = {}, input = {
   return null;
 }
 
-function resolvePendingCastTarget(pendingCast, overrides = {}) {
+function resolvePendingCastTarget(pendingCast: PendingCombatCastInput, overrides: PendingCombatCastInput = {}) {
   if (overrides.target) {
     return overrides.target;
   }
@@ -250,25 +248,25 @@ function resolvePendingCastTarget(pendingCast, overrides = {}) {
   return null;
 }
 
-function normalizeResolveTick(value, startedTick, remainingTicks) {
+function normalizeResolveTick(value: unknown, startedTick: unknown, remainingTicks: unknown) {
   if (Number.isFinite(Number(value))) {
     return normalizeNonNegativeInteger(value);
   }
   return normalizeNonNegativeInteger(startedTick) + normalizeNonNegativeInteger(remainingTicks);
 }
 
-function normalizeCancelConditions(value) {
+function normalizeCancelConditions(value: unknown) {
   if (Array.isArray(value)) {
     return value.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim());
   }
   return ['actor_dead'];
 }
 
-function normalizeCells(cells) {
+function normalizeCells(cells: unknown) {
   if (!Array.isArray(cells)) {
     return [];
   }
-  const normalized = [];
+  const normalized: Array<{ x: number; y: number }> = [];
   for (const cell of cells) {
     const anchor = normalizeAnchor(cell);
     if (anchor) {
@@ -278,7 +276,7 @@ function normalizeCells(cells) {
   return normalized;
 }
 
-function normalizeAnchor(value) {
+function normalizeAnchor(value: any) {
   const x = Math.trunc(Number(value?.x));
   const y = Math.trunc(Number(value?.y));
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -287,18 +285,18 @@ function normalizeAnchor(value) {
   return { x, y };
 }
 
-function normalizeString(value) {
+function normalizeString(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function normalizeOptionalInteger(value) {
+function normalizeOptionalInteger(value: unknown) {
   if (!Number.isFinite(Number(value))) {
     return null;
   }
   return Math.trunc(Number(value));
 }
 
-function normalizeNonNegativeInteger(value) {
+function normalizeNonNegativeInteger(value: unknown) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
 }

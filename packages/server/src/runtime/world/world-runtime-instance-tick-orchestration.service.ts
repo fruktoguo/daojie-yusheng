@@ -1,23 +1,11 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeInstanceTickOrchestrationService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
-const world_runtime_building_service_1 = require("./world-runtime-building.service");
+import { Injectable } from '@nestjs/common';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
+import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
+import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
-let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTickOrchestrationService {
+@Injectable()
+export class WorldRuntimeInstanceTickOrchestrationService {
 /**
  * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
@@ -107,7 +95,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
                     for (const building of result.completedBuildings) {
-                        (0, world_runtime_building_service_1.notifyBuildingConstructionCompletion)(deps, building);
+                        notifyBuildingConstructionCompletion(deps, building);
                     }
                 }
                 for (const transfer of result.transfers) {
@@ -168,16 +156,12 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         return totalLogicalTicks;
     }
 };
-exports.WorldRuntimeInstanceTickOrchestrationService = WorldRuntimeInstanceTickOrchestrationService;
-exports.WorldRuntimeInstanceTickOrchestrationService = WorldRuntimeInstanceTickOrchestrationService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeInstanceTickOrchestrationService);
 
 function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService, tickSpeed = 1) {
     if (!playerRuntimeService || typeof playerRuntimeService.getPlayer !== 'function') {
         return;
     }
-    const timeState = (0, shared_1.resolveGameTimeState)(
+    const timeState = resolveGameTimeState(
         instance.tick,
         1,
         instance.template?.source?.time,
@@ -206,8 +190,6 @@ function isSameWorldTimeVisionState(left, right) {
         && left.visionMultiplier === right.visionMultiplier
         && left.lightPercent === right.lightPercent;
 }
-
-export { WorldRuntimeInstanceTickOrchestrationService };
 
 function buildCultivationAuraMultiplierByPlayerId(instance, playerIds, playerRuntimeService) {
     const multipliers = new Map();
@@ -259,7 +241,7 @@ function resolveTileCultivationAura(instance, player, x, y) {
             return {
                 rawValue: rawQiValue,
                 effectiveValue: projectedQiValue,
-                rawLevel: (0, shared_1.getAuraLevel)(rawQiValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
+                rawLevel: getAuraLevel(rawQiValue, DEFAULT_AURA_LEVEL_BASE_VALUE),
             };
         }
     }
@@ -268,12 +250,12 @@ function resolveTileCultivationAura(instance, player, x, y) {
         : 0;
     const normalizedAura = Math.max(0, Math.trunc(Number(rawAura) || 0));
     const effectiveAura = player
-        ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, 'aura.refined.neutral', normalizedAura)
+        ? projectPlayerQiResourceValue(player, 'aura.refined.neutral', normalizedAura)
         : normalizedAura;
     return {
         rawValue: normalizedAura,
         effectiveValue: effectiveAura,
-        rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', normalizedAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
+        rawLevel: getQiResourceDefaultLevel('aura.refined.neutral', normalizedAura, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
     };
 }
 
@@ -314,20 +296,20 @@ function applyTileQiDrainForPlayers(instance, playerIds, deps) {
 }
 
 function resolveCultivationResourceValue(player, resourceKey, value) {
-    const parsed = (0, shared_1.parseQiResourceKey)(resourceKey);
+    const parsed = parseQiResourceKey(resourceKey);
     if (!parsed || value <= 0) {
         return { contributes: false, rawValue: 0, effectiveValue: 0 };
     }
     if (!player) {
         return { contributes: true, rawValue: value, effectiveValue: value };
     }
-    const projection = (0, world_runtime_qi_projection_helpers_1.resolvePlayerQiResourceProjection)(player, resourceKey);
+    const projection = resolvePlayerQiResourceProjection(player, resourceKey);
     if (projection?.visibility !== 'absorbable') {
         return { contributes: false, rawValue: 0, effectiveValue: 0 };
     }
     return {
         contributes: true,
         rawValue: value,
-        effectiveValue: (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, resourceKey, value),
+        effectiveValue: projectPlayerQiResourceValue(player, resourceKey, value),
     };
 }

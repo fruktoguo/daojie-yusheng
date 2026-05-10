@@ -105,6 +105,96 @@
       transform: translateY(-1px);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px var(--chat-damage-pill-shadow, rgba(0, 0, 0, 0.16));
     }
+    .chat-merged-combat-line {
+      line-height: 1.5;
+    }
+    .chat-merged-combat-indent {
+      visibility: hidden;
+      display: inline;
+      font-size: inherit;
+      letter-spacing: inherit;
+      pointer-events: none;
+    }
+    .chat-target-pill {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 2px;
+      padding: 0 6px;
+      border: 1px solid rgba(140, 100, 60, 0.35);
+      border-radius: 999px;
+      background: rgba(140, 100, 60, 0.1);
+      color: inherit;
+      font-size: 0.92em;
+      font-weight: 600;
+      line-height: 1.45;
+      vertical-align: baseline;
+      white-space: nowrap;
+    }
+    .chat-skill-pill {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 2px;
+      padding: 0 6px;
+      border: 1px solid rgba(80, 60, 160, 0.3);
+      border-radius: 999px;
+      background: rgba(80, 60, 160, 0.08);
+      color: inherit;
+      font-size: 0.92em;
+      font-weight: 600;
+      line-height: 1.45;
+      vertical-align: baseline;
+      white-space: nowrap;
+    }
+    .chat-combat-badge {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 1px;
+      padding: 0 5px;
+      border-radius: 4px;
+      background: rgba(120, 120, 120, 0.15);
+      color: #6b7280;
+      font-size: 0.82em;
+      font-weight: 500;
+      line-height: 1.5;
+      vertical-align: baseline;
+      white-space: nowrap;
+    }
+    .chat-combat-badge--kill {
+      background: rgba(220, 38, 38, 0.12);
+      color: #b91c1c;
+    }
+    .chat-combat-badge--crit {
+      background: rgba(234, 179, 8, 0.14);
+      color: #a16207;
+    }
+    .chat-combat-badge--broken {
+      background: rgba(249, 115, 22, 0.14);
+      color: #c2410c;
+    }
+    :root[data-color-mode="dark"] .chat-target-pill {
+      border-color: rgba(200, 170, 120, 0.3);
+      background: rgba(200, 170, 120, 0.1);
+    }
+    :root[data-color-mode="dark"] .chat-skill-pill {
+      border-color: rgba(160, 140, 220, 0.3);
+      background: rgba(160, 140, 220, 0.1);
+    }
+    :root[data-color-mode="dark"] .chat-combat-badge {
+      background: rgba(200, 200, 200, 0.12);
+      color: #a8a29e;
+    }
+    :root[data-color-mode="dark"] .chat-combat-badge--kill {
+      background: rgba(248, 113, 113, 0.16);
+      color: #fca5a5;
+    }
+    :root[data-color-mode="dark"] .chat-combat-badge--crit {
+      background: rgba(250, 204, 21, 0.16);
+      color: #fde047;
+    }
+    :root[data-color-mode="dark"] .chat-combat-badge--broken {
+      background: rgba(251, 146, 60, 0.16);
+      color: #fdba74;
+    }
     .chat-compose {
       display: flex;
       gap: 8px;

@@ -1,31 +1,14 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeWorldAccessService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { WorldRuntimeSummaryQueryService } from './world-runtime-summary-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { buildPublicInstanceId, buildRealInstanceId, normalizeRuntimeInstanceLinePreset } = world_runtime_normalization_helpers_1;
 
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 
 /** world-runtime world-access seam：承接世界级 access/utility/query 外壳。 */
-let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
+@Injectable()
+export class WorldRuntimeWorldAccessService {
 /**
  * worldRuntimeSummaryQueryService：世界运行态摘要Query服务引用。
  */
@@ -37,7 +20,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeSummaryQueryService) {
+    constructor(worldRuntimeSummaryQueryService: WorldRuntimeSummaryQueryService) {
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
     }    
     /**
@@ -64,7 +47,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
     getRuntimeSummary(deps) {
         const instances = deps.listInstances();
-        const dirtyPlayerDomains = typeof deps.playerRuntimeService?.listDirtyPlayerDomains === 'function'
+        const dirtyPlayerDomains: Map<string, any> = typeof deps.playerRuntimeService?.listDirtyPlayerDomains === 'function'
             ? deps.playerRuntimeService.listDirtyPlayerDomains()
             : new Map();
         const dirtyInstanceIds = typeof deps.listDirtyPersistentInstances === 'function'
@@ -112,7 +95,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!deps.templateRepository.has(templateId)) {
-            throw new common_1.NotFoundException(`地图模板不存在：${templateId}`);
+            throw new NotFoundException(`地图模板不存在：${templateId}`);
         }
         return deps.createInstance({
             instanceId: buildPublicInstanceId(templateId),
@@ -139,7 +122,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             return this.getOrCreatePublicInstance(templateId, deps);
         }
         if (!deps.templateRepository.has(templateId)) {
-            throw new common_1.NotFoundException(`地图模板不存在：${templateId}`);
+            throw new NotFoundException(`地图模板不存在：${templateId}`);
         }
         return deps.createInstance({
             instanceId: buildRealInstanceId(templateId),
@@ -166,7 +149,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         }
         const fallback = deps.templateRepository.list()[0]?.id;
         if (!fallback) {
-            throw new common_1.NotFoundException('没有可用地图模板');
+            throw new NotFoundException('没有可用地图模板');
         }
         return fallback;
     }    
@@ -193,7 +176,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const location = deps.getPlayerLocation(playerId);
         if (!location) {
-            throw new common_1.NotFoundException(`玩家 ${playerId} 尚未连接`);
+            throw new NotFoundException(`玩家 ${playerId} 尚未连接`);
         }
         return location;
     }    
@@ -209,7 +192,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const instance = deps.getInstanceRuntime(instanceId);
         if (!instance) {
-            throw new common_1.NotFoundException(`地图实例不存在：${instanceId}`);
+            throw new NotFoundException(`地图实例不存在：${instanceId}`);
         }
         return instance;
     }    
@@ -266,15 +249,8 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
         const view = deps.getPlayerView(playerId);
         if (!view) {
-            throw new common_1.NotFoundException(`玩家不存在：${playerId}`);
+            throw new NotFoundException(`玩家不存在：${playerId}`);
         }
         return view;
     }
 };
-exports.WorldRuntimeWorldAccessService = WorldRuntimeWorldAccessService;
-exports.WorldRuntimeWorldAccessService = WorldRuntimeWorldAccessService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService])
-], WorldRuntimeWorldAccessService);
-
-export { WorldRuntimeWorldAccessService };

@@ -1,12 +1,7 @@
-// @ts-nocheck
-"use strict";
+import { calculateTerrainDurability, computeCraftSkillExpGain, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.awardBuildingConstructionCompletion = exports.notifyBuildingConstructionCompletion = exports.awardBuildingConstructionProgress = exports.tickBuildingConstruction = exports.interruptBuildingConstruction = exports.dispatchStartBuildingConstruction = exports.buildFengShuiObserveView = exports.buildCurrentRoomSummaryPatch = exports.handleRoomSetRoleIntent = exports.listBuildingOperationAudit = exports.handleStartBuildingConstruction = exports.handleBuildDeconstructIntent = exports.handleBuildPlaceIntent = void 0;
-const shared_1 = require("@mud/shared");
-const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
-
-function handleBuildPlaceIntent(runtime, playerId, payload) {
+export function handleBuildPlaceIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
     if (!requestId) {
         return { requestId: '', ok: false, reason: 'request_id_required' };
@@ -72,9 +67,8 @@ function handleBuildPlaceIntent(runtime, playerId, payload) {
         consumedItems: costResolution.consumedItems,
     }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId, buildingId: result.building?.id ?? null });
 }
-exports.handleBuildPlaceIntent = handleBuildPlaceIntent;
 
-function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
+export function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const buildingId = normalizeBuildingRequestId(buildingIdInput);
     const result = context.instance.startBuildingConstruction?.(buildingId, playerId) ?? { ok: false, reason: 'building_start_unsupported' };
@@ -98,9 +92,8 @@ function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
         reason: result?.reason ?? 'building_start_failed',
     };
 }
-exports.handleStartBuildingConstruction = handleStartBuildingConstruction;
 
-function dispatchStartBuildingConstruction(runtime, playerId, buildingIdInput) {
+export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdInput) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const player = context.player;
     const buildingId = normalizeBuildingRequestId(buildingIdInput);
@@ -113,7 +106,7 @@ function dispatchStartBuildingConstruction(runtime, playerId, buildingIdInput) {
             throw new Error('当前已有建造任务在进行中。');
         }
     }
-    const result = handleStartBuildingConstruction(runtime, playerId, buildingId);
+    const result: any = handleStartBuildingConstruction(runtime, playerId, buildingId);
     if (result?.ok !== true || !result.building) {
         throw new Error(localizeStartBuildingFailure(result?.reason));
     }
@@ -133,9 +126,8 @@ function dispatchStartBuildingConstruction(runtime, playerId, buildingIdInput) {
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
     runtime.refreshPlayerContextActions?.(playerId);
 }
-exports.dispatchStartBuildingConstruction = dispatchStartBuildingConstruction;
 
-function interruptBuildingConstruction(runtime, playerId, reason = 'cancel') {
+export function interruptBuildingConstruction(runtime, playerId, reason = 'cancel') {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const player = context.player;
     const job = player?.buildingJob;
@@ -154,9 +146,8 @@ function interruptBuildingConstruction(runtime, playerId, reason = 'cancel') {
     }
     runtime.refreshPlayerContextActions?.(playerId);
 }
-exports.interruptBuildingConstruction = interruptBuildingConstruction;
 
-function tickBuildingConstruction(runtime, playerId) {
+export function tickBuildingConstruction(runtime, playerId) {
     const player = runtime?.playerRuntimeService?.getPlayer?.(playerId);
     const job = player?.buildingJob;
     if (!player || !job || Number(job.remainingTicks) <= 0) {
@@ -200,9 +191,8 @@ function tickBuildingConstruction(runtime, playerId) {
     job.phase = 'building';
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
 }
-exports.tickBuildingConstruction = tickBuildingConstruction;
 
-function handleBuildDeconstructIntent(runtime, playerId, payload) {
+export function handleBuildDeconstructIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
     if (!requestId) {
         return { requestId: '', ok: false, reason: 'request_id_required' };
@@ -228,15 +218,13 @@ function handleBuildDeconstructIntent(runtime, playerId, payload) {
         reason: result?.ok === true ? undefined : result?.reason ?? 'deconstruct_failed',
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
 }
-exports.handleBuildDeconstructIntent = handleBuildDeconstructIntent;
 
-function listBuildingOperationAudit(runtime, limit = 50) {
+export function listBuildingOperationAudit(runtime, limit = 50) {
     const normalizedLimit = Math.min(200, Math.max(1, Math.trunc(Number(limit) || 50)));
     return runtime.buildingOperationAuditLog.slice(-normalizedLimit).reverse().map((entry) => ({ ...entry }));
 }
-exports.listBuildingOperationAudit = listBuildingOperationAudit;
 
-function handleRoomSetRoleIntent(runtime, playerId, payload) {
+export function handleRoomSetRoleIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
     if (!requestId) {
         return { requestId: '', ok: false, reason: 'request_id_required' };
@@ -247,9 +235,8 @@ function handleRoomSetRoleIntent(runtime, playerId, payload) {
         reason: 'room_role_auto_inferred',
     };
 }
-exports.handleRoomSetRoleIntent = handleRoomSetRoleIntent;
 
-function buildCurrentRoomSummaryPatch(runtime, playerId) {
+export function buildCurrentRoomSummaryPatch(runtime, playerId) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     return {
         instanceId: context.instance.meta.instanceId,
@@ -259,9 +246,8 @@ function buildCurrentRoomSummaryPatch(runtime, playerId) {
         removes: [],
     };
 }
-exports.buildCurrentRoomSummaryPatch = buildCurrentRoomSummaryPatch;
 
-function buildFengShuiObserveView(runtime, playerId, payload) {
+export function buildFengShuiObserveView(runtime, playerId, payload) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const roomId = typeof payload?.roomId === 'string' && payload.roomId.trim() ? payload.roomId.trim() : '';
     const hasExplicitPoint = Number.isFinite(Number(payload?.x)) || Number.isFinite(Number(payload?.y));
@@ -281,7 +267,6 @@ function buildFengShuiObserveView(runtime, playerId, payload) {
         overlay: payload?.overlay === true ? buildFengShuiOverlayPatch(context.instance, playerId) : null,
     };
 }
-exports.buildFengShuiObserveView = buildFengShuiObserveView;
 
 function resolvePlayerBuildingContext(runtime, playerId) {
     const location = runtime.getPlayerLocationOrThrow(playerId);
@@ -333,7 +318,7 @@ function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) 
         if (!slotItemId || required <= 0) {
             continue;
         }
-        if ((0, shared_1.isGenericBuildMaterialSlotItemId)(slotItemId)) {
+        if (isGenericBuildMaterialSlotItemId(slotItemId)) {
             const selectedItemId = typeof selectedMaterialItemIds?.[index] === 'string' ? selectedMaterialItemIds[index].trim() : '';
             if (!selectedItemId) {
                 return { ok: false, reason: `build_material_required:${slotItemId}:${index}` };
@@ -345,8 +330,8 @@ function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) 
             if ((inventoryItem.type ?? 'material') !== 'material') {
                 return { ok: false, reason: `build_material_invalid:${selectedItemId}` };
             }
-            const selectedCategory = (0, shared_1.resolveBuildMaterialCategoryKey)(inventoryItem);
-            const requiredCategory = (0, shared_1.resolveGenericBuildMaterialSlotCategory)(slotItemId);
+            const selectedCategory = resolveBuildMaterialCategoryKey(inventoryItem);
+            const requiredCategory = resolveGenericBuildMaterialSlotCategory(slotItemId);
             if (selectedCategory !== requiredCategory) {
                 return { ok: false, reason: `build_material_category_mismatch:${selectedItemId}:${slotItemId}` };
             }
@@ -378,14 +363,14 @@ function resolveBuildingSkillLevel(player) {
 }
 function resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength) {
     const baseMultiplier = Math.max(0.01, Number(compiled?.durabilityMultiplier ?? (Number(compiled?.maxHp ?? 1) / 100)));
-    return Math.max(1, Math.trunc((0, shared_1.calculateTerrainDurability)(buildingSkillLevel, baseMultiplier) * buildStrength));
+    return Math.max(1, Math.trunc(calculateTerrainDurability(buildingSkillLevel, baseMultiplier) * buildStrength));
 }
 function applyCraftSkillExp(source, skill, amount) {
     if (!skill) {
         return false;
     }
     let changed = false;
-    const currentExpToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+    const currentExpToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
     if (skill.expToNext !== currentExpToNext) {
         skill.expToNext = currentExpToNext;
         changed = true;
@@ -394,14 +379,14 @@ function applyCraftSkillExp(source, skill, amount) {
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
         skill.exp -= skill.expToNext;
         skill.level += 1;
-        skill.expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+        skill.expToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
         changed = true;
     }
     return changed || amount > 0;
 }
 function ensureBuildingSkillState(source, player) {
     const level = Math.max(1, Math.floor(Number(player?.buildingSkill?.level) || 1));
-    const expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level, craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT);
+    const expToNext = resolveCraftSkillExpToNextByLevel(source, level, DEFAULT_CRAFT_EXP_TO_NEXT);
     const state = {
         level,
         exp: Math.max(0, Math.floor(Number(player?.buildingSkill?.exp) || 0)),
@@ -415,11 +400,11 @@ function applyBuildingSkillExp(source, player, buildStrength) {
         return 0;
     }
     const skill = ensureBuildingSkillState(source, player);
-    const gain = shared_1.computeCraftSkillExpGain({
+    const gain = computeCraftSkillExpGain({
         skillLevel: skill.level,
         targetLevel: skill.level,
         baseActionTicks: normalizeBuildStrength(buildStrength),
-        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
+        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
         successCount: 1,
         failureCount: 0,
         successMultiplier: 1,
@@ -434,7 +419,7 @@ function applyBuildingSkillExp(source, player, buildStrength) {
     player.dirtyDomains.add('profession');
     return gain;
 }
-function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks = 1) {
+export function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks = 1) {
     const playerId = normalizeBuildingRequestId(playerIdInput);
     if (!playerId) {
         return 0;
@@ -449,8 +434,7 @@ function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks
     }
     return gainedExp;
 }
-exports.awardBuildingConstructionProgress = awardBuildingConstructionProgress;
-function notifyBuildingConstructionCompletion(runtime, building) {
+export function notifyBuildingConstructionCompletion(runtime, building) {
     const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
     const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
     if (playerId && canQueueBuildingNotice(runtime)) {
@@ -458,11 +442,9 @@ function notifyBuildingConstructionCompletion(runtime, building) {
     }
     return 0;
 }
-exports.notifyBuildingConstructionCompletion = notifyBuildingConstructionCompletion;
-function awardBuildingConstructionCompletion(runtime, building) {
+export function awardBuildingConstructionCompletion(runtime, building) {
     return notifyBuildingConstructionCompletion(runtime, building);
 }
-exports.awardBuildingConstructionCompletion = awardBuildingConstructionCompletion;
 function buildBuildingInterruptMessage(buildingNameInput, reason) {
     const buildingName = typeof buildingNameInput === 'string' && buildingNameInput.trim() ? buildingNameInput.trim() : '当前建筑';
     const reasonLabel = reason === 'move'

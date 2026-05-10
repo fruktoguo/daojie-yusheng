@@ -6,64 +6,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.huangting_zaishan",
@@ -119,64 +63,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.taibai_zhuxing",
@@ -228,64 +116,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.taichu_baoyuan",
@@ -312,64 +144,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.taiyin_guichao",
@@ -434,64 +210,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.changsheng_chanyuan",
@@ -554,64 +274,8 @@
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 224
-      },
-      {
-        "level": 2,
-        "expFactor": 248
-      },
-      {
-        "level": 3,
-        "expFactor": 276
-      },
-      {
-        "level": 4,
-        "expFactor": 308
-      },
-      {
-        "level": 5,
-        "expFactor": 344
-      },
-      {
-        "level": 6,
-        "expFactor": 384
-      },
-      {
-        "level": 7,
-        "expFactor": 428
-      },
-      {
-        "level": 8,
-        "expFactor": 476
-      },
-      {
-        "level": 9,
-        "expFactor": 532
-      },
-      {
-        "level": 10,
-        "expFactor": 592
-      },
-      {
-        "level": 11,
-        "expFactor": 656
-      },
-      {
-        "level": 12,
-        "expFactor": 728
-      },
-      {
-        "level": 13,
-        "expFactor": 808
-      },
-      {
-        "level": 14,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 14,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.zhuming_jintian",

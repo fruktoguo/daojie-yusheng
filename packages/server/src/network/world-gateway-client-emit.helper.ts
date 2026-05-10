@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayClientEmitHelper = void 0;
 
 /** 世界 socket 客户端发包 helper：统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。 */
 class WorldGatewayClientEmitHelper {
@@ -226,7 +221,6 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.broadcastSuggestionUpdate();
     }
 }
-exports.WorldGatewayClientEmitHelper = WorldGatewayClientEmitHelper;
 
 function toQuestSyncPayload(payload) {
     return {

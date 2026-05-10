@@ -1,27 +1,13 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeSummaryQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable } from '@nestjs/common';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
     summarizeDurations,
 } = world_runtime_normalization_helpers_1;
 
 /** 世界运行时摘要查询服务：承接只读 summary payload 构造。 */
-let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
+@Injectable()
+export class WorldRuntimeSummaryQueryService {
 /**
  * buildRuntimeSummary：构建并返回目标对象。
  * @param input 输入参数。
@@ -53,10 +39,6 @@ let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
         };
     }
 };
-exports.WorldRuntimeSummaryQueryService = WorldRuntimeSummaryQueryService;
-exports.WorldRuntimeSummaryQueryService = WorldRuntimeSummaryQueryService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeSummaryQueryService);
 
 function summarizePhaseDurations(historyByKey) {
     if (!historyByKey || typeof historyByKey !== 'object') {
@@ -148,5 +130,3 @@ function normalizeCount(value) {
     }
     return Math.max(0, Math.trunc(parsed));
 }
-
-export { WorldRuntimeSummaryQueryService };

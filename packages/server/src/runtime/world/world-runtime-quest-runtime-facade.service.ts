@@ -1,20 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeQuestRuntimeFacadeService = void 0;
-
-const common_1 = require("@nestjs/common");
+import { Injectable } from '@nestjs/common';
 
 /** world-runtime quest-runtime facade：承接 quest state 与 NPC access 运行时 facade。 */
-let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacadeService {
+@Injectable()
+export class WorldRuntimeQuestRuntimeFacadeService {
 /**
  * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
@@ -25,7 +13,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     resolveAdjacentNpc(playerId, npcId, deps) {
         return deps.worldRuntimeNpcAccessService.resolveAdjacentNpc(playerId, npcId, deps);
-    }    
+    }
     /**
  * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
@@ -36,7 +24,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     refreshQuestStates(playerId, forceDirty, deps) {
         deps.worldRuntimeQuestStateService.refreshQuestStates(playerId, forceDirty);
-    }    
+    }
     /**
  * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -47,7 +35,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     tryAcceptNextQuest(playerId, nextQuestId, deps) {
         return deps.worldRuntimeQuestStateService.tryAcceptNextQuest(playerId, nextQuestId);
-    }    
+    }
     /**
  * advanceKillQuestProgress：执行advanceKill任务进度相关逻辑。
  * @param playerId 玩家 ID。
@@ -59,7 +47,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     advanceKillQuestProgress(playerId, monsterId, monsterName, deps) {
         deps.worldRuntimeQuestStateService.advanceKillQuestProgress(playerId, monsterId, monsterName);
-    }    
+    }
     /**
  * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -70,7 +58,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     advanceLearnTechniqueQuest(playerId, techniqueId, deps) {
         deps.worldRuntimeQuestStateService.advanceLearnTechniqueQuest(playerId, techniqueId);
-    }    
+    }
     /**
  * canReceiveRewardItems：判断ReceiveReward道具是否满足条件。
  * @param playerId 玩家 ID。
@@ -81,7 +69,7 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
 
     canReceiveRewardItems(playerId, rewards, deps) {
         return deps.worldRuntimeQuestStateService.canReceiveRewardItems(playerId, rewards);
-    }    
+    }
     /**
  * getNpcForPlayerMap：读取NPCFor玩家地图。
  * @param playerId 玩家 ID。
@@ -94,9 +82,3 @@ let WorldRuntimeQuestRuntimeFacadeService = class WorldRuntimeQuestRuntimeFacade
         return deps.worldRuntimeNpcAccessService.getNpcForPlayerMap(playerId, npcId, deps);
     }
 };
-exports.WorldRuntimeQuestRuntimeFacadeService = WorldRuntimeQuestRuntimeFacadeService;
-exports.WorldRuntimeQuestRuntimeFacadeService = WorldRuntimeQuestRuntimeFacadeService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeQuestRuntimeFacadeService);
-
-export { WorldRuntimeQuestRuntimeFacadeService };

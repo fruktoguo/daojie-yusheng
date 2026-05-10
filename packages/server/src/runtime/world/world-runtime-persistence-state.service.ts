@@ -1,20 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePersistenceStateService = void 0;
-
-const common_1 = require("@nestjs/common");
+import { Injectable } from '@nestjs/common';
 
 /** world-runtime persistence-state seam：承接 dirty map 检测、快照构造与持久化落盘回标。 */
-let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateService {
+@Injectable()
+export class WorldRuntimePersistenceStateService {
 /**
  * listDirtyPersistentInstances：读取DirtyPersistentInstance并返回结果。
  * @param deps 运行时依赖。
@@ -35,7 +23,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             }
         }
         return Array.from(dirty).sort(resolveStableStringComparer(deps));
-    }    
+    }
     /** listDirtyPersistentInstanceDomains：按实例列出需要落库的持久化域。 */
     listDirtyPersistentInstanceDomains(deps) {
         const entries = [];
@@ -110,7 +98,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             groundPileEntries: instance.buildGroundPersistenceEntries(),
             containerStates: deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId),
         };
-    }    
+    }
     /**
  * markMapPersisted：判断地图Persisted是否满足条件。
  * @param instanceId instance ID。
@@ -266,10 +254,6 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
         return { persistedDomains, skipped: false };
     }
 };
-exports.WorldRuntimePersistenceStateService = WorldRuntimePersistenceStateService;
-exports.WorldRuntimePersistenceStateService = WorldRuntimePersistenceStateService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimePersistenceStateService);
 
 function resolveStableStringComparer(deps) {
     if (typeof deps?.compareStableStrings === 'function') {
@@ -316,5 +300,3 @@ function buildInstanceDomainRecoveryWatermark(instance, persistedDomains) {
         persistenceRevision,
     };
 }
-
-export { WorldRuntimePersistenceStateService };

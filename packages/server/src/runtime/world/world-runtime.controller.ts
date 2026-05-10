@@ -1,46 +1,18 @@
-// @ts-nocheck
-"use strict";
+import { BadRequestException, Body, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
+import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { clearAuthTrace, readAuthTrace } from '../../network/world-player-token.service';
+import { MailRuntimeService } from '../mail/mail-runtime.service';
+import { MarketRuntimeService } from '../market/market-runtime.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { SuggestionRuntimeService } from '../suggestion/suggestion-runtime.service';
+import { RuntimeHttpAccessGuard } from './runtime-http-access.guard';
+import { WorldRuntimeService } from './world-runtime.service';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeController = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const map_persistence_flush_service_1 = require("../../persistence/map-persistence-flush.service");
-
-const player_persistence_flush_service_1 = require("../../persistence/player-persistence-flush.service");
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
-
-const mail_runtime_service_1 = require("../mail/mail-runtime.service");
-
-const market_runtime_service_1 = require("../market/market-runtime.service");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const suggestion_runtime_service_1 = require("../suggestion/suggestion-runtime.service");
-
-const world_player_token_service_1 = require("../../network/world-player-token.service");
-
-const runtime_http_access_guard_1 = require("./runtime-http-access.guard");
-
-const world_runtime_service_1 = require("./world-runtime.service");
-
-let WorldRuntimeController = class WorldRuntimeController {
+@Controller('runtime')
+@UseGuards(new RuntimeHttpAccessGuard())
+export class WorldRuntimeController {
 /**
  * worldRuntimeService：世界运行态服务引用。
  */
@@ -94,7 +66,7 @@ let WorldRuntimeController = class WorldRuntimeController {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeService, mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, playerPersistenceFlushService, mapPersistenceFlushService, durableOperationService) {
+    constructor(@Inject(WorldRuntimeService) worldRuntimeService, @Inject(MailRuntimeService) mailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService, @Inject(PlayerRuntimeService) playerRuntimeService, @Inject(SuggestionRuntimeService) suggestionRuntimeService, @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService, @Inject(MapPersistenceFlushService) mapPersistenceFlushService, @Inject(DurableOperationService) durableOperationService) {
         this.worldRuntimeService = worldRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -119,41 +91,48 @@ let WorldRuntimeController = class WorldRuntimeController {
         }
     }
     /** getSummary：读取世界运行时摘要。 */
+    @Get('summary')
     getSummary() {
         return this.worldRuntimeService.getRuntimeSummary();
     }
     /** getTemplates：读取地图模板列表。 */
+    @Get('templates')
     getTemplates() {
         return {
             templates: this.worldRuntimeService.listMapTemplates(),
         };
     }
     /** getInstances：读取实例列表。 */
+    @Get('instances')
     getInstances() {
         return {
             instances: this.worldRuntimeService.listInstances(),
         };
     }
     /** getInstance：读取指定实例。 */
-    getInstance(instanceId) {
+    @Get('instances/:instanceId')
+    getInstance(@Param('instanceId') instanceId) {
         return {
             instance: this.worldRuntimeService.getInstance(instanceId),
         };
     }
     /** getInstanceMonsters：读取实例中的妖兽列表。 */
-    getInstanceMonsters(instanceId) {
+    @Get('instances/:instanceId/monsters')
+    getInstanceMonsters(@Param('instanceId') instanceId) {
         return {
             monsters: this.worldRuntimeService.listInstanceMonsters(instanceId),
         };
     }
     /** getInstanceMonster：读取实例中的单只妖兽。 */
-    getInstanceMonster(instanceId, runtimeId) {
+    @Get('instances/:instanceId/monsters/:runtimeId')
+    getInstanceMonster(@Param('instanceId') instanceId, @Param('runtimeId') runtimeId) {
         return {
             monster: this.worldRuntimeService.getInstanceMonster(instanceId, runtimeId),
         };
     }
     /** getInstanceTileState：读取实例地块状态。 */
-    getInstanceTileState(instanceId, x, y) {
+    @Get('instances/:instanceId/tiles/:x/:y')
+    getInstanceTileState(@Param('instanceId') instanceId, @Param('x') x, @Param('y') y) {
 
         const parsedX = Number(x);
 
@@ -163,19 +142,23 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** spawnMonsterLoot：生成妖兽战利品。 */
-    spawnMonsterLoot(instanceId, body) {
+    @Post('instances/:instanceId/spawn-monster-loot')
+    spawnMonsterLoot(@Param('instanceId') instanceId, @Body() body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSpawnMonsterLoot(instanceId, body.monsterId ?? '', Number.isFinite(body.x) ? Number(body.x) : Number.NaN, Number.isFinite(body.y) ? Number(body.y) : Number.NaN, Number.isFinite(body.rolls) ? Number(body.rolls) : undefined, this.worldRuntimeService);
     }
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
-    defeatMonster(instanceId, runtimeId, _body) {
+    @Post('instances/:instanceId/monsters/:runtimeId/defeat')
+    defeatMonster(@Param('instanceId') instanceId, @Param('runtimeId') runtimeId, @Body() _body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDefeatMonster(instanceId, runtimeId, this.worldRuntimeService);
     }
     /** damageMonster：伤害妖兽。 */
-    damageMonster(instanceId, runtimeId, body) {
+    @Post('instances/:instanceId/monsters/:runtimeId/damage')
+    damageMonster(@Param('instanceId') instanceId, @Param('runtimeId') runtimeId, @Body() body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDamageMonster(instanceId, runtimeId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN, this.worldRuntimeService);
     }
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
-    async connectPlayer(body) {
+    @Post('players/connect')
+    async connectPlayer(@Body() body) {
         const view = this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
             playerId: body.playerId ?? '',
             sessionId: body.sessionId,
@@ -190,25 +173,30 @@ let WorldRuntimeController = class WorldRuntimeController {
         return view;
     }
     /** removePlayer：注销玩家运行态，先清会话再断开实例。 */
-    removePlayer(playerId) {
+    @Delete('players/:playerId')
+    removePlayer(@Param('playerId') playerId) {
         return {
             ok: this.worldRuntimeService.worldRuntimePlayerSessionService.removePlayer(playerId, 'removed', this.worldRuntimeService),
         };
     }
     /** movePlayer：移动玩家。 */
-    movePlayer(playerId, body) {
+    @Post('players/:playerId/move')
+    movePlayer(@Param('playerId') playerId, @Body() body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMove(playerId, body.direction ?? '', this.worldRuntimeService);
     }
     /** useAction：使用动作。 */
-    useAction(playerId, body) {
+    @Post('players/:playerId/use-action')
+    useAction(@Param('playerId') playerId, @Body() body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, body.actionId ?? '', undefined, this.worldRuntimeService);
     }
     /** usePortal：把当前站位的传送请求排入下一次 tick。 */
-    usePortal(playerId) {
+    @Post('players/:playerId/portal')
+    usePortal(@Param('playerId') playerId) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.usePortal(playerId, this.worldRuntimeService);
     }
     /** getPlayerView：读取玩家当前视野快照，并补上 NPC 任务标记。 */
-    getPlayerView(playerId, radius) {
+    @Get('players/:playerId/view')
+    getPlayerView(@Param('playerId') playerId, @Query('radius') radius) {
 
         const parsedRadius = radius !== undefined ? Number(radius) : undefined;
 
@@ -220,14 +208,16 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** getPlayerDetail：读取玩家视野内目标的详情。 */
-    getPlayerDetail(playerId, query) {
+    @Get('players/:playerId/detail')
+    getPlayerDetail(@Param('playerId') playerId, @Query() query) {
         return this.worldRuntimeService.buildDetail(playerId, {
             kind: query.kind ?? 'npc',
             id: query.id ?? '',
         });
     }
     /** getPlayerTileDetail：读取玩家指定地块的详情。 */
-    getPlayerTileDetail(playerId, query) {
+    @Get('players/:playerId/tile-detail')
+    getPlayerTileDetail(@Param('playerId') playerId, @Query() query) {
 
         const x = query.x !== undefined ? Number(query.x) : Number.NaN;
 
@@ -235,24 +225,28 @@ let WorldRuntimeController = class WorldRuntimeController {
         return this.worldRuntimeService.buildTileDetail(playerId, { x, y });
     }
     /** getPlayerState：读取玩家运行态快照。 */
-    getPlayerState(playerId) {
+    @Get('players/:playerId/state')
+    getPlayerState(@Param('playerId') playerId) {
         return {
             player: this.playerRuntimeService.snapshot(playerId),
         };
     }
     /** getAuthTrace：读取最近一次鉴权追踪。 */
+    @Get('auth-trace')
     getAuthTrace() {
         return {
-            trace: (0, world_player_token_service_1.readAuthTrace)(),
+            trace: readAuthTrace(),
         };
     }
     /** clearAuthTrace：清空鉴权追踪缓存。 */
+    @Delete('auth-trace')
     clearAuthTrace() {
         /** return：return。 */
-        return (0, world_player_token_service_1.clearAuthTrace)();
+        return clearAuthTrace();
     }
     /** queuePendingLogbookMessage：把日志本消息排入玩家运行态队列。 */
-    queuePendingLogbookMessage(playerId, body) {
+    @Post('players/:playerId/pending-logbook')
+    queuePendingLogbookMessage(@Param('playerId') playerId, @Body() body) {
         return {
             player: this.playerRuntimeService.queuePendingLogbookMessage(playerId, {
                 id: body?.id,
@@ -264,21 +258,25 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** getNpcShop：读取 NPC 商店视图。 */
-    getNpcShop(playerId, npcId) {
+    @Get('players/:playerId/npc-shop/:npcId')
+    getNpcShop(@Param('playerId') playerId, @Param('npcId') npcId) {
         return this.worldRuntimeService.buildNpcShopView(playerId, npcId);
     }
     /** getQuests：读取玩家任务列表。 */
-    getQuests(playerId) {
+    @Get('players/:playerId/quests')
+    getQuests(@Param('playerId') playerId) {
         return this.worldRuntimeService.buildQuestListView(playerId);
     }
     /** getMailSummary：读取邮件摘要。 */
-    async getMailSummary(playerId) {
+    @Get('players/:playerId/mail/summary')
+    async getMailSummary(@Param('playerId') playerId) {
         return {
             summary: await this.mailRuntimeService.getSummary(playerId),
         };
     }
     /** getMailPage：读取邮件分页。 */
-    async getMailPage(playerId, query) {
+    @Get('players/:playerId/mail/page')
+    async getMailPage(@Param('playerId') playerId, @Query() query) {
 
         const page = Number(query.page);
 
@@ -288,18 +286,21 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** getMailDetail：读取邮件详情。 */
-    async getMailDetail(playerId, mailId) {
+    @Get('players/:playerId/mail/:mailId')
+    async getMailDetail(@Param('playerId') playerId, @Param('mailId') mailId) {
         return {
             detail: await this.mailRuntimeService.getDetail(playerId, mailId),
         };
     }
     /** getSuggestions：读取建议列表。 */
+    @Get('suggestions')
     getSuggestions() {
         return {
             suggestions: this.suggestionRuntimeService.getAll(),
         };
     }
     /** flushPersistence：强制刷新玩家与地图的持久化缓存。 */
+    @Post('persistence/flush')
     async flushPersistence() {
         await this.playerPersistenceFlushService.flushAllNow();
         await this.mapPersistenceFlushService.flushAllNow();
@@ -308,45 +309,54 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** getNpcQuests：读取 NPC 任务列表。 */
-    getNpcQuests(playerId, npcId) {
+    @Get('players/:playerId/npc-quests/:npcId')
+    getNpcQuests(@Param('playerId') playerId, @Param('npcId') npcId) {
         return this.worldRuntimeService.buildNpcQuestsView(playerId, npcId);
     }
     /** getMarket：读取市场行情。 */
-    getMarket(playerId) {
+    @Get('players/:playerId/market')
+    getMarket(@Param('playerId') playerId) {
         return this.marketRuntimeService.buildMarketUpdate(playerId);
     }
     /** getMarketItemBook：读取市场物品书。 */
-    getMarketItemBook(_playerId, query) {
+    @Get('players/:playerId/market/item-book')
+    getMarketItemBook(@Param('playerId') _playerId, @Query() query) {
         return this.marketRuntimeService.buildItemBook(query.itemKey ?? '');
     }
     /** getMarketTradeHistory：读取市场交易历史。 */
-    getMarketTradeHistory(playerId, query) {
+    @Get('players/:playerId/market/trade-history')
+    getMarketTradeHistory(@Param('playerId') playerId, @Query() query) {
 
         const page = Number(query.page);
         return this.marketRuntimeService.buildTradeHistoryPage(playerId, Number.isFinite(page) ? Math.trunc(page) : 1);
     }
     /** updateVitals：同步玩家基础状态。 */
-    updateVitals(playerId, body) {
+    @Post('players/:playerId/vitals')
+    updateVitals(@Param('playerId') playerId, @Body() body) {
         return {
             player: this.playerRuntimeService.setVitals(playerId, body),
         };
     }
     /** damagePlayer：把玩家受伤请求交给世界运行时排队处理。 */
-    damagePlayer(playerId, body) {
+    @Post('players/:playerId/damage')
+    damagePlayer(@Param('playerId') playerId, @Body() body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDamagePlayer(playerId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN, this.worldRuntimeService);
     }
     /** respawnPlayer：把玩家复生请求交给世界运行时处理。 */
-    respawnPlayer(playerId, _body) {
+    @Post('players/:playerId/respawn')
+    respawnPlayer(@Param('playerId') playerId, @Body() _body) {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRespawnPlayer(playerId, this.worldRuntimeService);
     }
     /** grantItem：直接给玩家发放物品并同步运行态。 */
-    async grantItem(playerId, body) {
+    @Post('players/:playerId/grant-item')
+    async grantItem(@Param('playerId') playerId, @Body() body) {
         return {
             player: await this.applyDurableInventoryGrant(playerId, body),
         };
     }
     /** useItem：提交使用物品请求，由世界运行时处理消耗和效果。 */
-    useItem(playerId, body) {
+    @Post('players/:playerId/use-item')
+    useItem(@Param('playerId') playerId, @Body() body) {
         const payload = body && typeof body === 'object' ? body : {};
         return {
             queued: true,
@@ -357,82 +367,95 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** dropItem：提交丢弃物品请求，落地逻辑由实例侧执行。 */
-    dropItem(playerId, body) {
+    @Post('players/:playerId/drop-item')
+    dropItem(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, Number.isFinite(body.count) ? Number(body.count) : undefined, this.worldRuntimeService),
         };
     }
     /** takeGround：提交拾取地面或容器物品的请求。 */
-    takeGround(playerId, body) {
+    @Post('players/:playerId/take-ground')
+    takeGround(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueTakeGround(playerId, body.sourceId ?? '', body.itemKey ?? '', this.worldRuntimeService),
         };
     }
     /** equipItem：提交装备请求。 */
-    equipItem(playerId, body) {
+    @Post('players/:playerId/equip')
+    equipItem(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, this.worldRuntimeService),
         };
     }
     /** unequipItem：提交卸下装备请求。 */
-    unequipItem(playerId, body) {
+    @Post('players/:playerId/unequip')
+    unequipItem(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUnequip(playerId, String(body.slot ?? ''), this.worldRuntimeService),
         };
     }
     /** cultivateTechnique：切换或开始修炼指定功法。 */
-    cultivateTechnique(playerId, body) {
+    @Post('players/:playerId/cultivate')
+    cultivateTechnique(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCultivate(playerId, body.techniqueId ?? null, this.worldRuntimeService),
         };
     }
     /** castSkill：提交技能释放请求。 */
-    castSkill(playerId, body) {
+    @Post('players/:playerId/cast-skill')
+    castSkill(@Param('playerId') playerId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCastSkill(playerId, body.skillId ?? '', body.targetPlayerId ?? '', body.targetMonsterId ?? '', null, this.worldRuntimeService),
         };
     }
     /** buyNpcShopItem：提交 NPC 商店购买请求。 */
-    buyNpcShopItem(playerId, npcId, body) {
+    @Post('players/:playerId/npc-shop/:npcId/buy')
+    buyNpcShopItem(@Param('playerId') playerId, @Param('npcId') npcId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBuyNpcShopItem(playerId, npcId, body.itemId ?? '', Number.isFinite(body.quantity) ? Number(body.quantity) : undefined, this.worldRuntimeService),
         };
     }
     /** acceptNpcQuest：提交接取 NPC 任务请求。 */
-    acceptNpcQuest(playerId, npcId, body) {
+    @Post('players/:playerId/npc-quests/:npcId/accept')
+    acceptNpcQuest(@Param('playerId') playerId, @Param('npcId') npcId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueAcceptNpcQuest(playerId, npcId, body.questId ?? '', this.worldRuntimeService),
         };
     }
     /** submitNpcQuest：提交完成 NPC 任务请求。 */
-    submitNpcQuest(playerId, npcId, body) {
+    @Post('players/:playerId/npc-quests/:npcId/submit')
+    submitNpcQuest(@Param('playerId') playerId, @Param('npcId') npcId, @Body() body) {
         return {
             queued: true,
             view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSubmitNpcQuest(playerId, npcId, body.questId ?? '', this.worldRuntimeService),
         };
     }
     /** markMailRead：标记邮件为已读。 */
-    async markMailRead(playerId, body) {
+    @Post('players/:playerId/mail/mark-read')
+    async markMailRead(@Param('playerId') playerId, @Body() body) {
         return this.mailRuntimeService.markRead(playerId, body.mailIds ?? []);
     }
     /** claimMailAttachments：领取邮件附件。 */
-    async claimMailAttachments(playerId, body) {
+    @Post('players/:playerId/mail/claim')
+    async claimMailAttachments(@Param('playerId') playerId, @Body() body) {
         return this.mailRuntimeService.claimAttachments(playerId, body.mailIds ?? []);
     }
     /** deleteMail：删除邮件。 */
-    async deleteMail(playerId, body) {
+    @Post('players/:playerId/mail/delete')
+    async deleteMail(@Param('playerId') playerId, @Body() body) {
         return this.mailRuntimeService.deleteMails(playerId, body.mailIds ?? []);
     }
     /** createDirectMail：创建直达邮件。 */
-    async createDirectMail(playerId, body) {
+    @Post('players/:playerId/mail/direct')
+    async createDirectMail(@Param('playerId') playerId, @Body() body) {
         return {
             mailId: await this.mailRuntimeService.createDirectMail(playerId, {
                 templateId: body.templateId,
@@ -452,55 +475,64 @@ let WorldRuntimeController = class WorldRuntimeController {
         };
     }
     /** createSuggestion：创建建议。 */
-    async createSuggestion(playerId, body) {
+    @Post('players/:playerId/suggestions')
+    async createSuggestion(@Param('playerId') playerId, @Body() body) {
         return {
             suggestion: await this.suggestionRuntimeService.create(playerId, playerId, body.title ?? '', body.description ?? ''),
         };
     }
     /** voteSuggestion：对建议进行投票。 */
-    async voteSuggestion(playerId, suggestionId, body) {
+    @Post('players/:playerId/suggestions/:suggestionId/vote')
+    async voteSuggestion(@Param('playerId') playerId, @Param('suggestionId') suggestionId, @Body() body) {
         return {
             suggestion: await this.suggestionRuntimeService.vote(playerId, suggestionId, body.vote ?? 'up'),
         };
     }
     /** replySuggestion：回复建议。 */
-    async replySuggestion(playerId, suggestionId, body) {
+    @Post('players/:playerId/suggestions/:suggestionId/reply')
+    async replySuggestion(@Param('playerId') playerId, @Param('suggestionId') suggestionId, @Body() body) {
         return {
             suggestion: await this.suggestionRuntimeService.addReply(suggestionId, 'author', playerId, playerId, body.content ?? ''),
         };
     }
     /** markSuggestionRepliesRead：标记建议回复为已读。 */
-    async markSuggestionRepliesRead(playerId, suggestionId) {
+    @Post('players/:playerId/suggestions/:suggestionId/read-replies')
+    async markSuggestionRepliesRead(@Param('playerId') playerId, @Param('suggestionId') suggestionId) {
         return {
             suggestion: await this.suggestionRuntimeService.markRepliesRead(suggestionId, playerId),
         };
     }
     /** completeSuggestion：完成建议。 */
-    async completeSuggestion(suggestionId) {
+    @Post('suggestions/:suggestionId/complete')
+    async completeSuggestion(@Param('suggestionId') suggestionId) {
         return {
             suggestion: await this.suggestionRuntimeService.markCompleted(suggestionId),
         };
     }
     /** reopenSuggestion：重新打开建议。 */
-    async reopenSuggestion(suggestionId) {
+    @Post('suggestions/:suggestionId/pending')
+    async reopenSuggestion(@Param('suggestionId') suggestionId) {
         return {
             suggestion: await this.suggestionRuntimeService.markPending(suggestionId),
         };
     }
     /** gmReplySuggestion：GM 回复建议。 */
-    async gmReplySuggestion(suggestionId, body) {
+    @Post('suggestions/:suggestionId/reply')
+    async gmReplySuggestion(@Param('suggestionId') suggestionId, @Body() body) {
         return {
             suggestion: await this.suggestionRuntimeService.addReply(suggestionId, 'gm', 'gm', '开发者', body.content ?? ''),
         };
     }
     /** removeSuggestion：删除建议。 */
-    async removeSuggestion(suggestionId) {
+    @Delete('suggestions/:suggestionId')
+    async removeSuggestion(@Param('suggestionId') suggestionId) {
         return {
             ok: await this.suggestionRuntimeService.remove(suggestionId),
         };
     }
     /** createMarketSellOrder：创建市场卖单。 */
-    async createMarketSellOrder(playerId, body) {
+    @Post('players/:playerId/market/create-sell-order')
+    async createMarketSellOrder(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.createSellOrder(playerId, {
             slotIndex: Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : Number.NaN,
             quantity: Number.isFinite(body.quantity) ? Number(body.quantity) : Number.NaN,
@@ -508,7 +540,8 @@ let WorldRuntimeController = class WorldRuntimeController {
         });
     }
     /** createMarketBuyOrder：创建市场买单。 */
-    async createMarketBuyOrder(playerId, body) {
+    @Post('players/:playerId/market/create-buy-order')
+    async createMarketBuyOrder(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.createBuyOrder(playerId, {
             itemKey: body.itemKey ?? '',
             itemId: body.itemId ?? '',
@@ -517,37 +550,43 @@ let WorldRuntimeController = class WorldRuntimeController {
         });
     }
     /** buyMarketItem：执行市场买入。 */
-    async buyMarketItem(playerId, body) {
+    @Post('players/:playerId/market/buy')
+    async buyMarketItem(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.buyNow(playerId, {
             itemKey: body.itemKey ?? '',
             quantity: Number.isFinite(body.quantity) ? Number(body.quantity) : Number.NaN,
         });
     }
     /** sellMarketItem：执行市场卖出。 */
-    async sellMarketItem(playerId, body) {
+    @Post('players/:playerId/market/sell')
+    async sellMarketItem(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.sellNow(playerId, {
             slotIndex: Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : Number.NaN,
             quantity: Number.isFinite(body.quantity) ? Number(body.quantity) : Number.NaN,
         });
     }
     /** cancelMarketOrder：取消市场订单。 */
-    async cancelMarketOrder(playerId, body) {
+    @Post('players/:playerId/market/cancel-order')
+    async cancelMarketOrder(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.cancelOrder(playerId, {
             orderId: body.orderId ?? '',
         });
     }
     /** claimMarketStorage：领取市场暂存物品。 */
-    async claimMarketStorage(playerId) {
+    @Post('players/:playerId/market/claim-storage')
+    async claimMarketStorage(@Param('playerId') playerId) {
         return this.marketRuntimeService.claimStorage(playerId);
     }
     /** creditWallet：给玩家钱包加余额。 */
-    async creditWallet(playerId, body) {
+    @Post('players/:playerId/wallet/credit')
+    async creditWallet(@Param('playerId') playerId, @Body() body) {
         return {
             player: await this.applyDurableWalletMutation(playerId, body, 'credit'),
         };
     }
     /** debitWallet：给玩家钱包扣余额。 */
-    async debitWallet(playerId, body) {
+    @Post('players/:playerId/wallet/debit')
+    async debitWallet(@Param('playerId') playerId, @Body() body) {
         return {
             player: await this.applyDurableWalletMutation(playerId, body, 'debit'),
         };
@@ -558,17 +597,17 @@ let WorldRuntimeController = class WorldRuntimeController {
         const walletType = typeof body?.walletType === 'string' ? body.walletType.trim() : '';
         const amount = Number.isFinite(body?.amount) ? Math.max(1, Math.trunc(Number(body.amount))) : 1;
         if (!normalizedPlayerId || !walletType || amount <= 0) {
-            throw new common_1.BadRequestException('钱包变更参数无效');
+            throw new BadRequestException('钱包变更参数无效');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
-            throw new common_1.ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化钱包变更');
+            throw new ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化钱包变更');
         }
         const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances, walletType, amount, action);
         if (!nextWalletBalances) {
-            throw new common_1.NotFoundException(`${walletType} 余额不足`);
+            throw new NotFoundException(`${walletType} 余额不足`);
         }
         if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
             if (action === 'credit') {
@@ -581,10 +620,10 @@ let WorldRuntimeController = class WorldRuntimeController {
         const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
         const operationId = `op:${normalizedPlayerId}:wallet:${action}:${walletType}:${Date.now().toString(36)}`;
         if (expectedInstanceId && !instanceLease) {
-            throw new common_1.ServiceUnavailableException('持久化钱包变更需要地图实例租约');
+            throw new ServiceUnavailableException('持久化钱包变更需要地图实例租约');
         }
         if (typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
-            throw new common_1.ServiceUnavailableException('持久化钱包变更服务不可用');
+            throw new ServiceUnavailableException('持久化钱包变更服务不可用');
         }
         await this.durableOperationService.mutatePlayerWallet({
             operationId,
@@ -610,13 +649,13 @@ let WorldRuntimeController = class WorldRuntimeController {
         const itemId = typeof body?.itemId === 'string' ? body.itemId.trim() : '';
         const count = Number.isFinite(body?.count) ? Math.max(1, Math.trunc(Number(body.count))) : 1;
         if (!normalizedPlayerId || !itemId || count <= 0) {
-            throw new common_1.BadRequestException('背包发放参数无效');
+            throw new BadRequestException('背包发放参数无效');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
-            throw new common_1.ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化背包发放');
+            throw new ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化背包发放');
         }
         if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
             return this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
@@ -628,10 +667,10 @@ let WorldRuntimeController = class WorldRuntimeController {
             const expectedInstanceId = location?.instanceId ?? null;
             const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
             if (expectedInstanceId && !instanceLease) {
-                throw new common_1.ServiceUnavailableException('持久化背包发放需要地图实例租约');
+                throw new ServiceUnavailableException('持久化背包发放需要地图实例租约');
             }
             if (typeof this.durableOperationService?.grantInventoryItems !== 'function') {
-                throw new common_1.ServiceUnavailableException('持久化背包发放服务不可用');
+                throw new ServiceUnavailableException('持久化背包发放服务不可用');
             }
             this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
             const grantedItem = buildGrantedInventorySnapshot(itemId, count, player, rollbackState.inventoryItems.length);
@@ -680,7 +719,6 @@ let WorldRuntimeController = class WorldRuntimeController {
         return { assignedNodeId, ownershipEpoch };
     }
 };
-exports.WorldRuntimeController = WorldRuntimeController;
 
 function buildNextWalletBalances(existingBalances, walletType, amount, action) {
     const balances = Array.isArray(existingBalances)
@@ -757,918 +795,3 @@ function buildGrantedInventorySnapshot(itemId, count, player, previousLength) {
         rawPayload: preferred ? { ...preferred } : { itemId, count: Math.max(1, Math.trunc(Number(count ?? 1))) },
     };
 }
-
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('summary'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getSummary", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('templates'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getTemplates", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('instances'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getInstances", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('instances/:instanceId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getInstance", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('instances/:instanceId/monsters'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getInstanceMonsters", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('instances/:instanceId/monsters/:runtimeId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('runtimeId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getInstanceMonster", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('instances/:instanceId/tiles/:x/:y'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('x')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Param)('y')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getInstanceTileState", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('instances/:instanceId/spawn-monster-loot'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "spawnMonsterLoot", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('instances/:instanceId/monsters/:runtimeId/defeat'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('runtimeId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "defeatMonster", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('instances/:instanceId/monsters/:runtimeId/damage'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('instanceId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('runtimeId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "damageMonster", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/connect'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "connectPlayer", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Delete)('players/:playerId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "removePlayer", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/move'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "movePlayer", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/use-action'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "useAction", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/portal'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "usePortal", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/view'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)('radius')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getPlayerView", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/detail'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getPlayerDetail", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/tile-detail'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getPlayerTileDetail", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/state'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getPlayerState", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('auth-trace'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getAuthTrace", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Delete)('auth-trace'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "clearAuthTrace", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/pending-logbook'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "queuePendingLogbookMessage", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/npc-shop/:npcId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('npcId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getNpcShop", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/quests'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getQuests", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/mail/summary'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "getMailSummary", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/mail/page'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "getMailPage", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/mail/:mailId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('mailId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "getMailDetail", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('suggestions'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getSuggestions", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('persistence/flush'),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", []),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "flushPersistence", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/npc-quests/:npcId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('npcId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getNpcQuests", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/market'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getMarket", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/market/item-book'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getMarketItemBook", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Get)('players/:playerId/market/trade-history'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Query)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "getMarketTradeHistory", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/vitals'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "updateVitals", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/damage'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "damagePlayer", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/respawn'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "respawnPlayer", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/grant-item'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "grantItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/use-item'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "useItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/drop-item'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "dropItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/take-ground'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "takeGround", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/equip'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "equipItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/unequip'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "unequipItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/cultivate'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "cultivateTechnique", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/cast-skill'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "castSkill", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/npc-shop/:npcId/buy'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('npcId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "buyNpcShopItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/npc-quests/:npcId/accept'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('npcId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "acceptNpcQuest", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/npc-quests/:npcId/submit'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('npcId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "submitNpcQuest", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/mail/mark-read'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "markMailRead", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/mail/claim'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "claimMailAttachments", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/mail/delete'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "deleteMail", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/mail/direct'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "createDirectMail", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/suggestions'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "createSuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/suggestions/:suggestionId/vote'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('suggestionId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "voteSuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/suggestions/:suggestionId/reply'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('suggestionId')),
-    /** __param：param。 */
-    __param(2, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "replySuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/suggestions/:suggestionId/read-replies'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Param)('suggestionId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "markSuggestionRepliesRead", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('suggestions/:suggestionId/complete'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('suggestionId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "completeSuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('suggestions/:suggestionId/pending'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('suggestionId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "reopenSuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('suggestions/:suggestionId/reply'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('suggestionId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "gmReplySuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Delete)('suggestions/:suggestionId'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('suggestionId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "removeSuggestion", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/create-sell-order'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "createMarketSellOrder", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/create-buy-order'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "createMarketBuyOrder", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/buy'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "buyMarketItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/sell'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "sellMarketItem", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/cancel-order'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "cancelMarketOrder", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/market/claim-storage'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", Promise)
-], WorldRuntimeController.prototype, "claimMarketStorage", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/wallet/credit'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "creditWallet", null);
-/** __decorate：decorate。 */
-__decorate([
-    (0, common_1.Post)('players/:playerId/wallet/debit'),
-    /** __param：param。 */
-    __param(0, (0, common_1.Param)('playerId')),
-    /** __param：param。 */
-    __param(1, (0, common_1.Body)()),
-    /** __metadata：metadata。 */
-    __metadata("design:type", Function),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [String, Object]),
-    /** __metadata：metadata。 */
-    __metadata("design:returntype", void 0)
-], WorldRuntimeController.prototype, "debitWallet", null);
-exports.WorldRuntimeController = WorldRuntimeController = __decorate([
-    (0, common_1.Controller)('runtime'),
-    (0, common_1.UseGuards)(new runtime_http_access_guard_1.RuntimeHttpAccessGuard()),
-    /** __metadata：metadata。 */
-    __metadata("design:paramtypes", [world_runtime_service_1.WorldRuntimeService,
-        mail_runtime_service_1.MailRuntimeService,
-        market_runtime_service_1.MarketRuntimeService,
-        player_runtime_service_1.PlayerRuntimeService,
-        suggestion_runtime_service_1.SuggestionRuntimeService,
-        player_persistence_flush_service_1.PlayerPersistenceFlushService,
-        map_persistence_flush_service_1.MapPersistenceFlushService,
-        durable_operation_service_1.DurableOperationService])
-], WorldRuntimeController);
-export { WorldRuntimeController };

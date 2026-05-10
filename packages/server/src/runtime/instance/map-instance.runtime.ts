@@ -1,22 +1,16 @@
-// @ts-nocheck
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MapInstanceRuntime = void 0;
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, SurfaceType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getMaxStoredMovePoints, getMovePointsPerTick, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext } from '@mud/shared';
+import { readTrimmedEnv } from '../../config/env-alias';
+import '../map/map-template.repository';
+import { RuntimeTilePlane } from '../map/runtime-tile-plane';
+import { BuildingTopologyIndex } from '../building/building-topology-index.service';
+import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTileType, isStaticRoomBoundaryTile } from '../building/room-detection.service';
+import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-calculator.service';
+import { getDefaultBuildingRuntime } from '../building/building-default-content';
+import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 
-const shared_1 = require("@mud/shared");
-
-const env_alias_1 = require("../../config/env-alias");
-const map_template_repository_1 = require("../map/map-template.repository");
-const runtime_tile_plane_1 = require("../map/runtime-tile-plane");
-const building_topology_index_service_1 = require("../building/building-topology-index.service");
-const room_detection_service_1 = require("../building/room-detection.service");
-const fengshui_calculator_service_1 = require("../building/fengshui-calculator.service");
-const building_default_content_1 = require("../building/building-default-content");
-const pending_combat_cast_helpers_1 = require("../combat/pending-combat-cast.helpers");
-
-const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
-const TILE_AURA_FLOW_RATE_SCALE = shared_1.TILE_AURA_HALF_LIFE_RATE_SCALE ?? shared_1.QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
-const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(shared_1.TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
+const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
+const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -46,104 +40,104 @@ const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
 /** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
-const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_TICKS', 'MAP_TIME_CHECKPOINT_INTERVAL_TICKS'), 300, 30, 86_400);
+const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_TICKS', 'MAP_TIME_CHECKPOINT_INTERVAL_TICKS'), 300, 30, 86_400);
 
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
-    [shared_1.TileType.Wall]: { material: 'stone', multiplier: 50 },
-    [shared_1.TileType.Cloud]: { material: 'vine', multiplier: 3 },
-    [shared_1.TileType.Tree]: { material: 'wood', multiplier: 10 },
-    [shared_1.TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
-    [shared_1.TileType.Cliff]: { material: 'stone', multiplier: 50 },
-    [shared_1.TileType.Stone]: { material: 'stone', multiplier: 50 },
-    [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-    [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-    [shared_1.TileType.BrokenSwordHeap]: { material: 'brokenSwordHeap', multiplier: 2 },
-    [shared_1.TileType.Door]: { material: 'ironwood', multiplier: 14 },
-    [shared_1.TileType.Window]: { material: 'wood', multiplier: 10 },
+    [TileType.Wall]: { material: 'stone', multiplier: 50 },
+    [TileType.Cloud]: { material: 'vine', multiplier: 3 },
+    [TileType.Tree]: { material: 'wood', multiplier: 10 },
+    [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
+    [TileType.Cliff]: { material: 'stone', multiplier: 50 },
+    [TileType.Stone]: { material: 'stone', multiplier: 50 },
+    [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+    [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+    [TileType.BrokenSwordHeap]: { material: 'brokenSwordHeap', multiplier: 2 },
+    [TileType.Door]: { material: 'ironwood', multiplier: 14 },
+    [TileType.Window]: { material: 'wood', multiplier: 10 },
 };
 
 /** TERRAIN_DURABILITY_PROFILES：按地图风格区分的地形耐久配置。 */
 const TERRAIN_DURABILITY_PROFILES = {
     mortal_settlement: {
-        [shared_1.TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Tree]: { material: 'wood', multiplier: 10 },
-        [shared_1.TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [shared_1.TileType.Door]: { material: 'ironwood', multiplier: 14 },
-        [shared_1.TileType.Window]: { material: 'wood', multiplier: 10 },
+        [TileType.Wall]: { material: 'stone', multiplier: 50 },
+        [TileType.Tree]: { material: 'wood', multiplier: 10 },
+        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
+        [TileType.Stone]: { material: 'stone', multiplier: 50 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
+        [TileType.Window]: { material: 'wood', multiplier: 10 },
     },
     yellow_frontier: {
-        [shared_1.TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Tree]: { material: 'wood', multiplier: 10 },
-        [shared_1.TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
-        [shared_1.TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Wall]: { material: 'stone', multiplier: 50 },
+        [TileType.Tree]: { material: 'wood', multiplier: 10 },
+        [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
+        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
+        [TileType.Stone]: { material: 'stone', multiplier: 50 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
     },
     yellow_bamboo: {
-        [shared_1.TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Tree]: { material: 'bamboo', multiplier: 8 },
-        [shared_1.TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
-        [shared_1.TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [shared_1.TileType.Door]: { material: 'wood', multiplier: 10 },
+        [TileType.Wall]: { material: 'stone', multiplier: 50 },
+        [TileType.Tree]: { material: 'bamboo', multiplier: 8 },
+        [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
+        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
+        [TileType.Stone]: { material: 'stone', multiplier: 50 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Door]: { material: 'wood', multiplier: 10 },
     },
     mystic_black_iron: {
-        [shared_1.TileType.Wall]: { material: 'blackIron', multiplier: 120 },
-        [shared_1.TileType.Cliff]: { material: 'blackIron', multiplier: 120 },
-        [shared_1.TileType.Stone]: { material: 'blackIron', multiplier: 120 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [shared_1.TileType.Door]: { material: 'ironwood', multiplier: 14 },
+        [TileType.Wall]: { material: 'blackIron', multiplier: 120 },
+        [TileType.Cliff]: { material: 'blackIron', multiplier: 120 },
+        [TileType.Stone]: { material: 'blackIron', multiplier: 120 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
     },
     mystic_rune_ruins: {
-        [shared_1.TileType.Wall]: { material: 'runeStone', multiplier: 70 },
-        [shared_1.TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Cliff]: { material: 'runeStone', multiplier: 70 },
-        [shared_1.TileType.Stone]: { material: 'runeStone', multiplier: 70 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [shared_1.TileType.Door]: { material: 'ironwood', multiplier: 14 },
+        [TileType.Wall]: { material: 'runeStone', multiplier: 70 },
+        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Cliff]: { material: 'runeStone', multiplier: 70 },
+        [TileType.Stone]: { material: 'runeStone', multiplier: 70 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
     },
     earth_stone_wild: {
-        [shared_1.TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Wall]: { material: 'stone', multiplier: 50 },
+        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
+        [TileType.Stone]: { material: 'stone', multiplier: 50 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
     },
     earth_sky_metal: {
-        [shared_1.TileType.Wall]: { material: 'skyMetal', multiplier: 160 },
-        [shared_1.TileType.Cloud]: { material: 'vine', multiplier: 3 },
-        [shared_1.TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [shared_1.TileType.Cliff]: { material: 'skyMetal', multiplier: 160 },
-        [shared_1.TileType.Stone]: { material: 'skyMetal', multiplier: 160 },
-        [shared_1.TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
-        [shared_1.TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [shared_1.TileType.Door]: { material: 'metal', multiplier: 100 },
+        [TileType.Wall]: { material: 'skyMetal', multiplier: 160 },
+        [TileType.Cloud]: { material: 'vine', multiplier: 3 },
+        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
+        [TileType.Cliff]: { material: 'skyMetal', multiplier: 160 },
+        [TileType.Stone]: { material: 'skyMetal', multiplier: 160 },
+        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 100000 },
+        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
+        [TileType.Door]: { material: 'metal', multiplier: 100 },
     },
 };
 
 /** SPECIAL_TILE_DURABILITY_MULTIPLIERS：特殊地块耐久倍率表。 */
 const SPECIAL_TILE_DURABILITY_MULTIPLIERS = {
-    [shared_1.TileType.SpiritOre]: 1000,
-    [shared_1.TileType.BlackIronOre]: 1000,
-    [shared_1.TileType.BrokenSwordHeap]: 0.02,
+    [TileType.SpiritOre]: 1000,
+    [TileType.BlackIronOre]: 1000,
+    [TileType.BrokenSwordHeap]: 0.02,
 };
 
 /** SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS：特殊地形恢复速度倍率，越高表示复原越快。 */
 const SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = {
-    [shared_1.TileType.Cloud]: 100,
+    [TileType.Cloud]: 100,
 };
 
 /** LEGACY_MAP_TERRAIN_PROFILE_IDS：旧版地图到地形耐久配置的兼容映射。 */
@@ -456,12 +450,12 @@ class MapInstanceRuntime {
             lastPersistedAt: request.lastPersistedAt ?? null,
         };
         this.template = request.template;
-        this.tilePlane = runtime_tile_plane_1.RuntimeTilePlane.fromTemplate(request.template);
+        this.tilePlane = RuntimeTilePlane.fromTemplate(request.template);
         const initialCellCapacity = this.tilePlane.getCellCapacity();
         this.occupancy = new Uint32Array(initialCellCapacity);
-        this.buildingTopologyIndex = new building_topology_index_service_1.BuildingTopologyIndex(initialCellCapacity);
+        this.buildingTopologyIndex = new BuildingTopologyIndex(initialCellCapacity);
         this.roomIdByCell = new Int32Array(initialCellCapacity);
-        const defaultBuildingRuntime = (0, building_default_content_1.getDefaultBuildingRuntime)();
+        const defaultBuildingRuntime = getDefaultBuildingRuntime();
         this.buildingCatalog = defaultBuildingRuntime.catalog;
         this.fengShuiRules = defaultBuildingRuntime.rules;
         this.auraByTile = new Int32Array(initialCellCapacity);
@@ -605,7 +599,6 @@ class MapInstanceRuntime {
     connectPlayer(request) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const existing = this.playersById.get(request.playerId);
         if (existing) {
             existing.sessionId = request.sessionId;
@@ -625,7 +618,7 @@ class MapInstanceRuntime {
             sessionId: request.sessionId,
             x: spawn.x,
             y: spawn.y,
-            facing: shared_1.Direction.South,
+            facing: Direction.South,
             joinedAtTick: this.tick,
             lastResolvedTick: this.tick,
             moveSpeed: 0,
@@ -643,7 +636,6 @@ class MapInstanceRuntime {
     disconnectPlayer(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.playersById.get(playerId);
         if (!player) {
             return false;
@@ -659,7 +651,6 @@ class MapInstanceRuntime {
     /** relocatePlayer：把玩家强制迁到指定落点，仍然复用出生点占位逻辑。 */
     relocatePlayer(playerId, preferredX, preferredY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playersById.get(playerId);
         if (!player) {
@@ -690,7 +681,6 @@ class MapInstanceRuntime {
     /** getPlayerPosition：读取玩家当前位置。 */
     getPlayerPosition(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playersById.get(playerId);
         if (!player) {
@@ -785,7 +775,7 @@ class MapInstanceRuntime {
         const players = Array.from(this.playersById.values());
         const tileDamageEntries = Array.from(this.tileDamageByTile.entries());
         this.template = nextTemplate;
-        this.tilePlane = runtime_tile_plane_1.RuntimeTilePlane.fromTemplate(nextTemplate);
+        this.tilePlane = RuntimeTilePlane.fromTemplate(nextTemplate);
         this.meta.templateId = nextTemplate.id;
         const nextCellCapacity = this.tilePlane.getCellCapacity();
         this.occupancy = new Uint32Array(nextCellCapacity);
@@ -834,7 +824,7 @@ class MapInstanceRuntime {
         return true;
     }
     /** activateRuntimeTile：按坐标激活一个运行时地块，已存在坐标不会被覆盖。 */
-    activateRuntimeTile(x, y, tileType, options = {}) {
+    activateRuntimeTile(x, y, tileType, options: any = {}) {
         if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
             return { created: false, tileIndex: -1 };
         }
@@ -856,7 +846,7 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomains(['tile_cell']);
-        if (this.shouldRecalculateRoomsForTileMutation(tileIndex, shared_1.TileType.Floor, tileType)) {
+        if (this.shouldRecalculateRoomsForTileMutation(tileIndex, TileType.Floor, tileType)) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'runtime_tile_activated', dirtyCellCount: 1 });
             this.markPersistenceDirtyDomains(['room', 'fengshui']);
         }
@@ -918,7 +908,7 @@ class MapInstanceRuntime {
         }
         const tileType = typeof previousState?.tileType === 'string' && previousState.tileType.trim()
             ? previousState.tileType.trim()
-            : shared_1.TileType.Floor;
+            : TileType.Floor;
         let changed = this.tilePlane.setTileType(cellIndex, tileType);
         if (typeof previousState?.terrainType === 'string' && previousState.terrainType.trim()) {
             changed = this.tilePlane.setTerrain(cellIndex, previousState.terrainType.trim()) || changed;
@@ -989,7 +979,7 @@ class MapInstanceRuntime {
             if (this.hasBuildingLayerOverlapAtCell(cellIndex, compiled.layerId)) {
                 return { ok: false, reason: 'building_layer_overlap', x: cellX, y: cellY };
             }
-            if (!(0, shared_1.isTileTypeWalkable)(this.getEffectiveTileTypeByCellIndex(cellIndex))) {
+            if (!isTileTypeWalkable(this.getEffectiveTileTypeByCellIndex(cellIndex))) {
                 return { ok: false, reason: 'tile_not_clear', x: cellX, y: cellY };
             }
             cells.push(cellIndex);
@@ -1202,7 +1192,7 @@ class MapInstanceRuntime {
     rebuildBuildingRoomFengShuiState(options = {}) {
         const startedAt = Date.now();
         const capacity = Math.max(this.tilePlane?.getCellCapacity?.() ?? 1, this.occupancy?.length ?? 1);
-        this.buildingTopologyIndex = new building_topology_index_service_1.BuildingTopologyIndex(capacity);
+        this.buildingTopologyIndex = new BuildingTopologyIndex(capacity);
         this.buildingIdByCell.clear();
         const catalog = this.buildingCatalog;
         if (catalog?.defByHandle) {
@@ -1226,8 +1216,9 @@ class MapInstanceRuntime {
                 }
             }
         }
+        const topologyOptions: any = options;
         const result = this.recalculateRoomsAndFengShuiAfterTopologyChange({
-            reason: options?.reason ?? 'full_rebuild',
+            reason: topologyOptions?.reason ?? 'full_rebuild',
             fullTopologyRebuild: true,
             dirtyCellCount: this.buildingIdByCell.size,
             startedAt,
@@ -1331,15 +1322,15 @@ class MapInstanceRuntime {
         return { repairedCellCount, orphanReferenceCount };
     }
     /** recalculateRoomsAndFengShuiAfterTopologyChange：基于当前拓扑索引重算房间/风水，不重扫建筑拓扑。 */
-    recalculateRoomsAndFengShuiAfterTopologyChange(options = {}) {
+    recalculateRoomsAndFengShuiAfterTopologyChange(options: any = {}) {
         const startedAt = Number.isFinite(Number(options?.startedAt)) ? Number(options.startedAt) : Date.now();
         const catalog = this.buildingCatalog;
-        const provider = (0, room_detection_service_1.createRuntimeTilePlaneRoomCellProvider)(this.tilePlane, this.buildingTopologyIndex, {
+        const provider = createRuntimeTilePlaneRoomCellProvider(this.tilePlane, this.buildingTopologyIndex, {
             getEffectiveTileType: (cellIndex) => this.getEffectiveTileTypeByCellIndex(cellIndex),
             isTopologySuppressed: (cellIndex) => this.tileDamageByTile.get(cellIndex)?.destroyed === true,
             countEntryTilesAsOpenings: isIndoorSubspaceTemplate(this.template),
         });
-        const detection = (0, room_detection_service_1.detectRooms)(provider, {
+        const detection = detectRooms(provider, {
             instanceId: this.meta.instanceId,
             topologyRevision: this.persistentRevision,
             contentRevision: resolveBuildingCatalogRevision(catalog),
@@ -1349,7 +1340,7 @@ class MapInstanceRuntime {
         this.buildingRoomDeferredStartCells = detection.deferredStartCells.slice();
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
-        this.roomIdByCell = detection.roomIdByCell;
+        this.roomIdByCell = detection.roomIdByCell as Int32Array<ArrayBuffer>;
         this.roomCellIndicesById = new Map();
         for (let index = 0; index < detection.rooms.length; index += 1) {
             const room = detection.rooms[index];
@@ -1364,8 +1355,8 @@ class MapInstanceRuntime {
             if (!aggregate) {
                 continue;
             }
-            room.role = (0, fengshui_calculator_service_1.inferRoomRole)(catalog, room, aggregate).role;
-            const snapshot = (0, fengshui_calculator_service_1.calculateFengShuiSnapshot)(room, aggregate, this.fengShuiRules, {
+            room.role = inferRoomRole(catalog, room, aggregate).role;
+            const snapshot = calculateFengShuiSnapshot(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
                 revision: aggregate.aggregateRevision,
@@ -1389,7 +1380,7 @@ class MapInstanceRuntime {
     getEffectiveTileTypeByCellIndex(cellIndexInput) {
         const cellIndex = Math.trunc(Number(cellIndexInput));
         if (!Number.isFinite(cellIndex) || cellIndex < 0) {
-            return shared_1.TileType.Floor;
+            return TileType.Floor;
         }
         const temporary = this.temporaryTileByTile.get(cellIndex);
         if (temporary) {
@@ -1405,15 +1396,15 @@ class MapInstanceRuntime {
     getGroundTileTypeByCellIndex(cellIndexInput) {
         const cellIndex = Math.trunc(Number(cellIndexInput));
         if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
-            return shared_1.TileType.Floor;
+            return TileType.Floor;
         }
         const state = typeof this.tilePlane.getTileLayerState === 'function'
             ? this.tilePlane.getTileLayerState(cellIndex)
             : null;
         if (!state) {
-            return shared_1.TileType.Floor;
+            return TileType.Floor;
         }
-        return (0, shared_1.composeTileTypeFromLayers)(
+        return composeTileTypeFromLayers(
             state.terrain,
             state.surface,
             null,
@@ -1429,15 +1420,15 @@ class MapInstanceRuntime {
                 : null);
         if (!state) {
             return {
-                tileType: shared_1.TileType.Floor,
-                terrainType: shared_1.TerrainType.Floor,
-                surfaceType: shared_1.SurfaceType.Floor,
+                tileType: TileType.Floor,
+                terrainType: TerrainType.Floor,
+                surfaceType: SurfaceType.Floor,
                 interactableKinds: [],
             };
         }
         const interactableKinds = Array.isArray(state.interactableKinds) ? state.interactableKinds.slice() : [];
-        const groundTileType = (0, shared_1.composeTileTypeFromLayers)(state.terrain, state.surface ?? null, null, interactableKinds);
-        if ((0, shared_1.isTileTypeWalkable)(groundTileType) && !(0, shared_1.doesTileTypeBlockSight)(groundTileType)) {
+        const groundTileType = composeTileTypeFromLayers(state.terrain, state.surface ?? null, null, interactableKinds);
+        if (isTileTypeWalkable(groundTileType) && !doesTileTypeBlockSight(groundTileType)) {
             return {
                 tileType: groundTileType,
                 terrainType: state.terrain,
@@ -1446,9 +1437,9 @@ class MapInstanceRuntime {
             };
         }
         return {
-            tileType: shared_1.TileType.Floor,
-            terrainType: shared_1.TerrainType.Floor,
-            surfaceType: shared_1.SurfaceType.Floor,
+            tileType: TileType.Floor,
+            terrainType: TerrainType.Floor,
+            surfaceType: SurfaceType.Floor,
             interactableKinds: [],
         };
     }
@@ -1467,7 +1458,7 @@ class MapInstanceRuntime {
         const tileType = typeof tileTypeInput === 'string' && tileTypeInput.length > 0
             ? tileTypeInput
             : this.getEffectiveTileTypeByCellIndex(cellIndex);
-        return (0, room_detection_service_1.isRoomTopologyTileType)(tileType);
+        return isRoomTopologyTileType(tileType);
     }
     /** collectRoomInfluenceRoomIdsByCell：返回此 cell 所在房间或相邻边界影响到的房间。 */
     collectRoomInfluenceRoomIdsByCell(cellIndexInput) {
@@ -1530,8 +1521,8 @@ class MapInstanceRuntime {
             if (!room || !aggregate) {
                 continue;
             }
-            room.role = (0, fengshui_calculator_service_1.inferRoomRole)(this.buildingCatalog, room, aggregate).role;
-            const snapshot = (0, fengshui_calculator_service_1.calculateFengShuiSnapshot)(room, aggregate, this.fengShuiRules, {
+            room.role = inferRoomRole(this.buildingCatalog, room, aggregate).role;
+            const snapshot = calculateFengShuiSnapshot(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
                 revision: aggregate.aggregateRevision,
@@ -1773,7 +1764,7 @@ class MapInstanceRuntime {
         room.role = role;
         const aggregate = this.roomAggregatesById.get(room.id);
         if (aggregate) {
-            const snapshot = (0, fengshui_calculator_service_1.calculateFengShuiSnapshot)(room, aggregate, this.fengShuiRules, {
+            const snapshot = calculateFengShuiSnapshot(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
                 revision: aggregate.aggregateRevision + 1,
@@ -1943,7 +1934,6 @@ class MapInstanceRuntime {
     setPlayerMoveSpeed(playerId, moveSpeed) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.playersById.get(playerId);
         if (!player) {
             return false;
@@ -1970,7 +1960,6 @@ class MapInstanceRuntime {
     /** tryPortalTransfer：尝试按当前站位触发传送点跳转。 */
     tryPortalTransfer(playerId, reason) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playersById.get(playerId);
         if (!player) {
@@ -2123,7 +2112,6 @@ class MapInstanceRuntime {
     /** buildPlayerView：构建玩家当前视野快照。 */
     buildPlayerView(playerId, radius = DEFAULT_VIEW_RADIUS) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playersById.get(playerId);
         if (!player) {
@@ -2395,7 +2383,7 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const current = this.getTileCombatState(x, y);
+        const current: any = this.getTileCombatState(x, y);
         if (!current) {
             return null;
         }
@@ -2524,7 +2512,7 @@ class MapInstanceRuntime {
         };
     }
     /** createTemporaryTile：创建或刷新技能生成的临时地块。 */
-    createTemporaryTile(x, y, tileType, maxHp, durationTicks, currentTick, options = {}) {
+    createTemporaryTile(x, y, tileType, maxHp, durationTicks, currentTick, options: any = {}) {
         if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
             return { created: false, reason: 'invalid_coordinate' };
         }
@@ -2542,7 +2530,7 @@ class MapInstanceRuntime {
         const now = Date.now();
         const previousEffectiveTileType = this.getEffectiveTileTypeByCellIndex(tileIndex);
         this.temporaryTileByTile.set(tileIndex, {
-            tileType: typeof tileType === 'string' && tileType.length > 0 ? tileType : shared_1.TileType.Stone,
+            tileType: typeof tileType === 'string' && tileType.length > 0 ? tileType : TileType.Stone,
             hp,
             maxHp: hp,
             expiresAtTick: nowTick + ttl,
@@ -2581,7 +2569,7 @@ class MapInstanceRuntime {
         if (this.hasBlockingEntityAt(normalizedX, normalizedY)) {
             return { allowed: false, reason: 'blocked', tileIndex };
         }
-        if (!(0, shared_1.isTileTypeWalkable)(this.getEffectiveTileType(normalizedX, normalizedY))) {
+        if (!isTileTypeWalkable(this.getEffectiveTileType(normalizedX, normalizedY))) {
             return { allowed: false, reason: 'not_walkable', tileIndex };
         }
         return { allowed: true, reason: 'available', tileIndex };
@@ -2666,7 +2654,7 @@ class MapInstanceRuntime {
                     }
                     else {
                         this.tileDamageByTile.delete(tileIndex);
-                        if (this.shouldRecalculateRoomsForTileMutation(normalizedTileIndex, shared_1.TileType.Floor, tileType)) {
+                        if (this.shouldRecalculateRoomsForTileMutation(normalizedTileIndex, TileType.Floor, tileType)) {
                             topologyChangedCellCount += 1;
                         }
                     }
@@ -2692,7 +2680,7 @@ class MapInstanceRuntime {
                 changed = true;
                 continue;
             }
-            const repairAmount = Math.max(1, Math.floor(maxHp * shared_1.TERRAIN_REGEN_RATE_PER_TICK));
+            const repairAmount = Math.max(1, Math.floor(maxHp * TERRAIN_REGEN_RATE_PER_TICK));
             const nextHp = Math.min(maxHp, hp + repairAmount);
             if (nextHp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
@@ -2747,7 +2735,7 @@ class MapInstanceRuntime {
 
         const tileIndex = this.toTileIndex(x, y);
         if (tileIndex < 0) {
-            return shared_1.TileType.Floor;
+            return TileType.Floor;
         }
         return this.tilePlane.getTileType(tileIndex);
     }
@@ -2756,7 +2744,7 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
-            return shared_1.TileType.Floor;
+            return TileType.Floor;
         }
         return this.getEffectiveTileTypeByCellIndex(this.toTileIndex(x, y));
     }
@@ -2874,7 +2862,7 @@ class MapInstanceRuntime {
             return null;
         }
         for (const zone of this.template.safeZones) {
-            if ((0, shared_1.isOffsetInRange)(x - zone.x, y - zone.y, zone.radius)) {
+            if (isOffsetInRange(x - zone.x, y - zone.y, zone.radius)) {
                 return snapshotSafeZone(zone);
             }
         }
@@ -3012,7 +3000,6 @@ class MapInstanceRuntime {
     getMonsterDamageContributionEntries(runtimeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster) {
             return [];
@@ -3025,7 +3012,6 @@ class MapInstanceRuntime {
     /** getAdjacentNpc：读取玩家相邻的 NPC。 */
     getAdjacentNpc(playerId, npcId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playersById.get(playerId);
         if (!player) {
@@ -3041,7 +3027,6 @@ class MapInstanceRuntime {
     /** applyDamageToMonster：对妖兽应用伤害并检查击败结果。 */
     applyDamageToMonster(runtimeId, amount, attackerPlayerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
@@ -3081,7 +3066,6 @@ class MapInstanceRuntime {
     applyTemporaryBuffToMonster(runtimeId, buff) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
             return null;
@@ -3111,7 +3095,6 @@ class MapInstanceRuntime {
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
     defeatMonster(runtimeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
@@ -3331,7 +3314,7 @@ class MapInstanceRuntime {
             const hp = Math.max(1, Math.trunc(Number(entry.hp) || 1));
             const maxHp = Math.max(hp, Math.trunc(Number(entry.maxHp) || hp));
             const expiresAtTick = Math.max(1, Math.trunc(Number(entry.expiresAtTick) || 1));
-            const tileType = typeof entry.tileType === 'string' && entry.tileType.length > 0 ? entry.tileType : shared_1.TileType.Stone;
+            const tileType = typeof entry.tileType === 'string' && entry.tileType.length > 0 ? entry.tileType : TileType.Stone;
             this.temporaryTileByTile.set(resolvedTileIndex, {
                 tileType,
                 hp,
@@ -3365,7 +3348,7 @@ class MapInstanceRuntime {
             const y = Math.trunc(Number(entry.y));
             const tileType = typeof entry.tileType === 'string' && entry.tileType.length > 0
                 ? entry.tileType
-                : shared_1.TileType.Stone;
+                : TileType.Stone;
             const tileIndex = this.toTileIndex(x, y);
             if (tileIndex >= 0) {
                 const previousTileType = this.getEffectiveTileTypeByCellIndex(tileIndex);
@@ -3380,7 +3363,7 @@ class MapInstanceRuntime {
             if (activated?.tileIndex >= 0) {
                 this.applyPersistedTileLayers(activated.tileIndex, entry);
             }
-            if (activated?.created === true && this.shouldRecalculateRoomsForTileMutation(activated.tileIndex, shared_1.TileType.Floor, tileType)) {
+            if (activated?.created === true && this.shouldRecalculateRoomsForTileMutation(activated.tileIndex, TileType.Floor, tileType)) {
                 topologyChangedCellCount += 1;
             }
         }
@@ -3844,7 +3827,7 @@ class MapInstanceRuntime {
                 tileIndex: normalizedTileIndex,
                 x: this.tilePlane.getX(normalizedTileIndex),
                 y: this.tilePlane.getY(normalizedTileIndex),
-                tileType: typeof state.tileType === 'string' && state.tileType.length > 0 ? state.tileType : shared_1.TileType.Stone,
+                tileType: typeof state.tileType === 'string' && state.tileType.length > 0 ? state.tileType : TileType.Stone,
                 hp: Math.max(1, Math.trunc(Number(state.hp) || 1)),
                 maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
                 expiresAtTick: Math.max(1, Math.trunc(Number(state.expiresAtTick) || 1)),
@@ -3873,12 +3856,12 @@ class MapInstanceRuntime {
                 : null;
             const inTemplateBounds = x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
             if (inTemplateBounds) {
-                const staticType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
-                const staticSeed = (0, shared_1.resolveTileLayerSeedFromTemplateContext)(staticType, x, y, (lookupX, lookupY) => {
+                const staticType = getTileTypeFromMapChar(this.template.terrainRows[y]?.[x] ?? '#');
+                const staticSeed = resolveTileLayerSeedFromTemplateContext(staticType, x, y, (lookupX, lookupY) => {
                     if (lookupX < 0 || lookupY < 0 || lookupX >= this.template.width || lookupY >= this.template.height) {
                         return null;
                     }
-                    return (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[lookupY]?.[lookupX] ?? '#');
+                    return getTileTypeFromMapChar(this.template.terrainRows[lookupY]?.[lookupX] ?? '#');
                 });
                 if (tileType === staticType
                     && layerState?.terrain === staticSeed.terrain
@@ -3964,7 +3947,7 @@ class MapInstanceRuntime {
     buildMonsterRuntimePersistenceDelta() {
         const dirtyIds = this.dirtyMonsterRuntimeIds instanceof Set
             ? Array.from(this.dirtyMonsterRuntimeIds.values())
-                .filter((runtimeId) => typeof runtimeId === 'string' && runtimeId.trim())
+                .filter((runtimeId): runtimeId is string => typeof runtimeId === 'string' && runtimeId.trim().length > 0)
                 .map((runtimeId) => runtimeId.trim())
             : [];
         const fullReplace = this.persistenceFullReplaceDomains?.has?.('monster_runtime') === true
@@ -4189,7 +4172,6 @@ class MapInstanceRuntime {
     applyMove(player, direction, transfers, continuous = false, maxSteps = undefined, path = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const offset = DIRECTION_OFFSET[direction];
         if (!offset) {
             return;
@@ -4227,7 +4209,7 @@ class MapInstanceRuntime {
                 nextX = nextStep.x;
                 nextY = nextStep.y;
 
-                const resolvedDirection = (0, shared_1.directionFromTo)(player.x, player.y, nextX, nextY);
+                const resolvedDirection = directionFromTo(player.x, player.y, nextX, nextY);
                 if (resolvedDirection === null) {
                     break;
                 }
@@ -4292,7 +4274,7 @@ class MapInstanceRuntime {
         if (moved) {
             player.selfRevision += 1;
         }
-        player.movePoints = Math.min((0, shared_1.getMaxStoredMovePoints)(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
+        player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
     }
     /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {
@@ -4311,10 +4293,9 @@ class MapInstanceRuntime {
     rechargePlayerMoveBudget(player, requiredMovePoints = 0) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const elapsed = Math.max(0, this.tick - (player.lastMoveBudgetTick ?? this.tick));
         if (elapsed > 0) {
-            player.movePoints = Math.min((0, shared_1.getMaxStoredMovePoints)(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(player.movePoints + elapsed * (0, shared_1.getMovePointsPerTick)(player.moveSpeed))));
+            player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(player.movePoints + elapsed * getMovePointsPerTick(player.moveSpeed))));
             player.lastMoveBudgetTick = this.tick;
         }
         return player.movePoints;
@@ -4331,7 +4312,7 @@ class MapInstanceRuntime {
             return Number.POSITIVE_INFINITY;
         }
         const tileType = this.getEffectiveTileType(x, y);
-        if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
+        if (!isTileTypeWalkable(tileType)) {
             return Number.POSITIVE_INFINITY;
         }
         const tileIndex = this.toTileIndex(x, y);
@@ -4340,7 +4321,7 @@ class MapInstanceRuntime {
             return Math.max(1, Math.trunc(movementCostOverride));
         }
         /** return：return。 */
-        return (0, shared_1.getTileTraversalCost)(tileType);
+        return getTileTraversalCost(tileType);
     }
     /** getTileQiDrainPerTick：读取地块每息灵力消耗。 */
     getTileQiDrainPerTick(x, y) {
@@ -4382,7 +4363,6 @@ class MapInstanceRuntime {
     /** collectVisiblePlayers：收集当前视野内可见玩家。 */
     collectVisiblePlayers(observer, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const visiblePlayers = [];
@@ -4436,7 +4416,6 @@ class MapInstanceRuntime {
     collectLocalGroundPiles(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const piles = [];
         for (const pile of this.groundPilesByTile.values()) {
@@ -4458,7 +4437,6 @@ class MapInstanceRuntime {
     /** collectLocalContainers：收集当前视野内可见容器。 */
     collectLocalContainers(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const containers = [];
@@ -4519,7 +4497,6 @@ class MapInstanceRuntime {
     collectLocalLandmarks(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const landmarks = [];
         for (const landmark of this.landmarksById.values()) {
@@ -4545,7 +4522,6 @@ class MapInstanceRuntime {
     collectLocalSafeZones(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const safeZones = [];
         for (const zone of this.template.safeZones) {
@@ -4563,7 +4539,6 @@ class MapInstanceRuntime {
     /** collectLocalNpcs：收集当前视野内可见 NPC。 */
     collectLocalNpcs(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const npcs = [];
@@ -4590,7 +4565,6 @@ class MapInstanceRuntime {
     /** collectLocalMonsters：收集当前视野内可见妖兽。 */
     collectLocalMonsters(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const monsters = [];
@@ -4626,16 +4600,15 @@ class MapInstanceRuntime {
     advanceMonsters(monsterActions) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         let changed = false;
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
                 if (monster.pendingCast) {
-                    const cancelledPendingCast = (0, pending_combat_cast_helpers_1.cancelPendingCombatCast)(monster.pendingCast, {
-                        reason: pending_combat_cast_helpers_1.CombatPendingCastCancelReason.ActorDead,
+                    const cancelledPendingCast = cancelPendingCombatCast(monster.pendingCast, {
+                        reason: CombatPendingCastCancelReason.ActorDead,
                         cancelledTick: this.tick,
                     });
-                    monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillCancelActionFromPendingCast)(cancelledPendingCast, {
+                    monsterActions.push(createMonsterSkillCancelActionFromPendingCast(cancelledPendingCast, {
                         instanceId: this.meta.instanceId,
                         runtimeId: monster.runtimeId,
                     }));
@@ -4660,13 +4633,13 @@ class MapInstanceRuntime {
 
             if (monster.pendingCast) {
                 const pendingSkill = monster.skills.find((entry) => entry.id === (monster.pendingCast.actionId ?? monster.pendingCast.skillId));
-                const cancelledPendingCast = (0, pending_combat_cast_helpers_1.resolvePendingCombatCastCancellation)(monster.pendingCast, {
+                const cancelledPendingCast = resolvePendingCombatCastCancellation(monster.pendingCast, {
                     actorAlive: monster.alive,
                     currentTick: this.tick,
                     configRevision: pendingSkill?.version ?? pendingSkill?.revision,
                 });
                 if (cancelledPendingCast) {
-                    monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillCancelActionFromPendingCast)(cancelledPendingCast, {
+                    monsterActions.push(createMonsterSkillCancelActionFromPendingCast(cancelledPendingCast, {
                         instanceId: this.meta.instanceId,
                         runtimeId: monster.runtimeId,
                     }));
@@ -4680,7 +4653,7 @@ class MapInstanceRuntime {
                 const pendingCast = monster.pendingCast;
                 monster.pendingCast = undefined;
                 const pendingTarget = this.playersById.get(pendingCast.targetPlayerId);
-                monsterActions.push((0, pending_combat_cast_helpers_1.createMonsterSkillActionFromPendingCast)(pendingCast, {
+                monsterActions.push(createMonsterSkillActionFromPendingCast(pendingCast, {
                     instanceId: this.meta.instanceId,
                     runtimeId: monster.runtimeId,
                     targetPlayerId: pendingTarget?.playerId ?? pendingCast.targetPlayerId,
@@ -4724,7 +4697,7 @@ class MapInstanceRuntime {
                             ? { x: monster.x, y: monster.y }
                             : { x: target.x, y: target.y };
                         monster.facing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
-                        monster.pendingCast = (0, pending_combat_cast_helpers_1.createMonsterPendingCombatCast)({
+                        monster.pendingCast = createMonsterPendingCombatCast({
                             runtimeId: monster.runtimeId,
                             instanceId: this.meta.instanceId,
                             skillId: skill.id,
@@ -4794,7 +4767,6 @@ class MapInstanceRuntime {
     /** findSpawnPoint：查找生成点。 */
     findSpawnPoint(preferredX, preferredY, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const candidates = [];
         if (preferredX !== undefined && preferredY !== undefined) {
@@ -4867,7 +4839,7 @@ class MapInstanceRuntime {
         if (this.isDynamicallyBlockedTile(x, y, playerId)) {
             return false;
         }
-        return (0, shared_1.isTileTypeWalkable)(this.getEffectiveTileType(x, y));
+        return isTileTypeWalkable(this.getEffectiveTileType(x, y));
     }
     /** isDynamicallyBlockedTile：判断运行期动态阻挡是否覆盖目标地块。 */
     isDynamicallyBlockedTile(x, y, playerId = null) {
@@ -4912,7 +4884,7 @@ class MapInstanceRuntime {
             const compositeBlocked = this.resolveCompositeSightBlocked(x, y);
             return compositeBlocked === null ? true : compositeBlocked;
         }
-        return (0, shared_1.doesTileTypeBlockSight)(this.getEffectiveTileType(x, y));
+        return doesTileTypeBlockSight(this.getEffectiveTileType(x, y));
     }
     /** canSeeTileFrom：判断 origin 在指定半径内是否能看见目标地块。 */
     canSeeTileFrom(originX, originY, targetX, targetY, radius) {
@@ -4934,7 +4906,6 @@ class MapInstanceRuntime {
     /** collectVisibleTileVisibility：收集本图索引和跨图坐标视野。 */
     collectVisibleTileVisibility(originX, originY, radius) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const visibleTileIndices = new Set();
         const visibleTileKeys = new Set();
@@ -4983,7 +4954,7 @@ class MapInstanceRuntime {
                 if (endSlope > leftSlope) {
                     break;
                 }
-                if ((0, shared_1.isOffsetInRange)(deltaX, deltaY, radius) && this.canResolveSightCoordinate(currentX, currentY)) {
+                if (isOffsetInRange(deltaX, deltaY, radius) && this.canResolveSightCoordinate(currentX, currentY)) {
                     if (this.isInBounds(currentX, currentY)) {
                         visibleTileIndices.add(this.toTileIndex(currentX, currentY));
                     }
@@ -5029,7 +5000,7 @@ class MapInstanceRuntime {
         const maxY = centerY + radius;
         for (let y = minY; y <= maxY; y += 1) {
             for (let x = minX; x <= maxX; x += 1) {
-                if (!(0, shared_1.isOffsetInRange)(x - centerX, y - centerY, radius)) {
+                if (!isOffsetInRange(x - centerX, y - centerY, radius)) {
                     continue;
                 }
                 if (this.isTileVisibleByFilter(x, y, visibility)) {
@@ -5482,24 +5453,22 @@ class MapInstanceRuntime {
     isMonsterWithinWanderRange(monster, x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const radius = Math.max(0, Math.trunc(Number(monster.wanderRadius) || 0));
-        return (0, shared_1.isOffsetInRange)(x - monster.spawnX, y - monster.spawnY, radius);
+        return isOffsetInRange(x - monster.spawnX, y - monster.spawnY, radius);
     }
     /** stepMonsterIdleRoam：让无目标妖兽在活动范围内随机闲逛一步。 */
     stepMonsterIdleRoam(monster) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const radius = Math.max(0, Math.trunc(Number(monster.wanderRadius) || 0));
         if (radius <= 0) {
             return false;
         }
         const directions = [
-            { dx: 1, dy: 0, facing: shared_1.Direction.East },
-            { dx: -1, dy: 0, facing: shared_1.Direction.West },
-            { dx: 0, dy: 1, facing: shared_1.Direction.South },
-            { dx: 0, dy: -1, facing: shared_1.Direction.North },
+            { dx: 1, dy: 0, facing: Direction.East },
+            { dx: -1, dy: 0, facing: Direction.West },
+            { dx: 0, dy: 1, facing: Direction.South },
+            { dx: 0, dy: -1, facing: Direction.North },
         ];
         const startIndex = Math.floor(Math.random() * directions.length);
         for (let offset = 0; offset < directions.length; offset += 1) {
@@ -5529,7 +5498,6 @@ class MapInstanceRuntime {
     tryMoveMonsterToward(monster, targetX, targetY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const next = chooseMonsterStep(monster.x, monster.y, targetX, targetY);
         for (const candidate of next) {
             if (!this.isOpenTile(candidate.x, candidate.y)) {
@@ -5546,7 +5514,6 @@ class MapInstanceRuntime {
         return false;
     }
 }
-exports.MapInstanceRuntime = MapInstanceRuntime;
 export { MapInstanceRuntime };
 /** getTileRestoreSpeedMultiplier：读取地形恢复速度倍率。 */
 function getTileRestoreSpeedMultiplier(tileType) {
@@ -5559,13 +5526,13 @@ function getTileRestoreSpeedMultiplier(tileType) {
 function calculateTileRestoreTicks(tileType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return Math.max(1, Math.ceil(shared_1.TERRAIN_DESTROYED_RESTORE_TICKS / getTileRestoreSpeedMultiplier(tileType)));
+    return Math.max(1, Math.ceil(TERRAIN_DESTROYED_RESTORE_TICKS / getTileRestoreSpeedMultiplier(tileType)));
 }
 /** calculateTileRestoreRetryTicks：按 main 口径计算复生受阻后的重试时间。 */
 function calculateTileRestoreRetryTicks(tileType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return Math.max(1, Math.ceil(shared_1.TERRAIN_RESTORE_RETRY_DELAY_TICKS / getTileRestoreSpeedMultiplier(tileType)));
+    return Math.max(1, Math.ceil(TERRAIN_RESTORE_RETRY_DELAY_TICKS / getTileRestoreSpeedMultiplier(tileType)));
 }
 /** normalizeTileRestoreTicksLeft：恢复持久化地块复生倒计时。 */
 function normalizeTileRestoreTicksLeft(value, tileType) {
@@ -5578,7 +5545,7 @@ function normalizeTileRestoreTicksLeft(value, tileType) {
 function resolveTileDurability(template, tileType, x = null, y = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (template?.source?.sectMap === true && tileType === shared_1.TileType.Stone) {
+    if (template?.source?.sectMap === true && tileType === TileType.Stone) {
         const centerX = Number.isFinite(Number(template.source.sectCoreX)) ? Math.trunc(Number(template.source.sectCoreX)) : Math.trunc(template.width / 2);
         const centerY = Number.isFinite(Number(template.source.sectCoreY)) ? Math.trunc(Number(template.source.sectCoreY)) : Math.trunc(template.height / 2);
         const dx = Number.isFinite(Number(x)) ? Math.abs(Math.trunc(Number(x)) - centerX) : 1;
@@ -5599,7 +5566,7 @@ function resolveTileDurability(template, tileType, x = null, y = null) {
     const terrainRealmLv = Number.isFinite(template.source?.terrainRealmLv)
         ? Math.max(1, Math.floor(Number(template.source.terrainRealmLv)))
         : 1;
-    const baseDurability = (0, shared_1.calculateTerrainDurability)(terrainRealmLv, profile.multiplier);
+    const baseDurability = calculateTerrainDurability(terrainRealmLv, profile.multiplier);
 
     const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[tileType] ?? 1;
     return Math.max(1, Math.round(baseDurability * multiplier));
@@ -5611,10 +5578,10 @@ function clampCoordinate(value, size) {
 
 /** DIRECTION_OFFSET：DIRECTIONOFFSET。 */
 const DIRECTION_OFFSET = {
-    [shared_1.Direction.North]: { x: 0, y: -1 },
-    [shared_1.Direction.South]: { x: 0, y: 1 },
-    [shared_1.Direction.East]: { x: 1, y: 0 },
-    [shared_1.Direction.West]: { x: -1, y: 0 },
+    [Direction.North]: { x: 0, y: -1 },
+    [Direction.South]: { x: 0, y: 1 },
+    [Direction.East]: { x: 1, y: 0 },
+    [Direction.West]: { x: -1, y: 0 },
 };
 /** buildGroundSourceId：构建地面物品堆来源 ID。 */
 function buildGroundSourceId(tileIndex) {
@@ -5838,7 +5805,6 @@ function compareLocalSafeZones(left, right) {
 function countAliveMonsters(monstersByRuntimeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     let count = 0;
     for (const monster of monstersByRuntimeId.values()) {
         if (monster.alive) {
@@ -6015,7 +5981,7 @@ function recalculateMonsterBaseStatsFromFormula(monster) {
     if (typeof monster.tier === 'string' && monster.tier.trim()) {
         raw.tier = monster.tier.trim();
     }
-    const resolved = (0, shared_1.resolveMonsterTemplateRecord)(raw, undefined, formula.baselines);
+    const resolved = resolveMonsterTemplateRecord(raw, undefined, formula.baselines);
     monster.level = resolved.level ?? raw.level;
     monster.tier = resolved.tier;
     monster.expMultiplier = resolved.expMultiplier;
@@ -6030,7 +5996,7 @@ function clonePlainValue(value) {
         return value.map((entry) => clonePlainValue(entry));
     }
     if (value && typeof value === 'object') {
-        const result = {};
+        const result: Record<string, any> = {};
         for (const [key, entry] of Object.entries(value)) {
             result[key] = clonePlainValue(entry);
         }
@@ -6108,7 +6074,6 @@ function buildMonsterInitialBuffState(monster, effect) {
 function tickTemporaryBuffs(buffs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     let changed = false;
     for (const buff of buffs) {
         if (buff.infiniteDuration === true) {
@@ -6159,12 +6124,12 @@ function addAttributeModifiers(target, patch, factor) {
 }
 /** applyAttributePercentModifiers：把百分比属性修饰应用到当前属性。 */
 function applyAttributePercentModifiers(target, modifiers) {
-    target.constitution *= (0, shared_1.percentModifierToMultiplier)(modifiers.constitution);
-    target.spirit *= (0, shared_1.percentModifierToMultiplier)(modifiers.spirit);
-    target.perception *= (0, shared_1.percentModifierToMultiplier)(modifiers.perception);
-    target.talent *= (0, shared_1.percentModifierToMultiplier)(modifiers.talent);
-    target.strength *= (0, shared_1.percentModifierToMultiplier)(modifiers.strength);
-    target.meridians *= (0, shared_1.percentModifierToMultiplier)(modifiers.meridians);
+    target.constitution *= percentModifierToMultiplier(modifiers.constitution);
+    target.spirit *= percentModifierToMultiplier(modifiers.spirit);
+    target.perception *= percentModifierToMultiplier(modifiers.perception);
+    target.talent *= percentModifierToMultiplier(modifiers.talent);
+    target.strength *= percentModifierToMultiplier(modifiers.strength);
+    target.meridians *= percentModifierToMultiplier(modifiers.meridians);
 }
 /** addNumericStatModifiers：叠加数值属性修饰。 */
 function addNumericStatModifiers(target, patch, factor) {
@@ -6188,7 +6153,7 @@ function addNumericStatModifiers(target, patch, factor) {
 function applyNumericStatPercentModifiers(target, modifiers) {
     for (const [key, value] of Object.entries(modifiers)) {
         if (typeof value === 'number') {
-            target[key] = (target[key] ?? 0) * (0, shared_1.percentModifierToMultiplier)(value);
+            target[key] = (target[key] ?? 0) * percentModifierToMultiplier(value);
             continue;
         }
         if (value && typeof value === 'object') {
@@ -6196,7 +6161,7 @@ function applyNumericStatPercentModifiers(target, modifiers) {
             target[key] = targetGroup;
             for (const [groupKey, groupValue] of Object.entries(value)) {
                 if (typeof groupValue === 'number') {
-                    targetGroup[groupKey] = (targetGroup[groupKey] ?? 0) * (0, shared_1.percentModifierToMultiplier)(groupValue);
+                    targetGroup[groupKey] = (targetGroup[groupKey] ?? 0) * percentModifierToMultiplier(groupValue);
                 }
             }
         }
@@ -6206,12 +6171,11 @@ function applyNumericStatPercentModifiers(target, modifiers) {
 function recalculateMonsterDerivedState(monster) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const nextAttrs = cloneAttributes(monster.baseAttrs);
 
     const nextStats = cloneNumericStats(monster.baseNumericStats);
     const attrPercentModifiers = createEmptyAttributes();
-    const statPercentModifiers = (0, shared_1.createNumericStats)();
+    const statPercentModifiers = createNumericStats();
     for (const buff of monster.buffs) {
         const stacks = Math.max(1, buff.stacks);
         if (buff.attrs) {
@@ -6227,7 +6191,7 @@ function recalculateMonsterDerivedState(monster) {
     applyNumericStatPercentModifiers(nextStats, statPercentModifiers);
     nextStats.maxHp = Math.max(1, Math.round(nextStats.maxHp));
     nextStats.maxQi = Math.max(0, Math.round(nextStats.maxQi));
-    nextStats.moveSpeed = Math.max(0, Math.round((0, shared_1.getEffectiveMoveSpeed)(nextStats.moveSpeed)));
+    nextStats.moveSpeed = Math.max(0, Math.round(getEffectiveMoveSpeed(nextStats.moveSpeed)));
 
     const previousMaxHp = monster.maxHp;
 
@@ -6362,7 +6326,7 @@ function recoverMonsterQi(monster) {
     return true;
 }
 function resolveMonsterSkillQiCost(monster, skill) {
-    return Math.round((0, shared_1.calcQiCostWithOutputLimit)(
+    return Math.round(calcQiCostWithOutputLimit(
         Math.max(0, Math.round(Number(skill?.cost) || 0)),
         Math.max(0, monster?.numericStats?.maxQiOutputPerTick ?? 0),
     ));
@@ -6634,7 +6598,7 @@ function getMonsterSkillWarningColor(skill) {
         : undefined;
 }
 function buildEffectiveMonsterSkillGeometry(monster, skill) {
-    return (0, shared_1.buildEffectiveTargetingGeometry)({
+    return buildEffectiveTargetingGeometry({
         range: resolveSkillRange(skill),
         shape: skill.targeting?.shape ?? 'single',
         radius: skill.targeting?.radius,
@@ -6655,19 +6619,19 @@ function buildMonsterSkillAffectedCells(monster, skill, anchor) {
             ? [{ x: anchor.x, y: anchor.y }]
             : [];
     }
-    return (0, shared_1.computeAffectedCellsFromAnchor)({ x: monster.x, y: monster.y }, anchor, geometry);
+    return computeAffectedCellsFromAnchor({ x: monster.x, y: monster.y }, anchor, geometry);
 }
 function resolveFacingToward(fromX, fromY, toX, toY) {
     if (toX > fromX) {
-        return shared_1.Direction.East;
+        return Direction.East;
     }
     if (toX < fromX) {
-        return shared_1.Direction.West;
+        return Direction.West;
     }
     if (toY > fromY) {
-        return shared_1.Direction.South;
+        return Direction.South;
     }
-    return shared_1.Direction.North;
+    return Direction.North;
 }
 function buildMonsterSpawnKey(monsterId, spawnX, spawnY) {
     return `monster_spawn:${monsterId}:${spawnX}:${spawnY}`;
@@ -6836,7 +6800,7 @@ function compiledBuildingAffectsRoomBoundaryTopology(compiled) {
         return true;
     }
     return typeof compiled.visualTileType === 'string'
-        && (0, room_detection_service_1.isStaticRoomBoundaryTile)(compiled.visualTileType);
+        && isStaticRoomBoundaryTile(compiled.visualTileType);
 }
 function compiledBuildingAffectsFengShui(compiled) {
     if (!compiled) {
@@ -6968,15 +6932,14 @@ function isNaturalAuraFlowResource(resourceKey) {
     if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
         return true;
     }
-    const parsed = typeof shared_1.parseQiResourceKey === 'function'
-        ? (0, shared_1.parseQiResourceKey)(resourceKey)
+    const parsed = typeof parseQiResourceKey === 'function'
+        ? parseQiResourceKey(resourceKey)
         : null;
     return parsed?.family === 'aura' && parsed?.form === 'refined';
 }
 /** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
@@ -6988,7 +6951,6 @@ function resolveSkillRange(skill) {
 function chooseMonsterStep(fromX, fromY, targetX, targetY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const dx = Math.sign(targetX - fromX);
 
     const dy = Math.sign(targetY - fromY);
@@ -6998,21 +6960,21 @@ function chooseMonsterStep(fromX, fromY, targetX, targetY) {
         candidates.push({
             x: fromX + dx,
             y: fromY,
-            facing: dx > 0 ? shared_1.Direction.East : shared_1.Direction.West,
+            facing: dx > 0 ? Direction.East : Direction.West,
         });
     }
     if (dy !== 0) {
         candidates.push({
             x: fromX,
             y: fromY + dy,
-            facing: dy > 0 ? shared_1.Direction.South : shared_1.Direction.North,
+            facing: dy > 0 ? Direction.South : Direction.North,
         });
     }
     if (Math.abs(targetX - fromX) < Math.abs(targetY - fromY) && dx !== 0) {
         candidates.push({
             x: fromX + dx,
             y: fromY,
-            facing: dx > 0 ? shared_1.Direction.East : shared_1.Direction.West,
+            facing: dx > 0 ? Direction.East : Direction.West,
         });
     }
     return candidates;

@@ -136,7 +136,7 @@ interface ParsedCombatDamageSegment {
 
 const COMBAT_DAMAGE_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>[^\s]+) - 实际 (?<actual>[^\s]+) - (?:(?<element>金|木|水|火|土)行)?(?<kind>物理|法术) 伤害(?<after>.*)$/;
 const COMBAT_HEAL_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>[^\s]+) - 实际 (?<actual>[^\s]+) 治疗(?<after>.*)$/;
-const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，结果 (?<result>闪避)(?<after>.*)$/;
+const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，(?:结果 (?<result>闪避)|(?<dodgeResult>被闪避，未造成伤害))(?:（(?<dodgeDetails>[^）]+)）)?(?<after>.*)$/;
 /** 治疗数值胶囊的颜色。 */
 const COMBAT_HEAL_PILL_COLOR = '#1d6e42';
 /** 闪避结果胶囊的颜色。 */
@@ -324,20 +324,21 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
   if (!resultMatch?.groups) {
     return null;
   }
-  const details = (resultMatch.groups.details ?? '')
-    .split(' / ')
+  const isDodgeFormat = !!resultMatch.groups.dodgeResult;
+  const details = ((isDodgeFormat ? resultMatch.groups.dodgeDetails : resultMatch.groups.details) ?? '')
+    .split(/[\/、]/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
-  const resultLabel = resultMatch.groups.result ?? '结果';
+  const resultLabel = resultMatch.groups.result ?? '闪避';
   return {
     before: resultMatch.groups.before ?? '',
-    connector: '，结果 ',
+    connector: isDodgeFormat ? '，' : '，结果 ',
     rawAmount: '0',
     actualAmount: resultLabel,
-    after: resultMatch.groups.after ?? '',
+    after: isDodgeFormat ? '' : (resultMatch.groups.after ?? ''),
     details,
     pillText: resultLabel,
-    suffixText: '',
+    suffixText: isDodgeFormat ? '' : '',
     tooltipTitle: '战斗结果',
     tooltipLines: [resultLabel],
     color: COMBAT_RESULT_PILL_COLOR,
@@ -368,35 +369,185 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
 
   const fragment = document.createDocumentFragment();
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
-  const parsedDamage = entry.kind === 'combat' ? parseCombatDamageSegment(entry.text) : null;
-  if (!parsedDamage) {
-    fragment.append(linePrefix + entry.text);
+
+  // 多行合并战斗消息
+  if (entry.kind === 'combat' && entry.text.includes('\n')) {
+    const lines = entry.text.split('\n');
+    // 从第一行提取"你施展{skill} "前缀用于后续行对齐
+    const firstLineSkillMatch = /^(你施展)(.+?)( 对)/.exec(lines[0]);
+    for (let i = 0; i < lines.length; i++) {
+      const lineText = lines[i];
+      const lineEl = document.createElement('div');
+      lineEl.className = 'chat-merged-combat-line';
+      if (i === 0) {
+        appendCombatLineContent(lineEl, lineText, linePrefix);
+      } else {
+        // 后续行：用与首行相同结构的隐藏元素对齐"对"字
+        if (firstLineSkillMatch) {
+          const indent = document.createElement('span');
+          indent.className = 'chat-merged-combat-indent';
+          indent.append(linePrefix + firstLineSkillMatch[1]);
+          indent.appendChild(buildSkillPill(firstLineSkillMatch[2]));
+          indent.append(firstLineSkillMatch[3].slice(0, -1)); // " 对" → " "
+          lineEl.appendChild(indent);
+        }
+        appendCombatLineContent(lineEl, lineText, '');
+      }
+      fragment.appendChild(lineEl);
+    }
     return fragment;
   }
 
-  fragment.append(linePrefix + parsedDamage.before + parsedDamage.connector);
+  if (entry.kind === 'combat') {
+    appendCombatLineContent(fragment, entry.text, linePrefix);
+    return fragment;
+  }
+
+  fragment.append(linePrefix + entry.text);
+  return fragment;
+}
+
+/** 匹配"你对{target}施展{skill}"格式。 */
+const BEFORE_FULL_PATTERN = /^(你对)(.+?)(施展)(.+)$/;
+/** 匹配"你对{target}发起攻击"格式。 */
+const BEFORE_ATTACK_PATTERN = /^(你对)(.+?)(发起攻击)$/;
+/** 匹配"{monster}对你施展{skill}"或"{monster}对你发起攻击"格式。 */
+const BEFORE_MONSTER_PATTERN = /^(.+?)(对你)(施展(.+)|发起攻击)$/;
+/** 匹配"你施展{skill} 对{target}"格式（多目标首行）。 */
+const BEFORE_MULTI_FIRST_PATTERN = /^(你施展)(.+?)( 对)(.+)$/;
+/** 匹配"对{target}"格式（多目标后续行）。 */
+const BEFORE_MULTI_SUB_PATTERN = /^(对)(.+)$/;
+
+/** 渲染 before 部分，提取目标名和技能名为胶囊。 */
+function appendBeforeWithPills(container: DocumentFragment | HTMLElement, before: string, prefix: string): void {
+  // 格式1: 你对{target}施展{skill}
+  const fullMatch = BEFORE_FULL_PATTERN.exec(before);
+  if (fullMatch) {
+    container.append(prefix + fullMatch[1]);
+    container.appendChild(buildTargetPill(fullMatch[2]));
+    container.append(fullMatch[3]);
+    container.appendChild(buildSkillPill(fullMatch[4]));
+    return;
+  }
+  // 格式2: 你对{target}发起攻击
+  const attackMatch = BEFORE_ATTACK_PATTERN.exec(before);
+  if (attackMatch) {
+    container.append(prefix + attackMatch[1]);
+    container.appendChild(buildTargetPill(attackMatch[2]));
+    container.appendChild(buildSkillPill(attackMatch[3]));
+    return;
+  }
+  // 格式3: {monster}对你施展{skill} 或 {monster}对你发起攻击
+  const monsterMatch = BEFORE_MONSTER_PATTERN.exec(before);
+  if (monsterMatch) {
+    container.append(prefix);
+    container.appendChild(buildTargetPill(monsterMatch[1]));
+    container.append(monsterMatch[2]);
+    if (monsterMatch[4]) {
+      container.append('施展');
+      container.appendChild(buildSkillPill(monsterMatch[4]));
+    } else {
+      container.appendChild(buildSkillPill('发起攻击'));
+    }
+    return;
+  }
+  // 格式4: 你施展{skill} 对{target}
+  const multiFirstMatch = BEFORE_MULTI_FIRST_PATTERN.exec(before);
+  if (multiFirstMatch) {
+    container.append(prefix + multiFirstMatch[1]);
+    container.appendChild(buildSkillPill(multiFirstMatch[2]));
+    container.append(multiFirstMatch[3]);
+    container.appendChild(buildTargetPill(multiFirstMatch[4]));
+    return;
+  }
+  // 格式5: 对{target}
+  const subMatch = BEFORE_MULTI_SUB_PATTERN.exec(before);
+  if (subMatch) {
+    container.append(prefix + subMatch[1]);
+    container.appendChild(buildTargetPill(subMatch[2]));
+    return;
+  }
+  container.append(prefix + before);
+}
+
+/** 渲染单行战斗消息内容（含目标胶囊、技能胶囊和标签小胶囊）。 */
+function appendCombatLineContent(container: DocumentFragment | HTMLElement, text: string, prefix: string): void {
+  const parsed = parseCombatDamageSegment(text);
+  if (!parsed) {
+    // 非伤害格式的战斗消息，尝试提取目标名和技能名
+    appendBeforeWithPills(container, text, prefix);
+    return;
+  }
+
+  // 渲染 before 部分（含目标胶囊和技能胶囊）
+  appendBeforeWithPills(container, parsed.before, prefix);
+
+  container.append(parsed.connector);
+  container.appendChild(buildDamagePill(parsed));
+  if (parsed.suffixText) container.append(` ${parsed.suffixText}`);
+
+  // 渲染 after 部分（标签小胶囊替代括号）
+  if (parsed.after) {
+    const labelsMatch = /（([^）]+)）/.exec(parsed.after);
+    if (labelsMatch) {
+      const beforeLabels = parsed.after.slice(0, labelsMatch.index);
+      const afterLabels = parsed.after.slice(labelsMatch.index + labelsMatch[0].length);
+      if (beforeLabels) container.append(beforeLabels);
+      const labels = labelsMatch[1].split('、');
+      for (const label of labels) {
+        container.appendChild(buildLabelBadge(label));
+      }
+      if (afterLabels) container.append(afterLabels);
+    } else {
+      container.append(parsed.after);
+    }
+  }
+}
+
+/** 构建目标名胶囊。 */
+function buildTargetPill(name: string): HTMLSpanElement {
+  const pill = document.createElement('span');
+  pill.className = 'chat-target-pill';
+  pill.textContent = name;
+  return pill;
+}
+
+/** 构建技能名胶囊。 */
+function buildSkillPill(name: string): HTMLSpanElement {
+  const pill = document.createElement('span');
+  pill.className = 'chat-skill-pill';
+  pill.textContent = name;
+  return pill;
+}
+
+/** 构建战斗标签小胶囊（破招/暴击/击杀等）。 */
+function buildLabelBadge(label: string): HTMLSpanElement {
+  const badge = document.createElement('span');
+  badge.className = 'chat-combat-badge';
+  if (label === '击杀') badge.classList.add('chat-combat-badge--kill');
+  else if (label === '暴击') badge.classList.add('chat-combat-badge--crit');
+  else if (label === '破招') badge.classList.add('chat-combat-badge--broken');
+  badge.textContent = label;
+  return badge;
+}
+
+/** 构建伤害数值胶囊元素。 */
+function buildDamagePill(parsed: ParsedCombatDamageSegment): HTMLSpanElement {
   const damagePill = document.createElement('span');
-  const color = parsedDamage.color;
+  const color = parsed.color;
   damagePill.className = 'chat-damage-pill';
-  damagePill.textContent = parsedDamage.pillText;
-  damagePill.setAttribute('aria-label', `${parsedDamage.tooltipTitle}${parsedDamage.actualAmount}，原始 ${parsedDamage.rawAmount}`);
-  damagePill.dataset.chatDamageTooltipTitle = parsedDamage.tooltipTitle;
+  damagePill.textContent = parsed.pillText;
+  damagePill.setAttribute('aria-label', `${parsed.tooltipTitle}${parsed.actualAmount}，原始 ${parsed.rawAmount}`);
+  damagePill.dataset.chatDamageTooltipTitle = parsed.tooltipTitle;
   damagePill.dataset.chatDamageTooltipLines = [
-    ...parsedDamage.tooltipLines,
-    ...parsedDamage.details,
+    ...parsed.tooltipLines,
+    ...parsed.details,
   ].join('\n');
   damagePill.style.setProperty('--chat-damage-pill-color', color);
   damagePill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
   damagePill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
   damagePill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
-  fragment.appendChild(damagePill);
-  if (parsedDamage.suffixText) {
-    fragment.append(` ${parsedDamage.suffixText}`);
-  }
-  if (parsedDamage.after) {
-    fragment.append(parsedDamage.after);
-  }
-  return fragment;
+  return damagePill;
 }
 
 /** 聊天界面实现，负责频道切换、消息缓存与滚动状态。 */

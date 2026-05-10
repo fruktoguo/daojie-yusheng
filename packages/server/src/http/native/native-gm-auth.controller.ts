@@ -56,7 +56,6 @@ interface RuntimeGmAuthServicePort {
 
 
 @Controller(GM_HTTP_CONTRACT.authBasePath)
-@Reflect.metadata('design:paramtypes', [RuntimeGmAuthService, NativeAuthRateLimitService])
 export class NativeGmAuthController {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。

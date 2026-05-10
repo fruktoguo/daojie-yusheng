@@ -1,32 +1,15 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeUseItemService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-const pvp_1 = require("../../constants/gameplay/pvp");
-const map_template_repository_1 = require("../map/map-template.repository");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
-let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
+@Injectable()
+export class WorldRuntimeUseItemService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -50,7 +33,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(MapTemplateRepository) templateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -68,7 +55,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
@@ -99,7 +86,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
             return;
         }
         if (count > 1) {
-            throw new common_1.BadRequestException('该物品不支持批量使用');
+            throw new BadRequestException('该物品不支持批量使用');
         }
         this.playerRuntimeService.useItem(playerId, slotIndex);
         if (learnedTechniqueId) {
@@ -143,14 +130,14 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
                 continue;
             }
             if (!this.templateRepository.has(normalizedRef)) {
-                throw new common_1.BadRequestException(`地图解锁目标不存在：${normalizedRef}`);
+                throw new BadRequestException(`地图解锁目标不存在：${normalizedRef}`);
             }
             if (!resolvedMapIds.includes(normalizedRef)) {
                 resolvedMapIds.push(normalizedRef);
             }
         }
         if (resolvedMapIds.length === 0) {
-            throw new common_1.BadRequestException('地图解锁目标不存在');
+            throw new BadRequestException('地图解锁目标不存在');
         }
         return {
             mapIds: resolvedMapIds,
@@ -162,11 +149,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         for (const mapId of mapUnlockIds) {
             if (!this.templateRepository.has(mapId)) {
-                throw new common_1.BadRequestException(`地图解锁目标不存在：${mapId}`);
+                throw new BadRequestException(`地图解锁目标不存在：${mapId}`);
             }
         }
         if (mapUnlockIds.every((mapId) => this.playerRuntimeService.hasUnlockedMap(playerId, mapId))) {
-            throw new common_1.BadRequestException('地图已经解锁');
+            throw new BadRequestException('地图已经解锁');
         }
         for (const mapId of mapUnlockIds) {
             if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
@@ -195,11 +182,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId || !this.templateRepository.has(normalizedMapId)) {
-            throw new common_1.BadRequestException(`复活绑定目标不存在：${normalizedMapId || mapId}`);
+            throw new BadRequestException(`复活绑定目标不存在：${normalizedMapId || mapId}`);
         }
         const changed = this.playerRuntimeService.bindRespawnPoint(playerId, normalizedMapId);
         if (!changed) {
-            throw new common_1.BadRequestException('已经绑定该复活点');
+            throw new BadRequestException('已经绑定该复活点');
         }
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         deps.refreshQuestStates(playerId);
@@ -220,20 +207,20 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         const resourceGains = this.resolveTileResourceGains(item);
         const normalizedCount = normalizeUseItemCount(count, item);
         if (resourceGains.length <= 0) {
-            throw new common_1.BadRequestException(`无法解析物品 ${item.itemId} 的地块资源效果`);
+            throw new BadRequestException(`无法解析物品 ${item.itemId} 的地块资源效果`);
         }
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         if (isProtectedTileResourceUseTile(instance, player.x, player.y)) {
-            throw new common_1.BadRequestException('当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。');
+            throw new BadRequestException('当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。');
         }
         const results = [];
         for (const entry of resourceGains) {
             const totalGain = entry.amount * normalizedCount;
             const nextValue = instance.addTileResource(entry.resourceKey, player.x, player.y, totalGain);
             if (nextValue === null) {
-                throw new common_1.BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源 ${entry.resourceKey}`);
+                throw new BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源 ${entry.resourceKey}`);
             }
             results.push({ ...entry, amount: totalGain, nextValue });
         }
@@ -271,29 +258,20 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         return [];
     }
 };
-exports.WorldRuntimeUseItemService = WorldRuntimeUseItemService;
-exports.WorldRuntimeUseItemService = WorldRuntimeUseItemService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        map_template_repository_1.MapTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeUseItemService);
-
-export { WorldRuntimeUseItemService };
 
 function normalizeUseItemCount(input, item) {
     const count = input === undefined || input === null
         ? 1
         : Math.trunc(Number(input));
     if (!Number.isFinite(count) || count <= 0) {
-        throw new common_1.BadRequestException('使用数量无效');
+        throw new BadRequestException('使用数量无效');
     }
     if (count > 1 && item.allowBatchUse !== true) {
-        throw new common_1.BadRequestException('该物品不支持批量使用');
+        throw new BadRequestException('该物品不支持批量使用');
     }
     const available = Math.trunc(Number(item.count ?? 1));
     if (Number.isFinite(available) && available > 0 && count > available) {
-        throw new common_1.BadRequestException('物品数量不足');
+        throw new BadRequestException('物品数量不足');
     }
     return count;
 }
@@ -312,7 +290,7 @@ function buildTileResourceUseNotice(item, count, results) {
 }
 
 function resolveTileResourceNoticeLabel(resourceKey) {
-    if (resourceKey === pvp_1.REFINED_SHA_RESOURCE_KEY) {
+    if (resourceKey === REFINED_SHA_RESOURCE_KEY) {
         return '煞气';
     }
     if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {

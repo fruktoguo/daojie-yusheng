@@ -6,56 +6,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.genghua_ningfeng",
@@ -120,56 +72,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.guicang_hemai",
@@ -224,56 +128,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.hanxi_ximai",
@@ -333,56 +189,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.houtu_chengyuan",
@@ -438,56 +246,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.liyan_duanxi",
@@ -555,56 +315,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.qingmu_yangmai",
@@ -696,56 +408,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72
-      },
-      {
-        "level": 2,
-        "expFactor": 80
-      },
-      {
-        "level": 3,
-        "expFactor": 88
-      },
-      {
-        "level": 4,
-        "expFactor": 96
-      },
-      {
-        "level": 5,
-        "expFactor": 108
-      },
-      {
-        "level": 6,
-        "expFactor": 120
-      },
-      {
-        "level": 7,
-        "expFactor": 132
-      },
-      {
-        "level": 8,
-        "expFactor": 148
-      },
-      {
-        "level": 9,
-        "expFactor": 164
-      },
-      {
-        "level": 10,
-        "expFactor": 184
-      },
-      {
-        "level": 11,
-        "expFactor": 208
-      },
-      {
-        "level": 12,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 12,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.tingmai_dingxi",

@@ -1,20 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeStateFacadeService = void 0;
-
-const common_1 = require("@nestjs/common");
+import { Injectable } from '@nestjs/common';
 
 /** world-runtime state facade：承接 pending/player-location/instance-registry 薄访问层。 */
-let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
+@Injectable()
+export class WorldRuntimeStateFacadeService {
 /**
  * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
@@ -25,7 +13,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     enqueuePendingCommand(playerId, command, deps) {
         deps.worldRuntimePendingCommandService.enqueuePendingCommand(playerId, command);
-    }    
+    }
     /**
  * getPendingCommand：读取待处理Command。
  * @param playerId 玩家 ID。
@@ -35,7 +23,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getPendingCommand(playerId, deps) {
         return deps.worldRuntimePendingCommandService.getPendingCommand(playerId);
-    }    
+    }
     /**
  * hasPendingCommand：判断待处理Command是否满足条件。
  * @param playerId 玩家 ID。
@@ -45,7 +33,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     hasPendingCommand(playerId, deps) {
         return deps.worldRuntimePendingCommandService.hasPendingCommand(playerId);
-    }    
+    }
     /**
  * clearPendingCommand：执行clear待处理Command相关逻辑。
  * @param playerId 玩家 ID。
@@ -55,7 +43,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     clearPendingCommand(playerId, deps) {
         deps.worldRuntimePendingCommandService.clearPendingCommand(playerId);
-    }    
+    }
     /**
  * getPendingCommandCount：读取待处理Command数量。
  * @param deps 运行时依赖。
@@ -64,7 +52,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getPendingCommandCount(deps) {
         return deps.worldRuntimePendingCommandService.getPendingCommandCount();
-    }    
+    }
     /**
  * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
@@ -74,7 +62,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getPlayerLocation(playerId, deps) {
         return deps.worldRuntimePlayerLocationService.getPlayerLocation(playerId);
-    }    
+    }
     /**
  * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
@@ -85,7 +73,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     setPlayerLocation(playerId, location, deps) {
         deps.worldRuntimePlayerLocationService.setPlayerLocation(playerId, location);
-    }    
+    }
     /**
  * clearPlayerLocation：执行clear玩家位置相关逻辑。
  * @param playerId 玩家 ID。
@@ -95,7 +83,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     clearPlayerLocation(playerId, deps) {
         deps.worldRuntimePlayerLocationService.clearPlayerLocation(playerId);
-    }    
+    }
     /**
  * getPlayerLocationCount：读取玩家位置数量。
  * @param deps 运行时依赖。
@@ -104,7 +92,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getPlayerLocationCount(deps) {
         return deps.worldRuntimePlayerLocationService.getPlayerLocationCount();
-    }    
+    }
     /**
  * listConnectedPlayerIds：读取Connected玩家ID并返回结果。
  * @param deps 运行时依赖。
@@ -113,7 +101,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     listConnectedPlayerIds(deps) {
         return deps.worldRuntimePlayerLocationService.listConnectedPlayerIds();
-    }    
+    }
     /**
  * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
@@ -123,7 +111,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getInstanceRuntime(instanceId, deps) {
         return deps.worldRuntimeInstanceStateService.getInstanceRuntime(instanceId);
-    }    
+    }
     /**
  * setInstanceRuntime：写入Instance运行态。
  * @param instanceId instance ID。
@@ -134,7 +122,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     setInstanceRuntime(instanceId, instance, deps) {
         deps.worldRuntimeInstanceStateService.setInstanceRuntime(instanceId, instance);
-    }    
+    }
     /**
  * listInstanceRuntimes：读取Instance运行态并返回结果。
  * @param deps 运行时依赖。
@@ -143,7 +131,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     listInstanceRuntimes(deps) {
         return deps.worldRuntimeInstanceStateService.listInstanceRuntimes();
-    }    
+    }
     /**
  * listInstanceEntries：读取Instance条目并返回结果。
  * @param deps 运行时依赖。
@@ -152,7 +140,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     listInstanceEntries(deps) {
         return deps.worldRuntimeInstanceStateService.listInstanceEntries();
-    }    
+    }
     /**
  * getInstanceCount：读取Instance数量。
  * @param deps 运行时依赖。
@@ -161,7 +149,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     getInstanceCount(deps) {
         return deps.worldRuntimeInstanceStateService.getInstanceCount();
-    }    
+    }
     /**
  * listDirtyPersistentInstances：读取DirtyPersistentInstance并返回结果。
  * @param deps 运行时依赖。
@@ -170,7 +158,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     listDirtyPersistentInstances(deps) {
         return deps.worldRuntimePersistenceStateService.listDirtyPersistentInstances(deps);
-    }    
+    }
     listDirtyPersistentInstanceDomains(deps) {
         return deps.worldRuntimePersistenceStateService.listDirtyPersistentInstanceDomains(deps);
     }
@@ -183,7 +171,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     buildMapPersistenceSnapshot(instanceId, deps) {
         return deps.worldRuntimePersistenceStateService.buildMapPersistenceSnapshot(instanceId, deps);
-    }    
+    }
     /**
  * markMapPersisted：判断地图Persisted是否满足条件。
  * @param instanceId instance ID。
@@ -193,7 +181,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     markMapPersisted(instanceId, deps) {
         deps.worldRuntimePersistenceStateService.markMapPersisted(instanceId, deps);
-    }    
+    }
     markMapDomainsPersisted(instanceId, domains, deps) {
         deps.worldRuntimePersistenceStateService.markMapDomainsPersisted(instanceId, domains, deps);
     }
@@ -208,7 +196,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     async tickAll(deps) {
         return deps.worldRuntimeFrameService.tickAll(deps);
-    }    
+    }
     /**
  * advanceFrame：执行advance帧相关逻辑。
  * @param frameDurationMs 参数说明。
@@ -219,7 +207,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     async advanceFrame(frameDurationMs, getInstanceTickSpeed, deps) {
         return deps.worldRuntimeFrameService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
-    }    
+    }
     /**
  * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
  * @param durationMs 参数说明。
@@ -229,7 +217,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     recordSyncFlushDuration(durationMs, deps) {
         deps.worldRuntimeFrameService.recordSyncFlushDuration(durationMs);
-    }    
+    }
     /**
  * bootstrapPublicInstances：执行引导PublicInstance相关逻辑。
  * @param deps 运行时依赖。
@@ -238,7 +226,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     bootstrapPublicInstances(deps) {
         deps.worldRuntimeLifecycleService.bootstrapPublicInstances(deps);
-    }    
+    }
     /**
  * restorePublicInstancePersistence：判断restorePublicInstancePersistence是否满足条件。
  * @param deps 运行时依赖。
@@ -247,7 +235,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
 
     async restorePublicInstancePersistence(deps) {
         await deps.worldRuntimeLifecycleService.restorePublicInstancePersistence(deps);
-    }    
+    }
     /**
  * rebuildPersistentRuntimeAfterRestore：判断rebuildPersistent运行态AfterRestore是否满足条件。
  * @param deps 运行时依赖。
@@ -258,9 +246,3 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
         await deps.worldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore(deps);
     }
 };
-exports.WorldRuntimeStateFacadeService = WorldRuntimeStateFacadeService;
-exports.WorldRuntimeStateFacadeService = WorldRuntimeStateFacadeService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeStateFacadeService);
-
-export { WorldRuntimeStateFacadeService };

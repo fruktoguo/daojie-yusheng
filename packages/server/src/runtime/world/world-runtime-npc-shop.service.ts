@@ -1,30 +1,14 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeNpcShopService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeNpcShopQueryService } from './world-runtime-npc-shop-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
 
 const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
 /** NPC 商店写路径服务：承接购买入队与结算。 */
-let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
+@Injectable()
+export class WorldRuntimeNpcShopService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -43,7 +27,11 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeNpcShopQueryService, durableOperationService = null) {
+    constructor(
+        playerRuntimeService: PlayerRuntimeService,
+        worldRuntimeNpcShopQueryService: WorldRuntimeNpcShopQueryService,
+        @Inject(DurableOperationService) durableOperationService: DurableOperationService | null = null,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.durableOperationService = durableOperationService;
@@ -65,10 +53,10 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         const itemId = typeof itemIdInput === 'string' ? itemIdInput.trim() : '';
         if (!npcId) {
-            throw new common_1.BadRequestException('场景人物 ID 不能为空');
+            throw new BadRequestException('场景人物 ID 不能为空');
         }
         if (!itemId) {
-            throw new common_1.BadRequestException('物品 ID 不能为空');
+            throw new BadRequestException('物品 ID 不能为空');
         }
         const quantity = normalizeShopQuantity(quantityInput);
         deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
@@ -133,14 +121,6 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         return deps.getPlayerViewOrThrow(playerId);
     }
 };
-exports.WorldRuntimeNpcShopService = WorldRuntimeNpcShopService;
-exports.WorldRuntimeNpcShopService = WorldRuntimeNpcShopService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService])
-], WorldRuntimeNpcShopService);
-
-export { WorldRuntimeNpcShopService };
 
 function applyNpcShopPurchaseToInventory(existingItems, item) {
     const nextItems = Array.isArray(existingItems)

@@ -1,26 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var MarketPersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MarketPersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const pg_1 = require("pg");
-
-const shared_1 = require("@mud/shared");
-
-const env_alias_1 = require("../config/env-alias");
-const schema_bigint_migration_1 = require("./schema-bigint-migration");
+import { Injectable, Logger } from '@nestjs/common';
+import { Pool } from 'pg';
+import { isValidMarketPrice } from '@mud/shared';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { ensureBigintColumnType } from './schema-bigint-migration';
 
 const MARKET_ORDER_TABLE = 'server_market_order';
 const MARKET_TRADE_TABLE = 'server_market_trade_history';
@@ -28,12 +10,13 @@ const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 
 /** 坊市持久化服务：管理订单、交易历史和仓库数据的持久化一致性。 */
-let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersistenceService {
+@Injectable()
+export class MarketPersistenceService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(MarketPersistenceService_1.name);
+    logger = new Logger(MarketPersistenceService.name);
     /**
  * pool：缓存或索引容器。
  */
@@ -52,13 +35,12 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             this.logger.log('坊市持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new pg_1.Pool({
+        this.pool = new Pool({
             connectionString: databaseUrl,
         });
         try {
@@ -412,7 +394,6 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     async safeClosePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.enabled = false;
@@ -420,11 +401,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             await pool.end().catch(() => undefined);
         }
     }
-};
-exports.MarketPersistenceService = MarketPersistenceService;
-exports.MarketPersistenceService = MarketPersistenceService = MarketPersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], MarketPersistenceService);
+}
 /**
  * normalizeMarketOrder：规范化或转换坊市订单。
  * @param raw 参数说明。
@@ -467,7 +444,6 @@ function normalizeMarketOrder(raw) {
         auction: normalizeAuctionPayload(candidate.auction),
     };
 }
-export { MarketPersistenceService };
 /** 规范化订单 raw_payload 中的拍卖状态。 */
 function normalizeAuctionPayload(raw) {
     if (!raw || typeof raw !== 'object') {
@@ -543,9 +519,8 @@ function normalizeTradeRecord(raw) {
 function normalizeUnitPrice(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const unitPrice = Number(value ?? 1);
-    if (!(0, shared_1.isValidMarketPrice)(unitPrice)) {
+    if (!isValidMarketPrice(unitPrice)) {
         return 1;
     }
     return unitPrice;
@@ -641,9 +616,9 @@ async function ensureMarketTables(pool) {
             updated_at timestamptz NOT NULL DEFAULT now()
           )
         `);
-        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'slot_index');
-        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'count');
-        await (0, schema_bigint_migration_1.ensureBigintColumnType)(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'enhance_level');
+        await ensureBigintColumnType(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'slot_index');
+        await ensureBigintColumnType(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'count');
+        await ensureBigintColumnType(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, 'enhance_level');
         await client.query(`
           CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
           ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)
@@ -760,4 +735,3 @@ function normalizeStructuredStorageItem(row) {
             enhanceLevel: normalizeEnhanceLevel(row),
         };
 }
-//# sourceMappingURL=market-persistence.service.js.map

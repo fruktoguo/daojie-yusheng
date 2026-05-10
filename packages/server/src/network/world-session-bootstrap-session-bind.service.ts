@@ -31,6 +31,7 @@ export class WorldSessionBootstrapSessionBindService {
         @Inject(WorldSessionBootstrapContractService)
         private readonly contractService: WorldSessionBootstrapContractService | null = null,
         @Optional()
+        @Inject(WorldSessionService)
         private readonly worldSessionService: WorldSessionService | null = null,
     ) {}
 

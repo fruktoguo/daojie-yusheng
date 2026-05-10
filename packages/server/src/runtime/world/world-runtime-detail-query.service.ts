@@ -1,34 +1,12 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeDetailQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
-
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const player_buff_projection_helpers_1 = require("../player/player-buff-projection.helpers");
-const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
+import { Injectable } from '@nestjs/common';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, parseQiResourceKey } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
+import { projectVisiblePlayerBuffs } from '../player/player-buff-projection.helpers';
+import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 
 const {
     cloneVisibleBuff,
@@ -47,7 +25,8 @@ const {
 } = world_runtime_path_planning_helpers_1;
 
 /** 世界运行时详情查询服务：承接只读 detail / tile-detail 组装。 */
-let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
+@Injectable()
+export class WorldRuntimeDetailQueryService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -71,7 +50,11 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
+    constructor(
+        contentTemplateRepository: ContentTemplateRepository,
+        templateRepository: MapTemplateRepository,
+        playerRuntimeService: PlayerRuntimeService,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -170,7 +153,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                     qi: target.qi,
                     maxQi: target.maxQi,
                     observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                    buffs: (0, player_buff_projection_helpers_1.projectVisiblePlayerBuffs)(target),
+                    buffs: projectVisiblePlayerBuffs(target),
                 },
             };
         }
@@ -315,7 +298,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                 qi: target.qi,
                 maxQi: target.maxQi,
                 observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                buffs: (0, player_buff_projection_helpers_1.projectVisiblePlayerBuffs)(target),
+                buffs: projectVisiblePlayerBuffs(target),
             });
         }
         for (const monsterView of monsters) {
@@ -399,15 +382,6 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
         };
     }
 };
-exports.WorldRuntimeDetailQueryService = WorldRuntimeDetailQueryService;
-exports.WorldRuntimeDetailQueryService = WorldRuntimeDetailQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        map_template_repository_1.MapTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeDetailQueryService);
-
-export { WorldRuntimeDetailQueryService };
 
 function buildTileRuntimeResources(entries, aura, viewer) {
     const resources = entries
@@ -416,9 +390,9 @@ function buildTileRuntimeResources(entries, aura, viewer) {
         && Number.isFinite(entry.value)
         && entry.value > 0)
         .map((entry) => {
-        const parsed = (0, shared_1.parseQiResourceKey)(entry.resourceKey);
+        const parsed = parseQiResourceKey(entry.resourceKey);
         const projection = parsed && viewer
-            ? (0, world_runtime_qi_projection_helpers_1.resolvePlayerQiResourceProjection)(viewer, entry.resourceKey)
+            ? resolvePlayerQiResourceProjection(viewer, entry.resourceKey)
             : null;
         if (projection?.visibility === 'hidden') {
             return null;
@@ -426,7 +400,7 @@ function buildTileRuntimeResources(entries, aura, viewer) {
         const value = Math.max(0, Math.trunc(entry.value));
         const effectiveValue = projection
             ? (projection.visibility === 'absorbable'
-                ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, entry.resourceKey, value)
+                ? projectPlayerQiResourceValue(viewer, entry.resourceKey, value)
                 : 0)
             : value;
         return {
@@ -435,9 +409,9 @@ function buildTileRuntimeResources(entries, aura, viewer) {
             value,
             effectiveValue,
             level: projection?.visibility === 'absorbable'
-                ? (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
+                ? getAuraLevel(effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE)
                 : !projection && parsed
-                    ? (0, shared_1.getAuraLevel)(value, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
+                    ? getAuraLevel(value, DEFAULT_AURA_LEVEL_BASE_VALUE)
                     : undefined,
             sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
         };
@@ -451,14 +425,14 @@ function buildTileRuntimeResources(entries, aura, viewer) {
     const resourceKey = 'aura.refined.neutral';
     const value = Math.max(0, Math.trunc(aura));
     const effectiveValue = viewer
-        ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, resourceKey, value)
+        ? projectPlayerQiResourceValue(viewer, resourceKey, value)
         : value;
     return [{
         key: resourceKey,
         label: '灵气',
         value,
         effectiveValue,
-        level: (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
+        level: getAuraLevel(effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE),
     }];
 }
 
@@ -468,7 +442,7 @@ function buildTileRuntimeAuraLevel(resources, aura, viewer) {
         let projectedQiValue = 0;
         let hasProjectableQiResource = false;
         for (const resource of resources) {
-            const parsed = (0, shared_1.parseQiResourceKey)(resource.key);
+            const parsed = parseQiResourceKey(resource.key);
             const effectiveValue = Math.max(0, Math.trunc(resource.effectiveValue ?? 0));
             if (!parsed || effectiveValue <= 0) {
                 continue;
@@ -477,14 +451,14 @@ function buildTileRuntimeAuraLevel(resources, aura, viewer) {
             projectedQiValue += effectiveValue;
         }
         if (hasProjectableQiResource) {
-            return (0, shared_1.getAuraLevel)(projectedQiValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+            return getAuraLevel(projectedQiValue, DEFAULT_AURA_LEVEL_BASE_VALUE);
         }
     }
     if (!viewer) {
-        return (0, shared_1.getAuraLevel)(rawAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+        return getAuraLevel(rawAura, DEFAULT_AURA_LEVEL_BASE_VALUE);
     }
-    const effectiveValue = (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, 'aura.refined.neutral', rawAura);
-    return (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+    const effectiveValue = projectPlayerQiResourceValue(viewer, 'aura.refined.neutral', rawAura);
+    return getAuraLevel(effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE);
 }
 
 function resolveTileResourceLabel(resourceKey, parsed) {

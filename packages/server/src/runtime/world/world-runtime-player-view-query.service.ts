@@ -1,46 +1,16 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") {
-        r = Reflect.decorate(decorators, target, key, desc);
-    }
-    else {
-        for (var i = decorators.length - 1; i >= 0; i--) {
-            if (d = decorators[i]) {
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-            }
-        }
-    }
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") {
-        return Reflect.metadata(k, v);
-    }
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePlayerViewQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_loot_container_service_1 = require("./world-runtime-loot-container.service");
-
-const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Injectable } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeLootContainerService } from './world-runtime-loot-container.service';
+import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
     compareStableStrings,
 } = world_runtime_normalization_helpers_1;
 
 /** 世界运行时玩家视图查询服务：承接玩家视野与已准备拾取窗口状态的只读拼装。 */
-let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryService {
+@Injectable()
+export class WorldRuntimePlayerViewQueryService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -64,7 +34,11 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeLootContainerService, worldRuntimeNpcQuestInteractionQueryService) {
+    constructor(
+        playerRuntimeService: PlayerRuntimeService,
+        worldRuntimeLootContainerService: WorldRuntimeLootContainerService,
+        worldRuntimeNpcQuestInteractionQueryService: WorldRuntimeNpcQuestInteractionQueryService,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
@@ -105,7 +79,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
-        const view = this.getPlayerView(runtime, playerId);
+        const view = this.getPlayerView(runtime, playerId, undefined);
         if (!player || !view || !player.instanceId) {
             return null;
         }
@@ -178,15 +152,6 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         return decorateOverlayParentView(runtime, decorated);
     }
 };
-exports.WorldRuntimePlayerViewQueryService = WorldRuntimePlayerViewQueryService;
-exports.WorldRuntimePlayerViewQueryService = WorldRuntimePlayerViewQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
-        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService])
-], WorldRuntimePlayerViewQueryService);
-
-export { WorldRuntimePlayerViewQueryService };
 
 function isFormationVisibleInView(view, formation) {
     const x = Math.trunc(Number(formation?.x));

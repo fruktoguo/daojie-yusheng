@@ -1,27 +1,10 @@
-// @ts-nocheck
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SuggestionRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const crypto_1 = require("crypto");
-
-const suggestion_persistence_service_1 = require("../../persistence/suggestion-persistence.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { SuggestionPersistenceService } from '../../persistence/suggestion-persistence.service';
 
 /** 建议反馈运行时：负责建议、投票、回复和状态同步。 */
-let SuggestionRuntimeService = class SuggestionRuntimeService {
+@Injectable()
+export class SuggestionRuntimeService {
     /** 持久化服务，负责读写建议文档。 */
     suggestionPersistenceService;
     /** 当前全部建议。 */
@@ -31,7 +14,9 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
     /** 串行化建议写操作。 */
     mutationQueue = Promise.resolve();
     /** 注入建议持久化服务。 */
-    constructor(suggestionPersistenceService) {
+    constructor(
+        @Inject(SuggestionPersistenceService) suggestionPersistenceService: any,
+    ) {
         this.suggestionPersistenceService = suggestionPersistenceService;
     }
     /** 模块初始化时从持久化回填建议列表。 */
@@ -41,7 +26,6 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
     /** 重新读取建议文档。 */
     async reloadFromPersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const loaded = await this.suggestionPersistenceService.loadSuggestions();
         if (!loaded) {
@@ -62,7 +46,6 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
     async create(authorId, authorName, title, description) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedTitle = String(title ?? '').trim();
 
         const normalizedDescription = String(description ?? '').trim();
@@ -72,7 +55,7 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
         return this.runExclusive(async () => {
 
             const suggestion = {
-                id: (0, crypto_1.randomUUID)(),
+                id: randomUUID(),
                 authorId,
                 authorName: authorName.trim() || authorId,
                 title: normalizedTitle,
@@ -121,7 +104,6 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
     async addReply(suggestionId, authorType, authorId, authorName, content) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedContent = String(content ?? '').trim();
         if (!normalizedContent) {
             return null;
@@ -145,7 +127,7 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
             }
 
             const reply = {
-                id: (0, crypto_1.randomUUID)(),
+                id: randomUUID(),
                 authorType,
                 authorId,
                 authorName: authorName.trim() || authorId,
@@ -225,7 +207,6 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
     async runExclusive(action) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const previous = this.mutationQueue;
 
         let release;
@@ -241,11 +222,6 @@ let SuggestionRuntimeService = class SuggestionRuntimeService {
         }
     }
 };
-exports.SuggestionRuntimeService = SuggestionRuntimeService;
-exports.SuggestionRuntimeService = SuggestionRuntimeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [suggestion_persistence_service_1.SuggestionPersistenceService])
-], SuggestionRuntimeService);
 /**
  * cloneSuggestion：构建Suggestion。
  * @param suggestion 参数说明。
@@ -268,7 +244,6 @@ function cloneSuggestion(suggestion) {
 
 function getLastGmReplyAt(replies) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     let last = 0;
     for (const reply of replies) {
@@ -307,5 +282,3 @@ function compareSuggestions(left, right) {
     }
     return right.createdAt - left.createdAt;
 }
-
-export { SuggestionRuntimeService };

@@ -1,9 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayBootstrapHelper = void 0;
-const shared_1 = require("@mud/shared");
+import { S2C } from '@mud/shared';
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'mainline',
@@ -291,7 +286,7 @@ class WorldGatewayBootstrapHelper {
             return;
         }
         if (typeof client?.emit === 'function') {
-            client.emit(shared_1.S2C.Error, { code, message, ...(extra ?? {}) });
+            client.emit(S2C.Error, { code, message, ...(extra ?? {}) });
         }
     }    
     /** 兼容 stub / 旧实例的 gateway error 下发。 */
@@ -506,6 +501,5 @@ class WorldGatewayBootstrapHelper {
         }
     }
 }
-exports.WorldGatewayBootstrapHelper = WorldGatewayBootstrapHelper;
 
 export { WorldGatewayBootstrapHelper };

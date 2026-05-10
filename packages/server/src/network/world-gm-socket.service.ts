@@ -1,25 +1,9 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGmSocketService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 
 /** GM Socket 下发服务：将 GM 操作转换为 runtime gm state 队列。 */
-let WorldGmSocketService = class WorldGmSocketService {
+@Injectable()
+export class WorldGmSocketService {
 /**
  * runtimeGmStateService：运行态GM状态服务引用。
  */
@@ -31,7 +15,9 @@ let WorldGmSocketService = class WorldGmSocketService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(runtimeGmStateService) {
+    constructor(
+        @Inject(RuntimeGmStateService) runtimeGmStateService: any,
+    ) {
         this.runtimeGmStateService = runtimeGmStateService;
     }
 
@@ -60,9 +46,3 @@ let WorldGmSocketService = class WorldGmSocketService {
         this.runtimeGmStateService.enqueueResetPlayer(requesterPlayerId, playerId);
     }
 };
-exports.WorldGmSocketService = WorldGmSocketService;
-exports.WorldGmSocketService = WorldGmSocketService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [runtime_gm_state_service_1.RuntimeGmStateService])
-], WorldGmSocketService);
-export { WorldGmSocketService };

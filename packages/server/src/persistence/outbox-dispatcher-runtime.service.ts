@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './outbox-event-consumer-registry.service';
@@ -20,6 +20,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
 
   constructor(
     private readonly outboxDispatcherService: OutboxDispatcherService,
+    @Inject(OutboxEventConsumerRegistryService)
     private readonly outboxEventConsumerRegistryService: OutboxEventConsumerRegistryService | null = null,
   ) {}
 

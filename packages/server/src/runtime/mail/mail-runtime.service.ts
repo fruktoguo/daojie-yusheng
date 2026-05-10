@@ -1,35 +1,11 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MailRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-
-const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
-
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
-
-const mail_persistence_service_1 = require("../../persistence/mail-persistence.service");
-
-const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { buildMailPreviewSnippet, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { MailPersistenceService } from '../../persistence/mail-persistence.service';
+import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
 
 /** 邮件运行时：负责系统信件、附件领取和直接邮件的持久化读写。 */
 const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
@@ -37,7 +13,8 @@ const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
 /** 默认系统发件人名称。 */
 const MAIL_DEFAULT_SENDER_LABEL = '司命台';
 
-let MailRuntimeService = class MailRuntimeService {
+@Injectable()
+export class MailRuntimeService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -75,7 +52,14 @@ let MailRuntimeService = class MailRuntimeService {
     /** 正在串行执行的邮箱写任务，避免同玩家邮箱写链互相覆盖。 */
     mailboxWriteByPlayerId = new Map();
     /** 注入内容、玩家与邮件持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService, durableOperationService, playerDomainPersistenceService, instanceCatalogService) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(MailPersistenceService) mailPersistenceService: any,
+        @Inject(DurableOperationService) durableOperationService: any,
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any,
+        @Inject(InstanceCatalogService) instanceCatalogService: any,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.mailPersistenceService = mailPersistenceService;
@@ -92,7 +76,6 @@ let MailRuntimeService = class MailRuntimeService {
     /** 读取玩家邮箱，缓存未命中时从持久化层回填。 */
     async ensurePlayerMailbox(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const cached = this.mailboxByPlayerId.get(playerId);
         if (cached) {
@@ -147,7 +130,6 @@ let MailRuntimeService = class MailRuntimeService {
     async getSummary(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const mailbox = await this.ensurePlayerMailbox(playerId);
 
         const visible = this.listVisibleMails(mailbox);
@@ -174,9 +156,9 @@ let MailRuntimeService = class MailRuntimeService {
 
         const mailbox = await this.ensurePlayerMailbox(playerId);
 
-        const filter = (0, shared_1.normalizeMailFilter)(requestedFilter);
+        const filter = normalizeMailFilter(requestedFilter);
 
-        const pageSize = (0, shared_1.normalizeMailPageSize)(requestedPageSize);
+        const pageSize = normalizeMailPageSize(requestedPageSize);
 
         const filtered = this.filterMails(this.listVisibleMails(mailbox), filter);
 
@@ -209,7 +191,7 @@ let MailRuntimeService = class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         return this.runSerializedMailboxWrite(playerId, async () => {
             const mailbox = await this.ensurePlayerMailbox(playerId);
-            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            const normalizedIds = normalizeMailBatchIds(mailIds);
             if (normalizedIds.length === 0) {
                 return {
                     operation: 'markRead',
@@ -262,7 +244,7 @@ let MailRuntimeService = class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         return this.runSerializedMailboxWrite(playerId, async () => {
             const mailbox = await this.ensurePlayerMailbox(playerId);
-            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            const normalizedIds = normalizeMailBatchIds(mailIds);
             if (normalizedIds.length === 0) {
                 return {
                     operation: 'claim',
@@ -471,7 +453,7 @@ let MailRuntimeService = class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         return this.runSerializedMailboxWrite(playerId, async () => {
             const mailbox = await this.ensurePlayerMailbox(playerId);
-            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            const normalizedIds = normalizeMailBatchIds(mailIds);
             if (normalizedIds.length === 0) {
                 return {
                     operation: 'delete',
@@ -558,7 +540,6 @@ let MailRuntimeService = class MailRuntimeService {
     findVisibleMail(mailbox, mailId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedId = String(mailId ?? '').trim();
         if (!normalizedId) {
             return null;
@@ -594,13 +575,13 @@ let MailRuntimeService = class MailRuntimeService {
     /** 把邮件压成列表项视图。 */
     toMailListEntryView(entry) {
 
-        const title = (0, shared_1.renderMailTitlePlain)(entry.templateId, entry.args, entry.fallbackTitle);
+        const title = renderMailTitlePlain(entry.templateId, entry.args, entry.fallbackTitle);
 
-        const body = (0, shared_1.renderMailBodyPlain)(entry.templateId, entry.args, entry.fallbackBody);
+        const body = renderMailBodyPlain(entry.templateId, entry.args, entry.fallbackBody);
         return {
             mailId: entry.mailId,
             title,
-            summary: (0, shared_1.buildMailPreviewSnippet)(body),
+            summary: buildMailPreviewSnippet(body),
             senderLabel: entry.senderLabel,
             createdAt: entry.createdAt,
             expireAt: entry.expireAt,
@@ -634,7 +615,6 @@ let MailRuntimeService = class MailRuntimeService {
     /** 汇总待发送附件，领取失败时返回 null。 */
     resolveAttachmentItems(mails) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const inventoryItems = [];
         for (const mail of mails) {
@@ -690,7 +670,6 @@ let MailRuntimeService = class MailRuntimeService {
     buildNextInventoryItems(playerId, items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
 
         const simulated = player.inventory.items.map((entry) => ({ ...this.contentTemplateRepository.normalizeItem(entry) }));
@@ -699,11 +678,11 @@ let MailRuntimeService = class MailRuntimeService {
 
         const signatureIndex = new Map();
         for (let index = 0; index < simulated.length; index += 1) {
-            signatureIndex.set((0, shared_1.createItemStackSignature)(simulated[index]), index);
+            signatureIndex.set(createItemStackSignature(simulated[index]), index);
         }
         for (const item of items) {
             const normalized = this.contentTemplateRepository.normalizeItem(item);
-            const signature = (0, shared_1.createItemStackSignature)(normalized);
+            const signature = createItemStackSignature(normalized);
             const existingIndex = signatureIndex.get(signature);
             if (existingIndex !== undefined) {
                 simulated[existingIndex].count += normalized.count;
@@ -799,17 +778,6 @@ let MailRuntimeService = class MailRuntimeService {
         return mailbox.mails.length === 0 && Number(mailbox.revision ?? 1) > 1;
     }
 };
-exports.MailRuntimeService = MailRuntimeService;
-exports.MailRuntimeService = MailRuntimeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        mail_persistence_service_1.MailPersistenceService,
-        durable_operation_service_1.DurableOperationService,
-        player_domain_persistence_service_1.PlayerDomainPersistenceService,
-        instance_catalog_service_1.InstanceCatalogService])
-], MailRuntimeService);
-export { MailRuntimeService };
 /**
  * createEmptyMailbox：构建并返回目标对象。
  * @returns 无返回值，直接更新Empty邮件箱相关状态。

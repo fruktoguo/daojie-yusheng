@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export const CombatActorKind = Object.freeze({
   Player: 'player',
   Monster: 'monster',
@@ -80,7 +78,9 @@ export const CombatRejectReason = Object.freeze({
   Unknown: 'unknown',
 });
 
-export function createCombatAction(input = {}) {
+type AnyRecord = Record<string, any>;
+
+export function createCombatAction(input: AnyRecord = {}) {
   return {
     actor: input.actor ?? null,
     actionId: input.actionId ?? null,
@@ -97,7 +97,7 @@ export function createCombatAction(input = {}) {
   };
 }
 
-export function createCombatActionDefinition(input = {}) {
+export function createCombatActionDefinition(input: AnyRecord = {}) {
   return {
     actionId: input.actionId ?? null,
     kind: input.kind ?? CombatActionKind.BasicAttack,
@@ -125,7 +125,7 @@ export function createCombatActionDefinition(input = {}) {
   };
 }
 
-export function createCombatRejectOutcome(input = {}) {
+export function createCombatRejectOutcome(input: AnyRecord = {}) {
   return {
     ok: false,
     phase: input.phase ?? CombatActionPhase.Instant,
@@ -144,7 +144,7 @@ function normalizeOptionalPositiveInteger(value) {
   return Number.isFinite(normalized) && normalized > 0 ? normalized : undefined;
 }
 
-function normalizeCombatEffectDefinition(effect = {}) {
+function normalizeCombatEffectDefinition(effect: AnyRecord = {}) {
   const type = typeof effect?.type === 'string' && effect.type.trim().length > 0
     ? effect.type.trim()
     : CombatEffectKind.Custom;
@@ -159,7 +159,7 @@ function normalizeCombatEffectDefinition(effect = {}) {
   };
 }
 
-export function createCombatSuccessOutcome(input = {}) {
+export function createCombatSuccessOutcome(input: AnyRecord = {}) {
   return {
     ok: true,
     phase: input.phase ?? CombatActionPhase.Instant,

@@ -6,40 +6,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 15
-      },
-      {
-        "level": 2,
-        "expFactor": 17
-      },
-      {
-        "level": 3,
-        "expFactor": 20
-      },
-      {
-        "level": 4,
-        "expFactor": 24
-      },
-      {
-        "level": 5,
-        "expFactor": 28
-      },
-      {
-        "level": 6,
-        "expFactor": 33
-      },
-      {
-        "level": 7,
-        "expFactor": 39
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.scythe_limb",
@@ -161,40 +129,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 18
-      },
-      {
-        "level": 3,
-        "expFactor": 21
-      },
-      {
-        "level": 4,
-        "expFactor": 24
-      },
-      {
-        "level": 5,
-        "expFactor": 28
-      },
-      {
-        "level": 6,
-        "expFactor": 33
-      },
-      {
-        "level": 7,
-        "expFactor": 39
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.venom_fang",
@@ -319,40 +255,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 18
-      },
-      {
-        "level": 3,
-        "expFactor": 20
-      },
-      {
-        "level": 4,
-        "expFactor": 23
-      },
-      {
-        "level": 5,
-        "expFactor": 26
-      },
-      {
-        "level": 6,
-        "expFactor": 30
-      },
-      {
-        "level": 7,
-        "expFactor": 35
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.predator_pounce",
@@ -513,40 +417,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 18
-      },
-      {
-        "level": 3,
-        "expFactor": 21
-      },
-      {
-        "level": 4,
-        "expFactor": 24
-      },
-      {
-        "level": 5,
-        "expFactor": 28
-      },
-      {
-        "level": 6,
-        "expFactor": 33
-      },
-      {
-        "level": 7,
-        "expFactor": 39
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.plume_shot",
@@ -726,40 +598,8 @@
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 18
-      },
-      {
-        "level": 3,
-        "expFactor": 21
-      },
-      {
-        "level": 4,
-        "expFactor": 24
-      },
-      {
-        "level": 5,
-        "expFactor": 28
-      },
-      {
-        "level": 6,
-        "expFactor": 33
-      },
-      {
-        "level": 7,
-        "expFactor": 39
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.bamboo_whip",
@@ -880,52 +720,10 @@
     "name": "赤焰诀",
     "desc": "离火化网罩落，灼脉缠身不绝。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 18
-      },
-      {
-        "level": 2,
-        "expFactor": 19
-      },
-      {
-        "level": 3,
-        "expFactor": 21
-      },
-      {
-        "level": 4,
-        "expFactor": 23
-      },
-      {
-        "level": 5,
-        "expFactor": 25
-      },
-      {
-        "level": 6,
-        "expFactor": 28
-      },
-      {
-        "level": 7,
-        "expFactor": 31
-      },
-      {
-        "level": 8,
-        "expFactor": 34
-      },
-      {
-        "level": 9,
-        "expFactor": 38
-      },
-      {
-        "level": 10,
-        "expFactor": 43
-      },
-      {
-        "level": 11,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 10,
+    "maxLayer": 11,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.redflame_art",
@@ -984,57 +782,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 10,
-    "category": "arts"
+    ]
   },
   {
     "id": "wind_step",
     "name": "踏风步",
     "desc": "借风提身，轻灵游走。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 18
-      },
-      {
-        "level": 3,
-        "expFactor": 20
-      },
-      {
-        "level": 4,
-        "expFactor": 22
-      },
-      {
-        "level": 5,
-        "expFactor": 25
-      },
-      {
-        "level": 6,
-        "expFactor": 29
-      },
-      {
-        "level": 7,
-        "expFactor": 33
-      },
-      {
-        "level": 8,
-        "expFactor": 38
-      },
-      {
-        "level": 9,
-        "expFactor": 44
-      },
-      {
-        "level": 10,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 11,
+    "maxLayer": 10,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.wind_step",
@@ -1052,49 +810,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 11,
-    "category": "arts"
+    ]
   },
   {
     "id": "iron_bone_art",
     "name": "铁骨功",
     "desc": "铁息贯骨，护体续命。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 16
-      },
-      {
-        "level": 2,
-        "expFactor": 19
-      },
-      {
-        "level": 3,
-        "expFactor": 24
-      },
-      {
-        "level": 4,
-        "expFactor": 32
-      },
-      {
-        "level": 5,
-        "expFactor": 38
-      },
-      {
-        "level": 6,
-        "expFactor": 48
-      },
-      {
-        "level": 7,
-        "expFactor": 58
-      },
-      {
-        "level": 8,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 12,
+    "maxLayer": 8,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.iron_bone_art",
@@ -1112,61 +838,17 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 12,
-    "category": "arts"
+    ]
   },
   {
     "id": "cloud_blade",
     "name": "流云刀谱",
     "desc": "身随刀走，刀随风掠，一线截开前路。",
     "grade": "yellow",
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 18
-      },
-      {
-        "level": 2,
-        "expFactor": 20
-      },
-      {
-        "level": 3,
-        "expFactor": 22
-      },
-      {
-        "level": 4,
-        "expFactor": 24
-      },
-      {
-        "level": 5,
-        "expFactor": 27
-      },
-      {
-        "level": 6,
-        "expFactor": 30
-      },
-      {
-        "level": 7,
-        "expFactor": 33
-      },
-      {
-        "level": 8,
-        "expFactor": 39
-      },
-      {
-        "level": 9,
-        "expFactor": 43
-      },
-      {
-        "level": 10,
-        "expFactor": 48
-      },
-      {
-        "level": 11,
-        "expFactor": 0
-      }
-    ],
+    "category": "arts",
+    "realmLv": 13,
+    "maxLayer": 11,
+    "expDifficulty": 1,
     "skills": [
       {
         "id": "skill.cloud_blade",
@@ -1219,8 +901,6 @@
         ],
         "unlockLevel": 1
       }
-    ],
-    "realmLv": 13,
-    "category": "arts"
+    ]
   }
 ]

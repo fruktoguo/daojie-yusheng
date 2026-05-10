@@ -3,1190 +3,160 @@
     "id": "chiqi_ranqiao",
     "name": "赤息燃窍功",
     "desc": "赤息入窍，如烈火烹油，烧开周身关隘。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 6,
-          "strength": 7,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "spirit": 6,
-          "strength": 8,
-          "meridians": 7
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 7,
-          "strength": 8,
-          "meridians": 7
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "spirit": 0.3106,
+      "strength": 0.366,
+      "meridians": 0.3234
+    },
+    "attrFloat": -0.0289,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "jinluo_lifeng",
     "name": "金络砺锋功",
     "desc": "金炁走络如刀锋过石，越磨越利。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "perception": 6,
-          "strength": 9,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "perception": 6,
-          "strength": 9,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "perception": 6,
-          "strength": 9,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "perception": 6,
-          "strength": 9,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "perception": 7,
-          "strength": 9,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 3
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 4
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 4
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 4
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 7,
-          "strength": 10,
-          "meridians": 4
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "perception": 0.3404,
+      "strength": 0.4894,
+      "meridians": 0.1702
+    },
+    "attrFloat": -0.0289,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "ningchao_hushen",
     "name": "凝潮护身经",
     "desc": "引潮入体，层层叠护，如立潮中而不湿衣。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 4,
-          "talent": 5
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 4,
-          "talent": 5
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 4,
-          "talent": 5
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 5
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 9,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 10,
-          "spirit": 5,
-          "talent": 6
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 10,
-          "spirit": 5,
-          "talent": 6
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "constitution": 0.4681,
+      "spirit": 0.2426,
+      "talent": 0.2894
+    },
+    "attrFloat": -0.0289,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "qingteng_huixi",
     "name": "青藤回息诀",
     "desc": "气如青藤绕脉，生生不息，断而再生。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 8,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 8,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 8,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "constitution": 0.4468,
+      "talent": 0.2766,
+      "meridians": 0.2766
+    },
+    "attrFloat": -0.0289,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "zhenyue_huyuan",
     "name": "镇岳护元诀",
     "desc": "借山岳之势镇守丹田，外力加身而我不动。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 23,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 9,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 10,
-          "talent": 5,
-          "strength": 5
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "constitution": 0.4894,
+      "talent": 0.2553,
+      "strength": 0.2553
+    },
+    "attrFloat": -0.0289,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "dimai_fumai",
     "name": "地脉覆脉术",
     "desc": "引地脉之气覆于己身经络，以大地为根、脉络为枝。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 8,
-          "talent": 5,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 8,
-          "talent": 5,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 8,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "constitution": 0.4251,
+      "talent": 0.2834,
+      "meridians": 0.2915
+    },
+    "attrFloat": -0.0276,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "duanjin_zhuixing",
     "name": "断金追星术",
     "desc": "金炁破空如流星追月，一击既出、千里锁敌。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "spirit": 3,
-          "perception": 8,
-          "strength": 8
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "spirit": 3,
-          "perception": 8,
-          "strength": 8
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "spirit": 3,
-          "perception": 8,
-          "strength": 8
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "spirit": 4,
-          "perception": 8,
-          "strength": 9
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 4,
-          "perception": 9,
-          "strength": 9
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "spirit": 0.1822,
+      "perception": 0.3927,
+      "strength": 0.4251
+    },
+    "attrFloat": -0.0276,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "manzhi_jiaoluo",
     "name": "蔓织绞络术",
     "desc": "气如蔓藤绞络，缠敌于无形、束之于方寸。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "perception": 8,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "perception": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "perception": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "perception": 9,
-          "talent": 6,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "perception": 9,
-          "talent": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "perception": 9,
-          "talent": 7,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 9,
-          "talent": 7,
-          "meridians": 6
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "perception": 0.413,
+      "talent": 0.3036,
+      "meridians": 0.2834
+    },
+    "attrFloat": -0.0276,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "xuanjing_luoyin",
     "name": "玄镜落印诀",
     "desc": "心如玄镜，映照万物；一念落印，敌踪无所遁形。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "spirit": 7,
-          "perception": 8,
-          "talent": 3
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "spirit": 8,
-          "perception": 8,
-          "talent": 4
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "spirit": 8,
-          "perception": 8,
-          "talent": 4
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 8,
-          "perception": 9,
-          "talent": 4
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "spirit": 0.3846,
+      "perception": 0.4251,
+      "talent": 0.1903
+    },
+    "attrFloat": -0.0276,
+    "maxLayer": 12,
+    "expDifficulty": 1
   },
   {
     "id": "yaohuo_liebo",
     "name": "曜火裂波术",
     "desc": "曜火内敛，蓄至巅峰时裂波而出，焚尽前方一切。",
+    "grade": "yellow",
     "category": "internal",
     "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "spirit": 5,
-          "strength": 9,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "spirit": 5,
-          "strength": 9,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "spirit": 6,
-          "strength": 9,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "spirit": 6,
-          "strength": 9,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 6,
-          "strength": 9,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 5
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 6
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 6,
-          "strength": 10,
-          "meridians": 6
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": []
+    "attrRatio": {
+      "spirit": 0.2834,
+      "strength": 0.4656,
+      "meridians": 0.251
+    },
+    "attrFloat": -0.0276,
+    "maxLayer": 12,
+    "expDifficulty": 1
   }
 ]

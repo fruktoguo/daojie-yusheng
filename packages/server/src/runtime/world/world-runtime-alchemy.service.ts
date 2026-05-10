@@ -1,27 +1,11 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeAlchemyService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
+import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
 
 /** world-runtime alchemy orchestration：承接炼丹写路径、preset 和面板刷新。 */
-let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
+@Injectable()
+export class WorldRuntimeAlchemyService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -45,7 +29,11 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
+        @Inject(WorldRuntimeCraftMutationService) worldRuntimeCraftMutationService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
@@ -86,7 +74,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.startTechniqueActivity(player, activityKind, payload);
             if (!result.ok) {
-                throw new common_1.BadRequestException(result.error ?? `启动${activityLabel}失败`);
+                throw new BadRequestException(result.error ?? `启动${activityLabel}失败`);
             }
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, activityKind, deps);
             return;
@@ -121,7 +109,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
             result = this.craftPanelRuntimeService.startTechniqueActivity(player, activityKind, payload);
             if (!result.ok) {
                 restoreStartAlchemyRollbackState(player, rollbackState, this.playerRuntimeService);
-                throw new common_1.BadRequestException(result.error ?? `启动${activityLabel}失败`);
+                throw new BadRequestException(result.error ?? `启动${activityLabel}失败`);
             }
             const nextActiveJob = buildNextAlchemyActiveJobSnapshot(player);
             const nextInventoryItems = cloneInventoryItems(player.inventory?.items ?? []);
@@ -172,7 +160,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, normalizedActivityKind);
             if (!result.ok) {
-                throw new common_1.BadRequestException(result.error ?? `取消${activityLabel}失败`);
+                throw new BadRequestException(result.error ?? `取消${activityLabel}失败`);
             }
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, normalizedActivityKind, deps);
             return;
@@ -202,10 +190,10 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         const rollbackState = captureStartAlchemyRollbackState(player);
         const activeJob = rollbackState.alchemyJob ? structuredClone(rollbackState.alchemyJob) : null;
         if (!activeJob?.jobRunId) {
-            throw new common_1.BadRequestException(`当前没有可取消的${activityLabel}任务。`);
+            throw new BadRequestException(`当前没有可取消的${activityLabel}任务。`);
         }
         if ((activeJob.jobType === 'forging' ? 'forging' : 'alchemy') !== normalizedActivityKind) {
-            throw new common_1.BadRequestException(`当前没有可取消的${activityLabel}任务。`);
+            throw new BadRequestException(`当前没有可取消的${activityLabel}任务。`);
         }
         player.suppressImmediateDomainPersistence = true;
         let result;
@@ -213,7 +201,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
             result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, normalizedActivityKind);
             if (!result.ok) {
                 restoreStartAlchemyRollbackState(player, rollbackState, this.playerRuntimeService);
-                throw new common_1.BadRequestException(result.error ?? `取消${activityLabel}失败`);
+                throw new BadRequestException(result.error ?? `取消${activityLabel}失败`);
             }
             const nextInventoryItems = cloneInventoryItems(player.inventory?.items ?? []);
             const nextWalletBalances = cloneWalletBalances(player.wallet?.balances ?? []);
@@ -323,7 +311,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const result = this.craftPanelRuntimeService.saveAlchemyPreset(player, payload);
         if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '保存炼制预设失败');
+            throw new BadRequestException(result.error ?? '保存炼制预设失败');
         }
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
@@ -341,7 +329,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const result = this.craftPanelRuntimeService.deleteAlchemyPreset(player, presetId);
         if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '删除炼制预设失败');
+            throw new BadRequestException(result.error ?? '删除炼制预设失败');
         }
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
@@ -372,15 +360,6 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         });
     }
 };
-exports.WorldRuntimeAlchemyService = WorldRuntimeAlchemyService;
-exports.WorldRuntimeAlchemyService = WorldRuntimeAlchemyService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
-], WorldRuntimeAlchemyService);
-
-export { WorldRuntimeAlchemyService };
 
 function cloneInventoryItems(items) {
     return Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];

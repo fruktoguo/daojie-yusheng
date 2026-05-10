@@ -1,30 +1,14 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeActionExecutionService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
-const pvp_1 = require("../../constants/gameplay/pvp");
+import { Inject, Injectable, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeNpcQuestWriteService } from './world-runtime-npc-quest-write.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 
 const { normalizeRuntimeActionId, parseRuntimeInstanceDescriptor } = world_runtime_normalization_helpers_1;
 
 /** world-runtime action execution orchestration：承接动作入口分流与低频 toggle/交互编排。 */
-let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionService {
+@Injectable()
+export class WorldRuntimeActionExecutionService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -42,7 +26,10 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeNpcQuestWriteService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldRuntimeNpcQuestWriteService) worldRuntimeNpcQuestWriteService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
     }    
@@ -66,7 +53,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
                 if (typeof deps.fenceInstanceRuntime === 'function') {
                     deps.fenceInstanceRuntime(instance.meta.instanceId, 'action_execution_lease_check_failed');
                 }
-                throw new common_1.ServiceUnavailableException(`地图实例 ${instance.meta.instanceId} 租约不可写`);
+                throw new ServiceUnavailableException(`地图实例 ${instance.meta.instanceId} 租约不可写`);
             }
         }
 
@@ -74,7 +61,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
 
         const rawActionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!rawActionId) {
-            throw new common_1.BadRequestException('动作 ID 不能为空');
+            throw new BadRequestException('动作 ID 不能为空');
         }
         if (rawActionId.startsWith('npc:')) {
             return this.executeLegacyNpcAction(playerId, rawActionId.slice('npc:'.length), deps);
@@ -90,7 +77,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId.startsWith('tower:tongtian:')) {
             const view = deps.worldRuntimeTongtianTowerService?.executeAction?.(playerId, actionId, deps);
             if (!view) {
-                throw new common_1.BadRequestException('未知的通天塔动作');
+                throw new BadRequestException('未知的通天塔动作');
             }
             if (typeof deps.refreshPlayerContextActions === 'function') {
                 deps.refreshPlayerContextActions(playerId, view);
@@ -125,7 +112,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
             const target = typeof targetInput === 'string' ? targetInput.trim() : '';
             const foundationAmount = Number.parseInt(target, 10);
             if (!Number.isFinite(foundationAmount) || foundationAmount <= 0) {
-                throw new common_1.BadRequestException('底蕴数量不能为空');
+                throw new BadRequestException('底蕴数量不能为空');
             }
             const result = this.playerRuntimeService.infuseBodyTraining(playerId, foundationAmount);
             deps.queuePlayerNotice(playerId, `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, 'success');
@@ -228,7 +215,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId.startsWith('building:start:')) {
             const buildingId = actionId.slice('building:start:'.length).trim();
             if (!buildingId) {
-                throw new common_1.BadRequestException('建筑 ID 不能为空');
+                throw new BadRequestException('建筑 ID 不能为空');
             }
             deps.enqueuePendingCommand(playerId, {
                 kind: 'startBuilding',
@@ -251,11 +238,11 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId.startsWith('npc_quests:')) {
             const npcId = actionId.slice('npc_quests:'.length).trim();
             if (!npcId) {
-                throw new common_1.BadRequestException('场景人物 ID 不能为空');
+                throw new BadRequestException('场景人物 ID 不能为空');
             }
             return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, deps);
         }
-        throw new common_1.BadRequestException(`不支持的动作：${actionId}`);
+        throw new BadRequestException(`不支持的动作：${actionId}`);
     }    
     /**
  * executeLegacyNpcAction：执行executeLegacyNPCAction相关逻辑。
@@ -279,15 +266,15 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
     executeWorldMigration(playerId, targetInput, deps) {
         const linePreset = normalizeWorldMigrationTarget(targetInput);
         if (!linePreset) {
-            throw new common_1.BadRequestException('跨界目标不能为空');
+            throw new BadRequestException('跨界目标不能为空');
         }
         const currentView = deps.getPlayerViewOrThrow(playerId);
         if (!hasNearbyManualPortal(currentView)) {
-            throw new common_1.BadRequestException('需要站在界门附近才能进行世界迁移');
+            throw new BadRequestException('需要站在界门附近才能进行世界迁移');
         }
-        if (linePreset === 'peaceful' && (this.playerRuntimeService.hasActiveBuff?.(playerId, pvp_1.PVP_SHA_INFUSION_BUFF_ID)
-            || this.playerRuntimeService.hasActiveBuff?.(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID))) {
-            throw new common_1.BadRequestException('煞气入体或煞气反噬期间无法迁回虚境');
+        if (linePreset === 'peaceful' && (this.playerRuntimeService.hasActiveBuff?.(playerId, PVP_SHA_INFUSION_BUFF_ID)
+            || this.playerRuntimeService.hasActiveBuff?.(playerId, PVP_SHA_BACKLASH_BUFF_ID))) {
+            throw new BadRequestException('煞气入体或煞气反噬期间无法迁回虚境');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
@@ -303,7 +290,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
             ? player.templateId.trim()
             : currentView?.instance?.templateId;
         if (!targetMapId) {
-            throw new common_1.BadRequestException('当前未处于有效地图，无法切换世界');
+            throw new BadRequestException('当前未处于有效地图，无法切换世界');
         }
         deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
         deps.clearPendingCommand?.(playerId);
@@ -344,14 +331,6 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
 function hasEquippedItem(player, itemId) {
     return (player?.equipment?.slots ?? []).some((entry) => entry?.item?.itemId === itemId);
 }
-exports.WorldRuntimeActionExecutionService = WorldRuntimeActionExecutionService;
-exports.WorldRuntimeActionExecutionService = WorldRuntimeActionExecutionService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService])
-], WorldRuntimeActionExecutionService);
-
-export { WorldRuntimeActionExecutionService };
 
 function normalizeWorldMigrationTarget(targetInput) {
     const normalized = typeof targetInput === 'string' ? targetInput.trim() : '';

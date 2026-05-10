@@ -1,38 +1,15 @@
-// @ts-nocheck
-"use strict";
 /** GM 状态聚合器：把玩家、地图与运行时性能信息拼成 GM 面板快照。 */
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeGmStateService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared");
-
-const os = require("os");
-const v8 = require("v8");
-
-const next_gm_contract_1 = require("../../http/native/native-gm-contract");
-
-const world_session_service_1 = require("../../network/world-session.service");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_service_1 = require("../world/world-runtime.service");
-
-const next_gm_constants_1 = require("../../http/native/native-gm.constants");
+import { Injectable } from '@nestjs/common';
+import { C2S, S2C } from '@mud/shared';
+import { cpus, loadavg, uptime } from 'os';
+import { serialize } from 'v8';
+import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
+import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
+import { WorldSessionService } from '../../network/world-session.service';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeService } from '../world/world-runtime.service';
 
 const EMPTY_CPU_BREAKDOWN = [];
 
@@ -57,10 +34,11 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     syncFlushMs: '同步广播',
     otherMs: '其余开销',
 });
-const C2S_NAME_BY_EVENT = buildProtocolNameByEvent(shared_1.C2S);
-const S2C_NAME_BY_EVENT = buildProtocolNameByEvent(shared_1.S2C);
+const C2S_NAME_BY_EVENT = buildProtocolNameByEvent(C2S);
+const S2C_NAME_BY_EVENT = buildProtocolNameByEvent(S2C);
 
-let RuntimeGmStateService = class RuntimeGmStateService {
+@Injectable()
+export class RuntimeGmStateService {
     /** 地图模板仓库，用于把地图 ID 还原成可读名称。 */
     mapTemplateRepository;
     /** 玩家运行时仓库，提供在线玩家快照。 */
@@ -84,7 +62,12 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     /** 运行态内存画像缓存过期时间。 */
     lastMemoryEstimateExpiresAt = 0;
     /** 缓存依赖并接入 GM 状态推送链路。 */
-    constructor(mapTemplateRepository, playerRuntimeService, worldRuntimeService, worldSessionService) {
+    constructor(
+        mapTemplateRepository: MapTemplateRepository,
+        playerRuntimeService: PlayerRuntimeService,
+        worldRuntimeService: WorldRuntimeService,
+        worldSessionService: WorldSessionService,
+    ) {
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
@@ -99,7 +82,6 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     /** 标记某个玩家下次需要收到 GM 面板刷新。 */
     queueStatePush(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId) {
@@ -151,14 +133,14 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     queueMutationStatePush(requesterPlayerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!next_gm_contract_1.NATIVE_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
+        if (!NATIVE_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
             return;
         }
         this.queueStatePush(requesterPlayerId);
     }
     /** GM 状态下发固定收敛到主线事件。 */
     getGmStateEvent(client) {
-        return shared_1.S2C.GmState;
+        return S2C.GmState;
     }
     /** GM 面板协议分支固定为主线唯一通道。 */
     resolveGmStateEmission(client) {
@@ -238,7 +220,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         let totalPlayerCount = normalizeNonNegativeCount(runtimePlayers?.size);
         let monsterCount = 0;
 
-        for (const instance of instances) {
+        for (const instance of instances as any[]) {
             const instanceId = typeof instance?.meta?.instanceId === 'string'
                 ? instance.meta.instanceId.trim()
                 : typeof instance?.snapshot === 'function'
@@ -359,7 +341,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
                 dead: player.hp <= 0,
 
                 autoBattle: player.combat.autoBattle === true,
-                isBot: (0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId),
+                isBot: isNativeGmBotPlayerId(player.playerId),
             };
         })
             .sort((left, right) => {
@@ -387,7 +369,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
 
         const summary = this.worldRuntimeService.getRuntimeSummary();
 
-        const loadAvg = os.loadavg();
+        const loadAvg = loadavg();
 
         const memoryUsage = process.memoryUsage();
         const rssBytes = Number(memoryUsage.rss ?? 0);
@@ -431,12 +413,12 @@ let RuntimeGmStateService = class RuntimeGmStateService {
                 windowBusyPercent: roundMetric(Math.max(0, Math.min(100, (tickAvgMs / 1000) * 100))),
             },
             cpu: {
-                cores: os.cpus().length,
+                cores: cpus().length,
                 loadAvg1m: roundMetric(loadAvg[0] ?? 0),
                 loadAvg5m: roundMetric(loadAvg[1] ?? 0),
                 loadAvg15m: roundMetric(loadAvg[2] ?? 0),
                 processUptimeSec: roundMetric(processUptimeSec),
-                systemUptimeSec: roundMetric(os.uptime()),
+                systemUptimeSec: roundMetric(uptime()),
                 userCpuMs: roundMetric(resourceUsage.userCPUTime / 1000),
                 systemCpuMs: roundMetric(resourceUsage.systemCPUTime / 1000),
                 rssMb: bytesToMb(memoryUsage.rss),
@@ -519,15 +501,6 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         bucketByKey.set(label, next);
     }
 };
-exports.RuntimeGmStateService = RuntimeGmStateService;
-exports.RuntimeGmStateService = RuntimeGmStateService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [map_template_repository_1.MapTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_service_1.WorldRuntimeService,
-        world_session_service_1.WorldSessionService])
-], RuntimeGmStateService);
-export { RuntimeGmStateService };
 /**
  * roundMetric：执行roundMetric相关逻辑。
  * @param value 参数说明。
@@ -584,7 +557,7 @@ function estimateSerializedBytes(value) {
         return 0;
     }
     try {
-        return roundMetric(v8.serialize(value).byteLength);
+        return roundMetric(serialize(value).byteLength);
     }
     catch (_error) {
         try {
@@ -597,7 +570,7 @@ function estimateSerializedBytes(value) {
 }
 
 function buildSortedNetworkBuckets(bucketByKey) {
-    return Array.from(bucketByKey.values()).sort((left, right) => {
+    return (Array.from(bucketByKey.values()) as any[]).sort((left, right) => {
         if (right.bytes !== left.bytes) {
             return right.bytes - left.bytes;
         }
@@ -606,7 +579,7 @@ function buildSortedNetworkBuckets(bucketByKey) {
         }
         return left.label.localeCompare(right.label, 'zh-Hans-CN');
     }).map((entry) => {
-        const bucket = {
+        const bucket: any = {
             key: entry.key,
             label: entry.label,
             bytes: roundMetric(entry.bytes),
@@ -648,7 +621,7 @@ function resolveNetworkPacketLabel(direction, event, payload) {
         ? C2S_NAME_BY_EVENT.get(eventKey)
         : S2C_NAME_BY_EVENT.get(eventKey);
     if (protocolName) {
-        if (direction === 's2c' && eventKey === shared_1.S2C.WorldDelta) {
+        if (direction === 's2c' && eventKey === S2C.WorldDelta) {
             return direction + "_" + resolveWorldDeltaPacketLabel(protocolName, payload);
         }
         return direction + "_" + protocolName;
@@ -739,7 +712,7 @@ function buildNetworkLargePayloadSample(direction, event, measurement) {
     if (!isDevelopmentLikeEnv()) {
         return null;
     }
-    if (direction === 's2c' && measurement.eventKey === shared_1.S2C.GmState) {
+    if (direction === 's2c' && measurement.eventKey === S2C.GmState) {
         return null;
     }
     if (measurement.payloadBytes <= LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES) {

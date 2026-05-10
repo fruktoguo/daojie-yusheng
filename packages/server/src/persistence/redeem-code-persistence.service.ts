@@ -1,23 +1,6 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var RedeemCodePersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RedeemCodePersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const pg_1 = require("pg");
-
-const env_alias_1 = require("../config/env-alias");
+import { Injectable, Logger } from '@nestjs/common';
+import { Pool } from 'pg';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
 
 const REDEEM_CODE_STATE_TABLE = 'server_redeem_code_state';
 const REDEEM_CODE_GROUP_TABLE = 'server_redeem_code_group';
@@ -25,22 +8,23 @@ const REDEEM_CODE_TABLE = 'server_redeem_code';
 const REDEEM_CODE_STATE_KEY = 'global';
 
 /** 兑换码持久化服务：保存/读取兑换码组与兑换码实例状态。 */
-let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class RedeemCodePersistenceService {
+@Injectable()
+export class RedeemCodePersistenceService {
 /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(RedeemCodePersistenceService_1.name);    
+    logger = new Logger(RedeemCodePersistenceService.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * enabled：启用开关或状态标识。
  */
 
-    enabled = false;    
+    enabled = false;
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -49,13 +33,12 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             this.logger.log('兑换码持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new pg_1.Pool({
+        this.pool = new Pool({
             connectionString: databaseUrl,
         });
         try {
@@ -67,7 +50,7 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
             this.logger.error('兑换码持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
             await this.safeClosePool();
         }
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -75,7 +58,7 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
 
     async onModuleDestroy() {
         await this.safeClosePool();
-    }    
+    }
     /**
  * loadDocument：读取Document并返回结果。
  * @returns 无返回值，完成Document的读取/组装。
@@ -135,7 +118,7 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
                 updatedAt: normalizeDbTimestamp(row.updated_at),
             })),
         });
-    }    
+    }
     /**
  * saveDocument：执行saveDocument相关逻辑。
  * @param document 参数说明。
@@ -244,7 +227,7 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
         finally {
             client.release();
         }
-    }    
+    }
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
  * @returns 无返回值，直接更新safeClosePool相关状态。
@@ -253,7 +236,6 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
     async safeClosePool() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const pool = this.pool;
         this.pool = null;
         this.enabled = false;
@@ -261,11 +243,7 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
             await pool.end().catch(() => undefined);
         }
     }
-};
-exports.RedeemCodePersistenceService = RedeemCodePersistenceService;
-exports.RedeemCodePersistenceService = RedeemCodePersistenceService = RedeemCodePersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], RedeemCodePersistenceService);
+}
 
 async function ensureRedeemCodeTables(pool) {
     const client = await pool.connect();
@@ -403,5 +381,3 @@ function normalizeNullableDbTimestamp(value) {
     }
     return normalizeDbTimestamp(value);
 }
-export { RedeemCodePersistenceService };
-//# sourceMappingURL=redeem-code-persistence.service.js.map

@@ -1,25 +1,33 @@
-// @ts-nocheck
-"use strict";
+import { COMBAT_EXPERIENCE_ADVANTAGE_BASELINE, COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD, DEFAULT_RATIO_DIVISOR, getRealmGapDamageMultiplier, percentModifierToMultiplier, ratioValue } from '@mud/shared';
+import { randomInt } from 'node:crypto';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveCombatHit = resolveCombatHit;
-exports.resolveCombatHitForAction = resolveCombatHitForAction;
-exports.resolveCombatExperienceAdvantage = resolveCombatExperienceAdvantage;
-exports.resolveCombatExperienceBonus = resolveCombatExperienceBonus;
-exports.resolveDefenseReductionRate = resolveDefenseReductionRate;
-exports.resolveOpposedCombatRate = resolveOpposedCombatRate;
-exports.setCombatRngForTesting = setCombatRngForTesting;
-exports.resetCombatRngForTesting = resetCombatRngForTesting;
+type CombatNumericStats = Record<string, any>;
+type CombatRatioDivisors = Record<string, any>;
 
-const shared_1 = require("@mud/shared");
-const node_crypto_1 = require("node:crypto");
+interface ResolveCombatHitParams {
+    attackerStats: CombatNumericStats;
+    attackerRatios?: CombatRatioDivisors;
+    attackerRealmLv?: number;
+    attackerCombatExp?: number;
+    targetStats: CombatNumericStats;
+    targetRatios: CombatRatioDivisors;
+    targetRealmLv?: number;
+    targetCombatExp?: number;
+    baseDamage: number;
+    damageKind: 'physical' | 'spell';
+    element?: string;
+    damageMultiplier?: number;
+}
+
+type CombatActionInput = Record<string, any>;
+type CombatRng = (() => number) | null;
 
 const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
 const DEFENSE_REDUCTION_BASELINE = 100;
 
 // 战斗随机源：生产默认走 crypto，smoke 可临时注入确定性 rng 做回归。
 // 注意：测试挂载后必须在 finally 里还原，否则污染后续战斗随机性。
-let combatRngOverride = null;
+let combatRngOverride: CombatRng = null;
 
 function cryptoRandom() {
     if (typeof combatRngOverride === 'function') {
@@ -28,18 +36,20 @@ function cryptoRandom() {
             return Math.min(1, Math.max(0, value));
         }
     }
-    return node_crypto_1.randomInt(0, 2147483647) / 2147483647;
+    return randomInt(0, 2147483647) / 2147483647;
 }
 
-function setCombatRngForTesting(rng) {
+export const __combatPipelineRandom = cryptoRandom;
+
+export function setCombatRngForTesting(rng: CombatRng) {
     combatRngOverride = typeof rng === 'function' ? rng : null;
 }
 
-function resetCombatRngForTesting() {
+export function resetCombatRngForTesting() {
     combatRngOverride = null;
 }
 
-function resolveCombatHit(params) {
+export function resolveCombatHit(params: ResolveCombatHitParams) {
     const attackerStats = params.attackerStats;
     const targetStats = params.targetStats;
     const targetRatios = params.targetRatios;
@@ -81,7 +91,7 @@ function resolveCombatHit(params) {
 
     let damage = baseDamage;
     if (element) {
-        damage = Math.max(1, Math.round(damage * (0, shared_1.percentModifierToMultiplier)(attackerStats.elementDamageBonus[element])));
+        damage = Math.max(1, Math.round(damage * percentModifierToMultiplier(attackerStats.elementDamageBonus[element])));
     }
 
     let defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
@@ -94,7 +104,7 @@ function resolveCombatHit(params) {
     if (element) {
         const elementReduce = Math.max(
             0,
-            (0, shared_1.ratioValue)(targetStats.elementDamageReduce[element], targetRatios.elementDamageReduce[element]),
+            ratioValue(targetStats.elementDamageReduce[element], targetRatios.elementDamageReduce[element]),
         );
         reduction = 1 - (1 - reduction) * (1 - elementReduce);
     }
@@ -106,7 +116,7 @@ function resolveCombatHit(params) {
         damage = Math.max(1, Math.round(damage * critMultiplier));
     }
 
-    const realmGapMultiplier = (0, shared_1.getRealmGapDamageMultiplier)(
+    const realmGapMultiplier = getRealmGapDamageMultiplier(
         Math.max(1, Math.floor(Number(params.attackerRealmLv) || 1)),
         Math.max(1, Math.floor(Number(params.targetRealmLv) || 1)),
     );
@@ -127,7 +137,7 @@ function resolveCombatHit(params) {
     };
 }
 
-function resolveCombatHitForAction(input = {}) {
+export function resolveCombatHitForAction(input: CombatActionInput = {}) {
     const actor = input.actor ?? input.attacker ?? {};
     const target = input.target ?? input.defender ?? {};
     return resolveCombatHit({
@@ -146,56 +156,45 @@ function resolveCombatHitForAction(input = {}) {
     });
 }
 
-function resolveCombatExperienceAdvantage(attackerExp, defenderExp) {
+export function resolveCombatExperienceAdvantage(attackerExp: number, defenderExp: number) {
     return {
         attackerBonus: resolveCombatExperienceBonus(attackerExp, defenderExp),
         defenderBonus: resolveCombatExperienceBonus(defenderExp, attackerExp),
     };
 }
 
-function resolveCombatExperienceBonus(currentExp, oppositeExp) {
-    const baseline = shared_1.COMBAT_EXPERIENCE_ADVANTAGE_BASELINE;
+export function resolveCombatExperienceBonus(currentExp: number, oppositeExp: number) {
+    const baseline = COMBAT_EXPERIENCE_ADVANTAGE_BASELINE;
     const normalizedCurrent = Math.max(0, Math.floor(Number(currentExp) || 0)) + baseline;
     const normalizedOpposite = Math.max(0, Math.floor(Number(oppositeExp) || 0)) + baseline;
     if (normalizedCurrent <= normalizedOpposite) {
         return 0;
     }
     const ratio = normalizedCurrent / normalizedOpposite;
-    const threshold = Math.max(2, shared_1.COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD);
+    const threshold = Math.max(2, COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD);
     return Math.min(1, Math.max(0, (ratio - 1) / (threshold - 1)));
 }
 
-function resolveOpposedCombatRate(value, opposingValue) {
+export function resolveOpposedCombatRate(value: number, opposingValue: number) {
     const normalizedValue = Math.max(0, Number(value) || 0);
     if (normalizedValue <= 0) {
         return 0;
     }
     return Math.max(
         0,
-        (0, shared_1.ratioValue)(
+        ratioValue(
             normalizedValue,
-            Math.max(1, Math.max(0, Number(opposingValue) || 0) + shared_1.DEFAULT_RATIO_DIVISOR),
+            Math.max(1, Math.max(0, Number(opposingValue) || 0) + DEFAULT_RATIO_DIVISOR),
         ),
     );
 }
 
-function resolveDefenseReductionRate(defense, attackBasis) {
+export function resolveDefenseReductionRate(defense: number, attackBasis: number) {
     const normalizedDefense = Math.max(0, Number(defense) || 0);
     if (normalizedDefense <= 0) {
         return 0;
     }
     const normalizedAttackBasis = Math.max(0, Number(attackBasis) || 0);
     const reductionBasis = Math.max(1, normalizedAttackBasis * DEFENSE_REDUCTION_ATTACK_RATIO + DEFENSE_REDUCTION_BASELINE);
-    return Math.max(0, (0, shared_1.ratioValue)(normalizedDefense, reductionBasis));
+    return Math.max(0, ratioValue(normalizedDefense, reductionBasis));
 }
-
-export {
-    resolveCombatHit,
-    resolveCombatHitForAction,
-    resolveCombatExperienceAdvantage,
-    resolveCombatExperienceBonus,
-    resolveDefenseReductionRate,
-    resolveOpposedCombatRate,
-    setCombatRngForTesting,
-    resetCombatRngForTesting,
-};

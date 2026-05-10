@@ -1,25 +1,9 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeLootContainerService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const content_template_repository_1 = require("../../content/content-template.repository");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { computeAdjustedCraftTicks, computeCraftSkillExpGain, resolveAlchemyGradeValue } from '@mud/shared';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
     buildContainerSourceId,
@@ -61,19 +45,20 @@ function computeHerbNativeGatherTicks(container, row) {
     const item = row?.item ?? row;
     const grade = item?.grade ?? container?.grade;
     const level = normalizeHerbLevel(item?.level);
-    const baseTicks = level + (0, shared_1.resolveAlchemyGradeValue)(grade) - 1;
+    const baseTicks = level + resolveAlchemyGradeValue(grade) - 1;
     return Math.max(1, Math.ceil(baseTicks * HERB_GATHER_TIME_RATE));
 }
 
 function computeEffectiveHerbGatherTicks(player, container, row) {
     const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
     const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
-    return (0, shared_1.computeAdjustedCraftTicks)(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
+    return computeAdjustedCraftTicks(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
 }
 
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
-let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
-    logger = new common_1.Logger(WorldRuntimeLootContainerService.name);
+@Injectable()
+export class WorldRuntimeLootContainerService {
+    logger = new Logger(WorldRuntimeLootContainerService.name);
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -101,7 +86,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository, playerRuntimeService) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
     }
@@ -154,7 +142,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         if (!containerStates || containerStates.size === 0) {
             return [];
         }
-        return Array.from(containerStates.values(), (state) => ({
+        return Array.from(containerStates.values(), (state: any) => ({
             sourceId: state.sourceId,
             containerId: state.containerId,
             generatedAtTick: state.generatedAtTick,
@@ -887,7 +875,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             if (pile && Number.isFinite(pile.x) && Number.isFinite(pile.y)) {
                 const dist = Math.max(Math.abs(player.x - pile.x), Math.abs(player.y - pile.y));
                 if (dist > 1) {
-                    throw new common_1.BadRequestException('拾取距离过远，请靠近目标。');
+                    throw new BadRequestException('拾取距离过远，请靠近目标。');
                 }
             }
         }
@@ -922,11 +910,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
             const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
             if (!targetEntry?.item) {
-                throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+                throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
             }
             const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
             if (!taken) {
-                throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+                throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
             }
             await this.grantLootItemsDurably({
                 playerId,
@@ -943,7 +931,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
         if (!item) {
-            throw new common_1.NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+            throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, item);
         deps.refreshQuestStates(playerId);
@@ -967,7 +955,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                 const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);
                 const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
                 if (takenItems.length === 0) {
-                    throw new common_1.BadRequestException('当前没有可拿取的物品');
+                    throw new BadRequestException('当前没有可拿取的物品');
                 }
                 await this.grantLootItemsDurably({
                     playerId,
@@ -985,7 +973,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             }
             const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
             if (takenItems.length === 0) {
-                throw new common_1.BadRequestException('当前没有可拿取的物品');
+                throw new BadRequestException('当前没有可拿取的物品');
             }
             for (const item of takenItems) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -997,7 +985,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const pile = instance.getGroundPileBySourceId(sourceId);
         if (!pile || pile.items.length === 0) {
-            throw new common_1.NotFoundException(`地面来源不存在：${sourceId}`);
+            throw new NotFoundException(`地面来源不存在：${sourceId}`);
         }
         const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
         const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
@@ -1005,7 +993,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         for (const entry of pile.items) {
             if (!canReceiveItemStack(player, entry.item)) {
                 if (takenItems.length === 0) {
-                    throw new common_1.BadRequestException('背包空间不足，无法继续拿取');
+                    throw new BadRequestException('背包空间不足，无法继续拿取');
                 }
                 break;
             }
@@ -1017,7 +1005,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             takenItems.push(taken);
         }
         if (takenItems.length === 0) {
-            throw new common_1.BadRequestException('当前没有可拿取的物品');
+            throw new BadRequestException('当前没有可拿取的物品');
         }
         if (this.canUseDurableInventoryGrant(player, deps)) {
             await this.grantLootItemsDurably({
@@ -1056,14 +1044,14 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
         if (resolved.container.variant === 'herb') {
-            throw new common_1.BadRequestException('草药采集请使用采集动作');
+            throw new BadRequestException('草药采集请使用采集动作');
         }
         const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
         if (!row) {
-            throw new common_1.NotFoundException(`容器物品不存在：${itemKey}，来源 ${sourceId}`);
+            throw new NotFoundException(`容器物品不存在：${itemKey}，来源 ${sourceId}`);
         }
         if (!canReceiveContainerRow(player, row.entries)) {
-            throw new common_1.BadRequestException('背包空间不足，无法拿取该物品');
+            throw new BadRequestException('背包空间不足，无法拿取该物品');
         }
         removeContainerRowEntries(resolved.state.entries, row.entries);
         if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
@@ -1087,7 +1075,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
         if (resolved.container.variant === 'herb') {
-            throw new common_1.BadRequestException('草药采集请使用采集动作');
+            throw new BadRequestException('草药采集请使用采集动作');
         }
         const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
         if (rows.length === 0) {
@@ -1295,31 +1283,31 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 
         const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
         if (!lootWindowTarget) {
-            throw new common_1.BadRequestException('请先打开拿取界面');
+            throw new BadRequestException('请先打开拿取界面');
         }
         if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
             this.playerRuntimeService.clearLootWindow(playerId);
-            throw new common_1.BadRequestException('你已离开拿取范围');
+            throw new BadRequestException('你已离开拿取范围');
         }
         const parsedSource = parseContainerSourceId(sourceId);
         if (!parsedSource) {
-            throw new common_1.BadRequestException('非法容器来源');
+            throw new BadRequestException('非法容器来源');
         }
         if (parsedSource.instanceId !== instanceId) {
-            throw new common_1.BadRequestException('目标容器不在当前实例中');
+            throw new BadRequestException('目标容器不在当前实例中');
         }
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
         const container = instance.getContainerById(parsedSource.containerId);
         if (!container) {
             this.playerRuntimeService.clearLootWindow(playerId);
-            throw new common_1.NotFoundException('目标容器不存在');
+            throw new NotFoundException('目标容器不存在');
         }
         if (container.x !== lootWindowTarget.tileX || container.y !== lootWindowTarget.tileY) {
-            throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
+            throw new BadRequestException('当前拿取界面与目标容器不一致');
         }
         const expectedSourceId = buildContainerSourceId(instanceId, container.id);
         if (sourceId !== expectedSourceId) {
-            throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
+            throw new BadRequestException('当前拿取界面与目标容器不一致');
         }
         return { container, state: this.ensureContainerState(instanceId, container, instance.tick) };
     }    
@@ -1336,23 +1324,16 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
     resolveHerbContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
         if (resolved.container.variant !== 'herb') {
-            throw new common_1.BadRequestException('当前目标不是草药采集点');
+            throw new BadRequestException('当前目标不是草药采集点');
         }
         return resolved;
     }
 };
-exports.WorldRuntimeLootContainerService = WorldRuntimeLootContainerService;
-exports.WorldRuntimeLootContainerService = WorldRuntimeLootContainerService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeLootContainerService);
 /**
  * buildIsContainerSourceId：构建并返回目标对象。
  * @param sourceId source ID。
  * @returns 无返回值，直接更新IContainer来源ID相关状态。
  */
-
 
 function buildIsContainerSourceId(sourceId) {
     return typeof sourceId === 'string' && sourceId.startsWith('container:');
@@ -1559,7 +1540,7 @@ function applyCraftSkillExp(source, skill, amount) {
         return false;
     }
     let changed = false;
-    const currentExpToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+    const currentExpToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
     if (skill.expToNext !== currentExpToNext) {
         skill.expToNext = currentExpToNext;
         changed = true;
@@ -1568,7 +1549,7 @@ function applyCraftSkillExp(source, skill, amount) {
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
         skill.exp -= skill.expToNext;
         skill.level += 1;
-        skill.expToNext = (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, skill.level);
+        skill.expToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
         changed = true;
     }
     return changed || amount > 0;
@@ -1578,11 +1559,11 @@ function applyGatherSkillExp(source, skill, targetLevel, baseActionTicks) {
     if (!skill) {
         return { changed: false, gain: 0 };
     }
-    const gain = shared_1.computeCraftSkillExpGain({
+    const gain = computeCraftSkillExpGain({
         skillLevel: skill.level,
         targetLevel,
         baseActionTicks,
-        getExpToNextByLevel: (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(source, level),
+        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
         successCount: 1,
         failureCount: 0,
         successMultiplier: 1,
@@ -1605,5 +1586,3 @@ function grantCraftRealmProgress(playerRuntimeService, player, amount) {
     playerRuntimeService.applyProgressionResult?.(player, result);
     return result.changed === true;
 }
-
-export { WorldRuntimeLootContainerService };

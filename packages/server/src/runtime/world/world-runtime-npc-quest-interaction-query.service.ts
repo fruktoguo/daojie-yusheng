@@ -1,42 +1,23 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeNpcQuestInteractionQueryService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-
-const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+import { Injectable } from '@nestjs/common';
+import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 
 /** NPC 任务交互查询服务：承接 quest marker 与 npc_quests 动作构造。 */
-let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInteractionQueryService {
+@Injectable()
+export class WorldRuntimeNpcQuestInteractionQueryService {
 /**
  * worldRuntimeQuestQueryService：世界运行态任务Query服务引用。
  */
 
-    worldRuntimeQuestQueryService;    
+    worldRuntimeQuestQueryService;
     /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeQuestQueryService 参数说明。
@@ -44,10 +25,10 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeQuestQueryService, playerRuntimeService) {
+    constructor(worldRuntimeQuestQueryService: WorldRuntimeQuestQueryService, playerRuntimeService: PlayerRuntimeService) {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * resolveNpcQuestMarker：规范化或转换NPC任务Marker。
  * @param playerId 玩家 ID。
@@ -58,7 +39,6 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
 
     resolveNpcQuestMarker(playerId, npcId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
@@ -85,7 +65,7 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
         const npcViews = this.worldRuntimeQuestQueryService.collectNpcQuestViews(playerId, npc);
         const available = npcViews.find((entry) => entry.status === 'available');
         return available ? { line: available.line, state: 'available' } : undefined;
-    }    
+    }
     /**
  * buildNpcQuestContextAction：构建并返回目标对象。
  * @param view 参数说明。
@@ -110,11 +90,3 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
         };
     }
 };
-exports.WorldRuntimeNpcQuestInteractionQueryService = WorldRuntimeNpcQuestInteractionQueryService;
-exports.WorldRuntimeNpcQuestInteractionQueryService = WorldRuntimeNpcQuestInteractionQueryService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeNpcQuestInteractionQueryService);
-
-export { WorldRuntimeNpcQuestInteractionQueryService };

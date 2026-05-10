@@ -1,26 +1,10 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeEquipmentService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
+import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
 
 /** world-runtime equipment orchestration：承接装备穿戴/卸下结算。 */
-let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
+@Injectable()
+export class WorldRuntimeEquipmentService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -33,7 +17,10 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
      * @returns 无返回值，完成实例初始化。
      */
 
-    constructor(playerRuntimeService, durableOperationService = null) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(DurableOperationService) durableOperationService: any = null,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.durableOperationService = durableOperationService;
     }    
@@ -50,14 +37,14 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const lockReason = item.equipSlot
             ? deps.craftPanelRuntimeService.getLockedSlotReason(player, item.equipSlot)
             : null;
         if (lockReason) {
-            throw new common_1.BadRequestException(lockReason);
+            throw new BadRequestException(lockReason);
         }
         const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
@@ -110,12 +97,12 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
 
         const item = this.playerRuntimeService.peekEquippedItem(playerId, slot);
         if (!item) {
-            throw new common_1.NotFoundException(`装备槽位为空：${slot}`);
+            throw new NotFoundException(`装备槽位为空：${slot}`);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const lockReason = deps.craftPanelRuntimeService.getLockedSlotReason(player, slot);
         if (lockReason) {
-            throw new common_1.BadRequestException(lockReason);
+            throw new BadRequestException(lockReason);
         }
         const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
@@ -156,14 +143,6 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }
 };
-exports.WorldRuntimeEquipmentService = WorldRuntimeEquipmentService;
-exports.WorldRuntimeEquipmentService = WorldRuntimeEquipmentService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        durable_operation_service_1.DurableOperationService])
-], WorldRuntimeEquipmentService);
-
-export { WorldRuntimeEquipmentService };
 
 function buildEquipMutation(snapshot, slotIndex) {
     if (!snapshot || !snapshot.inventory || !snapshot.equipment) {

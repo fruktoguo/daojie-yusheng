@@ -1,39 +1,16 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-const crypto_1 = require("node:crypto");
-
-const shared_1 = require("@mud/shared");
-
-const next_gm_constants_1 = require("../../http/native/native-gm.constants");
-const pvp_1 = require("../../constants/gameplay/pvp");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
-
-const map_template_repository_1 = require("../map/map-template.repository");
-
-const player_attributes_service_1 = require("./player-attributes.service");
-
-const player_progression_service_1 = require("./player-progression.service");
-const player_combat_config_helpers_1 = require("./player-combat-config.helpers");
-const player_runtime_state_1 = require("./player-runtime.state");
-const craft_skill_exp_helpers_1 = require("../craft/craft-skill-exp.helpers");
+import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, compileValueStatsToActualStats, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
+import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { MapTemplateRepository } from '../map/map-template.repository';
+import { PlayerAttributesService } from './player-attributes.service';
+import { PlayerProgressionService } from './player-progression.service';
+import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
+import { createPlayerRuntimeStateStore } from './player-runtime.state';
+import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -67,7 +44,8 @@ const PENDING_LOGBOOK_KINDS = new Set([
 ]);
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
-let PlayerRuntimeService = class PlayerRuntimeService {
+@Injectable()
+export class PlayerRuntimeService {
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
     contentTemplateRepository;
     /** 地图仓库，用于出生点、地图索引和传送相关校验。 */
@@ -79,7 +57,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 玩家分域持久化服务，承接低频改动即写。 */
     playerDomainPersistenceService;
     /** 玩家在线态 store，集中托管运行时拥有的热状态。 */
-    runtimeState = (0, player_runtime_state_1.createPlayerRuntimeStateStore)();
+    runtimeState = createPlayerRuntimeStateStore<any>();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
     players = this.runtimeState.players;
     /** 断线重连或死亡切换时，暂存的战斗副作用。 */
@@ -101,7 +79,13 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
     /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
-    constructor(contentTemplateRepository, mapTemplateRepository, playerAttributesService, playerProgressionService, playerDomainPersistenceService = undefined) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(MapTemplateRepository) mapTemplateRepository: any,
+        @Inject(PlayerAttributesService) playerAttributesService: any,
+        @Inject(PlayerProgressionService) playerProgressionService: any,
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any = undefined,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerAttributesService = playerAttributesService;
@@ -111,7 +95,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 读取或创建玩家在线态快照，首次连接时从持久化状态回填。 */
     async loadOrCreatePlayer(playerId, sessionId, loader, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const existing = this.players.get(playerId);
         if (existing) {
@@ -133,14 +116,14 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             && this.playerDomainPersistenceService.isEnabled();
         if (projectionEnabled) {
             if (!buildStarterSnapshot) {
-                throw new common_1.ServiceUnavailableException(`player_domain_snapshot_builder_required:${playerId}`);
+                throw new ServiceUnavailableException(`player_domain_snapshot_builder_required:${playerId}`);
             }
             snapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(playerId, buildStarterSnapshot);
             if (typeof options?.onSnapshotLoaded === 'function') {
                 options.onSnapshotLoaded(snapshot);
             }
             if (!snapshot) {
-                throw new common_1.ServiceUnavailableException(`player_domain_snapshot_required:${playerId}`);
+                throw new ServiceUnavailableException(`player_domain_snapshot_required:${playerId}`);
             }
         }
         else {
@@ -181,7 +164,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 确保玩家在内存里存在，常用于 GM、调试或重连补建状态。 */
     ensurePlayer(playerId, sessionId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const existing = this.players.get(playerId);
         if (existing) {
@@ -238,7 +220,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             },
             x: 0,
             y: 0,
-            facing: shared_1.Direction.South,
+            facing: Direction.South,
             hp: 100,
             maxHp: 100,
             qi: 0,
@@ -248,8 +230,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             combatExp: 0,
             comprehension: 0,
             luck: 0,
-            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(),
-            boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
+            bodyTraining: normalizeBodyTrainingState(),
+            boneAgeBaseYears: DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
             lifespanYears: null,
             realm: createDefaultRealmState(),
@@ -320,14 +302,14 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 revision: 1,
                 quests: [],
             },
-            alchemySkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
-            gatherSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
-            buildingSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
+            alchemySkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            gatherSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            buildingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
             alchemyPresets: [],
             alchemyJob: null,
-            enhancementSkill: createCraftSkillState((0, craft_skill_exp_helpers_1.resolveInitialCraftSkillExpToNext)(this.playerProgressionService)),
+            enhancementSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             enhancementSkillLevel: 1,
             enhancementJob: null,
             enhancementRecords: [],
@@ -344,7 +326,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 更新角色名与展示名，仅在确实变化时递增版本。 */
     setIdentity(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -366,7 +347,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 断开当前会话引用，但保留玩家运行时对象供重连复用。 */
     detachSession(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.players.get(playerId);
         if (player) {
@@ -544,7 +524,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     openLootWindow(playerId, tileX, tileY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         if (player.lootWindowTarget?.tileX === tileX && player.lootWindowTarget.tileY === tileY) {
             return player;
@@ -561,7 +540,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     clearLootWindow(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         if (!player.lootWindowTarget) {
             return player;
@@ -577,7 +555,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     getLootWindowTarget(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayer(playerId);
         if (!player?.lootWindowTarget) {
@@ -606,10 +583,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     getPlayerOrThrow(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.players.get(playerId);
         if (!player) {
-            throw new common_1.NotFoundException(`玩家不存在：${playerId}`);
+            throw new NotFoundException(`玩家不存在：${playerId}`);
         }
         return player;
     }
@@ -744,7 +720,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     replaceEquipmentSlots(playerId, slots) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         const slotMap = new Map(Array.isArray(slots)
             ? slots.filter((entry) => typeof entry?.slot === 'string' && entry.slot.trim()).map((entry) => [
@@ -752,7 +727,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 entry,
             ])
             : []);
-        player.equipment.slots = shared_1.EQUIP_SLOTS.map((slot) => {
+        player.equipment.slots = EQUIP_SLOTS.map((slot) => {
             const entry = slotMap.get(slot) ?? null;
             return {
                 slot,
@@ -846,7 +821,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新advanceCultivation相关状态。
  */
 
-    advanceCultivation(playerId, elapsedTicks = 1, currentTick = 0, options = {}) {
+    advanceCultivation(playerId, elapsedTicks = 1, currentTick = 0, options: any = {}) {
 
         const player = this.getPlayerOrThrow(playerId);
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
@@ -934,7 +909,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     syncFromWorldView(playerId, sessionId, view) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.ensurePlayer(playerId, sessionId);
 
         let anchorChanged = false;
@@ -986,7 +960,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     setContextActions(playerId, actions, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = actions
@@ -1008,7 +981,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     setVitals(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -1061,12 +1033,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     grantItem(playerId, itemId, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
         const item = this.contentTemplateRepository.createItem(normalizedItemId, count);
         if (!item) {
-            throw new common_1.NotFoundException(`物品不存在：${normalizedItemId}`);
+            throw new NotFoundException(`物品不存在：${normalizedItemId}`);
         }
 
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
@@ -1092,7 +1063,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     getWalletBalanceByType(playerId, walletType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         const normalizedWalletType = normalizeWalletType(walletType);
@@ -1129,7 +1099,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     creditWallet(playerId, walletType, amount = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         const normalizedWalletType = normalizeWalletType(walletType);
         const normalizedAmount = Math.max(0, Math.trunc(amount));
@@ -1138,7 +1107,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         const item = this.contentTemplateRepository.createItem(normalizedWalletType, normalizedAmount);
         if (!item) {
-            throw new common_1.NotFoundException(`钱包物品不存在：${normalizedWalletType}`);
+            throw new NotFoundException(`钱包物品不存在：${normalizedWalletType}`);
         }
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
         if (existing) {
@@ -1165,7 +1134,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     debitWallet(playerId, walletType, amount = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         const normalizedWalletType = normalizeWalletType(walletType);
         const normalizedAmount = Math.max(0, Math.trunc(amount));
@@ -1174,7 +1142,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         const inventoryBalance = readInventoryItemCount(player, normalizedWalletType);
         if (inventoryBalance < normalizedAmount) {
-            throw new common_1.NotFoundException(`${normalizedWalletType} 余额不足`);
+            throw new NotFoundException(`${normalizedWalletType} 余额不足`);
         }
         consumeInventoryItemCount(player.inventory.items, normalizedWalletType, normalizedAmount);
         player.inventory.revision += 1;
@@ -1195,7 +1163,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     getInventoryCountByItemId(playerId, itemId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         let total = 0;
@@ -1215,7 +1182,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     canReceiveInventoryItem(playerId, itemId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
@@ -1301,7 +1267,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     queuePendingLogbookMessage(playerId, message) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         this.rollbackExpiredTransfer(player);
         if (player.transferWriteBlocked) {
@@ -1355,7 +1320,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     deferVitalRecoveryUntilTick(playerId, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalizedTick = Number.isFinite(currentTick) ? Math.max(0, Math.trunc(currentTick)) : 0;
@@ -1384,7 +1348,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     acknowledgePendingLogbookMessages(playerId, ids) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         this.rollbackExpiredTransfer(player);
@@ -1449,7 +1412,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     enqueueNotice(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         this.rollbackExpiredTransfer(player);
         if (player.transferWriteBlocked) {
@@ -1482,7 +1444,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     enqueueCombatEffect(playerId, effect) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.players.get(playerId);
         if (!player || !player.sessionId) {
@@ -1517,7 +1478,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     drainCombatEffects(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const queue = this.pendingCombatEffectsByPlayerId.get(playerId);
         if (!queue || queue.length === 0) {
             return [];
@@ -1533,7 +1493,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     drainNotices(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         if (player.notices.queue.length === 0) {
@@ -1555,12 +1514,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     splitInventoryItem(playerId, slotIndex, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const normalizedCount = Math.max(1, Math.trunc(count));
@@ -1587,7 +1545,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     receiveInventoryItem(playerId, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -1616,12 +1573,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     useItem(playerId, slotIndex) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const learnTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -1629,12 +1585,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         let consumed = false;
         if (learnTechniqueId) {
             if (player.techniques.techniques.some((entry) => entry.techId === learnTechniqueId)) {
-                throw new common_1.NotFoundException(`功法已经学会：${learnTechniqueId}`);
+                throw new NotFoundException(`功法已经学会：${learnTechniqueId}`);
             }
 
             const technique = this.contentTemplateRepository.createTechniqueState(learnTechniqueId);
             if (!technique) {
-                throw new common_1.NotFoundException(`功法不存在：${learnTechniqueId}`);
+                throw new NotFoundException(`功法不存在：${learnTechniqueId}`);
             }
             player.techniques.techniques.push(toTechniqueUpdateEntry(technique));
             player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
@@ -1651,7 +1607,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             consumed = this.applyConsumableItem(player, item);
         }
         if (!consumed) {
-            throw new common_1.NotFoundException(`物品 ${item.itemId} 没有可用效果`);
+            throw new NotFoundException(`物品 ${item.itemId} 没有可用效果`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         player.inventory.revision += 1;
@@ -1672,12 +1628,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     consumeInventoryItem(playerId, slotIndex, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, Math.max(1, Math.trunc(count)));
         player.inventory.revision += 1;
@@ -1698,12 +1653,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     consumeInventoryItemByItemId(playerId, itemId, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         let remaining = Math.max(1, Math.trunc(count));
         if (!Number.isFinite(remaining) || remaining <= 0) {
-            throw new common_1.NotFoundException(`使用数量无效：${itemId}`);
+            throw new NotFoundException(`使用数量无效：${itemId}`);
         }
         for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
             const item = player.inventory.items[slotIndex];
@@ -1716,7 +1670,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             remaining -= consumed;
         }
         if (remaining > 0) {
-            throw new common_1.NotFoundException(`背包物品不足：${itemId}`);
+            throw new NotFoundException(`背包物品不足：${itemId}`);
         }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, itemId);
@@ -1736,12 +1690,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     destroyInventoryItem(playerId, slotIndex, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const normalizedCount = Math.max(1, Math.trunc(count));
@@ -1766,7 +1719,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     sortInventory(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         if (player.inventory.items.length <= 1) {
@@ -1804,10 +1756,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     unlockMap(playerId, mapId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
         if (player.unlockedMapIds.includes(mapId)) {
-            throw new common_1.NotFoundException(`地图已经解锁：${mapId}`);
+            throw new NotFoundException(`地图已经解锁：${mapId}`);
         }
         player.unlockedMapIds = [...player.unlockedMapIds, mapId]
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
@@ -1840,7 +1791,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId) {
-            throw new common_1.BadRequestException('复活绑定地图 ID 不能为空');
+            throw new BadRequestException('复活绑定地图 ID 不能为空');
         }
         const template = this.mapTemplateRepository.getOrThrow(normalizedMapId);
         const player = this.getPlayerOrThrow(playerId);
@@ -1925,27 +1876,26 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     equipItem(playerId, slotIndex) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         if (!item.equipSlot) {
-            throw new common_1.NotFoundException(`物品 ${item.itemId} 不能装备`);
+            throw new NotFoundException(`物品 ${item.itemId} 不能装备`);
         }
 
         const slot = item.equipSlot;
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry) {
-            throw new common_1.NotFoundException(`装备槽位不存在：${slot}`);
+            throw new NotFoundException(`装备槽位不存在：${slot}`);
         }
 
         const equippedItem = takeSingleInventoryItemForEquipment(player.inventory.items, slotIndex);
         if (!equippedItem) {
-            throw new common_1.NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
         const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
@@ -1970,12 +1920,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     unequipItem(playerId, slot) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry || !equipmentEntry.item) {
-            throw new common_1.NotFoundException(`装备槽位为空：${slot}`);
+            throw new NotFoundException(`装备槽位为空：${slot}`);
         }
         player.inventory.items.push({ ...equipmentEntry.item });
         equipmentEntry.item = null;
@@ -1996,12 +1945,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     cultivateTechnique(playerId, techniqueId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : null;
         if (normalized && !player.techniques.techniques.some((entry) => entry.techId === normalized)) {
-            throw new common_1.NotFoundException(`尚未学会功法：${normalized}`);
+            throw new NotFoundException(`尚未学会功法：${normalized}`);
         }
         const previousCultivatingTechId = player.techniques.cultivatingTechId;
         player.techniques.cultivatingTechId = normalized;
@@ -2024,24 +1972,23 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     infuseBodyTraining(playerId, foundationAmount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const requested = normalizeCounter(foundationAmount);
         if (requested <= 0) {
-            throw new common_1.BadRequestException('底蕴数量不能为空');
+            throw new BadRequestException('底蕴数量不能为空');
         }
         if (player.foundation <= 0) {
-            throw new common_1.BadRequestException('底蕴不足');
+            throw new BadRequestException('底蕴不足');
         }
 
         const consumed = Math.min(player.foundation, requested);
 
-        const previousBodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const previousBodyTraining = normalizeBodyTrainingState(player.bodyTraining);
 
-        const nextBodyTraining = (0, shared_1.normalizeBodyTrainingState)({
+        const nextBodyTraining = normalizeBodyTrainingState({
             level: previousBodyTraining.level,
-            exp: previousBodyTraining.exp + consumed * shared_1.BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+            exp: previousBodyTraining.exp + consumed * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
             expToNext: previousBodyTraining.expToNext,
         });
         player.foundation -= consumed;
@@ -2060,7 +2007,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return {
             player,
             foundationSpent: consumed,
-            expGained: consumed * shared_1.BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+            expGained: consumed * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
         };
     }
     /**
@@ -2073,13 +2020,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     setManagedBodyTrainingLevel(playerId, requestedLevel) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
-        const currentBodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const currentBodyTraining = normalizeBodyTrainingState(player.bodyTraining);
         const normalizedLevel = Math.max(0, Math.trunc(Number(requestedLevel) || 0));
-        const expToNext = (0, shared_1.getBodyTrainingExpToNext)(normalizedLevel);
-        const nextBodyTraining = (0, shared_1.normalizeBodyTrainingState)({
+        const expToNext = getBodyTrainingExpToNext(normalizedLevel);
+        const nextBodyTraining = normalizeBodyTrainingState({
             level: normalizedLevel,
             exp: Math.min(currentBodyTraining.exp, Math.max(0, expToNext - 1)),
             expToNext,
@@ -2111,9 +2057,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新recordActivity相关状态。
  */
 
-    recordActivity(playerId, currentTick, input = {}) {
+    recordActivity(playerId, currentTick, input: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -2139,7 +2084,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     spendQi(playerId, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = Math.max(0, Math.round(amount));
@@ -2147,7 +2091,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         if (player.qi < normalized) {
-            throw new common_1.NotFoundException(`玩家 ${playerId} 元气不足`);
+            throw new NotFoundException(`玩家 ${playerId} 元气不足`);
         }
         player.qi -= normalized;
         player.selfRevision += 1;
@@ -2164,7 +2108,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     applyDamage(playerId, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -2238,7 +2181,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     updateAutoBattleSkills(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = normalizePlayerAutoBattleSkills(player, input);
@@ -2264,11 +2206,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     updateAutoUsePills(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalized = (0, player_combat_config_helpers_1.normalizePersistedAutoUsePills)(input);
-        if ((0, player_combat_config_helpers_1.isSameAutoUsePillList)(player.combat.autoUsePills, normalized)) {
+        const normalized = normalizePersistedAutoUsePills(input);
+        if (isSameAutoUsePillList(player.combat.autoUsePills, normalized)) {
             return player;
         }
         player.combat.autoUsePills = normalized;
@@ -2289,11 +2230,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     updateCombatTargetingRules(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalized = (0, player_combat_config_helpers_1.normalizePersistedCombatTargetingRules)(input);
-        if ((0, player_combat_config_helpers_1.isSameCombatTargetingRules)(player.combat.combatTargetingRules, normalized)) {
+        const normalized = normalizePersistedCombatTargetingRules(input);
+        if (isSameCombatTargetingRules(player.combat.combatTargetingRules, normalized)) {
             return player;
         }
         player.combat.combatTargetingRules = normalized;
@@ -2310,7 +2250,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     updateAutoBattleTargetingMode(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -2334,7 +2273,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     updateTechniqueSkillAvailability(playerId, techId, enabled) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalizedTechId = typeof techId === 'string' ? techId.trim() : '';
@@ -2354,7 +2292,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
 
-        const normalized = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
+        const normalized: any[] = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
 
         let changed = false;
         for (const entry of normalized) {
@@ -2387,7 +2325,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     updateCombatSettings(playerId, input, currentTick = 0) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
 
@@ -2519,7 +2456,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     setCombatTarget(playerId, targetId, locked, currentTick = 0) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const normalizedTargetId = typeof targetId === 'string' && targetId.trim() ? targetId.trim() : null;
@@ -2583,7 +2519,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     setRetaliatePlayerTarget(playerId, targetPlayerId, currentTick = 0) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.getPlayerOrThrow(playerId);
         const normalizedTargetId = typeof targetPlayerId === 'string' && targetPlayerId.trim() ? targetPlayerId.trim() : null;
@@ -2690,7 +2625,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     applyTemporaryBuff(playerId, buff) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
@@ -2753,7 +2687,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 增加煞气反噬层数。 */
     addPvPShaBacklashStacks(playerId, addedStacks) {
         if (addedStacks <= 0) {
-            return this.getBuffStacks(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID);
+            return this.getBuffStacks(playerId, PVP_SHA_BACKLASH_BUFF_ID);
         }
         const player = this.getPlayerOrThrow(playerId);
         const next = this.applyOrRefreshPvpBuff(playerId, buildPvPShaBacklashBuffState(getPlayerRealmLevel(player), addedStacks), addedStacks);
@@ -2772,7 +2706,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 身死时结算煞气反噬，折损修为并转化为煞气反噬层数。 */
     applyShaInfusionDeathPenalty(playerId) {
         const player = this.getPlayerOrThrow(playerId);
-        const stacks = getEntityBuffStacks(player.buffs.buffs, pvp_1.PVP_SHA_INFUSION_BUFF_ID);
+        const stacks = getEntityBuffStacks(player.buffs.buffs, PVP_SHA_INFUSION_BUFF_ID);
         if (stacks <= 0) {
             return {
                 stacks: 0,
@@ -2780,12 +2714,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 consumedProgress: 0,
                 consumedFoundation: 0,
                 backlashAddedStacks: 0,
-                backlashTotalStacks: this.getBuffStacks(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID),
+                backlashTotalStacks: this.getBuffStacks(playerId, PVP_SHA_BACKLASH_BUFF_ID),
                 remainingInfusionStacks: 0,
             };
         }
-        const backlashAddedStacks = Math.max(1, Math.ceil(stacks / pvp_1.PVP_SHA_BACKLASH_STACK_DIVISOR));
-        const remainingInfusionStacks = this.consumePvpBuffStacks(playerId, pvp_1.PVP_SHA_INFUSION_BUFF_ID, backlashAddedStacks);
+        const backlashAddedStacks = Math.max(1, Math.ceil(stacks / PVP_SHA_BACKLASH_STACK_DIVISOR));
+        const remainingInfusionStacks = this.consumePvpBuffStacks(playerId, PVP_SHA_INFUSION_BUFF_ID, backlashAddedStacks);
         const backlashTotalStacks = this.addPvPShaBacklashStacks(playerId, backlashAddedStacks);
         const progressToNext = Math.max(0, Math.floor(player.realm?.progressToNext ?? 0));
         const loss = Math.max(0, Math.floor((progressToNext * stacks) / 100));
@@ -2892,7 +2826,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新advancetick相关状态。
  */
 
-    advanceTick(currentTick, options = {}) {
+    advanceTick(currentTick, options: any = {}) {
         for (const player of this.players.values()) {
             this.advanceSinglePlayerTick(player, currentTick, options);
         }
@@ -2905,7 +2839,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新advancetickFor玩家ID相关状态。
  */
 
-    advanceTickForPlayerIds(playerIds, currentTick, options = {}) {
+    advanceTickForPlayerIds(playerIds, currentTick, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!Array.isArray(playerIds) || playerIds.length === 0) {
@@ -2927,7 +2861,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新advanceSingle玩家tick相关状态。
  */
 
-    advanceSinglePlayerTick(player, currentTick, options = {}) {
+    advanceSinglePlayerTick(player, currentTick, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
@@ -2996,7 +2930,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const delta = buildOfflineGainDeltaParts(
             normalizeOfflineGainSnapshot(beforeSnapshot),
             normalizeOfflineGainSnapshot(afterSnapshot),
-            (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level),
+            (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
         );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
         if (!hasOfflineGainReportParts(delta)) {
@@ -3085,7 +3019,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     respawnPlayer(playerId, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.getPlayerOrThrow(playerId);
 
         let changed = false;
@@ -3160,7 +3093,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     listDirtyPlayers() {
         return Array.from(this.players.values())
-            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
+            .filter((player) => !isNativeGmBotPlayerId(player.playerId))
             .filter((player) => isPlayerRuntimeDirty(player))
             .map((player) => player.playerId);
     }
@@ -3182,7 +3115,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     listDirtyPlayerDomains() {
         const dirtyPlayers = new Map();
         for (const player of this.players.values()) {
-            if ((0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId)) {
+            if (isNativeGmBotPlayerId(player.playerId)) {
                 continue;
             }
             const dirtyDomains = readPlayerDirtyDomains(player);
@@ -3206,7 +3139,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     buildFreshPersistenceSnapshot(playerId, placement) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
 
         const templateId = typeof placement?.templateId === 'string' ? placement.templateId.trim() : '';
@@ -3226,7 +3158,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.y = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
         player.facing = Number.isFinite(placement?.facing)
             ? Math.trunc(placement.facing)
-            : shared_1.Direction.South;
+            : Direction.South;
         player.unlockedMapIds = [templateId];
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
     }
@@ -3238,7 +3170,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     buildStarterPersistenceSnapshot(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const templateId = this.mapTemplateRepository.has(DEFAULT_PLAYER_STARTER_MAP_ID)
             ? DEFAULT_PLAYER_STARTER_MAP_ID
@@ -3252,7 +3183,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             templateId: template.id,
             x: template.spawnX,
             y: template.spawnY,
-            facing: shared_1.Direction.South,
+            facing: Direction.South,
         });
     }
     /**
@@ -3264,9 +3195,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     buildPersistenceSnapshot(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const player = this.players.get(playerId);
-        if (!player || !player.templateId || (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId)) {
+        if (!player || !player.templateId || isNativeGmBotPlayerId(playerId)) {
             return null;
         }
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
@@ -3279,7 +3209,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     markPersisted(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.players.get(playerId);
         if (!player) {
@@ -3296,7 +3225,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     snapshot(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const player = this.players.get(playerId);
         if (!player) {
@@ -3332,7 +3260,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     hydrateFromSnapshot(playerId, sessionId, snapshot) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const defaultEquipment = buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment());
         const fallbackRespawnTemplateId = this.mapTemplateRepository.has(DEFAULT_PLAYER_STARTER_MAP_ID)
@@ -3397,21 +3324,21 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
             comprehension: normalizeCounter(snapshot.progression?.comprehension),
             luck: normalizeCounter(snapshot.progression?.luck),
-            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(snapshot.progression?.bodyTraining),
+            bodyTraining: normalizeBodyTrainingState(snapshot.progression?.bodyTraining),
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
             lifespanYears: normalizeLifespanYears(snapshot.progression?.lifespanYears),
             realm: normalizeRealmState(snapshot.progression?.realm),
             heavenGate: normalizeHeavenGateState(snapshot.progression?.heavenGate),
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
-            alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
-            gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
-            buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
+            alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
-            enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill, (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(this.playerProgressionService, level)),
+            enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(snapshot.progression?.enhancementSkillLevel ?? snapshot.progression?.enhancementSkill?.level) || 1)),
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
             enhancementRecords: normalizeEnhancementRecords(snapshot.progression?.enhancementRecords),
@@ -3419,7 +3346,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             selfRevision: 1,
             inventory: {
                 revision: Math.max(1, snapshot.inventory.revision),
-                capacity: Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
+                capacity: Math.max(DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
                 items: snapshot.inventory.items.map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
             },
             wallet: {
@@ -3468,8 +3395,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoRetaliate: snapshot.combat?.autoRetaliate !== false,
 
                 autoBattleStationary: snapshot.combat?.autoBattleStationary === true,
-                autoUsePills: (0, player_combat_config_helpers_1.normalizePersistedAutoUsePills)(snapshot.combat?.autoUsePills),
-                combatTargetingRules: (0, player_combat_config_helpers_1.normalizePersistedCombatTargetingRules)(snapshot.combat?.combatTargetingRules),
+                autoUsePills: normalizePersistedAutoUsePills(snapshot.combat?.autoUsePills),
+                combatTargetingRules: normalizePersistedCombatTargetingRules(snapshot.combat?.combatTargetingRules),
                 autoBattleTargetingMode: normalizePersistedAutoBattleTargetingMode(snapshot.combat?.autoBattleTargetingMode),
                 retaliatePlayerTargetId: typeof snapshot.combat?.retaliatePlayerTargetId === 'string' && snapshot.combat.retaliatePlayerTargetId.trim()
                     ? snapshot.combat.retaliatePlayerTargetId.trim()
@@ -3777,7 +3704,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     rebuildActionState(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const nextActions = buildActionEntries(player, currentTick);
 
         const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
@@ -3802,7 +3728,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     applyConsumableItem(player, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         let consumed = false;
 
@@ -3839,7 +3764,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (!result.changed) {
                 const message = result.notices?.find((notice) => typeof notice?.text === 'string' && notice.text.trim())?.text.trim()
                     ?? '当前无法使用灵根幼苗';
-                throw new common_1.BadRequestException(message);
+                throw new BadRequestException(message);
             }
             this.applyProgressionResultWithStatistics(player, result, statisticBefore);
             consumed = true;
@@ -3852,7 +3777,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (!result.changed) {
                 const message = result.notices?.find((notice) => typeof notice?.text === 'string' && notice.text.trim())?.text.trim()
                     ?? '当前无法使用该丹药';
-                throw new common_1.BadRequestException(message);
+                throw new BadRequestException(message);
             }
             this.applyProgressionResultWithStatistics(player, result, statisticBefore);
             consumed = true;
@@ -3864,16 +3789,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return consumed;
     }
 };
-exports.PlayerRuntimeService = PlayerRuntimeService;
-exports.PlayerRuntimeService = PlayerRuntimeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        map_template_repository_1.MapTemplateRepository,
-        player_attributes_service_1.PlayerAttributesService,
-        player_progression_service_1.PlayerProgressionService,
-        player_domain_persistence_service_1.PlayerDomainPersistenceService])
-], PlayerRuntimeService);
-export { PlayerRuntimeService };
 function createPlayerDirtyDomainSet() {
     return new Set();
 }
@@ -3925,7 +3840,7 @@ function isPlayerRuntimeDirty(player) {
  */
 
 function buildEquipmentSnapshot(equipment) {
-    return shared_1.EQUIP_SLOTS.map((slot) => ({
+    return EQUIP_SLOTS.map((slot) => ({
         slot,
         item: equipment[slot] ? { ...equipment[slot] } : null,
     }));
@@ -3997,8 +3912,8 @@ function cloneRuntimePlayerState(player) {
             autoBattle: player.combat.autoBattle,
             autoRetaliate: player.combat.autoRetaliate,
             autoBattleStationary: player.combat.autoBattleStationary,
-            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
-            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
+            autoUsePills: cloneAutoUsePillList(player.combat.autoUsePills),
+            combatTargetingRules: cloneCombatTargetingRules(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
             retaliatePlayerTargetLastAttackTick: player.combat.retaliatePlayerTargetLastAttackTick,
@@ -4084,7 +3999,7 @@ function normalizeOfflineGainSignedCount(value) {
 function buildOfflineGainSessionId(playerId, startedAt) {
     const normalizedPlayerId = normalizeOfflineGainString(playerId) || 'player';
     const normalizedStartedAt = Math.max(0, Math.trunc(Number(startedAt) || Date.now()));
-    const digest = (0, crypto_1.createHash)('sha1')
+    const digest = createHash('sha1')
         .update(`${normalizedPlayerId}:${normalizedStartedAt}`)
         .digest('base64url')
         .slice(0, 18);
@@ -4094,7 +4009,7 @@ function buildPlayerStatisticRecordId(playerId, timestamp, scope = 'online') {
     const normalizedPlayerId = normalizeOfflineGainString(playerId) || 'player';
     const normalizedTimestamp = Math.max(0, Math.trunc(Number(timestamp) || Date.now()));
     const normalizedScope = scope === 'offline' ? 'offline' : 'online';
-    const digest = (0, crypto_1.createHash)('sha1')
+    const digest = createHash('sha1')
         .update(`${normalizedScope}:${normalizedPlayerId}:${normalizedTimestamp}:${Math.random()}`)
         .digest('base64url')
         .slice(0, 18);
@@ -4633,7 +4548,7 @@ function mergeOfflineGainOptionalAmount(leftValue, rightValue, mode) {
     return merged > 0 ? merged : undefined;
 }
 function buildOfflineGainSnapshot(player, contentTemplateRepository = null, playerProgressionService = null) {
-    const resolveProfessionExpToNext = (level) => (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(playerProgressionService, level);
+    const resolveProfessionExpToNext = (level) => resolveCraftSkillExpToNextByLevel(playerProgressionService, level);
     return {
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
@@ -4651,8 +4566,8 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null, play
         combatExp: normalizeOfflineGainCount(player?.combatExp),
         bodyTraining: buildOfflineGainExpStateSnapshot(player?.bodyTraining, {
             minLevel: 0,
-            resolveExpToNext: (level) => typeof shared_1.getBodyTrainingExpToNext === 'function'
-                ? (0, shared_1.getBodyTrainingExpToNext)(level)
+            resolveExpToNext: (level) => typeof getBodyTrainingExpToNext === 'function'
+                ? getBodyTrainingExpToNext(level)
                 : normalizeOfflineGainCount(player?.bodyTraining?.expToNext),
         }),
         techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
@@ -4707,7 +4622,7 @@ function buildOfflineGainTechniqueSnapshot(techniques) {
         .filter((entry) => Boolean(entry));
 }
 function buildOfflineGainTechniqueExpTable(technique) {
-    const byLevel = {};
+    const byLevel: Record<string, number> = {};
     for (const layer of Array.isArray(technique?.layers) ? technique.layers : []) {
         const level = normalizeOfflineGainCount(layer?.level);
         const expToNext = normalizeOfflineGainCount(layer?.expToNext);
@@ -4730,7 +4645,7 @@ function buildOfflineGainProfessionSnapshot(professionType, label, state, resolv
         }),
     };
 }
-function buildOfflineGainExpStateSnapshot(state, options = {}) {
+function buildOfflineGainExpStateSnapshot(state, options: any = {}) {
     const levelKey = options.levelKey ?? 'level';
     const expKey = options.expKey ?? 'exp';
     const expToNextKey = options.expToNextKey ?? 'expToNext';
@@ -4747,7 +4662,7 @@ function buildOfflineGainExpStateSnapshot(state, options = {}) {
     };
 }
 function resolveCraftSkillExpToNextForLevel(level) {
-    return (0, craft_skill_exp_helpers_1.resolveCraftSkillExpToNextByLevel)(null, level, craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT);
+    return resolveCraftSkillExpToNextByLevel(null, level, DEFAULT_CRAFT_EXP_TO_NEXT);
 }
 function buildOfflineGainReportFromSession(player, session, endedAt, contentTemplateRepository = null) {
     const baseline = normalizeOfflineGainSnapshot(session?.baselinePayload);
@@ -4795,7 +4710,7 @@ function normalizeOfflineGainExpNamedList(value, idKey) {
         }))
         .filter((entry) => entry[idKey]);
 }
-function normalizeOfflineGainExpRecord(value, options = {}) {
+function normalizeOfflineGainExpRecord(value, options: any = {}) {
     const record = value && typeof value === 'object' ? value : {};
     const levelKey = options.levelKey ?? 'level';
     const minLevel = Number.isFinite(options.minLevel) ? Math.trunc(Number(options.minLevel)) : 0;
@@ -4886,8 +4801,8 @@ function diffOfflineGainProgress(before, after) {
     appendOfflineGainProgressDelta(progress, 'rootFoundation', '根基', before.rootFoundation, after.rootFoundation);
     appendOfflineGainProgressDelta(progress, 'combatExp', '战斗经验', before.combatExp, after.combatExp);
     const bodyTrainingDelta = calculateOfflineGainExpChange(before.bodyTraining, after.bodyTraining, {
-        resolveExpToNext: (level) => typeof shared_1.getBodyTrainingExpToNext === 'function'
-            ? (0, shared_1.getBodyTrainingExpToNext)(level)
+        resolveExpToNext: (level) => typeof getBodyTrainingExpToNext === 'function'
+            ? getBodyTrainingExpToNext(level)
             : 0,
     });
     if (bodyTrainingDelta.expGained > 0 || bodyTrainingDelta.expLost > 0 || bodyTrainingDelta.levelGain > 0 || bodyTrainingDelta.levelLoss > 0) {
@@ -4969,7 +4884,7 @@ function diffOfflineGainProfessions(beforeProfessions, afterProfessions, resolve
         })
         .filter((entry) => Boolean(entry));
 }
-function calculateOfflineGainExpChange(before, after, options = {}) {
+function calculateOfflineGainExpChange(before, after, options: any = {}) {
     const beforeLevelKey = options.beforeLevelKey ?? 'level';
     const afterLevelKey = options.afterLevelKey ?? 'level';
     const beforeLevel = normalizeOfflineGainCount(before?.[beforeLevelKey] ?? before?.level);
@@ -5007,7 +4922,7 @@ function calculateOfflineGainExpChange(before, after, options = {}) {
         levelLoss: 0,
     };
 }
-function calculateOfflineGainExpDelta(before, after, options = {}) {
+function calculateOfflineGainExpDelta(before, after, options: any = {}) {
     const beforeLevelKey = options.beforeLevelKey ?? 'level';
     const afterLevelKey = options.afterLevelKey ?? 'level';
     const beforeLevel = normalizeOfflineGainCount(before?.[beforeLevelKey] ?? before?.level);
@@ -5030,7 +4945,7 @@ function calculateOfflineGainExpDelta(before, after, options = {}) {
         levelGain: Math.max(0, afterLevel - beforeLevel),
     };
 }
-function resolveOfflineGainExpToNext(level, before, after, options = {}) {
+function resolveOfflineGainExpToNext(level, before, after, options: any = {}) {
     const normalizedLevel = normalizeOfflineGainCount(level);
     const fromAfter = readOfflineGainExpToNextByLevel(after, normalizedLevel);
     if (fromAfter > 0) {
@@ -5114,7 +5029,7 @@ function consumeInventoryItemCount(items, itemId, count) {
         }
     }
     if (remaining > 0) {
-        throw new common_1.NotFoundException(`背包物品不足：${itemId}`);
+        throw new NotFoundException(`背包物品不足：${itemId}`);
     }
 }
 /**
@@ -5124,9 +5039,9 @@ function consumeInventoryItemCount(items, itemId, count) {
 
 function createDefaultRealmState() {
 
-    const stage = shared_1.DEFAULT_PLAYER_REALM_STAGE;
+    const stage = DEFAULT_PLAYER_REALM_STAGE;
 
-    const config = shared_1.PLAYER_REALM_CONFIG[stage];
+    const config = PLAYER_REALM_CONFIG[stage];
     return {
         stage,
         realmLv: 1,
@@ -5140,7 +5055,7 @@ function createDefaultRealmState() {
         progress: 0,
         progressToNext: config.progressToNext,
         breakthroughReady: false,
-        nextStage: shared_1.PLAYER_REALM_ORDER[shared_1.PLAYER_REALM_ORDER.indexOf(stage) + 1],
+        nextStage: PLAYER_REALM_ORDER[PLAYER_REALM_ORDER.indexOf(stage) + 1],
         breakthroughItems: [],
         minTechniqueLevel: config.minTechniqueLevel,
         minTechniqueRealm: config.minTechniqueRealm,
@@ -5223,7 +5138,7 @@ function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'player';
     const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : 'session';
     const normalizedEpoch = Number.isFinite(sessionEpoch) ? Math.max(1, Math.trunc(Number(sessionEpoch))) : 1;
-    const ownerDigest = (0, crypto_1.createHash)('sha256')
+    const ownerDigest = createHash('sha256')
         .update(`${normalizedPlayerId}:${normalizedSessionId}:${normalizedEpoch}`)
         .digest('base64url')
         .slice(0, 32);
@@ -5373,8 +5288,8 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             autoBattle: player.combat.autoBattle,
             autoRetaliate: player.combat.autoRetaliate,
             autoBattleStationary: player.combat.autoBattleStationary,
-            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
-            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
+            autoUsePills: cloneAutoUsePillList(player.combat.autoUsePills),
+            combatTargetingRules: cloneCombatTargetingRules(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
             retaliatePlayerTargetLastAttackTick: player.combat.retaliatePlayerTargetLastAttackTick,
@@ -5413,11 +5328,11 @@ function buildPublicPlayerInstanceId(templateId) {
  * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
-function createCraftSkillState(expToNext = craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT) {
+function createCraftSkillState(expToNext = DEFAULT_CRAFT_EXP_TO_NEXT) {
     return {
         level: 1,
         exp: 0,
-        expToNext: Math.max(0, Math.floor(Number(expToNext) || craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT)),
+        expToNext: Math.max(0, Math.floor(Number(expToNext) || DEFAULT_CRAFT_EXP_TO_NEXT)),
     };
 }
 /**
@@ -5430,7 +5345,7 @@ function normalizeCraftSkillState(value, resolveExpToNext = null) {
     const level = Math.max(1, Math.floor(Number(value?.level) || 1));
     const expToNext = typeof resolveExpToNext === 'function'
         ? resolveExpToNext(level)
-        : Math.max(0, Math.floor(Number(value?.expToNext) || craft_skill_exp_helpers_1.DEFAULT_CRAFT_EXP_TO_NEXT));
+        : Math.max(0, Math.floor(Number(value?.expToNext) || DEFAULT_CRAFT_EXP_TO_NEXT));
     return {
         level,
         exp: Math.max(0, Math.floor(Number(value?.exp) || 0)),
@@ -5755,7 +5670,7 @@ function normalizeCounter(value) {
  */
 
 function normalizeBoneAgeBaseYears(value) {
-    return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? shared_1.DEFAULT_BONE_AGE_YEARS)) : shared_1.DEFAULT_BONE_AGE_YEARS;
+    return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? DEFAULT_BONE_AGE_YEARS)) : DEFAULT_BONE_AGE_YEARS;
 }
 function advancePlayerChronology(player) {
     const previous = Number.isFinite(Number(player.lifeElapsedTicks))
@@ -5915,7 +5830,6 @@ function compareInventoryItems(left, right) {
 function consumeInventoryItemAt(items, slotIndex, count) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const item = items[slotIndex];
     if (!item) {
         return;
@@ -5959,7 +5873,7 @@ function toTechniqueUpdateEntry(technique) {
         exp: technique.exp,
         expToNext: technique.expToNext,
         realmLv: technique.realmLv,
-        realm: technique.realm ?? shared_1.TechniqueRealm.Entry,
+        realm: technique.realm ?? TechniqueRealm.Entry,
 
         skillsEnabled: technique.skillsEnabled !== false,
         name: technique.name,
@@ -5996,10 +5910,9 @@ function toTechniqueUpdateEntry(technique) {
 function buildActionEntries(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const actions = [];
 
-    const autoBattleSkills = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
+    const autoBattleSkills: any[] = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
 
     const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
 
@@ -6060,14 +5973,14 @@ function resolvePlayerSkillActionCooldownTicks(player, cooldown) {
     const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
     const cooldownSpeed = Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0));
     const cooldownDivisor = Math.max(1, Math.trunc(Number(player.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
-    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
-    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
 
 function resolveContextActionCooldownTicks(entry) {
-    if (entry?.id === shared_1.RETURN_TO_SPAWN_ACTION_ID) {
-        return shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS;
+    if (entry?.id === RETURN_TO_SPAWN_ACTION_ID) {
+        return RETURN_TO_SPAWN_COOLDOWN_TICKS;
     }
     return null;
 }
@@ -6164,7 +6077,6 @@ function normalizePersistedAutoBattleSkills(input) {
 function normalizeAutoBattleSkills(skillIds, input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const availableIds = new Set(skillIds);
 
     const normalized = [];
@@ -6206,7 +6118,7 @@ function normalizeAutoBattleSkills(skillIds, input) {
  */
 
 function enforcePlayerSkillEnabledLimit(player, entries) {
-    return (0, shared_1.enforceSkillEnabledLimit)(entries, (0, shared_1.resolvePlayerSkillSlotLimit)(player));
+    return enforceSkillEnabledLimit(entries, resolvePlayerSkillSlotLimit(player));
 }
 /**
  * normalizePlayerAutoBattleSkills：按玩家当前可用技能与槽位上限规整自动战斗技能配置。
@@ -6240,7 +6152,6 @@ function normalizePersistedAutoBattleTargetingMode(input) {
 function collectUnlockedSkillIds(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const skillIds = [];
     for (const technique of player.techniques.techniques) {
         for (const skill of technique.skills ?? []) {
@@ -6261,7 +6172,6 @@ function collectUnlockedSkillIds(player) {
 
 function syncTechniqueSkillAvailability(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const skillEnabledMap = new Map(player.combat.autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]));
 
@@ -6285,7 +6195,6 @@ function syncTechniqueSkillAvailability(player) {
 
 function resolveTechniqueSkillAvailability(technique, skillEnabledMap) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     let hasResolvedSkill = false;
     for (const skill of technique.skills ?? []) {
@@ -6336,7 +6245,6 @@ function isSameAutoBattleSkillList(previous, current) {
 
 function tickTemporaryBuffs(buffs, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     let changed = false;
     let vitalsChanged = false;
@@ -6455,7 +6363,6 @@ function resolveBuffSustainCost(buff) {
 function recoverPlayerVitals(player, currentTick = -1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const suppressUntilTick = Number.isFinite(player.vitalRecoveryDeferredUntilTick)
         ? Math.trunc(player.vitalRecoveryDeferredUntilTick)
         : -1;
@@ -6505,7 +6412,7 @@ function hasActiveSkillCooldown(player, currentTick) {
     if (player.actions.actions.length === 0) {
         return false;
     }
-    for (const readyTick of Object.values(player.combat.cooldownReadyTickBySkillId)) {
+    for (const readyTick of Object.values(player.combat.cooldownReadyTickBySkillId) as any[]) {
         if (readyTick > 0 && readyTick >= currentTick) {
             return true;
         }
@@ -6552,7 +6459,7 @@ function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
     if (blockedPlayerIds?.has(player.playerId)) {
         return false;
     }
-    return currentTick - player.combat.lastActiveTick >= shared_1.AUTO_IDLE_CULTIVATION_DELAY_TICKS;
+    return currentTick - player.combat.lastActiveTick >= AUTO_IDLE_CULTIVATION_DELAY_TICKS;
 }
 /**
  * cloneTemporaryBuff：构建TemporaryBuff。
@@ -6571,18 +6478,18 @@ function cloneTemporaryBuff(source) {
 
 function buildPvPSoulInjuryBuffState(sourceRealmLv) {
     return {
-        buffId: pvp_1.PVP_SOUL_INJURY_BUFF_ID,
+        buffId: PVP_SOUL_INJURY_BUFF_ID,
         name: '神魂受损',
         desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
         baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
         shortMark: '残',
         category: 'debuff',
         visibility: 'public',
-        remainingTicks: pvp_1.PVP_SOUL_INJURY_DURATION_TICKS,
-        duration: pvp_1.PVP_SOUL_INJURY_DURATION_TICKS,
+        remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS,
+        duration: PVP_SOUL_INJURY_DURATION_TICKS,
         stacks: 1,
         maxStacks: 1,
-        sourceSkillId: pvp_1.PVP_SOUL_INJURY_SOURCE_ID,
+        sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
         sourceSkillName: '杀孽',
         realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: '#8a5a64',
@@ -6597,18 +6504,18 @@ function getPlayerRealmLevel(player) {
 
 function buildPvPShaInfusionBuffState(sourceRealmLv) {
     return {
-        buffId: pvp_1.PVP_SHA_INFUSION_BUFF_ID,
+        buffId: PVP_SHA_INFUSION_BUFF_ID,
         name: '煞气入体',
-        desc: `每层攻击 +1%（最高 +${pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
-        baseDesc: `每层攻击 +1%（最高 +${pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
+        desc: `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
+        baseDesc: `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
         shortMark: '煞',
         category: 'buff',
         visibility: 'public',
-        remainingTicks: pvp_1.PVP_SHA_INFUSION_DECAY_TICKS,
-        duration: pvp_1.PVP_SHA_INFUSION_DECAY_TICKS,
+        remainingTicks: PVP_SHA_INFUSION_DECAY_TICKS,
+        duration: PVP_SHA_INFUSION_DECAY_TICKS,
         stacks: 1,
         maxStacks: 999999,
-        sourceSkillId: pvp_1.PVP_SHA_INFUSION_SOURCE_ID,
+        sourceSkillId: PVP_SHA_INFUSION_SOURCE_ID,
         sourceSkillName: '杀孽',
         realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: '#7a2e2e',
@@ -6626,26 +6533,26 @@ function buildPvPShaInfusionBuffState(sourceRealmLv) {
 
 function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
     return {
-        buffId: pvp_1.PVP_SHA_BACKLASH_BUFF_ID,
+        buffId: PVP_SHA_BACKLASH_BUFF_ID,
         name: '煞气反噬',
-        desc: `每层攻击 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
-        baseDesc: `每层攻击 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
+        desc: `每层攻击 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
+        baseDesc: `每层攻击 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
         shortMark: '蚀',
         category: 'debuff',
         visibility: 'public',
-        remainingTicks: pvp_1.PVP_SHA_BACKLASH_DECAY_TICKS,
-        duration: pvp_1.PVP_SHA_BACKLASH_DECAY_TICKS,
+        remainingTicks: PVP_SHA_BACKLASH_DECAY_TICKS,
+        duration: PVP_SHA_BACKLASH_DECAY_TICKS,
         stacks: Math.max(1, Math.floor(stacks)),
         maxStacks: 999999,
-        sourceSkillId: pvp_1.PVP_SHA_BACKLASH_SOURCE_ID,
+        sourceSkillId: PVP_SHA_BACKLASH_SOURCE_ID,
         sourceSkillName: '煞气反噬',
         realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: '#6d2626',
         stats: {
-            physAtk: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
-            spellAtk: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
-            physDef: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
-            spellDef: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            physAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            spellAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            physDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            spellDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
         },
         statMode: 'percent',
         persistOnDeath: true,
@@ -6665,21 +6572,21 @@ function getEntityBuffStacks(buffs, buffId) {
 }
 
 function isDecayStackBuff(buff) {
-    return buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+    return buff.buffId === PVP_SHA_INFUSION_BUFF_ID || buff.buffId === PVP_SHA_BACKLASH_BUFF_ID;
 }
 
 function shouldKeepBuffOnRespawn(buff) {
     return buff.persistOnDeath === true
         || buff.category !== 'debuff'
-        || buff.buffId === pvp_1.PVP_SOUL_INJURY_BUFF_ID
-        || buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
-        || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+        || buff.buffId === PVP_SOUL_INJURY_BUFF_ID
+        || buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+        || buff.buffId === PVP_SHA_BACKLASH_BUFF_ID;
 }
 
 function shouldKeepBuffOnReturnToSpawn(buff) {
     return buff.persistOnReturnToSpawn === true
-        || buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
-        || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+        || buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+        || buff.buffId === PVP_SHA_BACKLASH_BUFF_ID;
 }
 
 function isSameBuffIdSequence(left, right) {
@@ -6725,7 +6632,7 @@ function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
         stats: buff.stats
             ? { ...buff.stats }
             : (buff.valueStats
-                ? (buff.statMode === 'flat' ? (0, shared_1.compileValueStatsToActualStats)(buff.valueStats) : { ...buff.valueStats })
+                ? (buff.statMode === 'flat' ? compileValueStatsToActualStats(buff.valueStats) : { ...buff.valueStats })
                 : undefined),
         statMode: buff.statMode,
         qiProjection: buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined,
@@ -6778,14 +6685,14 @@ function cloneAttributes(source) {
     };
 }
 
-function createDefaultBaseAttributes() {
+function createDefaultBaseAttributes(): Record<string, number> {
     return {
-        constitution: shared_1.DEFAULT_BASE_ATTRS.constitution,
-        spirit: shared_1.DEFAULT_BASE_ATTRS.spirit,
-        perception: shared_1.DEFAULT_BASE_ATTRS.perception,
-        talent: shared_1.DEFAULT_BASE_ATTRS.talent,
-        strength: shared_1.DEFAULT_BASE_ATTRS.strength,
-        meridians: shared_1.DEFAULT_BASE_ATTRS.meridians,
+        constitution: DEFAULT_BASE_ATTRS.constitution,
+        spirit: DEFAULT_BASE_ATTRS.spirit,
+        perception: DEFAULT_BASE_ATTRS.perception,
+        talent: DEFAULT_BASE_ATTRS.talent,
+        strength: DEFAULT_BASE_ATTRS.strength,
+        meridians: DEFAULT_BASE_ATTRS.meridians,
     };
 }
 
@@ -6794,7 +6701,7 @@ function normalizeRawBaseAttributes(source) {
     if (!source || typeof source !== 'object') {
         return attrs;
     }
-    for (const key of shared_1.ATTR_KEYS) {
+    for (const key of ATTR_KEYS) {
         const value = Number(source[key]);
         if (Number.isFinite(value)) {
             attrs[key] = Math.max(0, Math.trunc(value));
@@ -6965,7 +6872,7 @@ function ensureVitalBaselineBonus(player, vitals) {
         return true;
     }
 
-    const stats = {};
+    const stats: Record<string, number> = {};
     if (hpDelta > 0) {
         stats.maxHp = hpDelta;
         if (player.attrs.numericStats.hpRegenRate > 0 && hpRatio > 1) {
@@ -7001,7 +6908,6 @@ function ensureVitalBaselineBonus(player, vitals) {
 
 function canonicalizeRuntimeBonusSource(source) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
     const normalized = typeof source === 'string' ? source.trim() : '';
     if (!normalized) {

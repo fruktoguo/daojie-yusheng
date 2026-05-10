@@ -1,20 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeMovementService = void 0;
-
-const common_1 = require("@nestjs/common");
+import { Injectable } from '@nestjs/common';
 
 /** world-runtime movement orchestration：承接实例侧移动/传送执行编排。 */
-let WorldRuntimeMovementService = class WorldRuntimeMovementService {
+@Injectable()
+export class WorldRuntimeMovementService {
 /**
  * dispatchInstanceCommand：判断InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
@@ -43,7 +31,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
             return;
         }
         this.dispatchPortalCommand(playerId, player, instance, deps);
-    }    
+    }
     /**
  * dispatchMoveCommand：判断MoveCommand是否满足条件。
  * @param playerId 玩家 ID。
@@ -71,7 +59,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
                 : undefined,
             resetBudget: command.resetBudget === true,
         });
-    }    
+    }
     /**
  * dispatchPortalCommand：判断传送门Command是否满足条件。
  * @param playerId 玩家 ID。
@@ -102,9 +90,3 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         instance.enqueuePortalUse({ playerId });
     }
 };
-exports.WorldRuntimeMovementService = WorldRuntimeMovementService;
-exports.WorldRuntimeMovementService = WorldRuntimeMovementService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeMovementService);
-
-export { WorldRuntimeMovementService };

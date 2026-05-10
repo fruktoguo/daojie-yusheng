@@ -1,11 +1,5 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayReadModelHelper = void 0;
-
-const shared_1 = require("@mud/shared");
-const world_gateway_attr_detail_helper_1 = require("./world-gateway-attr-detail.helper");
+import { S2C, cloneNumericRatioDivisors, cloneNumericStats } from '@mud/shared';
+import { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } from './world-gateway-attr-detail.helper';
 
 /** 世界 socket 读模型 helper：只收敛请求详情/排行/摘要入口。 */
 class WorldGatewayReadModelHelper {
@@ -43,14 +37,14 @@ class WorldGatewayReadModelHelper {
                 return;
             }
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            const bonuses = (0, world_gateway_attr_detail_helper_1.buildAttrDetailBonuses)(player);
-            const numericStatBreakdowns = (0, world_gateway_attr_detail_helper_1.buildAttrDetailNumericStatBreakdowns)(player);
-            client.emit(shared_1.S2C.AttrDetail, {
+            const bonuses = buildAttrDetailBonuses(player);
+            const numericStatBreakdowns = buildAttrDetailNumericStatBreakdowns(player);
+            client.emit(S2C.AttrDetail, {
                 baseAttrs: { ...player.attrs.baseAttrs },
                 bonuses,
                 finalAttrs: { ...player.attrs.finalAttrs },
-                numericStats: (0, shared_1.cloneNumericStats)(player.attrs.numericStats),
-                ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(player.attrs.ratioDivisors),
+                numericStats: cloneNumericStats(player.attrs.numericStats),
+                ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
                 numericStatBreakdowns,
                 alchemySkill: player.alchemySkill,
                 buildingSkill: player.buildingSkill,
@@ -78,7 +72,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.Leaderboard, await this.gateway.leaderboardRuntimeService.buildLeaderboard(
+            client.emit(S2C.Leaderboard, await this.gateway.leaderboardRuntimeService.buildLeaderboard(
                 payload?.limit,
                 this.gateway.worldRuntimeService?.worldRuntimeSectService,
             ));
@@ -103,7 +97,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.LeaderboardPlayerLocations, await this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
+            client.emit(S2C.LeaderboardPlayerLocations, await this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_PLAYER_LOCATIONS_FAILED', error);
@@ -125,7 +119,7 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.WorldSummary, await this.gateway.leaderboardRuntimeService.buildWorldSummary());
+            client.emit(S2C.WorldSummary, await this.gateway.leaderboardRuntimeService.buildWorldSummary());
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_WORLD_SUMMARY_FAILED', error);
@@ -146,7 +140,7 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            client.emit(shared_1.S2C.Detail, this.gateway.worldRuntimeService.buildDetail(playerId, {
+            client.emit(S2C.Detail, this.gateway.worldRuntimeService.buildDetail(playerId, {
                 kind: payload?.kind,
                 id: payload?.id ?? '',
             }));
@@ -170,7 +164,7 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            client.emit(shared_1.S2C.TileDetail, this.gateway.worldRuntimeService.buildTileDetail(playerId, {
+            client.emit(S2C.TileDetail, this.gateway.worldRuntimeService.buildTileDetail(playerId, {
                 x: payload?.x,
                 y: payload?.y,
             }));
@@ -180,6 +174,5 @@ class WorldGatewayReadModelHelper {
         }
     }
 }
-exports.WorldGatewayReadModelHelper = WorldGatewayReadModelHelper;
 
 export { WorldGatewayReadModelHelper };

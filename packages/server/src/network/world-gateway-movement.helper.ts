@@ -1,10 +1,4 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayMovementHelper = void 0;
-
-const movement_debug_1 = require("../debug/movement-debug");
+import { logServerNextMovement } from '../debug/movement-debug';
 
 /** 世界 socket 移动/导航 helper：只收敛移动相关入口。 */
 class WorldGatewayMovementHelper {
@@ -36,7 +30,7 @@ class WorldGatewayMovementHelper {
         if (!playerId) {
             return;
         }
-        (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.moveTo', {
+        logServerNextMovement(this.gateway.logger, 'gateway.recv.moveTo', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
@@ -73,7 +67,7 @@ class WorldGatewayMovementHelper {
             return;
         }
         const questId = typeof payload?.questId === 'string' ? payload.questId.trim() : '';
-        (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.navigateQuest', {
+        logServerNextMovement(this.gateway.logger, 'gateway.recv.navigateQuest', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
@@ -105,7 +99,7 @@ class WorldGatewayMovementHelper {
         if (!playerId) {
             return;
         }
-        (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.move', {
+        logServerNextMovement(this.gateway.logger, 'gateway.recv.move', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
@@ -119,6 +113,5 @@ class WorldGatewayMovementHelper {
         }
     }
 }
-exports.WorldGatewayMovementHelper = WorldGatewayMovementHelper;
 
 export { WorldGatewayMovementHelper };

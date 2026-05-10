@@ -6,113 +6,24 @@
     "grade": "mystic",
     "category": "divine",
     "realmLv": 24,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 168,
-        "attrs": {
-          "constitution": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
+    "maxLayer": 10,
+    "expDifficulty": 1,
+    "layerGains": {
+      "attrs": {
+        "constitution": 2
       },
-      {
-        "level": 2,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
+      "specialStats": {
+        "comprehension": 1
       },
-      {
-        "level": 3,
-        "expFactor": 200,
-        "attrs": {
-          "constitution": 2
-        },
-        "specialStats": {
-          "comprehension": 1
+      "deltas": [
+        {
+          "fromLevel": 6,
+          "attrsAdd": {
+            "perception": 1
+          }
         }
-      },
-      {
-        "level": 4,
-        "expFactor": 220,
-        "attrs": {
-          "constitution": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 240,
-        "attrs": {
-          "constitution": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 264,
-        "attrs": {
-          "constitution": 2,
-          "perception": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 292,
-        "attrs": {
-          "constitution": 2,
-          "perception": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 324,
-        "attrs": {
-          "constitution": 2,
-          "perception": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 360,
-        "attrs": {
-          "constitution": 2,
-          "perception": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 2,
-          "perception": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      }
-    ],
+      ]
+    },
     "skills": [
       {
         "id": "skill.wildsunder_fall",
@@ -167,113 +78,24 @@
     "grade": "mystic",
     "category": "divine",
     "realmLv": 24,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 168,
-        "attrs": {
-          "spirit": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
+    "maxLayer": 10,
+    "expDifficulty": 1,
+    "layerGains": {
+      "attrs": {
+        "spirit": 2
       },
-      {
-        "level": 2,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
+      "specialStats": {
+        "comprehension": 1
       },
-      {
-        "level": 3,
-        "expFactor": 200,
-        "attrs": {
-          "spirit": 2
-        },
-        "specialStats": {
-          "comprehension": 1
+      "deltas": [
+        {
+          "fromLevel": 6,
+          "attrsAdd": {
+            "talent": 1
+          }
         }
-      },
-      {
-        "level": 4,
-        "expFactor": 220,
-        "attrs": {
-          "spirit": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 240,
-        "attrs": {
-          "spirit": 2
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 264,
-        "attrs": {
-          "spirit": 2,
-          "talent": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 292,
-        "attrs": {
-          "spirit": 2,
-          "talent": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 324,
-        "attrs": {
-          "spirit": 2,
-          "talent": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 360,
-        "attrs": {
-          "spirit": 2,
-          "talent": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 2,
-          "talent": 1
-        },
-        "specialStats": {
-          "comprehension": 1
-        }
-      }
-    ],
+      ]
+    },
     "skills": [
       {
         "id": "skill.voidflame_cataclysm",

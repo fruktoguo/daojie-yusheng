@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayGmSuggestionHelper = void 0;
 
 /** 世界 socket GM 建议 helper：只收敛 suggestion 的 GM 维护写路径。 */
 class WorldGatewayGmSuggestionHelper {
@@ -65,6 +60,5 @@ class WorldGatewayGmSuggestionHelper {
         }
     }
 }
-exports.WorldGatewayGmSuggestionHelper = WorldGatewayGmSuggestionHelper;
 
 export { WorldGatewayGmSuggestionHelper };

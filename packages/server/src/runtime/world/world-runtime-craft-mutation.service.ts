@@ -1,30 +1,14 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeCraftMutationService = void 0;
-
-const common_1 = require("@nestjs/common");
-const world_session_service_1 = require("../../network/world-session.service");
-const world_client_event_service_1 = require("../../network/world-client-event.service");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const technique_activity_registry_helpers_1 = require("../craft/technique-activity-registry.helpers");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { WorldSessionService } from '../../network/world-session.service';
+import { WorldClientEventService } from '../../network/world-client-event.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
+import { emitTechniqueActivityPanel, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
-let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
-    logger = new common_1.Logger(WorldRuntimeCraftMutationService.name);
+@Injectable()
+export class WorldRuntimeCraftMutationService {
+    logger = new Logger(WorldRuntimeCraftMutationService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -54,7 +38,12 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
+        @Inject(WorldSessionService) worldSessionService: any,
+        @Inject(WorldClientEventService) worldClientEventService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldSessionService = worldSessionService;
@@ -82,7 +71,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         const payload = hasActivePanelJob && typeof this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload === 'function'
             ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
             : this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
-        (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(socket, panel, payload);
+        emitTechniqueActivityPanel(socket, panel, payload);
     }    
     /**
  * emitAllTechniqueActivityPanelUpdates：按统一技艺顺序补发所有面板。
@@ -92,7 +81,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
  */
 
     emitAllTechniqueActivityPanelUpdates(playerId, deps) {
-        for (const kind of (0, technique_activity_registry_helpers_1.listTechniqueActivityRefreshKinds)()) {
+        for (const kind of listTechniqueActivityRefreshKinds()) {
             this.emitCraftPanelUpdate(playerId, kind, deps);
         }
     }    
@@ -114,7 +103,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
  * @returns 无返回值，直接更新flush炼制Mutation相关状态。
  */
 
-    flushCraftMutation(playerId, result, panel, deps, options = {}) {
+    flushCraftMutation(playerId, result, panel, deps, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!result?.ok) {
@@ -141,7 +130,6 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
     /** 在 durable 任务成功后补发制造附带的境界修为。 */
     grantCraftRealmExp(playerId, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const normalized = Number(amount);
         if (!Number.isFinite(normalized) || normalized <= 0) {
@@ -273,20 +261,11 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         }
     }
 };
-exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService;
-exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService])
-], WorldRuntimeCraftMutationService);
 /**
  * formatItemStackLabel：规范化或转换道具StackLabel。
  * @param item 道具。
  * @returns 无返回值，直接更新道具StackLabel相关状态。
  */
-
 
 function formatItemStackLabel(item) {
     return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
@@ -332,5 +311,3 @@ function buildActiveJobOperationId(playerId, activeJob) {
         : 'running';
     return `op:${normalizedPlayerId}:active-job:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
 }
-
-export { WorldRuntimeCraftMutationService };

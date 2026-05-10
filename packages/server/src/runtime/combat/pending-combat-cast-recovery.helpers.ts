@@ -1,10 +1,11 @@
-// @ts-nocheck
-
 import {
   cancelPendingCombatCast,
   CombatPendingCastCancelReason,
   CombatPendingCastStatus,
 } from './pending-combat-cast.helpers';
+
+type PendingCastRecord = Record<string, any>;
+type PendingCastContext = Record<string, any>;
 
 const PENDING_CAST_REDIS_SCHEMA_VERSION = 1;
 const DEFAULT_PENDING_CAST_TTL_SECONDS = 30;
@@ -23,7 +24,7 @@ export const PendingCombatCastRestoreRejectReason = Object.freeze({
   ConfigRevisionMismatch: 'config_revision_mismatch',
 });
 
-export function buildPendingCombatCastRedisKey(input = {}) {
+export function buildPendingCombatCastRedisKey(input: PendingCastContext = {}) {
   const actorKind = normalizeString(input.actorKind ?? input.pendingCast?.actorKind);
   const actorId = normalizeString(input.actorId ?? input.pendingCast?.actorId);
   if (!actorKind || !actorId) {
@@ -32,7 +33,7 @@ export function buildPendingCombatCastRedisKey(input = {}) {
   return `combat:pending-cast:${actorKind}:${actorId}`;
 }
 
-export function serializePendingCombatCastForRedis(pendingCast = {}, context = {}) {
+export function serializePendingCombatCastForRedis(pendingCast: PendingCastRecord = {}, context: PendingCastContext = {}) {
   if (!isRestorablePendingCast(pendingCast)) {
     return {
       ok: false,
@@ -72,7 +73,7 @@ export function serializePendingCombatCastForRedis(pendingCast = {}, context = {
   };
 }
 
-export function restorePendingCombatCastFromRedis(recordOrJson, context = {}) {
+export function restorePendingCombatCastFromRedis(recordOrJson: unknown, context: PendingCastContext = {}) {
   const record = parsePendingCastRecord(recordOrJson);
   if (!record) {
     return createRestoreReject(PendingCombatCastRestoreRejectReason.EmptyRecord, null);
@@ -140,7 +141,7 @@ export function restorePendingCombatCastFromRedis(recordOrJson, context = {}) {
   };
 }
 
-function createRestoreReject(reason, record, options = {}) {
+function createRestoreReject(reason: string, record: PendingCastRecord | null, options: PendingCastContext = {}) {
   return {
     ok: false,
     reason,
@@ -151,7 +152,7 @@ function createRestoreReject(reason, record, options = {}) {
   };
 }
 
-function createRestoreCancellation(record, pendingCast, reason, cancelInput) {
+function createRestoreCancellation(record: PendingCastRecord, pendingCast: PendingCastRecord, reason: string, cancelInput: PendingCastContext) {
   return {
     ok: false,
     reason,
@@ -162,7 +163,7 @@ function createRestoreCancellation(record, pendingCast, reason, cancelInput) {
   };
 }
 
-function parsePendingCastRecord(recordOrJson) {
+function parsePendingCastRecord(recordOrJson: unknown): PendingCastRecord | null {
   if (!recordOrJson) {
     return null;
   }
@@ -178,7 +179,7 @@ function parsePendingCastRecord(recordOrJson) {
   return typeof recordOrJson === 'object' ? recordOrJson : null;
 }
 
-function normalizePendingCastSnapshot(pendingCast = {}) {
+function normalizePendingCastSnapshot(pendingCast: PendingCastRecord = {}) {
   return {
     kind: 'combat_pending_cast',
     status: CombatPendingCastStatus.Casting,
@@ -210,7 +211,7 @@ function normalizePendingCastSnapshot(pendingCast = {}) {
   };
 }
 
-function isRestorablePendingCast(pendingCast) {
+function isRestorablePendingCast(pendingCast: any) {
   return pendingCast
     && pendingCast.kind === 'combat_pending_cast'
     && normalizeString(pendingCast.actorKind)
@@ -219,7 +220,7 @@ function isRestorablePendingCast(pendingCast) {
     && normalizeString(pendingCast.actionId ?? pendingCast.skillId);
 }
 
-function normalizePendingCastTtlSeconds(inputTtlSeconds, currentTick, resolveTick) {
+function normalizePendingCastTtlSeconds(inputTtlSeconds: unknown, currentTick: unknown, resolveTick: unknown) {
   if (Number.isFinite(Number(inputTtlSeconds)) && Number(inputTtlSeconds) > 0) {
     return Math.min(MAX_PENDING_CAST_TTL_SECONDS, Math.max(1, Math.ceil(Number(inputTtlSeconds))));
   }
@@ -230,11 +231,11 @@ function normalizePendingCastTtlSeconds(inputTtlSeconds, currentTick, resolveTic
   );
 }
 
-function normalizeCells(cells) {
+function normalizeCells(cells: unknown) {
   if (!Array.isArray(cells)) {
     return [];
   }
-  const normalized = [];
+  const normalized: Array<{ x: number; y: number }> = [];
   for (const cell of cells) {
     const anchor = normalizeAnchor(cell);
     if (anchor) {
@@ -244,7 +245,7 @@ function normalizeCells(cells) {
   return normalized;
 }
 
-function normalizeAnchor(value) {
+function normalizeAnchor(value: any) {
   const x = Math.trunc(Number(value?.x));
   const y = Math.trunc(Number(value?.y));
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -253,18 +254,18 @@ function normalizeAnchor(value) {
   return { x, y };
 }
 
-function normalizeString(value) {
+function normalizeString(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function normalizeOptionalInteger(value) {
+function normalizeOptionalInteger(value: unknown) {
   if (!Number.isFinite(Number(value))) {
     return null;
   }
   return Math.trunc(Number(value));
 }
 
-function normalizeNonNegativeInteger(value) {
+function normalizeNonNegativeInteger(value: unknown) {
   const normalized = Math.trunc(Number(value));
   return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
 }

@@ -56,7 +56,9 @@ export class WorldPlayerSourceService {
  */
 
     constructor(
-        @Optional() _authStore: NativePlayerAuthStoreService | null,
+        @Optional()
+        @Inject(NativePlayerAuthStoreService)
+        _authStore: NativePlayerAuthStoreService | null,
         @Inject(PlayerIdentityPersistenceService)
         playerIdentityPersistenceService: unknown,
     ) {

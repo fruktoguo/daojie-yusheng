@@ -1,14 +1,8 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeFormationService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const pg_1 = require("pg");
-const env_alias_1 = require("../../config/env-alias");
-const schema_bigint_migration_1 = require("../../persistence/schema-bigint-migration");
+import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
+import { Pool } from 'pg';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -29,13 +23,13 @@ const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
 const TERRAIN_DAMAGE_REDUCTION_DENOMINATOR = 100000;
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
 const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
-const PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS = shared_1.FORMATION_TICKS_PER_DAY * 3;
+const PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS = FORMATION_TICKS_PER_DAY * 3;
 const PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR = 10;
-const PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED = shared_1.buildQiHalfLifeRateScaled(PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS);
+const PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS);
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
-    logger = new common_1.Logger(WorldRuntimeFormationService.name);
+    logger = new Logger(WorldRuntimeFormationService.name);
     contentTemplateRepository;
     playerRuntimeService;
     formationsByInstanceId = new Map();
@@ -56,40 +50,40 @@ class WorldRuntimeFormationService {
         const diskItem = player.inventory?.items?.[slotIndex] ?? null;
         const diskTier = resolveFormationDiskTier(diskItem);
         if (!diskItem || !diskTier) {
-            throw new common_1.BadRequestException('需要使用阵盘布阵');
+            throw new BadRequestException('需要使用阵盘布阵');
         }
         const template = this.resolveFormationTemplate(payload?.formationId);
         if (resolveFormationLifecycle(template) === FORMATION_LIFECYCLE_PERSISTENT) {
-            throw new common_1.BadRequestException(`${template.name}是持续性阵法，不能通过阵盘布置`);
+            throw new BadRequestException(`${template.name}是持续性阵法，不能通过阵盘布置`);
         }
         if (template.placeableByDisk === false) {
-            throw new common_1.BadRequestException(`${template.name}不能通过阵盘布置`);
+            throw new BadRequestException(`${template.name}不能通过阵盘布置`);
         }
         const diskMultiplier = normalizeDiskMultiplier(diskItem);
         const hasSetupPayload = payload?.setup && typeof payload.setup === 'object';
         const plan = hasSetupPayload
-            ? shared_1.resolveFormationSetupPlan(template, diskMultiplier, payload.setup)
+            ? resolveFormationSetupPlan(template, diskMultiplier, payload.setup)
             : null;
         const spiritStoneCount = plan
             ? plan.spiritStoneCount
             : normalizePositiveInteger(payload?.spiritStoneCount, '灵石数量');
-        const minSpiritStoneCount = shared_1.resolveFormationMinSpiritStoneCount(template);
+        const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
         if (!plan && spiritStoneCount < minSpiritStoneCount) {
-            throw new common_1.BadRequestException(`${template.name}至少需要投入 ${formatInteger(minSpiritStoneCount)} 灵石`);
+            throw new BadRequestException(`${template.name}至少需要投入 ${formatInteger(minSpiritStoneCount)} 灵石`);
         }
-        const qiCost = plan ? plan.qiCost : shared_1.resolveFormationQiCost(spiritStoneCount, template);
-        const allocation = plan ? plan.setup : shared_1.normalizeFormationAllocation(payload?.allocation);
-        const stats = plan ? plan.stats : shared_1.resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+        const qiCost = plan ? plan.qiCost : resolveFormationQiCost(spiritStoneCount, template);
+        const allocation = plan ? plan.setup : normalizeFormationAllocation(payload?.allocation);
+        const stats = plan ? plan.stats : resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
         const location = deps.getPlayerLocationOrThrow(playerId);
         const instance = deps.getInstanceRuntime(location.instanceId);
         if (!instance) {
-            throw new common_1.NotFoundException('当前地图实例不存在');
+            throw new NotFoundException('当前地图实例不存在');
         }
         assertCanPlaceFormationInInstance(instance);
         const placement = resolveFormationPlacement(playerId, player, location, instance);
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
-        this.playerRuntimeService.debitWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         const now = Date.now();
         const formation = {
@@ -134,16 +128,16 @@ class WorldRuntimeFormationService {
     upsertSectGuardianFormation(input, deps = null) {
         const template = this.resolveFormationTemplate(input?.formationId ?? 'sect_guardian_barrier');
         if (template.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
-            throw new common_1.BadRequestException('护宗大阵模板必须是边界防护阵法');
+            throw new BadRequestException('护宗大阵模板必须是边界防护阵法');
         }
         const instanceId = normalizeInstanceId(input?.instanceId);
         if (!instanceId) {
-            throw new common_1.BadRequestException('地图实例 ID 不能为空');
+            throw new BadRequestException('地图实例 ID 不能为空');
         }
         const x = firstFiniteInteger(input?.x);
         const y = firstFiniteInteger(input?.y);
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            throw new common_1.BadRequestException('护宗大阵入口坐标无效');
+            throw new BadRequestException('护宗大阵入口坐标无效');
         }
         const ownerSectId = normalizeOptionalString(input?.ownerSectId ?? input?.sectId);
         const eyeInstanceId = normalizeInstanceId(input?.eyeInstanceId) || instanceId;
@@ -156,11 +150,11 @@ class WorldRuntimeFormationService {
         const auraPerSpiritStone = resolveFormationAuraPerSpiritStone(template);
         const fallbackSpiritStoneCount = explicitRemainingAuraBudget !== null
             ? Math.ceil(explicitRemainingAuraBudget / auraPerSpiritStone)
-            : shared_1.resolveFormationMinSpiritStoneCount(template);
+            : resolveFormationMinSpiritStoneCount(template);
         const spiritStoneCount = Math.max(1, inputSpiritStoneCount > 0 ? inputSpiritStoneCount : fallbackSpiritStoneCount);
         const diskMultiplier = Number.isFinite(Number(input?.diskMultiplier)) ? Math.max(1, Number(input.diskMultiplier)) : 1;
-        const allocation = shared_1.normalizeFormationAllocation(input?.allocation);
-        const stats = shared_1.resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+        const allocation = normalizeFormationAllocation(input?.allocation);
+        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
         if (Number.isFinite(Number(input?.radius))) {
             stats.radius = Math.max(1, Math.trunc(Number(input.radius)));
         }
@@ -213,7 +207,7 @@ class WorldRuntimeFormationService {
     dispatchSetFormationActive(playerId, payload, deps = null) {
         const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
         if (isPersistentFormation(formation)) {
-            throw new common_1.BadRequestException('持续性阵法需要在阵法管理面板操作');
+            throw new BadRequestException('持续性阵法需要在阵法管理面板操作');
         }
         formation.active = payload?.active !== false;
         formation.updatedAt = Date.now();
@@ -229,13 +223,13 @@ class WorldRuntimeFormationService {
     dispatchRefillFormation(playerId, payload, deps = null) {
         const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
         if (isPersistentFormation(formation)) {
-            throw new common_1.BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
+            throw new BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
         }
         const spiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
-        const qiCost = shared_1.resolveFormationQiCost(spiritStoneCount, formation.template);
+        const qiCost = resolveFormationQiCost(spiritStoneCount, formation.template);
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
-        this.playerRuntimeService.debitWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
         const added = resolveFormationRefillAuraBudget(formation, spiritStoneCount);
         formation.remainingAuraBudget += added;
         formation.updatedAt = Date.now();
@@ -251,10 +245,10 @@ class WorldRuntimeFormationService {
     dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
         const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
         if (!formation) {
-            throw new common_1.NotFoundException('阵法不存在');
+            throw new NotFoundException('阵法不存在');
         }
         if (!isPersistentFormation(formation)) {
-            throw new common_1.BadRequestException('该阵法不是持续性阵法');
+            throw new BadRequestException('该阵法不是持续性阵法');
         }
         formation.active = payload?.active !== false && formation.remainingAuraBudget > 0;
         formation.updatedAt = Date.now();
@@ -270,19 +264,19 @@ class WorldRuntimeFormationService {
     dispatchInjectPersistentFormationEnergy(playerId, payload, deps = null) {
         const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
         if (!formation) {
-            throw new common_1.NotFoundException('阵法不存在');
+            throw new NotFoundException('阵法不存在');
         }
         if (!isPersistentFormation(formation)) {
-            throw new common_1.BadRequestException('该阵法不是持续性阵法');
+            throw new BadRequestException('该阵法不是持续性阵法');
         }
         const spiritStoneCount = normalizeNonNegativeInteger(payload?.spiritStoneCount ?? 0);
-        const qiAmount = shared_1.resolveFormationQiCost(spiritStoneCount, formation.template);
+        const qiAmount = resolveFormationQiCost(spiritStoneCount, formation.template);
         if (spiritStoneCount <= 0) {
-            throw new common_1.BadRequestException('至少需要注入灵石');
+            throw new BadRequestException('至少需要注入灵石');
         }
         this.assertCanInject(playerId, qiAmount, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiAmount);
-        this.playerRuntimeService.debitWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
         const added = resolveFormationRefillAuraBudget(formation, spiritStoneCount);
         formation.remainingAuraBudget = Math.max(0, Number(formation.remainingAuraBudget) || 0) + added;
         if (formation.remainingAuraBudget > 0) {
@@ -475,7 +469,7 @@ class WorldRuntimeFormationService {
             centerX: formation.x,
             centerY: formation.y,
             remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
-            damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
+            damagePerAura: resolveFormationDamagePerAura(formation.template),
         };
     }
 
@@ -525,7 +519,7 @@ class WorldRuntimeFormationService {
             x: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
             y: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
             remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
-            damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
+            damagePerAura: resolveFormationDamagePerAura(formation.template),
         };
     }
 
@@ -586,7 +580,7 @@ class WorldRuntimeFormationService {
         const mitigatedDamage = selfDamageReduction > 0
             ? Math.max(0, normalizedDamage * (1 - selfDamageReduction))
             : normalizedDamage;
-        const damagePerAura = shared_1.resolveFormationDamagePerAura(formation.template);
+        const damagePerAura = resolveFormationDamagePerAura(formation.template);
         const auraDamage = mitigatedDamage / damagePerAura;
         if (auraDamage <= 0) {
             return {
@@ -682,14 +676,14 @@ class WorldRuntimeFormationService {
             remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
             radius: formation.stats.radius,
             refillSpiritStoneCount: Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
-            refillQiCost: shared_1.resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
+            refillQiCost: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
             refillAuraBudget: resolveFormationRefillAuraBudget(formation, Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1))),
         }));
     }
 
     advanceAuraFormation(instance, formation) {
-        const resourceKey = formation.template.effect.resourceKey || shared_1.DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY;
-        const halfLifeTicks = Math.max(1, Math.trunc(formation.template.effect.convergenceHalfLifeTicks ?? shared_1.FORMATION_TICKS_PER_DAY));
+        const resourceKey = formation.template.effect.resourceKey || DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY;
+        const halfLifeTicks = Math.max(1, Math.trunc(formation.template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
         forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
             const current = instance.getTileResource(resourceKey, x, y) ?? 0;
             const target = Math.max(0, formation.stats.effectValue);
@@ -845,7 +839,7 @@ class WorldRuntimeFormationService {
             ? Math.max(0, Number(entry.remainingAuraBudget))
             : null;
         const rawSpiritStoneCount = Math.max(1, Math.trunc(Number(entry.spiritStoneCount) || 1));
-        const minSpiritStoneCount = shared_1.resolveFormationMinSpiritStoneCount(template);
+        const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
         const spiritStoneCount = lifecycle === FORMATION_LIFECYCLE_PERSISTENT
             && template.id === 'sect_guardian_barrier'
             && rawSpiritStoneCount <= minSpiritStoneCount
@@ -854,10 +848,10 @@ class WorldRuntimeFormationService {
             ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingAuraBudget / resolveFormationAuraPerSpiritStone(template)))
             : rawSpiritStoneCount;
         const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
-        const allocation = typeof shared_1.isFormationSetupInput === 'function' && shared_1.isFormationSetupInput(allocationPayload)
-            ? shared_1.normalizeFormationSetup(template, allocationPayload)
-            : shared_1.normalizeFormationAllocation(allocationPayload);
-        const stats = shared_1.resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+        const allocation = typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
+            ? normalizeFormationSetup(template, allocationPayload)
+            : normalizeFormationAllocation(allocationPayload);
+        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
         if (template.id === 'sect_guardian_barrier') {
             stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
         }
@@ -1046,11 +1040,11 @@ class WorldRuntimeFormationService {
     }
 
     async initializePersistencePool() {
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             return;
         }
-        const pool = new pg_1.Pool({ connectionString: databaseUrl });
+        const pool = new Pool({ connectionString: databaseUrl });
         try {
             await ensureInstanceFormationStateTable(pool);
             this.persistencePool = pool;
@@ -1084,7 +1078,7 @@ class WorldRuntimeFormationService {
     findOwnedFormation(playerId, formationInstanceId) {
         const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
         if (!normalizedId) {
-            throw new common_1.BadRequestException('阵法实例 ID 不能为空');
+            throw new BadRequestException('阵法实例 ID 不能为空');
         }
         for (const formations of this.formationsByInstanceId.values()) {
             const formation = formations.find((entry) => entry.id === normalizedId);
@@ -1092,11 +1086,11 @@ class WorldRuntimeFormationService {
                 continue;
             }
             if (formation.ownerPlayerId !== playerId) {
-                throw new common_1.ForbiddenException('不能操作他人的阵法');
+                throw new ForbiddenException('不能操作他人的阵法');
             }
             return formation;
         }
-        throw new common_1.NotFoundException('阵法不存在');
+        throw new NotFoundException('阵法不存在');
     }
 
     findFormationInInstance(instanceId, formationInstanceId) {
@@ -1141,14 +1135,14 @@ class WorldRuntimeFormationService {
     resolveFormationTemplate(formationId) {
         const normalizedId = typeof formationId === 'string' ? formationId.trim() : '';
         if (!normalizedId) {
-            throw new common_1.BadRequestException('阵法 ID 不能为空');
+            throw new BadRequestException('阵法 ID 不能为空');
         }
         const configured = typeof this.contentTemplateRepository.getFormationTemplate === 'function'
             ? this.contentTemplateRepository.getFormationTemplate(normalizedId)
             : null;
-        const template = configured ?? shared_1.getFormationTemplateById(normalizedId);
+        const template = configured ?? getFormationTemplateById(normalizedId);
         if (!template) {
-            throw new common_1.NotFoundException(`阵法不存在：${normalizedId}`);
+            throw new NotFoundException(`阵法不存在：${normalizedId}`);
         }
         return template;
     }
@@ -1156,24 +1150,23 @@ class WorldRuntimeFormationService {
     assertCanPay(playerId, qiCost, spiritStoneCount) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.qi < qiCost) {
-            throw new common_1.NotFoundException('灵力不足');
+            throw new NotFoundException('灵力不足');
         }
-        if (!this.playerRuntimeService.canAffordWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
-            throw new common_1.NotFoundException('灵石不足');
+        if (!this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
+            throw new NotFoundException('灵石不足');
         }
     }
 
     assertCanInject(playerId, qiAmount, spiritStoneCount) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (qiAmount > 0 && player.qi < qiAmount) {
-            throw new common_1.NotFoundException('灵力不足');
+            throw new NotFoundException('灵力不足');
         }
-        if (spiritStoneCount > 0 && !this.playerRuntimeService.canAffordWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
-            throw new common_1.NotFoundException('灵石不足');
+        if (spiritStoneCount > 0 && !this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
+            throw new NotFoundException('灵石不足');
         }
     }
 }
-exports.WorldRuntimeFormationService = WorldRuntimeFormationService;
 export { WorldRuntimeFormationService };
 
 async function ensureInstanceFormationStateTable(pool) {
@@ -1209,10 +1202,10 @@ async function ensureInstanceFormationStateTable(pool) {
         ADD COLUMN IF NOT EXISTS lifecycle varchar(32) NOT NULL DEFAULT 'deployed'
     `);
     for (const column of INSTANCE_FORMATION_STATE_BIGINT_COLUMNS) {
-        await (0, schema_bigint_migration_1.ensureBigintColumnType)(pool, INSTANCE_FORMATION_STATE_TABLE, column);
+        await ensureBigintColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
     }
     for (const column of INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS) {
-        await (0, schema_bigint_migration_1.ensureDoubleColumnType)(pool, INSTANCE_FORMATION_STATE_TABLE, column);
+        await ensureDoubleColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
     }
     await pool.query(`
         CREATE INDEX IF NOT EXISTS instance_formation_state_instance_idx
@@ -1227,7 +1220,7 @@ async function ensureInstanceFormationStateTable(pool) {
 function normalizeSlotIndex(input) {
     const value = Math.trunc(Number(input));
     if (!Number.isFinite(value) || value < 0) {
-        throw new common_1.BadRequestException('槽位索引无效');
+        throw new BadRequestException('槽位索引无效');
     }
     return value;
 }
@@ -1235,7 +1228,7 @@ function normalizeSlotIndex(input) {
 function normalizePositiveInteger(input, label) {
     const value = Math.trunc(Number(input));
     if (!Number.isFinite(value) || value <= 0) {
-        throw new common_1.BadRequestException(`${label}必须大于 0`);
+        throw new BadRequestException(`${label}必须大于 0`);
     }
     return value;
 }
@@ -1243,7 +1236,7 @@ function normalizePositiveInteger(input, label) {
 function normalizeNonNegativeInteger(input) {
     const value = Math.trunc(Number(input));
     if (!Number.isFinite(value) || value < 0) {
-        throw new common_1.BadRequestException('灵力消耗不能为负');
+        throw new BadRequestException('灵力消耗不能为负');
     }
     return value;
 }
@@ -1255,7 +1248,7 @@ function resolveFormationPlacement(playerId, player, location, instance) {
     const x = firstFiniteInteger(runtimePosition?.x, player?.x, location?.x);
     const y = firstFiniteInteger(runtimePosition?.y, player?.y, location?.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        throw new common_1.BadRequestException('无法确认布阵坐标');
+        throw new BadRequestException('无法确认布阵坐标');
     }
     return { x, y };
 }
@@ -1292,7 +1285,7 @@ function resolvePlayerSectId(player) {
 
 function assertCanPlaceFormationInInstance(instance) {
     if (isVirtualPublicWorldInstance(instance)) {
-        throw new common_1.BadRequestException('虚境不能布置阵法，请前往现世。');
+        throw new BadRequestException('虚境不能布置阵法，请前往现世。');
     }
 }
 
@@ -1320,8 +1313,8 @@ function normalizeFormationLifecycle(input) {
 }
 
 function resolveFormationLifecycle(template) {
-    return typeof shared_1.resolveFormationLifecycle === 'function'
-        ? shared_1.resolveFormationLifecycle(template)
+    return typeof resolveSharedFormationLifecycle === 'function'
+        ? resolveSharedFormationLifecycle(template)
         : normalizeFormationLifecycle(template?.lifecycle);
 }
 
@@ -1383,7 +1376,7 @@ function resolvePersistentFormationTickCost(formation) {
     if (remainingAuraBudget <= 0) {
         return 0;
     }
-    const activeRate = PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED / shared_1.QI_HALF_LIFE_RATE_SCALE;
+    const activeRate = PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
     const rate = formation?.active === false
         ? activeRate / PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR
         : activeRate;
@@ -1411,14 +1404,14 @@ function buildRuntimeFormationProjection(formation, role = 'effect') {
         ...visual,
         active: formation.active,
         blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
-        damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
+        damagePerAura: resolveFormationDamagePerAura(formation.template),
         remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
     };
 }
 
 function resolveFormationRuntimeVisual(template) {
-    const visual = typeof shared_1.resolveFormationVisual === 'function'
-        ? shared_1.resolveFormationVisual(template)
+    const visual: any = typeof resolveFormationVisual === 'function'
+        ? resolveFormationVisual(template)
         : { char: '◎', color: '#4da3ff', showText: true, rangeHighlightColor: '#3b82f6' };
     return {
         char: visual.char,
@@ -1435,13 +1428,13 @@ function resolveFormationRuntimeVisual(template) {
 }
 
 function resolveFormationAuraPerSpiritStone(template) {
-    return typeof shared_1.resolveFormationCostConfig === 'function'
-        ? shared_1.resolveFormationCostConfig(template).auraPerSpiritStone
-        : shared_1.FORMATION_AURA_PER_SPIRIT_STONE;
+    return typeof resolveFormationCostConfig === 'function'
+        ? resolveFormationCostConfig(template).auraPerSpiritStone
+        : FORMATION_AURA_PER_SPIRIT_STONE;
 }
 
 function resolveFormationRefillAuraBudget(formation, spiritStoneCount) {
-    if (typeof shared_1.isFormationSetupInput === 'function' && shared_1.isFormationSetupInput(formation?.allocation)) {
+    if (typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation?.allocation)) {
         return Math.max(1, Math.round(Number(formation?.stats?.totalAuraBudget) || 1));
     }
     return Math.round(Math.max(1, Math.trunc(Number(spiritStoneCount) || 1)) * resolveFormationAuraPerSpiritStone(formation.template) * formation.diskMultiplier);
@@ -1563,7 +1556,7 @@ function normalizeDiskMultiplier(item) {
         return Math.max(1, Number(item.formationDiskMultiplier));
     }
     const tier = resolveFormationDiskTier(item);
-    return shared_1.FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
+    return FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
 }
 
 function resolveFormationDiskTier(item) {
@@ -1601,5 +1594,5 @@ function touchInstanceRevision(instance) {
 }
 
 function formatInteger(value) {
-    return (0, shared_1.formatDisplayInteger)(Math.max(0, Math.floor(Number(value) || 0)));
+    return formatDisplayInteger(Math.max(0, Math.floor(Number(value) || 0)));
 }

@@ -1,43 +1,27 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeCombatCommandService = void 0;
-
-const common_1 = require("@nestjs/common");
-const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
-const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
-const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
-const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { WorldRuntimeBasicAttackService } from './world-runtime-basic-attack.service';
+import { WorldRuntimePlayerSkillDispatchService } from './world-runtime-player-skill-dispatch.service';
+import { WorldRuntimeBattleEngageService } from './world-runtime-battle-engage.service';
+import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 
 /** world-runtime combat-command orchestration：统一承接普攻、施法与接敌入口 facade。 */
-let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
+@Injectable()
+export class WorldRuntimeCombatCommandService {
 /**
  * worldRuntimeBasicAttackService：世界运行态BasicAttack服务引用。
  */
 
-    worldRuntimeBasicAttackService;    
+    worldRuntimeBasicAttackService;
     /**
  * worldRuntimePlayerSkillDispatchService：世界运行态玩家技能Dispatch服务引用。
  */
 
-    worldRuntimePlayerSkillDispatchService;    
+    worldRuntimePlayerSkillDispatchService;
     /**
  * worldRuntimeBattleEngageService：世界运行态BattleEngage服务引用。
  */
 
-    worldRuntimeBattleEngageService;    
+    worldRuntimeBattleEngageService;
     /**
  * worldRuntimeCombatActionService：统一战斗动作编排服务引用。
  */
@@ -51,12 +35,17 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeCombatActionService) {
+    constructor(
+        @Inject(WorldRuntimeBasicAttackService) worldRuntimeBasicAttackService: any,
+        @Inject(WorldRuntimePlayerSkillDispatchService) worldRuntimePlayerSkillDispatchService: any,
+        @Inject(WorldRuntimeBattleEngageService) worldRuntimeBattleEngageService: any,
+        @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+    ) {
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
-    }    
+    }
     /**
  * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
@@ -79,7 +68,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
             }, deps, () => this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps));
         }
         return this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
-    }    
+    }
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
  * @param playerId 玩家 ID。
@@ -102,7 +91,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
             }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps));
         }
         return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
-    }    
+    }
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
  * @param attacker 参数说明。
@@ -114,7 +103,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
 
     resolveLegacySkillTargetRef(attacker, skill, targetRef, deps) {
         return this.worldRuntimePlayerSkillDispatchService.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps);
-    }    
+    }
     /**
  * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
  * @param attacker 参数说明。
@@ -126,7 +115,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
 
     async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
         return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
-    }    
+    }
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
  * @param attacker 参数说明。
@@ -139,7 +128,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
 
     async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
         return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
-    }    
+    }
     /**
  * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
@@ -156,13 +145,3 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
         return this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
     }
 };
-exports.WorldRuntimeCombatCommandService = WorldRuntimeCombatCommandService;
-exports.WorldRuntimeCombatCommandService = WorldRuntimeCombatCommandService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
-        world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
-        world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
-        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
-], WorldRuntimeCombatCommandService);
-
-export { WorldRuntimeCombatCommandService };

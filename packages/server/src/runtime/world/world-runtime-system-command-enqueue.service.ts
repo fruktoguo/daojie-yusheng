@@ -1,38 +1,12 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") {
-        r = Reflect.decorate(decorators, target, key, desc);
-    }
-    else {
-        for (var i = decorators.length - 1; i >= 0; i--) {
-            if (d = decorators[i]) {
-                r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-            }
-        }
-    }
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") {
-        return Reflect.metadata(k, v);
-    }
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeSystemCommandEnqueueService = void 0;
-
-const common_1 = require("@nestjs/common");
-const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { WorldRuntimeGmQueueService } from './world-runtime-gm-queue.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { normalizeCoordinate, normalizeRollCount } = world_runtime_normalization_helpers_1;
 
 /** world-runtime system-command enqueue orchestration：承接系统/GM 命令入队前的校验与归一化。 */
-let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnqueueService {
+@Injectable()
+export class WorldRuntimeSystemCommandEnqueueService {
 /**
  * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
@@ -44,7 +18,9 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeGmQueueService) {
+    constructor(
+        @Inject(WorldRuntimeGmQueueService) worldRuntimeGmQueueService: any,
+    ) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
     }
     /**
@@ -64,10 +40,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const monsterId = typeof monsterIdInput === 'string' ? monsterIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('地图实例 ID 不能为空');
+            throw new BadRequestException('地图实例 ID 不能为空');
         }
         if (!monsterId) {
-            throw new common_1.BadRequestException('妖兽 ID 不能为空');
+            throw new BadRequestException('妖兽 ID 不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -93,10 +69,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('地图实例 ID 不能为空');
+            throw new BadRequestException('地图实例 ID 不能为空');
         }
         if (!runtimeId) {
-            throw new common_1.BadRequestException('运行时 ID 不能为空');
+            throw new BadRequestException('运行时 ID 不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -120,15 +96,15 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
-            throw new common_1.BadRequestException('地图实例 ID 不能为空');
+            throw new BadRequestException('地图实例 ID 不能为空');
         }
         if (!runtimeId) {
-            throw new common_1.BadRequestException('运行时 ID 不能为空');
+            throw new BadRequestException('运行时 ID 不能为空');
         }
 
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
-            throw new common_1.BadRequestException('数量不能为空');
+            throw new BadRequestException('数量不能为空');
         }
         deps.getInstanceRuntimeOrThrow(instanceId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -151,12 +127,12 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
 
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
-            throw new common_1.BadRequestException('数量不能为空');
+            throw new BadRequestException('数量不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -177,7 +153,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -197,7 +173,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -217,7 +193,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
-            throw new common_1.BadRequestException('玩家 ID 不能为空');
+            throw new BadRequestException('玩家 ID 不能为空');
         }
         deps.getPlayerLocationOrThrow(playerId);
         return this.worldRuntimeGmQueueService.enqueueSystemCommand({
@@ -264,10 +240,3 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         return this.worldRuntimeGmQueueService.enqueueGmRemoveBots(playerIdsInput, allInput);
     }
 };
-exports.WorldRuntimeSystemCommandEnqueueService = WorldRuntimeSystemCommandEnqueueService;
-exports.WorldRuntimeSystemCommandEnqueueService = WorldRuntimeSystemCommandEnqueueService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService])
-], WorldRuntimeSystemCommandEnqueueService);
-
-export { WorldRuntimeSystemCommandEnqueueService };

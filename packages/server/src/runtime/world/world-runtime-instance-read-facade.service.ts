@@ -1,20 +1,8 @@
-// @ts-nocheck
-"use strict";
+import { Injectable } from '@nestjs/common';
+import { doesTileTypeBlockSight, getTileTypeFromMapChar } from '@mud/shared';
+import { MapInstanceRuntime } from '../instance/map-instance.runtime';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeInstanceReadFacadeService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const map_instance_runtime_1 = require("../instance/map-instance.runtime");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const {
     buildRuntimeInstancePresetMeta,
     parseRuntimeInstanceDescriptor,
@@ -25,7 +13,8 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 /** world-runtime instance-read facade：承接地图模板、实例和 tile/combat 只读 facade。 */
-let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacadeService {
+@Injectable()
+export class WorldRuntimeInstanceReadFacadeService {
 /**
  * listMapTemplates：读取地图Template并返回结果。
  * @param deps 运行时依赖。
@@ -127,7 +116,7 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
             instanceOrigin: input.instanceOrigin ?? descriptor?.instanceOrigin,
             defaultEntry: input.defaultEntry ?? descriptor?.defaultEntry,
         });
-        const instance = new map_instance_runtime_1.MapInstanceRuntime({
+        const instance = new MapInstanceRuntime({
             instanceId: input.instanceId,
             template,
             monsterSpawns: deps.contentTemplateRepository.createRuntimeMonstersForMap(template.id),
@@ -172,12 +161,6 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
         return instance;
     }
 };
-exports.WorldRuntimeInstanceReadFacadeService = WorldRuntimeInstanceReadFacadeService;
-exports.WorldRuntimeInstanceReadFacadeService = WorldRuntimeInstanceReadFacadeService = __decorate([
-    (0, common_1.Injectable)()
-], WorldRuntimeInstanceReadFacadeService);
-
-export { WorldRuntimeInstanceReadFacadeService };
 
 function resolveOverlayParentSightBlocked(instance, x, y, deps) {
     const overlay = resolveOverlayParentProjection(instance, x, y, deps);
@@ -189,8 +172,8 @@ function resolveOverlayParentSightBlocked(instance, x, y, deps) {
         return parentInstance.isTileSightBlocked(overlay.x, overlay.y);
     }
     const row = overlay.template.terrainRows?.[overlay.y] ?? '';
-    const tileType = (0, shared_1.getTileTypeFromMapChar)(row[overlay.x] ?? '#');
-    return (0, shared_1.doesTileTypeBlockSight)(tileType);
+    const tileType = getTileTypeFromMapChar(row[overlay.x] ?? '#');
+    return doesTileTypeBlockSight(tileType);
 }
 
 function resolveOverlayParentProjection(instance, x, y, deps) {

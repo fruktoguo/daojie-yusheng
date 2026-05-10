@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { NodeRegistryService } from './node-registry.service';
@@ -52,6 +52,7 @@ export class PlayerSessionRouteService implements OnModuleInit, OnModuleDestroy 
 
   constructor(
     private readonly nodeRegistryService: NodeRegistryService,
+    @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider?: DatabasePoolProvider | null,
   ) {}
 

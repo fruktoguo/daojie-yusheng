@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use strict";
 
 import { normalizeRuntimeInstancePersistentPolicy, parseRuntimeInstanceDescriptor } from "./world-runtime.normalization.helpers";

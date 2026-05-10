@@ -4,6 +4,8 @@ import {
   type CompiledBuildingDef,
 } from '@mud/shared';
 
+// 建筑拓扑索引：为房间检测提供结构/地板/设施/拓扑遮罩的运行时索引
+// ⚠️ 索引在地图加载期构建，运行时只读查询，不在 tick 内修改
 export class BuildingTopologyIndex {
   structureHandleByCell: Uint32Array;
   floorHandleByCell: Uint32Array;

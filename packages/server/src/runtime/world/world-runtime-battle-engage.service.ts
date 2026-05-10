@@ -1,29 +1,12 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeBattleEngageService = void 0;
-
-const common_1 = require("@nestjs/common");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_attack_target_helpers_1 = require("./world-runtime.attack-target.helpers");
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolveAttackableTargetRef } from './world-runtime.attack-target.helpers';
 
 function assertInstanceSupportsPlayerCombat(instance) {
     if (instance?.meta?.supportsPvp === true) {
         return;
     }
-    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+    throw new BadRequestException('当前实例不允许玩家互攻');
 }
 
 function dispatchAutoCombatCommand(playerId, command, locked, deps) {
@@ -39,21 +22,24 @@ function dispatchAutoCombatCommand(playerId, command, locked, deps) {
 }
 
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
-let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
+@Injectable()
+export class WorldRuntimeBattleEngageService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
@@ -82,7 +68,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                 assertInstanceSupportsPlayerCombat(instance);
             }
             const resolvedTarget = targetRef
-                ? (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+                ? resolveAttackableTargetRef(
                     instance,
                     this.playerRuntimeService,
                     currentPlayer,
@@ -92,7 +78,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                 )
                 : null;
             if (!resolvedTarget) {
-                throw new common_1.BadRequestException('该目标无法被攻击');
+                throw new BadRequestException('该目标无法被攻击');
             }
             if (locked && targetRef) {
                 this.playerRuntimeService.updateCombatSettings(playerId, {
@@ -124,10 +110,10 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
-            throw new common_1.BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
         const monsterInstance = deps.getInstanceRuntimeOrThrow(player.instanceId);
-        const resolvedTarget = (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+        const resolvedTarget = resolveAttackableTargetRef(
             monsterInstance,
             this.playerRuntimeService,
             player,
@@ -140,7 +126,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
                 return;
             }
-            throw new common_1.BadRequestException('没有可命中的目标');
+            throw new BadRequestException('没有可命中的目标');
         }
         if (locked) {
             this.playerRuntimeService.updateCombatSettings(playerId, {
@@ -170,10 +156,3 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         }
     }
 };
-exports.WorldRuntimeBattleEngageService = WorldRuntimeBattleEngageService;
-exports.WorldRuntimeBattleEngageService = WorldRuntimeBattleEngageService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
-], WorldRuntimeBattleEngageService);
-
-export { WorldRuntimeBattleEngageService };

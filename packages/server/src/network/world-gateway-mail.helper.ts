@@ -1,8 +1,3 @@
-// @ts-nocheck
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayMailHelper = void 0;
 
 /** 世界 socket 邮件 helper：只收敛 mail 相关入口。 */
 class WorldGatewayMailHelper {
@@ -158,6 +153,5 @@ class WorldGatewayMailHelper {
         }
     }
 }
-exports.WorldGatewayMailHelper = WorldGatewayMailHelper;
 
 export { WorldGatewayMailHelper };

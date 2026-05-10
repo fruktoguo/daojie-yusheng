@@ -1,31 +1,9 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var WorldSessionReaperService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSessionReaperService = exports.WORLD_SESSION_REAPER_CONTRACT = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
-const player_session_route_service_1 = require("../persistence/player-session-route.service");
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-
-const world_session_service_1 = require("./world-session.service");
-
-const world_sync_service_1 = require("./world-sync.service");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
+import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldSessionService } from './world-session.service';
+import { WorldSyncService } from './world-sync.service';
 
 const SESSION_REAPER_INTERVAL_MS = 1000;
 const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
@@ -34,49 +12,49 @@ const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
     clearLocalRouteAfterFlush: true,
     clearDetachedCachesAfterFlush: true,
 });
-exports.WORLD_SESSION_REAPER_CONTRACT = WORLD_SESSION_REAPER_CONTRACT;
 
-let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSessionReaperService {
+@Injectable()
+export class WorldSessionReaperService {
 /**
  * worldSessionService：世界Session服务引用。
  */
 
-    worldSessionService;    
+    worldSessionService;
     /**
  * worldSyncService：世界Sync服务引用。
  */
 
-    worldSyncService;    
+    worldSyncService;
     /**
  * playerPersistenceFlushService：玩家PersistenceFlush服务引用。
  */
 
-    playerPersistenceFlushService;    
+    playerPersistenceFlushService;
     /**
  * playerSessionRouteService：玩家SessionRoute服务引用。
  */
 
-    playerSessionRouteService;    
+    playerSessionRouteService;
     /**
  * playerRuntimeService：玩家Runtime服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(WorldSessionReaperService_1.name);    
+    logger = new Logger(WorldSessionReaperService.name);
     /**
  * timer：timer相关字段。
  */
 
-    timer = null;    
+    timer = null;
     /**
  * running：running相关字段。
  */
 
-    running = false;    
+    running = false;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldSessionService 参数说明。
@@ -87,13 +65,19 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldSessionService, worldSyncService, playerPersistenceFlushService, playerSessionRouteService, playerRuntimeService) {
+    constructor(
+        @Inject(WorldSessionService) worldSessionService: any,
+        @Inject(WorldSyncService) worldSyncService: any,
+        @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any,
+        @Inject(PlayerSessionRouteService) playerSessionRouteService: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+    ) {
         this.worldSessionService = worldSessionService;
         this.worldSyncService = worldSyncService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.playerSessionRouteService = playerSessionRouteService;
         this.playerRuntimeService = playerRuntimeService;
-    }    
+    }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -105,7 +89,7 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
         }, SESSION_REAPER_INTERVAL_MS);
         this.timer.unref();
         this.logger.log(`会话回收器已启动，间隔 ${SESSION_REAPER_INTERVAL_MS}ms`);
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -116,7 +100,7 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
             clearInterval(this.timer);
             this.timer = null;
         }
-    }    
+    }
     /**
  * reapExpiredSessions：执行reapExpiredSession相关逻辑。
  * @returns 无返回值，直接更新reapExpiredSession相关状态。
@@ -152,17 +136,8 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
             this.running = false;
         }
     }
-};
-exports.WorldSessionReaperService = WorldSessionReaperService;
-exports.WorldSessionReaperService = WorldSessionReaperService = WorldSessionReaperService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_session_service_1.WorldSessionService,
-        world_sync_service_1.WorldSyncService,
-        player_persistence_flush_service_1.PlayerPersistenceFlushService,
-        player_session_route_service_1.PlayerSessionRouteService,
-        player_runtime_service_1.PlayerRuntimeService])
-], WorldSessionReaperService);
-export { WORLD_SESSION_REAPER_CONTRACT, WorldSessionReaperService };
+}
+export { WORLD_SESSION_REAPER_CONTRACT };
 
 function resolveRouteSessionEpoch(binding, player) {
     const sessionEpoch = Number(player?.sessionEpoch ?? binding?.sessionEpoch ?? 0);
@@ -171,4 +146,3 @@ function resolveRouteSessionEpoch(binding, player) {
     }
     return Math.max(1, Math.trunc(sessionEpoch));
 }
-//# sourceMappingURL=world-session-reaper.service.js.map

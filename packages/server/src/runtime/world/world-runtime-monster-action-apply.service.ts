@@ -1,34 +1,18 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { getDamageTrailColor } from '@mud/shared';
+import { PlayerCombatService } from '../combat/player-combat.service';
+import { resolveCombatHitForAction } from '../combat/combat-resolution.helpers';
+import { createCombatOutcomeApplyAdapters } from '../combat/combat-outcome-apply-adapters';
+import { resolveMonsterCombatExpEquivalentFallback } from '../combat/monster-combat-exp-equivalent.helper';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { WorldRuntimeCombatEffectsService } from './world-runtime-combat-effects.service';
+import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
+import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
+import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeMonsterActionApplyService = void 0;
-
-const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
-const player_combat_service_1 = require("../combat/player-combat.service");
-const combat_resolution_helpers_1 = require("../combat/combat-resolution.helpers");
-const combat_outcome_apply_adapters_1 = require("../combat/combat-outcome-apply-adapters");
-const monster_combat_exp_equivalent_helper_1 = require("../combat/monster-combat-exp-equivalent.helper");
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
-const world_runtime_combat_action_service_1 = require("./world-runtime-combat-action.service");
-const combat_action_types_1 = require("./combat-action.types");
-const combat_presentation_helpers_1 = require("./world-runtime-combat-presentation.helpers");
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
-const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const {
     formatCombatActionClause,
     formatCombatResolutionOutcome,
@@ -67,22 +51,23 @@ function projectDamageDefeated(target, damage) {
 }
 
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
-let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApplyService {
+@Injectable()
+export class WorldRuntimeMonsterActionApplyService {
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * playerCombatService：玩家战斗服务引用。
  */
 
-    playerCombatService;    
+    playerCombatService;
     /**
  * worldRuntimeCombatEffectsService：世界运行态战斗Effect服务引用。
  */
 
-    worldRuntimeCombatEffectsService;    
+    worldRuntimeCombatEffectsService;
     /**
  * worldRuntimeCombatActionService：统一战斗动作诊断服务引用。
  */
@@ -92,7 +77,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(WorldRuntimeMonsterActionApplyService.name);    
+    logger = new Logger(WorldRuntimeMonsterActionApplyService.name);
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -101,12 +86,17 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, playerCombatService, worldRuntimeCombatEffectsService, worldRuntimeCombatActionService) {
+    constructor(
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(PlayerCombatService) playerCombatService: any,
+        @Inject(WorldRuntimeCombatEffectsService) worldRuntimeCombatEffectsService: any,
+        @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
-    }    
+    }
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。
  * @param action 参数说明。
@@ -130,7 +120,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             return;
         }
         this.applyMonsterBasicAttack(action, deps);
-    }    
+    }
     applyMonsterSkillCancel(action, deps) {
         const reason = resolveMonsterSkillCancelRejectReason(action?.cancelReason);
         this.recordMonsterActionReject(deps, action, reason, {
@@ -154,7 +144,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         const durationMs = actionPlan.durationMs;
         const warningCells = actionPlan.warningCells;
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             effectsService: this.worldRuntimeCombatEffectsService,
             instanceId: action.instanceId,
@@ -201,7 +191,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? monster.numericStats.spellAtk
             : monster.numericStats.physAtk));
-        const resolvedDamage = (0, combat_resolution_helpers_1.resolveCombatHitForAction)({
+        const resolvedDamage = resolveCombatHitForAction({
             actor: monster,
             target: player,
             attackerStats: monster.numericStats,
@@ -216,14 +206,14 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             damageKind,
             damageMultiplier: 1,
         });
-        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        const effectColor = getDamageTrailColor(damageKind);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
         let updated = player;
         this.applyMonsterCombatOutcome({
             ...deps,
             currentTick,
         }, action, {
-            kind: combat_action_types_1.CombatTargetKind.Player,
+            kind: CombatTargetKind.Player,
             id: action.targetPlayerId,
         }, {
             targetPlayerId: action.targetPlayerId,
@@ -240,7 +230,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             defeated: projectDamageDefeated(player, resolvedDamage.damage),
             applyDefeat: false,
         });
-        (0, combat_presentation_helpers_1.emitCombatPresentation)({
+        emitCombatPresentation({
             deps,
             effectsService: this.worldRuntimeCombatEffectsService,
             instanceId: action.instanceId,
@@ -257,7 +247,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (updated.hp <= 0) {
             deps.handlePlayerDefeat(updated.playerId);
         }
-    }    
+    }
     /**
  * applyMonsterSkill：处理怪物技能并更新相关状态。
  * @param action 参数说明。
@@ -272,14 +262,14 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         const monster = instance?.getMonster?.(action.runtimeId) ?? null;
         const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
         const actionPlan = this.resolveMonsterSkillActionPlan(instance, deps, action, skill, monster);
-        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
+        const effectColor = skill ? getSkillEffectColor(skill) : getDamageTrailColor('spell');
         if (!actionPlan.ok) {
-            if (actionPlan.reason === combat_action_types_1.CombatRejectReason.NoRuntimeTargetsInWarningCells
+            if (actionPlan.reason === CombatRejectReason.NoRuntimeTargetsInWarningCells
                 && (actionPlan.hasAnchoredCast || actionPlan.warningCells?.length > 0)
                 && actionPlan.distanceAnchor
                 && monster
                 && skill) {
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     effectsService: this.worldRuntimeCombatEffectsService,
                     instanceId: action.instanceId,
@@ -349,7 +339,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                     targetCount: Math.max(1, targetEntries.length),
                 });
                 if (skill && !labelPushed) {
-                    (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                    emitCombatPresentation({
                         deps,
                         effectsService: this.worldRuntimeCombatEffectsService,
                         instanceId: action.instanceId,
@@ -369,7 +359,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                     ...deps,
                     currentTick,
                 }, action, {
-                    kind: combat_action_types_1.CombatTargetKind.Player,
+                    kind: CombatTargetKind.Player,
                     id: player.playerId,
                 }, {
                     targetPlayerId: player.playerId,
@@ -389,7 +379,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                     defeated: projectDamageDefeated(player, result.totalDamage),
                     applyDefeat: false,
                 });
-                (0, combat_presentation_helpers_1.emitCombatPresentation)({
+                emitCombatPresentation({
                     deps,
                     effectsService: this.worldRuntimeCombatEffectsService,
                     instanceId: action.instanceId,
@@ -407,7 +397,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 }
             }
             if (skill.requiresTarget !== false && resolvedTargetCount === 0) {
-                this.recordMonsterActionReject(deps, action, combat_action_types_1.CombatRejectReason.MissingTargetRuntimeState, {
+                this.recordMonsterActionReject(deps, action, CombatRejectReason.MissingTargetRuntimeState, {
                     selectedTargetCount: actionPlan.selectedTargets.length,
                     rejectedTargets: actionPlan.targetCollection.rejected,
                     skippedTargets,
@@ -416,7 +406,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.recordMonsterActionReject(deps, action, combat_action_types_1.CombatRejectReason.CastFailed, {
+            this.recordMonsterActionReject(deps, action, CombatRejectReason.CastFailed, {
                 error: message,
             }, { severity: 'warn' });
             (deps.logger ?? this.logger).warn(`处理妖兽技能 ${action.skillId}（来源 ${action.runtimeId}）失败：${message}`);
@@ -456,7 +446,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         return {
             ok: false,
-            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            reason: CombatRejectReason.Unknown,
             details: {},
             severity: 'warn',
         };
@@ -491,7 +481,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         return {
             ok: false,
-            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            reason: CombatRejectReason.Unknown,
             severity: 'warn',
             details: {},
             warningCells: Array.isArray(action?.warningCells) ? action.warningCells : [],
@@ -511,7 +501,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         return {
             ok: false,
-            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            reason: CombatRejectReason.Unknown,
             severity: 'warn',
             details: {},
             warningCells: Array.isArray(action?.warningCells) ? action.warningCells : [],
@@ -529,7 +519,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
         return {
             ok: false,
-            reason: combat_action_types_1.CombatRejectReason.Unknown,
+            reason: CombatRejectReason.Unknown,
             severity: 'warn',
             details: {
                 targetPlayerId: entry?.player?.playerId ?? entry?.playerId,
@@ -543,17 +533,17 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             return null;
         }
         const phase = action?.kind === 'skill'
-            ? combat_action_types_1.CombatActionPhase.ChantResolve
+            ? CombatActionPhase.ChantResolve
             : action?.kind === 'skill_chant'
-                ? combat_action_types_1.CombatActionPhase.ChantStart
-                : combat_action_types_1.CombatActionPhase.Instant;
+                ? CombatActionPhase.ChantStart
+                : CombatActionPhase.Instant;
         return this.worldRuntimeCombatActionService.applyCombatOutcome({
             phase,
             actor: {
-                kind: combat_action_types_1.CombatActorKind.Monster,
+                kind: CombatActorKind.Monster,
                 id: action?.runtimeId ?? null,
             },
-            actionId: action?.skillId ?? (action?.kind === 'skill' ? null : combat_action_types_1.CombatActionKind.BasicAttack),
+            actionId: action?.skillId ?? (action?.kind === 'skill' ? null : CombatActionKind.BasicAttack),
             instanceId: action?.instanceId ?? null,
             target,
             result: {
@@ -566,22 +556,12 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
                 ...deps,
                 playerRuntimeService: this.playerRuntimeService,
             },
-            adapters: (0, combat_outcome_apply_adapters_1.createCombatOutcomeApplyAdapters)(),
+            adapters: createCombatOutcomeApplyAdapters(),
             mergeAdapterResultToOutcome: true,
             record: true,
         });
     }
 };
-exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplyService;
-exports.WorldRuntimeMonsterActionApplyService = WorldRuntimeMonsterActionApplyService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        player_combat_service_1.PlayerCombatService,
-        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
-        world_runtime_combat_action_service_1.WorldRuntimeCombatActionService])
-], WorldRuntimeMonsterActionApplyService);
-
-export { WorldRuntimeMonsterActionApplyService };
 
 function collectMonsterSkillRuntimeTargets(instance, playerRuntimeService, deps, action, fallbackPosition, warningCells, skill) {
     const maxTargets = resolveMonsterSkillMaxTargets(skill);
@@ -666,10 +646,10 @@ function resolveMonsterSkillMaxTargets(skill) {
 }
 
 function resolveMonsterSkillCancelRejectReason(reason) {
-    if (reason === 'actor_dead') return combat_action_types_1.CombatRejectReason.ActorDead;
-    if (reason === 'expired') return combat_action_types_1.CombatRejectReason.PendingCastExpired;
-    if (reason === 'config_revision_mismatch') return combat_action_types_1.CombatRejectReason.PendingCastConfigRevisionMismatch;
-    return combat_action_types_1.CombatRejectReason.PendingCastCancelled;
+    if (reason === 'actor_dead') return CombatRejectReason.ActorDead;
+    if (reason === 'expired') return CombatRejectReason.PendingCastExpired;
+    if (reason === 'config_revision_mismatch') return CombatRejectReason.PendingCastConfigRevisionMismatch;
+    return CombatRejectReason.PendingCastCancelled;
 }
 
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
@@ -680,5 +660,5 @@ function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
             return Math.floor(resolved);
         }
     }
-    return (0, monster_combat_exp_equivalent_helper_1.resolveMonsterCombatExpEquivalentFallback)(monster);
+    return resolveMonsterCombatExpEquivalentFallback(monster);
 }

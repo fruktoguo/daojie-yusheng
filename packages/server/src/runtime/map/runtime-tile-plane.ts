@@ -1,46 +1,62 @@
-// @ts-nocheck
-"use strict";
+import { InteractableKind, TerrainType, TileType, composeTileTypeFromLayers, doesStructureTypeBlockMove, doesStructureTypeBlockSight, doesTerrainTypeBlockSight, getTileTypeFromMapChar, isStructureTypeDamageable, isTerrainTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeTilePlane = exports.TILE_FLAG_HAS_INTERACTABLE = exports.TILE_FLAG_HAS_STRUCTURE = exports.TILE_FLAG_HAS_SURFACE = exports.TILE_FLAG_DAMAGEABLE = exports.TILE_FLAG_SAFE_ZONE = exports.TILE_FLAG_BLOCKS_SIGHT = exports.TILE_FLAG_WALKABLE = void 0;
-
-const shared_1 = require("@mud/shared");
-
+// 哈希槽空标记：0 表示空槽，value 存储 cellIndex + 1
 const EMPTY_SLOT = 0;
 const DEFAULT_COORD_INDEX_CAPACITY = 1024;
 const DEFAULT_CELL_CAPACITY = 256;
 
-exports.TILE_FLAG_WALKABLE = 1 << 0;
-exports.TILE_FLAG_BLOCKS_SIGHT = 1 << 1;
-exports.TILE_FLAG_SAFE_ZONE = 1 << 2;
-exports.TILE_FLAG_DAMAGEABLE = 1 << 3;
-exports.TILE_FLAG_HAS_SURFACE = 1 << 4;
-exports.TILE_FLAG_HAS_STRUCTURE = 1 << 5;
-exports.TILE_FLAG_HAS_INTERACTABLE = 1 << 6;
+export const TILE_FLAG_WALKABLE = 1 << 0;
+export const TILE_FLAG_BLOCKS_SIGHT = 1 << 1;
+export const TILE_FLAG_SAFE_ZONE = 1 << 2;
+export const TILE_FLAG_DAMAGEABLE = 1 << 3;
+export const TILE_FLAG_HAS_SURFACE = 1 << 4;
+export const TILE_FLAG_HAS_STRUCTURE = 1 << 5;
+export const TILE_FLAG_HAS_INTERACTABLE = 1 << 6;
 
 const INTERACTABLE_FLAG_PORTAL = 1 << 0;
 const INTERACTABLE_FLAG_STAIRS = 1 << 1;
 
-/** RuntimeTilePlane：运行时稀疏坐标地块平面，热路径以 cell index 读写。 */
+/** 运行时稀疏地块平面，热路径以 cellIndex 读写。
+ * ⚠️ 禁止在 tick 内进行哈希重分布（growCoordIndex），必须在地图加载期完成。
+ * 稀疏存储 + 哈希槽 O(1) 查找 + 层叠合成 + 标志位预计算。*/
 class RuntimeTilePlane {
+    /** 哈希槽 X 坐标数组 */
     slotX;
+    /** 哈希槽 Y 坐标数组 */
     slotY;
+    /** 哈希槽存储的值（cellIndex + 1，0 表示空槽） */
     slotValue;
+    /** 哈希槽容量掩码（capacity - 1） */
     slotMask;
+    /** 当前激活的槽数量 */
     slotCount = 0;
+    /** 地块 X 坐标数组（按 cellIndex 索引） */
     cellX;
+    /** 地块 Y 坐标数组（按 cellIndex 索引） */
     cellY;
+    /** 地块类型（合成后的 TileType） */
     tileTypeByCell;
+    /** 地形类型（terrain layer） */
     terrainTypeByCell;
+    /** 表面类型（surface layer） */
     surfaceTypeByCell;
+    /** 结构类型（structure layer） */
     structureTypeByCell;
+    /** 可交互物标志位（portal/stairs） */
     interactableFlagsByCell;
+    /** 图层版本号，每次修改递增，用于增量同步 */
     layerRevisionByCell;
+    /** 预计算标志位（可行走/视野阻挡/安全区等） */
     flagsByCell;
+    /** 当前激活的 cell 数量 */
     cellCount = 0;
+    /** 地块 X 坐标范围最小值 */
     minX = 0;
+    /** 地块 X 坐标范围最大值 */
     maxX = -1;
+    /** 地块 Y 坐标范围最小值 */
     minY = 0;
+    /** 地块 Y 坐标范围最大值 */
     maxY = -1;
 
     constructor(initialCellCapacity = DEFAULT_CELL_CAPACITY, initialIndexCapacity = DEFAULT_COORD_INDEX_CAPACITY) {
@@ -61,6 +77,7 @@ class RuntimeTilePlane {
         this.slotMask = indexCapacity - 1;
     }
 
+    /** 从地图模板创建地块平面，解析 terrainRows 初始化所有地块 */
     static fromTemplate(template) {
         const width = Math.max(0, Math.trunc(Number(template?.width) || 0));
         const height = Math.max(0, Math.trunc(Number(template?.height) || 0));
@@ -68,13 +85,13 @@ class RuntimeTilePlane {
         for (let y = 0; y < height; y += 1) {
             const row = template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
             for (let x = 0; x < width; x += 1) {
-                const tileType = (0, shared_1.getTileTypeFromMapChar)(row[x] ?? '#');
-                const seed = (0, shared_1.resolveTileLayerSeedFromTemplateContext)(tileType, x, y, (lookupX, lookupY) => {
+                const tileType = getTileTypeFromMapChar(row[x] ?? '#');
+                const seed = resolveTileLayerSeedFromTemplateContext(tileType, x, y, (lookupX, lookupY) => {
                     if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
                         return null;
                     }
                     const lookupRow = template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
-                    return (0, shared_1.getTileTypeFromMapChar)(lookupRow[lookupX] ?? '#');
+                    return getTileTypeFromMapChar(lookupRow[lookupX] ?? '#');
                 });
                 const cellIndex = plane.activateCell(x, y, tileType, buildDefaultTileFlags(tileType));
                 plane.applyLayerSeed(cellIndex, seed);
@@ -83,15 +100,18 @@ class RuntimeTilePlane {
         return plane;
     }
 
+    /** 检查指定坐标是否存在已激活地块 */
     has(x, y) {
         return this.getCellIndex(x, y) >= 0;
     }
 
+    /** 获取坐标对应的句柄（cellIndex + 1，0 表示不存在），用于缓存键 */
     getHandle(x, y) {
         const index = this.getCellIndex(x, y);
         return index >= 0 ? index + 1 : 0;
     }
 
+    /** 通过坐标查找 cellIndex，未找到返回 -1 */
     getCellIndex(x, y) {
         if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
             return -1;
@@ -144,7 +164,7 @@ class RuntimeTilePlane {
     }
 
     getTileType(cellIndex) {
-        return this.tileTypeByCell[cellIndex] ?? shared_1.TileType.Wall;
+        return this.tileTypeByCell[cellIndex] ?? TileType.Wall;
     }
 
     setTileType(cellIndex, tileType) {
@@ -159,7 +179,7 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        const seed = resolveTileLayerSeedFromTileType(normalizeTileType(tileType));
         if (!seed.structure) {
             return this.setTileType(cellIndex, tileType);
         }
@@ -172,7 +192,7 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        const seed = resolveTileLayerSeedFromTileType(normalizeTileType(tileType));
         if (!seed.surface) {
             return this.setTileType(cellIndex, tileType);
         }
@@ -182,7 +202,7 @@ class RuntimeTilePlane {
     }
 
     getTerrainType(cellIndex) {
-        return this.terrainTypeByCell[cellIndex] ?? shared_1.TerrainType.Floor;
+        return this.terrainTypeByCell[cellIndex] ?? TerrainType.Floor;
     }
 
     getTerrain(cellIndex) {
@@ -193,7 +213,7 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        this.terrainTypeByCell[cellIndex] = (0, shared_1.normalizeTerrainType)(terrainType);
+        this.terrainTypeByCell[cellIndex] = normalizeTerrainType(terrainType);
         this.recomposeCell(cellIndex);
         return true;
     }
@@ -214,7 +234,7 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        this.surfaceTypeByCell[cellIndex] = (0, shared_1.normalizeSurfaceType)(surfaceType);
+        this.surfaceTypeByCell[cellIndex] = normalizeSurfaceType(surfaceType);
         this.recomposeCell(cellIndex);
         return true;
     }
@@ -235,7 +255,7 @@ class RuntimeTilePlane {
         if (cellIndex < 0 || cellIndex >= this.cellCount) {
             return false;
         }
-        this.structureTypeByCell[cellIndex] = (0, shared_1.normalizeStructureType)(structureType);
+        this.structureTypeByCell[cellIndex] = normalizeStructureType(structureType);
         this.recomposeCell(cellIndex);
         return true;
     }
@@ -292,11 +312,11 @@ class RuntimeTilePlane {
     }
 
     isWalkable(cellIndex) {
-        return (this.getFlags(cellIndex) & exports.TILE_FLAG_WALKABLE) !== 0;
+        return (this.getFlags(cellIndex) & TILE_FLAG_WALKABLE) !== 0;
     }
 
     blocksSight(cellIndex) {
-        return (this.getFlags(cellIndex) & exports.TILE_FLAG_BLOCKS_SIGHT) !== 0;
+        return (this.getFlags(cellIndex) & TILE_FLAG_BLOCKS_SIGHT) !== 0;
     }
 
     getCellCapacity() {
@@ -386,7 +406,7 @@ class RuntimeTilePlane {
     }
 
     applyLegacyTileSeed(cellIndex, tileType, explicitFlags = undefined) {
-        const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalizeTileType(tileType));
+        const seed = resolveTileLayerSeedFromTileType(normalizeTileType(tileType));
         this.applyLayerSeed(cellIndex, seed, explicitFlags);
     }
 
@@ -400,7 +420,7 @@ class RuntimeTilePlane {
 
     recomposeCell(cellIndex, explicitFlags = undefined) {
         const interactables = readInteractables(this.interactableFlagsByCell[cellIndex] ?? 0);
-        const tileType = (0, shared_1.composeTileTypeFromLayers)(
+        const tileType = composeTileTypeFromLayers(
             this.terrainTypeByCell[cellIndex],
             this.surfaceTypeByCell[cellIndex],
             this.structureTypeByCell[cellIndex],
@@ -420,50 +440,49 @@ class RuntimeTilePlane {
         this.layerRevisionByCell[cellIndex] = ((this.layerRevisionByCell[cellIndex] ?? 0) + 1) >>> 0;
     }
 }
-exports.RuntimeTilePlane = RuntimeTilePlane;
 export { RuntimeTilePlane };
 
 function buildDefaultTileFlags(tileType) {
     const normalized = normalizeTileType(tileType);
-    const seed = (0, shared_1.resolveTileLayerSeedFromTileType)(normalized);
+    const seed = resolveTileLayerSeedFromTileType(normalized);
     return buildLayerTileFlags(seed.terrain, seed.surface, seed.structure, buildInteractableFlags(seed.interactables), 0);
 }
 
 function buildLayerTileFlags(terrainType, surfaceType, structureType, interactableFlags, preservedFlags = 0) {
-    let flags = preservedFlags & exports.TILE_FLAG_SAFE_ZONE;
-    if ((0, shared_1.isTerrainTypeWalkable)(terrainType) && !(0, shared_1.doesStructureTypeBlockMove)(structureType)) {
-        flags |= exports.TILE_FLAG_WALKABLE;
+    let flags = preservedFlags & TILE_FLAG_SAFE_ZONE;
+    if (isTerrainTypeWalkable(terrainType) && !doesStructureTypeBlockMove(structureType)) {
+        flags |= TILE_FLAG_WALKABLE;
     }
-    if ((0, shared_1.doesTerrainTypeBlockSight)(terrainType) || (0, shared_1.doesStructureTypeBlockSight)(structureType)) {
-        flags |= exports.TILE_FLAG_BLOCKS_SIGHT;
+    if (doesTerrainTypeBlockSight(terrainType) || doesStructureTypeBlockSight(structureType)) {
+        flags |= TILE_FLAG_BLOCKS_SIGHT;
     }
-    if ((0, shared_1.isStructureTypeDamageable)(structureType) || isDamageableTerrainType(terrainType)) {
-        flags |= exports.TILE_FLAG_DAMAGEABLE;
+    if (isStructureTypeDamageable(structureType) || isDamageableTerrainType(terrainType)) {
+        flags |= TILE_FLAG_DAMAGEABLE;
     }
-    if ((0, shared_1.normalizeSurfaceType)(surfaceType)) {
-        flags |= exports.TILE_FLAG_HAS_SURFACE;
+    if (normalizeSurfaceType(surfaceType)) {
+        flags |= TILE_FLAG_HAS_SURFACE;
     }
-    if ((0, shared_1.normalizeStructureType)(structureType)) {
-        flags |= exports.TILE_FLAG_HAS_STRUCTURE;
+    if (normalizeStructureType(structureType)) {
+        flags |= TILE_FLAG_HAS_STRUCTURE;
     }
     if (interactableFlags > 0) {
-        flags |= exports.TILE_FLAG_HAS_INTERACTABLE;
+        flags |= TILE_FLAG_HAS_INTERACTABLE;
     }
     return flags;
 }
 
 function isDamageableTerrainType(terrainType) {
-    const terrain = (0, shared_1.normalizeTerrainType)(terrainType);
-    return terrain === shared_1.TerrainType.Cliff || terrain === shared_1.TerrainType.Cloud;
+    const terrain = normalizeTerrainType(terrainType);
+    return terrain === TerrainType.Cliff || terrain === TerrainType.Cloud;
 }
 
 function buildInteractableFlags(interactables) {
     let flags = 0;
     if (Array.isArray(interactables)) {
-        if (interactables.includes(shared_1.InteractableKind.Portal)) {
+        if (interactables.includes(InteractableKind.Portal)) {
             flags |= INTERACTABLE_FLAG_PORTAL;
         }
-        if (interactables.includes(shared_1.InteractableKind.Stairs)) {
+        if (interactables.includes(InteractableKind.Stairs)) {
             flags |= INTERACTABLE_FLAG_STAIRS;
         }
     }
@@ -473,18 +492,19 @@ function buildInteractableFlags(interactables) {
 function readInteractables(flags) {
     const result = [];
     if ((flags & INTERACTABLE_FLAG_PORTAL) !== 0) {
-        result.push(shared_1.InteractableKind.Portal);
+        result.push(InteractableKind.Portal);
     }
     if ((flags & INTERACTABLE_FLAG_STAIRS) !== 0) {
-        result.push(shared_1.InteractableKind.Stairs);
+        result.push(InteractableKind.Stairs);
     }
     return result;
 }
 
 function normalizeTileType(tileType) {
-    return typeof tileType === 'string' && tileType.length > 0 ? tileType : shared_1.TileType.Wall;
+    return typeof tileType === 'string' && tileType.length > 0 ? tileType : TileType.Wall;
 }
 
+// MurmurHash3 混合因子，兼顾 x/y 分布
 function hashCoord(x, y) {
     let hash = Math.imul(x ^ 0x9e3779b9, 0x85ebca6b);
     hash ^= Math.imul(y ^ 0xc2b2ae35, 0x27d4eb2d);

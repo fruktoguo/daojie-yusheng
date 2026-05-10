@@ -1,36 +1,17 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimePlayerCombatService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-const pvp_1 = require("../../constants/gameplay/pvp");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_inventory_grant_helpers_1 = require("./world-runtime-inventory-grant.helpers");
-const combat_audit_outbox_service_1 = require("../../persistence/combat-audit-outbox.service");
-
-const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../constants/gameplay/pvp';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { applyDurableInventoryGrant, canUseDurableInventoryGrant } from './world-runtime-inventory-grant.helpers';
+import { CombatAuditOutboxService } from '../../persistence/combat-audit-outbox.service';
+import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
 /** world-runtime player combat outcome：承接玩家战斗结果收口与击杀奖励分发。 */
-let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
-    logger = new common_1.Logger(WorldRuntimePlayerCombatService.name);
+@Injectable()
+export class WorldRuntimePlayerCombatService {
+    logger = new Logger(WorldRuntimePlayerCombatService.name);
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -49,7 +30,11 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(contentTemplateRepository, playerRuntimeService, combatAuditOutboxService = null) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(CombatAuditOutboxService) combatAuditOutboxService: any = null,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.combatAuditOutboxService = combatAuditOutboxService;
@@ -430,12 +415,12 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
             const nextStacks = this.playerRuntimeService.addPvPShaInfusionStack(killer.playerId);
             deps.queuePlayerNotice(killer.playerId, `杀念入体，煞气入体加深至 ${nextStacks} 层。`, 'combat');
         }
-        if (!this.playerRuntimeService.hasActiveBuff(victim.playerId, pvp_1.PVP_SOUL_INJURY_BUFF_ID)) {
+        if (!this.playerRuntimeService.hasActiveBuff(victim.playerId, PVP_SOUL_INJURY_BUFF_ID)) {
             this.playerRuntimeService.applyPvPSoulInjury(victim.playerId);
             deps.queuePlayerNotice(victim.playerId, '神魂受损；身死与遁返都不会清除，需静养一时辰。', 'combat');
         }
         const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
-        const reward = this.contentTemplateRepository.createItem(pvp_1.BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
+        const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
         if (reward && deathSite.instance) {
             if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward.itemId)) {
                 if (!this.canUseDurableInventoryGrant(killer, deps)) {
@@ -505,11 +490,11 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
     }
 
     canUseDurableInventoryGrant(player, deps) {
-        return (0, world_runtime_inventory_grant_helpers_1.canUseDurableInventoryGrant)(player, deps?.durableOperationService ?? null);
+        return canUseDurableInventoryGrant(player, deps?.durableOperationService ?? null);
     }
 
     async grantInventoryItemDurably(input) {
-        const committed = await (0, world_runtime_inventory_grant_helpers_1.applyDurableInventoryGrant)({
+        const committed = await applyDurableInventoryGrant({
             playerId: input.playerId,
             player: input.player,
             playerRuntimeService: this.playerRuntimeService,
@@ -558,7 +543,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
             tags: ['semantic', 'loot', input.sourceType],
         });
     }
-    recordCombatSemanticAudit(action, input = {}) {
+    recordCombatSemanticAudit(action, input: any = {}) {
         if (typeof this.combatAuditOutboxService?.enqueue !== 'function') {
             return false;
         }
@@ -577,15 +562,6 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         });
     }
 };
-exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService;
-exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        combat_audit_outbox_service_1.CombatAuditOutboxService])
-], WorldRuntimePlayerCombatService);
-
-export { WorldRuntimePlayerCombatService };
 
 function buildNextInventorySnapshots(items) {
     return Array.isArray(items)

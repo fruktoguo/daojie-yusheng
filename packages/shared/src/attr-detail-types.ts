@@ -42,6 +42,11 @@ export interface AttrDetailView {
 
   alchemySkill?: PlayerState['alchemySkill'];  
   /**
+ * forgingSkill：炼器技能相关字段。
+ */
+
+  forgingSkill?: PlayerState['forgingSkill'];  
+  /**
  * gatherSkill：gather技能相关字段。
  */
 

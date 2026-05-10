@@ -1,30 +1,10 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RedeemCodeRuntimeService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const node_crypto_1 = require("node:crypto");
-
-const content_template_repository_1 = require("../../content/content-template.repository");
-const durable_operation_service_1 = require("../../persistence/durable-operation.service");
-const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
-const redeem_code_persistence_service_1 = require("../../persistence/redeem-code-persistence.service");
-
-const player_runtime_service_1 = require("../player/player-runtime.service");
+import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
+import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
+import { PlayerRuntimeService } from '../player/player-runtime.service';
 
 /** 兑换码运行时：负责分组、码表、兑换与持久化。 */
 const REDEEM_CODE_LENGTH = 36;
@@ -38,7 +18,8 @@ const MAX_BATCH_REDEEM_CODES = 50;
 /** 单个分组一次最多创建的兑换码数量。 */
 const MAX_GROUP_CREATE_COUNT = 500;
 
-let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
+@Injectable()
+export class RedeemCodeRuntimeService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -58,6 +39,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     durableOperationService;
     /** instanceCatalogService：实例 lease 查询服务引用。 */
     instanceCatalogService;
+    _redeemRateMap = new Map();
     /** 当前全部兑换码分组。 */
     groups = [];
     /** 当前全部兑换码。 */
@@ -67,7 +49,13 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     /** 串行化分组/码表写操作。 */
     mutationQueue = Promise.resolve();
     /** 注入内容、玩家与兑换码持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, redeemCodePersistenceService, durableOperationService = null, instanceCatalogService = null) {
+    constructor(
+        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+        @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(RedeemCodePersistenceService) redeemCodePersistenceService: any,
+        @Inject(DurableOperationService) durableOperationService: any = null,
+        @Inject(InstanceCatalogService) instanceCatalogService: any = null,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.redeemCodePersistenceService = redeemCodePersistenceService;
@@ -81,7 +69,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     /** 重新读取兑换码文档，供启动和恢复场景重建内存态。 */
     async reloadFromPersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         const loaded = await this.redeemCodePersistenceService.loadDocument();
         if (!loaded) {
@@ -129,13 +116,13 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         const normalizedCount = normalizeCreateCount(count);
         return this.runExclusive(async () => {
             if (this.groups.some((entry) => entry.name === normalizedName)) {
-                throw new common_1.BadRequestException('兑换码分组名称已存在');
+                throw new BadRequestException('兑换码分组名称已存在');
             }
 
             const now = new Date().toISOString();
 
             const group = {
-                id: `redeem-group:${(0, node_crypto_1.randomUUID)()}`,
+                id: `redeem-group:${randomUUID()}`,
                 name: normalizedName,
                 rewards: normalizedRewards.map((entry) => ({ ...entry })),
                 createdAt: now,
@@ -164,7 +151,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
 
             const conflicting = this.groups.find((entry) => entry.id !== group.id && entry.name === normalizedName);
             if (conflicting) {
-                throw new common_1.BadRequestException('兑换码分组名称已存在');
+                throw new BadRequestException('兑换码分组名称已存在');
             }
             group.name = normalizedName;
             group.rewards = normalizedRewards.map((entry) => ({ ...entry }));
@@ -199,19 +186,18 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     async destroyCode(codeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedCodeId = typeof codeId === 'string' ? codeId.trim() : '';
         if (!normalizedCodeId) {
-            throw new common_1.BadRequestException('目标兑换码不存在');
+            throw new BadRequestException('目标兑换码不存在');
         }
         return this.runExclusive(async () => {
 
             const code = this.codes.find((entry) => entry.id === normalizedCodeId);
             if (!code) {
-                throw new common_1.BadRequestException('目标兑换码不存在');
+                throw new BadRequestException('目标兑换码不存在');
             }
             if (code.status === 'used') {
-                throw new common_1.BadRequestException('已使用的兑换码不能销毁');
+                throw new BadRequestException('已使用的兑换码不能销毁');
             }
             if (code.status === 'destroyed') {
                 return { ok: true };
@@ -234,13 +220,12 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     async redeemCodes(playerId, submittedCodes) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedCodes = normalizeSubmittedCodes(submittedCodes);
         if (normalizedCodes.length === 0) {
-            throw new common_1.BadRequestException('请至少填写一个兑换码');
+            throw new BadRequestException('请至少填写一个兑换码');
         }
         if (normalizedCodes.length > 5) {
-            throw new common_1.BadRequestException('单次最多兑换 5 个兑换码');
+            throw new BadRequestException('单次最多兑换 5 个兑换码');
         }
         const now = Date.now();
         if (!this._redeemRateMap) {
@@ -248,7 +233,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         const lastAttempt = this._redeemRateMap.get(playerId) ?? 0;
         if (now - lastAttempt < 3000) {
-            throw new common_1.BadRequestException('操作过于频繁，请稍后再试');
+            throw new BadRequestException('操作过于频繁，请稍后再试');
         }
         this._redeemRateMap.set(playerId, now);
         return this.runExclusive(async () => {
@@ -392,12 +377,11 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     requireGroup(groupId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const normalizedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
 
         const group = this.groups.find((entry) => entry.id === normalizedGroupId);
         if (!group) {
-            throw new common_1.BadRequestException('兑换码分组不存在');
+            throw new BadRequestException('兑换码分组不存在');
         }
         return group;
     }    
@@ -422,7 +406,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!Array.isArray(rewards) || rewards.length === 0) {
-            throw new common_1.BadRequestException('兑换码分组至少需要一个奖励物品');
+            throw new BadRequestException('兑换码分组至少需要一个奖励物品');
         }
 
         const normalized = [];
@@ -438,12 +422,12 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                 continue;
             }
             if (!this.contentTemplateRepository.createItem(itemId, count)) {
-                throw new common_1.BadRequestException(`奖励物品不存在：${itemId}`);
+                throw new BadRequestException(`奖励物品不存在：${itemId}`);
             }
             normalized.push({ itemId, count });
         }
         if (normalized.length === 0) {
-            throw new common_1.BadRequestException('兑换码分组至少需要一个有效奖励物品');
+            throw new BadRequestException('兑换码分组至少需要一个有效奖励物品');
         }
         return normalized;
     }    
@@ -458,7 +442,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     createCodes(groupId, count, nowIso) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const seenCodes = new Set(this.codes.map((entry) => entry.code));
 
         const created = [];
@@ -467,7 +450,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             const code = generateRedeemCode(seenCodes);
             seenCodes.add(code);
             created.push({
-                id: `redeem-code:${(0, node_crypto_1.randomUUID)()}`,
+                id: `redeem-code:${randomUUID()}`,
                 groupId,
                 code,
                 status: 'active',
@@ -490,7 +473,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
 
     toGroupView(group, codes) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
 
         let usedCodeCount = 0;
 
@@ -544,7 +526,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         const durableContext = await this.resolveDurableInventoryGrantContext(player);
         if (!durableContext) {
-            throw new common_1.ServiceUnavailableException('redeem_code_inventory_durable_context_required');
+            throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
         }
         const nextInventoryItems = buildNextInventorySnapshots(player.inventory?.items ?? [], normalizedItems);
         const rollbackState = captureInventoryGrantRollbackState(player);
@@ -577,7 +559,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     async grantWalletReward(player, item, submittedCode) {
         const durableContext = await this.resolveDurableInventoryGrantContext(player);
         if (!durableContext || !this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
-            throw new common_1.ServiceUnavailableException('redeem_code_wallet_durable_context_required');
+            throw new ServiceUnavailableException('redeem_code_wallet_durable_context_required');
         }
         const walletType = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
         const amount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
@@ -636,7 +618,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     async runExclusive(action) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
         const previous = this.mutationQueue;
 
         let release;
@@ -652,16 +633,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
     }
 };
-exports.RedeemCodeRuntimeService = RedeemCodeRuntimeService;
-exports.RedeemCodeRuntimeService = RedeemCodeRuntimeService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService,
-        redeem_code_persistence_service_1.RedeemCodePersistenceService,
-        durable_operation_service_1.DurableOperationService,
-        instance_catalog_service_1.InstanceCatalogService])
-], RedeemCodeRuntimeService);
-export { RedeemCodeRuntimeService };
 /**
  * normalizeGroupName：规范化或转换Group名称。
  * @param name 参数说明。
@@ -671,13 +642,12 @@ export { RedeemCodeRuntimeService };
 function normalizeGroupName(name) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const normalized = typeof name === 'string' ? name.normalize('NFC').trim() : '';
     if (!normalized) {
-        throw new common_1.BadRequestException('兑换码分组名称不能为空');
+        throw new BadRequestException('兑换码分组名称不能为空');
     }
     if (normalized.length > 120) {
-        throw new common_1.BadRequestException('兑换码分组名称过长');
+        throw new BadRequestException('兑换码分组名称过长');
     }
     return normalized;
 }
@@ -690,13 +660,12 @@ function normalizeGroupName(name) {
 function normalizeCreateCount(count) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const normalized = Math.max(1, Math.floor(Number(count) || 0));
     if (normalized <= 0) {
-        throw new common_1.BadRequestException('兑换码数量必须大于 0');
+        throw new BadRequestException('兑换码数量必须大于 0');
     }
     if (normalized > MAX_GROUP_CREATE_COUNT) {
-        throw new common_1.BadRequestException(`单次最多生成 ${MAX_GROUP_CREATE_COUNT} 个兑换码`);
+        throw new BadRequestException(`单次最多生成 ${MAX_GROUP_CREATE_COUNT} 个兑换码`);
     }
     return normalized;
 }
@@ -806,7 +775,6 @@ function compareIsoDesc(left, right) {
 function canReceiveAllRewards(currentItems, capacity, items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
     const snapshot = Array.isArray(currentItems) ? currentItems.map((entry) => ({ ...entry })) : [];
     for (const item of items) {
         if (isWalletRewardItemId(item?.itemId)) {
@@ -912,7 +880,7 @@ function isWalletRewardItemId(itemId) {
 
 function generateRedeemCode(seenCodes) {
     for (;;) {
-        const bytes = (0, node_crypto_1.randomBytes)(REDEEM_CODE_LENGTH);
+        const bytes = randomBytes(REDEEM_CODE_LENGTH);
         let output = '';
         for (let index = 0; index < REDEEM_CODE_LENGTH; index += 1) {
             output += REDEEM_CODE_ALPHABET[bytes[index] % REDEEM_CODE_ALPHABET.length];

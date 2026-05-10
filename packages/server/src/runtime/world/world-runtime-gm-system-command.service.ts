@@ -1,24 +1,6 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeGmSystemCommandService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
-const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-player-combat-outcome.service");
+import { Inject, Injectable } from '@nestjs/common';
+import { WorldRuntimeGmQueueService } from './world-runtime-gm-queue.service';
+import { WorldRuntimePlayerCombatOutcomeService } from './world-runtime-player-combat-outcome.service';
 
 function resolvePlayerSessionPort(deps) {
     const sessionService = deps?.worldRuntimePlayerSessionService;
@@ -32,17 +14,18 @@ function resolvePlayerSessionPort(deps) {
 }
 
 /** world-runtime gm-system-command seam：承接 GM system-command 分发与依赖收口。 */
-let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandService {
+@Injectable()
+export class WorldRuntimeGmSystemCommandService {
 /**
  * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
-    worldRuntimeGmQueueService;    
+    worldRuntimeGmQueueService;
     /**
  * worldRuntimePlayerCombatOutcomeService：世界运行态玩家战斗Outcome服务引用。
  */
 
-    worldRuntimePlayerCombatOutcomeService;    
+    worldRuntimePlayerCombatOutcomeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeGmQueueService 参数说明。
@@ -50,10 +33,13 @@ let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandServic
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeGmQueueService, worldRuntimePlayerCombatOutcomeService) {
+    constructor(
+        @Inject(WorldRuntimeGmQueueService) worldRuntimeGmQueueService: any,
+        @Inject(WorldRuntimePlayerCombatOutcomeService) worldRuntimePlayerCombatOutcomeService: any,
+    ) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimePlayerCombatOutcomeService = worldRuntimePlayerCombatOutcomeService;
-    }    
+    }
     /**
  * dispatchGmSystemCommand：判断GMSystemCommand是否满足条件。
  * @param command 输入指令。
@@ -106,11 +92,3 @@ let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandServic
         }
     }
 };
-exports.WorldRuntimeGmSystemCommandService = WorldRuntimeGmSystemCommandService;
-exports.WorldRuntimeGmSystemCommandService = WorldRuntimeGmSystemCommandService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
-        world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService])
-], WorldRuntimeGmSystemCommandService);
-
-export { WorldRuntimeGmSystemCommandService };

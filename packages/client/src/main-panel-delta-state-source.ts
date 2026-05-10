@@ -440,6 +440,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       buildingSkill: player.buildingSkill ? cloneJson(player.buildingSkill) : undefined,
       gatherSkill: player.gatherSkill ? cloneJson(player.gatherSkill) : undefined,
       enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
+      forgingSkill: player.forgingSkill ? cloneJson(player.forgingSkill) : undefined,
     };
   }
   /**
@@ -518,6 +519,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       enhancementSkill: patch.enhancementSkill
         ? cloneJson(patch.enhancementSkill)
         : (previous?.enhancementSkill ? cloneJson(previous.enhancementSkill) : (player?.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined)),
+      forgingSkill: patch.forgingSkill
+        ? cloneJson(patch.forgingSkill)
+        : (previous?.forgingSkill ? cloneJson(previous.forgingSkill) : (player?.forgingSkill ? cloneJson(player.forgingSkill) : undefined)),
     };
   }  
 
