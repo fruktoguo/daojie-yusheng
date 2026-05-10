@@ -25,6 +25,24 @@
 | [main主线玩家数据分表方案](main主线玩家数据分表方案.md) | 玩家数据分表设计 |
 | [main主线落盘剩余旧链路与fallback清单](main主线落盘剩余旧链路与fallback清单.md) | 旧链路清理清单 |
 
+## 架构模式速查表
+
+各子系统实际采用的设计模式与架构风格对照：
+
+| 子系统 | 设计模式 / 架构风格 | 对应 ADR 或实现 |
+|--------|---------------------|-----------------|
+| 战斗结算 | Stage Pipeline（分阶段管线） | `combat-pipeline.ts` / `combat-pipeline-compose.ts` |
+| 世界 Tick | Fixed Timestep Game Loop + 分域 System 调度 | ADR-0002 / `world-tick.service.ts` |
+| 地图实例运行时 | Aggregate Root（DDD 聚合根） | ADR-0006 / `map-instance.runtime.ts` |
+| 玩家运行时 | Rich Domain Model + Domain Service | `player-runtime.service.ts` |
+| 持久化调度 | Repository + Unit of Work + Transactional Outbox | ADR-0004 / `persistence/` |
+| 强一致资产操作 | Saga / Durable Operation（幂等事务） | `durable-operation.service.ts` |
+| 网络同步 | CQRS Read-side Projection + Delta Compression | ADR-0003 / `world-projector.helpers.ts` |
+| Socket 网关 | Thin Controller + Command/Intent Queue | `world.gateway.ts` / `world-runtime-pending-command.service.ts` |
+| 客户端 UI | Manual Retained-Mode DOM + Diff Patching | `packages/client/src/ui/` |
+| 市场 / 邮件 | Domain Service + Pessimistic Locking | `market-runtime.service.ts` |
+| 战斗事件分层 | Layered Event Bus（AOI / Notice / Audit / Diagnostic） | ADR-战斗链路 / `combat-outcome-apply-adapters.ts` |
+
 ## 使用说明
 
 - 新增 ADR 时复制 `template.md`，编号递增

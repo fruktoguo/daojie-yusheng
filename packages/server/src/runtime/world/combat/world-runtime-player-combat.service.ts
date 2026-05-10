@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -33,10 +33,10 @@ export class WorldRuntimePlayerCombatService {
  */
 
     constructor(
-        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
-        @Inject(PlayerRuntimeService) playerRuntimeService: any,
-        @Inject(CombatAuditOutboxService) combatAuditOutboxService: any = null,
-        @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
+        @Inject(ContentTemplateRepository) contentTemplateRepository: ContentTemplateRepository,
+        @Inject(PlayerRuntimeService) playerRuntimeService: PlayerRuntimeService,
+        @Optional() @Inject(CombatAuditOutboxService) combatAuditOutboxService: CombatAuditOutboxService | null = null,
+        @Optional() @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -52,7 +52,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
-    async handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
+    async handlePlayerMonsterKill(instance: any, monster: any, killerPlayerId: string, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         deps.queuePlayerNotice(killerPlayerId, `${monster.name} 被你斩杀`, 'combat');
@@ -100,7 +100,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新distribute怪物Kill进度相关状态。
  */
 
-    distributeMonsterKillProgress(instance, monster, killerPlayerId, deps) {
+    distributeMonsterKillProgress(instance: any, monster: any, killerPlayerId: string, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
@@ -161,7 +161,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新怪物ExpParticipant相关状态。
  */
 
-    resolveMonsterExpParticipants(instance, runtimeId, killerPlayerId) {
+    resolveMonsterExpParticipants(instance: any, runtimeId: string, killerPlayerId: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const contributions = instance.getMonsterDamageContributionEntries(runtimeId);
@@ -204,7 +204,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新怪物TopContributionRealmLv相关状态。
  */
 
-    resolveMonsterTopContributionRealmLv(participants) {
+    resolveMonsterTopContributionRealmLv(participants: any[]) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         let topContribution = 0;
@@ -218,11 +218,11 @@ export class WorldRuntimePlayerCombatService {
         }
         return topRealmLv;
     }    
-    resolvePlayerRealmLv(playerId) {
+    resolvePlayerRealmLv(playerId: string) {
         const player = this.playerRuntimeService.getPlayer(playerId);
         return Math.max(1, Math.floor(player?.realm?.realmLv ?? 1));
     }
-    resolveMonsterExpMultiplier(monster) {
+    resolveMonsterExpMultiplier(monster: any) {
         if (Number.isFinite(monster?.expMultiplier)) {
             return Math.max(0, Number(monster.expMultiplier));
         }
@@ -241,7 +241,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新deliver怪物掉落相关状态。
  */
 
-    async deliverMonsterLoot(playerId, instance, x, y, item, deps, sourceRefId = '') {
+    async deliverMonsterLoot(playerId: string, instance: any, x: number, y: number, item: any, deps: any, sourceRefId = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
@@ -318,7 +318,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
-    async dispatchDamagePlayer(playerId, amount, deps) {
+    async dispatchDamagePlayer(playerId: string, amount: number, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -341,7 +341,7 @@ export class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    async handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+    async handlePlayerDefeat(playerId: string, deps: any, killerPlayerId: string | null = null) {
         const victim = this.playerRuntimeService.getPlayer(playerId);
         if (!victim || victim.hp > 0) {
             deps.clearPendingCommand(playerId);
@@ -412,7 +412,7 @@ export class WorldRuntimePlayerCombatService {
         deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
     }
     /** 处理玩家互杀奖励与惩罚。 */
-    async applyPvPKillRewards(killer, victim, deathSite, deps) {
+    async applyPvPKillRewards(killer: any, victim: any, deathSite: any, deps: any) {
         if (killer.isBot || victim.isBot || killer.playerId === victim.playerId) {
             return;
         }
@@ -496,11 +496,11 @@ export class WorldRuntimePlayerCombatService {
         }
     }
 
-    canUseDurableInventoryGrant(player, deps) {
+    canUseDurableInventoryGrant(player: any, deps: any) {
         return canUseDurableInventoryGrant(player, deps?.durableOperationService ?? null);
     }
 
-    async grantInventoryItemDurably(input) {
+    async grantInventoryItemDurably(input: any) {
         const committed = await applyDurableInventoryGrant({
             playerId: input.playerId,
             player: input.player,
@@ -514,7 +514,7 @@ export class WorldRuntimePlayerCombatService {
             mutateRuntime: async () => {
                 this.playerRuntimeService.receiveInventoryItem(input.playerId, input.item);
             },
-            onFailure: async (error) => {
+            onFailure: async (error: unknown) => {
                 this.logger.warn(`背包奖励 durable 提交失败，已改为地面掉落：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} reason=${error instanceof Error ? error.message : String(error)}`);
                 this.dropInventoryGrantFallback(input);
             },
@@ -525,7 +525,7 @@ export class WorldRuntimePlayerCombatService {
         }
         return committed === true;
     }
-    dropInventoryGrantFallback(input) {
+    dropInventoryGrantFallback(input: any) {
         input.deps.spawnGroundItem(input.instance, input.fallbackPosition.x, input.fallbackPosition.y, input.item);
         input.deps.queuePlayerNotice(input.playerId, input.fallbackNotice, 'loot');
         this.recordCombatSemanticAudit('loot_drop', {
@@ -550,7 +550,7 @@ export class WorldRuntimePlayerCombatService {
             tags: ['semantic', 'loot', input.sourceType],
         });
     }
-    recordCombatSemanticAudit(action, input: any = {}) {
+    recordCombatSemanticAudit(action: string, input: any = {}) {
         if (typeof this.combatAuditOutboxService?.enqueue !== 'function') {
             return false;
         }
@@ -579,7 +579,7 @@ export class WorldRuntimePlayerCombatService {
     }
 };
 
-function buildNextInventorySnapshots(items) {
+function buildNextInventorySnapshots(items: any[]) {
     return Array.isArray(items)
         ? items.map((entry) => ({
             itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
@@ -589,7 +589,7 @@ function buildNextInventorySnapshots(items) {
         : [];
 }
 
-function buildGrantedInventorySnapshot(item) {
+function buildGrantedInventorySnapshot(item: any) {
     return {
         itemId: typeof item?.itemId === 'string' ? item.itemId : '',
         count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
@@ -597,7 +597,7 @@ function buildGrantedInventorySnapshot(item) {
     };
 }
 
-function buildMonsterAuditTarget(monster) {
+function buildMonsterAuditTarget(monster: any) {
     return {
         kind: 'monster',
         id: typeof monster?.runtimeId === 'string' ? monster.runtimeId : null,
@@ -608,7 +608,7 @@ function buildMonsterAuditTarget(monster) {
     };
 }
 
-function buildPlayerAuditTarget(player) {
+function buildPlayerAuditTarget(player: any) {
     return {
         kind: 'player',
         id: typeof player?.playerId === 'string' ? player.playerId : null,
@@ -618,14 +618,14 @@ function buildPlayerAuditTarget(player) {
     };
 }
 
-function buildItemAuditTarget(item) {
+function buildItemAuditTarget(item: any) {
     return {
         kind: 'item',
         id: typeof item?.itemId === 'string' ? item.itemId : null,
     };
 }
 
-function buildItemAuditSnapshot(item) {
+function buildItemAuditSnapshot(item: any) {
     return {
         itemId: typeof item?.itemId === 'string' ? item.itemId : null,
         name: typeof item?.name === 'string' ? item.name : null,
@@ -634,7 +634,7 @@ function buildItemAuditSnapshot(item) {
     };
 }
 
-function capturePlayerProgressionAuditSnapshot(player) {
+function capturePlayerProgressionAuditSnapshot(player: any) {
     return {
         realmLv: Math.max(1, Math.trunc(Number(player?.realm?.realmLv ?? 1))),
         realmProgress: Math.max(0, Number(player?.realm?.progress ?? 0)),
@@ -645,7 +645,7 @@ function capturePlayerProgressionAuditSnapshot(player) {
     };
 }
 
-function diffPlayerProgressionAuditSnapshot(before, after) {
+function diffPlayerProgressionAuditSnapshot(before: any, after: any) {
     return {
         realmProgress: Math.max(0, Number(after?.realmProgress ?? 0) - Number(before?.realmProgress ?? 0)),
         foundation: Math.max(0, Number(after?.foundation ?? 0) - Number(before?.foundation ?? 0)),
@@ -654,14 +654,14 @@ function diffPlayerProgressionAuditSnapshot(before, after) {
     };
 }
 
-function hasPositiveProgressionDelta(delta) {
+function hasPositiveProgressionDelta(delta: any) {
     return Number(delta?.realmProgress ?? 0) > 0
         || Number(delta?.foundation ?? 0) > 0
         || Number(delta?.combatExp ?? 0) > 0
         || Number(delta?.techniqueExp ?? 0) > 0;
 }
 
-function resolveCultivatingTechniqueExp(player) {
+function resolveCultivatingTechniqueExp(player: any) {
     const techniqueId = typeof player?.cultivatingTechniqueId === 'string' ? player.cultivatingTechniqueId : '';
     if (!techniqueId) {
         return 0;
@@ -679,7 +679,7 @@ function resolveCultivatingTechniqueExp(player) {
     return 0;
 }
 
-function captureInventoryGrantRollbackState(player) {
+function captureInventoryGrantRollbackState(player: any) {
     return {
         suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
         inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
@@ -690,9 +690,9 @@ function captureInventoryGrantRollbackState(player) {
     };
 }
 
-function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
+function restoreInventoryGrantRollbackState(player: any, rollbackState: any, playerRuntimeService: any) {
     player.inventory.items = Array.isArray(rollbackState.inventoryItems)
-        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
+        ? rollbackState.inventoryItems.map((entry: any) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
         : [];
     player.inventory.revision = rollbackState.inventoryRevision;
     player.persistentRevision = rollbackState.persistentRevision;
@@ -702,7 +702,7 @@ function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntime
     playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 
-async function resolveCombatInstanceLeaseContext(instanceId, deps) {
+async function resolveCombatInstanceLeaseContext(instanceId: string, deps: any) {
     const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
     if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
         return null;
@@ -722,7 +722,7 @@ async function resolveCombatInstanceLeaseContext(instanceId, deps) {
     };
 }
 
-function buildInventoryGrantOperationId(playerId, sourceType, sourceRefId, item) {
+function buildInventoryGrantOperationId(playerId: string, sourceType: string, sourceRefId: string, item: any) {
     const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
     const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim() ? sourceType.trim() : 'inventory';
     const normalizedSourceRefId = typeof sourceRefId === 'string' && sourceRefId.trim() ? sourceRefId.trim() : 'source';
@@ -731,7 +731,7 @@ function buildInventoryGrantOperationId(playerId, sourceType, sourceRefId, item)
     return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemId}:x${normalizedCount}`;
 }
 
-function resolvePlayerDeathSite(victim, deps) {
+function resolvePlayerDeathSite(victim: any, deps: any) {
     const instance = victim.instanceId ? deps.getInstanceRuntime(victim.instanceId) : null;
     return {
         instance,
@@ -740,7 +740,7 @@ function resolvePlayerDeathSite(victim, deps) {
     };
 }
 
-function pushShaDeathPenaltyMessages(deps, playerId, deathPenalty) {
+function pushShaDeathPenaltyMessages(deps: any, playerId: string, deathPenalty: any) {
     if ((deathPenalty.consumedProgress ?? 0) > 0 || (deathPenalty.consumedFoundation ?? 0) > 0) {
         deps.queuePlayerNotice(playerId, `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`, 'combat');
     }
