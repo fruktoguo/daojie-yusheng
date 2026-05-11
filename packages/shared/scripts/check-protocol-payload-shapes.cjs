@@ -8,6 +8,13 @@ const path = require('node:path');
 const ts = require('typescript');
 
 const filePath = path.resolve(__dirname, '../src/protocol.ts');
+const domainFiles = [
+  path.resolve(__dirname, '../src/protocol-core.ts'),
+  path.resolve(__dirname, '../src/protocol-combat.ts'),
+  path.resolve(__dirname, '../src/protocol-craft.ts'),
+  path.resolve(__dirname, '../src/protocol-social.ts'),
+  path.resolve(__dirname, '../src/protocol-market.ts'),
+];
 const tsconfigPath = path.resolve(__dirname, '../tsconfig.json');
 const rawConfig = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
 if (rawConfig.error) {
@@ -22,6 +29,11 @@ const checker = program.getTypeChecker();
 const sourceFile = program.getSourceFile(filePath);
 if (!sourceFile) {
   throw new Error(`source file missing: ${filePath}`);
+}
+const allSourceFiles = [sourceFile];
+for (const df of domainFiles) {
+  const sf = program.getSourceFile(df);
+  if (sf) allSourceFiles.push(sf);
 }
 
 const EXPECTED_INTERFACES = {
@@ -103,11 +115,14 @@ function normalizeTypeText(value) {
 
 function findInterface(name) {
   let result = null;
-  ts.forEachChild(sourceFile, (node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name.text === name) {
-      result = node;
-    }
-  });
+  for (const sf of allSourceFiles) {
+    ts.forEachChild(sf, (node) => {
+      if (ts.isInterfaceDeclaration(node) && node.name.text === name) {
+        result = node;
+      }
+    });
+    if (result) break;
+  }
   return result;
 }
 

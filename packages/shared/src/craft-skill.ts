@@ -1,11 +1,9 @@
-/** 技艺经验按耗时折算时使用的时间分母。 */
-export const CRAFT_SKILL_EXP_TICK_DIVISOR = 3600;
-/** 技艺等级越高，单位耗时经验越低的衰减率。 */
-export const CRAFT_SKILL_LEVEL_DECAY_RATE = 0.95;
-/** 失败尝试默认按成功经验的 25% 结算。 */
-export const CRAFT_SKILL_FAILURE_EXP_RATE = 0.25;
-/** 前期技艺等级的经验补偿在此等级结束。 */
-export const CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL = 20;
+import {
+  CRAFT_SKILL_EXP_TICK_DIVISOR,
+  CRAFT_SKILL_LEVEL_DECAY_RATE,
+  CRAFT_SKILL_FAILURE_EXP_RATE,
+  CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL,
+} from './constants/gameplay/craft';
 
 /** 统一技艺经验计算入参。 */
 export interface CraftSkillExpComputationParams {

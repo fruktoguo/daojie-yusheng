@@ -10,9 +10,12 @@ import type {
 import { computeAdjustedCraftTicks } from './craft-duration';
 import { computeCraftAdjustedSuccessRate } from './craft-success';
 
-export const ALCHEMY_MAX_PRESET_COUNT = 24;
-export const ALCHEMY_PREPARATION_TICKS = 10;
-export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
+import {
+  ALCHEMY_MAX_PRESET_COUNT,
+  ALCHEMY_PREPARATION_TICKS,
+  ALCHEMY_FURNACE_OUTPUT_COUNT,
+} from './constants/gameplay/craft';
+
 const DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT = 60;
 
 function normalizeAlchemyLevel(value: number | undefined): number {

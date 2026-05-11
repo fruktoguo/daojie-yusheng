@@ -16,40 +16,21 @@ import {
   computeCraftAdjustedSuccessRate,
 } from './craft-success';
 
-export const DEFAULT_ENHANCE_LEVEL = 0;
-export const MAX_ENHANCE_LEVEL = 20;
-export const ENHANCEMENT_RATE_PER_LEVEL = 0.1;
-export const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
-  0.5,
-  0.45,
-  0.45,
-  0.4,
-  0.4,
-  0.4,
-  0.35,
-  0.35,
-  0.35,
-  0.35,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-] as const;
-export const ENHANCEMENT_BASE_JOB_TICKS = 5;
-export const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
-export const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
+import {
+  DEFAULT_ENHANCE_LEVEL,
+  MAX_ENHANCE_LEVEL,
+  ENHANCEMENT_RATE_PER_LEVEL,
+  ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL,
+  ENHANCEMENT_BASE_JOB_TICKS,
+  ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL,
+  ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL,
+  ENHANCEMENT_ACTION_ID,
+  ENHANCEMENT_HAMMER_TAG,
+  ENHANCEMENT_SPIRIT_STONE_ITEM_ID,
+} from './constants/gameplay/enhancement';
+
 export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL;
 export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 1 - Math.exp(CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL);
-export const ENHANCEMENT_ACTION_ID = 'enhancement:open';
-export const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
-export const ENHANCEMENT_SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
 export function normalizeEnhanceLevel(value: unknown): number {
   if (!Number.isFinite(value)) {

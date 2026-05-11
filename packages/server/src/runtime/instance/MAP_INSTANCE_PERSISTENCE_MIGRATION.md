@@ -27,10 +27,10 @@
 
 | 域 | 当前行为 | 迁移优先级 |
 |---|---|---|
-| `resource_node` | 资源节点刷新状态，每次 flush 全量写入 | 高 — 节点数多、变化稀疏 |
-| `trap_state` | 陷阱/机关状态，全量替换 | 中 |
-| `environment_effect` | 环境效果（天气、灵气浓度等），全量替换 | 中 |
-| `instance_metadata` | 实例元数据（创建时间、版本、状态标记），全量替换 | 低 — 行数极少，成本可忽略 |
+| `overlay` | 地图覆盖层（建筑视觉、临时地块），`replaceOverlayChunks` 全量替换 | 高 — chunk 数多、变化稀疏 |
+| `container_state` | 容器状态（宝箱、采集点），`replaceContainerStates` 全量替换 | 中 — 容器数量有限但变化频繁 |
+
+已完成行级增量的域：`monster_runtime`、`tile_damage`、`ground_item`、`tile_resource`
 
 > 如果后续新增域，默认必须直接使用行级增量模式，不允许新增全域替换。
 

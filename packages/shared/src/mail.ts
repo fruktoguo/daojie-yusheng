@@ -69,14 +69,12 @@ export interface GmMailTemplateOption {
   description: string;
 }
 
-export const MAIL_FILTERS: MailFilter[] = ['all', 'unread', 'claimable'];
-
-/** 新手邮件模板 ID。 */
-export const MAIL_TEMPLATE_BEGINNER_JOURNEY_ID = 'mail.starter.beginner_journey.v1';
-/** 天品灵根种子邮件模板 ID。 */
-export const MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID = 'mail.item.heaven_root_seed.v1';
-/** 神品灵根种子邮件模板 ID。 */
-export const MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID = 'mail.item.divine_root_seed.v1';
+import {
+  MAIL_FILTERS,
+  MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
+  MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,
+  MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,
+} from './constants/gameplay/mail';
 
 export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
   'mail.welcome.v1': {
