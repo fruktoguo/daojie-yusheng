@@ -58,16 +58,13 @@ export class WorldRuntimeCombatCommandService {
  */
 
     async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
-        if (this.worldRuntimeCombatActionService?.dispatchPlayerBasicAttack) {
-            return this.worldRuntimeCombatActionService.dispatchPlayerBasicAttack({
-                playerId,
-                targetPlayerId,
-                targetMonsterId,
-                targetX,
-                targetY,
-            }, deps, () => this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps));
-        }
-        return this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
+        return this.worldRuntimeCombatActionService.dispatchPlayerBasicAttack({
+            playerId,
+            targetPlayerId,
+            targetMonsterId,
+            targetX,
+            targetY,
+        }, deps, () => this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps));
     }
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -81,16 +78,13 @@ export class WorldRuntimeCombatCommandService {
  */
 
     async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
-        if (this.worldRuntimeCombatActionService?.dispatchPlayerSkill) {
-            return this.worldRuntimeCombatActionService.dispatchPlayerSkill({
-                playerId,
-                skillId,
-                targetPlayerId,
-                targetMonsterId,
-                targetRef,
-            }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps));
-        }
-        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
+        return this.worldRuntimeCombatActionService.dispatchPlayerSkill({
+            playerId,
+            skillId,
+            targetPlayerId,
+            targetMonsterId,
+            targetRef,
+        }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps));
     }
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
