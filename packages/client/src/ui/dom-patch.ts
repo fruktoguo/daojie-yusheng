@@ -2,14 +2,14 @@ import { preserveSelection } from './selection-preserver';
 
 type FormControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
-type FocusSnapshot = {
+export type FocusSnapshot = {
   selector: string | null;
   selectionStart: number | null;
   selectionEnd: number | null;
   scrollTop: number;
 };
 
-type ScrollSnapshot = {
+export type ScrollSnapshot = {
   selector: string;
   top: number;
   left: number;
@@ -239,7 +239,7 @@ function getNodeKey(node: Node): string | null {
   return null;
 }
 
-function captureFocus(root: HTMLElement): FocusSnapshot | null {
+export function captureFocus(root: HTMLElement): FocusSnapshot | null {
   const active = document.activeElement;
   if (!isTextInputLikeElement(active) || !root.contains(active)) {
     return null;
@@ -252,7 +252,7 @@ function captureFocus(root: HTMLElement): FocusSnapshot | null {
   };
 }
 
-function restoreFocus(root: HTMLElement, snapshot: FocusSnapshot | null): void {
+export function restoreFocus(root: HTMLElement, snapshot: FocusSnapshot | null): void {
   if (!snapshot?.selector) {
     return;
   }
@@ -277,7 +277,7 @@ function restoreFocus(root: HTMLElement, snapshot: FocusSnapshot | null): void {
   }
 }
 
-function captureScroll(root: HTMLElement): ScrollSnapshot[] {
+export function captureScroll(root: HTMLElement): ScrollSnapshot[] {
   const snapshots: ScrollSnapshot[] = [];
   const appendSnapshot = (node: HTMLElement): void => {
     if (node.scrollTop <= 0 && node.scrollLeft <= 0) {
@@ -319,7 +319,7 @@ function captureScroll(root: HTMLElement): ScrollSnapshot[] {
   return snapshots;
 }
 
-function restoreScroll(root: HTMLElement, snapshots: ScrollSnapshot[]): void {
+export function restoreScroll(root: HTMLElement, snapshots: ScrollSnapshot[]): void {
   snapshots.forEach((snapshot) => {
     const node = snapshot.selector === ':scope' ? root : root.querySelector<HTMLElement>(snapshot.selector);
     if (!node) {

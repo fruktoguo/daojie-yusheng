@@ -40,6 +40,7 @@
     "diff:main:shared": "git --no-pager diff main -- packages/shared",
     "diff:main:server": "git --no-pager diff main -- packages/server",
     "proof:release-gates": "node scripts/check-release-gates.js",
+    "proof:file-size-gate": "node scripts/check-file-size-gate.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
     "proof:protobuf-drift": "node scripts/prove-protobuf-drift.js",

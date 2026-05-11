@@ -51,7 +51,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         deps.processPendingRespawns();
         deps.materializeNavigationCommands();
         deps.materializeAutoUsePills?.();
-        deps.materializeAutoCombatCommands();
+        deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
         const pendingCommandsStartedAt = performance.now();
         await deps.dispatchPendingCommands();
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;

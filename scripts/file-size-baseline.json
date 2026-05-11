@@ -1,0 +1,20 @@
+{
+  "packages/client/src/gm.ts": 8198,
+  "packages/client/src/constants/ui/i18n.generated.ts": 7317,
+  "packages/server/src/runtime/instance/map-instance.runtime.ts": 6986,
+  "packages/server/src/runtime/player/player-runtime.service.ts": 6949,
+  "packages/server/src/tools/auth-bootstrap-smoke.ts": 6500,
+  "packages/server/src/persistence/player-domain-persistence.service.ts": 5715,
+  "packages/client/src/ui/panels/action-panel.ts": 5631,
+  "packages/server/src/tools/durable-operation-smoke.ts": 4697,
+  "packages/client/src/gm-map-editor.ts": 4462,
+  "packages/client/src/ui/craft-workbench-modal.ts": 4062,
+  "packages/server/src/persistence/instance-domain-persistence.service.ts": 4037,
+  "packages/server/src/persistence/durable-operation.service.ts": 3986,
+  "packages/client/src/ui/panels/market-panel.ts": 3896,
+  "packages/client/src/renderer/text.ts": 3556,
+  "packages/shared/src/api-contracts.ts": 3348,
+  "packages/server/src/http/native/native-gm-admin.service.ts": 3319,
+  "packages/server/src/network/world-projector.helpers.ts": 3305,
+  "packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts": 3173
+}
