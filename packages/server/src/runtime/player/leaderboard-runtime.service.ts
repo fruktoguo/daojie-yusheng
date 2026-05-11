@@ -1,3 +1,8 @@
+/**
+ * 排行榜运行时服务。
+ * 按运行态与持久化玩家快照聚合各类榜单（境界、战力、属性、击杀等）
+ * 和世界摘要，结果做短缓存避免高频重算。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';

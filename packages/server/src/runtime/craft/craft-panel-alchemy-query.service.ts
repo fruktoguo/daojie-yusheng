@@ -1,3 +1,8 @@
+/**
+ * 炼丹面板只读查询服务。
+ * 负责构造炼丹/炼器面板状态和目录快照，
+ * 不修改玩家运行态，仅做只读投影。
+ */
 import { Injectable } from '@nestjs/common';
 import { ALCHEMY_CATALOG_VERSION, ALCHEMY_FURNACE_TAG, cloneAlchemyCatalogEntry, cloneAlchemyJob, cloneAlchemyPreset } from './craft-panel-alchemy-query.helpers';
 
@@ -29,9 +34,10 @@ export class CraftPanelAlchemyQueryService {
     /** 构建炼制/炼器面板运行态增量，高频刷新不重复下发目录和预设。 */
     buildAlchemyPanelPatchPayload(player, kind = 'alchemy') {
         const normalizedKind = kind === 'forging' ? 'forging' : 'alchemy';
-        const activeJob = player.alchemyJob
-            && (player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy') === normalizedKind
-            ? cloneAlchemyJob(player.alchemyJob)
+        const sourceJob = normalizedKind === 'forging' ? player.forgingJob : player.alchemyJob;
+        const activeJob = sourceJob
+            && (sourceJob.jobType === 'forging' ? 'forging' : 'alchemy') === normalizedKind
+            ? cloneAlchemyJob(sourceJob)
             : null;
         return {
             kind: normalizedKind,
@@ -39,7 +45,7 @@ export class CraftPanelAlchemyQueryService {
             catalogVersion: ALCHEMY_CATALOG_VERSION,
             statePatch: {
                 job: activeJob,
-                queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
+                queue: clonePlayerCraftQueue(player),
             },
         };
     }
@@ -59,13 +65,27 @@ export class CraftPanelAlchemyQueryService {
             furnaceItemId,
             presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             job: player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
-            queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
+            queue: clonePlayerCraftQueue(player),
         };
     }
 };
+
+export function buildForgingAlchemyPanelState(player, equippedWeapon) {
+    const furnaceItemId = equippedWeapon?.tags?.includes(ALCHEMY_FURNACE_TAG) ? equippedWeapon.itemId : undefined;
+    return {
+        furnaceItemId,
+        presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
+        job: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
+        queue: clonePlayerCraftQueue(player),
+    };
+}
 
 function cloneCraftQueue(queue) {
     return Array.isArray(queue)
         ? queue.map((entry) => ({ ...entry }))
         : [];
+}
+
+function clonePlayerCraftQueue(player) {
+    return cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.forgingJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []);
 }

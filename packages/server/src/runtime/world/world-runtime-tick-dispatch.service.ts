@@ -1,3 +1,7 @@
+/**
+ * 世界级 tick 调度门面服务
+ * 统一编排 tick 内的寻路、怪物行动、技能路由和传送执行
+ */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 

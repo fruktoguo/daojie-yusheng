@@ -9,6 +9,7 @@ import type {
   PlayerBuildingJob,
   PlayerEnhancementJob,
   PlayerEnhancementRecord,
+  PlayerForgingJob,
   PlayerGatherJob,
 } from './crafting-types';
 import type { EquipmentSlots, Inventory } from './item-runtime-types';
@@ -457,6 +458,11 @@ export interface PlayerState {
  */
 
   alchemyJob?: PlayerAlchemyJob | null;
+  /**
+ * forgingJob：锻造 Job 相关字段。
+ */
+
+  forgingJob?: PlayerForgingJob | null;
   /**
  * enhancementSkill：强化技能相关字段。
  */

@@ -1,3 +1,8 @@
+/**
+ * 技艺活动运行时工具函数。
+ * 提供暂停/恢复/中断的统一处理逻辑和中断提示文本构建，
+ * 供管线骨架和各策略复用。
+ */
 import {
   RUNTIME_TECHNIQUE_ACTIVITY_KINDS,
   type RuntimeTechniqueActivityKind,

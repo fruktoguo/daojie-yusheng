@@ -1,3 +1,9 @@
+/**
+ * 会话引导编排服务。
+ * 编排 bootstrap 全流程：合同校验 → 身份解析 → 快照加载 → runtime 绑定 → 初始同步 → 后置下发。
+ * 是玩家从 socket 连接到进入游戏世界的核心编排层。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';

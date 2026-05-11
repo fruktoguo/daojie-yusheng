@@ -1,3 +1,8 @@
+/**
+ * 房间检测服务。
+ * 基于 BFS 洪水填充算法从建筑拓扑中识别封闭房间，
+ * 计算房间面积、屋顶覆盖率和开口类型，供风水系统使用。
+ */
 import {
   BUILDING_OPENING_KIND_ID_BY_KEY,
   TileType,

@@ -1,3 +1,9 @@
+/**
+ * 邮件持久化服务。
+ * 管理 player_mail、player_mail_attachment、player_mail_counter、player_recovery_watermark 表，
+ * 支持结构化邮件的全量/增量写入、过期清理、软删归档和恢复水位推进。
+ * 使用 advisory lock 保证同一玩家邮箱的并发写入安全。
+ */
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 

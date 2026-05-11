@@ -1,6 +1,10 @@
+/**
+ * 世界运行时状态门面服务
+ * 提供 pending command、玩家位置、实例注册表等核心状态的薄访问层
+ */
 import { Injectable } from '@nestjs/common';
 
-/** world-runtime state facade：承接 pending/player-location/instance-registry 薄访问层。 */
+/** 状态门面：统一代理 pending command / player location / instance registry 访问 */
 @Injectable()
 export class WorldRuntimeStateFacadeService {
 /**

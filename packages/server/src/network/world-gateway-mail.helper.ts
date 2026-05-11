@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关邮件 helper。
+ * 收敛邮件摘要、分页、详情、标记已读、领取附件和删除等入口。
+ */
+
 /** 世界 socket 邮件 helper：只收敛 mail 相关入口。 */
 class WorldGatewayMailHelper {
 /**

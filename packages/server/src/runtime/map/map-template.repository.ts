@@ -1,3 +1,8 @@
+/**
+ * 地图模板仓库。
+ * 启动时从磁盘加载所有地图 JSON，解析地块、传送门、安全区、
+ * 地标、容器、NPC 和怪物刷新点，供地图实例创建时引用。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';

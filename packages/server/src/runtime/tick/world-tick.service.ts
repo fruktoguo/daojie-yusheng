@@ -1,3 +1,8 @@
+/**
+ * 世界 Tick 调度服务。
+ * 按固定间隔驱动世界运行时推进帧、同步玩家状态和刷新 GM 推送。
+ * 保证同一时刻只有一个 tick 在执行，关闭时等待当前 tick 完成。
+ */
 import { Inject, Injectable, Logger, type BeforeApplicationShutdown, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
@@ -7,27 +12,33 @@ import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
 import { RuntimeMaintenanceService } from '../world/runtime-maintenance.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 
+/** GM 运行时状态端口：刷新排队中的 GM 状态推送。 */
 interface RuntimeGmStatePort {
   flushQueuedStatePushes(): void;
 }
 
+/** 维护模式端口：判断是否处于维护状态以跳过 tick。 */
 interface RuntimeMaintenancePort {
   isRuntimeMaintenanceActive(): boolean;
 }
 
+/** 地图配置端口：获取每张地图的 tick 倍速。 */
 interface RuntimeMapConfigPort {
   getMapTickSpeed(mapId: string): number;
 }
 
+/** 世界运行时端口：推进帧和记录同步耗时。 */
 interface WorldRuntimePort {
   advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): Promise<unknown> | unknown;
   recordSyncFlushDuration(durationMs: number): void;
 }
 
+/** 同步端口：把当前帧的变化推送给已连接玩家。 */
 interface WorldSyncPort {
   flushConnectedPlayers(): void;
 }
 
+/** 世界 Tick 调度器：以固定间隔循环驱动世界帧推进、同步和 GM 推送。 */
 @Injectable()
 export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
   private readonly logger = new Logger(WorldTickService.name);
@@ -52,6 +63,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
     return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
   }
 
+  /** 执行一次完整 tick：推进世界帧 → 同步玩家 → 刷新 GM 推送。 */
   private async runTickOnce(): Promise<void> {
     if (this.shuttingDown) {
       return;
@@ -118,6 +130,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
   }
 }
 
+/** 异步等待指定毫秒数。 */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

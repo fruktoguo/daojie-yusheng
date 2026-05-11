@@ -1,3 +1,8 @@
+/**
+ * 投影器深拷贝工具。
+ * 提供各类投影实体的结构化深拷贝函数，用于快照保存和 diff 基线。
+ */
+
 import type {
   Attributes,
   BuffSustainCostDef,

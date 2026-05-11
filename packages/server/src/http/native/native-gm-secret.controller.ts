@@ -1,3 +1,8 @@
+/**
+ * GM 密钥管理 HTTP 控制器。
+ * 提供密钥的 CRUD 端点，所有操作需要 GM 鉴权。
+ * 密钥以 AES-256-GCM 加密存储在 PostgreSQL 中。
+ */
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';

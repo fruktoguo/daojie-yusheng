@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 后置下发服务。
+ * 负责 bootstrap 初始同步后的 notice、建议、邮件摘要、日志书和离线收益下发。
+ */
+
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 

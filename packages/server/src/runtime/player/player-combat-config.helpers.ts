@@ -1,3 +1,8 @@
+/**
+ * 玩家战斗配置工具。
+ * 提供自动吃药列表和战斗目标规则的克隆、比较、规范化，
+ * 以及 PvP 敌对关系判定（煞气化魔、反击仇敌、同门同宗）。
+ */
 import type {
   AutoUsePillCondition,
   AutoUsePillConfig,

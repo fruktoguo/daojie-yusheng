@@ -1,3 +1,9 @@
+/**
+ * 玩家令牌管理服务。
+ * 负责 token 签发、刷新、displayName 校验、auth-trace 文件写入和令牌统计。
+ * 是鉴权链路中 token 生命周期管理的核心服务。
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import {
   containsInvisibleOnlyNameGrapheme,
@@ -1025,6 +1031,7 @@ function incrementSummaryCount(target: AuthTraceCountMap, key: unknown): void {
  */
 
 
+/** 玩家令牌管理服务：封装 token 校验、签发、刷新和 displayName 规范化。 */
 @Injectable()
 export class WorldPlayerTokenService {
 /**

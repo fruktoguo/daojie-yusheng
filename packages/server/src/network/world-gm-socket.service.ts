@@ -1,3 +1,8 @@
+/**
+ * GM Socket 操作服务。
+ * 将 gateway 层收到的 GM 操作请求转发到 runtime GM 状态队列中排队执行。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 

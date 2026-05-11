@@ -1,3 +1,7 @@
+/**
+ * 结构化通知构建辅助函数
+ * 负责将通知 key、变量、胶囊配置组装为标准结构化载荷，供服务端统一入队
+ */
 import type { NoticePillConfig, NoticeKind, StructuredNoticePayload } from '@mud/shared';
 
 /** 结构化通知入队参数。 */

@@ -1,3 +1,8 @@
+/**
+ * 投影器类型定义。
+ * 定义投影器内部使用的所有接口、常量和类型别名，是 projector 模块的类型基础。
+ */
+
 import type {
   ActionDef,
   AttrBonus,

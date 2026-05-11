@@ -1,3 +1,7 @@
+/**
+ * 跨实例传送执行服务
+ * 处理玩家从源实例断开、目标实例连接、技能取消、寻路清理等完整传送流程
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { logServerNextMovement } from '../../debug/movement-debug';
 

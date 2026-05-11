@@ -1,3 +1,9 @@
+/**
+ * Bootstrap 玩家初始化服务。
+ * 负责 bootstrap 阶段的玩家 runtime 创建/恢复、快照加载委托、恢复队列排队和 auth-trace 记录。
+ * 处理首次登录、断线重连和顶号场景下的玩家实例初始化。
+ */
+
 import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';

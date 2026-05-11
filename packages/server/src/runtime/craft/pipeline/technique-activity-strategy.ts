@@ -1,3 +1,8 @@
+/**
+ * 技艺活动策略接口定义。
+ * 定义管线骨架与各技艺策略之间的契约：校验、消耗、创建、结算、退还等生命周期方法，
+ * 以及条件型技艺的条件检查和资源释放/恢复钩子。
+ */
 import type {
   RuntimeTechniqueActivityKind,
   TechniqueActivityInterruptReason,
@@ -70,6 +75,31 @@ export interface TechniqueActivityStrategy<
 
   /** 结算（批次完成或单次完成时调用）。 */
   resolve(player: unknown, job: TJob, ctx: PipelineContext): TechniqueActivityResolveResult;
+
+  /**
+   * 完整 tick 委托（可选）。
+   * 如果实现此方法，管线的 tick 将直接委托给策略，跳过公共骨架。
+   * 用于现有逻辑尚未拆分到 resolve 的过渡期。
+   */
+  executeTick?(player: unknown, ctx: PipelineContext): unknown;
+
+  /**
+   * 完整 start 委托（可选）。
+   * 如果实现此方法，管线的 start 将直接委托给策略。
+   */
+  executeStart?(player: unknown, payload: unknown, ctx: PipelineContext): unknown;
+
+  /**
+   * 完整 cancel 委托（可选）。
+   * 如果实现此方法，管线的 cancel 将直接委托给策略。
+   */
+  executeCancel?(player: unknown, ctx: PipelineContext): unknown;
+
+  /**
+   * 完整 interrupt 委托（可选）。
+   * 如果实现此方法，管线的 interrupt 将直接委托给策略。
+   */
+  executeInterrupt?(player: unknown, reason: string, ctx: PipelineContext): unknown;
 
   /** 取消时的退还策略。 */
   computeRefund(player: unknown, job: TJob): TechniqueActivityRefundResult;

@@ -533,6 +533,145 @@ async function testCompleteAlchemy() {
     ]);
 }
 
+async function testCompleteAlchemyStartsNextQueuedJobDurablyWithAssets() {
+    const log = [];
+    const durableCalls = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'instance:1',
+        runtimeOwnerId: 'runtime:alchemy',
+        sessionEpoch: 9,
+        inventory: {
+            items: [{ itemId: 'qi_pill', count: 1 }],
+            revision: 5,
+        },
+        wallet: {
+            balances: [{ walletType: 'spirit_stone', balance: 6, frozenBalance: 0, version: 2 }],
+        },
+        alchemySkill: { level: 1, exp: 0, expToNext: 100 },
+        enhancementSkillLevel: 1,
+        persistentRevision: 5,
+        selfRevision: 5,
+        dirtyDomains: new Set(),
+        alchemyJob: {
+            jobRunId: 'job:alchemy:complete-queued:1',
+            jobType: 'alchemy',
+            jobVersion: 7,
+            phase: 'brewing',
+            startedAt: 100,
+            totalTicks: 8,
+            remainingTicks: 1,
+            pausedTicks: 0,
+            successRate: 1,
+            outputItemId: 'qi_pill',
+            outputCount: 1,
+            quantity: 1,
+            completedCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            ingredients: [],
+            preparationTicks: 1,
+            batchBrewTicks: 7,
+            currentBatchRemainingTicks: 1,
+            spiritStoneCost: 0,
+            exactRecipe: true,
+        },
+    };
+    const playerRuntimeService = {
+        getPlayerOrThrow() { return player; },
+        getPlayer() { return player; },
+        playerProgressionService: {
+            refreshPreview() {},
+        },
+    };
+    const craftPanelRuntimeService = {
+        tickTechniqueActivity(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            _player.inventory.items = [{ itemId: 'qi_pill', count: 2 }];
+            _player.alchemySkill.exp = 1;
+            _player.alchemyJob = {
+                jobRunId: 'job:alchemy:queued-next:1',
+                jobType: 'alchemy',
+                jobVersion: 1,
+                phase: 'preparing',
+                startedAt: 200,
+                totalTicks: 8,
+                remainingTicks: 8,
+                pausedTicks: 0,
+                successRate: 1,
+                outputItemId: 'qi_pill',
+                outputCount: 1,
+                quantity: 1,
+                completedCount: 0,
+                successCount: 0,
+                failureCount: 0,
+                ingredients: [],
+                preparationTicks: 1,
+                batchBrewTicks: 7,
+                currentBatchRemainingTicks: 7,
+                spiritStoneCost: 0,
+                exactRecipe: true,
+            };
+            return {
+                ok: true,
+                panelChanged: true,
+                inventoryChanged: true,
+                groundDrops: [],
+                messages: [{ text: '炼制完成，成丹 1 枚。', kind: 'quest' }],
+            };
+        },
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return { ok: true };
+        },
+    };
+    const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {
+        getSocketByPlayerId() { return null; },
+    }, {
+        prefersMainline() { return false; },
+    });
+    const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
+    const deps = createDeps(log);
+    deps.durableOperationService = {
+        isEnabled() {
+            return true;
+        },
+        completeActiveJobWithAssets(input) {
+            durableCalls.push(input);
+            return Promise.resolve({
+                ok: true,
+                alreadyCommitted: false,
+                action: 'complete',
+                jobRunId: input.nextActiveJob?.jobRunId ?? null,
+                jobVersion: input.nextActiveJob?.jobVersion ?? null,
+            });
+        },
+    };
+    deps.instanceCatalogService = {
+        isEnabled() {
+            return true;
+        },
+        async loadInstanceCatalog(instanceId) {
+            assert.equal(instanceId, 'instance:1');
+            return {
+                assigned_node_id: 'node:alchemy',
+                ownership_epoch: 17,
+            };
+        },
+    };
+    await service.tickAlchemy('player:1', player, deps);
+    assert.equal(durableCalls.length, 1);
+    assert.equal(durableCalls[0]?.expectedJobRunId, 'job:alchemy:complete-queued:1');
+    assert.equal(durableCalls[0]?.expectedJobVersion, 7);
+    assert.equal(durableCalls[0]?.nextInventoryItems?.[0]?.count, 2);
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobRunId, 'job:alchemy:queued-next:1');
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobVersion, 1);
+}
+
 async function testUpdateAlchemyTick() {
     const log = [];
     const durableCalls = [];
@@ -823,6 +962,352 @@ async function testTickAlchemySkipsDurableWithoutLease() {
     assert.equal(player.alchemyJob?.jobVersion, 4);
     assert.equal(player.alchemyJob?.phase, 'preparing');
 }
+
+async function testConcurrentAlchemyTickIsFenced() {
+    const log = [];
+    const durableCalls = [];
+    let tickCalls = 0;
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'instance:1',
+        runtimeOwnerId: 'runtime:alchemy',
+        sessionEpoch: 9,
+        inventory: {
+            items: [],
+            revision: 5,
+        },
+        wallet: {
+            balances: [],
+        },
+        alchemySkill: { level: 1, exp: 0, expToNext: 100 },
+        enhancementSkillLevel: 1,
+        persistentRevision: 5,
+        selfRevision: 5,
+        dirtyDomains: new Set(),
+        alchemyJob: {
+            jobRunId: 'job:alchemy:concurrent:1',
+            jobType: 'alchemy',
+            jobVersion: 4,
+            phase: 'brewing',
+            startedAt: 100,
+            totalTicks: 8,
+            remainingTicks: 7,
+            pausedTicks: 0,
+            successRate: 1,
+            outputItemId: 'qi_pill',
+            outputCount: 1,
+            quantity: 1,
+            completedCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            ingredients: [],
+            preparationTicks: 1,
+            batchBrewTicks: 7,
+            currentBatchRemainingTicks: 7,
+            spiritStoneCost: 0,
+            exactRecipe: true,
+        },
+    };
+    const playerRuntimeService = {
+        getPlayerOrThrow() { return player; },
+        getPlayer() { return player; },
+        playerProgressionService: {
+            refreshPreview() {},
+        },
+    };
+    const craftPanelRuntimeService = {
+        tickTechniqueActivity(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            tickCalls += 1;
+            _player.alchemyJob = {
+                ..._player.alchemyJob,
+                remainingTicks: 6,
+                currentBatchRemainingTicks: 6,
+                jobVersion: 5,
+            };
+            return {
+                ok: true,
+                panelChanged: true,
+                inventoryChanged: false,
+                groundDrops: [],
+                messages: [],
+            };
+        },
+        buildTechniqueActivityPanelPayload() {
+            return { ok: true };
+        },
+    };
+    const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {
+        getSocketByPlayerId() { return null; },
+    }, {
+        prefersMainline() { return false; },
+    });
+    const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
+    const deps = createDeps(log);
+    deps.durableOperationService = {
+        isEnabled() {
+            return true;
+        },
+        updateActiveJobState(input) {
+            durableCalls.push(input);
+            return new Promise((resolve) => {
+                setImmediate(() => resolve({
+                    ok: true,
+                    alreadyCommitted: false,
+                    action: 'update',
+                    jobRunId: input.nextActiveJob.jobRunId,
+                    jobVersion: input.nextActiveJob.jobVersion,
+                }));
+            });
+        },
+    };
+    deps.instanceCatalogService = {
+        isEnabled() {
+            return true;
+        },
+        async loadInstanceCatalog(instanceId) {
+            assert.equal(instanceId, 'instance:1');
+            return {
+                assigned_node_id: 'node:alchemy',
+                ownership_epoch: 17,
+            };
+        },
+    };
+    await Promise.all([
+        service.tickAlchemy('player:1', player, deps),
+        service.tickAlchemy('player:1', player, deps),
+    ]);
+    assert.equal(tickCalls, 1);
+    assert.equal(durableCalls.length, 1);
+    assert.equal(durableCalls[0]?.expectedJobVersion, 4);
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobVersion, 5);
+}
+
+async function testStartForgingDurablyUsesForgingJobSlot() {
+    const log = [];
+    const durableCalls = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'instance:1',
+        runtimeOwnerId: 'runtime:alchemy',
+        sessionEpoch: 9,
+        inventory: {
+            items: [],
+            revision: 1,
+        },
+        wallet: {
+            balances: [],
+        },
+        persistentRevision: 1,
+        selfRevision: 1,
+        dirtyDomains: new Set(),
+        alchemyJob: null,
+        forgingJob: null,
+    };
+    const playerRuntimeService = {
+        getPlayerOrThrow() { return player; },
+        getPlayer() { return player; },
+        playerProgressionService: {
+            refreshPreview() {},
+        },
+    };
+    const craftPanelRuntimeService = {
+        startTechniqueActivity(_player, kind) {
+            if (kind !== 'forging') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            _player.forgingJob = {
+                jobRunId: 'job:forging:start:1',
+                jobType: 'forging',
+                jobVersion: 2,
+                phase: 'preparing',
+                startedAt: 100,
+                totalTicks: 8,
+                remainingTicks: 8,
+                pausedTicks: 0,
+                successRate: 1,
+                outputItemId: 'equip.copper_forging_tool',
+                outputCount: 1,
+                quantity: 1,
+                completedCount: 0,
+                successCount: 0,
+                failureCount: 0,
+                ingredients: [],
+                preparationTicks: 1,
+                batchBrewTicks: 7,
+                currentBatchRemainingTicks: 7,
+                spiritStoneCost: 0,
+                exactRecipe: true,
+            };
+            return { ok: true, messages: [{ text: '炼器开始', kind: 'success' }], panelChanged: true, groundDrops: [] };
+        },
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'forging') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return { ok: true, kind: 'forging' };
+        },
+    };
+    const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {
+        getSocketByPlayerId() { return null; },
+    }, {
+        prefersMainline() { return false; },
+    });
+    const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
+    const deps = createDeps(log);
+    deps.durableOperationService = {
+        isEnabled() {
+            return true;
+        },
+        startActiveJobWithAssets(input) {
+            durableCalls.push(input);
+            return Promise.resolve({
+                ok: true,
+                alreadyCommitted: false,
+                action: 'start',
+                jobRunId: input.nextActiveJob.jobRunId,
+                jobVersion: input.nextActiveJob.jobVersion,
+            });
+        },
+    };
+    deps.instanceCatalogService = {
+        isEnabled() {
+            return true;
+        },
+        async loadInstanceCatalog(instanceId) {
+            assert.equal(instanceId, 'instance:1');
+            return {
+                assigned_node_id: 'node:alchemy',
+                ownership_epoch: 17,
+            };
+        },
+    };
+    await service.dispatchStartAlchemy('player:1', { kind: 'forging', recipeId: 'forging.copper_tool' }, deps);
+    assert.equal(durableCalls.length, 1);
+    assert.equal(player.alchemyJob, null);
+    assert.equal(player.forgingJob?.jobRunId, 'job:forging:start:1');
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobType, 'forging');
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobRunId, 'job:forging:start:1');
+}
+
+async function testQueuedForgingStartSkipsNewActiveJobSnapshot() {
+    const log = [];
+    const durableCalls = [];
+    const flushDurableCalls = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'instance:1',
+        runtimeOwnerId: 'runtime:alchemy',
+        sessionEpoch: 9,
+        inventory: {
+            items: [],
+            revision: 1,
+        },
+        wallet: {
+            balances: [],
+        },
+        persistentRevision: 1,
+        selfRevision: 1,
+        dirtyDomains: new Set(),
+        alchemyJob: null,
+        forgingJob: {
+            jobRunId: 'job:forging:active:1',
+            jobType: 'forging',
+            jobVersion: 5,
+            phase: 'preparing',
+            startedAt: 100,
+            totalTicks: 8,
+            remainingTicks: 8,
+            pausedTicks: 0,
+            successRate: 1,
+            outputItemId: 'equip.copper_forging_tool',
+            outputCount: 1,
+            quantity: 1,
+            completedCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            ingredients: [],
+            preparationTicks: 1,
+            batchBrewTicks: 7,
+            currentBatchRemainingTicks: 7,
+            spiritStoneCost: 0,
+            exactRecipe: true,
+        },
+    };
+    const playerRuntimeService = {
+        getPlayerOrThrow() { return player; },
+        getPlayer() { return player; },
+        markPersistenceDirtyDomains() {},
+        bumpPersistentRevision() {},
+        playerProgressionService: {
+            refreshPreview() {},
+        },
+    };
+    const craftPanelRuntimeService = {
+        startTechniqueActivity(_player, kind) {
+            if (kind !== 'forging') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            _player.forgingJob.queuedJobs = [{
+                queueId: 'queue:forging:2',
+                kind: 'forging',
+                label: '下一件器物',
+                quantity: 1,
+                createdAt: 100,
+                payload: { kind: 'forging', recipeId: 'forging.next' },
+            }];
+            _player.forgingJob.jobVersion = 6;
+            return { ok: true, messages: [], panelChanged: true, groundDrops: [] };
+        },
+        buildTechniqueActivityPanelPatchPayload() {
+            return { ok: true, kind: 'forging' };
+        },
+        hasActiveTechniqueActivity() {
+            return true;
+        },
+    };
+    const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {
+        getSocketByPlayerId() { return null; },
+    }, {
+        prefersMainline() { return false; },
+    });
+    const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
+    const deps = createDeps(log);
+    deps.durableOperationService = {
+        isEnabled() {
+            return true;
+        },
+        startActiveJobWithAssets(input) {
+            durableCalls.push(input);
+            throw new Error('queued forging must not create a new active job');
+        },
+        updateActiveJobState(input) {
+            flushDurableCalls.push(input);
+            return Promise.resolve({ ok: true, alreadyCommitted: false });
+        },
+    };
+    deps.instanceCatalogService = {
+        isEnabled() {
+            return true;
+        },
+        async loadInstanceCatalog(instanceId) {
+            assert.equal(instanceId, 'instance:1');
+            return {
+                assigned_node_id: 'node:alchemy',
+                ownership_epoch: 17,
+            };
+        },
+    };
+    await service.dispatchStartAlchemy('player:1', { kind: 'forging', recipeId: 'forging.next' }, deps);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(durableCalls.length, 0);
+    assert.equal(flushDurableCalls.length, 1);
+    assert.equal(flushDurableCalls[0]?.expectedJobRunId, 'job:forging:active:1');
+    assert.equal(flushDurableCalls[0]?.expectedJobVersion, 5);
+    assert.equal(flushDurableCalls[0]?.nextActiveJob?.jobVersion, 6);
+}
 /**
  * testDeletePreset：处理testDeletePreset并更新相关状态。
  * @returns 无返回值，直接更新testDeletePreset相关状态。
@@ -1018,8 +1503,12 @@ Promise.resolve()
     .then(() => testStartAlchemy())
     .then(() => testCancelAlchemy())
     .then(() => testCompleteAlchemy())
+    .then(() => testCompleteAlchemyStartsNextQueuedJobDurablyWithAssets())
     .then(() => testUpdateAlchemyTick())
     .then(() => testTickAlchemySkipsDurableWithoutLease())
+    .then(() => testConcurrentAlchemyTickIsFenced())
+    .then(() => testStartForgingDurablyUsesForgingJobSlot())
+    .then(() => testQueuedForgingStartSkipsNewActiveJobSnapshot())
     .then(() => testDeletePreset())
     .then(() => {
     testWorldRuntimeFacadeDispatchStartAlchemy();

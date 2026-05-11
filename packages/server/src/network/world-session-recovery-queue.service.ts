@@ -1,3 +1,8 @@
+/**
+ * 会话恢复队列服务。
+ * 管理断线重连时的恢复任务并发控制、优先级排序和超时告警。
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 
 import { readTrimmedEnv } from '../config/env-alias';

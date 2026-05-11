@@ -1,10 +1,14 @@
+/**
+ * 玩家认证 HTTP 控制器。
+ * 提供注册、登录、刷新令牌和显示名可用性检查四个公开端点，
+ * 所有端点均经过限流保护。
+ */
 import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 
 import { NativeAuthRateLimitService } from './native-auth-rate-limit.service';
 import { NativePlayerAuthService } from './native-player-auth.service';
-/**
- * AuthBody：定义接口结构约束，明确可交付字段含义。
- */
+
+/** 注册/登录请求体。 */
 
 
 interface AuthBody {

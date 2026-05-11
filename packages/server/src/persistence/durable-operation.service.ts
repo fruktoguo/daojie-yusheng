@@ -1,3 +1,9 @@
+/**
+ * 持久化操作服务（Durable Operation）。
+ * 提供邮件领取、市场交易、NPC 购买等涉及多表资产变更的事务性操作，
+ * 通过 durable_operation_log 保证幂等性，通过 outbox_event 驱动异步后续，
+ * 同时维护 player_presence、player_wallet、player_inventory_item、player_equipment_slot 等分域表。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { hostname } from 'node:os';
 import { Pool } from 'pg';
@@ -338,14 +344,15 @@ export interface CompleteActiveJobWithAssetsInput {
   nextWalletBalances: DurableWalletBalanceSnapshot[];
   nextEquipmentSlots?: DurableEquipmentSlotSnapshot[] | null;
   nextEnhancementRecords?: DurableEnhancementRecordSnapshot[] | null;
+  nextActiveJob?: DurableActiveJobSnapshot | null;
 }
 
 export interface CompleteActiveJobWithAssetsResult {
   ok: boolean;
   alreadyCommitted: boolean;
   action: 'complete';
-  jobRunId: null;
-  jobVersion: null;
+  jobRunId: string | null;
+  jobVersion: number | null;
 }
 
 export interface DurableMarketSellNowMatchSnapshot {
@@ -363,6 +370,7 @@ export interface DurableMarketBuyNowMatchSnapshot {
   nextSellerWalletBalances: DurableWalletBalanceSnapshot[];
 }
 
+/** 持久化操作服务：提供邮件领取、市场交易等多表资产变更的幂等事务执行 */
 @Injectable()
 export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DurableOperationService.name);
@@ -403,6 +411,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     return this.enabled && this.pool !== null;
   }
 
+  /** 按操作 ID 查询已提交的持久化操作记录，用于幂等重放判断 */
   async getOperationReplay(operationId: string): Promise<{
     operation: Record<string, unknown> | null;
     outboxEvents: Array<Record<string, unknown>>;
@@ -451,6 +460,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /** 事务性领取邮件附件：校验 presence 归属、扣邮件附件、写背包/钱包、记审计日志 */
   async claimMailAttachments(input: ClaimMailAttachmentsInput): Promise<ClaimMailAttachmentsResult> {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
@@ -785,6 +795,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** 事务性领取市场托管仓物品：校验 presence、转移仓物品到背包、记审计日志 */
   async claimMarketStorage(input: ClaimMarketStorageInput): Promise<ClaimMarketStorageResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -906,6 +917,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性 NPC 商店购买：扣钱包、写背包、记审计日志和 outbox 事件 */
   async purchaseNpcShopItem(input: PurchaseNpcShopItemInput): Promise<PurchaseNpcShopItemResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -1036,6 +1048,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性钱包变更：增减余额/冻结、记审计日志和 outbox 事件 */
   async mutatePlayerWallet(input: MutatePlayerWalletInput): Promise<MutatePlayerWalletResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -1161,6 +1174,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性发放背包物品：写背包快照、记审计日志和 outbox 事件 */
   async grantInventoryItems(input: GrantInventoryItemsInput): Promise<GrantInventoryItemsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -1287,6 +1301,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性提交 NPC 任务奖励：写背包/钱包、更新任务进度、记审计日志 */
   async submitNpcQuestRewards(input: SubmitNpcQuestRewardsInput): Promise<SubmitNpcQuestRewardsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -1424,6 +1439,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性更新装备栏：写装备槽位快照、记审计日志和 outbox 事件 */
   async updateEquipmentLoadout(input: UpdateEquipmentLoadoutInput): Promise<UpdateEquipmentLoadoutResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -1549,6 +1565,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性市场即时卖出结算：扣卖方物品、加买方物品、转移资金、记审计 */
   async settleMarketSellNow(input: {
     operationId: string;
     sellerId: string;
@@ -1756,6 +1773,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性市场即时买入结算：扣买方资金、加买方物品、转移收益给卖方、记审计 */
   async settleMarketBuyNow(input: {
     operationId: string;
     buyerId: string;
@@ -1896,6 +1914,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性市场撤单结算：退还冻结资金或物品、记审计 */
   async settleMarketCancelOrder(input: {
     operationId: string;
     playerId: string;
@@ -1966,6 +1985,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性更新活跃任务状态：写任务进度快照、记审计日志和 outbox 事件 */
   async updateActiveJobState(input: UpdateActiveJobStateInput): Promise<UpdateActiveJobStateResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -2159,6 +2179,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性开始活跃任务并扣除资产：扣材料/资金、创建任务记录、记审计 */
   async startActiveJobWithAssets(input: StartActiveJobWithAssetsInput): Promise<StartActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -2331,6 +2352,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 归档过期审计日志：将超过保留期的记录移入归档表并删除原表行 */
   async archiveOldAssetAuditLogs(input?: { retentionDays?: number; limit?: number }): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
@@ -2367,6 +2389,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? result.rowCount ?? result.rows.length : 0;
   }
 
+  /** 事务性取消活跃任务并退还资产：退材料/资金、删除任务记录、记审计 */
   async cancelActiveJobWithAssets(input: CancelActiveJobWithAssetsInput): Promise<CancelActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -2561,6 +2584,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 事务性完成活跃任务并发放产出：写产出物品/资金、删除任务记录、记审计 */
   async completeActiveJobWithAssets(input: CompleteActiveJobWithAssetsInput): Promise<CompleteActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeRequiredString(input.operationId);
@@ -2571,6 +2595,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const normalizedNextEquipmentSlots = Array.isArray(input.nextEquipmentSlots) ? input.nextEquipmentSlots : null;
     const normalizedNextEnhancementRecords = Array.isArray(input.nextEnhancementRecords)
       ? normalizeEnhancementRecordSnapshots(normalizedPlayerId, input.nextEnhancementRecords)
+      : null;
+    const normalizedNextActiveJob = input.nextActiveJob
+      ? normalizeActiveJobSnapshot(input.nextActiveJob)
       : null;
 
     if (!normalizedExpectedJobRunId) {
@@ -2595,13 +2622,15 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         walletBalanceCount: normalizedNextWalletBalances.length,
         equipmentSlotCount: Array.isArray(normalizedNextEquipmentSlots) ? normalizedNextEquipmentSlots.length : 0,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+        nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       },
       onAlreadyCommitted: async () => ({
         ok: true,
         alreadyCommitted: true,
         action: 'complete',
-        jobRunId: null,
-        jobVersion: null,
+        jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+        jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       }),
       onMutate: async (client, now) => {
         const currentRow = await client.query<{
@@ -2641,7 +2670,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         if (Array.isArray(normalizedNextEnhancementRecords)) {
           await replacePlayerEnhancementRecords(client, normalizedPlayerId, normalizedNextEnhancementRecords);
         }
-        await replacePlayerActiveJob(client, normalizedPlayerId, null);
+        await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
 
         await client.query(
           `
@@ -2699,6 +2728,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               action: 'complete',
               expectedJobRunId: normalizedExpectedJobRunId,
               expectedJobVersion: normalizedExpectedJobVersion,
+              nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+              nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
             }),
             'ready',
             0,
@@ -2738,8 +2769,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               jobVersion: persistedJobVersion || null,
             }),
             JSON.stringify({
-              jobRunId: null,
-              jobVersion: null,
+              jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+              jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
             }),
           ],
         );
@@ -2748,8 +2779,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           ok: true,
           alreadyCommitted: false,
           action: 'complete',
-          jobRunId: null,
-          jobVersion: null,
+          jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+          jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
         };
       },
     });

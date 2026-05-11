@@ -1,3 +1,7 @@
+/**
+ * 健康就绪检测服务：注入各持久化和运行时依赖，
+ * 组合调用 buildHealthResponse 输出统一 readiness 响应。
+ */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { MailPersistenceService } from '../persistence/mail-persistence.service';
@@ -7,40 +11,21 @@ import { SuggestionPersistenceService } from '../persistence/suggestion-persiste
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { buildHealthResponse } from './health-readiness';
 import { ServerReadinessDependenciesService } from './server-readiness-dependencies.service';
-/**
- * PersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 持久化服务鸭子类型接口 */
 interface PersistenceServiceLike {
-/**
- * enabled：启用开关或状态标识。
- */
-
-  enabled?: boolean;  
-  /**
- * pool：缓存或索引容器。
- */
-
+  enabled?: boolean;
   pool?: unknown;
 }
-/**
- * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 世界运行时服务鸭子类型接口 */
 interface WorldRuntimeServiceLike {
-/**
- * getRuntimeSummary：get运行态摘要状态或数据块。
- */
-
   getRuntimeSummary?: () => unknown;
 }
 
-/** 读取就绪检测依赖并输出对外服务态的服务层入口。 */
+/** 健康就绪检测服务：汇总依赖状态并输出 readiness 响应 */
 @Injectable()
 export class HealthReadinessService {
-  /** 注入各持久化服务与 runtime，用于组合 readiness 检查。 */
   constructor(
     @Optional()
     @Inject(PlayerDomainPersistenceService)
@@ -60,13 +45,9 @@ export class HealthReadinessService {
     @Optional()
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
-  ) {}  
-  /**
- * build：构建并返回目标对象。
- * @returns 无返回值，直接更新结果相关状态。
- */
+  ) {}
 
-
+  /** 构建完整 readiness 响应体 */
   build() {
     return buildHealthResponse({
       playerPersistenceService: this.playerPersistenceService,

@@ -1,6 +1,10 @@
+/**
+ * 移动调试工具：通过 SERVER_DEBUG_MOVEMENT 环境变量控制开关，
+ * 开启后在移动链路关键分支输出结构化日志，辅助定位寻路和碰撞问题。
+ */
+
 /** 把环境变量里常见的布尔写法统一成标准布尔值。 */
 function normalizeDebugFlag(value: unknown): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (value === true || value === 1) {
     return true;
@@ -20,7 +24,6 @@ export function isServerNextMovementDebugEnabled(): boolean {
 
 /** 安全序列化日志载荷，失败时回退为错误摘要，避免调试日志再抛错。 */
 function safeSerialize(payload: unknown): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (payload === undefined) {
     return '';
@@ -34,16 +37,8 @@ function safeSerialize(payload: unknown): string {
     });
   }
 }
-/**
- * MovementLoggerLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** 日志器最小接口 */
 interface MovementLoggerLike {
-/**
- * log：log相关字段。
- */
-
   log: (message: string) => void;
 }
 
@@ -53,7 +48,6 @@ export function logServerNextMovement(
   scope: string,
   payload?: unknown,
 ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!isServerNextMovementDebugEnabled()) {
     return;

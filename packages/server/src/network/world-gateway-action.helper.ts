@@ -1,3 +1,8 @@
+/**
+ * 世界网关动作 helper。
+ * 收敛兑换码、传送门、修炼、施法、战斗锁定和通用 action 分发入口。
+ */
+
 import {
   C2S,
   RETURN_TO_SPAWN_ACTION_ID,

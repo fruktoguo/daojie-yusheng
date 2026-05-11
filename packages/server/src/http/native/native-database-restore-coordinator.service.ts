@@ -1,3 +1,8 @@
+/**
+ * 数据库恢复协调服务。
+ * 在数据库恢复前后协调运行时状态：刷盘所有玩家和地图、断开会话、
+ * 清理缓存，恢复后重载世界运行时和相关子系统。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldSyncService } from '../../network/world-sync.service';
@@ -12,130 +17,68 @@ import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-ru
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
-/**
- * PlayerSnapshotLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** 玩家快照最小接口。 */
 interface PlayerSnapshotLike {
-/**
- * playerId：玩家ID标识。
- */
-
   playerId: string;
 }
-/**
- * ExpiredBindingLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 过期断线绑定记录。 */
 interface ExpiredBindingLike {
-/**
- * playerId：玩家ID标识。
- */
-
   playerId: string;
-/**
- * sessionId：会话ID标识。
- */
-
   sessionId?: string | null;
-/**
- * sessionEpoch：会话 epoch。
- */
-
   sessionEpoch?: number | null;
-/**
- * connected：连接状态标记。
- */
-
   connected?: boolean;
-/**
- * detachedAt：脱机时间戳。
- */
-
   detachedAt?: number | null;
-/**
- * expireAt：过期时间戳。
- */
-
   expireAt?: number | null;
 }
-/**
- * WorldSessionServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 世界会话服务端口。 */
 interface WorldSessionServiceLike {
   purgeAllSessions(reason: string): string[];
   consumeExpiredBindings?(): ExpiredBindingLike[];
   requeueExpiredBinding?(binding: ExpiredBindingLike | null | undefined): boolean;
   acknowledgePurgedPlayerIds?(playerIds: string[]): void;
 }
-/**
- * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 世界运行时服务端口。 */
 interface WorldRuntimeServiceLike {
   worldRuntimePlayerSessionService: {
     removePlayer(playerId: string, reason: string, deps: unknown): void;
   };
   rebuildPersistentRuntimeAfterRestore(): Promise<void>;
 }
-/**
- * WorldSyncServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 世界同步服务端口。 */
 interface WorldSyncServiceLike {
   clearDetachedPlayerCaches(playerId: string): void;
 }
-/**
- * FlushServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 刷盘服务端口。 */
 interface FlushServiceLike {
   flushAllNow(): Promise<void>;
 }
-/**
- * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 玩家运行时服务端口。 */
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): PlayerSnapshotLike[];
 }
-/**
- * MailRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 邮件运行时服务端口。 */
 interface MailRuntimeServiceLike {
   clearRuntimeCache(): void;
 }
-/**
- * MarketRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 市场运行时服务端口。 */
 interface MarketRuntimeServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
-/**
- * SuggestionRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 建议运行时服务端口。 */
 interface SuggestionRuntimeServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
-/**
- * RuntimeGmAuthServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** GM 鉴权运行时服务端口。 */
 interface RuntimeGmAuthServiceLike {
   reloadPasswordRecordFromPersistence(): Promise<void>;
 }
@@ -143,28 +86,10 @@ interface RuntimeGmAuthServiceLike {
 interface NativePlayerAuthStoreServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
-/**
- * NativeDatabaseRestoreCoordinatorService：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** 数据库恢复协调服务：恢复前刷盘/断连/清理，恢复后重载运行时。 */
 @Injectable()
 export class NativeDatabaseRestoreCoordinatorService {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param worldSessionService WorldSessionServiceLike 参数说明。
- * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
- * @param worldSyncService WorldSyncServiceLike 参数说明。
- * @param playerPersistenceFlushService FlushServiceLike 参数说明。
- * @param mapPersistenceFlushService FlushServiceLike 参数说明。
- * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
- * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
- * @param marketRuntimeService MarketRuntimeServiceLike 参数说明。
- * @param suggestionRuntimeService SuggestionRuntimeServiceLike 参数说明。
- * @param runtimeGmAuthService RuntimeGmAuthServiceLike 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
   constructor(
     @Inject(WorldSessionService) private readonly worldSessionService: WorldSessionServiceLike,
     @Inject(WorldRuntimeService) private readonly worldRuntimeService: WorldRuntimeServiceLike,
@@ -178,13 +103,9 @@ export class NativeDatabaseRestoreCoordinatorService {
     @Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
     @Inject(RuntimeGmAuthService) private readonly runtimeGmAuthService: RuntimeGmAuthServiceLike,
     @Inject(NativePlayerAuthStoreService) private readonly playerAuthStoreService: NativePlayerAuthStoreServiceLike,
-  ) {}  
-  /**
- * prepareForRestore：执行prepareForRestore相关逻辑。
- * @returns 返回 Promise，完成后得到prepareForRestore。
- */
+  ) {}
 
-
+  /** 恢复前准备：刷盘所有玩家/地图、断开会话、清理缓存和邮件。 */
   async prepareForRestore(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -251,12 +172,7 @@ export class NativeDatabaseRestoreCoordinatorService {
 
     this.mailRuntimeService.clearRuntimeCache();
   }  
-  /**
- * reloadAfterRestore：读取reloadAfterRestore并返回结果。
- * @returns 返回 Promise，完成后得到reloadAfterRestore。
- */
-
-
+  /** 恢复后重载：重建世界运行时、市场、建议、GM 鉴权和账号索引。 */
   async reloadAfterRestore(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

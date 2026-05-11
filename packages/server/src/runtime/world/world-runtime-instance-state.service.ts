@@ -1,5 +1,10 @@
+/**
+ * 地图实例运行时状态容器
+ * 以泛型 Map 存储所有活跃实例的运行时对象，提供增删查遍历接口
+ */
 import { Injectable } from '@nestjs/common';
 
+/** 泛型实例状态容器，TInstance 为具体实例运行时类型 */
 @Injectable()
 export class WorldRuntimeInstanceStateService<TInstance = unknown> {
   readonly instances = new Map<string, TInstance>();

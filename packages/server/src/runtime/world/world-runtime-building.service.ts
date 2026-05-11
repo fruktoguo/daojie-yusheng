@@ -1,3 +1,7 @@
+/**
+ * 建筑系统运行时服务
+ * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
+ */
 import { calculateTerrainDurability, computeCraftSkillExpGain, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 

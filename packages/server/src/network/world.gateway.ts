@@ -1,3 +1,9 @@
+/**
+ * 世界网关主入口。
+ * Socket.IO WebSocket 网关，注册所有 C2S 事件 handler 并委托给各 helper 处理。
+ * 负责连接生命周期（connect/disconnect）、频率限制和 GM 性能观测挂载。
+ */
+
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Inject, Logger } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, C2S, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
@@ -56,6 +62,7 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
 });
+/** 世界网关：Socket.IO 协议入口，注册所有 C2S handler 并委托 helper 执行，自身只做路由分发。 */
 @WebSocketGateway({
     cors: resolveServerCorsOptions(),
     path: '/socket.io',
@@ -111,12 +118,14 @@ class WorldGateway {
         this.gatewaySessionStateHelper = new WorldGatewaySessionStateHelper(this);
         this.gatewayPresenceHelper = new WorldGatewayPresenceHelper(this);
     }
-        async handleConnection(client: Socket) {
+    /** 新 socket 连接建立：挂载性能观测、频率限制，然后委托 bootstrap helper 处理鉴权。 */
+    async handleConnection(client: Socket) {
         this.attachPerfObservers(client);
         this.attachRateLimitGuard(client);
         return this.gatewayBootstrapHelper.handleConnection(client);
     }
-        attachRateLimitGuard(client: Socket) {
+    /** 为 socket 挂载每事件频率限制中间件，超限时拒绝后续包。 */
+    attachRateLimitGuard(client: Socket) {
         if (!client || typeof client.use !== 'function') {
             return;
         }
@@ -128,7 +137,8 @@ class WorldGateway {
             next();
         });
     }
-        attachPerfObservers(client: Socket) {
+    /** 挂载 GM 性能观测：记录所有入站/出站事件到 GM state 供调试面板展示。 */
+    attachPerfObservers(client: Socket) {
         if (!client || client.data?.gmPerfObserversAttached === true) {
             return;
         }
@@ -146,7 +156,8 @@ class WorldGateway {
             });
         }
     }
-        async handleDisconnect(client: Socket) {
+    /** socket 断开：解绑会话、清理订阅状态、持久化离线 presence 并 flush 玩家数据。 */
+    async handleDisconnect(client: Socket) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         const binding = this.worldSessionService.unregisterSocket(client.id);
         if (!binding) {

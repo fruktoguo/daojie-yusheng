@@ -79,6 +79,7 @@ export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) 
         () => handlers.activateAutoRetaliate?.({ playerId: targetPlayerId, outcome, result, application, deps }),
         () => deps?.playerRuntimeService?.activateAutoRetaliate?.(targetPlayerId, deps?.currentTick),
       ]);
+      deps?.worldRuntimeNavigationService?.clearNavigationIntent?.(targetPlayerId);
     }
     // 击败处理
     let handledDefeat = false;

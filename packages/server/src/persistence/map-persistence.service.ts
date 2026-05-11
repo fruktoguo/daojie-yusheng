@@ -1,3 +1,8 @@
+/**
+ * 旧地图整档快照持久化服务（已废弃）。
+ * 硬切后仅保留类型边界和规范化工具函数，运行时不再读写。
+ * 地图真源已迁移至 instance_* 分域表（InstanceDomainPersistenceService）。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from '@mud/shared';
 

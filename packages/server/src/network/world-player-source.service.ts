@@ -1,3 +1,9 @@
+/**
+ * 玩家来源解析服务。
+ * 负责从主线持久化或 legacy 数据库加载玩家身份，管理迁移入口的显式声明与拦截。
+ * 是 bootstrap 阶段身份真源的唯一查询入口。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import * as shared_1 from '@mud/shared';

@@ -1,9 +1,20 @@
+/**
+ * 制作任务 tick 推进服务
+ * 每帧为有活跃制作任务的玩家推进炼丹、锻造、强化等技艺活动进度
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
 import { WorldRuntimeAlchemyService } from './world-runtime-alchemy.service';
 import { WorldRuntimeEnhancementService } from './world-runtime-enhancement.service';
+import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
+import { TechniqueActivityQueueService } from '../craft/pipeline/technique-activity-queue.service';
+import { AlchemyStrategy } from '../craft/pipeline/strategies/alchemy.strategy';
+import { ForgingStrategy } from '../craft/pipeline/strategies/forging.strategy';
+import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.strategy';
+import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
+import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
@@ -33,6 +44,11 @@ export class WorldRuntimeCraftTickService {
  */
 
     worldRuntimeEnhancementService;
+
+    /** 技艺管线服务。 */
+    pipeline;
+    /** 技艺队列服务。 */
+    queueService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -55,6 +71,15 @@ export class WorldRuntimeCraftTickService {
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
         this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
         this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
+
+        // 初始化管线并注册所有策略
+        this.pipeline = new TechniqueActivityPipelineService();
+        this.pipeline.register(new AlchemyStrategy(craftPanelRuntimeService));
+        this.pipeline.register(new ForgingStrategy(craftPanelRuntimeService));
+        this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
+        this.pipeline.register(new GatherStrategy());
+        this.pipeline.register(new BuildingStrategy());
+        this.queueService = new TechniqueActivityQueueService(this.pipeline);
     }
     /**
  * advanceCraftJobs：执行advance炼制Job相关逻辑。
@@ -71,7 +96,7 @@ export class WorldRuntimeCraftTickService {
             }
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
                 if (kind === 'alchemy' || kind === 'forging') {
-                    await this.worldRuntimeAlchemyService.tickAlchemy(playerId, player, deps);
+                    await this.worldRuntimeAlchemyService.tickAlchemy(playerId, player, deps, kind);
                     continue;
                 }
                 if (kind === 'enhancement') {
@@ -80,7 +105,7 @@ export class WorldRuntimeCraftTickService {
                 }
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    this.craftPanelRuntimeService.tickTechniqueActivity(player, kind),
+                    this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps),
                     kind,
                     deps,
                 );
@@ -97,6 +122,30 @@ export class WorldRuntimeCraftTickService {
             if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
                 deps.tickBuildingConstruction(playerId);
             }
+
+            // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
+            if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)
+                && !(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0)
+                && !(player.buildingJob && Number(player.buildingJob.remainingTicks) > 0)) {
+                const ctx = { contentTemplateRepository: null as any, resolveExpToNextByLevel: () => 100, getInstanceRuntime: () => null, deps };
+                const queueResult = this.queueService.tickQueue(player, ctx);
+                if (queueResult?.ok) {
+                    const kind = this.resolveQueueResultKind(player);
+                    if (kind) {
+                        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
+                    }
+                }
+            }
         }
+    }
+
+    /** 从玩家当前活跃 job 推断刚启动的 kind。 */
+    private resolveQueueResultKind(player) {
+        if (player.alchemyJob && Number(player.alchemyJob.remainingTicks) > 0) return 'alchemy';
+        if (player.forgingJob && Number(player.forgingJob.remainingTicks) > 0) return 'forging';
+        if (player.enhancementJob && Number(player.enhancementJob.remainingTicks) > 0) return 'enhancement';
+        if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) return 'gather';
+        if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) return 'building';
+        return null;
     }
 };

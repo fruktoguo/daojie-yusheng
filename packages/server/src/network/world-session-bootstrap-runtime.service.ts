@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 运行时编排服务。
+ * 负责 bootstrap 前后的 runtime player attach/detach 编排，处理顶号和断线恢复场景。
+ */
+
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { WorldSessionService } from './world-session.service';

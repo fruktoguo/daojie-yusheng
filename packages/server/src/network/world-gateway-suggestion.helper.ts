@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关建议 helper。
+ * 收敛玩家建议的查看、创建、投票、回复和标记已读入口。
+ */
+
 /** 世界 socket suggestion helper：只收敛玩家建议写路径。 */
 class WorldGatewaySuggestionHelper {
 /**

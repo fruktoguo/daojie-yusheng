@@ -1,3 +1,8 @@
+/**
+ * 世界网关技艺 helper。
+ * 收敛炼丹、锻造、强化面板请求和活动开始/取消/预设管理入口。
+ */
+
 import { emitTechniqueActivityPanel, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
 
 /** 世界 socket 采集/锻造 helper：只收敛 craft 相关入口。 */

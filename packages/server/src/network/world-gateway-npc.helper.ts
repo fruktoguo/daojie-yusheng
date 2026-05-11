@@ -1,6 +1,11 @@
+/**
+ * 世界网关 NPC helper。
+ * 收敛 NPC 商店、NPC 任务接取/提交和商店购买等入口。
+ */
+
 import { S2C } from '@mud/shared';
 
-/** 世界 socket NPC/quest/shop helper：只收敛最小 NPC/quest/shop 入口。 */
+/** NPC 交互 helper：收敛商店浏览、任务接取/提交和商品购买入口 */
 class WorldGatewayNpcHelper {
 /**
  * gateway：gateway相关字段。

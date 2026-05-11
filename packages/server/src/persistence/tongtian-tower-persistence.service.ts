@@ -1,8 +1,14 @@
+/**
+ * 通天塔进度持久化服务。
+ * 管理玩家通天塔当前层和历史最高层的内存缓存与数据库落库，
+ * 支持异步写入队列和进程关闭前强刷。
+ */
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 
+/** 通天塔进度数据结构 */
 export interface TongtianTowerProgress {
   playerId: string;
   currentLayer: number;
@@ -11,6 +17,7 @@ export interface TongtianTowerProgress {
 
 const TONGTIAN_TOWER_PROGRESS_TABLE = 'player_tongtian_tower_progress';
 
+/** 通天塔持久化服务：内存缓存 + 异步落库 */
 @Injectable()
 export class TongtianTowerPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TongtianTowerPersistenceService.name);

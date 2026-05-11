@@ -1,6 +1,10 @@
+/**
+ * 游戏玩法写侧门面服务
+ * 统一封装高层写操作的 lease 校验、意图分发和结果通知
+ */
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
-/** world-runtime gameplay-write facade：承接高层写侧 gameplay facade。 */
+/** 游戏玩法写侧门面：lease 校验 + 高层写操作统一入口 */
 @Injectable()
 export class WorldRuntimeGameplayWriteFacadeService {
     assertPlayerInstanceLeaseWritable(playerId, deps) {

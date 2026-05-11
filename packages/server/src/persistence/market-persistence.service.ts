@@ -1,3 +1,8 @@
+/**
+ * 坊市（市场）持久化服务。
+ * 管理 server_market_order、server_market_trade_history 和 player_market_storage_item 表，
+ * 支持订单/成交/托管仓的事务性写入、结构化加载和恢复水位推进。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { isValidMarketPrice } from '@mud/shared';

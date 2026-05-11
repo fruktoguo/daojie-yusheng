@@ -1,3 +1,8 @@
+/**
+ * 世界同步总控服务。
+ * 编排每 tick 的初始同步、增量同步、全量 flush 和缓存清理，是网络层同步的核心入口。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';

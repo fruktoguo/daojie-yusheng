@@ -1,3 +1,8 @@
+/**
+ * 内容模板仓库：服务端启动期从 data/content 目录加载物品、功法、妖兽、阵法等模板，
+ * 提供运行时查询、实例化和掉落计算。所有模板在 onModuleInit 时一次性解析并缓存，
+ * tick 热路径直接读取预解析结构，不做文件 IO 或 schema 校验。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -55,7 +60,6 @@ export class ContentTemplateRepository {
     }
     /** 按物品模板生成一份可堆叠物品实例。 */
     createItem(itemId, count = 1) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const template = this.itemTemplates.get(itemId);
@@ -119,14 +123,8 @@ export class ContentTemplateRepository {
     listFormationTemplates() {
         return Array.from(this.formationTemplates.values(), (template) => ({ ...template }));
     }
-    /**
- * rollLootPoolItems：执行roll掉落Pool道具相关逻辑。
- * @param query 参数说明。
- * @returns 无返回值，直接更新roll掉落Pool道具相关状态。
- */
-
+    
     rollLootPoolItems(query) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const chance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
@@ -175,14 +173,8 @@ export class ContentTemplateRepository {
         }
         return result;
     }
-    /**
- * normalizeItem：规范化或转换道具。
- * @param item 道具。
- * @returns 无返回值，直接更新道具相关状态。
- */
-
+    
     normalizeItem(item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const template = this.itemTemplates.get(item.itemId);
@@ -198,23 +190,12 @@ export class ContentTemplateRepository {
             count: Math.max(1, Math.trunc(item.count)),
         };
     }
-    /**
- * getLearnTechniqueId：读取Learn功法ID。
- * @param itemId 道具 ID。
- * @returns 无返回值，完成Learn功法ID的读取/组装。
- */
-
+    
     getLearnTechniqueId(itemId) {
         return this.itemTemplates.get(itemId)?.learnTechniqueId ?? null;
     }
-    /**
- * getItemSortLevel：读取道具Sort等级。
- * @param item 道具。
- * @returns 无返回值，完成道具Sort等级的读取/组装。
- */
-
+    
     getItemSortLevel(item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const template = this.itemTemplates.get(String(item?.itemId ?? ''));
@@ -233,14 +214,8 @@ export class ContentTemplateRepository {
         }
         return resolveItemTemplateLevel(template);
     }
-    /**
- * createTechniqueState：构建并返回目标对象。
- * @param techniqueId technique ID。
- * @returns 无返回值，直接更新功法状态相关状态。
- */
-
+    
     createTechniqueState(techniqueId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const template = this.techniqueTemplates.get(techniqueId);
@@ -268,21 +243,11 @@ export class ContentTemplateRepository {
             attrCurves: template.attrCurves ? { ...template.attrCurves } : undefined,
         };
     }
-    /**
- * getTechniqueName：读取功法名称。
- * @param techniqueId technique ID。
- * @returns 无返回值，完成功法名称的读取/组装。
- */
-
+    
     getTechniqueName(techniqueId) {
         return this.techniqueTemplates.get(techniqueId)?.name ?? null;
     }
-    /**
- * getTechniqueCategoryForBookItem：按功法书物品 ID 读取功法分类。
- * @param itemId 道具 ID。
- * @returns 无返回值，完成功法分类的读取/组装。
- */
-
+    
     getTechniqueCategoryForBookItem(itemId) {
         const techniqueId = this.itemTemplates.get(itemId)?.learnTechniqueId;
         if (!techniqueId) {
@@ -290,14 +255,8 @@ export class ContentTemplateRepository {
         }
         return this.techniqueTemplates.get(techniqueId)?.category ?? null;
     }
-    /**
- * hydrateTechniqueState：执行hydrate功法状态相关逻辑。
- * @param input 输入参数。
- * @returns 无返回值，直接更新hydrate功法状态相关状态。
- */
-
+    
     hydrateTechniqueState(input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!input || typeof input !== 'object') {
             return null;
@@ -382,11 +341,7 @@ export class ContentTemplateRepository {
             attrCurves,
         };
     }
-    /**
- * listTechniqueTemplates：读取功法Template并返回结果。
- * @returns 无返回值，完成功法Template的读取/组装。
- */
-
+    
     listTechniqueTemplates() {
         return Array.from(this.techniqueTemplates.values(), (template) => ({
             id: template.id,
@@ -405,17 +360,8 @@ export class ContentTemplateRepository {
             })),
         })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
     }
-    /**
- * rollMonsterDrops：执行roll怪物Drop相关逻辑。
- * @param monsterId monster ID。
- * @param rolls 参数说明。
- * @param lootRateBonus 参数说明。
- * @param rareLootRateBonus 参数说明。
- * @returns 无返回值，直接更新roll怪物Drop相关状态。
- */
-
+    
     rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context = {}) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const dropTable = this.monsterDropsByMonsterId.get(monsterId);
@@ -464,14 +410,8 @@ export class ContentTemplateRepository {
         }
         return Array.from(result.values()).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
     }
-    /**
- * createRuntimeMonstersForMap：构建并返回目标对象。
- * @param mapId 地图 ID。
- * @returns 无返回值，直接更新运行态怪物For地图相关状态。
- */
-
+    
     createRuntimeMonstersForMap(mapId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const states = this.buildFallbackMonsterRuntimeStatesForMap(mapId) ?? this.monsterRuntimeStatesByMapId.get(mapId);
@@ -596,14 +536,8 @@ export class ContentTemplateRepository {
             wanderRadius: Number.isFinite(Number(options.wanderRadius)) ? Math.max(0, Math.trunc(Number(options.wanderRadius))) : 0,
         };
     }
-    /**
- * buildFallbackMonsterRuntimeStatesForMap：构建并返回目标对象。
- * @param mapId 地图 ID。
- * @returns 无返回值，直接更新Fallback怪物运行态状态For地图相关状态。
- */
-
+    
     buildFallbackMonsterRuntimeStatesForMap(mapId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const filePath = findMapDocumentFile(mapId);
@@ -692,14 +626,8 @@ export class ContentTemplateRepository {
         this.monsterRuntimeStatesByMapId.set(mapId, runtimeStates);
         return runtimeStates;
     }
-    /**
- * getMonsterCombatProfile：读取怪物战斗Profile。
- * @param monsterId monster ID。
- * @returns 无返回值，完成怪物战斗Profile的读取/组装。
- */
-
+    
     getMonsterCombatProfile(monsterId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const template = this.monsterRuntimeTemplates.get(monsterId);
@@ -713,14 +641,8 @@ export class ContentTemplateRepository {
             expMultiplier: template.expMultiplier,
         };
     }
-    /**
- * getSkill：读取技能。
- * @param skillId skill ID。
- * @returns 无返回值，完成技能的读取/组装。
- */
-
+    
     getSkill(skillId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const technique of this.techniqueTemplates.values()) {
             const skill = technique.skills.find((entry) => entry.id === skillId);
@@ -730,13 +652,8 @@ export class ContentTemplateRepository {
         }
         return null;
     }
-    /**
- * loadSharedTechniqueBuffs：读取Shared功法Buff并返回结果。
- * @returns 无返回值，完成Shared功法Buff的读取/组装。
- */
-
+    
     loadSharedTechniqueBuffs() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const sharedBuffFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'technique-buffs'));
@@ -754,13 +671,8 @@ export class ContentTemplateRepository {
             }
         }
     }
-    /**
- * loadAll：读取All并返回结果。
- * @returns 无返回值，完成All的读取/组装。
- */
-
+    
     loadAll() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.itemTemplates.clear();
         this.techniqueTemplates.clear();
@@ -829,13 +741,8 @@ export class ContentTemplateRepository {
         this.loadMonsterDrops();
         this.logger.log(`已加载 ${this.itemTemplates.size} 个物品模板、${this.techniqueTemplates.size} 个功法、${this.monsterDropsByMonsterId.size} 张妖兽掉落表和 ${this.starterInventoryEntries.length} 条初始物品记录`);
     }
-    /**
- * loadMonsterDrops：读取怪物Drop并返回结果。
- * @returns 无返回值，完成怪物Drop的读取/组装。
- */
-
+    
     loadMonsterDrops() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const monsterFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'monsters'));
@@ -877,16 +784,8 @@ export class ContentTemplateRepository {
         }
         this.loadMonsterRuntimeStates();
     }
-    /**
- * buildMonsterDrops：构建并返回目标对象。
- * @param rawDrops 参数说明。
- * @param rawEquipment 参数说明。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新怪物Drop相关状态。
- */
-
+    
     buildMonsterDrops(rawDrops, rawEquipment, context) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const configuredDrops = Array.isArray(rawDrops)
@@ -938,15 +837,8 @@ export class ContentTemplateRepository {
         }
         return drops;
     }
-    /**
- * resolveMonsterDropChance：规范化或转换怪物DropChance。
- * @param drop 参数说明。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新怪物DropChance相关状态。
- */
-
+    
     resolveMonsterDropChance(drop, context) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (typeof drop.chance === 'number') {
             return {
@@ -959,15 +851,8 @@ export class ContentTemplateRepository {
             chance: this.computeDefaultMonsterDropChance(drop, context),
         };
     }
-    /**
- * computeDefaultMonsterDropChance：执行默认怪物DropChance相关逻辑。
- * @param drop 参数说明。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新Default怪物DropChance相关状态。
- */
-
+    
     computeDefaultMonsterDropChance(drop, context) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (drop.type === 'quest_item') {
             return 1;
@@ -992,12 +877,7 @@ export class ContentTemplateRepository {
         const chance = 0.01 * categoryBase * (3 ** gradeDelta) * this.getMonsterTierDropFactor(context.tier);
         return Math.max(Number.MIN_VALUE, Math.min(1, chance));
     }
-    /**
- * getMaterialBaseDropChance：读取MaterialBaseDropChance。
- * @param tier 参数说明。
- * @returns 无返回值，完成MaterialBaseDropChance的读取/组装。
- */
-
+    
     getMaterialBaseDropChance(tier) {
         switch (tier) {
             case 'variant':
@@ -1028,14 +908,8 @@ export class ContentTemplateRepository {
             ? ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER
             : 1;
     }
-    /**
- * getMonsterDropCategoryBase：读取怪物DropCategoryBase。
- * @param drop 参数说明。
- * @returns 无返回值，完成怪物DropCategoryBase的读取/组装。
- */
-
+    
     getMonsterDropCategoryBase(drop) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (drop.itemId === 'spirit_stone') {
             return 1;
@@ -1055,12 +929,7 @@ export class ContentTemplateRepository {
                 return 1;
         }
     }
-    /**
- * getMonsterTierDropFactor：读取怪物TierDropFactor。
- * @param tier 参数说明。
- * @returns 无返回值，完成怪物TierDropFactor的读取/组装。
- */
-
+    
     getMonsterTierDropFactor(tier) {
         switch (tier) {
             case 'variant':
@@ -1071,14 +940,8 @@ export class ContentTemplateRepository {
                 return 0.1;
         }
     }
-    /**
- * getMonsterDropItemGrade：读取怪物Drop道具Grade。
- * @param drop 参数说明。
- * @returns 无返回值，完成怪物Drop道具Grade的读取/组装。
- */
-
+    
     getMonsterDropItemGrade(drop) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const item = this.itemTemplates.get(drop.itemId);
@@ -1093,15 +956,8 @@ export class ContentTemplateRepository {
         }
         return 'mortal';
     }
-    /**
- * buildSpiritStoneMonsterDrop：构建并返回目标对象。
- * @param context 上下文信息。
- * @param override 参数说明。
- * @returns 无返回值，直接更新SpiritStone怪物Drop相关状态。
- */
-
+    
     buildSpiritStoneMonsterDrop(context, override) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const item = this.itemTemplates.get('spirit_stone');
@@ -1124,12 +980,7 @@ export class ContentTemplateRepository {
             chance,
         };
     }
-    /**
- * computeSpiritStoneDropChance：执行SpiritStoneDropChance相关逻辑。
- * @param tier 参数说明。
- * @returns 无返回值，直接更新SpiritStoneDropChance相关状态。
- */
-
+    
     computeSpiritStoneDropChance(tier) {
         switch (tier) {
             case 'variant':
@@ -1140,12 +991,7 @@ export class ContentTemplateRepository {
                 return 0.01;
         }
     }
-    /**
- * computeSpiritStoneDropCount：执行SpiritStoneDrop数量相关逻辑。
- * @param context 上下文信息。
- * @returns 无返回值，直接更新SpiritStoneDrop数量相关状态。
- */
-
+    
     computeSpiritStoneDropCount(context) {
 
         const gradeIndex = Math.max(0, resolveTechniqueGradeOrder(context.grade) ?? 0);
@@ -1155,14 +1001,8 @@ export class ContentTemplateRepository {
             : 1;
         return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
     }
-    /**
- * resolveRawEquipmentItemId：规范化或转换Raw装备道具ID。
- * @param entry 参数说明。
- * @returns 无返回值，直接更新Raw装备道具ID相关状态。
- */
-
+    
     resolveRawEquipmentItemId(entry) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (typeof entry === 'string') {
             return entry.trim();
@@ -1172,14 +1012,8 @@ export class ContentTemplateRepository {
         }
         return '';
     }
-    /**
- * normalizeMonsterDropEntry：规范化或转换怪物Drop条目。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新怪物Drop条目相关状态。
- */
-
+    
     normalizeMonsterDropEntry(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!raw || typeof raw !== 'object') {
             return null;
@@ -1209,14 +1043,8 @@ export class ContentTemplateRepository {
             chance: Number.isFinite(candidate.chance) ? Math.max(0, Math.min(1, Number(candidate.chance))) : undefined,
         };
     }
-    /**
- * getLootPoolCandidateIds：读取掉落PoolCandidateID。
- * @param query 参数说明。
- * @returns 无返回值，完成掉落PoolCandidateID的读取/组装。
- */
-
+    
     getLootPoolCandidateIds(query) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const result = [];
@@ -1229,14 +1057,8 @@ export class ContentTemplateRepository {
         result.sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
         return result;
     }
-    /**
- * normalizeMonsterRuntimeTemplate：规范化或转换怪物运行态Template。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新怪物运行态Template相关状态。
- */
-
+    
     normalizeMonsterRuntimeTemplate(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const id = typeof raw.id === 'string' ? raw.id.trim() : '';
@@ -1293,15 +1115,8 @@ export class ContentTemplateRepository {
             attackCooldownTicks: 2,
         };
     }
-    /**
- * normalizeMonsterSkills：规范化或转换怪物技能。
- * @param raw 参数说明。
- * @param monsterId monster ID。
- * @returns 无返回值，直接更新怪物技能相关状态。
- */
-
+    
     normalizeMonsterSkills(raw, monsterId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!Array.isArray(raw)) {
             return [];
@@ -1343,13 +1158,8 @@ export class ContentTemplateRepository {
         });
         return normalized;
     }
-    /**
- * loadMonsterRuntimeStates：读取怪物运行态状态并返回结果。
- * @returns 无返回值，完成怪物运行态状态的读取/组装。
- */
-
+    
     loadMonsterRuntimeStates() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const runtimePath = resolveProjectPath('packages', 'server', 'data', 'runtime', 'map-monster-runtime-state.json');
@@ -1380,11 +1190,6 @@ export class ContentTemplateRepository {
         }
     }
 };
-/**
- * parseMonsterIdFromRuntimeId：规范化或转换怪物IDFrom运行态ID。
- * @param runtimeId runtime ID。
- * @returns 无返回值，直接更新怪物IDFrom运行态ID相关状态。
- */
 
 function parseMonsterIdFromRuntimeId(runtimeId) {
 
@@ -1426,17 +1231,8 @@ function findMapDocumentFile(mapId) {
     }
     return mapDocumentFileById.get(normalizedMapId) ?? '';
 }
-/**
- * normalizeMonsterMaxHp：规范化或转换怪物MaxHp。
- * @param maxHp 参数说明。
- * @param hp 参数说明。
- * @param attrs 参数说明。
- * @param numericStats 参数说明。
- * @returns 无返回值，直接更新怪物MaxHp相关状态。
- */
 
 function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof maxHp === 'number' && Number.isFinite(maxHp)) {
         return Math.max(1, Math.trunc(maxHp));
@@ -1457,7 +1253,6 @@ function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
  */
 
 function loadMonsterRealmBaselines() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const baselinesPath = resolveProjectPath('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
     if (!fs.existsSync(baselinesPath)) {
@@ -1594,15 +1389,8 @@ function clonePlainValue(value) {
     }
     return value;
 }
-/**
- * normalizeMonsterRespawnTicks：规范化或转换怪物重生tick。
- * @param respawnTicks 参数说明。
- * @param respawnSec 参数说明。
- * @returns 无返回值，直接更新怪物重生tick相关状态。
- */
 
 function normalizeMonsterRespawnTicks(respawnTicks, respawnSec) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof respawnTicks === 'number' && Number.isFinite(respawnTicks)) {
         return Math.max(1, Math.trunc(respawnTicks));
@@ -1612,20 +1400,10 @@ function normalizeMonsterRespawnTicks(respawnTicks, respawnSec) {
     }
     return 15;
 }
-/**
- * normalizeMonsterTier：规范化或转换怪物Tier。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新怪物Tier相关状态。
- */
 
 function normalizeMonsterTier(raw) {
     return raw === 'variant' || raw === 'demon_king' ? raw : 'mortal_blood';
 }
-/**
- * normalizeTechniqueGrade：规范化或转换功法Grade。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新功法Grade相关状态。
- */
 
 function normalizeTechniqueGrade(raw) {
     switch (raw) {
@@ -1641,11 +1419,6 @@ function normalizeTechniqueGrade(raw) {
             return 'mortal';
     }
 }
-/**
- * cloneSkill：构建技能。
- * @param source 来源对象。
- * @returns 无返回值，直接更新技能相关状态。
- */
 
 function cloneSkill(source) {
     return {
@@ -1654,14 +1427,8 @@ function cloneSkill(source) {
         effects: source.effects.map((entry) => ({ ...entry })),
     };
 }
-/**
- * resolveSkillRange：规范化或转换技能范围。
- * @param skill 参数说明。
- * @returns 无返回值，直接更新技能范围相关状态。
- */
 
 function resolveSkillRange(skill) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     const targetingRange = skill.targeting?.range;
@@ -1670,16 +1437,8 @@ function resolveSkillRange(skill) {
     }
     return Math.max(1, Math.round(skill.range));
 }
-/**
- * normalizeMonsterAggroRange：规范化或转换怪物Aggro范围。
- * @param aggroRange 参数说明。
- * @param radius 影响半径。
- * @param viewRange 参数说明。
- * @returns 无返回值，直接更新怪物Aggro范围相关状态。
- */
 
 function normalizeMonsterAggroRange(aggroRange, radius, viewRange) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof aggroRange === 'number' && Number.isFinite(aggroRange)) {
         return Math.max(1, Math.trunc(aggroRange));
@@ -1692,25 +1451,12 @@ function normalizeMonsterAggroRange(aggroRange, radius, viewRange) {
     }
     return 4;
 }
-/**
- * normalizeMonsterLeashRange：规范化或转换怪物Leash范围。
- * @param aggroRange 参数说明。
- * @param radius 影响半径。
- * @param viewRange 参数说明。
- * @returns 无返回值，直接更新怪物Leash范围相关状态。
- */
 
 function normalizeMonsterLeashRange(aggroRange, radius, viewRange) {
     return Math.max(2, normalizeMonsterAggroRange(aggroRange, radius, viewRange) + 4);
 }
-/**
- * normalizeMonsterRuntimeStateRecord：规范化或转换怪物运行态状态Record。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新怪物运行态状态Record相关状态。
- */
 
 function normalizeMonsterRuntimeStateRecord(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -1819,11 +1565,6 @@ function resolveFallbackSpawnRespawnTicks(spawn, template) {
 function buildMonsterSpawnKey(mapId, monsterId, spawnX, spawnY) {
     return `monster_spawn:${mapId}:${monsterId}:${spawnX}:${spawnY}`;
 }
-/**
- * cloneMonsterAttributes：构建怪物Attribute。
- * @param source 来源对象。
- * @returns 无返回值，直接更新怪物Attribute相关状态。
- */
 
 function cloneMonsterAttributes(source) {
     return {
@@ -1835,14 +1576,8 @@ function cloneMonsterAttributes(source) {
         meridians: source.meridians ?? source.luck ?? 0,
     };
 }
-/**
- * collectJsonFiles：执行JsonFile相关逻辑。
- * @param dirPath 参数说明。
- * @returns 无返回值，直接更新JsonFile相关状态。
- */
 
 function collectJsonFiles(dirPath) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     const entries = fs.readdirSync(dirPath, { withFileTypes: true })
@@ -1861,17 +1596,8 @@ function collectJsonFiles(dirPath) {
     }
     return files;
 }
-/**
- * resolveFallbackSpawnPositions：规范化或转换FallbackSpawn位置。
- * @param document 参数说明。
- * @param spawn 参数说明。
- * @param count 数量。
- * @param occupied 参数说明。
- * @returns 无返回值，直接更新FallbackSpawn位置相关状态。
- */
 
 function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     const radius = Number.isFinite(spawn.radius)
@@ -1923,14 +1649,8 @@ function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
     }
     return positions;
 }
-/**
- * normalizeStarterInventoryEntry：规范化或转换Starter背包条目。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新Starter背包条目相关状态。
- */
 
 function normalizeStarterInventoryEntry(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -1945,11 +1665,6 @@ function normalizeStarterInventoryEntry(raw) {
         count: Number.isFinite(candidate.count) ? Math.max(1, Math.trunc(candidate.count ?? 1)) : 1,
     };
 }
-/**
- * normalizeMaterialElementValues：规范化材料五行数值。
- * @param raw 参数说明。
- * @returns 返回材料五行数值或 undefined。
- */
 
 function normalizeMaterialElementValues(raw) {
   // 配置冷路径只保留正整数五行值，运行时直读已归一化结果。
@@ -1967,11 +1682,6 @@ function normalizeMaterialElementValues(raw) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-/**
- * normalizeMaterialScalarValues：规范化材料扩展标量数值。
- * @param raw 参数说明。
- * @returns 返回材料扩展标量数值或 undefined。
- */
 
 function normalizeMaterialScalarValues(raw) {
   // 后续材料硬度、药性、纯度等可通过 scalars 扩展，仍在冷路径完成数值规整。
@@ -1990,12 +1700,6 @@ function normalizeMaterialScalarValues(raw) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-/**
- * normalizeMaterialValues：规范化材料属性值容器。
- * @param raw 参数说明。
- * @param legacyElements 参数说明。
- * @returns 返回材料属性值容器或 undefined。
- */
 
 function normalizeMaterialValues(raw, legacyElements) {
   // 当前只启用 elements，容器结构为后续其他材料属性预留同层扩展口。
@@ -2012,21 +1716,10 @@ function normalizeMaterialValues(raw, legacyElements) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-/**
- * normalizeMaterialCategory：规范化材料主分类。
- * @param value 参数说明。
- * @returns 返回材料主分类或 undefined。
- */
 
 function normalizeMaterialCategory(value) {
     return ['herb', 'exotic', 'ore'].includes(value) ? value : undefined;
 }
-/**
- * normalizeItemTags：规范化物品标签，并注入材料分类标签。
- * @param raw 参数说明。
- * @param materialCategory 参数说明。
- * @returns 返回标签列表或 undefined。
- */
 
 function normalizeItemTags(raw, materialCategory) {
     const tags = new Set(Array.isArray(raw) ? raw.filter((entry) => typeof entry === 'string' && entry.trim()).map((entry) => entry.trim()) : []);
@@ -2044,14 +1737,8 @@ function normalizeItemTags(raw, materialCategory) {
     }
     return tags.size > 0 ? [...tags] : undefined;
 }
-/**
- * normalizeItemTemplate：规范化或转换道具Template。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新道具Template相关状态。
- */
 
 function normalizeItemTemplate(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -2140,14 +1827,8 @@ function normalizeItemTemplate(raw) {
             : undefined,
     };
 }
-/**
- * normalizeConsumableBuffs：规范化或转换ConsumableBuff。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新ConsumableBuff相关状态。
- */
 
 function normalizeConsumableBuffs(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!Array.isArray(raw)) {
         return undefined;
@@ -2221,11 +1902,6 @@ function normalizeConsumableBuffs(raw) {
     });
     return buffs.length > 0 ? buffs : undefined;
 }
-/**
- * normalizeMonsterInitialBuffs：规范化妖兽出生自带 Buff。
- * @param raw 参数说明。
- * @returns 出生 Buff 配置列表。
- */
 
 function normalizeMonsterInitialBuffs(raw) {
     // 内容冷路径完成校验，运行时只消费稳定结构。
@@ -2248,15 +1924,8 @@ function normalizeMonsterInitialBuffs(raw) {
     }
     return result.length > 0 ? result : undefined;
 }
-/**
- * matchesLootPoolFilters：执行matche掉落PoolFilter相关逻辑。
- * @param item 道具。
- * @param query 参数说明。
- * @returns 无返回值，直接更新matche掉落PoolFilter相关状态。
- */
 
 function matchesLootPoolFilters(item, query) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     const level = resolveItemTemplateLevel(item);
@@ -2292,11 +1961,6 @@ function matchesLootPoolFilters(item, query) {
     const tagSet = new Set((item.tags ?? []).filter((tag) => typeof tag === 'string' && tag.length > 0));
     return tagGroups.every((group) => group.some((tag) => tagSet.has(tag)));
 }
-/**
- * resolveTechniqueGradeOrder：规范化或转换功法Grade订单。
- * @param grade 参数说明。
- * @returns 无返回值，直接更新功法Grade订单相关状态。
- */
 
 function resolveTechniqueGradeOrder(grade) {
     switch (grade) {
@@ -2320,14 +1984,8 @@ function resolveTechniqueGradeOrder(grade) {
             return null;
     }
 }
-/**
- * inferTechniqueGradeFromItemLevel：执行infer功法GradeFrom道具等级相关逻辑。
- * @param level 参数说明。
- * @returns 无返回值，直接更新infer功法GradeFrom道具等级相关状态。
- */
 
 function inferTechniqueGradeFromItemLevel(level) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     const normalizedLevel = Math.max(1, Math.trunc(Number(level)));
@@ -2354,14 +2012,8 @@ function inferTechniqueGradeFromItemLevel(level) {
     }
     return 'mortal';
 }
-/**
- * resolveItemTemplateLevel：规范化或转换道具Template等级。
- * @param item 道具。
- * @returns 无返回值，直接更新道具Template等级相关状态。
- */
 
 function resolveItemTemplateLevel(item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (Number.isFinite(item?.level)) {
         return Math.max(1, Math.trunc(Number(item.level)));
@@ -2385,26 +2037,14 @@ function resolveItemTemplateLevel(item) {
     const gradeOrder = resolveTechniqueGradeOrder(item?.grade);
     return gradeOrder === null ? 1 : gradeOrder + 1;
 }
-/**
- * randomIntInclusive：执行randomIntInclusive相关逻辑。
- * @param min 参数说明。
- * @param max 参数说明。
- * @returns 无返回值，直接更新randomIntInclusive相关状态。
- */
 
 function randomIntInclusive(min, max) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (max <= min) {
         return min;
     }
     return min + Math.floor(Math.random() * ((max - min) + 1));
 }
-/**
- * isRecord：判断Record是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，完成Record的条件判断。
- */
 
 function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -2470,24 +2110,12 @@ function normalizeBuffSustainCost(input) {
         growthRate: Number.isFinite(growthRate) && growthRate > 0 ? growthRate : undefined,
     };
 }
-/**
- * clampUnitRatio：执行clampUnitRatio相关逻辑。
- * @param value 参数说明。
- * @returns 无返回值，直接更新clampUnitRatio相关状态。
- */
 
 function clampUnitRatio(value) {
     return Math.max(0.01, Math.min(1, Number(value)));
 }
-/**
- * normalizeTechniqueTemplate：规范化或转换功法Template。
- * @param raw 参数说明。
- * @param sharedTechniqueBuffs 参数说明。
- * @returns 无返回值，直接更新功法Template相关状态。
- */
 
 function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -2528,15 +2156,8 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
         skills,
     };
 }
-/**
- * normalizeTechniqueLayer：规范化或转换功法层。
- * @param raw 参数说明。
- * @param realmLv 参数说明。
- * @returns 无返回值，直接更新功法层相关状态。
- */
 
 function normalizeTechniqueLayer(raw, realmLv) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -2587,14 +2208,8 @@ function scaleTechniqueExpCompat(expFactor, realmLv) {
   const expBase = Number.isFinite(TECHNIQUE_EXP_BASE) ? Number(TECHNIQUE_EXP_BASE) : 100;
   return Math.max(0, Math.round(expFactor * expBase * normalizedRealmLv));
 }
-/**
- * normalizeTechniqueLayerAttrs：规范化或转换功法层Attr。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新功法层Attr相关状态。
- */
 
 function normalizeTechniqueLayerAttrs(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return undefined;
@@ -2668,14 +2283,8 @@ function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
     }
     return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
 }
-/**
- * normalizeTechniqueAttrCurves：规范化或转换功法AttrCurve。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新功法AttrCurve相关状态。
- */
 
 function normalizeTechniqueAttrCurves(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return undefined;
@@ -2702,17 +2311,8 @@ function normalizeTechniqueAttrCurves(raw) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-/**
- * normalizeSkill：规范化或转换技能。
- * @param raw 参数说明。
- * @param grade 参数说明。
- * @param realmLv 参数说明。
- * @param sharedTechniqueBuffs 参数说明。
- * @returns 无返回值，直接更新技能相关状态。
- */
 
 function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -2777,26 +2377,14 @@ function normalizeSkillCastDef(raw, includeConditions = false) {
     }
     return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
-/**
- * cloneSkillEffects：构建技能Effect。
- * @param raw 参数说明。
- * @param sharedTechniqueBuffs 参数说明。
- * @returns 无返回值，直接更新技能Effect相关状态。
- */
 
 function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map()) {
     return raw
         .filter((entry) => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
         .map((entry) => resolveSharedTechniqueBuffEffect(entry, sharedTechniqueBuffs));
 }
-/**
- * normalizeSharedTechniqueBuffEffect：规范化或转换Shared功法BuffEffect。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新Shared功法BuffEffect相关状态。
- */
 
 function normalizeSharedTechniqueBuffEffect(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -2812,15 +2400,8 @@ function normalizeSharedTechniqueBuffEffect(raw) {
         type: 'buff',
     };
 }
-/**
- * resolveSharedTechniqueBuffEffect：规范化或转换Shared功法BuffEffect。
- * @param raw 参数说明。
- * @param sharedTechniqueBuffs 参数说明。
- * @returns 无返回值，直接更新Shared功法BuffEffect相关状态。
- */
 
 function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         return raw;
@@ -2845,11 +2426,6 @@ function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
         type: 'buff',
     };
 }
-/**
- * isTechniqueGrade：判断功法Grade是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，完成功法Grade的条件判断。
- */
 
 function isTechniqueGrade(value) {
     return value === 'mortal'
@@ -2861,20 +2437,10 @@ function isTechniqueGrade(value) {
         || value === 'saint'
         || value === 'emperor';
 }
-/**
- * isTechniqueCategory：判断功法Category是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，完成功法Category的条件判断。
- */
 
 function isTechniqueCategory(value) {
     return value === 'arts' || value === 'internal' || value === 'divine' || value === 'secret';
 }
-/**
- * inferTechniqueCategory：执行infer功法Category相关逻辑。
- * @param skills 参数说明。
- * @returns 无返回值，直接更新infer功法Category相关状态。
- */
 
 function inferTechniqueCategory(skills) {
     return skills.length > 0 ? 'arts' : 'internal';

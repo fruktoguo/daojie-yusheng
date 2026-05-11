@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关会话状态 helper。
+ * 收敛坊市订阅、请求缓存管理与断线后的会话侧状态清理。
+ */
+
 /** 世界 socket 会话侧状态 helper：收敛坊市订阅、请求缓存与断线清理。 */
 class WorldGatewaySessionStateHelper {
 /**

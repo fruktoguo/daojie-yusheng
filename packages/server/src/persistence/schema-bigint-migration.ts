@@ -1,13 +1,20 @@
+/**
+ * 数据库列类型迁移工具。
+ * 提供将现有列安全迁移为 bigint 或 double precision 的能力，
+ * 处理文本/数值/其他类型的 USING 表达式和溢出截断。
+ */
 const BIGINT_MIN_TEXT = '-9223372036854775808';
 const BIGINT_MAX_TEXT = '9223372036854775807';
 const BIGINT_NEGATIVE_LIMIT_TEXT = '9223372036854775808';
 const NUMERIC_DATA_TYPES = new Set(['smallint', 'integer', 'bigint', 'numeric', 'decimal', 'real', 'double precision']);
 const TEXT_DATA_TYPES = new Set(['text', 'character varying', 'character']);
 
+/** 迁移查询接口 */
 type SchemaMigrationQueryable = {
   query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
 };
 
+/** 确保指定列为 bigint 类型，非 bigint 时自动迁移 */
 export async function ensureBigintColumnType(
   client: SchemaMigrationQueryable,
   tableName: string,
@@ -16,6 +23,7 @@ export async function ensureBigintColumnType(
   await ensureNumericColumnType(client, tableName, columnName, 'bigint');
 }
 
+/** 确保指定列为 double precision 类型，非目标类型时自动迁移 */
 export async function ensureDoubleColumnType(
   client: SchemaMigrationQueryable,
   tableName: string,
@@ -79,6 +87,7 @@ async function ensureNumericColumnType(
   }
 }
 
+/** 批量确保多表多列为 bigint 类型 */
 export async function ensureBigintColumnsWithClient(
   client: SchemaMigrationQueryable,
   columnsByTable: Record<string, readonly string[]>,
@@ -90,6 +99,7 @@ export async function ensureBigintColumnsWithClient(
   }
 }
 
+/** 批量确保多表多列为 double precision 类型 */
 export async function ensureDoubleColumnsWithClient(
   client: SchemaMigrationQueryable,
   columnsByTable: Record<string, readonly string[]>,

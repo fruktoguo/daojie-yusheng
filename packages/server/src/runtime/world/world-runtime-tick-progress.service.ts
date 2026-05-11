@@ -1,5 +1,10 @@
+/**
+ * 实例 tick 进度追踪服务
+ * 维护每个地图实例的累积 tick 进度，用于帧内步进计算
+ */
 import { Injectable } from '@nestjs/common';
 
+/** 按实例 ID 追踪 tick 累积进度（0~1 浮点） */
 @Injectable()
 export class WorldRuntimeTickProgressService {
   readonly instanceTickProgressById = new Map<string, number>();

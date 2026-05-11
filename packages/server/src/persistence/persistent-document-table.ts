@@ -1,6 +1,11 @@
+/**
+ * 通用持久化文档表工具。
+ * 提供 persistent_documents 表的建表保证，使用 advisory lock 防止并发 DDL 冲突。
+ */
 const LOCK_NAMESPACE = 42871;
 const LOCK_KEY = 1001;
 
+/** 建表 SQL：scope + key 复合主键的 JSONB 文档存储 */
 const CREATE_PERSISTENT_DOCUMENTS_SQL = `
   CREATE TABLE IF NOT EXISTS persistent_documents (
     scope varchar(64) NOT NULL,
@@ -11,15 +16,18 @@ const CREATE_PERSISTENT_DOCUMENTS_SQL = `
   )
 `;
 
+/** 持久化文档客户端接口 */
 interface PersistentDocumentClient {
   query(sql: string, params?: readonly unknown[]): Promise<unknown>;
   release(): void;
 }
 
+/** 持久化文档连接池接口 */
 interface PersistentDocumentPool {
   connect(): Promise<PersistentDocumentClient>;
 }
 
+/** 确保 persistent_documents 表存在，使用 advisory lock 保证并发安全 */
 export async function ensurePersistentDocumentsTable(pool: PersistentDocumentPool): Promise<void> {
   const client = await pool.connect();
   try {

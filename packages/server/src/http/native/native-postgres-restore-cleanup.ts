@@ -1,3 +1,8 @@
+/**
+ * 数据库恢复后清理工具。
+ * 在 pg_restore 完成后执行必要的表结构补齐和数据迁移，
+ * 确保恢复后的数据库与当前代码版本兼容。
+ */
 import { Pool, type PoolClient } from 'pg';
 
 const SERVER_SECT_TABLE = 'server_sect';

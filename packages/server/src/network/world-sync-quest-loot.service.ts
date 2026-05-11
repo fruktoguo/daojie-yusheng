@@ -1,3 +1,8 @@
+/**
+ * 任务与拾取窗口同步服务。
+ * 承接任务 revision 变化检测与拾取窗口的打开、刷新和下发。
+ */
+
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';

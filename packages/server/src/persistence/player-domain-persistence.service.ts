@@ -1,3 +1,12 @@
+/**
+ * 玩家分域持久化服务。
+ * 管理 player_presence、player_wallet、player_world_anchor、player_position_checkpoint、
+ * player_vitals、player_progression_core、player_attr_state、player_body_training_state、
+ * player_inventory_item、player_equipment_slot、player_technique_state、player_persistent_buff_state、
+ * player_quest_progress、player_combat_preferences、player_active_job、player_enhancement_record、
+ * player_logbook_message、player_offline_gain_*、player_statistic_day_total 等分域表，
+ * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
+ */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { EQUIP_SLOTS, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
@@ -663,6 +672,7 @@ export interface LoadedPlayerDomains {
   hasProjectedState: boolean;
 }
 
+/** 玩家分域持久化服务：按域独立管理玩家位置、钱包、背包、装备、功法、任务等状态的落库与恢复 */
 @Injectable()
 export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerDomainPersistenceService.name);
@@ -734,6 +744,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     }
   }
 
+  /** 写入/更新玩家在线状态（节点、session epoch、实例、心跳等） */
   async savePlayerPresence(playerId: string, input: PlayerPresenceUpsertInput): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -817,6 +828,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /** 加载玩家在线状态记录 */
   async loadPlayerPresence(playerId: string): Promise<PersistedPlayerPresence | null> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -927,6 +939,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     return presences;
   }
 
+  /** 保存玩家离线收益会话记录 */
   async savePlayerOfflineGainSession(
     playerId: string,
     input: PlayerOfflineGainSessionUpsertInput,
@@ -966,6 +979,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /** 加载玩家离线收益会话记录 */
   async loadPlayerOfflineGainSession(playerId: string): Promise<PlayerOfflineGainSessionRecord | null> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -1023,6 +1037,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /** 保存玩家离线收益报告 */
   async savePlayerOfflineGainReport(playerId: string, report: OfflineGainReportView): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     const reportId = normalizeRequiredString(report?.id);
@@ -1180,6 +1195,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /** 加载玩家每日统计汇总（按日期范围） */
   async loadPlayerStatisticDayTotals(
     playerId: string,
     dayKeys: readonly string[],
@@ -1257,6 +1273,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       .filter((entry): entry is PlayerStatisticDayTotalRecord => Boolean(entry));
   }
 
+  /** 保存玩家世界锚点（重生点/安全点） */
   async savePlayerWorldAnchor(
     playerId: string,
     input: PlayerWorldAnchorUpsertInput,
@@ -1517,6 +1534,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /** 一次性加载玩家全部分域数据（位置、钱包、背包、装备、功法、任务等） */
   async loadPlayerDomains(playerId: string): Promise<LoadedPlayerDomains | null> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -1962,6 +1980,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     }
   }
 
+  /** 从分域表投影出完整玩家快照（兼容旧快照格式，用于恢复和迁移） */
   async loadProjectedSnapshot(
     playerId: string,
     buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
@@ -4517,43 +4536,58 @@ function buildActiveJobRow(
     };
   }
 
+  const forgingJob = asRecord(progression?.forgingJob);
+  if (forgingJob && Object.keys(forgingJob).length > 0) {
+    return buildAlchemyActiveJobRow(playerId, forgingJob, 'forging', versionSeed);
+  }
+
   const alchemyJob = asRecord(progression?.alchemyJob);
   if (alchemyJob && Object.keys(alchemyJob).length > 0) {
-    const startedAt = normalizeOptionalInteger(alchemyJob.startedAt) ?? versionSeed;
-    const jobRunId =
-      normalizeOptionalString(alchemyJob.jobRunId)
-      ?? `job:${playerId}:alchemy:${startedAt}`;
-    const jobVersion = Math.max(
-      1,
-      Math.trunc(
-        Number(
-          normalizeOptionalInteger(alchemyJob.jobVersion)
-          ?? versionSeed,
-        ),
-      ),
-    );
-    return {
-      jobRunId,
-      jobType: alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy',
-      status: normalizeJobStatus(alchemyJob),
-      phase: normalizeOptionalString(alchemyJob.phase) ?? 'running',
-      startedAt,
-      finishedAt: normalizeOptionalInteger(alchemyJob.finishedAt),
-      pausedTicks: normalizeMinimumInteger(alchemyJob.pausedTicks, 0, 0),
-      totalTicks: normalizeMinimumInteger(alchemyJob.totalTicks, 0, 0),
-      remainingTicks: normalizeMinimumInteger(alchemyJob.remainingTicks, 0, 0),
-      successRate: normalizeOptionalNumber(alchemyJob.successRate) ?? 0,
-      speedRate: normalizeOptionalNumber(alchemyJob.totalSpeedRate) ?? 1,
-      jobVersion,
-      detailJson: {
-        ...alchemyJob,
-        jobRunId,
-        jobVersion,
-      },
-    };
+    return buildAlchemyActiveJobRow(playerId, alchemyJob, alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy', versionSeed);
   }
 
   return null;
+}
+
+function buildAlchemyActiveJobRow(
+  playerId: string,
+  job: Record<string, unknown>,
+  jobType: 'alchemy' | 'forging',
+  versionSeed: number,
+): ActiveJobRow {
+  const startedAt = normalizeOptionalInteger(job.startedAt) ?? versionSeed;
+  const jobRunId =
+    normalizeOptionalString(job.jobRunId)
+    ?? `job:${playerId}:${jobType}:${startedAt}`;
+  const jobVersion = Math.max(
+    1,
+    Math.trunc(
+      Number(
+        normalizeOptionalInteger(job.jobVersion)
+        ?? versionSeed,
+      ),
+    ),
+  );
+  return {
+    jobRunId,
+    jobType,
+    status: normalizeJobStatus(job),
+    phase: normalizeOptionalString(job.phase) ?? 'running',
+    startedAt,
+    finishedAt: normalizeOptionalInteger(job.finishedAt),
+    pausedTicks: normalizeMinimumInteger(job.pausedTicks, 0, 0),
+    totalTicks: normalizeMinimumInteger(job.totalTicks, 0, 0),
+    remainingTicks: normalizeMinimumInteger(job.remainingTicks, 0, 0),
+    successRate: normalizeOptionalNumber(job.successRate) ?? 0,
+    speedRate: normalizeOptionalNumber(job.totalSpeedRate) ?? 1,
+    jobVersion,
+    detailJson: {
+      ...job,
+      jobRunId,
+      jobType,
+      jobVersion,
+    },
+  };
 }
 
 function normalizeJobStatus(job: Record<string, unknown>): string {
@@ -4698,6 +4732,7 @@ function buildProjectedSnapshotFromDomains(
         : null,
       alchemyPresets: [...starterSnapshot.progression.alchemyPresets],
       alchemyJob: starterSnapshot.progression.alchemyJob ? { ...starterSnapshot.progression.alchemyJob } : null,
+      forgingJob: starterSnapshot.progression.forgingJob ? { ...starterSnapshot.progression.forgingJob } : null,
       enhancementJob: starterSnapshot.progression.enhancementJob
         ? { ...starterSnapshot.progression.enhancementJob }
         : null,
@@ -5299,6 +5334,7 @@ function applyProjectedActiveJob(
 ): void {
   if (!row) {
     snapshot.progression.alchemyJob = null;
+    snapshot.progression.forgingJob = null;
     snapshot.progression.enhancementJob = null;
     return;
   }
@@ -5321,9 +5357,16 @@ function applyProjectedActiveJob(
   if (jobType === 'enhancement') {
     snapshot.progression.enhancementJob = { ...normalizedJob, jobType: 'enhancement' };
     snapshot.progression.alchemyJob = null;
+    snapshot.progression.forgingJob = null;
     return;
   }
-  snapshot.progression.alchemyJob = { ...normalizedJob, jobType: jobType === 'forging' ? 'forging' : 'alchemy' };
+  if (jobType === 'forging') {
+    snapshot.progression.forgingJob = { ...normalizedJob, jobType: 'forging' };
+    snapshot.progression.alchemyJob = null;
+  } else {
+    snapshot.progression.alchemyJob = { ...normalizedJob, jobType: 'alchemy' };
+    snapshot.progression.forgingJob = null;
+  }
   snapshot.progression.enhancementJob = null;
 }
 

@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 完成收口服务。
+ * 负责 bootstrap 完成后的日志记录与 auth-trace 审计写入。
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 
 import { recordAuthTrace } from './world-player-token.service';

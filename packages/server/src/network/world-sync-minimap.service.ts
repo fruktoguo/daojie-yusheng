@@ -1,3 +1,8 @@
+/**
+ * Minimap 同步服务。
+ * 负责 minimap marker 的构造、缓存、视野过滤与增量 diff 下发。
+ */
+
 import { Injectable } from '@nestjs/common';
 
 /** minimap 冷路径同步服务：负责 marker cache、构造、过滤与 diff。 */

@@ -1,8 +1,12 @@
+/**
+ * 建议反馈运行时服务。
+ * 负责建议的创建、投票、回复和状态同步，
+ * 所有写操作串行化执行并持久化到数据库。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { SuggestionPersistenceService } from '../../persistence/suggestion-persistence.service';
 
-/** 建议反馈运行时：负责建议、投票、回复和状态同步。 */
 @Injectable()
 export class SuggestionRuntimeService {
     /** 持久化服务，负责读写建议文档。 */

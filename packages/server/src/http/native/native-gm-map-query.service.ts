@@ -1,101 +1,42 @@
+/**
+ * GM 地图模板查询服务。
+ * 提供地图模板列表和配置摘要，供 GM 面板地图管理页使用。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
-/**
- * MapTemplateSummaryLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 地图模板摘要结构。 */
 interface MapTemplateSummaryLike {
-/**
- * id：ID标识。
- */
-
-  id: string;  
-  /**
- * name：名称名称或显示文本。
- */
-
-  name: string;  
+  id: string;
+  name: string;
   mapGroupId?: string;
   mapGroupName?: string;
   mapGroupOrder?: number;
   mapGroupMemberOrder?: number;
-  /**
- * width：width相关字段。
- */
-
-  width: number;  
-  /**
- * height：height相关字段。
- */
-
-  height: number;  
+  width: number;
+  height: number;
   routeDomain?: string;
-  /**
- * source：来源相关字段。
- */
-
-  source: {  
-  /**
- * description：description相关字段。
- */
-
-    description?: string;    
-    /**
- * dangerLevel：danger等级数值。
- */
-
-    dangerLevel?: unknown;    
-    /**
- * recommendedRealm：recommendedRealm相关字段。
- */
-
-    recommendedRealm?: unknown;    
-    /**
- * monsterSpawns：怪物Spawn相关字段。
- */
-
+  source: {
+    description?: string;
+    dangerLevel?: unknown;
+    recommendedRealm?: unknown;
     monsterSpawns?: unknown[];
-  };  
-  /**
- * portals：portal相关字段。
- */
-
-  portals: unknown[];  
-  /**
- * npcs：NPC相关字段。
- */
-
+  };
+  portals: unknown[];
   npcs: unknown[];
 }
-/**
- * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 地图模板仓储端口。 */
 interface MapTemplateRepositoryLike {
   list(): MapTemplateSummaryLike[];
 }
-/**
- * NativeGmMapQueryService：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** GM 地图模板查询服务：返回地图列表摘要供 GM 面板使用。 */
 @Injectable()
 export class NativeGmMapQueryService {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+  constructor(@Inject(MapTemplateRepository) private readonly mapTemplateRepository: MapTemplateRepositoryLike) {}
 
-  constructor(@Inject(MapTemplateRepository) private readonly mapTemplateRepository: MapTemplateRepositoryLike) {}  
-  /**
- * getMaps：读取地图。
- * @returns 无返回值，完成地图的读取/组装。
- */
-
-
+  /** 获取所有地图模板的摘要列表，按 ID 排序。 */
   getMaps() {
     return {
       maps: this.mapTemplateRepository

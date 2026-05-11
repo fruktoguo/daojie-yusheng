@@ -1,3 +1,8 @@
+/**
+ * 玩家鉴权存储服务。
+ * 维护账号的 PostgreSQL 真源和内存多维索引（userId/username/playerId/roleName/displayName），
+ * 提供唯一性检查、冲突检测和持久化读写能力。
+ */
 import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { isDuplicateFriendlyDisplayName } from '@mud/shared';
 import { Pool } from 'pg';

@@ -1,4 +1,9 @@
 /**
+ * 玩家运行时子服务接口定义。
+ * 将 PlayerRuntimeService 的职责拆分为背包、buff、生命值三个内聚子接口。
+ */
+
+/**
  * Sub-service interfaces for PlayerRuntimeService decomposition.
  * Each interface defines a cohesive subset of player runtime responsibilities.
  */
@@ -37,6 +42,7 @@ interface DamageResult {
   actualDamage: number;
 }
 
+/** 玩家背包与装备子服务接口：物品增删、装备穿脱、钱包操作和拾取窗口。 */
 export interface PlayerInventoryService {
   replaceInventoryItems(playerId: string, items: InventorySlot[]): void;
   grantItem(playerId: string, itemId: string, count?: number): boolean;
@@ -67,6 +73,7 @@ export interface PlayerInventoryService {
   debitWallet(playerId: string, currencyType: string, amount: number): boolean;
 }
 
+/** 玩家 Buff 子服务接口：临时 buff 应用、PvP 煞气和魂伤管理。 */
 export interface PlayerBuffService {
   applyTemporaryBuff(playerId: string, buff: BuffApplyInput): void;
   applyPvPSoulInjury(playerId: string): void;
@@ -79,6 +86,7 @@ export interface PlayerBuffService {
   consumePvpBuffStacks(playerId: string, buffId: string, stacks: number): void;
 }
 
+/** 玩家生命值/灵力子服务接口：设置血量、消耗灵力、施加伤害和恢复抑制。 */
 export interface PlayerVitalService {
   setVitals(playerId: string, vitals: VitalInput): void;
   spendQi(playerId: string, amount: number): boolean;

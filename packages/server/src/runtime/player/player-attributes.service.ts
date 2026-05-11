@@ -1,3 +1,8 @@
+/**
+ * 玩家属性结算服务。
+ * 把境界、装备、buff、根骨、功法和临时修正折算成最终六维属性和数值面板，
+ * 并在属性变化时同步更新生命/灵力上限和当前值比例。
+ */
 import { Injectable } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addPartialNumericStats, applyEnhancementToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
@@ -92,11 +97,14 @@ export class PlayerAttributesService {
 
         const finalAttrs = cloneAttributes(baseAttrs);
         for (const entry of player.equipment.slots) {
-            const item = entry.item;
-            if (!item) {
+            const item = entry?.item;
+            if (!item || typeof item !== 'object') {
                 continue;
             }
             const enhancedItem = applyEnhancementToItemStack(item);
+            if (!enhancedItem) {
+                continue;
+            }
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
         const attrPercentBonuses = createAttributePercentBonusAccumulator();
@@ -143,11 +151,14 @@ export class PlayerAttributesService {
         }
         applySpecialStatWeights(numericStats, player, resolveTechniqueSpecialStatBonus(player.techniques.techniques));
         for (const entry of player.equipment.slots) {
-            const item = entry.item;
-            if (!item) {
+            const item = entry?.item;
+            if (!item || typeof item !== 'object') {
                 continue;
             }
             const enhancedItem = applyEnhancementToItemStack(item);
+            if (!enhancedItem) {
+                continue;
+            }
             addPartialNumericStats(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
             for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
                 const effectStats = resolveItemStats(effect.stats, effect.valueStats);

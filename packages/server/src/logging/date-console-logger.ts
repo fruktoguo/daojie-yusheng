@@ -1,18 +1,16 @@
+/**
+ * 自定义日志器：继承 NestJS ConsoleLogger，统一时间格式为 yyyy-MM-dd HH:mm:ss，
+ * 并将所有日志输出同步捕获到内存环形缓冲区，供 GM 日志页实时查看。
+ */
 import { ConsoleLogger, type LogLevel } from '@nestjs/common';
 
 import { captureServerLogLine } from './console-log-buffer';
 
-/** 日期片段补零，统一日志时间格式。 */
+/** 日期片段补零 */
 function padDatePart(value: number): string {
   return String(value).padStart(2, '0');
 }
-/**
- * formatDateTime：规范化或转换Date时间。
- * @param date Date 参数说明。
- * @returns 返回Date时间。
- */
-
-
+/** 格式化日期为 yyyy-MM-dd HH:mm:ss */
 function formatDateTime(date: Date): string {
   const year = date.getFullYear();
   const month = padDatePart(date.getMonth() + 1);

@@ -1,3 +1,8 @@
+/**
+ * 玩家令牌编解码服务。
+ * 负责 access/refresh JWT 的签发与验证，支持多密钥轮换和开发环境回退。
+ */
+
 import { Injectable } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 

@@ -1,3 +1,8 @@
+/**
+ * GM 管理服务（数据库备份/恢复 + 爱发电集成）。
+ * 负责 PostgreSQL 数据库的手动/自动备份、上传、恢复，以及爱发电订单同步和 Webhook 处理。
+ * 备份文件使用 pg_dump 自定义格式，恢复前自动创建检查点备份。
+ */
 import {
     BadRequestException,
     Inject,

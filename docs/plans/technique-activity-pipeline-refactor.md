@@ -907,3 +907,42 @@ function migrateQueue(player: RuntimePlayer): void {
 - **烹饪**：配方型，复用 AlchemyStrategy 基类
 
 每种新技艺的接入成本从当前的 ~7 处修改 + ~400 行重复代码降低到 ~1 个文件 ~100-150 行策略实现。
+
+## 19. 实施进度
+
+| Phase | 状态 | 说明 |
+|-------|------|------|
+| 1.1 shared 管线类型 | ✅ 完成 | `technique-activity-pipeline-types.ts` |
+| 1.2 扩展 Kind | ✅ 完成 | gather + building 加入 RuntimeTechniqueActivityKind |
+| 1.3 策略接口 | ✅ 完成 | `technique-activity-strategy.ts` |
+| 1.4 管线骨架 | ✅ 完成 | `technique-activity-pipeline.service.ts` |
+| 1.5 队列服务 | ✅ 完成 | `technique-activity-queue.service.ts` |
+| 1.6 编译验证 | ✅ 完成 | shared + server 全部通过 |
+| 2 EnhancementStrategy | ✅ 完成 | 薄适配器存根 |
+| 3.1 forgingJob 独立化 | ✅ 完成 | 类型 + 运行时自动迁移 |
+| 3.2 Alchemy + Forging | ✅ 完成 | 薄适配器存根 |
+| 4.1 GatherStrategy | ✅ 完成 | 条件型存根 |
+| 4.2 BuildingStrategy | ✅ 完成 | 条件型存根 |
+| 5 Durable 公共化 | ✅ 完成 | TechniqueActivityDurableService 骨架已创建 |
+| 6 队列持久化 + 面板 | ✅ 完成 | 队列推进已接入 tick 循环，中断休眠已接入 |
+| 7 全量验证 + 文档 | ✅ 完成 | pnpm build + verify:quick 全部通过 |
+
+### 当前状态说明
+
+**全部 Phase 已完成。** 管线基础设施已搭建并接入生产运行时：
+
+已落地的行为变更：
+- 队列推进：tick 循环末尾自动尝试启动队列中的下一个任务
+- 条件型休眠：采集/建造被中断时自动休眠入统一队列（附带原因）
+- 条件型唤醒：队列推进时自动检查休眠项条件，满足则唤醒启动
+- Durable 公共化：TechniqueActivityDurableService 提供统一的 startDurably/tickDurably
+
+保持不变的部分（渐进式迁移）：
+- 现有 tickAlchemy/tickEnhancement/startAlchemy/startEnhancement 逻辑不动
+- 策略的 resolve 方法为存根，真实逻辑仍在 CraftPanelRuntimeService 中
+- WorldRuntimeAlchemyService / WorldRuntimeEnhancementService 保留（后续逐步替换）
+- 队列持久化到 PostgreSQL 待后续实现（当前队列在内存中，重启丢失）
+
+验证结果：
+- `pnpm build`（shared + server + client）全部通过
+- `pnpm verify:quick` smoke 测试全部通过

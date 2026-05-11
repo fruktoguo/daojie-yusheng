@@ -1,3 +1,8 @@
+/**
+ * 兑换码运行时服务。
+ * 负责兑换码分组管理、码表生成、兑换执行和频率限制，
+ * 所有写操作串行化执行并持久化到数据库。
+ */
 import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ContentTemplateRepository } from '../../content/content-template.repository';

@@ -1,161 +1,68 @@
+/**
+ * GM 编辑器目录查询服务。
+ * 提供内容模板和玩家进度配置的聚合视图，供 GM 面板编辑器页使用。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
-/**
- * LooseRecord：统一结构类型，保证协议与运行时一致性。
- */
-
-
+/** 宽松记录类型，用于动态属性传递。 */
 type LooseRecord = Record<string, unknown>;
-/**
- * EditorEffect：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 编辑器效果结构。 */
 interface EditorEffect extends LooseRecord {
-/**
- * type：type相关字段。
- */
-
-  type?: unknown;  
-  /**
- * target：目标相关字段。
- */
-
-  target?: unknown;  
-  /**
- * category：category相关字段。
- */
-
-  category?: unknown;  
-  /**
- * effectId：effectID标识。
- */
-
-  effectId?: unknown;  
-  /**
- * buff：buff相关字段。
- */
-
+  type?: unknown;
+  target?: unknown;
+  category?: unknown;
+  effectId?: unknown;
   buff?: LooseRecord | null;
 }
-/**
- * EditorSkill：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 编辑器技能结构。 */
 interface EditorSkill {
-/**
- * id：ID标识。
- */
-
-  id: string;  
-  /**
- * name：名称名称或显示文本。
- */
-
-  name: string;  
-  /**
- * effects：effect相关字段。
- */
-
+  id: string;
+  name: string;
   effects?: EditorEffect[];
 }
-/**
- * EditorTechniqueTemplate：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 编辑器功法模板结构。 */
 interface EditorTechniqueTemplate {
-/**
- * skills：技能相关字段。
- */
-
-  skills?: EditorSkill[];  
-  /**
- * realmLv：realmLv相关字段。
- */
-
+  skills?: EditorSkill[];
   realmLv?: unknown;
 }
-/**
- * EditorItemTemplate：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 编辑器物品模板结构。 */
 interface EditorItemTemplate {
-/**
- * itemId：道具ID标识。
- */
-
-  itemId: string;  
-  /**
- * name：名称名称或显示文本。
- */
-
-  name: string;  
-  /**
- * consumeBuffs：consumeBuff相关字段。
- */
-
-  consumeBuffs?: LooseRecord[];  
-  /**
- * effects：effect相关字段。
- */
-
+  itemId: string;
+  name: string;
+  consumeBuffs?: LooseRecord[];
   effects?: EditorEffect[];
 }
-/**
- * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 内容模板仓储端口。 */
 interface ContentTemplateRepositoryLike {
   listItemTemplates(): EditorItemTemplate[];
   listTechniqueTemplates(): EditorTechniqueTemplate[];
 }
-/**
- * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 玩家进度服务端口。 */
 interface PlayerProgressionServiceLike {
   listRealmLevels(): unknown;
 }
-/**
- * isRecord：判断Record是否满足条件。
- * @param value unknown 参数说明。
- * @returns 返回Record。
- */
 
-
+/** 判断值是否为非 null 对象。 */
 function isRecord(value: unknown): value is LooseRecord {
   return typeof value === 'object' && value !== null;
 }
-/**
- * NativeGmEditorQueryService：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** GM 编辑器目录查询服务：聚合物品、功法、境界和 buff 目录。 */
 @Injectable()
 export class NativeGmEditorQueryService {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
- * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
   constructor(
     @Inject(ContentTemplateRepository) private readonly contentTemplateRepository: ContentTemplateRepositoryLike,
     @Inject(PlayerProgressionService) private readonly playerProgressionService: PlayerProgressionServiceLike,
-  ) {}  
-  /**
- * getEditorCatalog：读取Editor目录。
- * @returns 无返回值，完成Editor目录的读取/组装。
- */
+  ) {}
 
-
+  /** 返回编辑器所需的完整内容目录。 */
   getEditorCatalog() {
     return {
       items: this.contentTemplateRepository.listItemTemplates(),
@@ -164,12 +71,7 @@ export class NativeGmEditorQueryService {
       buffs: this.buildEditorBuffCatalog(),
     };
   }  
-  /**
- * buildEditorBuffCatalog：构建并返回目标对象。
- * @returns 无返回值，直接更新EditorBuff目录相关状态。
- */
-
-
+  /** 从功法技能和物品效果中聚合所有 buff 模板，构建编辑器 buff 目录。 */
   private buildEditorBuffCatalog() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

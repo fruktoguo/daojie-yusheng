@@ -1,3 +1,7 @@
+/**
+ * 世界运行时生命周期服务
+ * 管理实例的创建、销毁、TTL 过期清理和世界启动/关闭流程
+ */
 import { Injectable } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 

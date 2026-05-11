@@ -8,7 +8,8 @@ import type { SocketManager } from './network/socket';
 import type { SocketEmitEvent } from './network/socket-send-types';
 import type { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 
-export type ClientTechniqueActivityKind = RuntimeTechniqueActivityKind;
+/** 客户端面板型技艺（有专用面板事件的技艺）。 */
+export type ClientTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement';
 
 type TechniqueActivityPanelPayloadByKind = {
   [K in ClientTechniqueActivityKind]: ServerToClientEventPayload<

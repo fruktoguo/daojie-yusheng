@@ -1,3 +1,8 @@
+/**
+ * 玩家状态定时刷盘服务。
+ * 按周期收集脏玩家列表，按域增量投影到分域表，支持 lease 守卫、降级退避和关闭前强刷。
+ * 硬切后只写分域表，旧整档快照不再作为运行时落点。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 

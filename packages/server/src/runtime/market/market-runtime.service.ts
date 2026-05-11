@@ -1,3 +1,8 @@
+/**
+ * 坊市运行时服务。
+ * 维护挂单、撮合成交、仓库存取和交易历史，
+ * 所有写操作串行化执行并持久化到数据库。
+ */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';

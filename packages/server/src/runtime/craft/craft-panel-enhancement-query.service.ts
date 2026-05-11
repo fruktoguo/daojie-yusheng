@@ -1,3 +1,8 @@
+/**
+ * 强化面板只读查询服务。
+ * 负责构造强化面板状态、候选列表、成功率和材料需求，
+ * 不修改玩家运行态，仅做只读投影。
+ */
 import { Injectable } from '@nestjs/common';
 import { EQUIP_SLOTS, applyAsymptoticSuccessModifier, computeAdjustedCraftTicks, computeEnhancementAdjustedSuccessRate as computeSharedEnhancementAdjustedSuccessRate } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -56,7 +61,7 @@ export class CraftPanelEnhancementQueryService {
             statePatch: {
                 enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
                 job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
-                queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
+                queue: clonePlayerCraftQueue(player),
                 ...(activeRecord ? { records: [cloneEnhancementRecord(activeRecord)] } : {}),
             },
         };
@@ -79,7 +84,7 @@ export class CraftPanelEnhancementQueryService {
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
             records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
             job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
-            queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
+            queue: clonePlayerCraftQueue(player),
         };
     }    
     /**
@@ -174,6 +179,10 @@ function cloneCraftQueue(queue) {
         ? queue.map((entry) => ({ ...entry }))
         : [];
 }
+
+function clonePlayerCraftQueue(player) {
+    return cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.forgingJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []);
+}
 /**
  * getEnhancementRequirements：读取强化Requirement。
  * @param config 参数说明。
@@ -263,6 +272,9 @@ function isEligibleProtectionItem(item, protectionItemId, targetItemId) {
  */
 
 function cloneItem(item) {
+    if (!item || typeof item !== 'object') {
+        return undefined;
+    }
     return {
         ...item,
         equipAttrs: item.equipAttrs ? { ...item.equipAttrs } : undefined,

@@ -1,3 +1,9 @@
+/**
+ * Bootstrap 快照加载服务。
+ * 负责 bootstrap 阶段的玩家快照加载、native 快照恢复、token seed 回退和 auth-trace 记录。
+ * 处理快照缺失时的恢复策略和错误上报。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';

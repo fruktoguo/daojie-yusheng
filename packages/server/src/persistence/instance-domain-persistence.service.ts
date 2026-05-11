@@ -1,3 +1,11 @@
+/**
+ * 地图实例分域持久化服务。
+ * 管理 instance_tile_resource_state、instance_tile_cell、instance_tile_damage_state、
+ * instance_temporary_tile_state、instance_checkpoint、instance_ground_item、
+ * instance_container_*、instance_monster_runtime_state、instance_event_state、
+ * instance_overlay_chunk、instance_building_*、instance_room_*、instance_fengshui_state 等表，
+ * 按域独立读写，支持增量刷盘和恢复水位。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -87,6 +95,7 @@ const INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
   [INSTANCE_FENGSHUI_STATE_TABLE]: ['qi_score'],
 } as const;
 
+/** 地图实例分域持久化服务：按域独立管理地块、资源、容器、怪物、建筑等实例状态的落库与恢复 */
 @Injectable()
 export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(InstanceDomainPersistenceService.name);
@@ -142,6 +151,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return this.enabled && this.pool !== null;
   }
 
+  /** 事务性保存建筑/房间/风水状态：全量替换指定实例的建筑、房间、房间格子和风水记录 */
   async saveBuildingRoomFengShuiState(
     instanceId: string,
     state: {
@@ -415,6 +425,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的建筑/房间/风水完整状态 */
   async loadBuildingRoomFengShuiState(instanceId: string): Promise<{ buildings: unknown[]; rooms: unknown[]; roomCells: unknown[]; fengShui: unknown[] }> {
     if (!this.pool || !this.enabled) {
       return { buildings: [], rooms: [], roomCells: [], fengShui: [] };
@@ -454,6 +465,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     };
   }
 
+  /** 全量替换指定实例的地块资源状态（灵气等） */
   async saveTileResourceDiffs(
     instanceId: string,
     entries: Array<{ resourceKey: string; tileIndex: number; value: number }>,
@@ -510,6 +522,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 增量更新地块资源状态：仅 upsert/delete 变化的条目 */
   async saveTileResourceDelta(
     instanceId: string,
     upserts: Array<{ resourceKey: string; tileIndex: number; value: number }>,
@@ -611,6 +624,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部地块资源状态 */
   async loadTileResourceDiffs(instanceId: string): Promise<Array<{ resourceKey: string; tileIndex: number; value: number }>> {
     if (!this.pool || !this.enabled) {
       return [];
@@ -637,6 +651,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 全量替换指定实例的运行时地块格子（地形变更） */
   async replaceRuntimeTileCells(
     instanceId: string,
     entries: Array<{
@@ -723,6 +738,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的运行时地块格子 */
   async loadRuntimeTileCells(instanceId: string): Promise<Array<{
     x: number;
     y: number;
@@ -763,6 +779,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 全量替换指定实例的地块破坏状态 */
   async saveTileDamageStates(
     instanceId: string,
     entries: Array<{
@@ -851,6 +868,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 删除指定实例的地块破坏状态（可按 tileIndex 过滤） */
   async deleteTileDamageStates(instanceId: string, tileIndices: number[] | null = null): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -877,6 +895,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     await this.pool.query(`DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
   }
 
+  /** 增量更新地块破坏状态：仅 upsert/delete 变化的条目 */
   async saveTileDamageDelta(
     instanceId: string,
     upserts: Array<{
@@ -1013,6 +1032,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部地块破坏状态 */
   async loadTileDamageStates(instanceId: string): Promise<Array<{
     tileIndex: number;
     hp: number;
@@ -1053,6 +1073,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 全量替换指定实例的临时地块状态（技能生成地块等） */
   async replaceTemporaryTileStates(
     instanceId: string,
     entries: Array<{
@@ -1156,6 +1177,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部临时地块状态 */
   async loadTemporaryTileStates(instanceId: string): Promise<Array<{
     tileIndex: number;
     x: number | null;
@@ -1202,6 +1224,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 保存实例检查点（tick/时间等元数据） */
   async saveInstanceCheckpoint(instanceId: string, payload: unknown): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -1238,6 +1261,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载实例检查点 */
   async loadInstanceCheckpoint(instanceId: string): Promise<unknown | null> {
     if (!this.pool || !this.enabled) {
       return null;
@@ -1256,6 +1280,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return result.rows[0]?.checkpoint_payload ?? null;
   }
 
+  /** 保存实例恢复水位标记 */
   async saveInstanceRecoveryWatermark(instanceId: string, payload: unknown): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -1292,6 +1317,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载实例恢复水位标记 */
   async loadInstanceRecoveryWatermark(instanceId: string): Promise<unknown | null> {
     if (!this.pool || !this.enabled) {
       return null;
@@ -1310,6 +1336,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return result.rows[0]?.watermark_payload ?? null;
   }
 
+  /** 保存单个地面物品 */
   async saveGroundItem(
     input: {
       groundItemId: string;
@@ -1367,6 +1394,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 全量替换指定实例的地面物品 */
   async replaceGroundItems(
     instanceId: string,
     entries: Array<{ tileIndex: number; items: unknown[] }>,
@@ -1422,6 +1450,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 按地块批量替换地面物品（增量刷盘用） */
   async replaceGroundItemTiles(
     instanceId: string,
     tileIndices: number[],
@@ -1532,6 +1561,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return (result.rowCount ?? 0) > 0;
   }
 
+  /** 加载指定实例的全部地面物品 */
   async loadGroundItems(instanceId: string): Promise<Array<{
     groundItemId: string;
     instanceId: string;
@@ -1566,6 +1596,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 保存单个容器状态（含条目和搜索计时器） */
   async saveContainerState(input: {
     instanceId: string;
     containerId: string;
@@ -1677,6 +1708,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 全量替换指定实例的容器状态 */
   async replaceContainerStates(
     instanceId: string,
     states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>,
@@ -1829,6 +1861,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部容器状态（含条目和搜索计时器） */
   async loadContainerStates(instanceId: string): Promise<Array<{
     instanceId: string;
     containerId: string;
@@ -1941,6 +1974,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return timersByContainerId;
   }
 
+  /** 保存单个妖兽运行时状态 */
   async saveMonsterRuntimeState(input: {
     monsterRuntimeId: string;
     instanceId: string;
@@ -2059,6 +2093,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return (result.rowCount ?? 0) > 0;
   }
 
+  /** 全量替换指定实例的妖兽运行时状态 */
   async replaceMonsterRuntimeStates(
     instanceId: string,
     entries: Array<{
@@ -2245,6 +2280,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部妖兽运行时状态 */
   async loadMonsterRuntimeStates(instanceId: string): Promise<Array<{
     monsterRuntimeId: string;
     instanceId: string;
@@ -2317,6 +2353,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 保存实例事件状态 */
   async saveEventState(input: {
     eventId: string;
     instanceId: string;
@@ -2384,6 +2421,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return (result.rowCount ?? 0) > 0;
   }
 
+  /** 加载指定实例的全部事件状态 */
   async loadEventStates(instanceId: string): Promise<Array<{
     eventId: string;
     instanceId: string;
@@ -2420,6 +2458,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
+  /** 保存单个覆盖层分块 */
   async saveOverlayChunk(input: {
     instanceId: string;
     patchKind: 'tile' | 'portal' | 'npc' | 'container' | 'rule';
@@ -2491,6 +2530,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return (result.rowCount ?? 0) > 0;
   }
 
+  /** 全量替换指定实例的覆盖层分块 */
   async replaceOverlayChunks(
     instanceId: string,
     entries: Array<{
@@ -2752,6 +2792,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 清除指定实例的全部持久化状态（所有分域表） */
   async purgeInstanceState(instanceId: string): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
@@ -2793,6 +2834,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /** 加载指定实例的全部覆盖层分块 */
   async loadOverlayChunks(instanceId: string): Promise<Array<{
     instanceId: string;
     patchKind: string;

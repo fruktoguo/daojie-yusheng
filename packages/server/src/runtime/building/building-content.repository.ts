@@ -1,3 +1,8 @@
+/**
+ * 建筑内容仓库与编译器。
+ * 将 BuildingDef[] 编译为运行时 CompiledBuildingCatalog，
+ * 包含拓扑标志、五行向量、特征索引和旋转变体。
+ */
 import {
   BUILDING_DEFAULT_BUILD_TICKS,
   BUILDING_DEFAULT_DECONSTRUCT_TICKS,
@@ -22,12 +27,14 @@ import {
 
 const ROTATIONS = [0, 90, 180, 270] as const;
 
+/** 建筑内容仓库：提供 BuildingDef → CompiledBuildingCatalog 的编译入口。 */
 export class BuildingContentRepository {
   compile(definitions: readonly BuildingDef[]): CompiledBuildingCatalog {
     return compileBuildingDefinitions(definitions);
   }
 }
 
+/** 编译建筑定义数组为运行时目录，校验 ID 唯一性和层合法性。 */
 export function compileBuildingDefinitions(definitions: readonly BuildingDef[]): CompiledBuildingCatalog {
   if (!Array.isArray(definitions)) {
     throw new Error('building_defs_invalid:not_array');

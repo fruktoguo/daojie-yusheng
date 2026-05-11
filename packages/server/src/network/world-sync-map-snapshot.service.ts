@@ -1,3 +1,8 @@
+/**
+ * 地图快照同步服务。
+ * 负责构造玩家视野内的地块详情快照、可见 tile 集合和地图静态数据下发。
+ */
+
 import { Inject, Injectable, Optional, forwardRef } from '@nestjs/common';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -88,6 +93,7 @@ export class WorldSyncMapSnapshotService {
     this.playerAuthStore = playerAuthStore;
   }
 
+  /** 构造玩家视野范围内的 tile 快照矩阵和 byKey 索引。 */
   buildVisibleTilesSnapshot(view, player, template) {
     const radius = resolvePlayerEffectiveViewRange(player);
     const originX = view.self.x - radius;
@@ -160,6 +166,7 @@ export class WorldSyncMapSnapshotService {
     return keys;
   }
 
+  /** 构造视野内所有可渲染实体（玩家、怪物、NPC、传送门、容器、建筑、阵法）的快照。 */
   buildRenderEntitiesSnapshot(view, player) {
     const entities = new Map();
     entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0', this.resolveAccountIdentityProjection(player.playerId, player)));
@@ -319,6 +326,7 @@ export class WorldSyncMapSnapshotService {
     return resolveMapTickIntervalMs(this.mapRuntimeConfigService.getMapTickSpeed(mapId));
   }
 
+  /** 构造单个 tile 的同步状态：合并模板、实例覆盖和运行时动态数据。 */
   buildTileSyncState(template, instanceId, x, y, player = null) {
     const state = this.worldRuntimeService.getInstanceTileState(instanceId, x, y);
     if (!state) {

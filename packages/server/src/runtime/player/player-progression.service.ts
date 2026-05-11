@@ -1,3 +1,8 @@
+/**
+ * 玩家成长结算服务。
+ * 负责境界升级/突破、经验分配、功法修炼、天门灵根、体修、
+ * 根基底蕴和战斗经验等全部成长线的运行时结算与持久化。
+ */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
 import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';

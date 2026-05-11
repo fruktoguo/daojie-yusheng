@@ -1,3 +1,8 @@
+/**
+ * 风水计算服务。
+ * 根据房间聚合数据（面积、五行向量、特征、舒适度等）和规则表
+ * 计算风水评分、等级和加成/减益原因列表。
+ */
 import {
   FENGSHUI_BASE_SCORE,
   FENGSHUI_CONTROLS,

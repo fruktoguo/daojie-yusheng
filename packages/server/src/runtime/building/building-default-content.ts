@@ -1,3 +1,8 @@
+/**
+ * 建筑默认内容定义。
+ * 提供内置建筑模板（石墙、木门、木窗、地板、蒲团等）和默认风水规则，
+ * 在无外部配置文件时作为兜底使用。
+ */
 import * as fs from 'node:fs';
 
 import { TileType, type BuildingDef } from '@mud/shared';

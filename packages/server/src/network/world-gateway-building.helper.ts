@@ -1,5 +1,11 @@
+/**
+ * 世界网关建筑 helper。
+ * 收敛建筑放置、拆除、房间角色设置和风水观察等入口。
+ */
+
 import { S2C } from '@mud/shared';
 
+/** 建筑系统 helper：收敛放置、拆除、房间角色和风水观察入口 */
 class WorldGatewayBuildingHelper {
     gateway;
 

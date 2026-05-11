@@ -1,7 +1,12 @@
+/**
+ * 世界运行时性能指标服务
+ * 记录每帧 tick 耗时、各阶段耗时和同步刷新耗时，维护滑动窗口历史
+ */
 import { Injectable } from '@nestjs/common';
 
 const TICK_METRIC_WINDOW_SIZE = 60;
 
+/** 单帧各阶段耗时（毫秒） */
 export interface TickPhaseDurations {
   pendingCommandsMs: number;
   systemCommandsMs: number;
@@ -33,6 +38,7 @@ const EMPTY_TICK_PHASE_DURATIONS: Readonly<TickPhaseDurations> = Object.freeze({
   playerAdvanceMs: 0,
 });
 
+/** 帧性能指标收集器，维护最近 60 帧的耗时滑动窗口 */
 @Injectable()
 export class WorldRuntimeMetricsService {
   lastTickDurationMs = 0;

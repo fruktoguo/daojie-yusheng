@@ -1,3 +1,8 @@
+/**
+ * 运行时地块扩展工具。
+ * 按候选形状和生成器在地图边界外动态激活新地块，
+ * 用于无限地图或动态扩展场景。
+ */
 
 /** createSquareExpansionShape：创建以 origin 为中心的方形候选坐标策略。 */
 function createSquareExpansionShape(radius) {

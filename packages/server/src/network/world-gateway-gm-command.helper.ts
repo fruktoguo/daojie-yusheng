@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关 GM 命令 helper。
+ * 收敛 GM 状态查询、机器人管理和玩家数据修改等维护命令入口。
+ */
+
 /** 世界 socket GM 命令 helper：收敛维护命令。 */
 class WorldGatewayGmCommandHelper {
 /**

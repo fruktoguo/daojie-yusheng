@@ -1,3 +1,8 @@
+/**
+ * Outbox 事件分发持久化服务。
+ * 管理 outbox_event 表的事件认领、投递确认、失败重试和死信转移，
+ * 同时维护 consumer dedupe 表防止重复消费。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -8,6 +13,7 @@ const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const OUTBOX_CONSUMER_DEDUPE_TABLE = 'outbox_consumer_dedupe';
 
+/** Outbox 事件分发服务：认领、投递、重试、死信和去重 */
 @Injectable()
 export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxDispatcherService.name);

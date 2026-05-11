@@ -1,3 +1,8 @@
+/**
+ * 服务端日志环形缓冲区：拦截 console.log/warn/error 等输出，
+ * 存入内存环形队列（默认 5000 行），供 GM 日志接口分页读取。
+ * 同时提供 captureServerLogLine 供 DateConsoleLogger 直接写入。
+ */
 import { inspect } from 'node:util';
 
 import type { GmServerLogEntry, GmServerLogsRes } from '@mud/shared';

@@ -1,3 +1,8 @@
+/**
+ * 运行时稀疏地块平面。
+ * 使用哈希槽 + TypedArray 实现 O(1) 坐标查找和层叠合成，
+ * 支持地形/表面/结构三层独立修改和标志位预计算。
+ */
 import { InteractableKind, TerrainType, TileType, composeTileTypeFromLayers, doesStructureTypeBlockMove, doesStructureTypeBlockSight, doesTerrainTypeBlockSight, getTileTypeFromMapChar, isStructureTypeDamageable, isTerrainTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 
 // 哈希槽空标记：0 表示空槽，value 存储 cellIndex + 1

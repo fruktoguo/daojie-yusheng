@@ -597,6 +597,41 @@ function testEnhancedEquipmentScalesLiveAndDetailStats() {
     assert.equal(breakdowns.critDamage?.attrMultiplierPct, 0);
 }
 
+function testAttrDetailSkipsEmptyEquipmentSlots() {
+    const player = {
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: {
+            stage: 0,
+            baseAttrs: DEFAULT_BASE_ATTRS,
+            finalAttrs: DEFAULT_BASE_ATTRS,
+            numericStats: resolvePlayerRealmNumericTemplate(0).stats,
+        },
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: {
+            slots: [{
+                    slot: 'weapon',
+                    item: undefined,
+                }, {
+                    slot: 'armor',
+                }],
+        },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    };
+    assert.doesNotThrow(() => buildAttrDetailBonuses(player));
+    assert.equal(buildAttrDetailBonuses(player).some((entry) => entry.source.startsWith('equipment:')), false);
+}
+
 function testBuffStatModePercentUsesMultiplierBreakdown() {
     const service = new PlayerAttributesService();
     const createPlayer = (buffs) => ({
@@ -973,6 +1008,7 @@ testRealmLevelScalesNumericStats();
 testRealmStageConfigAccumulatesFromIncrementalEntries();
 testBodyTrainingScalesAllAttributesLikeRootFoundation();
 testEnhancedEquipmentScalesLiveAndDetailStats();
+testAttrDetailSkipsEmptyEquipmentSlots();
 testBuffStatModePercentUsesMultiplierBreakdown();
 testBuffRealmFactorAndShaCapMatchMain();
 testTieguPercentBuffDoesNotCompileRateStats();

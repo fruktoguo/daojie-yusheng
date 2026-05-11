@@ -1,3 +1,8 @@
+/**
+ * 世界鉴权模块注册表。
+ * 汇总所有鉴权相关 provider，供 NestJS 模块统一注入。
+ */
+
 import { WorldGmAuthService } from './world-gm-auth.service';
 import { WorldPlayerAuthService } from './world-player-auth.service';
 import { WorldPlayerSourceService } from './world-player-source.service';

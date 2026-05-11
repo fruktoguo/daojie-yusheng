@@ -1,3 +1,9 @@
+/**
+ * 世界客户端事件下发服务。
+ * 统一封装所有 S2C 事件的 emit 逻辑，包括错误、通知、邮件、坊市、聊天广播等。
+ * 是 runtime 结果到 socket 事件的唯一翻译层。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import { S2C, type QuestNavigateResultView } from '@mud/shared';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';

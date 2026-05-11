@@ -1,3 +1,7 @@
+/**
+ * 灵气投影计算辅助函数
+ * 根据玩家功法、buff、属性加成计算灵气资源的可见性和吸收效率
+ */
 import {
   DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_EFFICIENCY_BP,
@@ -44,12 +48,14 @@ interface QiProjectionPlayerView {
   runtimeBonuses?: QiProjectionBonusState[];
 }
 
+/** 玩家对单个灵气资源的投影结果 */
 export interface PlayerQiResourceProjection {
   descriptor: QiResourceDescriptor;
   visibility: QiVisibilityLevel;
   efficiencyBp: number;
 }
 
+/** 计算玩家对指定灵气资源的实际吸收值（不可吸收返回 0） */
 export function projectPlayerQiResourceValue(
   player: QiProjectionPlayerView | null | undefined,
   resourceKey: string,
@@ -62,6 +68,7 @@ export function projectPlayerQiResourceValue(
   return projectQiValue(rawValue, projection.efficiencyBp);
 }
 
+/** 解析玩家对指定灵气资源的完整投影（可见性 + 效率） */
 export function resolvePlayerQiResourceProjection(
   player: QiProjectionPlayerView | null | undefined,
   resourceKey: string,

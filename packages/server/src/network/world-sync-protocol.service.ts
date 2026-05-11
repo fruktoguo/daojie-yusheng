@@ -1,14 +1,15 @@
+/**
+ * 同步协议下发服务。
+ * 封装所有 S2C 事件的 socket.emit 调用，统一协议出口。
+ */
+
 import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 
+/** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
 export class WorldSyncProtocolService {
-/**
- * sendEnvelope：执行sendEnvelope相关逻辑。
- * @param socket 参数说明。
- * @param envelope 参数说明。
- * @returns 无返回值，直接更新sendEnvelope相关状态。
- */
+    /** 按 envelope 结构分发各类同步事件 */
 
     sendEnvelope(socket, envelope) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

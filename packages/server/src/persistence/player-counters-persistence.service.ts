@@ -1,3 +1,8 @@
+/**
+ * 玩家通用 KV 计数器持久化服务。
+ * 管理击杀数、逆天改命次数、历史最高境界等低频碎数据，
+ * 内存缓存 + 异步单条落库，支持 increment/setMax 语义。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
 
@@ -5,10 +10,7 @@ import { DatabasePoolProvider } from './database-pool.provider';
 
 const PLAYER_COUNTERS_TABLE = 'player_counters';
 
-/**
- * 玩家通用 KV 计数器持久化服务。
- * 用于收纳击杀、逆天改命、历史最高境界等低频碎数据。
- */
+/** 玩家计数器持久化服务：内存缓存 + 异步单条落库 */
 @Injectable()
 export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerCountersPersistenceService.name);

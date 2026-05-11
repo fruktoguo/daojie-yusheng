@@ -1,3 +1,8 @@
+/**
+ * 地图运行配置服务。
+ * 缓存每张地图的 GM 下发 tick 倍速、暂停状态和时间参数，
+ * 启动时从数据库恢复，运行时由 GM 命令动态更新。
+ */
 import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common';
 
 import {

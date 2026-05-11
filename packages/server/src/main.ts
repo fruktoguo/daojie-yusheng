@@ -1,3 +1,7 @@
+/**
+ * 服务端启动入口：创建 NestJS 应用实例，配置 CORS、安全头和端口监听。
+ * 端口冲突时自动采集诊断信息（lsof/ss/fuser），辅助运维定位。
+ */
 import { NestFactory } from '@nestjs/core';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -12,53 +16,21 @@ const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
 
 /** 端口冲突诊断采样间隔。 */
 const PORT_CONFLICT_SAMPLE_INTERVAL_MS = 100;
-/**
- * PortRange：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** Windows TCP 端口排除段描述。 */
 interface PortRange {
-/**
- * start：start相关字段。
- */
-
-  start: number;  
-  /**
- * end：end相关字段。
- */
-
-  end: number;  
-  /**
- * managed：managed相关字段。
- */
-
+  /** 排除段起始端口。 */
+  start: number;
+  /** 排除段结束端口。 */
+  end: number;
+  /** 是否为系统管理的保留段。 */
   managed: boolean;
 }
-/**
- * PortConflictSample：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** 单次端口冲突诊断采样结果。 */
 interface PortConflictSample {
-/**
- * lsofOutput：lsof输出相关字段。
- */
-
-  lsofOutput: string;  
-  /**
- * ssOutput：ss输出相关字段。
- */
-
-  ssOutput: string;  
-  /**
- * fuserOutput：fuser输出相关字段。
- */
-
-  fuserOutput: string;  
-  /**
- * text：text名称或显示文本。
- */
-
+  lsofOutput: string;
+  ssOutput: string;
+  fuserOutput: string;
+  /** 合并后的人类可读诊断文本。 */
   text: string;
 }
 
@@ -98,7 +70,6 @@ function sleep(ms: number): Promise<void> {
 
 /** 判定当前进程是否运行在 WSL 环境（用于排除 Windows 端口保留误报）。 */
 function isLikelyWsl(): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (process.platform !== 'linux') {
     return false;
@@ -118,7 +89,6 @@ function isLikelyWsl(): boolean {
 
 /** 读取 Windows 下被系统排除的 TCP 端口段，支持 WSL 场景提示。 */
 function readWindowsExcludedPortRanges(): PortRange[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!isLikelyWsl()) {
     return [];
@@ -148,7 +118,6 @@ function readWindowsExcludedPortRanges(): PortRange[] {
 
 /** 根据端口和已知保留段，输出人类可读的端口排除提示。 */
 function resolveExcludedPortHint(port: number): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const range = readWindowsExcludedPortRanges().find((entry) => port >= entry.start && port <= entry.end);
   if (!range) {
@@ -194,7 +163,6 @@ function hasUsefulPortConflictEvidence(sample: PortConflictSample): boolean {
 
 /** 循环采集多次诊断样本，优先返回第一条有效证据。 */
 async function collectPortConflictDiagnostics(port: number): Promise<string> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const samples: string[] = [];
 
@@ -216,7 +184,6 @@ async function collectPortConflictDiagnostics(port: number): Promise<string> {
 
 /** 启动 Nest 应用：创建服务、启用钩子/跨域，并在端口冲突时补充诊断日志。 */
 async function bootstrap(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   installConsoleLogCapture();
   const logger = new DateConsoleLogger('Bootstrap');
@@ -256,19 +223,8 @@ async function bootstrap(): Promise<void> {
 
   logger.log(`服务端已运行于 http://${host}:${port}`);
 }
-/**
- * hasErrorCode：判断ErrorCode是否满足条件。
- * @param error unknown 参数说明。
- * @param code string 参数说明。
- * @returns 返回ErrorCode。
- */
-
-
-function hasErrorCode(error: unknown, code: string): error is {
-/**
- * code：code相关字段。
- */
- code: string } {
+/** 类型守卫：判断 error 是否包含指定 code 字段。 */
+function hasErrorCode(error: unknown, code: string): error is { code: string } {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }
 

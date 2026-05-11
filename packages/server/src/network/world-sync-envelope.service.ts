@@ -1,3 +1,8 @@
+/**
+ * 世界同步 envelope 服务。
+ * 承接 envelope 生成、容器重生投影、战斗特效附加与移动调试日志。
+ */
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../debug/movement-debug';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';

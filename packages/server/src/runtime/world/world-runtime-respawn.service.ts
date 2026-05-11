@@ -1,3 +1,7 @@
+/**
+ * 玩家复生编排服务
+ * 消费待复生队列，执行复生点解析、实例迁移、状态重置和通知
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 

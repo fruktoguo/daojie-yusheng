@@ -1,3 +1,9 @@
+/**
+ * 地图静态辅助同步服务。
+ * 维护每个玩家的可见 tile 和 minimap marker 缓存，提供初始全量和增量 diff 构造。
+ * 是 tick 同步中地图静态层变化检测的核心。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';

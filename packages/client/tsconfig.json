@@ -5,9 +5,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "outDir": "dist",
+    "rootDir": "..",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@mud/shared": ["../shared/src/index.ts"]
     }

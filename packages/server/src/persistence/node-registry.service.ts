@@ -1,3 +1,8 @@
+/**
+ * 节点注册持久化服务。
+ * 维护 node_registry 表，支持节点注册、心跳、注销和过期扫描，
+ * 为多节点部署提供服务发现和健康状态管理。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 import { hostname } from 'node:os';
@@ -24,6 +29,7 @@ const CREATE_NODE_REGISTRY_STATUS_INDEX_SQL = `
   ON ${NODE_REGISTRY_TABLE}(status, heartbeat_at DESC)
 `;
 
+/** 节点注册服务：管理 node_registry 表的 CRUD 和过期推进 */
 @Injectable()
 export class NodeRegistryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NodeRegistryService.name);

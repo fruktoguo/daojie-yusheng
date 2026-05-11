@@ -1,3 +1,9 @@
+/**
+ * 世界会话管理服务。
+ * 维护 socket-player 绑定关系、断线 detach 窗口、session 复用和过期回收队列。
+ * 是网络层会话生命周期的唯一真源（单进程内存）。
+ */
+
 import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 

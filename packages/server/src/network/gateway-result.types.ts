@@ -1,3 +1,8 @@
+/**
+ * 网关 handler 统一返回类型与工厂函数。
+ * 所有 gateway handler 通过 ok/fail 构造结果，客户端按 success 字段分流处理。
+ */
+
 /** 网关 handler 统一返回类型 */
 export type GatewayResult<T = void> =
   | { success: true; data: T }

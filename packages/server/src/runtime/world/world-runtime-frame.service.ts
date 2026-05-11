@@ -1,3 +1,7 @@
+/**
+ * 世界帧推进服务
+ * 封装 advanceFrame 调用入口，协调实例 tick 编排和帧指标记录
+ */
 import { Inject, Injectable } from '@nestjs/common';
 
 import { WorldRuntimeInstanceTickOrchestrationService } from './world-runtime-instance-tick-orchestration.service';
@@ -18,6 +22,7 @@ interface RuntimeMetricsServiceLike {
   recordSyncFlushDuration(durationMs: number): void;
 }
 
+/** 世界帧推进入口，委托 tick 编排服务执行并记录同步刷新耗时 */
 @Injectable()
 export class WorldRuntimeFrameService {
   constructor(

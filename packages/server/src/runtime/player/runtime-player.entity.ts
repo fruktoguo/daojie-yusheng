@@ -1,3 +1,8 @@
+/**
+ * 玩家运行时领域实体。
+ * 封装 PlayerState 的高频操作（钱包、背包、伤害、灵气、buff），
+ * 作为非 @Injectable 的纯领域对象供运行时服务调用。
+ */
 import type { PlayerState } from '@mud/shared';
 
 /**

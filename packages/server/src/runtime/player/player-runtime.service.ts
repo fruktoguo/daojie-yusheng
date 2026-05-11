@@ -1,3 +1,8 @@
+/**
+ * 玩家运行时核心服务。
+ * 管理在线玩家的全部运行态：登录/登出、背包/装备/钱包、buff、
+ * 战斗配置、移动、修炼、技能冷却、通知队列和持久化脏域追踪。
+ */
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, compileValueStatsToActualStats, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
@@ -310,6 +315,7 @@ export class PlayerRuntimeService {
             buildingJob: null,
             alchemyPresets: [],
             alchemyJob: null,
+            forgingJob: null,
             enhancementSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             enhancementSkillLevel: 1,
             enhancementJob: null,
@@ -3343,6 +3349,7 @@ export class PlayerRuntimeService {
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
+            forgingJob: normalizeAlchemyJob(snapshot.progression?.forgingJob),
             enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(snapshot.progression?.enhancementSkillLevel ?? snapshot.progression?.enhancementSkill?.level) || 1)),
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
@@ -3956,6 +3963,7 @@ function cloneRuntimePlayerState(player) {
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
+        forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
         enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
         enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
         enhancementJob: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
@@ -5253,6 +5261,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
+            forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
             enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             enhancementJob: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,

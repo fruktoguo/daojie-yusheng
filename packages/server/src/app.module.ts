@@ -1,3 +1,7 @@
+/**
+ * 应用根模块：注册全部 HTTP 控制器、Socket 网关、运行时服务和持久化服务。
+ * 单模块扁平注册，NestJS DI 容器统一管理生命周期。
+ */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
@@ -157,7 +161,7 @@ import { WorldRuntimeController } from './runtime/world/world-runtime.controller
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
 
-/** server 主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
+/** 服务端主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),

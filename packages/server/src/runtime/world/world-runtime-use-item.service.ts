@@ -1,3 +1,7 @@
+/**
+ * 物品使用结算服务
+ * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
+ */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';

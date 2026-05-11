@@ -1,3 +1,7 @@
+/**
+ * 玩家会话管理服务
+ * 处理玩家连接/断开/顶号/重连的实例分配和会话路由
+ */
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 
 import { PlayerSessionRouteService } from '../../persistence/player-session-route.service';

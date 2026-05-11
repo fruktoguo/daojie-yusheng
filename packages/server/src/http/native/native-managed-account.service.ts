@@ -1,3 +1,8 @@
+/**
+ * GM 托管账号服务。
+ * 为 GM 面板提供按 playerId 查询账号、修改密码、修改用户名、封禁/解封等管理操作，
+ * 变更后同步持久化身份和运行时显示名。
+ */
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 
 import { normalizeUsername, resolveDisplayName, validatePassword, validateUsername } from '../../auth/account-validation';
@@ -7,9 +12,8 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { GM_AUTH_CONTRACT } from './native-gm-contract';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
 import type { NativePlayerAuthUser } from './native-player-auth-store.service';
-/**
- * ManagedAccountRecord：定义接口结构约束，明确可交付字段含义。
- */
+
+/** GM 面板展示的托管账号记录。 */
 
 
 interface ManagedAccountRecord {

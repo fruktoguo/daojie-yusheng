@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 合同服务。
+ * 负责 bootstrap 合同校验、session 复用策略裁定和 requestedSessionId 规范化。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { WorldSessionService } from './world-session.service';

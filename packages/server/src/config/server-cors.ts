@@ -1,51 +1,34 @@
+/**
+ * 服务端 CORS 配置解析：从环境变量读取允许的 origin、方法和头部，
+ * 构建运行时 origin 校验器。开发环境自动放行 localhost，
+ * 非开发环境强制要求显式配置 origin 白名单。
+ */
 import { readTrimmedEnv } from './env-alias';
 
 const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 const DEFAULT_CORS_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
 const DEFAULT_CORS_HEADERS = ['Content-Type', 'Authorization', 'X-Requested-With'];
-/**
- * CorsOriginCallback：统一结构类型，保证协议与运行时一致性。
- */
 
-
+/** CORS origin 校验回调签名 */
 type CorsOriginCallback = (error: Error | null, allow?: boolean) => void;
-/**
- * CorsOriginResolver：统一结构类型，保证协议与运行时一致性。
- */
 
+/** CORS origin 动态校验函数签名 */
 type CorsOriginResolver = (origin: string | undefined, callback: CorsOriginCallback) => void;
-/**
- * ServerNextCorsOptions：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 服务端 CORS 配置选项，传递给 NestJS enableCors */
 export interface ServerNextCorsOptions {
-/**
- * origin：origin相关字段。
- */
-
-  origin: CorsOriginResolver;  
-  /**
- * methods：method相关字段。
- */
-
-  methods: string[];  
-  /**
- * allowedHeaders：allowedHeader相关字段。
- */
-
-  allowedHeaders: string[];  
-  /**
- * credentials：credential相关字段。
- */
-
+  /** 动态 origin 校验器 */
+  origin: CorsOriginResolver;
+  /** 允许的 HTTP 方法列表 */
+  methods: string[];
+  /** 允许的请求头列表 */
+  allowedHeaders: string[];
+  /** 是否允许携带凭证 */
   credentials: boolean;
 }
 
-/** 统一解析 server 的 HTTP / Socket CORS 配置。 */
+/** 解析环境变量并构建 CORS 配置；禁用时返回 false。 */
 export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   const enabled = readBooleanEnv(['SERVER_CORS_ENABLED', 'CORS_ENABLED'], true);
   if (!enabled) {
     return false;
@@ -56,6 +39,7 @@ export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
   const allowedHeaders = readCsvEnv(['SERVER_CORS_HEADERS', 'CORS_HEADERS'], DEFAULT_CORS_HEADERS);
   const credentials = readBooleanEnv(['SERVER_CORS_CREDENTIALS', 'CORS_CREDENTIALS'], false);
 
+  // 非开发环境必须显式配置白名单，防止生产全开
   if (allowedOrigins.length === 0 && !isDevelopmentLikeEnv()) {
     throw new Error('非开发环境必须显式配置 SERVER_CORS_ORIGINS 或 SERVER_CORS_ORIGINS，禁止继续使用全开 CORS。');
   }
@@ -70,18 +54,14 @@ export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
     credentials,
   };
 }
-/**
- * buildOriginResolver：构建并返回目标对象。
- * @param allowedOriginSet Set<string> 参数说明。
- * @returns 返回OriginResolver。
- */
 
-
+/** 构建 origin 动态校验闭包：白名单匹配 + 开发环境 localhost 放行 */
 function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver {
   const allowAll = allowedOriginSet.has('*');
   const developmentLike = isDevelopmentLikeEnv();
 
   return (origin, callback) => {
+    // 无 origin（同源请求或服务端调用）直接放行
     if (!origin) {
       callback(null, true);
       return;
@@ -96,46 +76,22 @@ function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver 
     callback(new Error(`Origin ${origin} is not allowed by server CORS policy.`), false);
   };
 }
-/**
- * isDevelopmentLikeEnv：判断DevelopmentLikeEnv是否满足条件。
- * @returns 返回是否满足DevelopmentLikeEnv条件。
- */
 
-
+/** 判断当前运行环境是否为开发类环境 */
 function isDevelopmentLikeEnv(): boolean {
   const runtimeEnv = readTrimmedEnv('SERVER_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV').toLowerCase();
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
-/**
- * isLocalOrigin：判断LocalOrigin是否满足条件。
- * @param origin string 参数说明。
- * @returns 返回是否满足LocalOrigin条件。
- */
-
-
+/** 判断 origin 是否为本地地址（localhost / 127.0.0.1 / [::1]） */
 function isLocalOrigin(origin: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin);
 }
-/**
- * normalizeOrigin：规范化或转换Origin。
- * @param origin string 参数说明。
- * @returns 返回Origin。
- */
-
-
+/** 去除 origin 尾部斜杠并 trim */
 function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, '');
 }
-/**
- * readCsvEnv：读取CsvEnv并返回结果。
- * @param names string[] 参数说明。
- * @param fallback string[] 参数说明。
- * @returns 返回CsvEnv列表。
- */
-
-
+/** 从环境变量读取逗号分隔列表，支持多别名回退 */
 function readCsvEnv(names: string[], fallback: string[] = []): string[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const raw = readTrimmedEnv(...names);
   if (!raw) {
@@ -147,16 +103,8 @@ function readCsvEnv(names: string[], fallback: string[] = []): string[] {
     .map((value) => value.trim())
     .filter(Boolean);
 }
-/**
- * readBooleanEnv：读取BooleanEnv并返回结果。
- * @param names string[] 参数说明。
- * @param fallback boolean 参数说明。
- * @returns 返回是否满足BooleanEnv条件。
- */
-
-
+/** 从环境变量读取布尔值，支持 1/true/yes/on 等常见写法 */
 function readBooleanEnv(names: string[], fallback: boolean): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const raw = readTrimmedEnv(...names);
   if (!raw) {

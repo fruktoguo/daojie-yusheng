@@ -1,3 +1,9 @@
+/**
+ * 辅助状态同步服务。
+ * 负责 bootstrap 首包和 tick 增量中的辅助面板状态构造（天门、修炼、技能、buff、装备等）。
+ * 维护每个玩家的 SyncSlot 缓存，实现最小字段增量下发。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -126,6 +132,7 @@ interface EmitAuxDeltaSyncOptions {
   deferMapChanged?: boolean;
 }
 
+/** 辅助状态同步服务：编排 bootstrap 首包和 tick 增量中的地图静态、时间、境界、威胁和拾取窗口同步。 */
 @Injectable()
 export class WorldSyncAuxStateService {
   private readonly protocolAuxStateByPlayerId = new Map<string, ProtocolAuxState>();
@@ -149,11 +156,13 @@ export class WorldSyncAuxStateService {
     private readonly worldSyncPlayerStateService: WorldSyncPlayerStateServicePort,
   ) {}
 
+  /** 清除指定玩家的地图缓存和辅助状态缓存，用于断线或跨图。 */
   clearPlayerCache(playerId: string): void {
     this.worldSyncMapStaticAuxService.clearPlayerCache(playerId);
     this.protocolAuxStateByPlayerId.delete(playerId);
   }
 
+  /** 首次进入或跨图后的全量辅助状态下发：bootstrap 包 + mapStatic + realm + loot + threat。 */
   emitAuxInitialSync(
     playerId: string,
     socket: SocketLike,
@@ -213,6 +222,7 @@ export class WorldSyncAuxStateService {
     });
   }
 
+  /** tick 增量辅助状态同步：对比前帧缓存，仅下发变化的 tile patch、时间、境界、威胁和拾取窗口。 */
   emitAuxDeltaSync(
     playerId: string,
     socket: SocketLike,

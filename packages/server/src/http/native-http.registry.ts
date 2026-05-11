@@ -1,3 +1,7 @@
+/**
+ * 原生 HTTP 模块注册清单。
+ * 集中导出所有原生 HTTP 控制器和服务提供者，供 NestJS 模块统一注册。
+ */
 import { NativeDatabaseRestoreCoordinatorService } from './native/native-database-restore-coordinator.service';
 import { NativeGmAdminService } from './native/native-gm-admin.service';
 import { NativeGmEditorQueryService } from './native/native-gm-editor-query.service';

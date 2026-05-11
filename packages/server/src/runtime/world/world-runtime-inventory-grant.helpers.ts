@@ -1,10 +1,15 @@
 
+/**
+ * 持久化背包授予辅助函数
+ * 提供 durable inventory grant 的前置检查、快照构建、乐观执行和回滚恢复
+ */
 export function canUseDurableInventoryGrant(player, durableOperationService) {
     const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
     const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
     return Boolean(durableOperationService?.isEnabled?.() && typeof durableOperationService?.grantInventoryItems === 'function' && runtimeOwnerId && sessionEpoch > 0);
 }
 
+/** 解析实例 lease 上下文，用于 durable grant 的节点归属校验 */
 export async function resolveInventoryGrantLeaseContext(instanceId, instanceCatalogService) {
     const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
     if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
@@ -45,6 +50,7 @@ export function buildGrantedInventorySnapshots(items) {
         : [];
 }
 
+/** 捕获授予前的背包快照，用于失败时回滚 */
 export function captureInventoryGrantRollbackState(player) {
     return {
         suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
@@ -68,6 +74,7 @@ export function restoreInventoryGrantRollbackState(player, rollbackState, player
     playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 
+/** 执行持久化背包授予：乐观变更 → 持久化提交 → 失败回滚 */
 export async function applyDurableInventoryGrant(input) {
     const rollbackState = captureInventoryGrantRollbackState(input.player);
     input.player.suppressImmediateDomainPersistence = true;

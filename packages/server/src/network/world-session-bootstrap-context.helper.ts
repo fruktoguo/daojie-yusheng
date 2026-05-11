@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 上下文 helper。
+ * 负责 bootstrap 阶段 socket/client data 的轻量上下文解析、缓存读写和 sessionId 校验。
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';

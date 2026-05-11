@@ -1,9 +1,14 @@
+/**
+ * 威胁箭头同步服务。
+ * 负责构造玩家视野内的 threat arrows（战斗目标指向线），支持全量和增量 diff 下发。
+ */
+
 import { Inject, Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
-/** threat 冷路径同步服务：负责 threat arrows 构造、diff 与下发。 */
+/** threat 冷路径同步服务：负责 threat arrows 构造、diff 与下发 */
 @Injectable()
 export class WorldSyncThreatService {
     /** 世界 runtime，用于读取 monster aggro 状态。 */

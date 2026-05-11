@@ -1,3 +1,9 @@
+/**
+ * 玩家鉴权服务。
+ * 负责 token 验证后的身份解析、displayName 规范化、持久化回写和 auth-trace 审计。
+ * 是 bootstrap 阶段从 token 到 identity 的核心链路。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { resolveDisplayName } from '../auth/account-validation';

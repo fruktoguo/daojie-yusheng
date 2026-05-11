@@ -1,3 +1,8 @@
+/**
+ * Outbox 事件分发运行时服务。
+ * 定时轮询 outbox_event 表，认领待处理事件并通过消费者注册表分发，
+ * 支持本地去重、共享去重和失败重试。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
@@ -9,6 +14,7 @@ const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
 const DEFAULT_OUTBOX_MAX_ATTEMPTS = 8;
 
+/** Outbox 分发运行时：定时轮询 + 本地/共享去重 + 消费者分发 */
 @Injectable()
 export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxDispatcherRuntimeService.name);

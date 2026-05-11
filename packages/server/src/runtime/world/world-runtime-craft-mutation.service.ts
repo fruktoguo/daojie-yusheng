@@ -1,3 +1,7 @@
+/**
+ * 制作变更刷新服务
+ * 负责制作结果的面板更新推送、掉落物兜底和 mutation 状态刷新
+ */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
@@ -163,7 +167,7 @@ export class WorldRuntimeCraftMutationService {
         if (!player || !player.playerId) {
             return;
         }
-        const activeJob = player.enhancementJob ?? player.alchemyJob;
+        const activeJob = player.enhancementJob ?? player.forgingJob ?? player.alchemyJob;
         if (!activeJob || !activeJob.jobRunId) {
             return;
         }
@@ -176,7 +180,7 @@ export class WorldRuntimeCraftMutationService {
         if (!runtimeOwnerId || sessionEpoch <= 0) {
             return;
         }
-        const nextActiveJob = buildActiveJobSnapshot(activeJob, player.enhancementJob ? 'enhancement' : activeJob.jobType === 'forging' ? 'forging' : 'alchemy');
+        const nextActiveJob = buildActiveJobSnapshot(activeJob, player.enhancementJob ? 'enhancement' : player.forgingJob ? 'forging' : activeJob.jobType === 'forging' ? 'forging' : 'alchemy');
         if (!nextActiveJob) {
             return;
         }
@@ -197,7 +201,7 @@ export class WorldRuntimeCraftMutationService {
             expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
             action: activeJob.phase === 'paused' ? 'update' : (activeJob.jobType === 'enhancement' ? 'start' : 'start'),
             expectedJobRunId: activeJob.jobRunId,
-            expectedJobVersion: activeJob.jobVersion ?? 1,
+            expectedJobVersion: resolveExpectedActiveJobVersion(activeJob),
             nextActiveJob,
         });
     }    
@@ -310,4 +314,8 @@ function buildActiveJobOperationId(playerId, activeJob) {
         ? activeJob.phase.trim()
         : 'running';
     return `op:${normalizedPlayerId}:active-job:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
+}
+
+function resolveExpectedActiveJobVersion(activeJob) {
+    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)) - 1);
 }

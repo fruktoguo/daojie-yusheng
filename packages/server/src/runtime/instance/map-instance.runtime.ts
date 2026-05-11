@@ -1,3 +1,8 @@
+/**
+ * 地图实例运行时核心。
+ * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
+ * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
+ */
 import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, SurfaceType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getMaxStoredMovePoints, getMovePointsPerTick, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';

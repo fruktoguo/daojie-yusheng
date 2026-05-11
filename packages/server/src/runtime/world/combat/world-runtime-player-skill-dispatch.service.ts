@@ -9,6 +9,7 @@ import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.s
 import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -712,7 +713,8 @@ export class WorldRuntimePlayerSkillDispatchService {
             configRevision: skill.version ?? skill.revision,
             skipProgressThisTick: attacker.combat?.autoBattle !== true,
         });
-        const durationMs = windupTicks * 1000;
+        const skipTick = attacker.combat?.autoBattle !== true;
+        const durationMs = (windupTicks + (skipTick ? 1 : 0)) * 1000;
         emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
@@ -771,7 +773,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 resourcePolicy: expiredCancellation.cancellation?.resourcePolicy,
                 cooldownPolicy: expiredCancellation.cancellation?.cooldownPolicy,
             });
-            deps.queuePlayerNotice?.(attacker.playerId, '当前神通的吟唱已过期。', 'combat');
+            deps.queuePlayerNotice?.(attacker.playerId, '当前神通的吟唱已过期。', 'combat', undefined, undefined, buildStructuredNotice('combat', 'notice.combat.chant-expired', '当前神通的吟唱已过期。', {}).structured);
             return true;
         }
         if (pendingCast.skipProgressThisTick) {
@@ -807,7 +809,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 resourcePolicy: revisionCancellation.cancellation?.resourcePolicy,
                 cooldownPolicy: revisionCancellation.cancellation?.cooldownPolicy,
             });
-            deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}的吟唱已取消：技能配置已更新`, 'combat');
+            deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}的吟唱已取消：技能配置已更新`, 'combat', undefined, undefined, buildStructuredNotice('combat', 'notice.combat.chant-cancelled-config', `${skill.name}的吟唱已取消：技能配置已更新`, { vars: { skillName: skill.name }, pills: [{ key: 'skillName', style: 'skill' }] }).structured);
             return true;
         }
         attacker.combat.pendingSkillCast = undefined;
@@ -820,7 +822,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     requiredQi: effectiveCost,
                     currentQi: attacker.qi,
                 });
-                deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}的吟唱结算失败：元气不足。`, 'combat');
+                deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}的吟唱结算失败：元气不足。`, 'combat', undefined, undefined, buildStructuredNotice('combat', 'notice.combat.chant-fail-qi', `${skill.name}的吟唱结算失败：元气不足。`, { vars: { skillName: skill.name }, pills: [{ key: 'skillName', style: 'skill' }] }).structured);
                 return true;
             }
         }
@@ -883,7 +885,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         });
         if (reason) {
             const skillName = findPlayerSkillName(player, pendingCast.skillId) ?? '当前神通';
-            deps.queuePlayerNotice?.(playerId, `${skillName}的吟唱被打断：${reason}`, 'combat');
+            deps.queuePlayerNotice?.(playerId, `${skillName}的吟唱被打断：${reason}`, 'combat', undefined, undefined, buildStructuredNotice('combat', 'notice.combat.chant-interrupted', `${skillName}的吟唱被打断：${reason}`, { vars: { skillName, reason }, pills: [{ key: 'skillName', style: 'skill' }] }).structured);
         }
         return true;
     }

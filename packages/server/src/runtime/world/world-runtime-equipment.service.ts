@@ -1,3 +1,7 @@
+/**
+ * 装备穿戴/卸下结算服务
+ * 处理装备穿脱的背包操作、属性刷新和持久化提交
+ */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';

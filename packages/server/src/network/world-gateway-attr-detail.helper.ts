@@ -1,4 +1,9 @@
 /**
+ * 属性详情构造 helper。
+ * 负责将玩家运行时属性拆解为各来源加成明细（境界、功法、装备、buff 等），供属性面板展示。
+ */
+
+/**
  * buildAttrDetailBonuses：构建并返回目标对象。
  * @param player 玩家对象。
  * @returns 无返回值，直接更新Attr详情Bonuse相关状态。
@@ -44,18 +49,13 @@ export function buildAttrDetailBonuses(player) {
     }
     for (const entry of player.equipment?.slots ?? []) {
         const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
-        if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
-            for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
-                const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
-                if (!hasNonZeroPartialNumericStats(effectStats)) {
-                    continue;
-                }
-                bonuses.push({
-                    source: `equipment:${entry.slot}:effect:${effect.effectId ?? 'progress_boost'}`,
-                    label: item.itemId,
-                    attrs: {},
-                    stats: clonePartialNumericStats(effectStats),
-                });
+        if (!item) {
+            continue;
+        }
+        const progressEffects = resolveActiveEquipmentProgressEffects(item, player);
+        if (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item))) {
+            for (const effect of progressEffects) {
+                appendEquipmentProgressEffectBonus(bonuses, entry.slot, item, effect);
             }
             continue;
         }
@@ -65,17 +65,8 @@ export function buildAttrDetailBonuses(player) {
             attrs: clonePartialAttributes(item.equipAttrs),
             stats: clonePartialNumericStats(resolveItemNumericStats(item)),
         });
-        for (const effect of resolveActiveEquipmentProgressEffects(item, player)) {
-            const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
-            if (!hasNonZeroPartialNumericStats(effectStats)) {
-                continue;
-            }
-            bonuses.push({
-                source: `equipment:${entry.slot}:effect:${effect.effectId ?? 'progress_boost'}`,
-                label: item.itemId,
-                attrs: {},
-                stats: clonePartialNumericStats(effectStats),
-            });
+        for (const effect of progressEffects) {
+            appendEquipmentProgressEffectBonus(bonuses, entry.slot, item, effect);
         }
     }
     for (const buff of player.buffs?.buffs ?? []) {
@@ -429,6 +420,19 @@ function isDerivedRuntimeBonusSource(source) {
 
 function resolveItemNumericStats(item) {
     return item?.equipValueStats ? compileValueStatsToActualStats(item.equipValueStats) : item?.equipStats;
+}
+
+function appendEquipmentProgressEffectBonus(bonuses, slot, item, effect) {
+    const effectStats = resolveItemNumericStats({ equipStats: effect.stats, equipValueStats: effect.valueStats });
+    if (!hasNonZeroPartialNumericStats(effectStats)) {
+        return;
+    }
+    bonuses.push({
+        source: `equipment:${slot}:effect:${effect.effectId ?? 'progress_boost'}`,
+        label: item.itemId,
+        attrs: {},
+        stats: clonePartialNumericStats(effectStats),
+    });
 }
 
 function resolveActiveEquipmentProgressEffects(item, player) {

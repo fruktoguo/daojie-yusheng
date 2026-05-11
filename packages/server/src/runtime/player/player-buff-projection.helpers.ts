@@ -1,3 +1,8 @@
+/**
+ * 玩家 Buff 投影工具。
+ * 将运行时 buff 状态转换为客户端可见的 VisibleBuffState 列表，
+ * 包含修炼、营造和黑暗三种合成 buff 的投影逻辑。
+ */
 import {
   CULTIVATE_EXP_PER_TICK,
   CULTIVATION_ACTION_ID,
@@ -9,11 +14,14 @@ import {
 } from '@mud/shared';
 
 // 玩家 buff 投影：将运行时 buff 状态转换为客户端可见状态
+
+/** 功法类似结构，用于提取修炼中功法名称。 */
 type TechniqueLike = {
   techId?: string | null;
   name?: string | null;
 };
 
+/** 可投影的玩家 buff 状态字段集合。 */
 type ProjectablePlayerBuffState = {
   combat?: {
     cultivationActive?: boolean | null;
@@ -61,6 +69,7 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
   return projected;
 }
 
+/** 深拷贝单条可见 buff 投影。 */
 export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuffState {
   return {
     ...source,
@@ -70,6 +79,7 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
   };
 }
 
+/** 构建修炼状态的虚拟 buff 投影（不写回运行时 buff 真源）。 */
 function buildCultivationBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
   if (player.combat?.cultivationActive !== true) {
     return null;
@@ -114,6 +124,7 @@ function buildCultivationBuffDescription(techniqueName: string | null): string {
   return '正在调息修炼，每息获得境界修为与功法经验。';
 }
 
+/** 构建营造进度的虚拟 buff 投影。 */
 function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
   const job = player.buildingJob;
   const remainingTicks = Math.max(0, Math.trunc(Number(job?.remainingTicks ?? 0) || 0));
@@ -143,6 +154,7 @@ function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): Visibl
   };
 }
 
+/** 构建世界时间黑暗效果的虚拟 buff 投影。 */
 function buildDarknessBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
   const baseViewRange = Number(player.worldTimeBaseViewRange ?? player.attrs?.numericStats?.viewRange ?? player.viewRange ?? 1);
   return buildWorldDarknessBuffState(player.worldTime, baseViewRange);

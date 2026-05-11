@@ -1,3 +1,7 @@
+/**
+ * 修炼功法切换服务
+ * 处理玩家设置/取消主修功法的意图，校验制作阻塞条件后委托 PlayerRuntime 执行
+ */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -15,6 +19,7 @@ interface CultivationDeps<TPlayer = unknown> {
   queuePlayerNotice(playerId: string, message: string, kind: 'info' | 'success' | 'warn' | 'error'): void;
 }
 
+/** 功法修炼切换调度，校验阻塞后执行切换并通知玩家 */
 @Injectable()
 export class WorldRuntimeCultivationService {
   constructor(

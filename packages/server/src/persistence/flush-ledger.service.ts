@@ -1,3 +1,8 @@
+/**
+ * 统一刷盘账本服务。
+ * 同时管理玩家和实例两类 flush ledger 表，提供 upsert/claim/markFlushed 和积压摘要查询，
+ * 为分布式刷盘调度提供持久化协调。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -8,6 +13,7 @@ const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
 
+/** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
 @Injectable()
 export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FlushLedgerService.name);

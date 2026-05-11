@@ -1,3 +1,8 @@
+/**
+ * 实例目录持久化服务。
+ * 维护 instance_catalog 表，记录所有地图实例的元数据、状态、租约和分片信息，
+ * 支持实例注册、状态更新、租约认领/续期和模板缺失标记。
+ */
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -51,6 +56,7 @@ const CREATE_INSTANCE_CATALOG_SHARD_INDEX_SQL = `
   ON ${INSTANCE_CATALOG_TABLE}(shard_key)
 `;
 
+/** 实例目录服务：管理实例元数据、状态和租约 */
 @Injectable()
 export class InstanceCatalogService implements OnModuleInit {
   private readonly logger = new Logger(InstanceCatalogService.name);

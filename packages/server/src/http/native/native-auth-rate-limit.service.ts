@@ -1,63 +1,35 @@
+/**
+ * 认证限流服务。
+ * 基于内存滑动窗口实现 IP + 主体（账号名哈希）双维度限流，
+ * 覆盖注册、登录、刷新和 GM 登录四个场景。
+ */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-/**
- * RateLimitScope：统一结构类型，保证协议与运行时一致性。
- */
 
-
+/** 限流作用域：对应不同认证入口。 */
 type RateLimitScope = 'register' | 'login' | 'refresh' | 'gmLogin';
-/**
- * RateLimitConfig：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 单个作用域的限流配置。 */
 interface RateLimitConfig {
-/**
- * windowMs：窗口M相关字段。
- */
-
-  windowMs: number;  
-  /**
- * blockMs：blockM相关字段。
- */
-
-  blockMs: number;  
-  /**
- * maxIpFailures：maxIpFailure相关字段。
- */
-
-  maxIpFailures: number;  
-  /**
- * maxSubjectFailures：maxSubjectFailure相关字段。
- */
-
-  maxSubjectFailures: number;  
-  /**
- * message：message相关字段。
- */
-
+  /** 滑动窗口时长（毫秒）。 */
+  windowMs: number;
+  /** 触发封禁后的封禁时长（毫秒）。 */
+  blockMs: number;
+  /** 同一 IP 允许的最大失败次数。 */
+  maxIpFailures: number;
+  /** 同一主体允许的最大失败次数。 */
+  maxSubjectFailures: number;
+  /** 触发限流时返回的错误消息。 */
   message: string;
 }
-/**
- * RateLimitBucket：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 单个限流桶的运行时状态。 */
 interface RateLimitBucket {
-/**
- * failures：failure相关字段。
- */
-
-  failures: number;  
-  /**
- * blockedUntil：blockedUntil相关字段。
- */
-
-  blockedUntil: number;  
-  /**
- * lastTouchedAt：lastTouchedAt相关字段。
- */
-
+  /** 当前窗口内累计失败次数。 */
+  failures: number;
+  /** 封禁截止时间戳（0 表示未封禁）。 */
+  blockedUntil: number;
+  /** 最后一次触碰时间戳，用于窗口过期判断。 */
   lastTouchedAt: number;
 }
 
@@ -67,22 +39,14 @@ const RATE_LIMIT_CONFIG: Record<RateLimitScope, RateLimitConfig> = {
   refresh: { windowMs: 10 * 60 * 1000, blockMs: 15 * 60 * 1000, maxIpFailures: 20, maxSubjectFailures: 10, message: '刷新登录态过于频繁，请稍后再试。' },
   gmLogin: { windowMs: 15 * 60 * 1000, blockMs: 30 * 60 * 1000, maxIpFailures: 6, maxSubjectFailures: 4, message: 'GM 登录尝试过于频繁，请稍后再试。' },
 };
-/**
- * NativeAuthRateLimitService：封装该能力的入口与生命周期，承载运行时核心协作。
- */
-
-
+/** 认证限流服务：内存滑动窗口 + IP/主体双维度。 */
 @Injectable()
 export class NativeAuthRateLimitService {
-/**
- * buckets：bucket相关字段。
- */
-
+  /** 所有限流桶，key 格式为 `scope:dimension:value`。 */
   private readonly buckets = new Map<string, RateLimitBucket>();
 
-  /** 进入业务前先检查当前请求是否已处于封禁窗口。 */
+  /** 检查当前请求是否已被封禁，被封禁时直接抛出 429。 */
   assertAllowed(scope: RateLimitScope, request: any, subject?: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const config = RATE_LIMIT_CONFIG[scope];
     this.assertBucketAllowed(this.buildKey(scope, 'ip', this.resolveRequestIp(request)), config);
@@ -90,18 +54,16 @@ export class NativeAuthRateLimitService {
     if (normalizedSubject) this.assertBucketAllowed(this.buildKey(scope, 'subject', normalizedSubject), config);
   }
 
-  /** 登录/注册成功后清掉对应失败窗口，避免把成功会话也卡住。 */
+  /** 登录/注册成功后清除对应失败计数。 */
   recordSuccess(scope: RateLimitScope, request: any, subject?: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.clearBucket(this.buildKey(scope, 'ip', this.resolveRequestIp(request)));
     const normalizedSubject = this.normalizeSubject(subject);
     if (normalizedSubject) this.clearBucket(this.buildKey(scope, 'subject', normalizedSubject));
   }
 
-  /** 登录/注册失败后同时累计 IP 与账号/主体两个维度。 */
+  /** 登录/注册失败后累计 IP 和主体两个维度的失败计数。 */
   recordFailure(scope: RateLimitScope, request: any, subject?: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const config = RATE_LIMIT_CONFIG[scope];
     this.registerFailure(this.buildKey(scope, 'ip', this.resolveRequestIp(request)), config.maxIpFailures, config);
@@ -109,9 +71,8 @@ export class NativeAuthRateLimitService {
     if (normalizedSubject) this.registerFailure(this.buildKey(scope, 'subject', normalizedSubject), config.maxSubjectFailures, config);
   }
 
-  /** 从反向代理头和 socket 信息里提取客户端地址。 */
+  /** 从请求头和 socket 信息中提取客户端 IP。 */
   private resolveRequestIp(request: any): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const forwardedFor = request?.headers?.['x-forwarded-for'];
     if (typeof forwardedFor === 'string' && forwardedFor.trim()) return forwardedFor.split(',')[0]?.trim() || 'unknown';
@@ -120,31 +81,14 @@ export class NativeAuthRateLimitService {
     for (const value of candidates) if (typeof value === 'string' && value.trim()) return value.trim();
     return 'unknown';
   }  
-  /**
- * assertBucketAllowed：执行assertBucketAllowed相关逻辑。
- * @param key string 参数说明。
- * @param config RateLimitConfig 参数说明。
- * @returns 无返回值，直接更新assertBucketAllowed相关状态。
- */
-
-
+  /** 检查指定桶是否处于封禁状态。 */
   private assertBucketAllowed(key: string, config: RateLimitConfig): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const bucket = this.readBucket(key, config.windowMs);
     if (bucket.blockedUntil > Date.now()) throw new HttpException(config.message, HttpStatus.TOO_MANY_REQUESTS);
   }  
-  /**
- * registerFailure：判断registerFailure是否满足条件。
- * @param key string 参数说明。
- * @param maxFailures number 参数说明。
- * @param config RateLimitConfig 参数说明。
- * @returns 无返回值，直接更新registerFailure相关状态。
- */
-
-
+  /** 累计失败次数，达到阈值时设置封禁截止时间。 */
   private registerFailure(key: string, maxFailures: number, config: RateLimitConfig): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const now = Date.now();
     const bucket = this.readBucket(key, config.windowMs);
@@ -153,26 +97,12 @@ export class NativeAuthRateLimitService {
     if (bucket.failures >= maxFailures) bucket.blockedUntil = now + config.blockMs;
     this.buckets.set(key, bucket);
   }  
-  /**
- * clearBucket：执行clearBucket相关逻辑。
- * @param key string 参数说明。
- * @returns 无返回值，直接更新clearBucket相关状态。
- */
-
-
+  /** 清除指定桶。 */
   private clearBucket(key: string): void {
     this.buckets.delete(key);
   }  
-  /**
- * readBucket：读取Bucket并返回结果。
- * @param key string 参数说明。
- * @param windowMs number 参数说明。
- * @returns 返回Bucket。
- */
-
-
+  /** 读取桶状态，窗口过期时自动重置。 */
   private readBucket(key: string, windowMs: number): RateLimitBucket {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const now = Date.now();
     const current = this.buckets.get(key);
@@ -184,27 +114,12 @@ export class NativeAuthRateLimitService {
     current.lastTouchedAt = now;
     return current;
   }  
-  /**
- * buildKey：构建并返回目标对象。
- * @param scope RateLimitScope 参数说明。
- * @param dimension 'ip' | 'subject' 参数说明。
- * @param value string 参数说明。
- * @returns 返回Key。
- */
-
-
+  /** 构建桶的唯一 key：`scope:dimension:value`。 */
   private buildKey(scope: RateLimitScope, dimension: 'ip' | 'subject', value: string): string {
     return `${scope}:${dimension}:${value}`;
   }  
-  /**
- * normalizeSubject：规范化或转换Subject。
- * @param subject string 参数说明。
- * @returns 返回Subject。
- */
-
-
+  /** 将主体标识规范化并截断哈希，避免存储原始账号名。 */
   private normalizeSubject(subject?: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalized = typeof subject === 'string' ? subject.trim().toLowerCase() : '';
     if (!normalized) return '';

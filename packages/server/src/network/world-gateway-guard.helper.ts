@@ -1,4 +1,9 @@
 /**
+ * 世界网关守卫 helper。
+ * 收敛服务就绪检查、玩家身份校验、GM 权限校验和频率限制。
+ */
+
+/**
  * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param key 参数说明。
  * @returns 无返回值，完成BooleanEnv的读取/组装。

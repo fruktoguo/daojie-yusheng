@@ -1,43 +1,21 @@
+/**
+ * 玩家 JWT 令牌验证：手动实现 HS256 签名校验与过期/生效时间检查。
+ * 不依赖第三方 JWT 库，减少供应链风险并保持轻量。
+ */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-/**
- * JwtHeader：定义接口结构约束，明确可交付字段含义。
- */
-
-
 interface JwtHeader extends Record<string, unknown> {
-/**
- * alg：alg相关字段。
- */
-
-  alg?: unknown;  
-  /**
- * typ：typ相关字段。
- */
-
+  alg?: unknown;
   typ?: unknown;
 }
-/**
- * PlayerTokenPayloadVerificationResult：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 令牌验证结果：payload 为 null 时 reason 说明失败原因。 */
 export interface PlayerTokenPayloadVerificationResult {
-/**
- * payload：载荷状态或数据块。
- */
-
-  payload: Record<string, unknown> | null;  
-  /**
- * reason：reason相关字段。
- */
-
+  payload: Record<string, unknown> | null;
   reason: string | null;
 }
 
 /** 校验 JWT 载荷与签名，并输出失败原因，供鉴权栈判定拒绝原因。 */
 export function verifyPlayerTokenPayloadDetailed(token: string, secret: string): PlayerTokenPayloadVerificationResult {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   const segments = token.split('.');
   if (segments.length !== 3) {
     return { payload: null, reason: 'malformed_segments' };

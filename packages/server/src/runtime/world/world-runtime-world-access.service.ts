@@ -1,3 +1,7 @@
+/**
+ * 世界级访问与工具服务
+ * 提供实例创建/查找、默认复生地图、线路分配等世界级公共操作
+ */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { WorldRuntimeSummaryQueryService } from './query/world-runtime-summary-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';

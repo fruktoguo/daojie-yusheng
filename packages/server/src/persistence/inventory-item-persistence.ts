@@ -1,3 +1,10 @@
+/**
+ * 背包物品持久化工具。
+ * 提供物品快照序列化（buildPersistedInventoryItemRawPayload）和反序列化水合（hydratePersistedInventoryItem），
+ * 处理强化等级、旧字段兼容和内容模板规范化。
+ */
+
+/** 物品持久化来源数据结构 */
 export interface InventoryItemPersistenceSource {
   itemId?: unknown;
   count?: unknown;
@@ -5,6 +12,7 @@ export interface InventoryItemPersistenceSource {
   enhanceLevel?: unknown;
 }
 
+/** 物品模板仓储接口，用于水合时规范化物品 */
 export interface InventoryItemTemplateRepository {
   createItem(itemId: string, count?: number): unknown;
   normalizeItem(item: unknown): unknown;
@@ -87,6 +95,7 @@ function buildLegacyInventoryOverrides(rawPayload: Record<string, unknown> | nul
   return overrides;
 }
 
+/** 构建物品持久化 rawPayload：仅保留强化等级等非冗余字段 */
 export function buildPersistedInventoryItemRawPayload(
   source: InventoryItemPersistenceSource,
 ): Record<string, unknown> {
@@ -100,6 +109,7 @@ export function buildPersistedInventoryItemRawPayload(
   return enhanceLevel == null ? {} : { enhanceLevel };
 }
 
+/** 从持久化来源水合完整物品对象，兼容旧格式并通过模板仓储规范化 */
 export function hydratePersistedInventoryItem(
   source: InventoryItemPersistenceSource,
   contentTemplateRepository?: InventoryItemTemplateRepository | null,

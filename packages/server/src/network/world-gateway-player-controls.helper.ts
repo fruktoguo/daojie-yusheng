@@ -1,3 +1,8 @@
+/**
+ * 世界网关玩家控制 helper。
+ * 收敛聊天、自动战斗配置、修炼、天门和离线收益确认等玩家操作入口。
+ */
+
 import { C2S, type ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 

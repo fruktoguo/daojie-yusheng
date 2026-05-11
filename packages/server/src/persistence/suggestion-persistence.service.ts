@@ -1,3 +1,8 @@
+/**
+ * 建议系统持久化服务。
+ * 管理 server_suggestion 表，支持建议条目的全量加载和事务性保存，
+ * 包含投票、回复、分类和 GM 回复已读标记的持久化。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -6,7 +11,7 @@ const SUGGESTION_STATE_TABLE = 'server_suggestion_state';
 const SUGGESTION_TABLE = 'server_suggestion';
 const SUGGESTION_STATE_KEY = 'global';
 
-/** 建议持久化服务：保存/恢复全服建议与回复投票状态。 */
+/** 建议持久化服务：保存/恢复全服建议与回复投票状态 */
 @Injectable()
 export class SuggestionPersistenceService {
 /**

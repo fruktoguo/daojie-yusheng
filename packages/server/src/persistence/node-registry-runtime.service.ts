@@ -1,12 +1,18 @@
+/**
+ * 节点注册运行时服务。
+ * 启动时注册本节点，定时心跳并推进过期节点状态（suspect/dead），关闭时注销。
+ */
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { NodeRegistryService } from './node-registry.service';
 
+/** 心跳间隔默认值 */
 const DEFAULT_NODE_REGISTRY_HEARTBEAT_INTERVAL_MS = 15_000;
 const DEFAULT_NODE_REGISTRY_SUSPECT_AFTER_MS = 30_000;
 const DEFAULT_NODE_REGISTRY_DEAD_AFTER_MS = 90_000;
 const DEFAULT_SERVER_PORT = 13001;
 
+/** 节点注册运行时：管理心跳定时器和过期节点扫描 */
 @Injectable()
 export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NodeRegistryRuntimeService.name);

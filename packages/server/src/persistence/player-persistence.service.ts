@@ -1,3 +1,8 @@
+/**
+ * 玩家快照持久化服务。
+ * 管理 server_player_snapshot 表，提供玩家完整快照的加载、保存和列表，
+ * 包含快照数据的规范化、来源标记和旧格式兼容。
+ */
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared';
 import { Pool, type PoolClient } from 'pg';
@@ -80,6 +85,7 @@ interface PlayerSnapshotProgression {
   buildingJob?: Record<string, unknown> | null;
   alchemyPresets: unknown[];
   alchemyJob: Record<string, unknown> | null;
+  forgingJob?: Record<string, unknown> | null;
   enhancementSkill: Record<string, unknown> | null;
   enhancementSkillLevel: number;
   enhancementJob: Record<string, unknown> | null;
@@ -231,6 +237,7 @@ export interface ListedPlayerSnapshot {
   updatedAt: number;
 }
 
+/** 玩家快照持久化服务：整档快照的 CRUD 和规范化 */
 @Injectable()
 export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerPersistenceService.name);
@@ -575,6 +582,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       buildingJob: asRecordOrNull(progression?.buildingJob),
       alchemyPresets: Array.isArray(progression?.alchemyPresets) ? progression.alchemyPresets : [],
       alchemyJob: asRecordOrNull(progression?.alchemyJob),
+      forgingJob: asRecordOrNull(progression?.forgingJob),
       enhancementSkill: asRecordOrNull(progression?.enhancementSkill),
       enhancementSkillLevel: isFiniteNumber(progression?.enhancementSkillLevel)
         ? Math.max(1, Math.trunc(progression.enhancementSkillLevel))

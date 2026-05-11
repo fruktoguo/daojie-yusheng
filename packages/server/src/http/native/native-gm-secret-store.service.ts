@@ -1,3 +1,8 @@
+/**
+ * GM 密钥加密存储服务。
+ * 使用 AES-256-GCM 对密钥值进行加密，持久化到 PostgreSQL 专表。
+ * 主密钥通过环境变量 SERVER_SECRET_ENCRYPTION_KEY 派生。
+ */
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, BadRequestException } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { Pool } from 'pg';

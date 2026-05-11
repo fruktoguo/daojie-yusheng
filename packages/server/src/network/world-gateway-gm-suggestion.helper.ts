@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关 GM 建议 helper。
+ * 收敛 GM 对建议的标记完成和删除操作入口。
+ */
+
 /** 世界 socket GM 建议 helper：只收敛 suggestion 的 GM 维护写路径。 */
 class WorldGatewayGmSuggestionHelper {
 /**

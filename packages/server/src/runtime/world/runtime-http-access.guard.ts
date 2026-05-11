@@ -1,3 +1,7 @@
+/**
+ * 运行时调试 HTTP 接口访问守卫
+ * 根据环境变量控制 runtime HTTP 的启用状态和 token 鉴权
+ */
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 
 const RUNTIME_HTTP_ENABLE_ENV_KEYS = [

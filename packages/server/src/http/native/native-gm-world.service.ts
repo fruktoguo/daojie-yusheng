@@ -1,3 +1,8 @@
+/**
+ * GM 世界管理服务。
+ * 编排世界运行时查询、地图实例创建/迁移/冻结/重建、玩家迁移、
+ * 性能计数器重置、tick/时间配置修改等 GM 操作。
+ */
 import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';

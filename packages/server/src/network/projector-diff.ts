@@ -1,3 +1,8 @@
+/**
+ * 投影器增量 diff 工具。
+ * 对比前后两帧投影状态，生成最小 patch（add/remove/update），用于增量同步。
+ */
+
 import type {
   Attributes,
   EquipmentSlotUpdateEntry,
@@ -48,6 +53,7 @@ import {
 } from './projector-compare';
 import { cloneSyncedItemStack, cloneTechniqueEntry, cloneVisibleBuff } from './projector-clone';
 
+/** 对比前后帧玩家实体，生成 add/remove/update patch 列表。 */
 export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, current: Map<string, ProjectedPlayerEntry>): WorldPlayerPatchView[] {
     const result: WorldPlayerPatchView[] = [];
     for (const [playerId, entry] of current) {
@@ -121,6 +127,7 @@ export function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, c
     return result;
 }
 
+/** 对比前后帧怪物实体，生成 add/remove/update patch 列表。 */
 export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>, current: Map<string, ProjectedMonsterEntry>): WorldMonsterPatchView[] {
     const result: WorldMonsterPatchView[] = [];
     for (const [runtimeId, entry] of current) {
@@ -252,6 +259,7 @@ export function diffFormationEntries(previous: Map<string, ProjectedFormationEnt
     return result;
 }
 
+/** 对比前后帧背包槽位，返回变化的槽位列表。 */
 export function diffInventorySlots(previous: SyncedItemStack[], current: SyncedItemStack[]): InventorySlotUpdateEntry[] {
     const patch: InventorySlotUpdateEntry[] = [];
     const maxLength = Math.max(previous.length, current.length);

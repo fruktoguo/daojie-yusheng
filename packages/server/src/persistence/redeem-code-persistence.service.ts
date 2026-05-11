@@ -1,3 +1,8 @@
+/**
+ * 兑换码持久化服务。
+ * 管理 server_redeem_code_group 和 server_redeem_code 表，
+ * 支持兑换码组的创建、兑换码使用/销毁状态的事务性落库和全量加载。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -7,7 +12,7 @@ const REDEEM_CODE_GROUP_TABLE = 'server_redeem_code_group';
 const REDEEM_CODE_TABLE = 'server_redeem_code';
 const REDEEM_CODE_STATE_KEY = 'global';
 
-/** 兑换码持久化服务：保存/读取兑换码组与兑换码实例状态。 */
+/** 兑换码持久化服务：保存/读取兑换码组与兑换码实例状态 */
 @Injectable()
 export class RedeemCodePersistenceService {
 /**

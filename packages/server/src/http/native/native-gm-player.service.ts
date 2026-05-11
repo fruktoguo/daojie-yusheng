@@ -1,3 +1,8 @@
+/**
+ * GM 玩家管理服务。
+ * 提供玩家详情查询、快照修改、重置、炼体/底蕴/战斗经验调整、
+ * 机器人生成/移除、批量回城、无效物品清理和补偿等 GM 操作。
+ */
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,

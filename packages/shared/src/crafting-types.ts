@@ -283,6 +283,9 @@ export interface PlayerAlchemyJob {
   queuedJobs?: CraftQueueItemView[];
 }
 
+/** 锻造任务运行态（结构与炼丹相同，独立槽位）。 */
+export type PlayerForgingJob = PlayerAlchemyJob;
+
 /** 炼制面板的完整同步状态。 */
 export interface SyncedAlchemyPanelState {
 /**

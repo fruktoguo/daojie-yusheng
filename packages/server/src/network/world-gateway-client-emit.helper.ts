@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关客户端发包 helper。
+ * 统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。
+ */
+
 /** 世界 socket 客户端发包 helper：统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。 */
 class WorldGatewayClientEmitHelper {
 /**

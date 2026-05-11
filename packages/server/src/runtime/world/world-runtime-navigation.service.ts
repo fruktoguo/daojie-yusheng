@@ -1,3 +1,7 @@
+/**
+ * 寻路与导航意图服务
+ * 管理玩家寻路目标设置、路径规划、跨图导航和导航中断
+ */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../../debug/movement-debug';
 import { MapTemplateRepository } from '../map/map-template.repository';

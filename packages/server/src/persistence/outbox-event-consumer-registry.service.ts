@@ -1,8 +1,15 @@
+/**
+ * Outbox 事件消费者注册表。
+ * 管理精确匹配和前缀匹配两类 topic 消费者，支持内置 topic 的日志确认。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 
+/** Outbox 事件记录类型 */
 type OutboxEventRecord = Record<string, unknown>;
+/** Outbox 事件消费者回调 */
 type OutboxEventConsumer = (event: OutboxEventRecord) => Promise<void> | void;
 
+/** Outbox 事件消费者注册表服务：按 topic 精确/前缀匹配分发事件 */
 @Injectable()
 export class OutboxEventConsumerRegistryService {
   private readonly logger = new Logger(OutboxEventConsumerRegistryService.name);
@@ -13,6 +20,7 @@ export class OutboxEventConsumerRegistryService {
     this.registerBuiltInTopics();
   }
 
+  /** 注册精确 topic 消费者 */
   registerExact(topic: string, consumer: OutboxEventConsumer): void {
     const normalizedTopic = normalizeTopic(topic);
     if (!normalizedTopic || typeof consumer !== 'function') {
@@ -21,6 +29,7 @@ export class OutboxEventConsumerRegistryService {
     this.exactConsumers.set(normalizedTopic, consumer);
   }
 
+  /** 注册前缀匹配消费者，按前缀长度降序排列保证最长匹配优先 */
   registerPrefix(prefix: string, consumer: OutboxEventConsumer): void {
     const normalizedPrefix = normalizeTopic(prefix);
     if (!normalizedPrefix || typeof consumer !== 'function') {
@@ -30,6 +39,7 @@ export class OutboxEventConsumerRegistryService {
     this.prefixConsumers.sort((left, right) => right.prefix.length - left.prefix.length);
   }
 
+  /** 按 topic 查找并执行对应消费者，未命中时静默跳过 */
   async consume(event: OutboxEventRecord): Promise<void> {
     const topic = typeof event.topic === 'string' ? event.topic.trim() : '';
     const consumer = this.resolveConsumer(topic);

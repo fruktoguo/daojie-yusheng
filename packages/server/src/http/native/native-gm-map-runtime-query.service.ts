@@ -1,3 +1,8 @@
+/**
+ * GM 地图运行态查询服务。
+ * 提供地图/实例运行态快照、建筑/风水状态查询和重算能力，
+ * 支持视口裁剪和时间系统投影。
+ */
 import {
   DARKNESS_STACK_TO_VISION_MULTIPLIER,
   DEFAULT_AURA_LEVEL_BASE_VALUE,

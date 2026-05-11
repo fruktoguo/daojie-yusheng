@@ -1,46 +1,21 @@
+/**
+ * 密码哈希与验证：使用自定义 scrypt 格式（sn1$...）存储密码。
+ * 兼容旧版 bcrypt 哈希的验证，并标记需要升级的旧格式。
+ */
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { compareSync as compareBcryptSync } from 'bcryptjs';
-/**
- * ParsedScryptHash：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** scrypt 哈希解析结果。 */
 interface ParsedScryptHash {
-/**
- * cost：消耗数值。
- */
-
-  cost: number;  
-  /**
- * blockSize：数量或计量字段。
- */
-
-  blockSize: number;  
-  /**
- * parallelization：parallelization相关字段。
- */
-
-  parallelization: number;  
-  /**
- * keyLength：数量或计量字段。
- */
-
-  keyLength: number;  
-  /**
- * salt：salt相关字段。
- */
-
-  salt: Buffer;  
-  /**
- * hash：启用开关或状态标识。
- */
-
+  cost: number;
+  blockSize: number;
+  parallelization: number;
+  keyLength: number;
+  salt: Buffer;
   hash: string;
 }
 
 /** 对接收密码进行验证：统一验证 next 自定义 scrypt 格式。 */
 export async function verifyPassword(password: unknown, storedHash: unknown): Promise<boolean> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalizedPassword = typeof password === 'string' ? password : '';
   const normalizedHash = typeof storedHash === 'string' ? storedHash : '';
@@ -77,6 +52,7 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
   return derived.length === expected.length && timingSafeEqual(derived, expected);
 }
 
+/** 判断存储的哈希是否为旧版 bcrypt 格式，需要升级为 scrypt。 */
 export function isPasswordHashUpgradeRequired(storedHash: unknown): boolean {
   return typeof storedHash === 'string' && isLegacyBcryptHash(storedHash);
 }
@@ -104,7 +80,6 @@ function isLegacyBcryptHash(value: string): boolean {
 
 /** 解析自定义 scrypt 存储串（sn1$cost$...），失败返回 null。 */
 function parseScryptHash(value: string): ParsedScryptHash | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const parts = value.split('$');
   if (parts.length !== 7 || parts[0] !== 'sn1') {

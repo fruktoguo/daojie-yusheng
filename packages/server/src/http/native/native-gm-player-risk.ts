@@ -1,3 +1,8 @@
+/**
+ * GM 玩家风险评估模块。
+ * 从账号完整性、命名模式、相似账号簇、账号年龄、重复 IP/设备、坊市关系
+ * 七个维度对玩家进行小号/利益输送风险评分，供 GM 面板展示和复核。
+ */
 import type {
   GmManagedPlayerAccountStatus,
   GmPlayerRiskFactor,

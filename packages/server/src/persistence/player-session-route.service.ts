@@ -1,3 +1,8 @@
+/**
+ * 玩家会话路由持久化服务。
+ * 维护 player_session_route 表，记录玩家当前所在节点和 session epoch，
+ * 支持多节点部署下的路由解析、负载均衡分配和断线重连路由恢复。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -22,6 +27,7 @@ const CREATE_PLAYER_SESSION_ROUTE_NODE_INDEX_SQL = `
   ON ${PLAYER_SESSION_ROUTE_TABLE}(node_id, route_status, updated_at DESC)
 `;
 
+/** 持久化的玩家会话路由记录 */
 export interface PersistedPlayerSessionRoute {
   playerId: string;
   nodeId: string;
@@ -30,6 +36,7 @@ export interface PersistedPlayerSessionRoute {
   updatedAt: string;
 }
 
+/** 解析后的玩家路由目标，包含目标节点地址和来源信息 */
 export interface ResolvedPlayerSessionRouteTarget {
   playerId: string;
   targetNodeId: string;
@@ -45,6 +52,7 @@ export interface ResolvedPlayerSessionRouteTarget {
 }
 
 @Injectable()
+/** 玩家会话路由服务：注册/清除路由、解析启动目标节点、负载均衡分配 */
 export class PlayerSessionRouteService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerSessionRouteService.name);
   private pool: Pool | null = null;

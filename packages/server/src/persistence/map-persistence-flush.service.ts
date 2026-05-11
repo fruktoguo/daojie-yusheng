@@ -1,3 +1,8 @@
+/**
+ * 地图实例定时刷盘服务。
+ * 按周期收集脏实例列表，通过分域持久化落库，支持 time checkpoint 降频、
+ * 妖兽运行态降频、慢刷盘退避和进程关闭前强刷。
+ */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';

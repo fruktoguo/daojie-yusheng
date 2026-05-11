@@ -1,3 +1,7 @@
+/**
+ * 账号与角色名校验工具：统一处理账号、密码、显示名和角色名的合法性检查。
+ * 所有校验函数返回 null 表示通过，返回中文字符串表示错误原因。
+ */
 import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
@@ -34,7 +38,6 @@ export function normalizeRoleName(value: unknown): string {
 
 /** 校验账号规则（长度与空白），返回中文错误信息。 */
 export function validateUsername(username: unknown): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeUsername(username);
   const length = [...normalized].length;
@@ -56,7 +59,6 @@ export function validateUsername(username: unknown): string | null {
 
 /** 校验密码规则（长度与空白），返回中文错误信息。 */
 export function validatePassword(password: unknown): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
     return `密码长度不能少于 ${PASSWORD_MIN_LENGTH} 个字符`;
@@ -71,7 +73,6 @@ export function validatePassword(password: unknown): string | null {
 
 /** 校验显示名称规则（空值、空白、可见字符），返回中文错误信息。 */
 export function validateDisplayName(displayName: unknown): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeDisplayName(displayName);
 
@@ -96,7 +97,6 @@ export function validateDisplayName(displayName: unknown): string | null {
 
 /** 校验角色名称规则（可见性、长度边界），返回中文错误信息。 */
 export function validateRoleName(roleName: unknown): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeRoleName(roleName);
 
@@ -126,7 +126,6 @@ export function buildDefaultRoleName(username: unknown): string {
 
 /** 解析最终显示名：优先合法显示名，否则按账号兜底。 */
 export function resolveDisplayName(displayName: unknown, username: unknown): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeDisplayName(displayName);
 

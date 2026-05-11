@@ -1,3 +1,8 @@
+/**
+ * GM 地图配置持久化服务。
+ * 管理 server_gm_map_config 表，存储 GM 对各地图的速度/暂停/缩放/偏移配置，
+ * 支持事务内合并写入和批量清理。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
 
@@ -7,6 +12,7 @@ export const GM_MAP_CONFIG_SCOPE = 'server_gm_map_config_v1';
 export const GM_MAP_CONFIG_TABLE = 'server_gm_map_config';
 const GM_MAP_CONFIG_LOCK_NAMESPACE = 42872;
 
+/** GM 地图配置载荷 */
 export interface GmMapConfigPayload {
   speed?: number;
   paused?: boolean;
@@ -14,10 +20,12 @@ export interface GmMapConfigPayload {
   offsetTicks?: number;
 }
 
+/** GM 地图配置记录（含 mapId） */
 export interface GmMapConfigRecord extends GmMapConfigPayload {
   mapId: string;
 }
 
+/** GM 地图配置持久化服务：事务合并写入 + 批量清理 */
 @Injectable()
 export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GmMapConfigPersistenceService.name);

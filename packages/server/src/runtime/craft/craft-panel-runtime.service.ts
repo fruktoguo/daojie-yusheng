@@ -1,3 +1,8 @@
+/**
+ * 制作面板运行时服务。
+ * 负责炼丹、炼器和强化的任务创建、进度推进、结果结算与持久化，
+ * 同时管理管线策略注册和技艺活动的统一调度。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -6,11 +11,17 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { CraftPanelAlchemyQueryService } from './craft-panel-alchemy-query.service';
+import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
 import { ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
 import { advanceTechniqueActivityPause, applyTechniqueActivityInterrupt, buildTechniqueActivityInterruptMessage, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
+import { TechniqueActivityPipelineService } from './pipeline/technique-activity-pipeline.service';
+import { AlchemyStrategy } from './pipeline/strategies/alchemy.strategy';
+import { ForgingStrategy } from './pipeline/strategies/forging.strategy';
+import { EnhancementStrategy } from './pipeline/strategies/enhancement.strategy';
+import { GatherStrategy } from './pipeline/strategies/gather.strategy';
+import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 
 /** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
@@ -104,6 +115,8 @@ export class CraftPanelRuntimeService {
     forgingCatalog = [];
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
+    /** 技艺管线服务。 */
+    pipeline: TechniqueActivityPipelineService | null = null;
     /** 缓存依赖并初始化日志、配方与强化配置。 */
     constructor(
         contentTemplateRepository: ContentTemplateRepository,
@@ -123,6 +136,7 @@ export class CraftPanelRuntimeService {
         this.loadAlchemyCatalog();
         this.loadForgingCatalog();
         this.loadEnhancementConfigs();
+        this.ensurePipelineInitialized();
     }
     /** 读取炼丹面板的状态和可见目录，同步客户端所需的数据快照。 */
     buildAlchemyPanelPayload(player, knownCatalogVersion) {
@@ -143,8 +157,7 @@ export class CraftPanelRuntimeService {
         };
         if (payload.state) {
             payload.state = {
-                ...payload.state,
-                job: player.alchemyJob?.jobType === 'forging' ? cloneAlchemyJob(player.alchemyJob) : null,
+                ...buildForgingAlchemyPanelState(player, this.getWeapon(player)),
             };
         }
         return payload;
@@ -196,7 +209,8 @@ export class CraftPanelRuntimeService {
     }
     /** 判断玩家当前是否有炼器任务在进行。 */
     hasActiveForgingJob(player) {
-        return player.alchemyJob?.jobType === 'forging' && hasTechniqueActivityJob(player.alchemyJob);
+        return hasTechniqueActivityJob(player.forgingJob)
+            || (player.alchemyJob?.jobType === 'forging' && hasTechniqueActivityJob(player.alchemyJob));
     }
     /** 判断玩家当前是否有强化任务在进行。 */
     hasActiveEnhancementJob(player) {
@@ -213,6 +227,7 @@ export class CraftPanelRuntimeService {
         if (kind === 'enhancement') {
             return this.hasActiveEnhancementJob(player);
         }
+        // gather/building 仍由独立路径 tick，不纳入此列表以避免双重 tick
         return false;
     }
     /** 返回当前玩家仍在运行中的技艺活动键。 */
@@ -225,60 +240,63 @@ export class CraftPanelRuntimeService {
         return this.listActiveTechniqueActivityKinds(player).length > 0;
     }
     /** 统一派发技艺活动的开始写路径。 */
-    startTechniqueActivity(player, kind, payload) {
-        if (kind === 'alchemy') {
-            return this.startAlchemy(player, payload);
-        }
-        if (kind === 'forging') {
-            return this.startForging(player, payload);
-        }
-        if (kind === 'enhancement') {
-            return this.startEnhancement(player, payload);
+    startTechniqueActivity(player, kind, payload, deps = null) {
+        this.ensurePipelineInitialized();
+        if (this.pipeline?.hasStrategy(kind)) {
+            const ctx = this.buildPipelineContext(deps);
+            return this.pipeline.start(player, kind, payload, ctx);
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
     /** 统一派发技艺活动的取消写路径。 */
-    cancelTechniqueActivity(player, kind) {
-        if (kind === 'alchemy') {
-            return this.cancelAlchemy(player);
-        }
-        if (kind === 'forging') {
-            return this.cancelForging(player);
-        }
-        if (kind === 'enhancement') {
-            return this.cancelEnhancement(player);
+    cancelTechniqueActivity(player, kind, deps = null) {
+        this.ensurePipelineInitialized();
+        if (this.pipeline?.hasStrategy(kind)) {
+            const ctx = this.buildPipelineContext(deps);
+            return this.pipeline.cancel(player, kind, ctx);
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
     /** 统一派发技艺活动的中断。 */
-    interruptTechniqueActivity(player, kind, reason) {
-        if (kind === 'alchemy') {
-            return this.interruptAlchemy(player, reason);
-        }
-        if (kind === 'forging') {
-            return this.interruptAlchemy(player, reason);
-        }
-        if (kind === 'enhancement') {
-            return this.interruptEnhancement(player, reason);
+    interruptTechniqueActivity(player, kind, reason, deps = null) {
+        this.ensurePipelineInitialized();
+        if (this.pipeline?.hasStrategy(kind)) {
+            const ctx = this.buildPipelineContext(deps);
+            return this.pipeline.interrupt(player, kind, reason, ctx);
         }
         return buildCraftTickResult();
     }
     /** 统一派发技艺活动的 tick 推进。 */
-    tickTechniqueActivity(player, kind) {
-        if (kind === 'alchemy') {
-            return this.tickAlchemy(player);
-        }
-        if (kind === 'forging') {
-            return this.tickAlchemy(player);
-        }
-        if (kind === 'enhancement') {
-            return this.tickEnhancement(player);
+    tickTechniqueActivity(player, kind, deps = null) {
+        this.ensurePipelineInitialized();
+        if (this.pipeline?.hasStrategy(kind)) {
+            const ctx = this.buildPipelineContext(deps);
+            return this.pipeline.tick(player, kind, ctx);
         }
         return buildCraftTickResult();
     }
+    buildPipelineContext(deps = null) {
+        return {
+            contentTemplateRepository: this.contentTemplateRepository,
+            resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
+            getInstanceRuntime: (instanceId) => typeof deps?.getInstanceRuntime === 'function' ? deps.getInstanceRuntime(instanceId) : null,
+            deps,
+        };
+    }
+    ensurePipelineInitialized() {
+        if (this.pipeline) {
+            return;
+        }
+        this.pipeline = new TechniqueActivityPipelineService();
+        this.pipeline.register(new AlchemyStrategy(this));
+        this.pipeline.register(new ForgingStrategy(this));
+        this.pipeline.register(new EnhancementStrategy(this));
+        this.pipeline.register(new GatherStrategy());
+        this.pipeline.register(new BuildingStrategy());
+    }
     /** 把制造任务写入当前活跃任务携带的等待队列。 */
     enqueueCraftQueueItem(player, item, mode) {
-        const holder = player.enhancementJob ?? player.alchemyJob ?? null;
+        const holder = player.enhancementJob ?? player.forgingJob ?? player.alchemyJob ?? null;
         if (!holder) {
             return buildCraftMutationResult('当前没有可挂载队列的制造任务。');
         }
@@ -372,7 +390,7 @@ export class CraftPanelRuntimeService {
             this.getAlchemyLikeToolSuccessRate(player, jobKind)
         );
         const batchOutputCount = computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
-        player.alchemyJob = {
+        const nextJob = {
             jobRunId: createCraftJobRunId(player.playerId, jobKind),
             jobType: jobKind,
             recipeId: recipe.recipeId,
@@ -399,6 +417,7 @@ export class CraftPanelRuntimeService {
             startedAt: Date.now(),
             queuedJobs,
         };
+        setAlchemyLikeJob(player, jobKind, nextJob);
         this.finalizeMutation(player, {
             inventoryChanged: true,
             persistentOnly: true,
@@ -424,13 +443,14 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成cancel炼丹的条件判断。
  */
 
-    cancelAlchemy(player) {
+    cancelAlchemy(player, jobKind = 'alchemy') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.ensureCraftSkills(player);
-        const job = player.alchemyJob;
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const job = getAlchemyLikeJob(player, normalizedJobKind);
         if (!job || job.remainingTicks <= 0) {
-            return buildCraftMutationResult('当前没有可取消的炼丹任务。');
+            return buildCraftMutationResult(normalizedJobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。');
         }
         const refundableBatchCount = Math.max(0, job.quantity - job.completedCount - (job.phase === 'brewing' ? 1 : 0));
         const groundDrops = [];
@@ -461,7 +481,7 @@ export class CraftPanelRuntimeService {
                 inventoryChanged = true;
             }
         }
-        player.alchemyJob = null;
+        setAlchemyLikeJob(player, normalizedJobKind, null);
         this.finalizeMutation(player, {
             inventoryChanged,
             persistentOnly: true,
@@ -482,7 +502,7 @@ export class CraftPanelRuntimeService {
     }
     /** 取消炼器任务，退款规则与炼丹同构。 */
     cancelForging(player) {
-        return this.cancelAlchemy(player);
+        return this.cancelAlchemy(player, 'forging');
     }
 
     /**
@@ -581,11 +601,12 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新interrupt炼丹相关状态。
  */
 
-    interruptAlchemy(player, reason) {
+    interruptAlchemy(player, reason, jobKind = 'alchemy') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.ensureCraftSkills(player);
-        const job = player.alchemyJob;
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const job = getAlchemyLikeJob(player, normalizedJobKind);
         const addedPauseTicks = applyTechniqueActivityInterrupt(job, ALCHEMY_INTERRUPT_PAUSE_TICKS);
         if (addedPauseTicks <= 0) {
             return buildCraftTickResult();
@@ -598,7 +619,7 @@ export class CraftPanelRuntimeService {
                 kind: 'system',
                 text: buildTechniqueActivityInterruptMessage(
                     this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
-                    '炼制',
+                    normalizedJobKind === 'forging' ? '炼器' : '炼制',
                     ALCHEMY_INTERRUPT_PAUSE_TICKS,
                     reason,
                 ),
@@ -610,18 +631,18 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新tick炼丹相关状态。
  */
 
-    tickAlchemy(player) {
+    tickAlchemy(player, jobKind = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.ensureCraftSkills(player);
-        const job = player.alchemyJob;
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const job = getAlchemyLikeJob(player, normalizedJobKind);
         if (!job || job.remainingTicks <= 0) {
             return buildCraftTickResult();
         }
-        const jobKind = job.jobType === 'forging' ? 'forging' : 'alchemy';
-        const catalog = jobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
-        const activityLabel = jobKind === 'forging' ? '炼器' : '炼制';
-        const successNoun = jobKind === 'forging' ? '成器' : '成丹';
+        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
+        const activityLabel = normalizedJobKind === 'forging' ? '炼器' : '炼制';
+        const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
         job.remainingTicks = Math.max(0, job.remainingTicks - 1);
         if (job.phase === 'paused') {
             const resumed = advanceTechniqueActivityPause(
@@ -706,9 +727,9 @@ export class CraftPanelRuntimeService {
         });
         if (jobCompleted) {
             const queuedJobs = cloneCraftQueue(job.queuedJobs);
-            player.alchemyJob = null;
+            setAlchemyLikeJob(player, normalizedJobKind, null);
             const nextStartResult: any = this.startNextQueuedCraftJob(player, queuedJobs);
-            if (!player.alchemyJob && !player.enhancementJob) {
+            if (!player.alchemyJob && !player.forgingJob && !player.enhancementJob) {
                 this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
             }
             const nextMessages = nextStartResult.messages ?? [];
@@ -1174,6 +1195,27 @@ export class CraftPanelRuntimeService {
                 dirtyDomains: ['active_job'],
             });
         }
+        // 锻造独立化迁移：将寄生在 alchemyJob 上的 forging 任务迁移到独立 forgingJob 槽。
+        if (player.alchemyJob?.jobType === 'forging') {
+            player.forgingJob = player.alchemyJob;
+            player.alchemyJob = null;
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
+        }
+        if (player.forgingJob && typeof player.forgingJob === 'object' && 'recipeId' in player.forgingJob) {
+            player.forgingJob = cloneAlchemyJob(player.forgingJob);
+            if (isCompletedAlchemyLikeJob(player.forgingJob)) {
+                player.forgingJob = null;
+                this.finalizeMutation(player, {
+                    persistentOnly: true,
+                    dirtyDomains: ['active_job'],
+                });
+            }
+        } else {
+            player.forgingJob = null;
+        }
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
     }
     /**
@@ -1573,10 +1615,25 @@ export class CraftPanelRuntimeService {
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, job.targetItemLevel);
         const totalTicks = computeEnhancementJobTicks(job.targetItemLevel, totalSpeedRate);
+        const baseJobItem = resolveEnhancementJobItem(this.contentTemplateRepository, job, currentLevel);
+        if (!baseJobItem) {
+            const finishResult = this.finishEnhancementJob(player, currentLevel, 'stopped');
+            return {
+                continued: false,
+                inventoryChanged: finishResult.inventoryChanged,
+                equipmentChanged: finishResult.equipmentChanged,
+                attrChanged: finishResult.attrChanged,
+                groundDrops: finishResult.groundDrops,
+                messages: [{
+                        kind: 'system',
+                        text: `${job.targetItemName} 当前强化目标数据缺失，队列已停止。`,
+                    }],
+            };
+        }
         job.currentLevel = currentLevel;
         job.targetLevel = nextTargetLevel;
         job.item = this.contentTemplateRepository.normalizeItem({
-            ...job.item,
+            ...baseJobItem,
             count: 1,
             enhanceLevel: currentLevel,
         });
@@ -1626,8 +1683,25 @@ export class CraftPanelRuntimeService {
                 groundDrops: [],
             };
         }
+        const jobItem = resolveEnhancementJobItem(this.contentTemplateRepository, job, resultingLevel);
+        if (!jobItem) {
+            player.enhancementJob = null;
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: [
+                    'active_job',
+                    'enhancement_record',
+                ],
+            });
+            return {
+                inventoryChanged: false,
+                equipmentChanged: false,
+                attrChanged: false,
+                groundDrops: [],
+            };
+        }
         const resolvedItem = this.contentTemplateRepository.normalizeItem({
-            ...job.item,
+            ...jobItem,
             count: 1,
             enhanceLevel: resultingLevel,
         });
@@ -2243,12 +2317,15 @@ function resolveAlchemyGradeValue(grade) {
  */
 
 function cloneItem(item) {
+    if (!item || typeof item !== 'object') {
+        return undefined;
+    }
     return {
         ...item,
         equipAttrs: item.equipAttrs ? { ...item.equipAttrs } : undefined,
         equipStats: item.equipStats ? clonePartialNumericStats(item.equipStats) : undefined,
         equipValueStats: item.equipValueStats ? { ...item.equipValueStats } : undefined,
-        consumeBuffs: Array.isArray(item.consumeBuffs) ? item.consumeBufmap((entry) => ({ ...entry })) : undefined,
+        consumeBuffs: Array.isArray(item.consumeBuffs) ? item.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
         effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
         tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
     };
@@ -2296,7 +2373,7 @@ function cloneEnhancementJob(entry) {
     return {
         ...entry,
         target: entry.target ? { ...entry.target } : entry.target,
-        item: cloneItem(entry.item),
+        item: entry.item ? cloneItem(entry.item) : undefined,
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
 }
@@ -2328,7 +2405,20 @@ function cloneCraftQueue(queue) {
 }
 
 function getPlayerCraftQueue(player) {
-    return cloneCraftQueue(player?.enhancementJob?.queuedJobs ?? player?.alchemyJob?.queuedJobs ?? []);
+    return cloneCraftQueue(player?.enhancementJob?.queuedJobs ?? player?.forgingJob?.queuedJobs ?? player?.alchemyJob?.queuedJobs ?? []);
+}
+
+function getAlchemyLikeJob(player, jobKind) {
+    return jobKind === 'forging' ? player?.forgingJob ?? null : player?.alchemyJob ?? null;
+}
+
+function setAlchemyLikeJob(player, jobKind, job) {
+    if (jobKind === 'forging') {
+        player.forgingJob = job;
+    }
+    else {
+        player.alchemyJob = job;
+    }
 }
 
 function buildCraftQueueId(kind) {
@@ -2373,6 +2463,9 @@ function buildActiveJobSnapshotFromPlayer(player) {
     if (player?.enhancementJob) {
         return buildActiveJobSnapshot(player.enhancementJob, 'enhancement');
     }
+    if (player?.forgingJob) {
+        return buildActiveJobSnapshot(player.forgingJob, 'forging');
+    }
     if (player?.alchemyJob) {
         return buildActiveJobSnapshot(player.alchemyJob, player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
     }
@@ -2411,7 +2504,7 @@ function buildActiveJobSnapshot(job, jobType) {
 }
 
 function bumpActiveJobVersion(player) {
-    const activeJob = player?.enhancementJob ?? player?.alchemyJob ?? null;
+    const activeJob = player?.enhancementJob ?? player?.forgingJob ?? player?.alchemyJob ?? null;
     if (!activeJob || typeof activeJob !== 'object') {
         return;
     }
@@ -2541,6 +2634,39 @@ function setEquippedItem(player, slot, item) {
         return;
     }
     entry.item = item ? cloneItem(item) : null;
+}
+
+function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel) {
+    const source = job?.item && typeof job.item === 'object'
+        ? job.item
+        : {
+            itemId: job?.targetItemId,
+            name: job?.targetItemName,
+            type: 'equipment',
+            level: job?.targetItemLevel,
+        };
+    const itemId = typeof source?.itemId === 'string' && source.itemId.trim()
+        ? source.itemId.trim()
+        : typeof job?.targetItemId === 'string' && job.targetItemId.trim()
+            ? job.targetItemId.trim()
+            : '';
+    if (!itemId) {
+        return null;
+    }
+    const count = Math.max(1, Math.floor(Number(source?.count) || 1));
+    const normalized = contentTemplateRepository.normalizeItem({
+        ...source,
+        itemId,
+        type: source?.type ?? 'equipment',
+        count,
+        name: source?.name ?? job?.targetItemName ?? itemId,
+        level: source?.level ?? job?.targetItemLevel ?? 1,
+        enhanceLevel,
+    });
+    if (!normalized || normalized.type !== 'equipment') {
+        return null;
+    }
+    return normalized;
 }
 /**
  * normalizeText：规范化或转换Text。

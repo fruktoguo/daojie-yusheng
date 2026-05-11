@@ -1,3 +1,7 @@
+/**
+ * GM 世界状态查询服务。
+ * 聚合玩家列表、性能快照、世界摘要等信息，供 GM 面板主页展示。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,

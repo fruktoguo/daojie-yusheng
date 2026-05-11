@@ -1,3 +1,7 @@
+/**
+ * 持久化状态检测与快照服务
+ * 负责脏实例检测、持久化快照构造和落盘后标记回写
+ */
 import { Injectable } from '@nestjs/common';
 
 /** world-runtime persistence-state seam：承接 dirty map 检测、快照构造与持久化落盘回标。 */

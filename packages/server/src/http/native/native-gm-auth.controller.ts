@@ -1,86 +1,48 @@
+/**
+ * GM 鉴权 HTTP 控制器。
+ * 提供 GM 登录和修改 GM 密码两个端点，登录端点受限流保护，
+ * 修改密码端点需要已有的 GM access token。
+ */
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UseGuards } from '@nestjs/common';
 
 import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { NativeAuthRateLimitService } from './native-auth-rate-limit.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
-/**
- * GmLoginBody：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** GM 登录请求体。 */
 interface GmLoginBody {
-/**
- * password：password相关字段。
- */
-
   password?: string;
 }
-/**
- * GmChangePasswordBody：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** GM 修改密码请求体。 */
 interface GmChangePasswordBody {
-/**
- * currentPassword：currentPassword相关字段。
- */
-
-  currentPassword?: string;  
-  /**
- * newPassword：newPassword相关字段。
- */
-
+  currentPassword?: string;
   newPassword?: string;
 }
-/**
- * RequestLike：定义接口结构约束，明确可交付字段含义。
- */
-
 
 interface RequestLike {
   [key: string]: unknown;
 }
-/**
- * RuntimeGmAuthServicePort：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** GM 鉴权服务端口：登录和修改密码。 */
 interface RuntimeGmAuthServicePort {
   login(password: string): Promise<unknown>;
   changePassword(currentPassword: string, newPassword: string): Promise<unknown>;
 }
-/**
- * NativeGmAuthController：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** GM 鉴权控制器：提供 GM 登录和密码修改端点。 */
 @Controller(GM_HTTP_CONTRACT.authBasePath)
 export class NativeGmAuthController {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param authService RuntimeGmAuthServicePort 参数说明。
- * @param rateLimitService NativeAuthRateLimitService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
   constructor(
     @Inject(RuntimeGmAuthService) private readonly authService: RuntimeGmAuthServicePort,
     private readonly rateLimitService: NativeAuthRateLimitService,
-  ) {}  
-  /**
- * login：执行login相关逻辑。
- * @param body GmLoginBody 参数说明。
- * @param request RequestLike 请求参数。
- * @returns 无返回值，直接更新login相关状态。
- */
+  ) {}
 
-
+  /** GM 登录，受限流保护；成功返回 access token。 */
   @Post('gm/login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: GmLoginBody, @Req() request: RequestLike) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     this.rateLimitService.assertAllowed('gmLogin', request, 'gm');
     try {
       const result = await this.authService.login(body?.password ?? '');
@@ -90,14 +52,9 @@ export class NativeGmAuthController {
       this.rateLimitService.recordFailure('gmLogin', request, 'gm');
       throw error;
     }
-  }  
-  /**
- * changePassword：执行changePassword相关逻辑。
- * @param body GmChangePasswordBody 参数说明。
- * @returns 无返回值，直接更新changePassword相关状态。
- */
+  }
 
-
+  /** 修改 GM 密码，需已有有效 GM token。 */
   @Post('gm/password')
   @UseGuards(NativeGmAuthGuard)
   async changePassword(@Body() body: GmChangePasswordBody) {

@@ -1164,14 +1164,23 @@ export function calculateAttrBonusValue(bonus: Pick<AttrBonus, 'attrs' | 'stats'
 
 /** 计算装备价值，区分配置口径和实际结算口径。 */
 export function calculateEquipmentValue(
-  item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {  
+  item: (Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {
   /**
  * equipValueStats：equip值Stat相关字段。
  */
 
     equipValueStats?: PartialNumericStats;
-  },
+  }) | null | undefined,
 ): EquipmentValueSummary {
+  if (!item) {
+    return {
+      quantifiedValue: 0,
+      breakdown: [],
+      unquantified: [],
+      baseQuantifiedValue: 0,
+      actualQuantifiedValue: 0,
+    };
+  }
   const baseAttrSummary = calculateAttributesValue(item.equipAttrs ?? {});
   const baseStatSummary = item.equipValueStats
     ? calculateConfiguredValueStatsValue(item.equipValueStats)

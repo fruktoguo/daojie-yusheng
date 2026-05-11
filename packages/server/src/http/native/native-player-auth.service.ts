@@ -1,3 +1,8 @@
+/**
+ * 玩家鉴权编排服务。
+ * 负责注册、登录、刷新令牌、修改密码/显示名/角色名等账号生命周期操作，
+ * 协调 auth store、token codec、identity persistence 和 runtime 之间的同步。
+ */
 import { BadRequestException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
@@ -9,9 +14,8 @@ import { PlayerIdentityPersistenceService } from '../../persistence/player-ident
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
 import type { NativePlayerAuthUser } from './native-player-auth-store.service';
-/**
- * AuthTokens：定义接口结构约束，明确可交付字段含义。
- */
+
+/** 登录/注册成功后返回的令牌对。 */
 
 
 interface AuthTokens {

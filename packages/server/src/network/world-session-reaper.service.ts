@@ -1,3 +1,8 @@
+/**
+ * 会话回收器服务。
+ * 定时轮询过期的断线会话，执行玩家数据 flush、路由清理和缓存释放。
+ */
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
 import { PlayerSessionRouteService } from '../persistence/player-session-route.service';

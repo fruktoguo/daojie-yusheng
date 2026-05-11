@@ -1,3 +1,8 @@
+/**
+ * 玩家刷盘账本服务。
+ * 维护 player_flush_ledger 表，跟踪每个玩家各域的脏版本号和已刷版本号，
+ * 支持 claim/markFlushed/markRetry 的分布式刷盘调度。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -32,6 +37,7 @@ const CREATE_PLAYER_FLUSH_LEDGER_DIRTY_INDEX_SQL = `
   ON ${PLAYER_FLUSH_LEDGER_TABLE}(dirty_since_at, next_attempt_at)
 `;
 
+/** 玩家刷盘账本服务：跟踪脏版本、认领和重试调度 */
 @Injectable()
 export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerFlushLedgerService.name);

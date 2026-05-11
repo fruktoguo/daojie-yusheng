@@ -1,3 +1,7 @@
+/**
+ * NPC 商店购买写路径服务
+ * 处理玩家购买请求的校验、扣款、物品发放和持久化提交
+ */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';

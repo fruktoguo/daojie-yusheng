@@ -1,13 +1,19 @@
+/**
+ * 数据库连接池提供者。
+ * 按名称管理多个 PostgreSQL 连接池实例，支持 pooler URL 优先和环境变量配置。
+ */
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { readTrimmedEnv, resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from '../config/env-alias';
 
+/** 数据库连接池提供者：按名称懒创建并缓存 pg Pool 实例 */
 @Injectable()
 export class DatabasePoolProvider implements OnModuleDestroy {
   private readonly logger = new Logger(DatabasePoolProvider.name);
   private readonly pools = new Map<string, Pool>();
 
+  /** 获取指定名称的连接池，不存在则懒创建；无数据库 URL 时返回 null */
   getPool(name = 'default'): Pool | null {
     const databaseUrl = resolveServerDatabasePoolerUrl() || resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
@@ -27,6 +33,7 @@ export class DatabasePoolProvider implements OnModuleDestroy {
     return pool;
   }
 
+  /** 模块销毁时关闭所有连接池 */
   async onModuleDestroy(): Promise<void> {
     const pools = Array.from(this.pools.values());
     this.pools.clear();

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import { buildBasicAttackCommandFromAttackableTarget, resolveAttackableTargetRef } from './world-runtime.attack-target.helpers';
@@ -242,7 +243,8 @@ export class WorldRuntimeAutoCombatService {
                         deps.refreshQuestStates(playerId);
                     }
                     if (typeof deps.queuePlayerNotice === 'function') {
-                        deps.queuePlayerNotice(playerId, `自动使用 ${match.item.name ?? match.item.itemId}`, 'success');
+                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${match.item.name ?? match.item.itemId}`, { vars: { itemName: match.item.name ?? match.item.itemId }, pills: [{ key: 'itemName', style: 'target' }] });
+                        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     }
                 }
                 catch (_error) {
@@ -289,7 +291,8 @@ export class WorldRuntimeAutoCombatService {
             if (player.combat.autoBattle && instance.isSafeZoneTile(player.x, player.y)) {
                 this.playerRuntimeService.updateCombatSettings(playerId, { autoBattle: false }, currentTick);
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
-                deps.queuePlayerNotice(playerId, '安全区内无法发起攻击，自动战斗已停止。', 'warn');
+                const safeNotice = buildStructuredNotice('warn', 'notice.combat.safe-zone-stop', '安全区内无法发起攻击，自动战斗已停止。', {});
+                deps.queuePlayerNotice(playerId, safeNotice.text, safeNotice.kind, undefined, undefined, safeNotice.structured);
                 continue;
             }
             const command = this.buildAutoCombatCommand(instance, player, deps);

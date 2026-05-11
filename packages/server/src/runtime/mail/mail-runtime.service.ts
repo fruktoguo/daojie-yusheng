@@ -1,3 +1,8 @@
+/**
+ * 邮件运行时服务。
+ * 负责系统信件发送、附件领取、直接邮件和邮箱缓存管理，
+ * 所有写操作按玩家串行化执行并持久化到数据库。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { buildMailPreviewSnippet, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';

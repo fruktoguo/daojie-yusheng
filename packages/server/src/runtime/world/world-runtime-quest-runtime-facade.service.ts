@@ -1,6 +1,8 @@
+/**
+ * 任务运行时门面服务
+ * 统一封装任务状态刷新、NPC 访问和自动接续的调用入口
+ */
 import { Injectable } from '@nestjs/common';
-
-/** world-runtime quest-runtime facade：承接 quest state 与 NPC access 运行时 facade。 */
 @Injectable()
 export class WorldRuntimeQuestRuntimeFacadeService {
 /**

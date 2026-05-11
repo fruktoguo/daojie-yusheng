@@ -1,3 +1,8 @@
+/**
+ * 投影器比较工具。
+ * 提供各类投影实体（玩家、怪物、NPC、容器等）的深度相等比较函数，用于 diff 判断。
+ */
+
 import type {
   Attributes,
   BuffSustainCostDef,
@@ -35,6 +40,7 @@ import {
   type ProjectedGroundPileEntry,
 } from './projector-types';
 
+/** 深度比较两个物品栈是否完全相同（所有可见字段）。 */
 export function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemStack | null | undefined) {
     if (left === right) {
         return true;

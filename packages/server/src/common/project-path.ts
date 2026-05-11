@@ -1,3 +1,7 @@
+/**
+ * 项目路径解析工具：自动探测仓库根目录（支持 SERVER_PACKAGE_ROOT 覆盖、
+ * cwd 和编译产物反推），提供 resolveProjectPath 供服务端各组件统一引用资源。
+ */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -13,8 +17,6 @@ const REPO_ROOT_CANDIDATES = [
 
 /** 在当前工作目录与编译产物反推项目根目录，服务端组件通用依赖该路径。 */
 function resolveRepoRoot(): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   for (const candidate of REPO_ROOT_CANDIDATES) {
     if (fs.existsSync(path.join(candidate, 'packages'))) {
       return candidate;

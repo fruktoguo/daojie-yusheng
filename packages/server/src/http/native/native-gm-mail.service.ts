@@ -1,83 +1,50 @@
+/**
+ * GM 邮件服务。
+ * 提供定向邮件和广播邮件发送能力，广播时合并运行时在线玩家和持久化离线玩家，
+ * 排除 GM 机器人。
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NATIVE_GM_MAIL_RECIPIENT_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
-/**
- * PlayerSnapshotLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** 玩家快照最小接口。 */
 interface PlayerSnapshotLike {
-/**
- * playerId：玩家ID标识。
- */
-
   playerId: string;
 }
-/**
- * MailRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 邮件运行时服务端口。 */
 interface MailRuntimeServiceLike {
   createDirectMail(playerId: string, input: unknown): Promise<string>;
 }
-/**
- * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 玩家持久化服务端口。 */
 interface PlayerDomainPersistenceServiceLike {
   listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PlayerSnapshotLike[]>;
 }
-/**
- * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 玩家运行时服务端口。 */
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): PlayerSnapshotLike[];
   buildStarterPersistenceSnapshot(playerId: string): any | null;
 }
-/**
- * NativeGmMailService：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** GM 邮件服务：定向邮件和广播邮件发送，排除 GM 机器人。 */
 @Injectable()
 export class NativeGmMailService {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
- * @param playerDomainPersistenceService PlayerDomainPersistenceServiceLike 参数说明。
- * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
   constructor(
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeServiceLike,
     @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeServiceLike,
-  ) {}  
-  /**
- * createDirectMail：构建并返回目标对象。
- * @param playerId string 玩家 ID。
- * @param input unknown 输入参数。
- * @returns 无返回值，直接更新Direct邮件相关状态。
- */
+  ) {}
 
-
+  /** 向指定玩家发送定向邮件。 */
   async createDirectMail(playerId: string, input?: unknown) {
     return this.mailRuntimeService.createDirectMail(playerId, input ?? {});
-  }  
-  /**
- * collectBroadcastRecipientPlayerIds：执行BroadcastRecipient玩家ID相关逻辑。
- * @returns 返回 Promise，完成后得到BroadcastRecipient玩家ID。
- */
+  }
 
-
+  /** 收集广播邮件收件人：运行时在线 + 持久化离线，排除机器人。 */
   async collectBroadcastRecipientPlayerIds(): Promise<string[]> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -103,13 +70,7 @@ export class NativeGmMailService {
 
     return Array.from(deliveredPlayerIds);
   }  
-  /**
- * createBroadcastMail：构建并返回目标对象。
- * @param input unknown 输入参数。
- * @returns 无返回值，直接更新Broadcast邮件相关状态。
- */
-
-
+  /** 向所有非机器人玩家广播邮件，支持指定范围。 */
   async createBroadcastMail(input?: unknown) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

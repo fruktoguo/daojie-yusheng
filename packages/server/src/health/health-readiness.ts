@@ -1,318 +1,95 @@
+/**
+ * 健康就绪检测核心逻辑：汇总数据库、持久化服务、运行时和维护态，
+ * 输出统一的 readiness 响应体。供 HealthController 和内部网关使用。
+ */
 import { resolveServerDatabaseEnvSource } from '../config/env-alias';
-/**
- * PersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 持久化服务最小接口，用于 readiness 检测 */
 interface PersistenceServiceLike {
-/**
- * enabled：启用开关或状态标识。
- */
-
-  enabled?: boolean;  
-  /**
- * pool：缓存或索引容器。
- */
-
+  /** 服务是否已完成初始化 */
+  enabled?: boolean;
+  /** 数据库连接池引用（非 null 表示连接可用） */
   pool?: unknown;
 }
-/**
- * RuntimeSummaryLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 运行时摘要最小接口 */
 interface RuntimeSummaryLike {
-/**
- * tick：tick相关字段。
- */
-
-  tick?: number;  
-  /**
- * instanceCount：数量或计量字段。
- */
-
-  instanceCount?: number;  
-  /**
- * leaseDegradedInstanceCount：本节点 lease 降级实例数。
- */
-
-  leaseDegradedInstanceCount?: number;  
-  /**
- * fencedInstanceCount：已 fencing 实例数。
- */
-
-  fencedInstanceCount?: number;  
-  /**
- * playerCount：数量或计量字段。
- */
-
-  playerCount?: number;  
-  /**
- * pendingCommandCount：数量或计量字段。
- */
-
+  tick?: number;
+  instanceCount?: number;
+  leaseDegradedInstanceCount?: number;
+  fencedInstanceCount?: number;
+  playerCount?: number;
   pendingCommandCount?: number;
 }
-/**
- * RuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 世界运行时服务最小接口 */
 interface RuntimeServiceLike {
-/**
- * getRuntimeSummary：get运行态摘要状态或数据块。
- */
-
   getRuntimeSummary?: () => RuntimeSummaryLike;
 }
-/**
- * MaintenanceStateServiceLike：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 维护态服务最小接口 */
 interface MaintenanceStateServiceLike {
-/**
- * isRuntimeMaintenanceActive：启用开关或状态标识。
- */
-
   isRuntimeMaintenanceActive?: () => boolean;
 }
-/**
- * HealthReadinessDependencies：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** readiness 检测所需的全部依赖注入 */
 export interface HealthReadinessDependencies {
-/**
- * playerPersistenceService：玩家Persistence服务引用。
- */
-
-  playerPersistenceService?: PersistenceServiceLike | null;  
-  /**
- * mailPersistenceService：邮件Persistence服务引用。
- */
-
-  mailPersistenceService?: PersistenceServiceLike | null;  
-  /**
- * marketPersistenceService：坊市Persistence服务引用。
- */
-
-  marketPersistenceService?: PersistenceServiceLike | null;  
-  /**
- * suggestionPersistenceService：suggestionPersistence服务引用。
- */
-
-  suggestionPersistenceService?: PersistenceServiceLike | null;  
-  /**
- * maintenanceStateService：maintenance状态服务引用。
- */
-
-  maintenanceStateService?: MaintenanceStateServiceLike | null;  
-  /**
- * worldRuntimeService：世界运行态服务引用。
- */
-
+  playerPersistenceService?: PersistenceServiceLike | null;
+  mailPersistenceService?: PersistenceServiceLike | null;
+  marketPersistenceService?: PersistenceServiceLike | null;
+  suggestionPersistenceService?: PersistenceServiceLike | null;
+  maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
 }
-/**
- * PersistenceReadiness：定义接口结构约束，明确可交付字段含义。
- */
-
-
+/** 单个持久化服务的就绪状态 */
 interface PersistenceReadiness {
-/**
- * enabled：启用开关或状态标识。
- */
-
-  enabled: boolean;  
-  /**
- * reason：reason相关字段。
- */
-
+  enabled: boolean;
   reason: string;
 }
-/**
- * RuntimeReadiness：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 运行时就绪状态及关键指标 */
 interface RuntimeReadiness {
-/**
- * ready：ready相关字段。
- */
-
-  ready: boolean;  
-  /**
- * reason：reason相关字段。
- */
-
-  reason: string;  
-  /**
- * tick：tick相关字段。
- */
-
-  tick: number;  
-  /**
- * instanceCount：数量或计量字段。
- */
-
-  instanceCount: number;  
-  /**
- * leaseDegradedInstanceCount：本节点 lease 降级实例数。
- */
-
-  leaseDegradedInstanceCount: number;  
-  /**
- * fencedInstanceCount：已 fencing 实例数。
- */
-
-  fencedInstanceCount: number;  
-  /**
- * playerCount：数量或计量字段。
- */
-
-  playerCount: number;  
-  /**
- * pendingCommandCount：数量或计量字段。
- */
-
+  ready: boolean;
+  reason: string;
+  tick: number;
+  instanceCount: number;
+  leaseDegradedInstanceCount: number;
+  fencedInstanceCount: number;
+  playerCount: number;
   pendingCommandCount: number;
 }
-/**
- * HealthResponse：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 完整健康检查响应体 */
 interface HealthResponse {
-/**
- * ok：ok相关字段。
- */
-
-  ok: boolean;  
-  /**
- * service：服务引用。
- */
-
-  service: string;  
-  /**
- * alive：alive相关字段。
- */
-
-  alive: {  
-  /**
- * ok：ok相关字段。
- */
-
-    ok: boolean;    
-    /**
- * service：服务引用。
- */
-
+  ok: boolean;
+  service: string;
+  alive: {
+    ok: boolean;
     service: string;
-  };  
-  /**
- * readiness：readiness相关字段。
- */
-
-  readiness: {  
-  /**
- * ok：ok相关字段。
- */
-
-    ok: boolean;    
-    /**
- * maintenance：maintenance相关字段。
- */
-
-    maintenance: {    
-    /**
- * active：启用开关或状态标识。
- */
-
-      active: boolean;      
-      /**
- * source：来源相关字段。
- */
-
-      source: string | null;      
-      /**
- * reason：reason相关字段。
- */
-
-      reason: string;
-    };    
-    /**
- * database：database相关字段。
- */
-
-    database: {    
-    /**
- * configured：configured相关字段。
- */
-
-      configured: boolean;      
-      /**
- * source：来源相关字段。
- */
-
+  };
+  readiness: {
+    ok: boolean;
+    maintenance: {
+      active: boolean;
       source: string | null;
-    };    
-    /**
- * persistence：persistence相关字段。
- */
-
-    persistence: {    
-    /**
- * player：玩家引用。
- */
-
-      player: PersistenceReadiness;      
-      /**
- * mail：邮件相关字段。
- */
-
-      mail: PersistenceReadiness;      
-      /**
- * market：坊市相关字段。
- */
-
-      market: PersistenceReadiness;      
-      /**
- * suggestion：suggestion相关字段。
- */
-
+      reason: string;
+    };
+    database: {
+      configured: boolean;
+      source: string | null;
+    };
+    persistence: {
+      player: PersistenceReadiness;
+      mail: PersistenceReadiness;
+      market: PersistenceReadiness;
       suggestion: PersistenceReadiness;
-    };    
-    /**
- * auth：认证相关字段。
- */
-
-    auth: {    
-    /**
- * ready：ready相关字段。
- */
-
-      ready: boolean;      
-      /**
- * mode：mode相关字段。
- */
-
-      mode: 'native_only';      
-      /**
- * source：来源相关字段。
- */
-
-      source: null;      
-      /**
- * reason：reason相关字段。
- */
-
+    };
+    auth: {
+      ready: boolean;
+      mode: 'native_only';
+      source: null;
       reason: 'native_auth_only';
-    };    
-    /**
- * runtime：运行态引用。
- */
-
+    };
     runtime: RuntimeReadiness;
   };
 }
@@ -358,7 +135,6 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
 
 /** 解析维护态来源与开关，决定 readiness 是否受运行时维护影响。 */
 function resolveMaintenanceReadiness(service?: MaintenanceStateServiceLike | null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!service || typeof service.isRuntimeMaintenanceActive !== 'function') {
     return {
@@ -395,7 +171,6 @@ function resolvePersistenceReadiness(
   databaseConfigured: boolean,
   service?: PersistenceServiceLike | null,
 ): PersistenceReadiness {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!databaseConfigured) {
     return {
@@ -434,7 +209,6 @@ function resolveAuthReadiness() {
 
 /** 读取 world runtime 运行摘要并汇总 readiness 的运行指标。 */
 function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeReadiness {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!service) {
     return {
@@ -499,7 +273,6 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
 
 /** 将运行时上报值转为非负整数，避免 NaN/负数污染 readiness。 */
 function readNonNegativeInt(value: number | undefined): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0;

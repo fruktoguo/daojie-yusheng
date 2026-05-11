@@ -1,4 +1,9 @@
 /**
+ * Tick 帧阶段类型定义
+ * 显式枚举 advanceFrame 内各域推进顺序，用于调试、文档和阶段性能追踪
+ */
+
+/**
  * WorldRuntime Tick Phase 定义
  *
  * advanceFrame 内各域推进顺序的显式枚举。

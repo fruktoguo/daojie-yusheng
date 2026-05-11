@@ -1,69 +1,34 @@
+/**
+ * 玩家账号管理 HTTP 控制器。
+ * 提供已登录玩家修改密码、显示名和角色名的端点，
+ * 所有操作需要有效的 Bearer access token。
+ */
 import { Body, Controller, Headers, Post } from '@nestjs/common';
 
 import { NativePlayerAuthService } from './native-player-auth.service';
-/**
- * PasswordBody：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 修改密码请求体。 */
 interface PasswordBody {
-/**
- * currentPassword：currentPassword相关字段。
- */
-
-  currentPassword?: unknown;  
-  /**
- * newPassword：newPassword相关字段。
- */
-
+  currentPassword?: unknown;
   newPassword?: unknown;
 }
-/**
- * DisplayNameBody：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 修改显示名请求体。 */
 interface DisplayNameBody {
-/**
- * displayName：显示名称名称或显示文本。
- */
-
   displayName?: unknown;
 }
-/**
- * RoleNameBody：定义接口结构约束，明确可交付字段含义。
- */
 
-
+/** 修改角色名请求体。 */
 interface RoleNameBody {
-/**
- * roleName：role名称名称或显示文本。
- */
-
   roleName?: unknown;
 }
-/**
- * NativeAccountController：封装该能力的入口与生命周期，承载运行时核心协作。
- */
 
-
+/** 已登录玩家账号自助管理控制器：密码、显示名、角色名修改。 */
 @Controller('api/account')
 export class NativeAccountController {
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param authService NativePlayerAuthService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+  constructor(private readonly authService: NativePlayerAuthService) {}
 
-  constructor(private readonly authService: NativePlayerAuthService) {}  
-  /**
- * updatePassword：处理Password并更新相关状态。
- * @param authorization string 参数说明。
- * @param body PasswordBody 参数说明。
- * @returns 无返回值，直接更新Password相关状态。
- */
-
-
+  /** 修改当前账号密码，需提供旧密码验证。 */
   @Post('password')
   async updatePassword(@Headers('authorization') authorization: string, @Body() body: PasswordBody) {
     return this.authService.updatePassword(
@@ -71,49 +36,27 @@ export class NativeAccountController {
       pickString(body?.currentPassword),
       pickString(body?.newPassword),
     );
-  }  
-  /**
- * updateDisplayName：判断显示名称是否满足条件。
- * @param authorization string 参数说明。
- * @param body DisplayNameBody 参数说明。
- * @returns 无返回值，直接更新显示名称相关状态。
- */
+  }
 
-
+  /** 修改当前账号显示名。 */
   @Post('display-name')
   async updateDisplayName(@Headers('authorization') authorization: string, @Body() body: DisplayNameBody) {
     return this.authService.updateDisplayName(extractBearerToken(authorization), pickString(body?.displayName));
-  }  
-  /**
- * updateRoleName：处理Role名称并更新相关状态。
- * @param authorization string 参数说明。
- * @param body RoleNameBody 参数说明。
- * @returns 无返回值，直接更新Role名称相关状态。
- */
+  }
 
-
+  /** 修改当前账号角色名。 */
   @Post('role-name')
   async updateRoleName(@Headers('authorization') authorization: string, @Body() body: RoleNameBody) {
     return this.authService.updateRoleName(extractBearerToken(authorization), pickString(body?.roleName));
   }
 }
-/**
- * pickString：执行pickString相关逻辑。
- * @param value unknown 参数说明。
- * @returns 无返回值，直接更新pickString相关状态。
- */
 
-
+/** 仅接受字符串入参，避免把对象或数字直接传给服务层。 */
 function pickString(value: unknown) {
   return typeof value === 'string' ? value : '';
 }
-/**
- * extractBearerToken：执行extractBearerToken相关逻辑。
- * @param authorization string 参数说明。
- * @returns 无返回值，直接更新extractBearerToken相关状态。
- */
 
-
+/** 从 Authorization 头提取 Bearer token。 */
 function extractBearerToken(authorization: string) {
   const normalizedAuthorization = typeof authorization === 'string' ? authorization.trim() : '';
   return normalizedAuthorization.startsWith('Bearer ')

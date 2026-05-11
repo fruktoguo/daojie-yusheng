@@ -1,3 +1,8 @@
+/**
+ * GM 主控制器。
+ * 提供世界状态查询、玩家管理、地图实例操作、邮件、兑换码、建议系统、
+ * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
+ */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 

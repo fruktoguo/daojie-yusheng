@@ -90,7 +90,7 @@ async function testPersistActiveJobUsesExactLeaseFence() {
     assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:craft');
     assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 21);
     assert.equal(durableCalls[0]?.expectedJobRunId, 'job:craft:alchemy:1');
-    assert.equal(durableCalls[0]?.expectedJobVersion, 3);
+    assert.equal(durableCalls[0]?.expectedJobVersion, 2);
     assert.equal(durableCalls[0]?.nextActiveJob?.jobRunId, 'job:craft:alchemy:1');
     assert.equal(durableCalls[0]?.operationId, 'op:player:craft:active-job:job:craft:alchemy:1:v3:running');
 

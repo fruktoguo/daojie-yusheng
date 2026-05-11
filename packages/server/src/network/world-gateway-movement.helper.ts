@@ -1,3 +1,8 @@
+/**
+ * 世界网关移动 helper。
+ * 收敛 moveTo、方向移动和任务导航等移动相关入口。
+ */
+
 import { logServerNextMovement } from '../debug/movement-debug';
 
 /** 世界 socket 移动/导航 helper：只收敛移动相关入口。 */

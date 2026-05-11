@@ -1,3 +1,8 @@
+/**
+ * PostgreSQL 备份/恢复工具函数。
+ * 封装 pg_dump/pg_restore 的调用、备份文件 SHA-256 校验和格式检测，
+ * 供 GM 管理服务使用。
+ */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream, promises as fsPromises } from 'node:fs';

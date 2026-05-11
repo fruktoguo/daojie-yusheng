@@ -1,3 +1,8 @@
+/**
+ * 战斗审计 Outbox 服务。
+ * 将战斗事件入队并异步批量写入 outbox_event + asset_audit_log 表，
+ * 支持按玩家/实例/目标/时间范围查询审计记录。
+ */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Pool } from 'pg';
@@ -23,6 +28,7 @@ const COMBAT_AUDIT_ACTIONS = new Set([
   'exp_gain',
 ]);
 
+/** 战斗审计 Outbox 服务：内存队列 + 异步批量落库 */
 @Injectable()
 export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CombatAuditOutboxService.name);

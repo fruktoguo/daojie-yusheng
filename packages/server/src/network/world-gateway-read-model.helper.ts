@@ -1,3 +1,8 @@
+/**
+ * 世界网关读模型 helper。
+ * 收敛属性详情、排行榜、世界摘要、实体详情和地块详情等只读请求入口。
+ */
+
 import { S2C, cloneNumericRatioDivisors, cloneNumericStats } from '@mud/shared';
 import { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } from './world-gateway-attr-detail.helper';
 

@@ -1,3 +1,8 @@
+/**
+ * Bootstrap 会话绑定服务。
+ * 负责 authenticated bootstrap 前置校验、requestedSessionId 裁定与 session 注册绑定。
+ */
+
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import {

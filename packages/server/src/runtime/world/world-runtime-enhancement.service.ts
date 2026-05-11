@@ -1,9 +1,13 @@
+/**
+ * 强化系统写路径服务
+ * 处理装备强化启动、材料消耗、成功/失败结算和面板刷新
+ */
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
 
-/** world-runtime enhancement orchestration：承接强化写路径与面板刷新。 */
+/** 强化写路径：启动强化、材料校验、结果结算和面板刷新 */
 @Injectable()
 export class WorldRuntimeEnhancementService {
 /**
@@ -21,6 +25,8 @@ export class WorldRuntimeEnhancementService {
  */
 
     worldRuntimeCraftMutationService;    
+    /** 正在提交 durable 强化启动的玩家，避免同一 active_job 并发启动造成 CAS 自撞。 */
+    activeStartPlayerIds = new Set();
     /** 正在提交 durable 强化 tick 的玩家，避免同一 active_job 并发推进造成 CAS 自撞。 */
     activeTickPlayerIds = new Set();
     /**
@@ -60,12 +66,19 @@ export class WorldRuntimeEnhancementService {
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
-            const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload);
+            const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload, deps);
             if (!result.ok) {
                 throw new BadRequestException(result.error ?? '启动强化失败');
             }
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
             return;
+        }
+        const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+        if (normalizedPlayerId && this.activeStartPlayerIds.has(normalizedPlayerId)) {
+            return;
+        }
+        if (normalizedPlayerId) {
+            this.activeStartPlayerIds.add(normalizedPlayerId);
         }
         try {
             await this.dispatchStartEnhancementDurably(playerId, player, payload, deps, durableOperationService, runtimeOwnerId, sessionEpoch);
@@ -73,6 +86,10 @@ export class WorldRuntimeEnhancementService {
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps.queuePlayerNotice(playerId, message, 'warn');
+        } finally {
+            if (normalizedPlayerId) {
+                this.activeStartPlayerIds.delete(normalizedPlayerId);
+            }
         }
     }    
     /**
@@ -89,30 +106,54 @@ export class WorldRuntimeEnhancementService {
 
     async dispatchStartEnhancementDurably(playerId, player, payload, deps, durableOperationService, runtimeOwnerId, sessionEpoch) {
         const rollbackState = captureEnhancementRollbackState(player);
+        const activeJobBeforeStart = resolveActiveJobSnapshotFromRollbackState(rollbackState);
+        let activeJobPersistedDurably = false;
         player.suppressImmediateDomainPersistence = true;
         let result;
         try {
-            result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload);
+            result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload, deps);
             if (!result.ok) {
                 restoreEnhancementRollbackState(player, rollbackState, this.playerRuntimeService);
                 throw new BadRequestException(result.error ?? '启动强化失败');
             }
-            const nextActiveJob = buildNextEnhancementActiveJobSnapshot(player);
-            const nextInventoryItems = cloneInventoryItems(player.inventory?.items ?? []);
-            const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
-            await durableOperationService.startActiveJobWithAssets({
-                operationId: buildStartEnhancementOperationId(playerId, nextActiveJob),
-                playerId,
-                expectedRuntimeOwnerId: runtimeOwnerId,
-                expectedSessionEpoch: sessionEpoch,
-                expectedInstanceId: player.instanceId ?? null,
-                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                nextInventoryItems,
-                nextWalletBalances: cloneWalletBalances(player.wallet?.balances ?? []),
-                nextActiveJob,
-                nextEnhancementRecords: cloneEnhancementRecords(player.enhancementRecords ?? []),
-            });
+            if (hasNewEnhancementActiveJob(rollbackState, player)) {
+                const nextActiveJob = buildNextEnhancementActiveJobSnapshot(player);
+                const nextInventoryItems = cloneInventoryItems(player.inventory?.items ?? []);
+                const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
+                await durableOperationService.startActiveJobWithAssets({
+                    operationId: buildStartEnhancementOperationId(playerId, nextActiveJob),
+                    playerId,
+                    expectedRuntimeOwnerId: runtimeOwnerId,
+                    expectedSessionEpoch: sessionEpoch,
+                    expectedInstanceId: player.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    nextInventoryItems,
+                    nextWalletBalances: cloneWalletBalances(player.wallet?.balances ?? []),
+                    nextActiveJob,
+                    nextEnhancementRecords: cloneEnhancementRecords(player.enhancementRecords ?? []),
+                });
+                activeJobPersistedDurably = true;
+            } else {
+                const nextActiveJob = resolveActiveJobSnapshot(player);
+                if (shouldPersistActiveJobUpdate(activeJobBeforeStart, nextActiveJob)) {
+                    const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
+                    await durableOperationService.updateActiveJobState({
+                        operationId: buildQueueEnhancementOperationId(playerId, activeJobBeforeStart, nextActiveJob),
+                        playerId,
+                        expectedRuntimeOwnerId: runtimeOwnerId,
+                        expectedSessionEpoch: sessionEpoch,
+                        expectedInstanceId: player.instanceId ?? null,
+                        expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                        expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                        action: 'update',
+                        expectedJobRunId: String(activeJobBeforeStart.jobRunId),
+                        expectedJobVersion: Math.max(1, Math.trunc(Number(activeJobBeforeStart.jobVersion ?? 1))),
+                        nextActiveJob,
+                    });
+                    activeJobPersistedDurably = true;
+                }
+            }
         } catch (error) {
             restoreEnhancementRollbackState(player, rollbackState, this.playerRuntimeService);
             throw error;
@@ -120,7 +161,7 @@ export class WorldRuntimeEnhancementService {
             player.suppressImmediateDomainPersistence = false;
         }
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps, {
-            skipActiveJobPersistence: true,
+            skipActiveJobPersistence: activeJobPersistedDurably,
         });
     }    
     /**
@@ -142,7 +183,7 @@ export class WorldRuntimeEnhancementService {
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
-            const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement');
+            const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement', deps);
             if (!result.ok) {
                 throw new BadRequestException(result.error ?? '取消强化失败');
             }
@@ -177,7 +218,7 @@ export class WorldRuntimeEnhancementService {
         player.suppressImmediateDomainPersistence = true;
         let result;
         try {
-            result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement');
+            result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement', deps);
             if (!result.ok) {
                 restoreEnhancementRollbackState(player, rollbackState, this.playerRuntimeService);
                 throw new BadRequestException(result.error ?? '取消强化失败');
@@ -222,19 +263,20 @@ export class WorldRuntimeEnhancementService {
     async tickEnhancementDurably(playerId, player, deps, durableOperationService, runtimeOwnerId, sessionEpoch) {
         const activeJobBeforeTick = player?.enhancementJob ? structuredClone(player.enhancementJob) : null;
         if (!activeJobBeforeTick?.jobRunId) {
-            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement'), 'enhancement', deps);
+            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement', deps), 'enhancement', deps);
             return;
         }
         const rollbackState = captureEnhancementRollbackState(player);
         player.suppressImmediateDomainPersistence = true;
         let result;
         try {
-            result = this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement');
+            result = this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement', deps);
             if (!result?.ok) {
                 this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
                 return;
             }
             const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
+            const nextActiveJobSnapshot = resolveActiveJobSnapshot(player);
             if (player?.enhancementJob) {
                 await durableOperationService.updateActiveJobState({
                     operationId: buildTickEnhancementOperationId(playerId, player.enhancementJob),
@@ -248,6 +290,24 @@ export class WorldRuntimeEnhancementService {
                     expectedJobRunId: String(activeJobBeforeTick.jobRunId),
                     expectedJobVersion: Math.max(1, Math.trunc(Number(activeJobBeforeTick.jobVersion ?? 1))),
                     nextActiveJob: buildNextEnhancementActiveJobSnapshot(player),
+                });
+            } else if (nextActiveJobSnapshot) {
+                const expectedJobVersion = resolveCompletedEnhancementJobVersion(activeJobBeforeTick);
+                await durableOperationService.completeActiveJobWithAssets({
+                    operationId: buildReplaceEnhancementOperationId(playerId, activeJobBeforeTick, nextActiveJobSnapshot, expectedJobVersion),
+                    playerId,
+                    expectedRuntimeOwnerId: runtimeOwnerId,
+                    expectedSessionEpoch: sessionEpoch,
+                    expectedInstanceId: player.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    expectedJobRunId: String(activeJobBeforeTick.jobRunId),
+                    expectedJobVersion,
+                    nextInventoryItems: cloneInventoryItems(player.inventory?.items ?? []),
+                    nextWalletBalances: cloneWalletBalances(player.wallet?.balances ?? []),
+                    nextEquipmentSlots: buildNextEnhancementEquipmentSlots(player),
+                    nextEnhancementRecords: cloneEnhancementRecords(player.enhancementRecords ?? []),
+                    nextActiveJob: nextActiveJobSnapshot,
                 });
             } else {
                 const expectedJobVersion = resolveCompletedEnhancementJobVersion(activeJobBeforeTick);
@@ -294,7 +354,7 @@ export class WorldRuntimeEnhancementService {
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
-            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement'), 'enhancement', deps);
+            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement', deps), 'enhancement', deps);
             return;
         }
         const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
@@ -355,6 +415,13 @@ function buildNextEnhancementActiveJobSnapshot(player) {
     if (!job?.jobRunId) {
         throw new Error('active_job_snapshot_missing_after_start_enhancement');
     }
+    return buildEnhancementActiveJobSnapshot(job);
+}
+
+function buildEnhancementActiveJobSnapshot(job) {
+    if (!job?.jobRunId) {
+        return null;
+    }
     return {
         jobRunId: String(job.jobRunId),
         jobType: 'enhancement',
@@ -369,7 +436,12 @@ function buildNextEnhancementActiveJobSnapshot(player) {
         speedRate: Number.isFinite(Number(job.totalSpeedRate ?? job.speedRate)) ? Number(job.totalSpeedRate ?? job.speedRate) : 0,
         jobVersion: Math.max(1, Math.trunc(Number(job.jobVersion ?? 1))),
         detailJson: {
+            ...job,
+            jobRunId: String(job.jobRunId),
+            jobType: 'enhancement',
+            jobVersion: Math.max(1, Math.trunc(Number(job.jobVersion ?? 1))),
             target: job.target ? structuredClone(job.target) : null,
+            item: job.item ? structuredClone(job.item) : null,
             targetItemId: typeof job.targetItemId === 'string' ? job.targetItemId : '',
             targetItemName: typeof job.targetItemName === 'string' ? job.targetItemName : '',
             targetItemLevel: Math.max(1, Math.trunc(Number(job.targetItemLevel ?? 1))),
@@ -389,6 +461,75 @@ function buildNextEnhancementActiveJobSnapshot(player) {
     };
 }
 
+function resolveActiveJobSnapshot(player) {
+    if (player?.enhancementJob) {
+        return buildEnhancementActiveJobSnapshot(player.enhancementJob);
+    }
+    if (player?.forgingJob) {
+        return buildAlchemyLikeActiveJobSnapshot(player.forgingJob, 'forging');
+    }
+    if (player?.alchemyJob) {
+        return buildAlchemyLikeActiveJobSnapshot(player.alchemyJob, player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
+    }
+    return null;
+}
+
+function resolveActiveJobSnapshotFromRollbackState(rollbackState) {
+    if (rollbackState?.enhancementJob) {
+        return buildEnhancementActiveJobSnapshot(rollbackState.enhancementJob);
+    }
+    if (rollbackState?.forgingJob) {
+        return buildAlchemyLikeActiveJobSnapshot(rollbackState.forgingJob, 'forging');
+    }
+    if (rollbackState?.alchemyJob) {
+        return buildAlchemyLikeActiveJobSnapshot(rollbackState.alchemyJob, rollbackState.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
+    }
+    return null;
+}
+
+function buildAlchemyLikeActiveJobSnapshot(job, jobType) {
+    if (!job?.jobRunId) {
+        return null;
+    }
+    const normalizedJobType = jobType === 'forging' ? 'forging' : 'alchemy';
+    return {
+        jobRunId: String(job.jobRunId),
+        jobType: normalizedJobType,
+        status: job.phase === 'paused' ? 'paused' : 'running',
+        phase: typeof job.phase === 'string' && job.phase.trim() ? job.phase.trim() : 'preparing',
+        startedAt: Math.max(0, Math.trunc(Number(job.startedAt ?? Date.now()))),
+        finishedAt: Number.isFinite(Number(job.finishedAt)) ? Math.max(0, Math.trunc(Number(job.finishedAt))) : null,
+        pausedTicks: Math.max(0, Math.trunc(Number(job.pausedTicks ?? 0))),
+        totalTicks: Math.max(0, Math.trunc(Number(job.totalTicks ?? 0))),
+        remainingTicks: Math.max(0, Math.trunc(Number(job.remainingTicks ?? 0))),
+        successRate: Number.isFinite(Number(job.successRate)) ? Number(job.successRate) : 0,
+        speedRate: Number.isFinite(Number(job.speedRate ?? job.totalSpeedRate)) ? Number(job.speedRate ?? job.totalSpeedRate) : 0,
+        jobVersion: Math.max(1, Math.trunc(Number(job.jobVersion ?? 1))),
+        detailJson: {
+            ...job,
+            jobRunId: String(job.jobRunId),
+            jobType: normalizedJobType,
+            jobVersion: Math.max(1, Math.trunc(Number(job.jobVersion ?? 1))),
+        },
+    };
+}
+
+function hasNewEnhancementActiveJob(rollbackState, player) {
+    const before = rollbackState.enhancementJob ? structuredClone(rollbackState.enhancementJob) : null;
+    const after = player?.enhancementJob ?? null;
+    return Boolean(after?.jobRunId && before?.jobRunId !== after.jobRunId);
+}
+
+function shouldPersistActiveJobUpdate(before, after) {
+    if (!before?.jobRunId || !after?.jobRunId) {
+        return false;
+    }
+    if (before.jobRunId !== after.jobRunId) {
+        return false;
+    }
+    return Math.max(1, Math.trunc(Number(before.jobVersion ?? 1))) !== Math.max(1, Math.trunc(Number(after.jobVersion ?? 1)));
+}
+
 function captureEnhancementRollbackState(player) {
     return {
         inventoryItems: cloneInventoryItems(player.inventory?.items ?? []),
@@ -396,6 +537,8 @@ function captureEnhancementRollbackState(player) {
         equipmentSlots: buildNextEnhancementEquipmentSlots(player),
         equipmentRevision: Math.max(0, Math.trunc(Number(player.equipment?.revision ?? 0))),
         walletBalances: cloneWalletBalances(player.wallet?.balances ?? []),
+        alchemyJob: player?.alchemyJob ? structuredClone(player.alchemyJob) : null,
+        forgingJob: player?.forgingJob ? structuredClone(player.forgingJob) : null,
         enhancementJob: player?.enhancementJob ? structuredClone(player.enhancementJob) : null,
         enhancementRecords: Array.isArray(player?.enhancementRecords) ? structuredClone(player.enhancementRecords) : [],
         enhancementSkill: player?.enhancementSkill ? structuredClone(player.enhancementSkill) : null,
@@ -425,6 +568,8 @@ function restoreEnhancementRollbackState(player, rollbackState, playerRuntimeSer
             balances: cloneWalletBalances(rollbackState.walletBalances),
         };
     }
+    player.alchemyJob = rollbackState.alchemyJob ? structuredClone(rollbackState.alchemyJob) : null;
+    player.forgingJob = rollbackState.forgingJob ? structuredClone(rollbackState.forgingJob) : null;
     player.enhancementJob = rollbackState.enhancementJob ? structuredClone(rollbackState.enhancementJob) : null;
     player.enhancementRecords = Array.isArray(rollbackState.enhancementRecords)
         ? structuredClone(rollbackState.enhancementRecords)
@@ -476,6 +621,17 @@ function buildTickEnhancementOperationId(playerId, activeJob) {
     return `op:${normalizedPlayerId}:enhancement-update:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
 }
 
+function buildQueueEnhancementOperationId(playerId, previousActiveJob, nextActiveJob) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+    const normalizedJobRunId = typeof nextActiveJob?.jobRunId === 'string' && nextActiveJob.jobRunId.trim()
+        ? nextActiveJob.jobRunId.trim()
+        : typeof previousActiveJob?.jobRunId === 'string' && previousActiveJob.jobRunId.trim()
+            ? previousActiveJob.jobRunId.trim()
+            : 'active-job';
+    const normalizedJobVersion = Math.max(1, Math.trunc(Number(nextActiveJob?.jobVersion ?? previousActiveJob?.jobVersion ?? 1)));
+    return `op:${normalizedPlayerId}:enhancement-queue:${normalizedJobRunId}:v${normalizedJobVersion}`;
+}
+
 function buildCompleteEnhancementOperationId(playerId, activeJob, expectedJobVersion) {
     const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
     const normalizedJobRunId = typeof activeJob?.jobRunId === 'string' && activeJob.jobRunId.trim()
@@ -486,6 +642,18 @@ function buildCompleteEnhancementOperationId(playerId, activeJob, expectedJobVer
         ? activeJob.phase.trim()
         : 'complete';
     return `op:${normalizedPlayerId}:enhancement-complete:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
+}
+
+function buildReplaceEnhancementOperationId(playerId, completedJob, nextActiveJob, expectedJobVersion) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+    const completedJobRunId = typeof completedJob?.jobRunId === 'string' && completedJob.jobRunId.trim()
+        ? completedJob.jobRunId.trim()
+        : 'completed-job';
+    const nextJobRunId = typeof nextActiveJob?.jobRunId === 'string' && nextActiveJob.jobRunId.trim()
+        ? nextActiveJob.jobRunId.trim()
+        : 'next-job';
+    const normalizedJobVersion = Math.max(1, Math.trunc(Number(expectedJobVersion ?? completedJob?.jobVersion ?? 1)));
+    return `op:${normalizedPlayerId}:enhancement-replace:${completedJobRunId}:v${normalizedJobVersion}:${nextJobRunId}`;
 }
 
 function resolveCompletedEnhancementJobVersion(activeJob) {

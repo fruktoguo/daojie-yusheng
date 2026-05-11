@@ -1,3 +1,7 @@
+/**
+ * 任务状态刷新与自动接续服务
+ * 负责刷新玩家任务进度、自动接取后续任务、校验奖励背包空间
+ */
 import { Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';

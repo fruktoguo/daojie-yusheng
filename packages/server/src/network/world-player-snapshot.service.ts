@@ -1,3 +1,9 @@
+/**
+ * 玩家快照服务。
+ * 负责从持久化层加载玩家快照、处理 native/legacy 来源优先级和 auth-trace 审计。
+ * 是 bootstrap 阶段快照真源的查询入口。
+ */
+
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
@@ -90,6 +96,7 @@ function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPer
     : null;
 }
 
+/** 玩家快照服务：从持久化层加载快照，处理 native/legacy 来源优先级和 starter 快照构建。 */
 @Injectable()
 export class WorldPlayerSnapshotService {
   private readonly logger = new Logger(WorldPlayerSnapshotService.name);

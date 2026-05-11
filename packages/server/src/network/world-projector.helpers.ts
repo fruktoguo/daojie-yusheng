@@ -1,3 +1,9 @@
+/**
+ * 世界投影器核心 helper。
+ * 负责将运行时 view 转换为协议 envelope（WorldDelta/SelfDelta/PanelDelta/MapEnter），
+ * 包含状态捕获、全量构造和增量 diff 逻辑。
+ */
+
 import {
   type AttrBonus,
   type Attributes,
@@ -244,6 +250,7 @@ function buildActionOrder(actions: ProjectedActionEntry[]): string[] {
     return actions.map((entry) => entry.id);
 }
 
+/** 构造 MapEnter 视图：玩家进入/切换地图时的首包地图元信息。 */
 function buildMapEnter(view: ProjectorViewLike): MapEnterView {
     return {
         iid: view.instance.instanceId,
@@ -257,6 +264,7 @@ function buildMapEnter(view: ProjectorViewLike): MapEnterView {
     };
 }
 
+/** 构造全量 WorldDelta：包含视野内所有玩家、怪物、NPC、容器、传送门等实体。 */
 function buildFullWorldDelta(
     view: ProjectorViewLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
@@ -372,6 +380,7 @@ function buildFullWorldDelta(
     };
 }
 
+/** 构造全量 SelfDelta：包含玩家自身的位置、HP、MP、经验等核心状态。 */
 function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
     return {
         sr: player.selfRevision,
@@ -388,6 +397,7 @@ function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
     };
 }
 
+/** 构造全量 PanelDelta：包含背包、装备、功法、属性、动作和 buff 面板完整状态。 */
 function buildFullPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: {
@@ -421,6 +431,7 @@ function buildFullPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     };
 }
 
+/** 构造 bootstrap 首包 PanelDelta：仅含 revision，不含完整列表，客户端按需拉取。 */
 function buildBootstrapPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: { r: player.inventory.revision },
@@ -432,6 +443,7 @@ function buildBootstrapPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     };
 }
 
+/** 捕获当前帧的世界状态快照，用于后续 diff 比较。 */
 function captureWorldState(
     view: ProjectorViewLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
@@ -486,6 +498,7 @@ function captureWorldState(
     };
 }
 
+/** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。 */
 function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
     return {
         selfRevision: player.selfRevision,

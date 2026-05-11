@@ -1,4 +1,9 @@
 
+/**
+ * 世界网关坊市 helper。
+ * 收敛坊市/拍卖行的浏览、挂单、购买、取消、领取和成交历史等入口。
+ */
+
 /** 世界 socket 坊市 helper：只收敛 market 相关入口。 */
 class WorldGatewayMarketHelper {
 /**

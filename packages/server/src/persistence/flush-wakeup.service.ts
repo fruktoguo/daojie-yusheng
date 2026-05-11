@@ -1,5 +1,10 @@
+/**
+ * 刷盘唤醒信号服务。
+ * 收集玩家和实例的 flush 唤醒提示，供调度器按需触发落库。
+ */
 import { Injectable, Logger } from '@nestjs/common';
 
+/** 刷盘唤醒信号收集器：记录需要落库的玩家/实例 ID */
 @Injectable()
 export class FlushWakeupService {
   private readonly logger = new Logger(FlushWakeupService.name);

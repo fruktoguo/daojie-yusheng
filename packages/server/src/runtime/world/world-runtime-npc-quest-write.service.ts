@@ -1,3 +1,7 @@
+/**
+ * NPC 任务写路径服务
+ * 处理任务交互推进、接取、提交三个直接写入动作
+ */
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';

@@ -1,3 +1,8 @@
+/**
+ * 玩家同步状态构造服务。
+ * 负责将运行时玩家对象转换为 bootstrap 首包所需的完整 self 状态快照。
+ */
+
 import { Injectable } from '@nestjs/common';
 import {
   EQUIP_SLOTS,

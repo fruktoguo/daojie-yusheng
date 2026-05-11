@@ -1,3 +1,7 @@
+/**
+ * 兑换码运行时调度服务
+ * 接收玩家兑换码请求，调用兑换码运行时执行并通过 socket 返回结果
+ */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Socket } from 'socket.io';
 

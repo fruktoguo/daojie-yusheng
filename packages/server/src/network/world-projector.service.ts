@@ -1,3 +1,8 @@
+/**
+ * 世界投影器服务。
+ * 维护每个玩家的投影状态缓存，编排初始/增量 envelope 的生成和玩家缓存清理。
+ */
+
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
@@ -37,6 +42,7 @@ type NativePlayerAuthStorePort = {
     } | null;
 };
 
+/** 世界投影器服务：维护每个玩家的投影缓存，编排初始/增量 envelope 生成。 */
 @Injectable()
 export class WorldProjectorService {
     private readonly cacheByPlayerId = new Map<string, any>();
@@ -63,6 +69,7 @@ export class WorldProjectorService {
             : normalizedMapId;
     }
 
+    /** 为新进入的玩家构造全量初始 envelope（initSession + mapEnter + worldDelta + selfDelta + panelDelta）。 */
     createInitialEnvelope(binding: any, view: any, player: any) {
         const identityView = this.withAccountIdentityProjection(view);
         this.cacheByPlayerId.set(binding.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
@@ -80,6 +87,7 @@ export class WorldProjectorService {
         };
     }
 
+    /** 为已在线玩家构造增量 envelope：对比前帧缓存，仅包含变化的 world/self/panel patch。 */
     createDeltaEnvelope(view: any, player: any) {
         const identityView = this.withAccountIdentityProjection(view);
         const previous = this.cacheByPlayerId.get(identityView.playerId);

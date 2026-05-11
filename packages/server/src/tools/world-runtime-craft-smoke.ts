@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 
 const { computeAlchemyAdjustedBrewTicks, computeCraftSkillExpGain } = require("@mud/shared");
 const { CraftPanelRuntimeService } = require("../runtime/craft/craft-panel-runtime.service");
+const { CraftPanelAlchemyQueryService } = require("../runtime/craft/craft-panel-alchemy-query.service");
+const { CraftPanelEnhancementQueryService } = require("../runtime/craft/craft-panel-enhancement-query.service");
 const { WorldRuntimeCraftInterruptService } = require("../runtime/world/world-runtime-craft-interrupt.service");
 const { WorldRuntimeCraftTickService } = require("../runtime/world/world-runtime-craft-tick.service");
 
@@ -26,6 +28,16 @@ function getTestRealmLevelEntry(level) {
         realmLv,
         expToNext: resolveTestRealmExpToNext(realmLv),
     };
+}
+
+function createCraftPanelRuntimeService(repository, playerRuntimeService = {}, playerDomainPersistenceService = {}) {
+    return new CraftPanelRuntimeService(
+        repository,
+        playerRuntimeService,
+        playerDomainPersistenceService,
+        new CraftPanelAlchemyQueryService(),
+        new CraftPanelEnhancementQueryService(repository),
+    );
 }
 /**
  * testInterruptCraftForReason：执行testInterrupt炼制ForReason相关逻辑。
@@ -144,7 +156,7 @@ function testAlchemyBatchTicksDoNotScaleWithFurnaceOutputCount() {
 }
 
 function testForgingStartsSingleOutputBatch() {
-    const service = new CraftPanelRuntimeService({
+    const service = createCraftPanelRuntimeService({
         getItemName() { return null; },
     }, {
         playerProgressionService: {
@@ -159,7 +171,7 @@ function testForgingStartsSingleOutputBatch() {
         isEnabled() {
             return false;
         },
-    }, {}, {
+    }, {
         canAffordWallet() {
             return true;
         },
@@ -180,6 +192,7 @@ function testForgingStartsSingleOutputBatch() {
         persistentRevision: 1,
         inventory: { revision: 1, capacity: 20, items: [] },
         alchemySkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        forgingSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         gatherSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         enhancementSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         enhancementSkillLevel: 1,
@@ -187,21 +200,26 @@ function testForgingStartsSingleOutputBatch() {
         enhancementRecords: [],
         enhancementJob: null,
         alchemyJob: null,
+        forgingJob: null,
     };
-    const result = service.startForging(player, {
+    const result = service.startTechniqueActivity(player, 'forging', {
         recipeId: 'forging.copper_tool',
         ingredients: [],
         quantity: 1,
     });
     assert.equal(result.ok, true);
-    assert.equal(player.alchemyJob?.jobType, 'forging');
-    assert.equal(player.alchemyJob?.outputCount, 1);
-    assert.equal(player.alchemyJob?.batchBrewTicks, 10);
-    assert.equal(player.alchemyJob?.totalTicks, 20);
+    assert.equal(player.alchemyJob, null);
+    assert.equal(player.forgingJob?.jobType, 'forging');
+    assert.equal(player.forgingJob?.outputCount, 1);
+    assert.equal(player.forgingJob?.batchBrewTicks, 10);
+    assert.equal(player.forgingJob?.totalTicks, 20);
+    const panelPayload = service.buildForgingPanelPayload(player);
+    assert.equal(panelPayload.state.job?.jobType, 'forging');
+    assert.equal(panelPayload.state.job?.jobRunId, player.forgingJob.jobRunId);
 }
 
 function testToolSlotsAreNoLongerLockedByCraftJobs() {
-    const service = new CraftPanelRuntimeService({
+    const service = createCraftPanelRuntimeService({
         getItemName() { return null; },
     }, {}, {}, {}, {});
     const alchemyPlayer = {
@@ -242,7 +260,7 @@ function testToolSlotsAreNoLongerLockedByCraftJobs() {
 async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
     const persistedActiveJobs = [];
     const dirtyDomains = [];
-    const service = new CraftPanelRuntimeService({
+    const service = createCraftPanelRuntimeService({
         getItemName(itemId) {
             return itemId === 'equip.copper_forging_tool' ? '铜炼器钳' : null;
         },
@@ -275,7 +293,7 @@ async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
         async savePlayerActiveJob(_playerId, activeJob) {
             persistedActiveJobs.push(activeJob ? { ...activeJob } : null);
         },
-    }, {}, {});
+    });
     service.forgingCatalog = [{
         recipeId: 'forging:copper_tool',
         outputItemId: 'equip.copper_forging_tool',
@@ -299,6 +317,11 @@ async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
             exp: 0,
             expToNext: resolveTestRealmExpToNext(1),
         },
+        forgingSkill: {
+            level: 1,
+            exp: 0,
+            expToNext: resolveTestRealmExpToNext(1),
+        },
         gatherSkill: {
             level: 1,
             exp: 0,
@@ -313,7 +336,8 @@ async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
         alchemyPresets: [],
         enhancementRecords: [],
         enhancementJob: null,
-        alchemyJob: {
+        alchemyJob: null,
+        forgingJob: {
             jobRunId: 'job:forging:final',
             jobType: 'forging',
             jobVersion: 5,
@@ -341,13 +365,14 @@ async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
             queuedJobs: [],
         },
     };
-    const result = service.tickAlchemy(player);
+    const result = service.tickTechniqueActivity(player, 'forging');
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(result.ok, true);
     assert.equal(player.alchemyJob, null);
+    assert.equal(player.forgingJob, null);
     assert.equal(player.inventory.items[0]?.itemId, 'equip.copper_forging_tool');
     assert.equal(player.inventory.items[0]?.count, 1);
-    assert.equal(player.alchemySkill.exp, 139);
+    assert.equal(player.forgingSkill.exp, 139);
     assert.deepEqual(persistedActiveJobs, [null]);
     assert.equal(dirtyDomains.some((domains) => domains.includes('active_job')), true);
     assert.equal(dirtyDomains.some((domains) => domains.includes('profession')), true);
@@ -355,7 +380,7 @@ async function testAlchemyLikeFinalTickOnlyPersistsClearedActiveJob() {
 
 async function testCompletedAlchemyLikeJobIsClearedOnEnsure() {
     const persistedActiveJobs = [];
-    const service = new CraftPanelRuntimeService({
+    const service = createCraftPanelRuntimeService({
         getItemName() { return null; },
         normalizeItem(item) { return item; },
     }, {
@@ -374,18 +399,20 @@ async function testCompletedAlchemyLikeJobIsClearedOnEnsure() {
         async savePlayerActiveJob(_playerId, activeJob) {
             persistedActiveJobs.push(activeJob ? { ...activeJob } : null);
         },
-    }, {}, {});
+    });
     const player = {
         playerId: 'player:stale-forging',
         persistentRevision: 1,
         alchemySkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
+        forgingSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         gatherSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         enhancementSkill: { level: 1, exp: 0, expToNext: resolveTestRealmExpToNext(1) },
         enhancementSkillLevel: 1,
         alchemyPresets: [],
         enhancementRecords: [],
         enhancementJob: null,
-        alchemyJob: {
+        alchemyJob: null,
+        forgingJob: {
             jobRunId: 'job:forging:stale',
             jobType: 'forging',
             recipeId: 'forging:copper_tool',
@@ -412,6 +439,7 @@ async function testCompletedAlchemyLikeJobIsClearedOnEnsure() {
     service.ensureCraftSkills(player);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(player.alchemyJob, null);
+    assert.equal(player.forgingJob, null);
     assert.deepEqual(persistedActiveJobs, [null]);
 }
 /**
@@ -457,6 +485,9 @@ async function testAdvanceCraftJobs() {
             }
             return [];
         },        
+        hasAnyActiveTechniqueActivity(player) {
+            return this.listActiveTechniqueActivityKinds(player).length > 0;
+        },
         /**
  * tickTechniqueActivity：统一推进技艺活动。
  * @param player 玩家对象。

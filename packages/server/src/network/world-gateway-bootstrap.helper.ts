@@ -1,3 +1,9 @@
+/**
+ * 世界网关 bootstrap helper。
+ * 处理 socket 连接建立后的鉴权协商、Hello 握手和 session bootstrap 编排入口。
+ * 区分主线鉴权、GM 鉴权和 legacy 协议拒绝等场景。
+ */
+
 import { S2C } from '@mud/shared';
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
@@ -382,6 +388,7 @@ class WorldGatewayBootstrapHelper {
  * @returns 无返回值，直接更新startConnectionBootstrap相关状态。
  */
 
+    /** 启动连接级 bootstrap：解析鉴权上下文后进入 authenticated bootstrap 流程。 */
     async startConnectionBootstrap(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -441,6 +448,7 @@ class WorldGatewayBootstrapHelper {
  * @returns 无返回值，直接更新Connection相关状态。
  */
 
+    /** 处理新 socket 连接：校验协议版本、服务就绪状态和鉴权 hint，通过后启动 bootstrap。 */
     async handleConnection(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -473,6 +481,7 @@ class WorldGatewayBootstrapHelper {
  * @returns 无返回值，直接更新Hello相关状态。
  */
 
+    /** 处理 Hello 握手：若 connect 阶段未完成 bootstrap，在此补偿执行。 */
     async handleHello(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
