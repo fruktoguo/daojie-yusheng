@@ -37,7 +37,9 @@ export type TechniqueActivityCommandKind =
   | 'startGather'
   | 'cancelGather'
   | 'startBuilding'
-  | 'cancelBuilding';
+  | 'cancelBuilding'
+  | 'startMining'
+  | 'cancelMining';
 
 export type TechniqueActivityRequestPanelErrorCode =
   | 'REQUEST_ALCHEMY_PANEL_FAILED'
@@ -48,14 +50,16 @@ export type TechniqueActivityStartErrorCode =
   | 'START_FORGING_FAILED'
   | 'START_ENHANCEMENT_FAILED'
   | 'START_GATHER_FAILED'
-  | 'START_BUILDING_FAILED';
+  | 'START_BUILDING_FAILED'
+  | 'START_MINING_FAILED';
 
 export type TechniqueActivityCancelErrorCode =
   | 'CANCEL_ALCHEMY_FAILED'
   | 'CANCEL_FORGING_FAILED'
   | 'CANCEL_ENHANCEMENT_FAILED'
   | 'CANCEL_GATHER_FAILED'
-  | 'CANCEL_BUILDING_FAILED';
+  | 'CANCEL_BUILDING_FAILED'
+  | 'CANCEL_MINING_FAILED';
 
 export interface TechniqueActivityMetadata {
   kind: RuntimeTechniqueActivityKind;
@@ -135,6 +139,18 @@ export const TECHNIQUE_ACTIVITY_METADATA = {
     cancelErrorCode: 'CANCEL_BUILDING_FAILED',
     conditional: true,
   },
+  mining: {
+    kind: 'mining',
+    requestEvent: null,
+    startEvent: null,
+    cancelEvent: null,
+    panelEvent: null,
+    startCommandKind: 'startMining',
+    cancelCommandKind: 'cancelMining',
+    requestPanelErrorCode: null,
+    startErrorCode: 'START_MINING_FAILED',
+    cancelErrorCode: 'CANCEL_MINING_FAILED',
+  },
 } as const satisfies Record<RuntimeTechniqueActivityKind, TechniqueActivityMetadata>;
 
 export type TechniqueActivityMetadataByKind = typeof TECHNIQUE_ACTIVITY_METADATA;
@@ -161,6 +177,8 @@ export function resolveTechniqueActivityStartCommandKind(kind: TechniqueActivity
       return 'startGather';
     case 'building':
       return 'startBuilding';
+    case 'mining':
+      return 'startMining';
   }
 }
 
@@ -176,5 +194,7 @@ export function resolveTechniqueActivityCancelCommandKind(kind: TechniqueActivit
       return 'cancelGather';
     case 'building':
       return 'cancelBuilding';
+    case 'mining':
+      return 'cancelMining';
   }
 }

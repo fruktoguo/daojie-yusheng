@@ -113,6 +113,11 @@ export interface AttrUpdateView {
  */
 
   buildingSkill?: PlayerState['buildingSkill'];
+  /**
+ * miningSkill：挖矿技能相关字段。
+ */
+
+  miningSkill?: PlayerState['miningSkill'];
 }
 
 /** 功法面板局部更新项。 */

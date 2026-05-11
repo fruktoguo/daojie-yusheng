@@ -45,7 +45,6 @@ export function buildResourceNodeIndexes() {
   const resourceNodes = loadResourceNodes();
   return {
     resourceNodes,
-    runtimeTileNodes: resourceNodes.filter((node) => node?.kind === 'runtime_tile'),
     landmarkNodesById: new Map(
       resourceNodes
         .filter((node) => node?.kind === 'landmark_marker' || node?.kind === 'landmark_container')

@@ -135,9 +135,9 @@
       "kind": "mining",
       "mapId": "runtime",
       "mapName": "运行时资源点",
-      "landmarkId": "runtime:black_iron_chunk",
+      "landmarkId": "runtime:tile.BlackIronOre",
       "landmarkName": "玄铁矿",
-      "mode": "direct",
+      "mode": "damage_or_destroy",
       "count": 1
     }
   ],
@@ -1574,9 +1574,9 @@
       "kind": "mining",
       "mapId": "runtime",
       "mapName": "运行时资源点",
-      "landmarkId": "runtime:cloud_puff",
+      "landmarkId": "runtime:tile.Cloud",
       "landmarkName": "云墙",
-      "mode": "direct",
+      "mode": "damage_or_destroy",
       "count": 1
     }
   ],
@@ -1947,7 +1947,8 @@
       "kind": "forging",
       "mapId": "crafting",
       "mapName": "炼器",
-      "recipeId": "forging.copper_array_plate"
+      "recipeId": "forging.copper_array_plate",
+      "recipeName": "凡品阵盘器方"
     }
   ],
   "equip.copper_building_hammer": [
@@ -1955,7 +1956,8 @@
       "kind": "forging",
       "mapId": "crafting",
       "mapName": "炼器",
-      "recipeId": "forging.copper_building_hammer"
+      "recipeId": "forging.copper_building_hammer",
+      "recipeName": "铜营造锤器方"
     }
   ],
   "equip.copper_enhancement_hammer": [
@@ -1970,7 +1972,8 @@
       "kind": "forging",
       "mapId": "crafting",
       "mapName": "炼器",
-      "recipeId": "forging.copper_enhancement_hammer"
+      "recipeId": "forging.copper_enhancement_hammer",
+      "recipeName": "铜强化锤器方"
     }
   ],
   "equip.copper_forging_tool": [
@@ -1978,10 +1981,28 @@
       "kind": "forging",
       "mapId": "crafting",
       "mapName": "炼器",
-      "recipeId": "forging.copper_forging_tool"
+      "recipeId": "forging.copper_forging_tool",
+      "recipeName": "铜炼器钳器方"
     }
   ],
-  "equip.copper_luopan": [],
+  "equip.copper_luopan": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.copper_luopan",
+      "recipeName": "铜罗盘器方"
+    }
+  ],
+  "equip.copper_mining_pickaxe": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.copper_mining_pickaxe",
+      "recipeName": "铜矿镐器方"
+    }
+  ],
   "equip.copper_pill_furnace": [
     {
       "kind": "shop",
@@ -1994,7 +2015,8 @@
       "kind": "forging",
       "mapId": "crafting",
       "mapName": "炼器",
-      "recipeId": "forging.copper_pill_furnace"
+      "recipeId": "forging.copper_pill_furnace",
+      "recipeName": "铜胎丹炉器方"
     }
   ],
   "equip.deepvein_core": [
@@ -2928,7 +2950,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.frost_heart_paste"
+      "recipeId": "alchemy.frost_heart_paste",
+      "recipeName": "寒心膏丹方"
     }
   ],
   "furnace_red_crystal": [
@@ -3157,7 +3180,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.major_qi_pill"
+      "recipeId": "alchemy.major_qi_pill",
+      "recipeName": "大还灵丹丹方"
     }
   ],
   "mantis_blade": [
@@ -4021,7 +4045,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.minor_qi_pill"
+      "recipeId": "alchemy.minor_qi_pill",
+      "recipeName": "小还灵丹丹方"
     }
   ],
   "moonwell_frost_sand": [
@@ -4155,7 +4180,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.bitter_cultivation_elixir"
+      "recipeId": "alchemy.pill.bitter_cultivation_elixir",
+      "recipeName": "苦修丹丹方"
     }
   ],
   "pill.break_array_elixir": [
@@ -4237,7 +4263,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.break_array_elixir"
+      "recipeId": "alchemy.pill.break_array_elixir",
+      "recipeName": "破阵丹丹方"
     }
   ],
   "pill.breakmirror_pellet": [
@@ -4391,7 +4418,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.chiyang_draught"
+      "recipeId": "alchemy.pill.chiyang_draught",
+      "recipeName": "赤阳液丹方"
     }
   ],
   "pill.clear_eye_elixir": [
@@ -4491,7 +4519,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.clear_eye_elixir"
+      "recipeId": "alchemy.pill.clear_eye_elixir",
+      "recipeName": "明目丹丹方"
     }
   ],
   "pill.cleartide_powder": [
@@ -4499,7 +4528,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.cleartide_powder"
+      "recipeId": "alchemy.pill.cleartide_powder",
+      "recipeName": "清脉散丹方"
     }
   ],
   "pill.crimson_bud_elixir": [
@@ -4556,7 +4586,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.crimson_bud_elixir"
+      "recipeId": "alchemy.pill.crimson_bud_elixir",
+      "recipeName": "赤芽丹丹方"
     }
   ],
   "pill.earthrest_paste": [
@@ -4564,7 +4595,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.earthrest_paste"
+      "recipeId": "alchemy.pill.earthrest_paste",
+      "recipeName": "厚土膏丹方"
     }
   ],
   "pill.edge_quenching_powder": [
@@ -4572,7 +4604,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.edge_quenching_powder"
+      "recipeId": "alchemy.pill.edge_quenching_powder",
+      "recipeName": "淬锋散丹方"
     }
   ],
   "pill.fivephase_harmony_pellet": [
@@ -4580,7 +4613,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.fivephase_harmony_pellet"
+      "recipeId": "alchemy.pill.fivephase_harmony_pellet",
+      "recipeName": "五和丸丹方"
     }
   ],
   "pill.guiding_powder": [
@@ -4606,7 +4640,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.guiding_powder"
+      "recipeId": "alchemy.pill.guiding_powder",
+      "recipeName": "引基散丹方"
     }
   ],
   "pill.minor_heal": [
@@ -4682,7 +4717,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.minor_heal"
+      "recipeId": "alchemy.pill.minor_heal",
+      "recipeName": "回春散丹方"
     }
   ],
   "pill.ningxiang": [
@@ -4700,7 +4736,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.nurturing_paste"
+      "recipeId": "alchemy.pill.nurturing_paste",
+      "recipeName": "养脉膏丹方"
     }
   ],
   "pill.shatter_spirit": [
@@ -4788,7 +4825,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pill.windstride_elixir"
+      "recipeId": "alchemy.pill.windstride_elixir",
+      "recipeName": "轻身丹丹方"
     }
   ],
   "pure_yang_pill": [
@@ -4848,7 +4886,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.pure_yang_pill"
+      "recipeId": "alchemy.pure_yang_pill",
+      "recipeName": "纯阳丹丹方"
     }
   ],
   "quest.miner_token": [
@@ -4884,7 +4923,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.recovery_powder"
+      "recipeId": "alchemy.recovery_powder",
+      "recipeName": "回灵散丹方"
     }
   ],
   "ridge_beast_claw": [
@@ -5099,9 +5139,9 @@
       "kind": "mining",
       "mapId": "runtime",
       "mapName": "运行时资源点",
-      "landmarkId": "runtime:spirit_stone",
+      "landmarkId": "runtime:tile.SpiritOre",
       "landmarkName": "灵石矿",
-      "mode": "direct",
+      "mode": "damage_or_destroy",
       "count": 1
     },
     {
@@ -5161,7 +5201,8 @@
       "kind": "alchemy",
       "mapId": "crafting",
       "mapName": "炼丹",
-      "recipeId": "alchemy.stabilizing_pellet"
+      "recipeId": "alchemy.stabilizing_pellet",
+      "recipeName": "镇脉丸丹方"
     }
   ],
   "star_metal": [
@@ -5303,9 +5344,9 @@
       "kind": "mining",
       "mapId": "runtime",
       "mapName": "运行时资源点",
-      "landmarkId": "runtime:sword_pellet",
+      "landmarkId": "runtime:tile.BrokenSwordHeap",
       "landmarkName": "断剑堆",
-      "mode": "direct",
+      "mode": "damage_or_destroy",
       "count": 1
     }
   ],

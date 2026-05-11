@@ -1491,6 +1491,11 @@ export interface GmEditorItemOption {
 
   enhancementSpeedRate?: number;
   /**
+ * miningDamageRate：挖矿对矿脉伤害增幅比率。
+ */
+
+  miningDamageRate?: number;
+  /**
  * mapUnlockId：地图UnlockID标识。
  */
 
@@ -2565,11 +2570,6 @@ export interface GmMapDocument {
  */
 
   routeDomain?: MapRouteDomain;
-  /**
- * terrainProfileId：terrainProfileID标识。
- */
-
-  terrainProfileId?: string;
   /**
  * terrainRealmLv：terrainRealmLv相关字段。
  */

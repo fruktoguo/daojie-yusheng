@@ -16,6 +16,7 @@
 
 | 计划 | 文档 |
 |------|------|
+| 通用行动意图队列 | [通用行动意图队列计划](通用行动意图队列计划.md) |
 | 气机资源统一化 | [12-qi-resource-unification](12-qi-resource-unification.md) |
 | 敌我判定规则统一化 | [13-combat-relation-rules-unification](13-combat-relation-rules-unification.md) |
 | 技艺活动框架统一化 | [14-technique-activity-framework](14-technique-activity-framework.md) |

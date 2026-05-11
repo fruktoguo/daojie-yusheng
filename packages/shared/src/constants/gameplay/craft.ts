@@ -22,3 +22,11 @@ export const ALCHEMY_PREPARATION_TICKS = 10;
 
 /** 丹炉单次产出数量 */
 export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
+
+// ─── 挖矿技艺 ───────────────────────────────────────────────────────────────
+
+/** 挖矿每级对地块伤害提升比率（指数底数 1.02，即每级 +2% 复利）。 */
+export const MINING_DAMAGE_BONUS_PER_LEVEL = 0.02;
+
+/** 挖矿经验：每次对矿脉造成伤害视为 0.3 息动作。 */
+export const MINING_EXP_BASE_ACTION_TICKS = 0.3;

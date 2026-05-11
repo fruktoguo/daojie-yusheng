@@ -1,6 +1,6 @@
 ---
 name: verification-author
-description: Use this skill when adding, fixing, or running verification gates for packages/*, including pnpm build, replace-ready, doctor, with-db, shadow, acceptance, full, smoke, proof, audit, diagnostics, cleanup chains, and explaining what each gate proves or does not prove.
+description: Use this skill when adding, fixing, or running verification gates for packages/*, including pnpm build, release, doctor, with-db, shadow, acceptance, full, smoke, proof, audit, diagnostics, cleanup chains, and explaining what each gate proves or does not prove.
 ---
 
 # 验证门禁与证明链
@@ -17,12 +17,12 @@ description: Use this skill when adding, fixing, or running verification gates f
 ## 常用入口
 
 - `pnpm build`
-- `pnpm verify:replace-ready:doctor`
-- `pnpm verify:replace-ready`
-- `pnpm verify:replace-ready:with-db`
-- `pnpm verify:replace-ready:shadow`
-- `pnpm verify:replace-ready:acceptance`
-- `pnpm verify:replace-ready:full`
+- `pnpm verify:release:doctor`
+- `pnpm verify:release`
+- `pnpm verify:release:with-db`
+- `pnpm verify:release:shadow`
+- `pnpm verify:release:acceptance`
+- `pnpm verify:release:full`
 
 ## 强制流程
 
@@ -54,4 +54,4 @@ description: Use this skill when adding, fixing, or running verification gates f
 - 是否覆盖商业级 MMO 的运行时、网络、持久化、客户端、配置和运维关键风险。
 - 每个验证回答什么，不回答什么。
 - 未验证项、原因和风险。
-- 是否影响 replace-ready 进度和证明链完整性。
+- 是否影响 release 进度和证明链完整性。

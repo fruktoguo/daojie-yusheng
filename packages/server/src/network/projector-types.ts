@@ -334,7 +334,9 @@ export interface ProjectorPlayerLike {
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears?: number | null;
+  realmLv?: number;
   realm?: {
+    realmLv?: number;
     progress?: number;
     progressToNext?: number;
     breakthroughReady?: boolean;
@@ -360,6 +362,7 @@ export interface ProjectorPlayerLike {
   buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
+  miningSkill?: S2C_PanelAttrDelta['miningSkill'];
   attrs: {
     revision: number;
     stage: S2C_PanelAttrDelta['stage'];
@@ -416,6 +419,7 @@ export interface ProjectedAttrPanelState {
   buildingSkill?: S2C_PanelAttrDelta['buildingSkill'];
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
+  miningSkill?: S2C_PanelAttrDelta['miningSkill'];
 }
 export interface ProjectedActionPanelState {
   revision: number;

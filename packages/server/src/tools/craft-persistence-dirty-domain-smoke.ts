@@ -11,11 +11,8 @@ function createRuntimeHarness(playerStore: Map<string, ReturnType<typeof createP
       refreshPreview() {
         return undefined;
       },
-      getRealmLevelEntry(level: number) {
-        return {
-          realmLv: Math.max(1, Math.floor(Number(level) || 1)),
-          expToNext: TEST_REALM_EXP_TO_NEXT,
-        };
+      getRealmRuntimeExpToNext(level: number) {
+        return Math.max(1, Math.floor(Number(level) || 1)) > 0 ? TEST_REALM_EXP_TO_NEXT : 0;
       },
     },
     playerAttributesService: {

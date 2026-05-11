@@ -105,6 +105,7 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     alchemySpeedRate: template?.alchemySpeedRate ?? source.alchemySpeedRate,
     enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,
     enhancementSpeedRate: template?.enhancementSpeedRate ?? source.enhancementSpeedRate,
+    miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
     enhanceLevel: 0,
   };
 }
@@ -205,6 +206,7 @@ export interface CraftEnhancementParent {
   readonly loading: boolean;
   readonly enhancementPanel: S2C_EnhancementPanel | null;
   readonly enhancementSkillLevel: number;
+  readonly playerRealmLv: number | null;
   readonly inventory: { items: Array<{ itemId: string; count: number }> };
   readonly equipment: { weapon?: { enhancementSuccessRate?: number } | null };
   selectedEnhancementTargetKey: string | null;
@@ -602,8 +604,8 @@ export class CraftEnhancementView {
       ...buildBaseEnhancementPreviewItem(selected.item),
       enhanceLevel: selectedTargetLevel,
     });
-    const currentLines = describeEquipmentBonuses(currentPreview);
-    const nextLines = describeEquipmentBonuses(nextPreview);
+    const currentLines = describeEquipmentBonuses(currentPreview, this.parent.playerRealmLv);
+    const nextLines = describeEquipmentBonuses(nextPreview, this.parent.playerRealmLv);
     const protectionNote = selected.protectionItemId
       ? `保护物固定为 ${selected.protectionItemName ?? selected.protectionItemId}`
       : '未配置独立保护物，当前仅可消耗同名装备作为保护';
@@ -781,8 +783,8 @@ export class CraftEnhancementView {
       ...buildBaseEnhancementPreviewItem(job.item ?? { itemId: job.targetItemId, name: job.targetItemName, level: 1, enhanceLevel: job.currentLevel }),
       enhanceLevel: job.targetLevel,
     });
-    const currentLines = describeEquipmentBonuses(currentPreview);
-    const resultLines = describeEquipmentBonuses(resultPreview);
+    const currentLines = describeEquipmentBonuses(currentPreview, this.parent.playerRealmLv);
+    const resultLines = describeEquipmentBonuses(resultPreview, this.parent.playerRealmLv);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     const compactMobileLayout = this.isCompactEnhancementLayout();
     return `

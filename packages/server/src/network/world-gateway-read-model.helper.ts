@@ -56,6 +56,7 @@ class WorldGatewayReadModelHelper {
                 buildingSkill: player.buildingSkill,
                 gatherSkill: player.gatherSkill,
                 enhancementSkill: player.enhancementSkill,
+                miningSkill: player.miningSkill,
             });
         }
         catch (error) {

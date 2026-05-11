@@ -4,7 +4,6 @@
   "width": 20,
   "height": 20,
   "routeDomain": "system",
-  "terrainProfileId": "mortal_settlement",
   "spaceVisionMode": "isolated",
   "description": "四面空空，只余一片无遮无拦的囚场。",
   "dangerLevel": 1,

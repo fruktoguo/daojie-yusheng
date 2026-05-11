@@ -157,12 +157,9 @@ export class WorldRuntimeCraftMutationService {
  */
 
     async persistActiveJobIfNeeded(playerId, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  // 后备写入路径：直接走 advisory lock + UPSERT（Path A），不做 CAS 版本检查。
+  // 权威 CAS 写入由 durable tick/start/cancel 路径负责；此处仅确保 DB 不落后于内存。
 
-        const durableOperationService = deps?.durableOperationService ?? null;
-        if (!durableOperationService?.isEnabled?.()) {
-            return;
-        }
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player || !player.playerId) {
             return;
@@ -171,72 +168,9 @@ export class WorldRuntimeCraftMutationService {
         if (!activeJob || !activeJob.jobRunId) {
             return;
         }
-        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
-            ? player.runtimeOwnerId.trim()
-            : '';
-        const sessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-            : 0;
-        if (!runtimeOwnerId || sessionEpoch <= 0) {
-            return;
-        }
-        const nextActiveJob = buildActiveJobSnapshot(activeJob, player.enhancementJob ? 'enhancement' : player.forgingJob ? 'forging' : activeJob.jobType === 'forging' ? 'forging' : 'alchemy');
-        if (!nextActiveJob) {
-            return;
-        }
-        const expectedInstanceId = typeof player.instanceId === 'string' && player.instanceId.trim() ? player.instanceId.trim() : '';
-        const leaseContext = await this.resolveActiveJobLeaseContext(player, deps);
-        if (expectedInstanceId && !leaseContext) {
-            this.logger.warn(`活跃任务 durable 记账跳过：instance lease 缺失 playerId=${playerId} instanceId=${expectedInstanceId}`);
-            return;
-        }
-        const operationId = buildActiveJobOperationId(playerId, nextActiveJob);
-        await durableOperationService.updateActiveJobState({
-            operationId,
-            playerId,
-            expectedRuntimeOwnerId: runtimeOwnerId,
-            expectedSessionEpoch: sessionEpoch,
-            expectedInstanceId: expectedInstanceId || null,
-            expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-            expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-            action: activeJob.phase === 'paused' ? 'update' : (activeJob.jobType === 'enhancement' ? 'start' : 'start'),
-            expectedJobRunId: activeJob.jobRunId,
-            expectedJobVersion: resolveExpectedActiveJobVersion(activeJob),
-            nextActiveJob,
-        });
-    }    
-    /**
- * resolveActiveJobLeaseContext：解析活跃作业 durable 记账的实例 lease 上下文。
- * @param player 玩家对象。
- * @param deps 运行时依赖。
- * @returns 返回 assignedNodeId / ownershipEpoch，无法解析时返回 null。
- */
+        await this.craftPanelRuntimeService.persistTechniqueActivitySnapshot(player);
+    }
 
-    async resolveActiveJobLeaseContext(player, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const instanceId = typeof player?.instanceId === 'string' && player.instanceId.trim()
-            ? player.instanceId.trim()
-            : '';
-        const instanceCatalogService = deps?.instanceCatalogService ?? null;
-        if (!instanceId || !instanceCatalogService?.isEnabled?.()) {
-            return null;
-        }
-        const catalog = await instanceCatalogService.loadInstanceCatalog?.(instanceId);
-        const assignedNodeId = typeof catalog?.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
-            ? catalog.assigned_node_id.trim()
-            : '';
-        const ownershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
-            ? Math.max(1, Math.trunc(Number(catalog.ownership_epoch)))
-            : 0;
-        if (!assignedNodeId || ownershipEpoch <= 0) {
-            return null;
-        }
-        return {
-            assignedNodeId,
-            ownershipEpoch,
-        };
-    }    
     /**
  * dropCraftGroundItems：执行drop炼制地面道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -273,49 +207,4 @@ export class WorldRuntimeCraftMutationService {
 
 function formatItemStackLabel(item) {
     return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
-}
-
-function buildActiveJobSnapshot(job, jobType) {
-    if (!job || typeof job !== 'object') {
-        return null;
-    }
-    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : jobType === 'forging' ? 'forging' : 'alchemy';
-    const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim() ? job.jobRunId.trim() : '';
-    const jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion ?? 1)));
-    return {
-        jobRunId,
-        jobType: normalizedJobType,
-        status: typeof job.status === 'string' && job.status.trim() ? job.status.trim() : 'running',
-        phase: typeof job.phase === 'string' && job.phase.trim() ? job.phase.trim() : 'running',
-        startedAt: Math.max(1, Math.trunc(Number(job.startedAt ?? Date.now()))),
-        finishedAt: job.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt))),
-        pausedTicks: Math.max(0, Math.trunc(Number(job.pausedTicks ?? 0))),
-        totalTicks: Math.max(0, Math.trunc(Number(job.totalTicks ?? 0))),
-        remainingTicks: Math.max(0, Math.trunc(Number(job.remainingTicks ?? 0))),
-        successRate: Number.isFinite(Number(job.successRate ?? 0)) ? Number(job.successRate ?? 0) : 0,
-        speedRate: Number.isFinite(Number(job.speedRate ?? job.totalSpeedRate ?? 1)) ? Number(job.speedRate ?? job.totalSpeedRate ?? 1) : 1,
-        jobVersion,
-        detailJson: {
-            ...job,
-            jobRunId,
-            jobType: normalizedJobType,
-            jobVersion,
-        },
-    };
-}
-
-function buildActiveJobOperationId(playerId, activeJob) {
-    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
-    const normalizedJobRunId = typeof activeJob?.jobRunId === 'string' && activeJob.jobRunId.trim()
-        ? activeJob.jobRunId.trim()
-        : 'job';
-    const normalizedJobVersion = Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)));
-    const normalizedPhase = typeof activeJob?.phase === 'string' && activeJob.phase.trim()
-        ? activeJob.phase.trim()
-        : 'running';
-    return `op:${normalizedPlayerId}:active-job:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
-}
-
-function resolveExpectedActiveJobVersion(activeJob) {
-    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)) - 1);
 }

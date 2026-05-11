@@ -25,6 +25,7 @@ const status = runVerificationSteps({
   shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
   steps: [
     { label: 'server compile', args: ['--filter', '@mud/server', 'compile'] },
+    { label: 'runtime realm exp boundary', command: process.execPath, args: ['scripts/check-runtime-realm-exp-boundary.cjs'], shell: false },
     { label: 'production boundaries', args: ['--filter', '@mud/server', 'proof:production-boundaries'] },
     { label: 'release gate contract', args: ['proof:release-gates'] },
     {

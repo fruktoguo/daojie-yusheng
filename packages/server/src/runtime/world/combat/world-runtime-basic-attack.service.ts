@@ -8,6 +8,7 @@ import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
 
@@ -533,9 +534,14 @@ export class WorldRuntimeBasicAttackService {
             tileType = tileState.tileType;
             tileMaxHp = tileState.maxHp ?? 0;
         }
+        const effectiveBaseDamage = resolveMiningAdjustedTileDamage({
+            attacker,
+            tileType,
+            baseDamage,
+        }).damage;
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
-            ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, baseDamage)
-            : baseDamage;
+            ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, effectiveBaseDamage)
+            : effectiveBaseDamage;
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
             kind: CombatTargetKind.Tile,
             x: targetX,
@@ -546,7 +552,7 @@ export class WorldRuntimeBasicAttackService {
             targetY,
             damageKind,
             damage: mitigatedDamage,
-            rawDamage: baseDamage,
+            rawDamage: effectiveBaseDamage,
             mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
         });
         const result = appliedOutcome?.adapterResult;
@@ -554,6 +560,17 @@ export class WorldRuntimeBasicAttackService {
             throw new BadRequestException('该目标无法被攻击');
         }
         const appliedDamage = Number.isFinite(result.appliedDamage) ? Math.max(0, Math.round(result.appliedDamage)) : 0;
+        spawnTileDrops({
+            playerId: attacker.playerId,
+            tileDrops: result.tileDrops,
+            deps,
+        });
+        applyMiningExpForTileDamage({
+            attacker,
+            tileType,
+            appliedDamage,
+            playerRuntimeService: this.playerRuntimeService,
+        });
         const effectColor = getDamageTrailColor(damageKind);
         emitCombatPresentation({
             deps,

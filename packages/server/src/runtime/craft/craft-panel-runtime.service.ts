@@ -1175,6 +1175,7 @@ export class CraftPanelRuntimeService {
         player.alchemySkill = normalizeCraftSkill(player.alchemySkill, resolveExpToNext);
         player.forgingSkill = normalizeCraftSkill(player.forgingSkill, resolveExpToNext);
         player.gatherSkill = normalizeCraftSkill(player.gatherSkill, resolveExpToNext);
+        player.miningSkill = normalizeCraftSkill(player.miningSkill, resolveExpToNext);
         player.enhancementSkill = normalizeCraftSkill(player.enhancementSkill ?? {
             level: player.enhancementSkillLevel,
             exp: 0,
@@ -2547,7 +2548,8 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalized = contentTemplateRepository.normalizeItem(item);
-    const existing = player.inventory.items.find((entry) => entry.itemId === normalized.itemId);
+    const signature = createItemStackSignature(normalized);
+    const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
     if (existing) {
         existing.count += normalized.count;
         return existing;
@@ -2563,7 +2565,8 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
  */
 
 function canReceiveCraftItem(player, item) {
-    return player.inventory.items.some((entry) => entry.itemId === item.itemId)
+    const signature = createItemStackSignature(item);
+    return player.inventory.items.some((entry) => createItemStackSignature(entry) === signature)
         || player.inventory.items.length < player.inventory.capacity;
 }
 /**
@@ -2644,6 +2647,7 @@ function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel)
             name: job?.targetItemName,
             type: 'equipment',
             level: job?.targetItemLevel,
+            equipAttrs: job?.equipAttrs ?? null,
         };
     const itemId = typeof source?.itemId === 'string' && source.itemId.trim()
         ? source.itemId.trim()

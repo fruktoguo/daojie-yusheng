@@ -5,7 +5,7 @@
  */
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, compileValueStatsToActualStats, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -311,6 +311,7 @@ export class PlayerRuntimeService {
             forgingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             buildingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            miningSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
             alchemyPresets: [],
@@ -1047,7 +1048,8 @@ export class PlayerRuntimeService {
             throw new NotFoundException(`物品不存在：${normalizedItemId}`);
         }
 
-        const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
+        const signature = createItemStackSignature(item);
+        const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
         if (existing) {
             existing.count += item.count;
         }
@@ -1559,7 +1561,8 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = this.contentTemplateRepository.normalizeItem(item);
-        const existing = player.inventory.items.find((entry) => entry.itemId === normalized.itemId);
+        const signature = createItemStackSignature(normalized);
+        const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
         if (existing) {
             existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
         }
@@ -1735,14 +1738,34 @@ export class PlayerRuntimeService {
             return player;
         }
 
-        const previous = player.inventory.items.map((entry) => `${entry.itemId}:${entry.count}`);
-        player.inventory.items.sort(compareInventoryItems);
+        const previous = player.inventory.items.map((entry) => `${entry.itemId}:${entry.count}:${entry.enhanceLevel ?? 0}`);
+
+        // 先按签名合并相同物品堆，再排序，避免同一物品多 slot 残留。
+        const mergedMap = new Map();
+        const mergedOrder = [];
+        for (const entry of player.inventory.items) {
+            const signature = createItemStackSignature(entry);
+            const existing = mergedMap.get(signature);
+            if (existing) {
+                existing.count = Math.min(
+                    existing.count + Math.max(1, Math.trunc(Number(entry.count ?? 1))),
+                    MAX_ITEM_COUNT,
+                );
+            }
+            else {
+                const clone = { ...entry, count: Math.max(1, Math.trunc(Number(entry.count ?? 1))) };
+                mergedMap.set(signature, clone);
+                mergedOrder.push(clone);
+            }
+        }
+        mergedOrder.sort(compareInventoryItems);
+        player.inventory.items = mergedOrder;
 
         let changed = previous.length !== player.inventory.items.length;
         if (!changed) {
             for (let index = 0; index < previous.length; index += 1) {
                 const current = player.inventory.items[index];
-                if (!current || previous[index] !== `${current.itemId}:${current.count}`) {
+                if (!current || previous[index] !== `${current.itemId}:${current.count}:${current.enhanceLevel ?? 0}`) {
                     changed = true;
                     break;
                 }
@@ -1911,7 +1934,14 @@ export class PlayerRuntimeService {
         const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
         equipmentEntry.item = { ...equippedItem };
         if (previousEquipped) {
-            player.inventory.items.push(previousEquipped);
+            const previousSignature = createItemStackSignature(previousEquipped);
+            const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === previousSignature);
+            if (mergeTarget) {
+                mergeTarget.count += Math.max(1, Math.trunc(Number(previousEquipped.count ?? 1)));
+            }
+            else {
+                player.inventory.items.push(previousEquipped);
+            }
         }
         player.inventory.revision += 1;
         player.equipment.revision += 1;
@@ -1936,7 +1966,15 @@ export class PlayerRuntimeService {
         if (!equipmentEntry || !equipmentEntry.item) {
             throw new NotFoundException(`装备槽位为空：${slot}`);
         }
-        player.inventory.items.push({ ...equipmentEntry.item });
+        const unequippedItem = { ...equipmentEntry.item };
+        const unequippedSignature = createItemStackSignature(unequippedItem);
+        const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === unequippedSignature);
+        if (mergeTarget) {
+            mergeTarget.count += Math.max(1, Math.trunc(Number(unequippedItem.count ?? 1)));
+        }
+        else {
+            player.inventory.items.push(unequippedItem);
+        }
         equipmentEntry.item = null;
         player.inventory.revision += 1;
         player.equipment.revision += 1;
@@ -3345,6 +3383,7 @@ export class PlayerRuntimeService {
             forgingSkill: normalizeCraftSkillState(snapshot.progression?.forgingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            miningSkill: normalizeCraftSkillState(snapshot.progression?.miningSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
@@ -3959,6 +3998,7 @@ function cloneRuntimePlayerState(player) {
         forgingSkill: cloneCraftSkillState(player.forgingSkill),
         gatherSkill: cloneCraftSkillState(player.gatherSkill),
         buildingSkill: cloneCraftSkillState(player.buildingSkill),
+        miningSkill: cloneCraftSkillState(player.miningSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
@@ -4591,6 +4631,7 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null, play
             buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill, resolveProfessionExpToNext),
             buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill, resolveProfessionExpToNext),
             buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill, resolveProfessionExpToNext),
+            buildOfflineGainProfessionSnapshot('mining', '挖矿', player?.miningSkill, resolveProfessionExpToNext),
         ].filter((entry) => Boolean(entry)),
     };
 }
@@ -5257,6 +5298,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             forgingSkill: cloneCraftSkillState(player.forgingSkill),
             gatherSkill: cloneCraftSkillState(player.gatherSkill),
             buildingSkill: cloneCraftSkillState(player.buildingSkill),
+            miningSkill: cloneCraftSkillState(player.miningSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),

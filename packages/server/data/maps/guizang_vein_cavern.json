@@ -4,7 +4,6 @@
   "width": 64,
   "height": 64,
   "routeDomain": "system",
-  "terrainProfileId": "earth_stone_wild",
   "terrainRealmLv": 29,
   "spaceVisionMode": "isolated",
   "description": "练气期终图归藏脉窟。右侧汇入口接五行图深处传送，门口先被断崖拧成回折，外层是混脉回字外环，中层通过错流折廊不断改向，最里面压成一块歪掉的旧立基阵核。当前已补首版玩法层：回渡口、五炁灵气、地标、NPC 与终图怪物刷新点均已接入。",

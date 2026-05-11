@@ -90,6 +90,7 @@ export class WorldRuntimeCraftTickService {
 
     async advanceCraftJobs(playerIds, deps) {
         for (const playerId of playerIds) {
+          try {
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 continue;
@@ -136,6 +137,10 @@ export class WorldRuntimeCraftTickService {
                     }
                 }
             }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            deps?.queuePlayerNotice?.(playerId, message, 'warn');
+          }
         }
     }
 

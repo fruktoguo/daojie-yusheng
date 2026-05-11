@@ -3,6 +3,7 @@
  * 处理装备穿脱的背包操作、属性刷新和持久化提交
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 
@@ -172,7 +173,7 @@ function buildEquipMutation(snapshot, slotIndex) {
     const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
     equipmentEntry.item = { ...equippedItem };
     if (previousEquipped) {
-        inventoryItems.push(previousEquipped);
+        mergeInventoryStack(inventoryItems, previousEquipped);
     }
     return {
         slot: equipmentEntry.slot,
@@ -197,7 +198,7 @@ function buildUnequipMutation(snapshot, slot) {
     if (!equipmentEntry || !equipmentEntry.item) {
         return null;
     }
-    inventoryItems.push({ ...equipmentEntry.item });
+    mergeInventoryStack(inventoryItems, equipmentEntry.item);
     equipmentEntry.item = null;
     return {
         slot: equipmentEntry.slot,
@@ -207,6 +208,20 @@ function buildUnequipMutation(snapshot, slot) {
             item: entry.item ? { ...entry.item } : null,
         })),
     };
+}
+
+function mergeInventoryStack(items, item) {
+    if (!item) {
+        return;
+    }
+    const normalizedCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    const signature = createItemStackSignature(item);
+    const existing = items.find((entry) => createItemStackSignature(entry) === signature);
+    if (existing) {
+        existing.count = Math.max(1, Math.trunc(Number(existing.count ?? 1))) + normalizedCount;
+        return;
+    }
+    items.push({ ...item, count: normalizedCount });
 }
 
 function takeSingleInventoryItemForEquipment(items, slotIndex) {

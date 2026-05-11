@@ -979,7 +979,7 @@ export class NpcShopModal {
       const shop = this.shopState?.shop;
       const itemId = node.dataset.npcShopItemTooltip;
       const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) ?? null : null;
-      return entry ? buildItemTooltipPayload(entry.item) : null;
+      return entry ? buildItemTooltipPayload(entry.item, { playerRealmLv: this.player?.realm?.realmLv ?? this.player?.realmLv }) : null;
     };
 
     body.addEventListener('click', (event) => {

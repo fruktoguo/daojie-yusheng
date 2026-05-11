@@ -7,14 +7,7 @@
 | 文档 | 说明 |
 |------|------|
 | `09-verification-and-acceptance.md` | 验证门禁与验收，所有 gate 已固定并通过 |
-| `GM世界管理实例化与手动分线改造计划.md` | GM 实例化改造，所有任务已完成 |
-| `历史遗留入口退役与命名收口计划.md` | legacy 入口退役，所有任务已完成 |
-| `ui-refresh-audit.md` | UI 刷新审计，7 个问题全部修复 |
-| `player-instanceid-source-of-truth.md` | 玩家落点 instanceId 真源收口已完成 |
 | `protocol-audit.md` | 协议审计报告（自动生成快照） |
-| `安全与设计审查报告.md` | 安全与设计审查报告 |
-| `参考main分支真实玩家存档盘点.md` | main 分支玩家存档盘点 |
-| `前段UI文本优化建议.md` | UI 文本优化建议 |
 
 ## 使用说明
 

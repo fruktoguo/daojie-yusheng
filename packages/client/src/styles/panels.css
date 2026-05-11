@@ -3813,6 +3813,41 @@
       color: var(--ink-grey);
       font-weight: var(--font-weight-semibold);
     }
+    .equipment-tooltip-attribute-block {
+      display: grid;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .equipment-tooltip-effectiveness {
+      color: var(--tooltip-muted-ink);
+    }
+    .equipment-tooltip-stat-list {
+      display: grid;
+      gap: 4px;
+      align-items: start;
+    }
+    .equipment-tooltip-stat-pill {
+      display: inline-flex;
+      width: fit-content;
+      max-width: 100%;
+      align-items: center;
+      gap: 7px;
+      padding: 2px 8px;
+      border: 1px solid rgba(140, 100, 60, 0.28);
+      border-radius: 999px;
+      background: rgba(140, 100, 60, 0.1);
+      color: var(--ink-dark);
+      line-height: 1.45;
+      white-space: normal;
+    }
+    .equipment-tooltip-stat-name {
+      color: var(--ink-grey);
+      font-weight: var(--font-weight-semibold);
+    }
+    .equipment-tooltip-stat-value {
+      color: var(--tooltip-head-ink);
+      font-weight: var(--font-weight-strong);
+    }
     .skill-tooltip-note {
       color: var(--ink-grey);
       font-size: var(--font-size-12);

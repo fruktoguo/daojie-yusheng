@@ -904,7 +904,6 @@ function copyRuntimeMapMetadata(source, target) {
         return;
     }
     const metadataKeys = [
-        'terrainProfileId',
         'terrainRealmLv',
         'mapGroupId',
         'mapGroupName',

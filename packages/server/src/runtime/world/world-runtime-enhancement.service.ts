@@ -441,7 +441,9 @@ function buildEnhancementActiveJobSnapshot(job) {
             jobType: 'enhancement',
             jobVersion: Math.max(1, Math.trunc(Number(job.jobVersion ?? 1))),
             target: job.target ? structuredClone(job.target) : null,
-            item: job.item ? structuredClone(job.item) : null,
+            item: job.item && typeof job.item === 'object'
+                ? { ...structuredClone(job.item), equipAttrs: job.item.equipAttrs ?? null }
+                : null,
             targetItemId: typeof job.targetItemId === 'string' ? job.targetItemId : '',
             targetItemName: typeof job.targetItemName === 'string' ? job.targetItemName : '',
             targetItemLevel: Math.max(1, Math.trunc(Number(job.targetItemLevel ?? 1))),

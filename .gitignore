@@ -18,3 +18,5 @@ packages/server/data/backups/
 .yuobotlite/
 .sisyphus/
 *.cpuprofile
+test-results/
+benchmarks/

@@ -609,17 +609,6 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
  * routeDomain：路线Domain相关字段。
  */
  routeDomain?: unknown }).routeDomain) ?? 'system',
-    terrainProfileId: typeof (source as {    
-    /**
- * terrainProfileId：terrainProfileID标识。
- */
- terrainProfileId?: unknown }).terrainProfileId === 'string'
-      ? (source as {      
-      /**
- * terrainProfileId：terrainProfileID标识。
- */
- terrainProfileId: string }).terrainProfileId
-      : undefined,
     terrainRealmLv: Number.isFinite((source as {    
     /**
  * terrainRealmLv：terrainRealmLv相关字段。

@@ -141,6 +141,7 @@
     "proof:content-map-sources": "pnpm compile && node dist/tools/prove-content-map-sources.js",
     "proof:runtime-network-source": "pnpm compile && node dist/tools/prove-runtime-network-source.js",
     "proof:production-boundaries": "node dist/tools/check-production-boundaries.js",
+    "proof:realm-exp-boundary": "node ../../scripts/check-runtime-realm-exp-boundary.cjs",
     "audit:boundaries": "pnpm compile && node dist/tools/audit/production-boundary-audit.js"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import {
   CRAFT_SKILL_LEVEL_DECAY_RATE,
   CRAFT_SKILL_FAILURE_EXP_RATE,
   CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL,
+  MINING_DAMAGE_BONUS_PER_LEVEL,
 } from './constants/gameplay/craft';
 
 /** 统一技艺经验计算入参。 */
@@ -45,7 +46,7 @@ export function computeTimedCraftSkillExp(
 ): number {
   const expToNext = Math.max(0, Math.floor(Number(referenceExpToNext) || 0));
   const level = Math.max(1, Math.floor(Number(referenceLevel) || 1));
-  const ticks = Math.max(0, Math.floor(Number(baseActionTicks) || 0));
+  const ticks = Math.max(0, Number(baseActionTicks) || 0);
   const normalizedMultiplier = Math.max(0, Number.isFinite(multiplier) ? Number(multiplier) : 0);
   if (expToNext <= 0 || ticks <= 0 || normalizedMultiplier <= 0) {
     return 0;
@@ -103,4 +104,13 @@ export function computeCraftSkillExpGain(params: CraftSkillExpComputationParams)
     baseGain,
     finalGain: finalGainRaw > 0 ? Math.max(1, Math.round(finalGainRaw)) : 0,
   };
+}
+
+/** 根据挖矿技艺等级计算对矿脉地块的伤害倍率（指数增长）。 */
+export function getMiningDamageMultiplier(miningLevel: number | undefined): number {
+  const level = Math.max(0, Math.floor(Number(miningLevel) || 0));
+  if (level <= 0) {
+    return 1;
+  }
+  return Math.pow(1 + MINING_DAMAGE_BONUS_PER_LEVEL, level);
 }

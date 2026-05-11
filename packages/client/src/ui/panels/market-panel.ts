@@ -2243,7 +2243,7 @@ export class MarketPanel {
   private buildMarketItemTooltipPayload(item: ItemStack) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const tooltip = buildItemTooltipPayload(item);
+    const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.player?.realm?.realmLv ?? this.player?.realmLv });
     const title = this.getMarketDisplayName(item);
     const estimate = this.buildEnhancementEstimate(item);
     if (!estimate) {

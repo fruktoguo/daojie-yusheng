@@ -474,6 +474,11 @@ export interface PlayerState {
 
   buildingSkill?: AlchemySkillState;
   /**
+ * miningSkill：挖矿技能相关字段。
+ */
+
+  miningSkill?: AlchemySkillState;
+  /**
  * buildingJob：building Job 相关字段。
  */
 

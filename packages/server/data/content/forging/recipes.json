@@ -58,5 +58,29 @@
     "ingredients": [
       { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
     ]
+  },
+  {
+    "recipeId": "forging.copper_luopan",
+    "outputItemId": "equip.copper_luopan",
+    "outputCount": 1,
+    "level": 1,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 10,
+    "ingredients": [
+      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+    ]
+  },
+  {
+    "recipeId": "forging.copper_mining_pickaxe",
+    "outputItemId": "equip.copper_mining_pickaxe",
+    "outputCount": 1,
+    "level": 1,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 10,
+    "ingredients": [
+      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+    ]
   }
 ]

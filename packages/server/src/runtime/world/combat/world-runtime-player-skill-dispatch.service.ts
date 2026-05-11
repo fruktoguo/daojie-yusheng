@@ -10,6 +10,7 @@ import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKin
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -1572,9 +1573,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                 });
                 continue;
             }
+            const effectiveTileDamage = resolveMiningAdjustedTileDamage({
+                attacker,
+                tileType: tileState.tileType,
+                baseDamage: result.totalDamage,
+            }).damage;
             const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
-                ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, result.totalDamage)
-                : result.totalDamage;
+                ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
+                : effectiveTileDamage;
             const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
                 kind: CombatTargetKind.Tile,
                 x: target.x,
@@ -1584,11 +1590,22 @@ export class WorldRuntimePlayerSkillDispatchService {
                 targetX: target.x,
                 targetY: target.y,
                 damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
-                rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
+                rawDamage: Math.max(0, Math.round(Number(effectiveTileDamage) || 0)),
                 mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
             });
             const tileDamageResult = appliedOutcome?.adapterResult;
             const appliedDamage = normalizeAppliedDamage(tileDamageResult?.appliedDamage, mitigatedDamage);
+            spawnTileDrops({
+                playerId: attacker.playerId,
+                tileDrops: tileDamageResult?.tileDrops,
+                deps,
+            });
+            applyMiningExpForTileDamage({
+                attacker,
+                tileType: tileState.tileType,
+                appliedDamage,
+                playerRuntimeService: this.playerRuntimeService,
+            });
             emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,

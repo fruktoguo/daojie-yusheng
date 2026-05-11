@@ -15,8 +15,12 @@
  */
 
 import { readFileSync } from 'fs';
-import { TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
+import {
+    getRuntimeRealmGradeIndex,
+    normalizeRuntimeRealmExpMultiplier,
+    normalizeRuntimeRealmLevelEntry,
+} from '../player/realm-runtime-exp.helpers';
 
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
 
@@ -35,17 +39,15 @@ function loadRealmCombatExpByLevel() {
     const filePath = resolveProjectPath(...REALM_LEVELS_PATH);
     try {
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-        const expMultiplier = normalizePositiveInt(raw?.expMultiplier, 1);
+        const expMultiplier = normalizeRuntimeRealmExpMultiplier(raw?.expMultiplier);
         for (const entry of raw?.levels ?? []) {
-            const realmLv = normalizePositiveInt(entry?.realmLv, 0);
-            if (realmLv <= 0) {
+            const runtimeEntry = normalizeRuntimeRealmLevelEntry(entry, expMultiplier);
+            if (!runtimeEntry) {
                 continue;
             }
-            const expToNext = normalizePositiveInt(entry?.expToNext, 0) * expMultiplier;
-            const grade = typeof entry?.grade === 'string' ? entry.grade : 'mortal';
-            const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
+            const gradeIndex = getRuntimeRealmGradeIndex(runtimeEntry.grade);
             const gradeFactor = getMonsterCombatExpGradeFactor(gradeIndex);
-            next.set(realmLv, Math.max(0, Math.floor(expToNext * gradeFactor)));
+            next.set(runtimeEntry.realmLv, Math.max(0, Math.floor(runtimeEntry.runtimeExpToNext * gradeFactor)));
         }
     }
     catch {
@@ -64,15 +66,6 @@ export function resolveMonsterCombatExpEquivalentFallback(monsterOrLevel: any) {
     const level = Math.max(1, Math.floor(Number(typeof monsterOrLevel === 'object' ? monsterOrLevel?.level : monsterOrLevel) || 1));
     const tierFactor = resolveMonsterCombatExpTierFactor(typeof monsterOrLevel === 'object' ? monsterOrLevel?.tier : undefined);
     return Math.max(0, Math.floor((loadRealmCombatExpByLevel().get(level) ?? 0) * tierFactor));
-}
-
-/** 将 unknown 值规范化为非负整数，无效时返回 fallback。 */
-function normalizePositiveInt(value: unknown, fallback: number) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-        return fallback;
-    }
-    return Math.max(0, Math.floor(numeric));
 }
 
 /**

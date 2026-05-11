@@ -227,6 +227,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
     enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
     enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
+    miningDamageRate: item.miningDamageRate ?? template.miningDamageRate,
     consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,

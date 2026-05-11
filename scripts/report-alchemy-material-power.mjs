@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadRuntimeTileDropSources } from './lib/runtime-tile-drops.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ const resourceNodes = Array.isArray(resourceNodeData?.resourceNodes)
   ? resourceNodeData.resourceNodes
   : [];
 const resourceNodesById = new Map(resourceNodes.map((node) => [node.id, node]));
+const runtimeTileDropSources = loadRuntimeTileDropSources();
 
 const resourceItemIds = new Set();
 for (const filePath of walkJsonFiles(mapsDir)) {
@@ -101,15 +103,17 @@ for (const filePath of walkJsonFiles(mapsDir)) {
     if (!node) {
       continue;
     }
-    if (typeof node.itemId === 'string' && node.itemId.trim()) {
-      resourceItemIds.add(node.itemId.trim());
-    }
     const drops = Array.isArray(node?.container?.drops) ? node.container.drops : [];
     for (const drop of drops) {
       if (typeof drop?.itemId === 'string' && drop.itemId.trim()) {
         resourceItemIds.add(drop.itemId.trim());
       }
     }
+  }
+}
+for (const source of runtimeTileDropSources) {
+  for (const drop of source.drops) {
+    resourceItemIds.add(drop.itemId);
   }
 }
 

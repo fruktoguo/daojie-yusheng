@@ -721,7 +721,12 @@ export interface ItemStack {
  * enhancementSpeedRate：强化SpeedRate数值。
  */
 
-  enhancementSpeedRate?: number;  
+  enhancementSpeedRate?: number;
+  /**
+ * miningDamageRate：挖矿对矿脉伤害增幅比率。
+ */
+
+  miningDamageRate?: number;
   /**
  * mapUnlockId：地图UnlockID标识。
  */

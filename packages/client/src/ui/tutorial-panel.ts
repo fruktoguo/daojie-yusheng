@@ -216,14 +216,12 @@ export class TutorialPanel {
             role="tabpanel"
             aria-hidden="${this.activeMainTabId === 'operations' ? 'false' : 'true'}"
           >
-            <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="${escapeHtml(t('tutorial.panel.operations-tabs.aria', undefined))}">
-                ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
-              </div>
-              <div class="tutorial-modal-content ui-split-panel-content">
-                ${TUTORIAL_TOPICS.map((topic) => this.renderPane(topic)).join('')}
-              </div>
-            </div>
+            ${this.renderTopicShell(
+              TUTORIAL_TOPICS,
+              t('tutorial.panel.operations-tabs.aria', undefined),
+              (topic) => this.renderTab(topic),
+              (topic) => this.renderPane(topic),
+            )}
           </section>
           <section
             class="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics${this.activeMainTabId === 'mechanics' ? ' active' : ''}"
@@ -231,14 +229,12 @@ export class TutorialPanel {
             role="tabpanel"
             aria-hidden="${this.activeMainTabId === 'mechanics' ? 'false' : 'true'}"
           >
-            <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="${escapeHtml(t('tutorial.panel.mechanics-tabs.aria', undefined))}">
-                ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicTab(topic)).join('')}
-              </div>
-              <div class="tutorial-modal-content ui-split-panel-content">
-                ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicPane(topic)).join('')}
-              </div>
-            </div>
+            ${this.renderTopicShell(
+              TUTORIAL_MECHANIC_TOPICS,
+              t('tutorial.panel.mechanics-tabs.aria', undefined),
+              (topic) => this.renderMechanicTab(topic),
+              (topic) => this.renderMechanicPane(topic),
+            )}
           </section>
           <section
             class="tutorial-modal-main-pane tutorial-modal-main-pane--flow${this.activeMainTabId === 'flow' ? ' active' : ''}"
@@ -251,6 +247,33 @@ export class TutorialPanel {
         </div>
       </div>
     `);
+  }
+
+  /** renderTopicShell：渲染教程专题外壳，支持内容留空。 */
+  private renderTopicShell(
+    topics: TutorialTopic[],
+    ariaLabel: string,
+    renderTab: (topic: TutorialTopic) => string,
+    renderPane: (topic: TutorialTopic) => string,
+  ): string {
+    if (topics.length <= 0) {
+      return this.renderEmptyPane();
+    }
+    return `
+      <div class="tutorial-modal-shell ui-split-panel-shell">
+        <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="${escapeHtml(ariaLabel)}">
+          ${topics.map((topic) => renderTab(topic)).join('')}
+        </div>
+        <div class="tutorial-modal-content ui-split-panel-content">
+          ${topics.map((topic) => renderPane(topic)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  /** renderEmptyPane：渲染教程空态。 */
+  private renderEmptyPane(): string {
+    return `<div class="tutorial-modal-content ui-split-panel-content"><section class="tutorial-modal-pane active"><div class="tutorial-pane-summary">${escapeHtml(t('tutorial.panel.empty', undefined))}</div></section></div>`;
   }
 
   /** renderMainTab：渲染主流程Tab。 */
@@ -375,6 +398,9 @@ export class TutorialPanel {
 
   /** renderFlowGuide：渲染流转Guide。 */
   private renderFlowGuide(): string {
+    if (TUTORIAL_FLOW_TOPICS.length <= 0) {
+      return this.renderEmptyPane();
+    }
     return `
       <div class="tutorial-pane-hero tutorial-pane-hero--flow">
         <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.flow', undefined))}</div>

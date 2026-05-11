@@ -7,8 +7,9 @@ import {
   ELEMENT_KEY_LABELS,
   EquipmentEffectDef,
   GAME_TIME_PHASES,
-  applyEnhancementToItemStack,
+  applyEquipmentAttributeEffectivenessToItemStack,
   formatBuffMaxStacks,
+  getEquipmentAttributeEffectivenessBreakdown,
   ItemStack,
   type MaterialCategory,
   parseQiResourceKey,
@@ -414,6 +415,8 @@ export interface ItemTooltipContext {
  */
 
   itemCooldown?: ItemTooltipCooldownState | null;
+  /** playerRealmLv：用于预览装备属性生效率。 */
+  playerRealmLv?: number | null;
 }
 
 /** isMapUnlockItemRead：判断是否地图解锁物品Read。 */
@@ -598,12 +601,47 @@ export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
     lines.push(t('equipment-tooltip.utility.enhancement-success', { value: formatSignedRate(item.enhancementSuccessRate) }));
   }
+  if (typeof item.miningDamageRate === 'number' && item.miningDamageRate !== 0) {
+    lines.push(t('equipment-tooltip.utility.mining-damage', { value: formatSignedRate(item.miningDamageRate) }));
+  }
   return lines;
 }
 
-/** describeEquipmentBonuses：整理装备词条。 */
-export function describeEquipmentBonuses(item: ItemStack): string[] {
-  const previewItem = applyEnhancementToItemStack(resolvePreviewItem(item));
+function formatEquipmentEffectivenessPercent(value: number): string {
+  return formatDisplayPercent(value, { maximumFractionDigits: 2 });
+}
+
+/** describeEquipmentEffectivenessSummary：整理装备属性总百分比和有效算子。 */
+function describeEquipmentEffectivenessSummary(item: ItemStack, playerRealmLv?: number | null): string | null {
+  const previewItem = resolvePreviewItem(item);
+  if (previewItem.type !== 'equipment') {
+    return null;
+  }
+  const breakdown = getEquipmentAttributeEffectivenessBreakdown(previewItem, playerRealmLv);
+  const factors: string[] = [];
+  if (breakdown.enhancementPercent !== 100) {
+    factors.push(t('equipment-tooltip.effectiveness.factor.enhancement', {
+      value: formatEquipmentEffectivenessPercent(breakdown.enhancementPercent),
+    }));
+  }
+  if (breakdown.realmPercent !== 100) {
+    factors.push(t('equipment-tooltip.effectiveness.factor.realm-low', {
+      value: formatEquipmentEffectivenessPercent(breakdown.realmPercent),
+    }));
+  }
+  return t('equipment-tooltip.effectiveness.summary', {
+    value: formatEquipmentEffectivenessPercent(breakdown.effectivePercent),
+    factors: factors.length > 0 ? `(${factors.join('x')})` : '',
+  });
+}
+
+/** describeEquipmentAttributeEffectiveness：整理装备属性生效率。 */
+export function describeEquipmentAttributeEffectiveness(item: ItemStack, playerRealmLv?: number | null): string | null {
+  return describeEquipmentEffectivenessSummary(item, playerRealmLv);
+}
+
+export function describeEquipmentBonuses(item: ItemStack, playerRealmLv?: number | null): string[] {
+  const previewItem = applyEquipmentAttributeEffectivenessToItemStack(resolvePreviewItem(item), playerRealmLv);
   return [
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
     ...describeSpecialStats(previewItem.equipSpecialStats),
@@ -611,11 +649,39 @@ export function describeEquipmentBonuses(item: ItemStack): string[] {
   ];
 }
 
+function renderEquipmentBonusPill(line: string): string {
+  const trimmed = line.trim();
+  const match = trimmed.match(/^(.+?)\s+([+-].+)$/u);
+  const label = match?.[1]?.trim() || trimmed;
+  const value = match?.[2]?.trim() || '';
+  return `<span class="equipment-tooltip-stat-pill"><span class="equipment-tooltip-stat-name">${escapeHtml(label)}</span>${value ? `<span class="equipment-tooltip-stat-value">${escapeHtml(value)}</span>` : ''}</span>`;
+}
+
+function renderEquipmentBonusList(lines: string[]): string | null {
+  if (lines.length === 0) {
+    return null;
+  }
+  return `<div class="equipment-tooltip-stat-list">${lines.map((line) => renderEquipmentBonusPill(line)).join('')}</div>`;
+}
+
+function renderEquipmentAttributeBlock(item: ItemStack, playerRealmLv?: number | null): string | null {
+  const effectivenessLine = describeEquipmentEffectivenessSummary(item, playerRealmLv);
+  const propertyLines = describeEquipmentBonuses(item, playerRealmLv);
+  if (!effectivenessLine && propertyLines.length === 0) {
+    return null;
+  }
+  const bonusList = renderEquipmentBonusList(propertyLines);
+  return `<div class="equipment-tooltip-attribute-block">${
+    effectivenessLine ? `<div class="equipment-tooltip-effectiveness">${renderLabelLine(t('equipment-tooltip.label.equipment-attrs', undefined), escapeHtml(effectivenessLine))}</div>` : ''
+  }${bonusList ?? ''}</div>`;
+}
+
 /** buildEquipmentComparisonAsideCard：构建Equipment Comparison Aside卡片。 */
-function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
+function buildEquipmentComparisonAsideCard(item: ItemStack, playerRealmLv?: number | null): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
-  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
-  const propertyLines = describeEquipmentBonuses(previewItem);
+  const enhancedPreviewItem = applyEquipmentAttributeEffectivenessToItemStack(previewItem, playerRealmLv);
+  const propertyLines = describeEquipmentBonuses(previewItem, playerRealmLv);
+  const effectivenessLine = describeEquipmentAttributeEffectiveness(previewItem, playerRealmLv);
   const effectLines = (enhancedPreviewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: t('equipment-tooltip.equipped.mark', undefined),
@@ -623,6 +689,7 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
     lines: [
       enhancedPreviewItem.name,
       ...(enhancedPreviewItem.equipSlot ? [t('equipment-tooltip.equipped.slot', { slot: getEquipSlotLabel(enhancedPreviewItem.equipSlot) })] : []),
+      ...(effectivenessLine ? [effectivenessLine] : []),
       ...(propertyLines.length > 0 ? [t('equipment-tooltip.equipped.attrs', { attrs: propertyLines.join('，') })] : []),
       ...effectLines,
     ],
@@ -701,15 +768,15 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     };
   }
 
-  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
-  const propertyLines = describeEquipmentBonuses(previewItem);
+  const enhancedPreviewItem = applyEquipmentAttributeEffectivenessToItemStack(previewItem, context?.playerRealmLv);
+  const attributeBlock = renderEquipmentAttributeBlock(previewItem, context?.playerRealmLv);
   const effectSummaries = (enhancedPreviewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
     `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
     renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(enhancedPreviewItem.type)),
     ...(enhancedPreviewItem.equipSlot ? [renderPlainLine(t('equipment-tooltip.label.slot', undefined), getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
     ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
-    ...(propertyLines.length > 0 ? [renderPlainLine(t('equipment-tooltip.label.equipment-attrs', undefined), propertyLines.join('，'))] : []),
+    ...(attributeBlock ? [attributeBlock] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
     `<div class="inventory-source-block"><span class="skill-tooltip-label">${t('equipment-tooltip.label.source', undefined)}：</span>${sourceListHtml}</div>`,
   ];
@@ -717,7 +784,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     .map((entry) => entry.asideCard)
     .filter((entry): entry is SkillTooltipAsideCard => Boolean(entry));
   if (context?.equippedItem && context.equippedItem.equipSlot === previewItem.equipSlot) {
-    asideCards.unshift(buildEquipmentComparisonAsideCard(context.equippedItem));
+    asideCards.unshift(buildEquipmentComparisonAsideCard(context.equippedItem, context.playerRealmLv));
   }
 
   return {

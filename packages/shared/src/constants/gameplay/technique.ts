@@ -95,14 +95,6 @@ export const TECHNIQUE_GRADE_QI_COST_MULTIPLIERS: Record<TechniqueGrade, number>
   emperor: 8,
 };
 
-/** 旧版固定功法经验表，当前内容已按逐层配置为准 */
-export const TECHNIQUE_EXP_TABLE: Record<number, number> = {
-  0: 100,
-  1: 300,
-  2: 1000,
-  3: 0,
-};
-
 /** 各品阶属性无衰减上限（超出后进入软衰减区间） */
 export const TECHNIQUE_GRADE_ATTR_FREE_LIMITS: Record<TechniqueGrade, Attributes> = {
   mortal: { constitution: 44, spirit: 44, perception: 44, talent: 44, strength: 44, meridians: 44 },

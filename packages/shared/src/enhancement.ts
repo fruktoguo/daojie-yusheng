@@ -3,6 +3,7 @@ import type {
   EnhancementMaterialRequirement,
   EnhancementTargetRef,
   ItemStack,
+  PlayerSpecialStats,
   PlayerEnhancementJob,
 } from './types';
 import type { PartialNumericStats } from './numeric';
@@ -31,6 +32,17 @@ import {
 
 export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL;
 export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 1 - Math.exp(CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL);
+export const EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL = 0.05;
+
+export interface EquipmentAttributeEffectivenessBreakdown {
+  enhanceLevel: number;
+  equipmentRealmLv: number;
+  playerRealmLv?: number;
+  realmGap: number;
+  enhancementPercent: number;
+  realmPercent: number;
+  effectivePercent: number;
+}
 
 export function normalizeEnhanceLevel(value: unknown): number {
   if (!Number.isFinite(value)) {
@@ -53,6 +65,53 @@ export function getEnhancementSpiritStoneCost(itemLevel: number | undefined, has
 export function getEnhancementPercent(level: number | undefined): number {
   const normalized = normalizeEnhanceLevel(level);
   return Math.ceil(100 * ((1 + ENHANCEMENT_RATE_PER_LEVEL) ** normalized));
+}
+
+function normalizeEquipmentRealmLv(value: unknown): number {
+  return Math.max(1, Math.floor(Number(value) || 1));
+}
+
+function normalizeOptionalPlayerRealmLv(value: unknown): number | undefined {
+  if (!Number.isFinite(Number(value))) {
+    return undefined;
+  }
+  return Math.max(1, Math.floor(Number(value)));
+}
+
+export function getEquipmentRealmEffectiveness(
+  playerRealmLv: number | undefined | null,
+  equipmentRealmLv: number | undefined | null,
+): number {
+  const normalizedPlayerRealmLv = normalizeOptionalPlayerRealmLv(playerRealmLv);
+  if (normalizedPlayerRealmLv === undefined) {
+    return 1;
+  }
+  const normalizedEquipmentRealmLv = normalizeEquipmentRealmLv(equipmentRealmLv);
+  const realmGap = Math.max(0, normalizedEquipmentRealmLv - normalizedPlayerRealmLv);
+  return Math.max(0, 1 - realmGap * EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL);
+}
+
+export function getEquipmentAttributeEffectivenessBreakdown(
+  item: Pick<ItemStack, 'enhanceLevel' | 'level'>,
+  playerRealmLv?: number | null,
+): EquipmentAttributeEffectivenessBreakdown {
+  const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
+  const equipmentRealmLv = normalizeEquipmentRealmLv(item.level);
+  const normalizedPlayerRealmLv = normalizeOptionalPlayerRealmLv(playerRealmLv);
+  const realmGap = normalizedPlayerRealmLv === undefined
+    ? 0
+    : Math.max(0, equipmentRealmLv - normalizedPlayerRealmLv);
+  const enhancementPercent = getEnhancementPercent(enhanceLevel);
+  const realmPercent = Math.max(0, 100 - realmGap * EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL * 100);
+  return {
+    enhanceLevel,
+    equipmentRealmLv,
+    playerRealmLv: normalizedPlayerRealmLv,
+    realmGap,
+    enhancementPercent,
+    realmPercent,
+    effectivePercent: enhancementPercent * realmPercent / 100,
+  };
 }
 
 export function formatEnhancedItemName(name: string, level: number | undefined): string {
@@ -207,6 +266,16 @@ function scaleEnhancedUtilityRate(value: number, level: number | undefined): num
   return Math.ceil((scaled - Number.EPSILON) * 10_000) / 10_000;
 }
 
+function scaleEquipmentEffectivenessNumber(value: number, multiplier: number): number {
+  const scaled = value * multiplier;
+  return Math.ceil((scaled - Number.EPSILON) * 100) / 100;
+}
+
+function scaleEquipmentEffectivenessUtilityRate(value: number, multiplier: number): number {
+  const scaled = value * multiplier;
+  return Math.ceil((scaled - Number.EPSILON) * 10_000) / 10_000;
+}
+
 function cloneScaledUtilityRate(value: number | undefined, level: number | undefined): number | undefined {
   if (typeof value !== 'number') {
     return value;
@@ -278,6 +347,90 @@ export function scaleEnhancedNumericStats(
   return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
+export function scaleEquipmentEffectivenessAttributes(
+  attrs: Partial<Attributes> | undefined,
+  multiplier: number,
+): Partial<Attributes> | undefined {
+  if (!attrs) {
+    return undefined;
+  }
+  const normalizedMultiplier = Number.isFinite(multiplier) ? Math.max(0, multiplier) : 1;
+  const scaled: Partial<Attributes> = {};
+  for (const key of ATTR_KEYS) {
+    const value = attrs[key];
+    if (typeof value !== 'number') {
+      continue;
+    }
+    scaled[key] = scaleEquipmentEffectivenessNumber(value, normalizedMultiplier);
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
+export function scaleEquipmentEffectivenessNumericStats(
+  stats: PartialNumericStats | undefined,
+  multiplier: number,
+): PartialNumericStats | undefined {
+  if (!stats) {
+    return undefined;
+  }
+  const normalizedMultiplier = Number.isFinite(multiplier) ? Math.max(0, multiplier) : 1;
+  const scaled: PartialNumericStats = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const value = stats[key];
+    if (typeof value !== 'number') {
+      continue;
+    }
+    scaled[key] = scaleEquipmentEffectivenessNumber(value, normalizedMultiplier);
+  }
+  if (stats.elementDamageBonus) {
+    const group: NonNullable<PartialNumericStats['elementDamageBonus']> = {};
+    for (const key of ELEMENT_KEYS) {
+      const value = stats.elementDamageBonus[key];
+      if (typeof value !== 'number') {
+        continue;
+      }
+      group[key] = scaleEquipmentEffectivenessNumber(value, normalizedMultiplier);
+    }
+    if (Object.keys(group).length > 0) {
+      scaled.elementDamageBonus = group;
+    }
+  }
+  if (stats.elementDamageReduce) {
+    const group: NonNullable<PartialNumericStats['elementDamageReduce']> = {};
+    for (const key of ELEMENT_KEYS) {
+      const value = stats.elementDamageReduce[key];
+      if (typeof value !== 'number') {
+        continue;
+      }
+      group[key] = scaleEquipmentEffectivenessNumber(value, normalizedMultiplier);
+    }
+    if (Object.keys(group).length > 0) {
+      scaled.elementDamageReduce = group;
+    }
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
+export function scaleEquipmentEffectivenessSpecialStats(
+  stats: Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>> | undefined,
+  multiplier: number,
+): Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>> | undefined {
+  if (!stats) {
+    return undefined;
+  }
+  const normalizedMultiplier = Number.isFinite(multiplier) ? Math.max(0, multiplier) : 1;
+  const scaled: Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>> = {};
+  const comprehension = stats.comprehension;
+  const luck = stats.luck;
+  if (typeof comprehension === 'number') {
+    scaled.comprehension = scaleEquipmentEffectivenessNumber(comprehension, normalizedMultiplier);
+  }
+  if (typeof luck === 'number') {
+    scaled.luck = scaleEquipmentEffectivenessNumber(luck, normalizedMultiplier);
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
 export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
   const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
   if (enhanceLevel <= 0 || item.type !== 'equipment') {
@@ -298,5 +451,32 @@ export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
     alchemySpeedRate: cloneScaledUtilityRate(item.alchemySpeedRate, enhanceLevel),
     enhancementSuccessRate: cloneScaledUtilityRate(item.enhancementSuccessRate, enhanceLevel),
     enhancementSpeedRate: cloneScaledUtilityRate(item.enhancementSpeedRate, enhanceLevel),
+    miningDamageRate: cloneScaledUtilityRate(item.miningDamageRate, enhanceLevel),
+  };
+}
+
+export function applyEquipmentAttributeEffectivenessToItemStack(
+  item: ItemStack,
+  playerRealmLv?: number | null,
+): ItemStack {
+  const enhancedItem = applyEnhancementToItemStack(item);
+  if (enhancedItem.type !== 'equipment') {
+    return enhancedItem;
+  }
+  const realmMultiplier = getEquipmentRealmEffectiveness(playerRealmLv, enhancedItem.level);
+  if (realmMultiplier >= 1) {
+    return enhancedItem;
+  }
+  return {
+    ...enhancedItem,
+    equipAttrs: scaleEquipmentEffectivenessAttributes(enhancedItem.equipAttrs, realmMultiplier),
+    equipStats: scaleEquipmentEffectivenessNumericStats(enhancedItem.equipStats, realmMultiplier),
+    equipValueStats: scaleEquipmentEffectivenessNumericStats(enhancedItem.equipValueStats, realmMultiplier),
+    equipSpecialStats: scaleEquipmentEffectivenessSpecialStats(enhancedItem.equipSpecialStats, realmMultiplier),
+    alchemySuccessRate: typeof enhancedItem.alchemySuccessRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.alchemySuccessRate, realmMultiplier) : enhancedItem.alchemySuccessRate,
+    alchemySpeedRate: typeof enhancedItem.alchemySpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.alchemySpeedRate, realmMultiplier) : enhancedItem.alchemySpeedRate,
+    enhancementSuccessRate: typeof enhancedItem.enhancementSuccessRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSuccessRate, realmMultiplier) : enhancedItem.enhancementSuccessRate,
+    enhancementSpeedRate: typeof enhancedItem.enhancementSpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSpeedRate, realmMultiplier) : enhancedItem.enhancementSpeedRate,
+    miningDamageRate: typeof enhancedItem.miningDamageRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.miningDamageRate, realmMultiplier) : enhancedItem.miningDamageRate,
   };
 }

@@ -3,7 +3,7 @@
  * 管理玩家通天塔当前层和历史最高层的内存缓存与数据库落库，
  * 支持异步写入队列和进程关闭前强刷。
  */
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, type BeforeApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -19,7 +19,7 @@ const TONGTIAN_TOWER_PROGRESS_TABLE = 'player_tongtian_tower_progress';
 
 /** 通天塔持久化服务：内存缓存 + 异步落库 */
 @Injectable()
-export class TongtianTowerPersistenceService implements OnModuleInit, OnModuleDestroy {
+export class TongtianTowerPersistenceService implements OnModuleInit, BeforeApplicationShutdown {
   private readonly logger = new Logger(TongtianTowerPersistenceService.name);
   private readonly progressByPlayerId = new Map<string, TongtianTowerProgress>();
   private readonly pendingWritesByPlayerId = new Map<string, Promise<void>>();
@@ -46,7 +46,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit, OnModuleDe
     }
   }
 
-  async onModuleDestroy(): Promise<void> {
+  async beforeApplicationShutdown(): Promise<void> {
     await this.flushAllProgress();
   }
 
@@ -163,17 +163,27 @@ export class TongtianTowerPersistenceService implements OnModuleInit, OnModuleDe
     if (!this.pool || !this.enabled) {
       return;
     }
-    await this.pool.query(
-      `
-        INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
-        VALUES ($1, $2, $3, now())
-        ON CONFLICT (player_id) DO UPDATE SET
-          current_layer = EXCLUDED.current_layer,
-          highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
-          updated_at = now()
-      `,
-      [progress.playerId, progress.currentLayer, progress.highestLayer],
-    );
+    try {
+      await this.pool.query(
+        `
+          INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
+          VALUES ($1, $2, $3, now())
+          ON CONFLICT (player_id) DO UPDATE SET
+            current_layer = EXCLUDED.current_layer,
+            highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
+            updated_at = now()
+        `,
+        [progress.playerId, progress.currentLayer, progress.highestLayer],
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('Cannot use a pool after calling end on the pool')) {
+        this.logger.warn('通天塔进度落库跳过：连接池已关闭（进程关闭中）');
+        this.enabled = false;
+        return;
+      }
+      throw error;
+    }
   }
 }
 

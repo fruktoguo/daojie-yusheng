@@ -61,6 +61,17 @@ export function getDefaultTileDurabilityMultiplier(type: TileType | string | und
   return Number.isFinite(multiplier) && multiplier !== undefined && multiplier > 0 ? multiplier : null;
 }
 
+/** 判断地块类型是否为矿脉（可获得挖矿经验）。 */
+export function isOreMinableTileType(type: TileType | string | undefined | null): boolean {
+  return type === TileType.SpiritOre || type === TileType.BlackIronOre;
+}
+
+/** 矿脉地块等级映射（用于挖矿经验计算）。 */
+export const ORE_TILE_LEVEL: Partial<Record<TileType, number>> = {
+  [TileType.BlackIronOre]: 11,
+  [TileType.SpiritOre]: 20,
+};
+
 /** 获取地形移动消耗 */
 export function getTileTraversalCost(type: TileType): number {
   return TILE_TRAVERSAL_COST[type] ?? 400;

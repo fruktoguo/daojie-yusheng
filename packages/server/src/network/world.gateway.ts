@@ -6,7 +6,7 @@
 
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Inject, Logger } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, C2S, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, C2S, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { Server, Socket } from 'socket.io';
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { HealthReadinessService } from '../health/health-readiness.service';
@@ -515,6 +515,7 @@ function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     const bonuses = [];
     const realmStage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const playerRealmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
     const realmConfig = PLAYER_REALM_CONFIG[realmStage];
     const realmAttrBonus = resolvePlayerRealmAttributeBonus(realmStage);
     if (realmConfig && hasNonZeroAttributes(realmAttrBonus)) {
@@ -539,7 +540,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
+        const item = entry.item ? applyEquipmentAttributeEffectivenessToItemStack(entry.item, playerRealmLv) : null;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
             continue;
         }

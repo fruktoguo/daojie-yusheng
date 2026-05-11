@@ -12,6 +12,7 @@ import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTile
 import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-calculator.service';
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
+import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -50,112 +51,41 @@ const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger(
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
     [TileType.Wall]: { material: 'stone', multiplier: 50 },
-    [TileType.Cloud]: { material: 'vine', multiplier: 3 },
+    [TileType.Cloud]: {
+        material: 'vine',
+        multiplier: 3,
+        damageDrops: [{ itemId: 'cloud_puff', count: 1, chanceBps: 200 }],
+        destroyDrops: [{ itemId: 'cloud_puff', count: 1 }],
+    },
     [TileType.Tree]: { material: 'wood', multiplier: 10 },
     [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
     [TileType.Cliff]: { material: 'stone', multiplier: 50 },
     [TileType.Stone]: { material: 'stone', multiplier: 50 },
-    [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-    [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-    [TileType.BrokenSwordHeap]: { material: 'brokenSwordHeap', multiplier: 2 },
+    [TileType.SpiritOre]: {
+        material: 'spiritOre',
+        multiplier: 10000,
+        damageDrops: [{ itemId: 'spirit_stone', count: 1, chanceBps: 20 }],
+        destroyDrops: [{ itemId: 'spirit_stone', count: 1 }],
+    },
+    [TileType.BlackIronOre]: {
+        material: 'blackIronOre',
+        multiplier: 2000,
+        damageDrops: [{ itemId: 'black_iron_chunk', count: 1, chanceBps: 50 }],
+        destroyDrops: [{ itemId: 'black_iron_chunk', count: 1 }],
+    },
+    [TileType.BrokenSwordHeap]: {
+        material: 'brokenSwordHeap',
+        multiplier: 2,
+        damageDrops: [{ itemId: 'sword_pellet', count: 1, chanceBps: 1200 }],
+        destroyDrops: [{ itemId: 'sword_pellet', count: 1 }],
+    },
     [TileType.Door]: { material: 'ironwood', multiplier: 14 },
     [TileType.Window]: { material: 'wood', multiplier: 10 },
-};
-
-/** TERRAIN_DURABILITY_PROFILES：按地图风格区分的地形耐久配置。 */
-const TERRAIN_DURABILITY_PROFILES = {
-    mortal_settlement: {
-        [TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [TileType.Tree]: { material: 'wood', multiplier: 10 },
-        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
-        [TileType.Window]: { material: 'wood', multiplier: 10 },
-    },
-    yellow_frontier: {
-        [TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [TileType.Tree]: { material: 'wood', multiplier: 10 },
-        [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
-        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-    },
-    yellow_bamboo: {
-        [TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [TileType.Tree]: { material: 'bamboo', multiplier: 8 },
-        [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
-        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [TileType.Door]: { material: 'wood', multiplier: 10 },
-    },
-    mystic_black_iron: {
-        [TileType.Wall]: { material: 'blackIron', multiplier: 120 },
-        [TileType.Cliff]: { material: 'blackIron', multiplier: 120 },
-        [TileType.Stone]: { material: 'blackIron', multiplier: 120 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
-    },
-    mystic_rune_ruins: {
-        [TileType.Wall]: { material: 'runeStone', multiplier: 70 },
-        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Cliff]: { material: 'runeStone', multiplier: 70 },
-        [TileType.Stone]: { material: 'runeStone', multiplier: 70 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [TileType.Door]: { material: 'ironwood', multiplier: 14 },
-    },
-    earth_stone_wild: {
-        [TileType.Wall]: { material: 'stone', multiplier: 50 },
-        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Cliff]: { material: 'stone', multiplier: 50 },
-        [TileType.Stone]: { material: 'stone', multiplier: 50 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-    },
-    earth_sky_metal: {
-        [TileType.Wall]: { material: 'skyMetal', multiplier: 160 },
-        [TileType.Cloud]: { material: 'vine', multiplier: 3 },
-        [TileType.Tree]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Bamboo]: { material: 'spiritWood', multiplier: 18 },
-        [TileType.Cliff]: { material: 'skyMetal', multiplier: 160 },
-        [TileType.Stone]: { material: 'skyMetal', multiplier: 160 },
-        [TileType.SpiritOre]: { material: 'spiritOre', multiplier: 10000 },
-        [TileType.BlackIronOre]: { material: 'blackIronOre', multiplier: 2000 },
-        [TileType.Door]: { material: 'metal', multiplier: 100 },
-    },
-};
-
-/** SPECIAL_TILE_DURABILITY_MULTIPLIERS：特殊地块耐久倍率表。 */
-const SPECIAL_TILE_DURABILITY_MULTIPLIERS = {
-    [TileType.SpiritOre]: 1000,
-    [TileType.BlackIronOre]: 1000,
-    [TileType.BrokenSwordHeap]: 0.02,
 };
 
 /** SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS：特殊地形恢复速度倍率，越高表示复原越快。 */
 const SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = {
     [TileType.Cloud]: 100,
-};
-
-/** LEGACY_MAP_TERRAIN_PROFILE_IDS：旧版地图到地形耐久配置的兼容映射。 */
-const LEGACY_MAP_TERRAIN_PROFILE_IDS = {
-    spawn: 'mortal_settlement',
-    yunlai_town: 'mortal_settlement',
-    wildlands: 'yellow_frontier',
-    bamboo_forest: 'yellow_bamboo',
-    black_iron_mine: 'mystic_black_iron',
-    ancient_ruins: 'mystic_rune_ruins',
-    spirit_ridge: 'earth_stone_wild',
-    beast_valley: 'earth_stone_wild',
-    sky_ruins: 'earth_sky_metal',
 };
 /** MapInstanceRuntime：地图实例运行时实现。 */
 class MapInstanceRuntime {
@@ -2484,6 +2414,7 @@ class MapInstanceRuntime {
 
         const nextHp = Math.max(0, current.hp - appliedDamage);
         const destroyed = nextHp <= 0;
+        const tileDrops = this.rollTileDrops(current.tileType, appliedDamage, destroyed);
         const affectsRoomTopology = destroyed === true
             && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getDestroyedTileLayerStateByCellIndex(tileIndex).tileType);
         const affectsRoomIntegrity = destroyed !== true
@@ -2514,6 +2445,7 @@ class MapInstanceRuntime {
             maxHp: current.maxHp,
             appliedDamage,
             targetType: current.tileType,
+            tileDrops,
         };
     }
     /** createTemporaryTile：创建或刷新技能生成的临时地块。 */
@@ -4133,6 +4065,27 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return toGroundPileView(pile);
     }
+    /** rollTileDrops：按通用可拆地块掉落配置结算本次伤害和拆除掉落。 */
+    rollTileDrops(tileType, appliedDamage, destroyed) {
+        const config = DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
+        if (!config) {
+            return [];
+        }
+        const drops = [];
+        const damageMultiplier = resolveTileDamageDropMultiplier(appliedDamage);
+        for (const entry of config.damageDrops ?? []) {
+            const chanceBps = Math.max(0, Math.min(10000, Math.trunc(Number(entry?.chanceBps) || 0) * damageMultiplier));
+            if (chanceBps > 0 && Math.random() * 10000 < chanceBps) {
+                drops.push({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)), reason: 'damage' });
+            }
+        }
+        if (destroyed === true) {
+            for (const entry of config.destroyDrops ?? []) {
+                drops.push({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)), reason: 'destroy' });
+            }
+        }
+        return drops;
+    }
     /** takeGroundItem：从地面堆中取走指定物品。 */
     takeGroundItem(sourceId, itemKey, takerX, takerY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -5559,11 +5512,7 @@ function resolveTileDurability(template, tileType, x = null, y = null) {
         return Math.max(1, Math.trunc(100000 * Math.pow(2, Math.max(0, ring - 1))));
     }
 
-    const profileId = template.source.terrainProfileId
-        ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[template.id]
-        ?? template.id;
-
-    const profile = TERRAIN_DURABILITY_PROFILES[profileId]?.[tileType] ?? DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
+    const profile = DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
     if (!profile) {
         return 0;
     }
@@ -5571,10 +5520,7 @@ function resolveTileDurability(template, tileType, x = null, y = null) {
     const terrainRealmLv = Number.isFinite(template.source?.terrainRealmLv)
         ? Math.max(1, Math.floor(Number(template.source.terrainRealmLv)))
         : 1;
-    const baseDurability = calculateTerrainDurability(terrainRealmLv, profile.multiplier);
-
-    const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[tileType] ?? 1;
-    return Math.max(1, Math.round(baseDurability * multiplier));
+    return calculateTerrainDurability(terrainRealmLv, profile.multiplier);
 }
 /** clampCoordinate：把坐标夹到地图边界内。 */
 function clampCoordinate(value, size) {

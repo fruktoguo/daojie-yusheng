@@ -574,17 +574,17 @@ const SKILL_PRESET_EXPORT_VERSION = 2;
 /** 动作面板实现，负责动作、技能和预设的局部交互。 */
 export class ActionPanel {
   /** 技能管理弹窗的归属标识，和其他详情弹层互斥。 */
-  private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
+  private readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
   /** 战斗设置弹层。 */
-  private static readonly COMBAT_SETTINGS_MODAL_OWNER = 'action-panel-combat-settings';
+  private readonly COMBAT_SETTINGS_MODAL_OWNER = 'action-panel-combat-settings';
   /** 技能预设弹窗的归属标识，和技能管理弹层分开管理。 */
-  private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  private readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
   /** 索敌方案弹层。 */
-  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
+  private readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
   /** 宗门管理弹层。 */
-  private static readonly SECT_MANAGEMENT_MODAL_OWNER = 'action-panel-sect-management';
+  private readonly SECT_MANAGEMENT_MODAL_OWNER = 'action-panel-sect-management';
   /** 自动吃药槽位上限。 */
-  private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
+  private readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
   /** 面板根节点，后续只做局部 patch。 */
   private pane = document.getElementById('pane-action')!;
   /** 执行动作的外部回调，由战斗/交互层接手真正执行。 */
@@ -739,11 +739,11 @@ export class ActionPanel {
     this.sectManagementTab = 'guardian';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
-    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(this.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(this.COMBAT_SETTINGS_MODAL_OWNER);
+    detailModalHost.close(this.SKILL_PRESET_MODAL_OWNER);
+    detailModalHost.close(this.TARGETING_PLAN_MODAL_OWNER);
+    detailModalHost.close(this.SECT_MANAGEMENT_MODAL_OWNER);
     patchElementHtml(this.pane, `<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`);
   }  
   /**
@@ -2410,7 +2410,7 @@ export class ActionPanel {
       return;
     }
     this.discardSkillManagementDraft();
-    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(this.SKILL_MANAGEMENT_MODAL_OWNER);
   }
 
   /** 清理技能管理里的临时关闭确认提示。 */
@@ -2510,7 +2510,7 @@ export class ActionPanel {
             .map((condition) => ({ ...condition }))
           : [],
       });
-      if (normalized.length >= ActionPanel.AUTO_USE_PILL_SLOT_LIMIT) {
+      if (normalized.length >= this.AUTO_USE_PILL_SLOT_LIMIT) {
         break;
       }
     }
@@ -2767,7 +2767,7 @@ export class ActionPanel {
     this.resetCombatSettingsCloseConfirm();
     const next = this.normalizeAutoUsePillsLocal(mutator(this.cloneAutoUsePillConfigs(this.syncAutoUsePillDraft())));
     this.autoUsePillDraft = next;
-    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, this.AUTO_USE_PILL_SLOT_LIMIT - 1));
     this.renderCombatSettingsModal();
   }
 
@@ -2779,14 +2779,14 @@ export class ActionPanel {
   /** 打开自动丹药选择小窗。 */
   private openAutoUsePillPicker(slotIndex: number): void {
     this.syncAutoUsePillDraft();
-    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, this.AUTO_USE_PILL_SLOT_LIMIT - 1));
     this.autoUsePillSubview = 'picker';
     this.renderCombatSettingsModal();
   }
 
   /** 打开自动丹药条件小窗。 */
   private openAutoUsePillConditionSettings(slotIndex = this.autoUsePillSelectedIndex): void {
-    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, this.AUTO_USE_PILL_SLOT_LIMIT - 1));
     if (!this.getSelectedAutoUsePillConfig()) {
       return;
     }
@@ -2832,7 +2832,7 @@ export class ActionPanel {
     if (!item) {
       return null;
     }
-    const payload = buildItemTooltipPayload(item);
+    const payload = buildItemTooltipPayload(item, { playerRealmLv: this.previewPlayer?.realm?.realmLv ?? this.previewPlayer?.realmLv });
     const config = this.syncAutoUsePillDraft().find((entry) => entry.itemId === itemId);
     if (config) {
       payload.lines = [
@@ -3053,7 +3053,7 @@ export class ActionPanel {
     }
     this.sectManagementExternalRevision = this.buildSectManagementRevision(summary);
     detailModalHost.open({
-      ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
+      ownerId: this.SECT_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--sect-management',
       title: t('action.sect.manage.title', undefined),
       subtitle: t('action.sect.manage.subtitle', { name: summary.name, mark: summary.mark }),
@@ -3508,7 +3508,7 @@ export class ActionPanel {
     const currentEntry = currentConfig
       ? entries.find((entry) => entry.itemId === currentConfig.itemId) ?? null
       : null;
-    const slotMarkup = Array.from({ length: ActionPanel.AUTO_USE_PILL_SLOT_LIMIT }, (_, index) => {
+    const slotMarkup = Array.from({ length: this.AUTO_USE_PILL_SLOT_LIMIT }, (_, index) => {
       const slotConfig = pillDraft[index] ?? null;
       const slotEntry = slotConfig
         ? entries.find((entry) => entry.itemId === slotConfig.itemId) ?? null
@@ -3661,7 +3661,7 @@ export class ActionPanel {
       </div>
     `;
     detailModalHost.open({
-      ownerId: ActionPanel.COMBAT_SETTINGS_MODAL_OWNER,
+      ownerId: this.COMBAT_SETTINGS_MODAL_OWNER,
       variantClass: 'detail-modal--combat-settings',
       title: t('action.combat-settings.title', undefined),
       subtitle: t('action.combat-settings.subtitle', {
@@ -3685,7 +3685,7 @@ export class ActionPanel {
       ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
 
     detailModalHost.open({
-      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
+      ownerId: this.TARGETING_PLAN_MODAL_OWNER,
       variantClass: 'detail-modal--targeting-plan',
       title: t('action.targeting-plan.title', undefined),
       subtitle: t('action.targeting-plan.subtitle', { label: activeOption.label }),
@@ -3768,7 +3768,7 @@ export class ActionPanel {
       return;
     }
     this.discardCombatSettingsDraft();
-    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+    detailModalHost.close(this.COMBAT_SETTINGS_MODAL_OWNER);
   }
 
   /** 绑定战斗设置交互。 */
@@ -4006,7 +4006,7 @@ export class ActionPanel {
         if (!item) {
           return;
         }
-        const tooltip = buildItemTooltipPayload(item);
+        const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.previewPlayer?.realm?.realmLv ?? this.previewPlayer?.realmLv });
         this.autoUsePillTooltipNode = card;
         this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,
@@ -4083,7 +4083,7 @@ export class ActionPanel {
     }
     this.render(this.currentActions);
     this.discardCombatSettingsDraft();
-    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+    detailModalHost.close(this.COMBAT_SETTINGS_MODAL_OWNER);
     if (pillsChanged) {
       this.onUpdateAutoUsePills?.(nextPills);
     }
@@ -4217,7 +4217,7 @@ export class ActionPanel {
     const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : t('action.skill-preset.compatibility.none', undefined);
 
     detailModalHost.open({
-      ownerId: ActionPanel.SKILL_PRESET_MODAL_OWNER,
+      ownerId: this.SKILL_PRESET_MODAL_OWNER,
       variantClass: 'detail-modal--skill-preset',
       title: t('action.skill-preset.title', undefined),
       subtitle: t('action.skill-preset.subtitle', { presetCount: this.skillPresets.length, skillCount: currentSkills.length }),
@@ -4899,7 +4899,7 @@ export class ActionPanel {
   private _renderSkillManagementModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
+    if (detailModalHost.isOpenFor(this.SKILL_MANAGEMENT_MODAL_OWNER)) {
       this.captureSkillManagementListScroll();
     }
     const previewActions = this.getSkillManagementPreviewActions();
@@ -4923,7 +4923,7 @@ export class ActionPanel {
     const hint = this.buildSkillManagementHint(dragSortEnabled, slotSummary);
 
     detailModalHost.open({
-      ownerId: ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER,
+      ownerId: this.SKILL_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--skill-management',
       title: t('action.skill.manage', undefined),
       subtitle: t('action.skill.manage.subtitle', {
@@ -5427,7 +5427,7 @@ export class ActionPanel {
     this.skillManagementListScrollTop = 0;
     this.bindingActionId = null;
     this.clearDragState();
-    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(this.SKILL_MANAGEMENT_MODAL_OWNER);
     this.render(this.currentActions);
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
@@ -5435,7 +5435,7 @@ export class ActionPanel {
   /** 放弃技能管理草稿并关闭弹层。 */
   private cancelSkillManagementChanges(): void {
     this.discardSkillManagementDraft();
-    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(this.SKILL_MANAGEMENT_MODAL_OWNER);
   }
 
   /** 清掉技能管理草稿、拖拽态和滚动位置。 */

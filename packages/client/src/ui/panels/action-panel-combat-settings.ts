@@ -367,7 +367,7 @@ export class CombatSettingsSubpanel {
     if (!item) {
       return null;
     }
-    const payload = buildItemTooltipPayload(item);
+    const payload = buildItemTooltipPayload(item, { playerRealmLv: this.p.previewPlayer?.realm?.realmLv ?? this.p.previewPlayer?.realmLv });
     const config = this.syncAutoUsePillDraft().find((entry) => entry.itemId === itemId);
     if (config) {
       payload.lines = [
@@ -1124,7 +1124,7 @@ export class CombatSettingsSubpanel {
       if (this.p.autoUsePillTooltipNode !== card) {
         const item = this.buildAutoUsePillTooltipItem(itemId);
         if (!item) return;
-        const tooltip = buildItemTooltipPayload(item);
+        const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.p.previewPlayer?.realm?.realmLv ?? this.p.previewPlayer?.realmLv });
         this.p.autoUsePillTooltipNode = card;
         this.p.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,

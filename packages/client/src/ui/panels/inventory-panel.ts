@@ -1092,7 +1092,7 @@ export class InventoryPanel {
       this.sourceExpandedItemKey = this.selectedItemKey;
     }
     const bonusLines = item.type === 'equipment'
-      ? describeEquipmentBonuses(previewItem)
+      ? describeEquipmentBonuses(previewItem, this.playerRealm?.realmLv)
       : describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const materialValueLines = item.type === 'material' ? describeMaterialValueDetails(previewItem) : [];
     const effectLines = formatItemEffects(item);
@@ -2766,6 +2766,7 @@ export class InventoryPanel {
       unlockedMinimapIds: this.unlockedMinimapIds,
       equippedItem: this.getEquippedItemForCompare(item),
       itemCooldown: this.getItemTooltipCooldownState(item),
+      playerRealmLv: this.playerRealm?.realmLv,
     });
   }
 

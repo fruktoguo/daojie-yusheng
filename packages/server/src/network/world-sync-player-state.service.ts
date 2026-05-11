@@ -6,6 +6,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   EQUIP_SLOTS,
+  applyEquipmentAttributeEffectivenessToItemStack,
   calcTechniqueFinalSpecialStatBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
@@ -85,6 +86,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
     gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
     enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
+    miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
     actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
     quests: player.quests.quests.map((entry) => toQuestRuntimeState(entry)),
@@ -131,13 +133,15 @@ function resolvePlayerSpecialStats(player) {
 
 function resolveEquipmentSpecialStats(player) {
   const result = { comprehension: 0, luck: 0 };
+  const realmLv = Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? 1) || 1));
   for (const entry of player?.equipment?.slots ?? []) {
     const item = entry?.item;
     if (!item) {
       continue;
     }
-    result.comprehension += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
-    result.luck += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+    const effectiveItem = applyEquipmentAttributeEffectivenessToItemStack(item, realmLv);
+    result.comprehension += Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.comprehension ?? 0) || 0));
+    result.luck += Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.luck ?? 0) || 0));
   }
   return result;
 }

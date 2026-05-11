@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildResourceNodeIndexes } from '../../../scripts/lib/resource-nodes.mjs';
+import { loadRuntimeTileDropSources } from '../../../scripts/lib/runtime-tile-drops.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +48,8 @@ const outputPath = path.join(clientDir, 'src/constants/world/item-sources.genera
  * 记录怪物location输出路径。
  */
 const monsterLocationOutputPath = path.join(clientDir, 'src/constants/world/monster-locations.generated.json');
-const { runtimeTileNodes, landmarkNodesById } = buildResourceNodeIndexes();
+const { landmarkNodesById } = buildResourceNodeIndexes();
+const runtimeTileDropSources = loadRuntimeTileDropSources();
 
 /**
  * 记录品阶order。
@@ -161,6 +163,30 @@ function getItemTags(item) {
     tags.add(tag);
   }
   return [...tags];
+}
+
+function buildItemNameById(items) {
+  return new Map(
+    items
+      .filter((item) => typeof item?.itemId === 'string' && typeof item?.name === 'string' && item.name.trim())
+      .map((item) => [item.itemId, item.name.trim()]),
+  );
+}
+
+function getRecipeDisplayName(recipe, itemNameById, suffix) {
+  const explicitName = typeof recipe?.name === 'string' && recipe.name.trim()
+    ? recipe.name.trim()
+    : '';
+  if (explicitName) {
+    return explicitName;
+  }
+  const outputName = itemNameById.get(recipe?.outputItemId);
+  if (outputName) {
+    return `${outputName}${suffix}`;
+  }
+  return typeof recipe?.recipeId === 'string' && recipe.recipeId.trim()
+    ? recipe.recipeId.trim()
+    : '未知配方';
 }
 
 /**
@@ -527,7 +553,7 @@ function sortSources(entries) {
       if (left.kind === 'shop' && right.kind === 'shop') {
         return left.npcId.localeCompare(right.npcId, 'zh-CN');
       }
-      if (left.kind === 'alchemy' && right.kind === 'alchemy') {
+      if ((left.kind === 'alchemy' || left.kind === 'forging') && left.kind === right.kind) {
         return left.recipeId.localeCompare(right.recipeId, 'zh-CN');
       }
 /**
@@ -595,6 +621,7 @@ function main() {
       .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-CN'))
       .map((item) => [item.itemId, []]),
   );
+  const itemNameById = buildItemNameById(items);
 
   for (const monster of monsters) {
 /**
@@ -776,16 +803,18 @@ function main() {
     }
   }
 
-  for (const source of runtimeTileNodes) {
-    pushSource(sourceByItemId, source.itemId, {
-      kind: 'mining',
-      mapId: 'runtime',
-      mapName: '运行时资源点',
-      landmarkId: `runtime:${source.itemId}`,
-      landmarkName: source.sourceLabel,
-      mode: 'direct',
-      count: 1,
-    });
+  for (const source of runtimeTileDropSources) {
+    for (const drop of source.drops) {
+      pushSource(sourceByItemId, drop.itemId, {
+        kind: 'mining',
+        mapId: 'runtime',
+        mapName: '运行时资源点',
+        landmarkId: `runtime:${source.id}`,
+        landmarkName: source.sourceLabel,
+        mode: drop.damage && drop.destroy ? 'damage_or_destroy' : (drop.destroy ? 'destroy' : 'damage'),
+        count: 1,
+      });
+    }
   }
 
   for (const recipe of Array.isArray(alchemyRecipes) ? alchemyRecipes : []) {
@@ -794,6 +823,7 @@ function main() {
       mapId: 'crafting',
       mapName: '炼丹',
       recipeId: recipe.recipeId,
+      recipeName: getRecipeDisplayName(recipe, itemNameById, '丹方'),
     });
   }
   for (const recipe of Array.isArray(forgingRecipes) ? forgingRecipes : []) {
@@ -802,6 +832,7 @@ function main() {
       mapId: 'crafting',
       mapName: '炼器',
       recipeId: recipe.recipeId,
+      recipeName: getRecipeDisplayName(recipe, itemNameById, '器方'),
     });
   }
 

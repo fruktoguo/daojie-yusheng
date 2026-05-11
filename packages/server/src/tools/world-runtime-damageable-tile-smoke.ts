@@ -6,6 +6,7 @@ import {
   calculateTerrainDurability,
   formatDisplayCurrentMax,
   formatDisplayInteger,
+  getMiningDamageMultiplier,
   getTileTraversalCost,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -13,7 +14,12 @@ import {
 } from '@mud/shared';
 
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
+import { ContentTemplateRepository } from '../content/content-template.repository';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { WorldRuntimeBasicAttackService } from '../runtime/world/combat/world-runtime-basic-attack.service';
+import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
+import { WorldRuntimePlayerSkillDispatchService } from '../runtime/world/combat/world-runtime-player-skill-dispatch.service';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from '../runtime/world/combat/tile-drop.helpers';
 import { WorldRuntimeDetailQueryService } from '../runtime/world/query/world-runtime-detail-query.service';
 import { buildPlayerObservation } from '../runtime/world/query/world-runtime.observation.helpers';
 import { findPathPointsOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
@@ -86,9 +92,27 @@ function createCloudTemplate() {
       '...',
       '...',
     ],
-    source: {
-      terrainProfileId: 'earth_sky_metal',
-    },
+  };
+}
+
+function createBlackIronOreTemplate() {
+  return {
+    ...createTemplate(),
+    terrainRows: [
+      '.铁.',
+      '...',
+      '...',
+    ],
+    walkableMask: Uint8Array.from([
+      1, 0, 1,
+      1, 1, 1,
+      1, 1, 1,
+    ]),
+    blocksSightMask: Uint8Array.from([
+      0, 1, 0,
+      0, 0, 0,
+      0, 0, 0,
+    ]),
   };
 }
 
@@ -525,19 +549,345 @@ function testPlainTickDoesNotDirtyPersistence() {
   assert.equal(instance.isPersistentDirty(), false);
 }
 
-testDamagedTileShowsHpBarPayload();
-testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura();
-testObservationMissingNumericValuesRenderAsZero();
-testObservationLargeValuesUseChineseUnits();
-testDestroyedTileTurnsIntoFloorProjection();
-testDestroyedTileBecomesPathReachable();
-testDestroyedStoneTurnsIntoWalkableGroundProjection();
-testDestroyedTileRecoveryRespectsStabilizerAndHydrates();
-testDestroyedTileDoesNotRespawnUnderUnit();
-testSpecialTerrainRestoreSpeedMatchesMain();
-testStoneDurabilityScalesWithTerrainRealmLv();
-testProjectedAuraLevelUsesEffectiveResourceValue();
-testProjectedTotalQiLevelUsesNeutralElementalAndShaResources();
-testPlainTickDoesNotDirtyPersistence();
+function testRuntimeTileDamageAndDestroyDropsAreSeparated() {
+  const instance = createInstance(createCloudTemplate());
+  const originalRandom = Math.random;
+  Math.random = () => 0;
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-damageable-tile' }, null, 2));
+  try {
+    const damaged = instance.damageTile(1, 0, 1);
+    assert.equal(damaged?.destroyed, false);
+    assert.deepEqual(damaged?.tileDrops, [{ itemId: 'cloud_puff', count: 1, reason: 'damage' }]);
+
+    const destroyed = instance.damageTile(1, 0, Number.MAX_SAFE_INTEGER);
+    assert.equal(destroyed?.destroyed, true);
+    assert.deepEqual(destroyed?.tileDrops, [
+      { itemId: 'cloud_puff', count: 1, reason: 'damage' },
+      { itemId: 'cloud_puff', count: 1, reason: 'destroy' },
+    ]);
+  }
+  finally {
+    Math.random = originalRandom;
+  }
+}
+
+function testRuntimeTileDropsEnterInventoryAndStructuredNotice() {
+  const log: unknown[][] = [];
+
+  spawnTileDrops({
+    playerId: 'player:tile-drop',
+    tileDrops: [{ itemId: 'stone_chip', count: 2, reason: 'damage' }],
+    deps: {
+      contentTemplateRepository: {
+        createItem(itemId: string, count: number) {
+          return { itemId, count, name: '碎石' };
+        },
+      },
+      playerRuntimeService: {
+        receiveInventoryItem(playerId: string, item: unknown) {
+          log.push(['receiveInventoryItem', playerId, item]);
+        },
+      },
+      queuePlayerNotice(playerId: string, text: string, kind: string, _deps: unknown, _castId: unknown, structured: unknown) {
+        log.push(['queuePlayerNotice', playerId, text, kind, structured]);
+      },
+    },
+  });
+
+  assert.deepEqual(log[0], ['receiveInventoryItem', 'player:tile-drop', { itemId: 'stone_chip', count: 2, name: '碎石' }]);
+  assert.deepEqual(log[1], [
+    'queuePlayerNotice',
+    'player:tile-drop',
+    '获得 碎石 x2',
+    'loot',
+    {
+      key: 'notice.loot.tile-drop-inventory',
+      vars: { itemLabel: '碎石 x2' },
+      pills: [{ key: 'itemLabel', style: 'target' }],
+    },
+  ]);
+}
+
+function testBasicAttackTileDropsEnterInventory() {
+  const instance = createInstance(createBlackIronOreTemplate());
+  const runtimePlayer = instance.connectPlayer({
+    playerId: 'player:tile-basic-drop',
+    sessionId: 'session:tile-basic-drop',
+    preferredX: 1,
+    preferredY: 1,
+  });
+  const attacker = Object.assign(runtimePlayer, {
+    hp: 100,
+    maxHp: 100,
+    qi: 100,
+    maxQi: 100,
+    instanceId: instance.meta.instanceId,
+    realmLv: 1,
+    realm: { realmLv: 1 },
+    miningSkill: { level: 1, exp: 0, expToNext: 10000 },
+    equipment: { weapon: null },
+    attrs: {
+      numericStats: { physAtk: 100, spellAtk: 1, viewRange: 10, maxQiOutputPerTick: 100 },
+      ratioDivisors: {},
+      finalAttrs: {},
+    },
+    combat: { cooldownReadyTickBySkillId: {} },
+    actions: { actions: [] },
+    buffs: { buffs: [] },
+    inventory: { items: [], revision: 1 },
+    techniques: { techniques: [], revision: 1 },
+  });
+  const notices: unknown[][] = [];
+  const contentTemplateRepository = new ContentTemplateRepository();
+  contentTemplateRepository.loadAll();
+  const playerRuntimeService = {
+    getPlayerOrThrow() { return attacker; },
+    getPlayer() { return attacker; },
+    recordActivity() {},
+    resolveCraftSkillExpToNextByLevel() { return 10000; },
+    receiveInventoryItem(_playerId: string, item: any) {
+      attacker.inventory.items.push({ ...item });
+      attacker.inventory.revision += 1;
+      return attacker;
+    },
+  };
+  const basicAttackService = new WorldRuntimeBasicAttackService(playerRuntimeService as any, new WorldRuntimeCombatActionService(null) as any);
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    basicAttackService.dispatchBasicAttackToTile(attacker, 1, 0, 'physical', 100, {
+      getInstanceRuntimeOrThrow() { return instance; },
+      getInstanceRuntime() { return instance; },
+      resolveCurrentTickForPlayerId() { return 1; },
+      contentTemplateRepository,
+      playerRuntimeService,
+      queuePlayerNotice(...args: unknown[]) {
+        notices.push(args);
+      },
+      worldRuntimeFormationService: {
+        mitigateTerrainDamage(_instanceId: string, _x: number, _y: number, damage: number) {
+          return damage;
+        },
+      },
+      worldRuntimeSectService: {},
+    } as any, 1);
+  }
+  finally {
+    Math.random = originalRandom;
+  }
+
+  assert.equal(instance.getTileGroundPile(1, 0), null);
+  assert.equal(instance.getTileGroundPile(1, 1), null);
+  assert.equal(attacker.inventory.items.some((item: any) => item.itemId === 'black_iron_chunk'), true);
+  assert.equal(notices.some((entry) => entry[5] && (entry[5] as any).key === 'notice.loot.tile-drop-inventory'), true);
+}
+
+function testMiningExpAppliesToAnyOreTileDamage() {
+  const attacker = {
+    realmLv: 1,
+    realm: { realmLv: 1 },
+    miningSkill: { level: 50, exp: 0, expToNext: 10000 },
+  };
+  const playerRuntimeService = {
+    resolveCraftSkillExpToNextByLevel() {
+      return 10000;
+    },
+  };
+
+  const gained = applyMiningExpForTileDamage({
+    attacker,
+    tileType: TileType.BlackIronOre,
+    appliedDamage: 1,
+    playerRuntimeService,
+  });
+
+  assert.ok(gained > 0);
+  assert.equal(attacker.miningSkill.exp, gained);
+
+  const expAfterOreDamage = attacker.miningSkill.exp;
+  assert.equal(applyMiningExpForTileDamage({
+    attacker,
+    tileType: TileType.BlackIronOre,
+    appliedDamage: 0,
+    playerRuntimeService,
+  }), 0);
+  assert.equal(applyMiningExpForTileDamage({
+    attacker,
+    tileType: TileType.Wall,
+    appliedDamage: 100,
+    playerRuntimeService,
+  }), 0);
+  assert.equal(attacker.miningSkill.exp, expAfterOreDamage);
+}
+
+function testMiningDamageMultiplierAppliesToAnyDamageableTile() {
+  const attacker = {
+    realm: { realmLv: 1 },
+    miningSkill: { level: 50 },
+    equipment: { weapon: null },
+  };
+  const adjusted = resolveMiningAdjustedTileDamage({
+    attacker,
+    tileType: TileType.Wall,
+    baseDamage: 100,
+  });
+
+  assert.equal(adjusted.isOreTile, false);
+  assert.equal(adjusted.damage, Math.max(1, Math.round(100 * getMiningDamageMultiplier(50))));
+}
+
+async function testSkillTileDamageGrantsMiningExp() {
+  const instance = createInstance(createBlackIronOreTemplate());
+  const runtimePlayer = instance.connectPlayer({
+    playerId: 'player:tile-skill-mining-exp',
+    sessionId: 'session:tile-skill-mining-exp',
+    preferredX: 1,
+    preferredY: 1,
+  });
+  const skill = {
+    id: 'skill.mine_burst',
+    name: '裂岩术',
+    cost: 0,
+    cooldown: 1,
+    effects: [{ type: 'damage', damageKind: 'spell' }],
+    targetMode: 'tile',
+    targeting: { range: 3, shape: 'single', maxTargets: 1, targetMode: 'tile' },
+    range: 3,
+  };
+  const attacker = Object.assign(runtimePlayer, {
+    hp: 100,
+    maxHp: 100,
+    qi: 100,
+    maxQi: 100,
+    instanceId: instance.meta.instanceId,
+    realmLv: 1,
+    realm: { realmLv: 1 },
+    miningSkill: { level: 50, exp: 0, expToNext: 10000 },
+    attrs: {
+      numericStats: { physAtk: 1, spellAtk: 100, viewRange: 10, maxQiOutputPerTick: 100 },
+      ratioDivisors: {},
+      finalAttrs: {},
+    },
+    combat: { cooldownReadyTickBySkillId: {} },
+    actions: { actions: [{ id: skill.id, type: 'skill', skillEnabled: true }] },
+    buffs: { buffs: [] },
+    inventory: { items: [], revision: 1 },
+    techniques: {
+      techniques: [{
+        techId: 'smoke.mining',
+        level: 1,
+        skills: [skill],
+      }],
+      revision: 1,
+    },
+  });
+  const playerRuntimeService = {
+    getPlayerOrThrow(playerId: string) {
+      assert.equal(playerId, attacker.playerId);
+      return attacker;
+    },
+    getPlayer(playerId: string) {
+      return playerId === attacker.playerId ? attacker : null;
+    },
+    listPlayerSnapshots() {
+      return [attacker];
+    },
+    recordActivity() {},
+    resolveCraftSkillExpToNextByLevel() {
+      return 10000;
+    },
+    setSkillCooldownReadyTick(_playerId: string, skillId: string, readyTick: number) {
+      attacker.combat.cooldownReadyTickBySkillId[skillId] = readyTick;
+    },
+    spendQi(_playerId: string, amount: number) {
+      attacker.qi -= amount;
+    },
+  };
+  const service = new WorldRuntimePlayerSkillDispatchService(
+    playerRuntimeService as any,
+    {
+      castSkillToMonster() {
+        return {
+          totalDamage: 100,
+          totalRawDamage: 100,
+          damageKind: 'spell',
+          hitCount: 1,
+          qiCost: 0,
+        };
+      },
+    } as any,
+    new WorldRuntimeCombatActionService(null),
+  );
+
+  await service.dispatchSkillTargets(attacker, skill.id, skill, [
+    {
+      kind: 'tile',
+      x: 1,
+      y: 0,
+    },
+  ], {
+    resolveCurrentTickForPlayerId() {
+      return 1;
+    },
+    getInstanceRuntimeOrThrow(instanceId: string) {
+      assert.equal(instanceId, attacker.instanceId);
+      return instance;
+    },
+    getInstanceRuntime() {
+      return instance;
+    },
+    playerRuntimeService,
+    queuePlayerNotice() {},
+    pushActionLabelEffect() {},
+    pushAttackTrailEffect() {},
+    pushDamageNumberEffect() {},
+    worldRuntimeFormationService: {
+      getBoundaryBarrierCombatState() {
+        return null;
+      },
+      mitigateTerrainDamage(_instanceId: string, _x: number, _y: number, damage: number) {
+        return damage;
+      },
+    },
+    worldRuntimeSectService: {},
+  } as any, {
+    targetX: 1,
+    targetY: 0,
+    skipResourceAndCooldown: true,
+  });
+
+  assert.ok(attacker.miningSkill.exp > 0);
+  const tileCombatAfterSkill = instance.getTileCombatState(1, 0);
+  const expectedDamage = Math.max(1, Math.round(100 * getMiningDamageMultiplier(50)));
+  assert.equal(tileCombatAfterSkill?.hp, (tileCombatAfterSkill?.maxHp ?? 0) - expectedDamage);
+}
+
+async function main() {
+  testDamagedTileShowsHpBarPayload();
+  testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura();
+  testObservationMissingNumericValuesRenderAsZero();
+  testObservationLargeValuesUseChineseUnits();
+  testDestroyedTileTurnsIntoFloorProjection();
+  testDestroyedTileBecomesPathReachable();
+  testDestroyedStoneTurnsIntoWalkableGroundProjection();
+  testDestroyedTileRecoveryRespectsStabilizerAndHydrates();
+  testDestroyedTileDoesNotRespawnUnderUnit();
+  testSpecialTerrainRestoreSpeedMatchesMain();
+  testStoneDurabilityScalesWithTerrainRealmLv();
+  testProjectedAuraLevelUsesEffectiveResourceValue();
+  testProjectedTotalQiLevelUsesNeutralElementalAndShaResources();
+  testPlainTickDoesNotDirtyPersistence();
+  testRuntimeTileDamageAndDestroyDropsAreSeparated();
+  testRuntimeTileDropsEnterInventoryAndStructuredNotice();
+  testBasicAttackTileDropsEnterInventory();
+  testMiningExpAppliesToAnyOreTileDamage();
+  testMiningDamageMultiplierAppliesToAnyDamageableTile();
+  await testSkillTileDamageGrantsMiningExp();
+
+  console.log(JSON.stringify({ ok: true, case: 'world-runtime-damageable-tile' }, null, 2));
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

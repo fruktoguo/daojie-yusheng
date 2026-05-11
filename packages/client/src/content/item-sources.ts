@@ -201,12 +201,14 @@ export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
 export interface AlchemyItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'alchemy';
   recipeId: string;
+  recipeName?: string;
 }
 
 /** 炼器配方来源条目。 */
 export interface ForgingItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'forging';
   recipeId: string;
+  recipeName?: string;
 }
 
 /** 运行时玩家战斗奖励来源条目。 */
@@ -333,7 +335,7 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{
   if (entry.kind === 'alchemy' || entry.kind === 'forging') {
     return [
       { tone: 'map', text: entry.mapName },
-      { tone: 'quest', text: entry.recipeId },
+      { tone: 'quest', text: entry.recipeName?.trim() || entry.recipeId },
     ];
   }
 

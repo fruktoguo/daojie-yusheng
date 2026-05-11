@@ -294,6 +294,7 @@ export function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknow
   if (payload.gatherSkill !== undefined) wire.gatherSkillJson = JSON.stringify(payload.gatherSkill);
   if (payload.enhancementSkill !== undefined) wire.enhancementSkillJson = JSON.stringify(payload.enhancementSkill);
   if (payload.forgingSkill !== undefined) wire.forgingSkillJson = JSON.stringify(payload.forgingSkill);
+  if (payload.miningSkill !== undefined) wire.miningSkillJson = JSON.stringify(payload.miningSkill);
   if (payload.lifespanYears === null) {
     wire.clearLifespanYears = true;
   } else if (payload.lifespanYears !== undefined) {
@@ -326,6 +327,7 @@ export function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdat
   if (typeof wire.gatherSkillJson === 'string') payload.gatherSkill = parseJson(wire.gatherSkillJson);
   if (typeof wire.enhancementSkillJson === 'string') payload.enhancementSkill = parseJson(wire.enhancementSkillJson);
   if (typeof wire.forgingSkillJson === 'string') payload.forgingSkill = parseJson(wire.forgingSkillJson);
+  if (typeof wire.miningSkillJson === 'string') payload.miningSkill = parseJson(wire.miningSkillJson);
   if (wire.clearLifespanYears === true) {
     payload.lifespanYears = null;
   } else if (hasOwn(wire, 'lifespanYears')) {

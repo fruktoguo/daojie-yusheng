@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildResourceNodeIndexes } from './lib/resource-nodes.mjs';
+import { loadRuntimeTileDropSources } from './lib/runtime-tile-drops.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,7 +74,8 @@ const MONSTER_EQUIPMENT_SLOTS = ['weapon', 'head', 'body', 'legs', 'feet', 'ring
  * 标记允许无来源的特殊物品，避免被误报。
  */
 const INTENTIONAL_NO_SOURCE_ITEM_IDS = new Set(['root_seed.heaven', 'root_seed.divine']);
-const { runtimeTileNodes, landmarkNodesById } = buildResourceNodeIndexes();
+const { landmarkNodesById } = buildResourceNodeIndexes();
+const runtimeTileDropSources = loadRuntimeTileDropSources();
 
 /**
  * 递归收集目录下的全部 JSON 文件并按中文顺序排序。
@@ -1182,16 +1184,19 @@ function main() {
     });
   }
 
-  for (const runtimeSource of runtimeTileNodes) {
-    if (!sourceByItemId.has(runtimeSource.itemId)) {
-      continue;
+  for (const runtimeSource of runtimeTileDropSources) {
+    for (const drop of runtimeSource.drops) {
+      if (!sourceByItemId.has(drop.itemId)) {
+        continue;
+      }
+      sourceByItemId.get(drop.itemId).push({
+        kind: drop.itemId === SPIRIT_STONE_ITEM_ID ? 'runtime_monster_drop' : 'runtime_terrain_drop',
+        mapId: 'runtime',
+        mapName: '运行时资源掉落',
+        sourceLabel: runtimeSource.sourceLabel,
+        mode: drop.damage && drop.destroy ? 'damage_or_destroy' : (drop.destroy ? 'destroy' : 'damage'),
+      });
     }
-    sourceByItemId.get(runtimeSource.itemId).push({
-      kind: runtimeSource.itemId === SPIRIT_STONE_ITEM_ID ? 'runtime_monster_drop' : 'runtime_terrain_drop',
-      mapId: 'runtime',
-      mapName: '运行时资源掉落',
-      sourceLabel: runtimeSource.sourceLabel,
-    });
   }
 
   pushKnownSource(sourceByItemId, invalidRefs, BLOOD_ESSENCE_ITEM_ID, {

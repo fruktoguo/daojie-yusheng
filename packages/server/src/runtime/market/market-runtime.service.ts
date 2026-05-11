@@ -2711,7 +2711,7 @@ export class MarketRuntimeService {
             if (!normalized) {
                 continue;
             }
-            const existing = nextInventoryItems.find((entry) => entry.itemId === normalized.itemId);
+            const existing = nextInventoryItems.find((entry) => createItemStackSignature(entry) === createItemStackSignature(normalized));
             if (existing) {
                 existing.count += normalized.count;
                 movedCount += normalized.count;
@@ -2897,12 +2897,14 @@ function applyMarketSellNowToInventory(existingItems, item, quantity) {
     if (!item || normalizedQuantity <= 0) {
         return nextItems;
     }
-    const existing = nextItems.find((entry) => entry.itemId === item.itemId);
+    const mergeTarget = { ...item, count: normalizedQuantity };
+    const signature = createItemStackSignature(mergeTarget);
+    const existing = nextItems.find((entry) => createItemStackSignature(entry) === signature);
     if (existing) {
         existing.count += normalizedQuantity;
         return nextItems;
     }
-    nextItems.push({ ...item, count: normalizedQuantity });
+    nextItems.push(mergeTarget);
     return nextItems;
 }
 
@@ -2952,7 +2954,8 @@ function applyMarketBuyNowToSellerInventory(existingItems, item, quantity) {
     if (!item || normalizedQuantity <= 0) {
         return null;
     }
-    const existing = nextItems.find((entry) => entry.itemId === item.itemId);
+    const signature = createItemStackSignature(item);
+    const existing = nextItems.find((entry) => createItemStackSignature(entry) === signature);
     if (!existing || Number(existing.count ?? 0) < normalizedQuantity) {
         return null;
     }

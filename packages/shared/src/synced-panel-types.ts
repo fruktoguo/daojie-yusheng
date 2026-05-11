@@ -145,6 +145,11 @@ export interface SyncedItemStack {
 
   enhancementSpeedRate?: number;
   /**
+ * miningDamageRate：挖矿对矿脉伤害增幅比率。
+ */
+
+  miningDamageRate?: number;
+  /**
  * mapUnlockId：地图UnlockID标识。
  */
 

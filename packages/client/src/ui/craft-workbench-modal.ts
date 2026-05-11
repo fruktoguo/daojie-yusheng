@@ -186,6 +186,7 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     alchemySpeedRate: template?.alchemySpeedRate ?? source.alchemySpeedRate,
     enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,
     enhancementSpeedRate: template?.enhancementSpeedRate ?? source.enhancementSpeedRate,
+    miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
     enhanceLevel: 0,
   };
 }
@@ -350,6 +351,7 @@ export class CraftWorkbenchModal {
   private forgingSkillLevel = 1;
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
+  private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = { weapon: null, head: null, body: null, legs: null, accessory: null };
   private activeAlchemyCategory: AlchemyRecipeCategory = 'recovery';
@@ -393,6 +395,9 @@ export class CraftWorkbenchModal {
     this.forgingSkillLevel = Math.max(1, Math.floor(player.forgingSkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
+    this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
+      ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
+      : null;
   }
 
   syncAttrUpdate(update: S2C_AttrUpdate): void {
@@ -408,6 +413,19 @@ export class CraftWorkbenchModal {
     if (update.enhancementSkill) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(update.enhancementSkill.level ?? this.enhancementSkillLevel));
     }
+    if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+      this.patchOpenCraftShell();
+    }
+  }
+
+  syncPlayerContext(player?: PlayerState): void {
+    const nextRealmLv = Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv))
+      ? Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? player?.realmLv)))
+      : null;
+    if (this.playerRealmLv === nextRealmLv) {
+      return;
+    }
+    this.playerRealmLv = nextRealmLv;
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
@@ -2173,8 +2191,8 @@ export class CraftWorkbenchModal {
       ...buildBaseEnhancementPreviewItem(selected.item),
       enhanceLevel: selectedTargetLevel,
     });
-    const currentLines = describeEquipmentBonuses(currentPreview);
-    const nextLines = describeEquipmentBonuses(nextPreview);
+    const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
+    const nextLines = describeEquipmentBonuses(nextPreview, this.playerRealmLv);
     const protectionNote = selected.protectionItemId
       ? `保护物固定为 ${selected.protectionItemName ?? selected.protectionItemId}`
       : '未配置独立保护物，当前仅可消耗同名装备作为保护';
@@ -2370,8 +2388,8 @@ export class CraftWorkbenchModal {
       }),
       enhanceLevel: job.targetLevel,
     });
-    const currentLines = describeEquipmentBonuses(currentPreview);
-    const resultLines = describeEquipmentBonuses(resultPreview);
+    const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
+    const resultLines = describeEquipmentBonuses(resultPreview, this.playerRealmLv);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     const compactMobileLayout = this.isCompactEnhancementLayout();
     return `

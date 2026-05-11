@@ -9,7 +9,7 @@
  * @returns 无返回值，直接更新Attr详情Bonuse相关状态。
  */
 
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
 
 export function buildAttrDetailBonuses(player) {
@@ -17,6 +17,7 @@ export function buildAttrDetailBonuses(player) {
 
     const bonuses = [];
     const realmStage = player.realm?.stage ?? player.attrs?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const playerRealmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
     const realmConfig = PLAYER_REALM_CONFIG[realmStage];
     const realmAttrBonus = resolvePlayerRealmAttributeBonus(realmStage);
     if (realmConfig && hasNonZeroAttributes(realmAttrBonus)) {
@@ -48,7 +49,7 @@ export function buildAttrDetailBonuses(player) {
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
+        const item = entry.item ? applyEquipmentAttributeEffectivenessToItemStack(entry.item, playerRealmLv) : null;
         if (!item) {
             continue;
         }
@@ -134,7 +135,7 @@ export function buildAttrDetailNumericStatBreakdowns(player) {
     }
     applySpecialStatWeights(baseStats, player, resolveTechniqueSpecialStatBonus(player.techniques?.techniques ?? []));
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item ? applyEnhancementToItemStack(entry.item) : null;
+        const item = entry.item ? applyEquipmentAttributeEffectivenessToItemStack(entry.item, realmLv) : null;
         if (!item) {
             continue;
         }
@@ -221,13 +222,15 @@ function applySpecialStatWeights(target, player, techniqueSpecialStats) {
 
 function resolveEquipmentSpecialStats(player) {
     const result = { comprehension: 0, luck: 0 };
+    const realmLv = Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? 1) || 1));
     for (const entry of player?.equipment?.slots ?? []) {
         const item = entry?.item;
         if (!item) {
             continue;
         }
-        result.comprehension += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
-        result.luck += Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+        const effectiveItem = applyEquipmentAttributeEffectivenessToItemStack(item, realmLv);
+        result.comprehension += Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.comprehension ?? 0) || 0));
+        result.luck += Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.luck ?? 0) || 0));
     }
     return result;
 }

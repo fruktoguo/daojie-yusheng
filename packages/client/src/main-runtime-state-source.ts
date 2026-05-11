@@ -277,6 +277,11 @@ type MainRuntimeStateSourceOptions = {
 
   inventorySyncPlayerContext: (player?: PlayerState) => void;  
   /**
+ * equipmentSyncPlayerContext：装备面板同步玩家上下文。
+ */
+
+  equipmentSyncPlayerContext?: (player?: PlayerState) => void;
+  /**
  * refreshHeavenGateModal：refreshHeavenGate弹层相关字段。
  */
 
@@ -534,6 +539,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
       options.refreshHeavenGateModal(player);
       options.inventorySyncPlayerContext(player ?? undefined);
+      options.equipmentSyncPlayerContext?.(player ?? undefined);
       options.refreshUiChrome();
     },    
     /**

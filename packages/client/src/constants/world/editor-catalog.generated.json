@@ -5088,11 +5088,7 @@
       "equipSlot": "weapon",
       "tags": [
         "array_plate"
-      ],
-      "equipStats": {
-        "spellAtk": 12,
-        "resolvePower": 8
-      }
+      ]
     },
     {
       "itemId": "formation_disk.mortal",
@@ -6669,6 +6665,19 @@
       ]
     },
     {
+      "itemId": "equip.copper_mining_pickaxe",
+      "name": "铜矿镐",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "镐尖嵌着聚力铜片，挥击矿脉时能集中力道于一点，是矿工入门的基础采掘工具。",
+      "equipSlot": "weapon",
+      "tags": [
+        "mining_pickaxe"
+      ],
+      "miningDamageRate": 0.5
+    },
+    {
       "itemId": "equip.copper_forging_tool",
       "name": "铜炼器钳",
       "type": "equipment",
@@ -6680,11 +6689,7 @@
         "forging_tool"
       ],
       "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2,
-      "equipStats": {
-        "physAtk": 12,
-        "resolvePower": 8
-      }
+      "alchemySpeedRate": 0.2
     },
     {
       "itemId": "equip.copper_luopan",
@@ -6710,11 +6715,7 @@
         "enhancement_hammer"
       ],
       "enhancementSuccessRate": 0.01,
-      "enhancementSpeedRate": 0.2,
-      "equipStats": {
-        "physAtk": 12,
-        "hit": 8
-      }
+      "enhancementSpeedRate": 0.2
     },
     {
       "itemId": "equip.copper_pill_furnace",
@@ -6728,11 +6729,7 @@
         "alchemy_furnace"
       ],
       "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2,
-      "equipStats": {
-        "resolvePower": 10,
-        "qiRegenRate": 10
-      }
+      "alchemySpeedRate": 0.2
     },
     {
       "itemId": "equip.copper_building_hammer",
@@ -6744,10 +6741,7 @@
       "equipSlot": "weapon",
       "tags": [
         "building_hammer"
-      ],
-      "equipStats": {
-        "physAtk": 16
-      }
+      ]
     },
     {
       "itemId": "pill.wangsheng",

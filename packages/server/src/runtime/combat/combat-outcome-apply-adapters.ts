@@ -178,6 +178,7 @@ export function createTileOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
       destroyed: applied?.destroyed === true || result?.destroyed === true,
       hp: applied?.hp ?? null,
       maxHp: applied?.maxHp ?? null,
+      tileDrops: Array.isArray(applied?.tileDrops) ? applied.tileDrops : [],
       dirtyDomains: application?.dirtyDomains ?? [],
     };
   };

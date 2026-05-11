@@ -355,6 +355,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
     applyPanelDelta: (data) => runtimeDeltaStateSource.handlePanelDelta(data),
     inventorySyncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),
+    equipmentSyncPlayerContext: (player) => equipmentPanel.syncPlayerContext(player),
     refreshHeavenGateModal: (player) => refreshHeavenGateModal(player, {
       showToast: helpers.showToast,
       sendAction: (action, element) => runtimeSender.sendHeavenGateAction(action, element),

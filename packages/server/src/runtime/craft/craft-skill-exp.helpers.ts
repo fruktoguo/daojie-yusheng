@@ -15,10 +15,10 @@ function resolveProgressionService(source) {
     if (!source) {
         return null;
     }
-    if (typeof source.getRealmLevelEntry === 'function') {
+    if (typeof source.getRealmRuntimeExpToNext === 'function') {
         return source;
     }
-    if (typeof source.playerProgressionService?.getRealmLevelEntry === 'function') {
+    if (typeof source.playerProgressionService?.getRealmRuntimeExpToNext === 'function') {
         return source.playerProgressionService;
     }
     return null;
@@ -28,10 +28,11 @@ export function resolveCraftSkillExpToNextByLevel(source, level, fallback = 0) {
     const normalizedLevel = normalizeCraftSkillLevel(level);
     const progressionService = resolveProgressionService(source);
     if (progressionService) {
-        const realmEntry = progressionService.getRealmLevelEntry(normalizedLevel);
-        const realmExpToNext = Number(realmEntry?.expToNext);
-        if (Number.isFinite(realmExpToNext)) {
-            return Math.max(0, Math.floor(realmExpToNext));
+        if (typeof progressionService.getRealmRuntimeExpToNext === 'function') {
+            const runtimeExpToNext = Number(progressionService.getRealmRuntimeExpToNext(normalizedLevel));
+            if (Number.isFinite(runtimeExpToNext)) {
+                return Math.max(0, Math.floor(runtimeExpToNext));
+            }
         }
         return Math.max(0, Math.floor(Number(fallback) || 0));
     }

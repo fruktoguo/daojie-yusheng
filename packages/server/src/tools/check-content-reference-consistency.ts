@@ -10,6 +10,7 @@ const mapsRoot = path.join(packageRoot, "data", "maps");
 const numericScalarStatKeys = new Set(NUMERIC_STATS_KEYS.filter((key) => key !== "elementDamageBonus" && key !== "elementDamageReduce"));
 const elementKeys = new Set(ELEMENT_KEYS);
 const SPECIAL_CONSUMABLE_ITEM_IDS = new Set(["pill.shatter_spirit", "pill.wangsheng"]);
+const runtimeTileSourcePath = path.resolve(packageRoot, "..", "..", "scripts", "lib", "runtime-tile-drops.mjs");
 /**
  * walkJsonFiles：执行walkJsonFile相关逻辑。
  * @param dirPath 参数说明。
@@ -459,6 +460,17 @@ function validateResourceNodeRefs(errors, itemIds) {
     }
   }
 }
+
+async function validateRuntimeTileDropRefs(errors, itemIds) {
+  const { loadRuntimeTileDropSources } = await import(runtimeTileSourcePath);
+  for (const source of loadRuntimeTileDropSources()) {
+    for (const drop of [...(source.damageDrops ?? []), ...(source.destroyDrops ?? [])]) {
+      if (typeof drop?.itemId === "string" && !itemIds.has(drop.itemId)) {
+        errors.push(`${source.id}: runtime tile drop itemId 不存在 -> ${drop.itemId}`);
+      }
+    }
+  }
+}
 /**
  * validateAlchemyRefs：判断炼丹Ref是否满足条件。
  * @param errors 参数说明。
@@ -659,7 +671,7 @@ function validateQuestRefs(errors, questFiles, refs) {
  */
 
 
-function main() {
+async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const errors = [];
@@ -680,6 +692,7 @@ function main() {
   });
   validateBreakthroughRefs(errors, itemIds);
   validateResourceNodeRefs(errors, itemIds);
+  await validateRuntimeTileDropRefs(errors, itemIds);
   validateAlchemyRefs(errors, itemIds);
   validateEnhancementRefs(errors, itemIds);
   validateTechniqueRefs(errors, techniques, techniqueBuffRefs);
@@ -714,4 +727,7 @@ function main() {
   process.stdout.write("- validated monster drops/equipment/skills, map monster spawns, item external refs, root-foundation item refs, resource-node item refs, alchemy/enhancement refs, quest refs, technique buff refs, buff numeric stat keys\n");
 }
 
-main();
+main().catch((error) => {
+  process.stderr.write(`[content reference consistency] failed: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.exitCode = 1;
+});

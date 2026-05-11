@@ -505,6 +505,19 @@ export class WorldRuntimeCombatActionService {
       }
       targets.push(target);
     };
+    // 统一的 relation 过滤器：收集阶段就按战斗目标规则过滤敌/友方关系，
+    // 后续 validateSingleCombatTarget 不再重复做 relation 检查。
+    const resolveCombatRelationFn = typeof input.resolveCombatRelation === 'function' ? input.resolveCombatRelation : null;
+    const passesRelationFilter = (candidateOrTarget) => {
+      if (!resolveCombatRelationFn) {
+        return true;
+      }
+      const relation = resolveCombatRelationFn(action?.actor, candidateOrTarget);
+      return relation === true
+        || relation?.hostile === true
+        || relation?.canAttack === true
+        || relation?.relation === 'hostile';
+    };
 
     if (Array.isArray(input.candidates) && input.candidates.length > 0) {
       for (const candidate of input.candidates) {
@@ -512,12 +525,20 @@ export class WorldRuntimeCombatActionService {
           break;
         }
         const resolved = this.resolveSingleCombatTarget(candidate, input, action);
-        if (resolved.ok) {
-          push(resolved.target);
-        }
-        else {
+        if (!resolved.ok) {
           rejected.push(resolved);
+          continue;
         }
+        if (!passesRelationFilter(resolved.target)) {
+          rejected.push({
+            ok: false,
+            reason: CombatRejectReason.CombatRelationNotAllowed,
+            target: resolved.target,
+            details: {},
+          });
+          continue;
+        }
+        push(resolved.target);
       }
     }
     else if (action.warningCells?.length > 0 && typeof instance?.getPlayersAtTile === 'function') {
@@ -530,15 +551,20 @@ export class WorldRuntimeCombatActionService {
           if (!player?.playerId || seen.has(player.playerId)) {
             continue;
           }
-          seen.add(player.playerId);
-          push({
+          const playerCandidate = {
             kind: CombatTargetKind.Player,
             id: player.playerId,
             x: cell.x,
             y: cell.y,
             source: 'warning_cell',
             runtime: player,
-          });
+          };
+          // AOE 类收集：relation 过滤失败静默跳过，不产生 rejected 日志。
+          if (!passesRelationFilter(playerCandidate)) {
+            continue;
+          }
+          seen.add(player.playerId);
+          push(playerCandidate);
           if (targets.length >= definition.maxTargets) {
             break;
           }
@@ -578,11 +604,19 @@ export class WorldRuntimeCombatActionService {
     }
     else if (action.target && input.collectTargetsFromCells !== 'prefer') {
       const resolved = this.resolveSingleCombatTarget(action.target, input, action);
-      if (resolved.ok) {
-        push(resolved.target);
+      if (!resolved.ok) {
+        rejected.push(resolved);
+      }
+      else if (!passesRelationFilter(resolved.target)) {
+        rejected.push({
+          ok: false,
+          reason: CombatRejectReason.CombatRelationNotAllowed,
+          target: resolved.target,
+          details: {},
+        });
       }
       else {
-        rejected.push(resolved);
+        push(resolved.target);
       }
     }
     else if (action.anchor && definition.allowedTargetKinds.includes(CombatTargetKind.Tile)) {
@@ -591,11 +625,19 @@ export class WorldRuntimeCombatActionService {
         x: action.anchor.x,
         y: action.anchor.y,
       }, input, action);
-      if (resolved.ok) {
-        push(resolved.target);
+      if (!resolved.ok) {
+        rejected.push(resolved);
+      }
+      else if (!passesRelationFilter(resolved.target)) {
+        rejected.push({
+          ok: false,
+          reason: CombatRejectReason.CombatRelationNotAllowed,
+          target: resolved.target,
+          details: {},
+        });
       }
       else {
-        rejected.push(resolved);
+        push(resolved.target);
       }
     }
 
@@ -625,9 +667,23 @@ export class WorldRuntimeCombatActionService {
     const push = typeof input.push === 'function' ? input.push : () => undefined;
     const targets = Array.isArray(input.targets) ? input.targets : [];
     const seen = new Set();
+    const resolveCombatRelation = typeof input.resolveCombatRelation === 'function' ? input.resolveCombatRelation : null;
     const pushCandidate = (candidate) => {
       if (!candidate || targets.length >= definition.maxTargets) {
         return;
+      }
+      // Early filter: 在收集阶段就按战斗目标规则过滤敌/友方关系。
+      // 自身是否应被收集由 resolveCombatRelation 决定（当前返回 blocked → 非 hostile 被跳过），
+      // 收集逻辑本身不做身份硬编码。
+      if (resolveCombatRelation) {
+        const relation = resolveCombatRelation(input.action?.actor, candidate);
+        const hostile = relation === true
+          || relation?.hostile === true
+          || relation?.canAttack === true
+          || relation?.relation === 'hostile';
+        if (!hostile) {
+          return;
+        }
       }
       const resolved = this.resolveSingleCombatTarget(candidate, input, input.action);
       if (!resolved.ok) {
@@ -1520,6 +1576,9 @@ export class WorldRuntimeCombatActionService {
         details: { capability: 'supportsPvp' },
       };
     }
+    // Relation 检查作为 validateCombatTargets 独立公共 API 的契约与 defense in depth。
+    // 正常流程下 collectCombatTargets 已提前过滤不符合 relation 的目标，此分支不会触发；
+    // 仅在外部直接调用 validateCombatTargets 或目标绕过收集阶段时才起作用。
     if (typeof input.resolveCombatRelation === 'function') {
       const relation = input.resolveCombatRelation(input.action?.actor, target);
       const hostile = relation === true

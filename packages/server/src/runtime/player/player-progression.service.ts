@@ -11,6 +11,7 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
+import { normalizeRuntimeRealmExpMultiplier, normalizeRuntimeRealmLevelEntry } from './realm-runtime-exp.helpers';
 
 /** 境界配置文件路径，启动时从这里加载所有境界参数。 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
@@ -960,27 +961,24 @@ export class PlayerProgressionService {
         const filePath = resolveProjectPath(...REALM_LEVELS_PATH);
 
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        const expMultiplier = normalizePositiveInt(raw?.expMultiplier, 1);
+        const expMultiplier = normalizeRuntimeRealmExpMultiplier(raw?.expMultiplier);
         this.realmLevels.clear();
         for (const entry of raw.levels ?? []) {
-            const realmLv = normalizePositiveInt(entry.realmLv, 0);
-            if (realmLv <= 0) {
+            const runtimeEntry = normalizeRuntimeRealmLevelEntry(entry, expMultiplier);
+            if (!runtimeEntry) {
                 continue;
             }
-            this.realmLevels.set(realmLv, {
-                realmLv,
-
-                displayName: typeof entry.displayName === 'string' && entry.displayName.trim() ? entry.displayName.trim() : `realmLv ${realmLv}`,
-
-                name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `realmLv ${realmLv}`,
-
-                phaseName: typeof entry.phaseName === 'string' && entry.phaseName.trim() ? entry.phaseName.trim() : null,
-
-                path: entry.path === 'immortal' || entry.path === 'ascended' ? entry.path : 'martial',
-
-                review: typeof entry.review === 'string' && entry.review.trim() ? entry.review.trim() : undefined,
-                lifespanYears: normalizeNullablePositiveInt(entry.lifespanYears),
-                expToNext: normalizePositiveInt(entry.expToNext, 0) * expMultiplier,
+            this.realmLevels.set(runtimeEntry.realmLv, {
+                realmLv: runtimeEntry.realmLv,
+                displayName: runtimeEntry.displayName,
+                name: runtimeEntry.name,
+                phaseName: runtimeEntry.phaseName,
+                path: runtimeEntry.path,
+                review: runtimeEntry.review,
+                lifespanYears: runtimeEntry.lifespanYears,
+                grade: runtimeEntry.grade,
+                expToNext: runtimeEntry.runtimeExpToNext,
+                runtimeExpToNext: runtimeEntry.runtimeExpToNext,
             });
         }
 
@@ -1022,18 +1020,24 @@ export class PlayerProgressionService {
         const entry = this.realmLevels.get(normalizedLevel);
         return entry ? { ...entry } : undefined;
     }
+    /** 按等级读取已展开的运行时升级经验，禁止业务层直接读取原始配置系数。 */
+    getRealmRuntimeExpToNext(realmLv) {
+        const normalizedLevel = Math.max(1, Math.floor(Number(realmLv) || 1));
+        return Math.max(0, Math.floor(Number(this.realmLevels.get(normalizedLevel)?.runtimeExpToNext) || 0));
+    }
     /** 按 main 口径计算怪物在战斗经验伤害分层中的等价值。 */
     getMonsterCombatExpEquivalent(monsterOrLevel, monsterTier = undefined) {
         const normalizedLevel = Math.max(1, Math.floor(Number(typeof monsterOrLevel === 'object' ? monsterOrLevel?.level : monsterOrLevel) || 1));
-        const realmEntry = this.realmLevels.get(normalizedLevel);
-        if (!realmEntry) {
+        const expToNext = this.getRealmRuntimeExpToNext(normalizedLevel);
+        if (expToNext <= 0) {
             return 0;
         }
-        const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(realmEntry.grade ?? 'mortal'));
+        const realmEntry = this.realmLevels.get(normalizedLevel);
+        const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(realmEntry?.grade ?? 'mortal'));
         const gradeFactor = getMonsterCombatExpGradeFactor(gradeIndex);
         const tier = typeof monsterOrLevel === 'object' ? monsterOrLevel?.tier : monsterTier;
         const tierFactor = resolveMonsterCombatExpTierFactor(tier);
-        return Math.max(0, Math.floor(Math.max(0, Number(realmEntry.expToNext) || 0) * gradeFactor * tierFactor));
+        return Math.max(0, Math.floor(expToNext * gradeFactor * tierFactor));
     }
     /**
  * resolveInitialRealmState：规范化或转换InitialRealm状态。
@@ -2007,7 +2011,7 @@ export class PlayerProgressionService {
 
         const level = Math.max(1, Math.floor(monsterLevel));
 
-        const expToNext = Math.max(0, this.realmLevels.get(level)?.expToNext ?? 0);
+        const expToNext = this.getRealmRuntimeExpToNext(level);
         if (expToNext <= 0) {
             return 0;
         }
@@ -2037,7 +2041,7 @@ export class PlayerProgressionService {
 
         const level = Math.max(1, Math.floor(monsterLevel));
 
-        const expToNext = Math.max(0, this.realmLevels.get(level)?.expToNext ?? 0);
+        const expToNext = this.getRealmRuntimeExpToNext(level);
         if (expToNext <= 0) {
             return 0;
         }

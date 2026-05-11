@@ -318,11 +318,6 @@ export function calcBodyTrainingAttrPercentBonus(level: number): Partial<Attribu
   return result;
 }
 
-/** @deprecated 炼体现在返回全六维百分比加成，保留旧名兼容调用方。 */
-export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
-  return calcBodyTrainingAttrPercentBonus(level);
-}
-
 /** 计算功法在指定层数时累计提供的六维属性加成 */
 export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

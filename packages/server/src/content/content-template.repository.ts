@@ -95,6 +95,11 @@ export class ContentTemplateRepository {
             healAmount: template.healAmount,
             healPercent: template.healPercent,
             qiPercent: template.qiPercent,
+            alchemySuccessRate: template.alchemySuccessRate,
+            alchemySpeedRate: template.alchemySpeedRate,
+            enhancementSuccessRate: template.enhancementSuccessRate,
+            enhancementSpeedRate: template.enhancementSpeedRate,
+            miningDamageRate: template.miningDamageRate,
             consumeBuffs: Array.isArray(template.consumeBuffs) ? template.consumeBuffs.map((entry) => ({
                 ...entry,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
@@ -1799,6 +1804,11 @@ function normalizeItemTemplate(raw) {
         healAmount: Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined,
         healPercent: Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined,
         qiPercent: Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined,
+        alchemySuccessRate: normalizeUtilityRate(candidate.alchemySuccessRate),
+        alchemySpeedRate: normalizeUtilityRate(candidate.alchemySpeedRate),
+        enhancementSuccessRate: normalizeUtilityRate(candidate.enhancementSuccessRate),
+        enhancementSpeedRate: normalizeUtilityRate(candidate.enhancementSpeedRate),
+        miningDamageRate: normalizeUtilityRate(candidate.miningDamageRate),
         consumeBuffs: normalizeConsumableBuffs(raw.consumeBuffs),
         tags: normalizeItemTags(candidate.tags, materialCategory),
 
@@ -1826,6 +1836,11 @@ function normalizeItemTemplate(raw) {
             ? raw.learnTechniqueId
             : undefined,
     };
+}
+
+function normalizeUtilityRate(value) {
+
+    return Number.isFinite(value) ? Number(value) : undefined;
 }
 
 function normalizeConsumableBuffs(raw) {

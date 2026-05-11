@@ -215,20 +215,20 @@ Actions -> Deploy Prod Stack
 ## 验证
 
 ```bash
-pnpm verify:replace-ready:doctor
-pnpm verify:replace-ready
-pnpm verify:replace-ready:with-db
-pnpm verify:replace-ready:shadow
-pnpm verify:replace-ready:acceptance
-pnpm verify:replace-ready:full
+pnpm verify:release:doctor
+pnpm verify:release
+pnpm verify:release:with-db
+pnpm verify:release:shadow
+pnpm verify:release:acceptance
+pnpm verify:release:full
 pnpm audit:protocol
 pnpm audit:boundaries
 ```
 
 ## 文档
 
-- [验证与验收](./docs/next-plan/09-verification-and-acceptance.md)
-- [协议审计](./docs/protocol-audit.md)
+- [验证与验收](./docs/archive/09-verification-and-acceptance.md)
+- [协议审计](./docs/archive/protocol-audit.md)
 - [腾讯云 CCR + Docker Swarm 部署](./docs/deploy-tencent-ccr.md)
 - [教程机制](./docs/tutorial-mechanics.md)
 - [服务端说明](./packages/server/README.md)

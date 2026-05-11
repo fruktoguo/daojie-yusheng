@@ -135,6 +135,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
       options.inventoryPanel.syncPlayerContext(player);
       options.marketStateSource.syncPlayerContext(player as PlayerState | undefined);
       options.npcShopModal.syncPlayerContext(player as PlayerState | undefined);
+      options.craftWorkbenchModal.syncPlayerContext(player as PlayerState | undefined);
     },
     /**
  * syncInventory：处理背包并更新相关状态。

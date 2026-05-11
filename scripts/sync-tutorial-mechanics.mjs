@@ -195,10 +195,6 @@ function parseTopics(markdown) {
 
   finalizeTopic();
 
-  if (topics.length === 0) {
-    throw new Error('未从 markdown 中解析到任何机制专题');
-  }
-
   return topics;
 }
 

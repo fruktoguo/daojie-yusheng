@@ -81,6 +81,7 @@ interface PlayerSnapshotProgression {
   forgingSkill?: Record<string, unknown> | null;
   buildingSkill?: Record<string, unknown> | null;
   gatherSkill: Record<string, unknown> | null;
+  miningSkill?: Record<string, unknown> | null;
   gatherJob: Record<string, unknown> | null;
   buildingJob?: Record<string, unknown> | null;
   alchemyPresets: unknown[];
@@ -578,6 +579,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       forgingSkill: asRecordOrNull(progression?.forgingSkill),
       buildingSkill: asRecordOrNull(progression?.buildingSkill),
       gatherSkill: asRecordOrNull(progression?.gatherSkill),
+      miningSkill: asRecordOrNull(progression?.miningSkill),
       gatherJob: asRecordOrNull(progression?.gatherJob),
       buildingJob: asRecordOrNull(progression?.buildingJob),
       alchemyPresets: Array.isArray(progression?.alchemyPresets) ? progression.alchemyPresets : [],

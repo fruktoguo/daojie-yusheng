@@ -12,6 +12,8 @@ import {
   type S2C_PanelActionDelta,
   type S2C_PanelDelta,
   type SelfDeltaView,
+  type ItemStack,
+  type SyncedItemStack,
   type TechniqueState,
   type TechniqueUpdateEntryView,
   type WorldBuildingPatchView,
@@ -23,6 +25,7 @@ import {
   type WorldNpcPatchView,
   type WorldPlayerPatchView,
   type WorldPortalPatchView,
+  applyEquipmentAttributeEffectivenessToItemStack,
   calcTechniqueFinalSpecialStatBonus,
   getFirstGrapheme,
 } from '@mud/shared';
@@ -112,15 +115,25 @@ function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialSt
 
 function resolveEquipmentSpecialStats(player: ProjectorPlayerLike): Partial<PlayerSpecialStats> {
   const result: Partial<PlayerSpecialStats> = { comprehension: 0, luck: 0 };
+  const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv ?? 1) || 1));
   for (const entry of player.equipment?.slots ?? []) {
     const item = entry?.item;
     if (!item) { continue; }
+    const effectiveItem = applyEquipmentAttributeEffectivenessToItemStack(toEquipmentEffectivenessItemStack(item), realmLv);
     result.comprehension = Math.max(0, Math.trunc(Number(result.comprehension ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(item.equipSpecialStats?.comprehension ?? 0) || 0));
+      + Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.comprehension ?? 0) || 0));
     result.luck = Math.max(0, Math.trunc(Number(result.luck ?? 0) || 0))
-      + Math.max(0, Math.trunc(Number(item.equipSpecialStats?.luck ?? 0) || 0));
+      + Math.max(0, Math.trunc(Number(effectiveItem.equipSpecialStats?.luck ?? 0) || 0));
   }
   return result;
+}
+
+function toEquipmentEffectivenessItemStack(item: SyncedItemStack): ItemStack {
+  return {
+    ...item,
+    name: item.name ?? item.itemId,
+    type: item.type ?? 'equipment',
+  } as ItemStack;
 }
 
 function toTechniqueState(entry: TechniqueUpdateEntryView): TechniqueState {
@@ -553,6 +566,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
         gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
+        miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
     };
 }
 
@@ -631,6 +645,7 @@ function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView
         buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
         gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
+        miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
     };
 }
 
@@ -683,6 +698,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
     const buildingSkillChanged = !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill);
     const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill);
     const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill);
+    const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill);
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -700,7 +716,8 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         + (forgingSkillChanged ? 1 : 0)
         + (buildingSkillChanged ? 1 : 0)
         + (gatherSkillChanged ? 1 : 0)
-        + (enhancementSkillChanged ? 1 : 0);
+        + (enhancementSkillChanged ? 1 : 0)
+        + (miningSkillChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
         return buildFullAttrDelta(player);
     }
@@ -724,6 +741,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         buildingSkill: buildingSkillChanged ? (player.buildingSkill ? { ...player.buildingSkill } : undefined) : undefined,
         gatherSkill: gatherSkillChanged ? (player.gatherSkill ? { ...player.gatherSkill } : undefined) : undefined,
         enhancementSkill: enhancementSkillChanged ? (player.enhancementSkill ? { ...player.enhancementSkill } : undefined) : undefined,
+        miningSkill: miningSkillChanged ? (player.miningSkill ? { ...player.miningSkill } : undefined) : undefined,
     };
 }
 

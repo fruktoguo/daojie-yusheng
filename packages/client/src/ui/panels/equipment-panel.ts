@@ -80,12 +80,12 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
 }
 
 /** formatItemBonuses：格式化物品Bonuses。 */
-function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
+function formatItemBonuses(item: EquipmentSlots[EquipSlot], playerRealmLv?: number | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!item) return t('equipment.empty.affixes', undefined);
   const previewItem = resolvePreviewItem(item);
-  const bonusParts = describeEquipmentBonuses(previewItem);
+  const bonusParts = describeEquipmentBonuses(previewItem, playerRealmLv);
   const effectParts = formatItemEffects(item);
   const parts = [...bonusParts, ...effectParts];
   return parts.length > 0 ? parts.join(' / ') : t('equipment.empty.affixes', undefined);
@@ -137,6 +137,8 @@ export class EquipmentPanel {
   private tooltip = new FloatingTooltip('floating-tooltip equipment-tooltip');
   /** tooltipSlot：提示槽位。 */
   private tooltipSlot: EquipSlot | null = null;
+  /** playerRealmLv：当前玩家境界等级，用于装备生效率预览。 */
+  private playerRealmLv: number | null = null;
   /** slotViews：槽位Views。 */
   private slotViews = new Map<EquipSlot, EquipmentSlotView>();
   /** slotSignatures：槽位显示签名，避免相同装备重复写 DOM。 */
@@ -185,8 +187,26 @@ export class EquipmentPanel {
     this.render(equipment);
   }
 
+  /** syncPlayerContext：同步装备提示依赖的玩家上下文。 */
+  syncPlayerContext(player?: PlayerState | null): void {
+    const nextRealmLv = Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv))
+      ? Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? player?.realmLv)))
+      : null;
+    if (this.playerRealmLv === nextRealmLv) {
+      return;
+    }
+    this.playerRealmLv = nextRealmLv;
+    this.slotSignatures.clear();
+    if (this.lastEquipment) {
+      this.render(this.lastEquipment);
+    }
+  }
+
   /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
+    this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
+      ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
+      : null;
     this.lastEquipment = player.equipment;
     this.render(player.equipment);
   }
@@ -210,7 +230,7 @@ export class EquipmentPanel {
       const hasItem = !!item;
       hasAnyEquipment ||= hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
-      const metaText = item ? formatItemBonuses(item) : t('equipment.empty.slot-meta', undefined);
+      const metaText = item ? formatItemBonuses(item, this.playerRealmLv) : t('equipment.empty.slot-meta', undefined);
       const signature = this.buildSlotSignature(slot, hasItem, itemName, metaText);
       if (this.slotSignatures.get(slot) === signature) {
         continue;
@@ -360,7 +380,7 @@ export class EquipmentPanel {
       if (!slot || !item) {
         return;
       }
-      const tooltip = buildItemTooltipPayload(item);
+      const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.playerRealmLv });
       this.tooltipSlot = slot;
       this.tooltip.showPinned(slotNode, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
         allowHtml: tooltip.allowHtml,
@@ -404,7 +424,7 @@ export class EquipmentPanel {
 
       if (this.tooltipSlot !== slot) {
         this.tooltipSlot = slot;
-        const tooltip = buildItemTooltipPayload(item);
+        const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.playerRealmLv });
         this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,
           asideCards: tooltip.asideCards,

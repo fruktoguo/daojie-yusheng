@@ -74,6 +74,11 @@ type MainPanelDeltaStateSourceOptions = {
  */
 
     update: (equipment: PlayerState['equipment']) => void;
+    /**
+ * syncPlayerContext：同步装备提示依赖的玩家上下文。
+ */
+
+    syncPlayerContext?: (player?: PlayerState | null) => void;
   };  
   /**
  * bodyTrainingPanel：bodyTraining面板相关字段。
@@ -441,6 +446,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       gatherSkill: player.gatherSkill ? cloneJson(player.gatherSkill) : undefined,
       enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
       forgingSkill: player.forgingSkill ? cloneJson(player.forgingSkill) : undefined,
+      miningSkill: player.miningSkill ? cloneJson(player.miningSkill) : undefined,
     };
   }
   /**
@@ -522,6 +528,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       forgingSkill: patch.forgingSkill
         ? cloneJson(patch.forgingSkill)
         : (previous?.forgingSkill ? cloneJson(previous.forgingSkill) : (player?.forgingSkill ? cloneJson(player.forgingSkill) : undefined)),
+      miningSkill: patch.miningSkill
+        ? cloneJson(patch.miningSkill)
+        : (previous?.miningSkill ? cloneJson(previous.miningSkill) : (player?.miningSkill ? cloneJson(player.miningSkill) : undefined)),
     };
   }  
 
@@ -646,6 +655,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
       enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate ?? template?.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
+      miningDamageRate: item.miningDamageRate ?? previousSameItem?.miningDamageRate ?? template?.miningDamageRate,
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,
@@ -1093,6 +1103,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       options.craftWorkbenchModal.syncAttrUpdate(latestAttrUpdate);
       options.refreshHeavenGateModal(player);
       options.inventoryStateSource.syncPlayerContext(player ?? undefined);
+      options.equipmentPanel.syncPlayerContext?.(player ?? undefined);
       options.syncAttrBridgeState(latestAttrUpdate);
       options.refreshUiChrome();
     },    
@@ -1136,6 +1147,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.equipment = mergedEquipment;
         options.inventoryStateSource.syncPlayerContext(player);
       }
+      options.equipmentPanel.syncPlayerContext?.(player ?? undefined);
       options.equipmentPanel.update(mergedEquipment);
       options.craftWorkbenchModal.syncEquipment(mergedEquipment);
       options.syncEquipmentBridgeState(mergedEquipment);

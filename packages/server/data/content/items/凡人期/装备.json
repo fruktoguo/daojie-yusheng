@@ -268,11 +268,7 @@
       "alchemy_furnace"
     ],
     "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2,
-    "equipBaselinePercents": {
-      "resolvePower": 90,
-      "qiRegenRate": 90
-    }
+    "alchemySpeedRate": 0.2
   },
   {
     "itemId": "equip.copper_enhancement_hammer",
@@ -286,11 +282,7 @@
       "enhancement_hammer"
     ],
     "enhancementSuccessRate": 0.01,
-    "enhancementSpeedRate": 0.2,
-    "equipBaselinePercents": {
-      "physAtk": 110,
-      "hit": 70
-    }
+    "enhancementSpeedRate": 0.2
   },
   {
     "itemId": "equip.copper_forging_tool",
@@ -304,11 +296,7 @@
       "forging_tool"
     ],
     "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2,
-    "equipBaselinePercents": {
-      "physAtk": 110,
-      "resolvePower": 70
-    }
+    "alchemySpeedRate": 0.2
   },
   {
     "itemId": "equip.copper_building_hammer",
@@ -320,10 +308,7 @@
     "equipSlot": "weapon",
     "tags": [
       "building_hammer"
-    ],
-    "equipBaselinePercents": {
-      "physAtk": 150
-    }
+    ]
   },
   {
     "itemId": "equip.copper_array_plate",
@@ -335,10 +320,19 @@
     "equipSlot": "weapon",
     "tags": [
       "array_plate"
+    ]
+  },
+  {
+    "itemId": "equip.copper_mining_pickaxe",
+    "name": "铜矿镐",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "镐尖嵌着聚力铜片，挥击矿脉时能集中力道于一点，是矿工入门的基础采掘工具。",
+    "equipSlot": "weapon",
+    "tags": [
+      "mining_pickaxe"
     ],
-    "equipBaselinePercents": {
-      "spellAtk": 110,
-      "resolvePower": 70
-    }
+    "miningDamageRate": 0.5
   }
 ]

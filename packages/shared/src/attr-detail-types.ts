@@ -61,4 +61,9 @@ export interface AttrDetailView {
  */
 
   buildingSkill?: PlayerState['buildingSkill'];
+  /**
+ * miningSkill：挖矿技能相关字段。
+ */
+
+  miningSkill?: PlayerState['miningSkill'];
 }

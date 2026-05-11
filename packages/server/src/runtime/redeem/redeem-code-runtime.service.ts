@@ -5,6 +5,7 @@
  */
 import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { createItemStackSignature } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
@@ -785,7 +786,7 @@ function canReceiveAllRewards(currentItems, capacity, items) {
         if (isWalletRewardItemId(item?.itemId)) {
             continue;
         }
-        const existing = snapshot.find((entry) => entry.itemId === item.itemId);
+        const existing = snapshot.find((entry) => createItemStackSignature(entry) === createItemStackSignature(item));
         if (existing) {
             existing.count += item.count;
             continue;
