@@ -31,6 +31,7 @@ import { formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
 import {
   appendUnique,
+  buildLegacyHostileTargetingFallback,
   decodePresetTextValue,
   escapeHtml,
   getSkillAffinityBadge,
@@ -2529,7 +2530,7 @@ export class ActionPanel {
     const hostile = this.normalizeCombatTargetingScope(
       source.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
+      buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       source.friendly,
@@ -2552,7 +2553,7 @@ export class ActionPanel {
     const hostile = this.normalizeCombatTargetingScope(
       rules.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
+      buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       rules.friendly,
@@ -2579,40 +2580,6 @@ export class ActionPanel {
       hostile,
       friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
     };
-  }
-
-  /** 兼容旧布尔字段，折叠为当前 hostile 规则回退集。 */
-  private buildLegacyHostileTargetingFallback(
-    rules: CombatTargetingRules,
-    defaults: CombatTargetingRuleKey[],
-  ): CombatTargetingRuleKey[] {
-    const fallback = defaults.filter(
-      (entry) => entry !== 'monster' && entry !== 'all_players',
-    ) as CombatTargetingRuleKey[];
-    if (this.resolveLegacyMonsterTargetEnabled(rules, defaults)) {
-      fallback.unshift('monster');
-    }
-    const includePlayers = rules.includePlayers ?? defaults.includes('all_players');
-    if (includePlayers && !fallback.includes('all_players')) {
-      fallback.push('all_players');
-    }
-    return fallback;
-  }
-
-  /** 旧 include* 怪物字段任一为 true 时，折叠为统一 monster 规则。 */
-  private resolveLegacyMonsterTargetEnabled(
-    rules: CombatTargetingRules,
-    defaults: CombatTargetingRuleKey[],
-  ): boolean {
-    const hasLegacyMonsterOverride = rules.includeNormalMonsters !== undefined
-      || rules.includeEliteMonsters !== undefined
-      || rules.includeBosses !== undefined;
-    if (!hasLegacyMonsterOverride) {
-      return defaults.includes('monster');
-    }
-    return rules.includeNormalMonsters === true
-      || rules.includeEliteMonsters === true
-      || rules.includeBosses === true;
   }
 
   /** 规整目标规则分组。 */

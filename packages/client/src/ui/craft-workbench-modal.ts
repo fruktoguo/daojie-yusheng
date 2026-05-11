@@ -50,6 +50,7 @@ import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from
 import { CraftAlchemyView } from './craft-alchemy-view';
 import { CraftEnhancementView } from './craft-enhancement-view';
 import { CraftQueueView } from './craft-queue-view';
+import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 
 type CraftWorkbenchCallbacks = {
   onRequestAlchemy: (knownCatalogVersion?: number) => void;
@@ -2604,37 +2605,15 @@ export class CraftWorkbenchModal {
       return;
     }
     this.localEnhancementHistoryLoaded = true;
-    if (typeof window === 'undefined') {
+    const result = readEnhancementHistoryFromStorage();
+    if (!result) {
       return;
     }
-    try {
-      const raw = window.localStorage.getItem(ENHANCEMENT_HISTORY_STORAGE_KEY);
-      if (!raw) {
-        const legacyRaw = window.localStorage.getItem('mud:enhancement-history:v1');
-        if (!legacyRaw) {
-          return;
-        }
-        const parsedLegacy = JSON.parse(legacyRaw) as Partial<StoredEnhancementHistoryStateV1>;
-        this.localEnhancementHistoryRecords = new Map(
-          normalizeEnhancementRecordList(parsedLegacy.totals).map((entry) => [entry.itemId, entry] as const),
-        );
-        this.localEnhancementHistorySessions = [];
-        this.lastServerEnhancementSessionRecord = parsedLegacy.sessionRecord ? cloneEnhancementRecord(parsedLegacy.sessionRecord) : null;
-        this.persistLocalEnhancementHistory();
-        return;
-      }
-      const parsed = JSON.parse(raw) as Partial<StoredEnhancementHistoryState>;
-      this.localEnhancementHistoryRecords = new Map(
-        normalizeEnhancementRecordList(parsed.totals).map((entry) => [entry.itemId, entry] as const),
-      );
-      this.localEnhancementHistorySessions = normalizeEnhancementRecordList(parsed.sessions)
-        .filter((entry) => isEnhancementHistorySessionRecord(entry))
-        .sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0));
-      this.lastServerEnhancementSessionRecord = parsed.sessionRecord ? cloneEnhancementRecord(parsed.sessionRecord) : null;
-    } catch {
-      this.localEnhancementHistoryRecords = new Map();
-      this.localEnhancementHistorySessions = [];
-      this.lastServerEnhancementSessionRecord = null;
+    this.localEnhancementHistoryRecords = result.totals;
+    this.localEnhancementHistorySessions = result.sessions;
+    this.lastServerEnhancementSessionRecord = result.sessionRecord;
+    if (result.migratedFromV1) {
+      this.persistLocalEnhancementHistory();
     }
   }
 

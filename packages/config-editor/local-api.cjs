@@ -15,11 +15,13 @@ const {
   buildEditableMapList,
   cloneMapDocument,
   compileValueStatsToActualStats,
+  ITEM_TYPES,
   normalizeEditableMapDocument,
   resolveMonsterExpMultiplier,
   resolveMonsterTemplateRecord,
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
+  TECHNIQUE_GRADE_ORDER,
   validateEditableMapDocument,
   validateEditableMapPortalReciprocity,
 } = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
@@ -51,9 +53,9 @@ const MANAGE_GAME_SERVER = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.CONFIG_EDITOR_MANAGE_GAME_SERVER || '').toLowerCase(),
 );
 /**
- * 功法和怪物共用的合法品阶。
+ * 功法和怪物共用的合法品阶（从 shared 导入）。
  */
-const TECHNIQUE_GRADES = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
+const TECHNIQUE_GRADES = TECHNIQUE_GRADE_ORDER;
 /**
  * 功法分类枚举，供编辑器列表和校验使用。
  */
@@ -63,9 +65,9 @@ const TECHNIQUE_CATEGORIES = ['arts', 'internal', 'divine', 'secret'];
  */
 const MONSTER_AGGRO_MODES = ['always', 'retaliate', 'day_only', 'night_only'];
 /**
- * 编辑器允许识别的物品类型。
+ * 编辑器允许识别的物品类型（从 shared 导入）。
  */
-const ITEM_TYPES = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
+// ITEM_TYPES 已从 shared 导入
 
 /**
  * 当前被编辑器托管的主游戏服子进程。
@@ -256,8 +258,8 @@ function listEditorItems() {
         desc: typeof entry.desc === 'string' ? entry.desc.trim() : '',
         equipSlot: typeof entry.equipSlot === 'string' ? entry.equipSlot : undefined,
         equipAttrs: normalizeItemAttrs(entry.equipAttrs),
-        equipStats: compileValueStatsToActualStats(normalizeMonsterValueStats(entry.equipValueStats)) ?? normalizeMonsterValueStats(entry.equipStats),
-        equipValueStats: normalizeMonsterValueStats(entry.equipValueStats),
+        equipStats: compileValueStatsToActualStats(normalizeEquipValueStats(entry.equipValueStats)) ?? normalizeEquipValueStats(entry.equipStats),
+        equipValueStats: normalizeEquipValueStats(entry.equipValueStats),
         effects: Array.isArray(entry.effects) ? entry.effects : undefined,
         tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
         mapUnlockId: typeof entry.mapUnlockId === 'string' ? entry.mapUnlockId.trim() : undefined,
@@ -278,7 +280,7 @@ function listEditorItems() {
 /**
  * 只保留怪物 valueStats 里的数值字段和五行增减分组。
  */
-function normalizeMonsterValueStats(rawValueStats) {
+function normalizeEquipValueStats(rawValueStats) {
   if (!rawValueStats || typeof rawValueStats !== 'object' || Array.isArray(rawValueStats)) {
     return undefined;
   }

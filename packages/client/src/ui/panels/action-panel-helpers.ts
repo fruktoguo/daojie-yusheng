@@ -1,4 +1,4 @@
-import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared';
+import { ActionDef, AutoBattleSkillConfig, CombatTargetingRuleKey, CombatTargetingRules, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import { getElementKeyLabel } from '../../domain-labels';
 import { t } from '../i18n';
 
@@ -193,6 +193,40 @@ export function getSkillEnabledTechniques(player: PlayerState): PlayerState['tec
 export type ActionPanelAction = ActionDef;
 /** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */
 export type ActionPanelSkillDraft = AutoBattleSkillConfig;
+
+/** 旧 include* 怪物字段任一为 true 时，折叠为统一 monster 规则。 */
+export function resolveLegacyMonsterTargetEnabled(
+  rules: CombatTargetingRules,
+  defaults: CombatTargetingRuleKey[],
+): boolean {
+  const hasLegacyMonsterOverride = rules.includeNormalMonsters !== undefined
+    || rules.includeEliteMonsters !== undefined
+    || rules.includeBosses !== undefined;
+  if (!hasLegacyMonsterOverride) {
+    return defaults.includes('monster');
+  }
+  return rules.includeNormalMonsters === true
+    || rules.includeEliteMonsters === true
+    || rules.includeBosses === true;
+}
+
+/** 兼容旧布尔字段，折叠为当前 hostile 规则回退集。 */
+export function buildLegacyHostileTargetingFallback(
+  rules: CombatTargetingRules,
+  defaults: CombatTargetingRuleKey[],
+): CombatTargetingRuleKey[] {
+  const fallback = defaults.filter(
+    (entry) => entry !== 'monster' && entry !== 'all_players',
+  ) as CombatTargetingRuleKey[];
+  if (resolveLegacyMonsterTargetEnabled(rules, defaults)) {
+    fallback.unshift('monster');
+  }
+  const includePlayers = rules.includePlayers ?? defaults.includes('all_players');
+  if (includePlayers && !fallback.includes('all_players')) {
+    fallback.push('all_players');
+  }
+  return fallback;
+}
 
 
 

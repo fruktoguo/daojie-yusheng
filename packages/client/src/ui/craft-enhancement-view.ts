@@ -23,6 +23,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
+import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 
 type EnhancementJobView = NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>;
 type EnhancementItemView = SyncedEnhancementCandidateView['item'];
@@ -1074,33 +1075,13 @@ export class CraftEnhancementView {
   ensureLocalEnhancementHistoryLoaded(): void {
     if (this.parent.localEnhancementHistoryLoaded) return;
     this.parent.localEnhancementHistoryLoaded = true;
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(ENHANCEMENT_HISTORY_STORAGE_KEY);
-      if (!raw) {
-        const legacyRaw = window.localStorage.getItem('mud:enhancement-history:v1');
-        if (!legacyRaw) return;
-        const parsedLegacy = JSON.parse(legacyRaw) as Partial<StoredEnhancementHistoryStateV1>;
-        this.parent.localEnhancementHistoryRecords = new Map(
-          normalizeEnhancementRecordList(parsedLegacy.totals).map((entry) => [entry.itemId, entry] as const),
-        );
-        this.parent.localEnhancementHistorySessions = [];
-        this.parent.lastServerEnhancementSessionRecord = parsedLegacy.sessionRecord ? cloneEnhancementRecord(parsedLegacy.sessionRecord) : null;
-        this.persistLocalEnhancementHistory();
-        return;
-      }
-      const parsed = JSON.parse(raw) as Partial<StoredEnhancementHistoryState>;
-      this.parent.localEnhancementHistoryRecords = new Map(
-        normalizeEnhancementRecordList(parsed.totals).map((entry) => [entry.itemId, entry] as const),
-      );
-      this.parent.localEnhancementHistorySessions = normalizeEnhancementRecordList(parsed.sessions)
-        .filter((entry) => isEnhancementHistorySessionRecord(entry))
-        .sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0));
-      this.parent.lastServerEnhancementSessionRecord = parsed.sessionRecord ? cloneEnhancementRecord(parsed.sessionRecord) : null;
-    } catch {
-      this.parent.localEnhancementHistoryRecords = new Map();
-      this.parent.localEnhancementHistorySessions = [];
-      this.parent.lastServerEnhancementSessionRecord = null;
+    const result = readEnhancementHistoryFromStorage();
+    if (!result) return;
+    this.parent.localEnhancementHistoryRecords = result.totals;
+    this.parent.localEnhancementHistorySessions = result.sessions;
+    this.parent.lastServerEnhancementSessionRecord = result.sessionRecord;
+    if (result.migratedFromV1) {
+      this.persistLocalEnhancementHistory();
     }
   }
 

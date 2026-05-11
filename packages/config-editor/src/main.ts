@@ -4,6 +4,7 @@ import {
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
   EQUIP_SLOTS,
+  EQUIP_SLOT_LABELS,
   type BasicOkRes,
   ITEM_TYPE_LABELS,
   MONSTER_TIER_EXP_MULTIPLIERS,
@@ -14,6 +15,7 @@ import {
   PLAYER_REALM_CONFIG,
   PLAYER_REALM_ORDER,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
+  TECHNIQUE_CATEGORY_LABELS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_GRADE_LABELS,
   resolveMonsterTemplateRecord,
@@ -357,7 +359,6 @@ const monsterEquipmentEditorEl = document.getElementById('monster-equipment-edit
 /** 怪物技能 ID 文本输入区。 */
 const monsterSkillsEl = document.getElementById('monster-skills') as HTMLTextAreaElement;
 /** 怪物基础数值和五行增减编辑区。 */
-const monsterValueStatsEditorEl = document.getElementById('monster-value-stats-editor') as HTMLDivElement;
 /** 怪物解析后的六维预览区。 */
 const monsterResolvedAttrsPreviewEl = document.getElementById('monster-resolved-attrs-preview') as HTMLDivElement;
 /** 怪物完整计算结果预览区。 */
@@ -449,21 +450,6 @@ const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], st
   value_stats: 'valueStats 推导模式',
   attributes: 'attrs / statPercents 模式',
   tendency: '倾向百分比模式',
-};
-
-const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
-  arts: '术法',
-  internal: '内功',
-  divine: '神通',
-  secret: '秘术',
-};
-
-const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
-  weapon: '武器',
-  head: '头部',
-  body: '身体',
-  legs: '腿部',
-  accessory: '饰品',
 };
 
 const MONSTER_TENDENCY_STAT_GROUPS: Array<{ title: string; note: string; keys: NumericScalarStatKey[] }> = [
@@ -1643,11 +1629,6 @@ function buildMonsterElementStatInputs(groupKey: 'elementDamageBonus' | 'element
 }
 
 /** 新怪物公式不再使用 valueStats，保留空渲染以兼容旧 DOM 入口。 */
-function renderMonsterValueStatsEditor(stats?: PartialNumericStats): void {
-  void stats;
-  monsterValueStatsEditorEl.innerHTML = '';
-}
-
 /** 只读展示怪物经过推导后的六维结果。 */
 function renderMonsterResolvedAttrsPreview(attrs: Attributes): void {
   monsterResolvedAttrsPreviewEl.innerHTML = `
@@ -1807,7 +1788,6 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   renderMonsterStatPercentsEditor(monster.statTendency);
   renderMonsterEquipmentEditor(monster.equipment);
   monsterSkillsEl.value = monster.skills.join('\n');
-  renderMonsterValueStatsEditor(monster.valueStats);
   renderMonsterResolvedAttrsPreview(monster.resolvedAttrs);
   renderMonsterComputedStatsPreview(monster.computedStats);
   renderMonsterDropsEditor(monster.drops);
@@ -1935,45 +1915,6 @@ function readMonsterSkillsFromEditor(): string[] {
     .map((entry) => entry.trim())
     .filter(Boolean);
   return Array.from(new Set(entries));
-}
-
-/** 从基础数值和元素增减区收集怪物 valueStats。 */
-function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
-  let valueStats: PartialNumericStats | undefined;
-  for (const input of Array.from(monsterValueStatsEditorEl.querySelectorAll<HTMLInputElement>('[data-value-stat-key]'))) {
-    const key = input.dataset.valueStatKey as NumericScalarStatKey | undefined;
-    if (!key) {
-      continue;
-    }
-    const value = readOptionalDecimalInput(input.value, `基准数值 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
-    if (value === undefined) {
-      continue;
-    }
-    valueStats ??= {};
-    valueStats[key] = value;
-  }
-
-  for (const groupKey of ['elementDamageBonus', 'elementDamageReduce'] as const) {
-    let group: Partial<Record<ElementKey, number>> | undefined;
-    for (const input of Array.from(monsterValueStatsEditorEl.querySelectorAll<HTMLInputElement>(`[data-value-stat-group="${groupKey}"]`))) {
-      const elementKey = input.dataset.elementKey as ElementKey | undefined;
-      if (!elementKey) {
-        continue;
-      }
-      const value = readOptionalDecimalInput(input.value, `基准数值 ${groupKey}.${ELEMENT_KEY_LABELS[elementKey]}`);
-      if (value === undefined) {
-        continue;
-      }
-      group ??= {};
-      group[elementKey] = value;
-    }
-    if (group && Object.keys(group).length > 0) {
-      valueStats ??= {};
-      valueStats[groupKey] = group;
-    }
-  }
-
-  return valueStats;
 }
 
 /** 从掉落编辑区收集怪物掉落项，并校验物品、数量和概率。 */
@@ -2472,8 +2413,6 @@ function bindEvents(): void {
   monsterStatPercentsEditorEl.addEventListener('change', onMonsterFormInput);
   monsterEquipmentEditorEl.addEventListener('input', onMonsterFormInput);
   monsterEquipmentEditorEl.addEventListener('change', onMonsterFormInput);
-  monsterValueStatsEditorEl.addEventListener('input', onMonsterFormInput);
-  monsterValueStatsEditorEl.addEventListener('change', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('input', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('change', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('change', (event) => {

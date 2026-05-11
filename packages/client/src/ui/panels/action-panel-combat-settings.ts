@@ -16,7 +16,7 @@ import { t } from '../i18n';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
-import { escapeHtml, isAutoUseConsumableCandidate, isRecord } from './action-panel-helpers';
+import { buildLegacyHostileTargetingFallback, escapeHtml, isAutoUseConsumableCandidate, isRecord } from './action-panel-helpers';
 import type { ActionPanel } from './action-panel';
 import type {
   ActionPanelInternal,
@@ -107,7 +107,7 @@ export class CombatSettingsSubpanel {
     const hostile = this.normalizeCombatTargetingScope(
       source.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
+      buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       source.friendly,
@@ -129,7 +129,7 @@ export class CombatSettingsSubpanel {
     const hostile = this.normalizeCombatTargetingScope(
       rules.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
+      buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       rules.friendly,
@@ -676,38 +676,6 @@ export class CombatSettingsSubpanel {
   }
 
   // ─── 私有辅助 ───
-
-  private buildLegacyHostileTargetingFallback(
-    rules: CombatTargetingRules,
-    defaults: CombatTargetingRuleKey[],
-  ): CombatTargetingRuleKey[] {
-    const fallback = defaults.filter(
-      (entry) => entry !== 'monster' && entry !== 'all_players',
-    ) as CombatTargetingRuleKey[];
-    if (this.resolveLegacyMonsterTargetEnabled(rules, defaults)) {
-      fallback.unshift('monster');
-    }
-    const includePlayers = rules.includePlayers ?? defaults.includes('all_players');
-    if (includePlayers && !fallback.includes('all_players')) {
-      fallback.push('all_players');
-    }
-    return fallback;
-  }
-
-  private resolveLegacyMonsterTargetEnabled(
-    rules: CombatTargetingRules,
-    defaults: CombatTargetingRuleKey[],
-  ): boolean {
-    const hasLegacyMonsterOverride = rules.includeNormalMonsters !== undefined
-      || rules.includeEliteMonsters !== undefined
-      || rules.includeBosses !== undefined;
-    if (!hasLegacyMonsterOverride) {
-      return defaults.includes('monster');
-    }
-    return rules.includeNormalMonsters === true
-      || rules.includeEliteMonsters === true
-      || rules.includeBosses === true;
-  }
 
   private normalizeCombatTargetingScope(
     input: CombatTargetingRuleKey[] | null | undefined,
