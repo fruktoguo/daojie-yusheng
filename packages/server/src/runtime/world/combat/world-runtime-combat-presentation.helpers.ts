@@ -31,7 +31,7 @@ interface CombatPresentationDeps {
   pushAttackEffect?: CombatPresentationEffectSource['pushAttackEffect'];
   pushDamageFloatEffect?: CombatPresentationEffectSource['pushDamageFloatEffect'];
   pushCombatTextFloatEffect?: CombatPresentationEffectSource['pushCombatTextFloatEffect'];
-  queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string, combat?: unknown) => void;
+  queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string, combat?: unknown, structured?: unknown) => void;
 }
 
 interface CombatPresentationActionLabel {

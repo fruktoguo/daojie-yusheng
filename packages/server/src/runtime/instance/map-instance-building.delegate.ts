@@ -11,7 +11,6 @@
  * - 不改变运行时语义，纯结构重构
  */
 
-import type { MapInstanceRuntime } from './map-instance.runtime';
 
 // ─── 辅助类型 ───────────────────────────────────────────────────────────────
 
@@ -130,19 +129,4 @@ export interface MapInstanceBuildingDelegate {
 
   /** 建筑完工后激活拓扑和视觉投影，返回受影响的持久化域列表。 */
   activatePlacedBuildingTopologyAndVisual(building: unknown): string[];
-}
-
-// ─── 工厂（占位） ──────────────────────────────────────────────────────────
-
-/**
- * 创建委托实例。
- * TODO: 实现时将 MapInstanceRuntime 中的建筑方法逻辑迁移至此。
- */
-export function createMapInstanceBuildingDelegate(
-  _instance: MapInstanceRuntime,
-): MapInstanceBuildingDelegate {
-  throw new Error(
-    'MapInstanceBuildingDelegate 尚未实现——当前仅定义接口契约，' +
-    '实际逻辑仍在 MapInstanceRuntime 内。',
-  );
 }

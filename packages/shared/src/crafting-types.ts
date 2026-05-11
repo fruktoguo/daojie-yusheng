@@ -11,7 +11,7 @@ export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
 /** 制造型技艺任务队列条目。 */
 export interface CraftQueueItemView {
   queueId: string;
-  kind: 'alchemy' | 'forging' | 'enhancement';
+  kind: 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building';
   label: string;
   quantity?: number;
   createdAt: number;

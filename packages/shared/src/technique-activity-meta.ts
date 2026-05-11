@@ -7,19 +7,25 @@ import {
 
 export type TechniqueActivityRequestEventName =
   | typeof C2S.RequestAlchemyPanel
-  | typeof C2S.RequestEnhancementPanel;
+  | typeof C2S.RequestEnhancementPanel
+  | null;
 
 export type TechniqueActivityStartEventName =
   | typeof C2S.StartAlchemy
-  | typeof C2S.StartEnhancement;
+  | typeof C2S.StartEnhancement
+  | typeof C2S.StartGather
+  | null;
 
 export type TechniqueActivityCancelEventName =
   | typeof C2S.CancelAlchemy
-  | typeof C2S.CancelEnhancement;
+  | typeof C2S.CancelEnhancement
+  | typeof C2S.CancelGather
+  | null;
 
 export type TechniqueActivityPanelEventName =
   | typeof S2C.AlchemyPanel
-  | typeof S2C.EnhancementPanel;
+  | typeof S2C.EnhancementPanel
+  | null;
 
 export type TechniqueActivityCommandKind =
   | 'startAlchemy'
@@ -29,7 +35,9 @@ export type TechniqueActivityCommandKind =
   | 'startEnhancement'
   | 'cancelEnhancement'
   | 'startGather'
-  | 'cancelGather';
+  | 'cancelGather'
+  | 'startBuilding'
+  | 'cancelBuilding';
 
 export type TechniqueActivityRequestPanelErrorCode =
   | 'REQUEST_ALCHEMY_PANEL_FAILED'
@@ -38,12 +46,16 @@ export type TechniqueActivityRequestPanelErrorCode =
 export type TechniqueActivityStartErrorCode =
   | 'START_ALCHEMY_FAILED'
   | 'START_FORGING_FAILED'
-  | 'START_ENHANCEMENT_FAILED';
+  | 'START_ENHANCEMENT_FAILED'
+  | 'START_GATHER_FAILED'
+  | 'START_BUILDING_FAILED';
 
 export type TechniqueActivityCancelErrorCode =
   | 'CANCEL_ALCHEMY_FAILED'
   | 'CANCEL_FORGING_FAILED'
-  | 'CANCEL_ENHANCEMENT_FAILED';
+  | 'CANCEL_ENHANCEMENT_FAILED'
+  | 'CANCEL_GATHER_FAILED'
+  | 'CANCEL_BUILDING_FAILED';
 
 export interface TechniqueActivityMetadata {
   kind: RuntimeTechniqueActivityKind;
@@ -53,9 +65,11 @@ export interface TechniqueActivityMetadata {
   panelEvent: TechniqueActivityPanelEventName;
   startCommandKind: TechniqueActivityCommandKind;
   cancelCommandKind: TechniqueActivityCommandKind;
-  requestPanelErrorCode: TechniqueActivityRequestPanelErrorCode;
+  requestPanelErrorCode: TechniqueActivityRequestPanelErrorCode | null;
   startErrorCode: TechniqueActivityStartErrorCode;
   cancelErrorCode: TechniqueActivityCancelErrorCode;
+  /** 是否为条件型技艺（需要持续满足外部条件）。 */
+  conditional?: boolean;
 }
 
 export const TECHNIQUE_ACTIVITY_METADATA = {
@@ -95,6 +109,32 @@ export const TECHNIQUE_ACTIVITY_METADATA = {
     startErrorCode: 'START_ENHANCEMENT_FAILED',
     cancelErrorCode: 'CANCEL_ENHANCEMENT_FAILED',
   },
+  gather: {
+    kind: 'gather',
+    requestEvent: null,
+    startEvent: C2S.StartGather,
+    cancelEvent: C2S.CancelGather,
+    panelEvent: null,
+    startCommandKind: 'startGather',
+    cancelCommandKind: 'cancelGather',
+    requestPanelErrorCode: null,
+    startErrorCode: 'START_GATHER_FAILED',
+    cancelErrorCode: 'CANCEL_GATHER_FAILED',
+    conditional: true,
+  },
+  building: {
+    kind: 'building',
+    requestEvent: null,
+    startEvent: null,
+    cancelEvent: null,
+    panelEvent: null,
+    startCommandKind: 'startBuilding',
+    cancelCommandKind: 'cancelBuilding',
+    requestPanelErrorCode: null,
+    startErrorCode: 'START_BUILDING_FAILED',
+    cancelErrorCode: 'CANCEL_BUILDING_FAILED',
+    conditional: true,
+  },
 } as const satisfies Record<RuntimeTechniqueActivityKind, TechniqueActivityMetadata>;
 
 export type TechniqueActivityMetadataByKind = typeof TECHNIQUE_ACTIVITY_METADATA;
@@ -119,6 +159,8 @@ export function resolveTechniqueActivityStartCommandKind(kind: TechniqueActivity
       return 'startEnhancement';
     case 'gather':
       return 'startGather';
+    case 'building':
+      return 'startBuilding';
   }
 }
 
@@ -132,5 +174,7 @@ export function resolveTechniqueActivityCancelCommandKind(kind: TechniqueActivit
       return 'cancelEnhancement';
     case 'gather':
       return 'cancelGather';
+    case 'building':
+      return 'cancelBuilding';
   }
 }

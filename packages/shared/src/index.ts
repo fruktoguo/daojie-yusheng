@@ -42,6 +42,7 @@ export * from './alchemy';
 export * from './enhancement';
 export * from './technique-activity-types';
 export * from './technique-activity-meta';
+export * from './technique-activity-pipeline-types';
 export * from './enhancement-cost';
 export * from './display-number';
 export * from './value';

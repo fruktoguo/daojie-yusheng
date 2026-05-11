@@ -5,6 +5,7 @@ import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { applyDurableInventoryGrant, canUseDurableInventoryGrant } from '../world-runtime-inventory-grant.helpers';
 import { CombatAuditOutboxService } from '../../../persistence/combat-audit-outbox.service';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
@@ -55,7 +56,12 @@ export class WorldRuntimePlayerCombatService {
     async handlePlayerMonsterKill(instance: any, monster: any, killerPlayerId: string, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        deps.queuePlayerNotice(killerPlayerId, `${monster.name} 被你斩杀`, 'combat');
+        const killNotice = buildStructuredNotice('combat', 'notice.combat.killed', `${monster.name} 被你斩杀`, {
+            vars: { monsterName: monster.name },
+            pills: [{ key: 'monsterName', style: 'target' }],
+            badges: ['击杀'],
+        });
+        deps.queuePlayerNotice(killerPlayerId, killNotice.text, killNotice.kind, undefined, undefined, killNotice.structured);
         deps.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
         this.recordCombatSemanticAudit('kill', {
             instanceId: instance?.meta?.instanceId ?? null,
@@ -287,7 +293,11 @@ export class WorldRuntimePlayerCombatService {
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
-        deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
+        const dropNotice = buildStructuredNotice('loot', 'notice.loot.bag-full-ground', `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, {
+            vars: { itemLabel: formatItemStackLabel(item), x, y },
+            pills: [{ key: 'itemLabel', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, dropNotice.text, dropNotice.kind, undefined, undefined, dropNotice.structured);
         this.recordCombatSemanticAudit('loot_drop', {
             instanceId: instance?.meta?.instanceId ?? null,
             actor: { kind: 'player', id: playerId },
@@ -420,11 +430,16 @@ export class WorldRuntimePlayerCombatService {
         this.playerCountersPersistenceService?.increment?.(victim.playerId, 'deathCount');
         if (killer.combat?.allowAoePlayerHit === true) {
             const nextStacks = this.playerRuntimeService.addPvPShaInfusionStack(killer.playerId);
-            deps.queuePlayerNotice(killer.playerId, `杀念入体，煞气入体加深至 ${nextStacks} 层。`, 'combat');
+            const shaNotice = buildStructuredNotice('combat', 'notice.combat.sha-infusion', `杀念入体，煞气入体加深至 ${nextStacks} 层。`, {
+                vars: { stacks: nextStacks },
+                pills: [{ key: 'stacks', style: 'damage', color: '#a855f7' }],
+            });
+            deps.queuePlayerNotice(killer.playerId, shaNotice.text, shaNotice.kind, undefined, undefined, shaNotice.structured);
         }
         if (!this.playerRuntimeService.hasActiveBuff(victim.playerId, PVP_SOUL_INJURY_BUFF_ID)) {
             this.playerRuntimeService.applyPvPSoulInjury(victim.playerId);
-            deps.queuePlayerNotice(victim.playerId, '神魂受损；身死与遁返都不会清除，需静养一时辰。', 'combat');
+            const soulNotice = buildStructuredNotice('combat', 'notice.combat.soul-injury', '神魂受损；身死与遁返都不会清除，需静养一时辰。', {});
+            deps.queuePlayerNotice(victim.playerId, soulNotice.text, soulNotice.kind, undefined, undefined, soulNotice.structured);
         }
         const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
         const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
@@ -469,7 +484,11 @@ export class WorldRuntimePlayerCombatService {
             }
             else {
                 deps.spawnGroundItem(deathSite.instance, deathSite.x, deathSite.y, reward);
-                deps.queuePlayerNotice(killer.playerId, `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`, 'loot');
+                const pvpDropNotice = buildStructuredNotice('loot', 'notice.loot.pvp-bag-full', `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`, {
+                    vars: { itemName: reward.name, count: bloodEssenceCount, victimName: victim.name },
+                    pills: [{ key: 'itemName', style: 'target' }, { key: 'victimName', style: 'target' }],
+                });
+                deps.queuePlayerNotice(killer.playerId, pvpDropNotice.text, pvpDropNotice.kind, undefined, undefined, pvpDropNotice.structured);
                 this.recordCombatSemanticAudit('loot_drop', {
                     instanceId: deathSite.instance?.meta?.instanceId ?? killer.instanceId ?? null,
                     actor: { kind: 'player', id: killer.playerId },
@@ -742,9 +761,23 @@ function resolvePlayerDeathSite(victim: any, deps: any) {
 
 function pushShaDeathPenaltyMessages(deps: any, playerId: string, deathPenalty: any) {
     if ((deathPenalty.consumedProgress ?? 0) > 0 || (deathPenalty.consumedFoundation ?? 0) > 0) {
-        deps.queuePlayerNotice(playerId, `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`, 'combat');
+        const fallback = `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`;
+        const notice = buildStructuredNotice('combat', 'notice.combat.sha-backlash-loss', fallback, {
+            vars: { progress: deathPenalty.consumedProgress, foundation: deathPenalty.consumedFoundation },
+            pills: [
+                { key: 'progress', style: 'damage', color: '#a855f7', tooltipTitle: '煞气反噬', tooltipLines: [`折损境界修为 ${deathPenalty.consumedProgress}`] },
+            ],
+        });
+        deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
     }
     if ((deathPenalty.backlashAddedStacks ?? 0) > 0) {
-        deps.queuePlayerNotice(playerId, `身死之后，${deathPenalty.backlashAddedStacks} 层煞气入体转为煞气反噬；当前煞气反噬 ${deathPenalty.backlashTotalStacks} 层，煞气入体余 ${deathPenalty.remainingInfusionStacks} 层。`, 'combat');
+        const fallback = `身死之后，${deathPenalty.backlashAddedStacks} 层煞气入体转为煞气反噬；当前煞气反噬 ${deathPenalty.backlashTotalStacks} 层，煞气入体余 ${deathPenalty.remainingInfusionStacks} 层。`;
+        const notice = buildStructuredNotice('combat', 'notice.combat.sha-backlash-convert', fallback, {
+            vars: { added: deathPenalty.backlashAddedStacks, total: deathPenalty.backlashTotalStacks, remaining: deathPenalty.remainingInfusionStacks },
+            pills: [
+                { key: 'total', style: 'damage', color: '#a855f7', tooltipTitle: '煞气反噬', tooltipLines: [`新增 ${deathPenalty.backlashAddedStacks} 层`, `煞气入体余 ${deathPenalty.remainingInfusionStacks} 层`] },
+            ],
+        });
+        deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
     }
 }

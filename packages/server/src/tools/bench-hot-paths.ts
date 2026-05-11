@@ -10,7 +10,7 @@ import {
   Direction,
 } from '@mud/shared';
 
-import { collectVisibleTileIndices } from '../runtime/instance/fov';
+import { collectVisibleTileIndices } from '../runtime/instance/fov.helpers';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { findPathPointsOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 

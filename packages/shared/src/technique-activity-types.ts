@@ -1,8 +1,8 @@
 /** 可并入统一技艺活动框架的技艺键。 */
-export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather';
+export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building';
 
 /** 当前已经接入 runtime 活动主链的技艺键。 */
-export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement';
+export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building';
 
 /** 技艺活动通用中断原因。 */
 export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate';
@@ -29,4 +29,6 @@ export const RUNTIME_TECHNIQUE_ACTIVITY_KINDS = [
   'alchemy',
   'forging',
   'enhancement',
+  'gather',
+  'building',
 ] as const satisfies readonly RuntimeTechniqueActivityKind[];
