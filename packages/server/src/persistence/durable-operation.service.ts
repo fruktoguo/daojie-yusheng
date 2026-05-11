@@ -2024,6 +2024,19 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             persistedJobRunId !== normalizedExpectedJobRunId
             || persistedJobVersion !== normalizedExpectedJobVersion
           ) {
+            if (
+              normalizedNextActiveJob
+              && persistedJobRunId === normalizedNextActiveJob.jobRunId
+              && persistedJobVersion === normalizedNextActiveJob.jobVersion
+            ) {
+              return {
+                ok: true,
+                alreadyCommitted: true,
+                action,
+                jobRunId: normalizedNextActiveJob.jobRunId,
+                jobVersion: normalizedNextActiveJob.jobVersion,
+              };
+            }
             throw new Error(
               [
                 'player_active_job_cas_conflict',

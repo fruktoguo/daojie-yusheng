@@ -40,6 +40,9 @@ import {
   normalizeShortcutKey,
   readBoolean,
 } from './action-panel-helpers';
+import { SkillManagementSubpanel } from './action-panel-skill-management';
+import { CombatSettingsSubpanel } from './action-panel-combat-settings';
+import { SectManagementSubpanel } from './action-panel-sect-management';
 
 type SkillEnabledEntry = {
   skillEnabled?: boolean;
@@ -702,15 +705,15 @@ export class ActionPanel {
   private actionRowRefs = new Map<string, ActionRowRefs>();  
   /** 当前面板主体这一轮 render 绑定的 DOM 监听，重绘前统一撤销。 */
   private paneRenderEvents: AbortController | null = null;
-  /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值，完成实例初始化。
- */
 
+  // ─── 子面板实例 ───
+  private readonly skillMgmt = new SkillManagementSubpanel(this);
+  private readonly combatSettings = new CombatSettingsSubpanel(this);
+  private readonly sectMgmt = new SectManagementSubpanel(this);
 
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
-    this.skillPresets = this.loadSkillPresets();
+    this.skillPresets = this.skillMgmt.loadSkillPresets();
     this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
     window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
   }
@@ -1909,7 +1912,7 @@ export class ActionPanel {
     const mutated = this.normalizeSkillActions(mutator(orderedSkillActions));
     this.skillManagementDraft = this.normalizeSkillConfigs(this.getAutoBattleSkillConfigs(mutated));
     if (rerender) {
-      this.renderSkillManagementModal();
+      this._renderSkillManagementModal();
     }
   }
 
@@ -2467,27 +2470,16 @@ export class ActionPanel {
 
   /** 打开技能管理弹层，并以当前自动/手动页签作为初始视图。 */
   private openSkillManagement(): void {
-    this.skillManagementTab = this.activeSkillTab;
-    this.skillManagementListScrollTop = 0;
-    this.skillManagementStatus = null;
-    this.syncSkillManagementDraft();
-    this.renderSkillManagementModal();
+    this.skillMgmt.openSkillManagement();
   }
 
   /** 打开战斗设置弹层。 */
   private openCombatSettingsModal(): void {
-    this.syncAutoUsePillDraft();
-    this.syncCombatTargetingDraft();
-    this.combatSettingsStatus = null;
-    this.combatSettingsActiveTab = 'auto_pills';
-    this.autoUsePillSelectedIndex = 0;
-    this.autoUsePillSubview = 'main';
-    this.renderCombatSettingsModal();
+    this.combatSettings.openCombatSettingsModal();
   }
 
-  /** 打开索敌方案弹层。 */
   private openTargetingPlanModal(): void {
-    this.renderTargetingPlanModal();
+    this.combatSettings.openTargetingPlanModal();
   }
 
   /** 复制自动吃药配置。 */
@@ -3040,39 +3032,16 @@ export class ActionPanel {
     `;
   }
 
-  /** 仅在战斗设置弹层已打开且内容变化时重绘。 */
   private renderCombatSettingsModalIfOpen(): void {
-    if (!detailModalHost.isOpenFor(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER)) {
-      return;
-    }
-    const nextRevision = this.buildCombatSettingsExternalRevision();
-    if (this.combatSettingsExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderCombatSettingsModal();
+    this.combatSettings.renderCombatSettingsModalIfOpen();
   }
 
   private renderSectManagementModalIfOpen(): void {
-    if (!detailModalHost.isOpenFor(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER)) {
-      return;
-    }
-    const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
-    if (!action) {
-      detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
-      return;
-    }
-    const summary = this.resolveSectManagementSummary(action);
-    const nextRevision = this.buildSectManagementRevision(summary);
-    if (this.sectManagementExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderSectManagementModal();
+    this.sectMgmt.renderSectManagementModalIfOpen();
   }
 
   private openSectManagementModal(): void {
-    this.sectManagementTab = 'overview';
-    this.sectManagementExternalRevision = '';
-    this.renderSectManagementModal();
+    this.sectMgmt.openSectManagementModal();
   }
 
   private renderSectManagementModal(): void {
@@ -3526,14 +3495,7 @@ export class ActionPanel {
 
   /** 仅在索敌方案弹层已打开且内容变化时重绘。 */
   private renderTargetingPlanModalIfOpen(): void {
-    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
-      return;
-    }
-    const nextRevision = this.getAutoBattleTargetingMode();
-    if (this.targetingPlanExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderTargetingPlanModal();
+    this.combatSettings.renderTargetingPlanModalIfOpen();
   }
 
   /** 渲染战斗设置弹层。 */
@@ -4135,16 +4097,7 @@ export class ActionPanel {
 
   /** 打开技能方案弹层。 */
   private openSkillPresetModal(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.skillPresetNameDraft) {
-      this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
-    }
-    if (!this.selectedSkillPresetId) {
-      this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
-    }
-    this.skillPresetStatus = null;
-    this.renderSkillPresetModal();
+    this.skillMgmt.openSkillPresetModal();
   }
 
   /** 关闭方案弹层后，把输入草稿和状态提示清空。 */
@@ -4255,7 +4208,8 @@ export class ActionPanel {
   }
 
   /** 渲染技能方案弹层，包含保存、导入、导出和列表。 */
-  private renderSkillPresetModal(): void {
+  /** @internal 供子面板回调 */
+  private _renderSkillPresetModal(): void {
     const currentSkills = this.getCurrentSkillPresetSnapshot();
     const selected = this.getSelectedSkillPreset();
     const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
@@ -4355,14 +4309,14 @@ export class ActionPanel {
         this.resetSkillPresetModalState();
       },
       onAfterRender: (body, signal) => {
-        this.bindSkillPresetEvents(body, signal);
+        this._bindSkillPresetEvents(body, signal);
       },
     });
     this.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
   }
 
   /** 给技能方案弹层装配输入、保存、导入和导出事件。 */
-  private bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void {
+  private _bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
       input.addEventListener('input', () => {
         this.resetSkillPresetDeleteConfirm();
@@ -4392,7 +4346,7 @@ export class ActionPanel {
         const preset = this.getSelectedSkillPreset();
         this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
         this.skillPresetStatus = null;
-        this.renderSkillPresetModal();
+        this._renderSkillPresetModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
@@ -4435,7 +4389,7 @@ export class ActionPanel {
         this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = '';
         this.skillPresetStatus = null;
-        this.renderSkillPresetModal();
+        this._renderSkillPresetModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
@@ -4461,13 +4415,13 @@ export class ActionPanel {
             tone: 'info',
             text: t('action.skill-preset.status.file-read', { fileName: file.name }),
           };
-          this.renderSkillPresetModal();
+          this._renderSkillPresetModal();
         } catch {
           this.skillPresetStatus = {
             tone: 'error',
             text: t('action.skill-preset.status.file-read-failed', undefined),
           };
-          this.renderSkillPresetModal();
+          this._renderSkillPresetModal();
         } finally {
           input.value = '';
         }
@@ -4485,7 +4439,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.no-savable-skills', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
     const selected = this.getSelectedSkillPreset();
@@ -4495,7 +4449,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.name-required', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
 
@@ -4534,7 +4488,7 @@ export class ActionPanel {
     }
 
     this.saveSkillPresets();
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 把方案内容转换成可直接应用的自动战斗配置。 */
@@ -4603,7 +4557,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.select-first', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
     const previousDraft = this.skillManagementDraft;
@@ -4615,7 +4569,7 @@ export class ActionPanel {
       tone: 'success',
       text: t('action.skill-preset.status.applied', { name: preset.name }),
     };
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 把选中方案的导出文本复制到剪贴板。 */
@@ -4628,7 +4582,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.select-first', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
     const text = this.buildSkillPresetExportText([preset]);
@@ -4637,7 +4591,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.clipboard-unsupported', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
     try {
@@ -4652,7 +4606,7 @@ export class ActionPanel {
         text: t('action.skill-preset.status.copy-failed', undefined),
       };
     }
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 导出当前选中的技能方案。 */
@@ -4668,7 +4622,7 @@ export class ActionPanel {
       tone: 'success',
       text: t('action.skill-preset.status.exported', { name: preset.name }),
     };
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 导出全部本地技能方案。 */
@@ -4683,7 +4637,7 @@ export class ActionPanel {
       tone: 'success',
       text: t('action.skill-preset.status.exported-all', { count: this.skillPresets.length }),
     };
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 删除当前选中的技能方案。 */
@@ -4705,7 +4659,7 @@ export class ActionPanel {
       text: t('action.skill-preset.status.deleted', { name: preset.name }),
     };
     this.saveSkillPresets();
-    this.renderSkillPresetModal();
+    this._renderSkillPresetModal();
   }
 
   /** 从键值文本或旧 JSON 中导入技能方案。 */
@@ -4718,7 +4672,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill-preset.status.import-empty', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
       return;
     }
     try {
@@ -4735,7 +4689,7 @@ export class ActionPanel {
           tone: 'error',
           text: t('action.skill-preset.status.import-no-valid', undefined),
         };
-        this.renderSkillPresetModal();
+        this._renderSkillPresetModal();
         return;
       }
       this.skillPresets = [...imported, ...this.skillPresets];
@@ -4746,13 +4700,13 @@ export class ActionPanel {
         text: t('action.skill-preset.status.imported', { count: imported.length }),
       };
       this.saveSkillPresets();
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
     } catch {
       this.skillPresetStatus = {
         tone: 'error',
         text: t('action.skill-preset.status.import-invalid', undefined),
       };
-      this.renderSkillPresetModal();
+      this._renderSkillPresetModal();
     }
   }
 
@@ -4932,34 +4886,17 @@ export class ActionPanel {
 
   /** 仅在技能管理弹层已打开且内容变化时重绘。 */
   private renderSkillManagementModalIfOpen(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
-      return;
-    }
-    const nextRevision = this.buildSkillManagementExternalRevision();
-    if (this.skillManagementExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderSkillManagementModal();
+    this.skillMgmt.renderSkillManagementModalIfOpen();
   }
 
   /** 仅在技能方案弹层已打开且内容变化时重绘。 */
   private renderSkillPresetModalIfOpen(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
-      return;
-    }
-    const nextRevision = this.buildSkillPresetExternalRevision();
-    if (this.skillPresetExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderSkillPresetModal();
+    this.skillMgmt.renderSkillPresetModalIfOpen();
   }
 
   /** 渲染技能管理弹层，包含分组、筛选、排序和批量操作。 */
-  private renderSkillManagementModal(): void {
+  /** @internal 供子面板回调 */
+  private _renderSkillManagementModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
@@ -5078,7 +5015,7 @@ export class ActionPanel {
         this.discardSkillManagementDraft();
       },
       onAfterRender: (body, signal) => {
-        this.bindSkillManagementEvents(body, signal);
+        this._bindSkillManagementEvents(body, signal);
         this.bindTooltips(body, signal);
         this.restoreSkillManagementListScroll(body);
       },
@@ -5087,7 +5024,7 @@ export class ActionPanel {
   }
 
   /** 给技能管理弹层装配分组切换、筛选、排序和应用事件。 */
-  private bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void {
+  private _bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-apply]').forEach((button) => {
       button.addEventListener('click', () => {
         this.applySkillManagementChanges();
@@ -5103,13 +5040,13 @@ export class ActionPanel {
         const tab = button.dataset.skillManageTab as SkillManagementTab | undefined;
         if (!tab) return;
         this.skillManagementTab = tab;
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         this.skillManagementSortOpen = !this.skillManagementSortOpen;
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-field-toggle]').forEach((button) => {
@@ -5123,7 +5060,7 @@ export class ActionPanel {
           this.applySkillManagementSortOrder(false, false);
         }
         this.skillManagementSortField = value;
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-direction-toggle]').forEach((button) => {
@@ -5131,13 +5068,13 @@ export class ActionPanel {
         const value = button.dataset.skillManageSortDirectionToggle as SkillManagementSortDirection | undefined;
         if (!value) return;
         this.skillManagementSortDirection = value;
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         this.skillManagementFilterOpen = !this.skillManagementFilterOpen;
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle-chip]').forEach((button) => {
@@ -5149,13 +5086,13 @@ export class ActionPanel {
         } else {
           this.skillManagementFilterToggles.add(value);
         }
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-all]').forEach((button) => {
       button.addEventListener('click', () => {
         this.resetSkillManagementFilters();
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }, { signal });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up], [data-skill-manage-move-down]').forEach((button) => {
@@ -5214,7 +5151,7 @@ export class ActionPanel {
         tone: 'error',
         text: t('action.skill.manage.bulk.empty', undefined),
       };
-      this.renderSkillManagementModal();
+      this._renderSkillManagementModal();
       return;
     }
     const label = ({
@@ -5521,7 +5458,7 @@ export class ActionPanel {
           tone: 'error',
           text: t('action.skill.manage.sort.error.unsupported', undefined),
         };
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }
       return false;
     }
@@ -5532,7 +5469,7 @@ export class ActionPanel {
           tone: 'error',
           text: t('action.skill.manage.sort.error.not-enough', undefined),
         };
-        this.renderSkillManagementModal();
+        this._renderSkillManagementModal();
       }
       return false;
     }

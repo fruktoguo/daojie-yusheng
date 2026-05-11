@@ -108,7 +108,11 @@ export class WorldRuntimeCombatCommandService {
  */
 
     async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
-        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
+        return this.worldRuntimeCombatActionService.dispatchPlayerSkillToMonster({
+            attacker,
+            skillId,
+            targetMonsterId,
+        }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps));
     }
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
@@ -121,7 +125,12 @@ export class WorldRuntimeCombatCommandService {
  */
 
     async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
-        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
+        return this.worldRuntimeCombatActionService.dispatchPlayerSkillToTile({
+            attacker,
+            skillId,
+            targetX,
+            targetY,
+        }, deps, () => this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps));
     }
     /**
  * dispatchEngageBattle：判断EngageBattle是否满足条件。
@@ -136,6 +145,13 @@ export class WorldRuntimeCombatCommandService {
  */
 
     async dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
-        return this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
+        return this.worldRuntimeCombatActionService.dispatchPlayerEngageBattle({
+            playerId,
+            targetPlayerId,
+            targetMonsterId,
+            targetX,
+            targetY,
+            locked,
+        }, deps, () => this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps));
     }
 };

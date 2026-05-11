@@ -227,8 +227,8 @@ async function testFlushOverlayAndMonsterDomains() {
         },
         instanceDomainPersistenceService: {
             isEnabled() { return true; },
-            async replaceOverlayChunks(instanceId, entries) {
-                log.push(['replaceOverlayChunks', instanceId, entries.length]);
+            async saveOverlayChunk(input) {
+                log.push(['saveOverlayChunk', input.instanceId, input.chunkKey]);
             },
             async saveMonsterRuntimeDelta(instanceId, upserts, deletes) {
                 log.push(['saveMonsterRuntimeDelta', instanceId, upserts.length, deletes.length]);
@@ -243,7 +243,7 @@ async function testFlushOverlayAndMonsterDomains() {
     });
     assert.deepEqual(log, [
         'buildOverlayPersistenceChunks',
-        ['replaceOverlayChunks', 'public:yunlai_town', 1],
+        ['saveOverlayChunk', 'public:yunlai_town', 'runtime_portals'],
         'buildMonsterRuntimePersistenceDelta',
         ['saveMonsterRuntimeDelta', 'public:yunlai_town', 1, 0],
         ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 2468, 7, ['monster_runtime', 'overlay']],

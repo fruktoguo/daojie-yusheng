@@ -693,7 +693,7 @@ async function testCompleteEnhancement() {
     assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:enhancement');
     assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 23);
     assert.equal(durableCalls[0]?.expectedJobRunId, 'job:enhancement:complete:1');
-    assert.equal(durableCalls[0]?.expectedJobVersion, 7);
+    assert.equal(durableCalls[0]?.expectedJobVersion, 6);
     assert.equal(durableCalls[0]?.nextEquipmentSlots?.[0]?.slot, 'weapon');
     assert.equal(durableCalls[0]?.nextEquipmentSlots?.[0]?.item?.enhanceLevel, 2);
     assert.equal(durableCalls[0]?.nextWalletBalances?.[0]?.balance, 14);
@@ -1058,6 +1058,161 @@ async function testTickEnhancementSkipsDurableWithoutLease() {
     assert.equal(player.enhancementJob?.jobVersion, 6);
     assert.equal(player.enhancementJob?.remainingTicks, 11);
 }
+
+async function testConcurrentEnhancementTickIsFenced() {
+    const log = [];
+    const durableCalls = [];
+    let tickCalls = 0;
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'instance:1',
+        x: 1,
+        y: 2,
+        runtimeOwnerId: 'runtime:enhancement',
+        sessionEpoch: 11,
+        inventory: {
+            items: [],
+            revision: 9,
+        },
+        equipment: {
+            revision: 4,
+            slots: [
+                {
+                    slot: 'weapon',
+                    item: { itemId: 'iron_sword', count: 1, enhanceLevel: 1, level: 8, type: 'equipment', name: '铁剑' },
+                },
+            ],
+        },
+        wallet: {
+            balances: [{ walletType: 'spirit_stone', balance: 16, frozenBalance: 0, version: 3 }],
+        },
+        enhancementSkill: {
+            level: 4,
+            exp: 0,
+            expToNext: 100,
+        },
+        enhancementSkillLevel: 4,
+        enhancementJob: {
+            jobRunId: 'job:enhancement:concurrent:1',
+            jobType: 'enhancement',
+            target: { source: 'equipment', slot: 'weapon' },
+            item: { itemId: 'iron_sword', count: 1, enhanceLevel: 1, level: 8, type: 'equipment', name: '铁剑' },
+            targetItemId: 'iron_sword',
+            targetItemName: '铁剑',
+            targetItemLevel: 8,
+            currentLevel: 1,
+            targetLevel: 2,
+            desiredTargetLevel: 2,
+            spiritStoneCost: 2,
+            materials: [{ itemId: 'enhancement_stone', count: 3 }],
+            protectionUsed: false,
+            protectionStartLevel: null,
+            protectionItemId: '',
+            protectionItemName: '',
+            protectionItemSignature: '',
+            phase: 'enhancing',
+            pausedTicks: 0,
+            successRate: 1,
+            totalTicks: 12,
+            remainingTicks: 6,
+            startedAt: 100,
+            roleEnhancementLevel: 4,
+            totalSpeedRate: 1,
+            jobVersion: 6,
+        },
+        enhancementRecords: [],
+        persistentRevision: 9,
+        selfRevision: 9,
+        dirtyDomains: new Set(),
+    };
+    const playerRuntimeService = {
+        getPlayerOrThrow() { return player; },
+        getPlayer() { return player; },
+        receiveInventoryItem() {},
+        playerProgressionService: {
+            refreshPreview() {},
+        },
+        playerAttributesService: {
+            recalculate() {},
+        },
+    };
+    const craftPanelRuntimeService = {
+        tickEnhancement(targetPlayer) {
+            tickCalls += 1;
+            targetPlayer.enhancementJob = {
+                ...targetPlayer.enhancementJob,
+                remainingTicks: 5,
+                jobVersion: 7,
+            };
+            return {
+                ok: true,
+                panelChanged: true,
+                inventoryChanged: false,
+                equipmentChanged: false,
+                attrChanged: false,
+                groundDrops: [],
+                messages: [],
+            };
+        },
+        tickTechniqueActivity(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.tickEnhancement(_player);
+        },
+        buildEnhancementPanelPayload() { return { ok: true }; },
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.buildEnhancementPanelPayload();
+        },
+    };
+    const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {
+        getSocketByPlayerId() { return null; },
+    }, {
+        prefersMainline() { return false; },
+    });
+    const service = new WorldRuntimeEnhancementService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
+    const deps = createDeps(log);
+    deps.durableOperationService = {
+        isEnabled() {
+            return true;
+        },
+        updateActiveJobState(input) {
+            durableCalls.push(input);
+            return new Promise((resolve) => {
+                setImmediate(() => resolve({
+                    ok: true,
+                    alreadyCommitted: false,
+                    action: 'update',
+                    jobRunId: input.nextActiveJob.jobRunId,
+                    jobVersion: input.nextActiveJob.jobVersion,
+                }));
+            });
+        },
+    };
+    deps.instanceCatalogService = {
+        isEnabled() {
+            return true;
+        },
+        async loadInstanceCatalog(instanceId) {
+            assert.equal(instanceId, 'instance:1');
+            return {
+                assigned_node_id: 'node:enhancement',
+                ownership_epoch: 23,
+            };
+        },
+    };
+    await Promise.all([
+        service.tickEnhancement('player:1', player, deps),
+        service.tickEnhancement('player:1', player, deps),
+    ]);
+    assert.equal(tickCalls, 1);
+    assert.equal(durableCalls.length, 1);
+    assert.equal(durableCalls[0]?.expectedJobVersion, 6);
+    assert.equal(durableCalls[0]?.nextActiveJob?.jobVersion, 7);
+}
 /**
  * testWorldRuntimeFacadeDispatchStartEnhancement：判断test世界运行态FacadeDispatch开始强化是否满足条件。
  * @returns 无返回值，直接更新test世界运行态FacadeDispatchStart强化相关状态。
@@ -1127,6 +1282,9 @@ Promise.resolve()
     })
     .then(() => {
         return testTickEnhancementSkipsDurableWithoutLease();
+    })
+    .then(() => {
+        return testConcurrentEnhancementTickIsFenced();
     })
     .then(() => {
         testWorldRuntimeFacadeDispatchStartEnhancement();

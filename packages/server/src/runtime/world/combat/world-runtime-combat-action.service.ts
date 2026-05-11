@@ -152,6 +152,75 @@ export class WorldRuntimeCombatActionService {
     }
   }
 
+  async dispatchPlayerEngageBattle(input, deps, execute) {
+    const combatAction = this.createPlayerBasicAttackAction({
+      playerId: input.playerId,
+      targetPlayerId: input.targetPlayerId,
+      targetMonsterId: input.targetMonsterId,
+      targetX: input.targetX,
+      targetY: input.targetY,
+    });
+    try {
+      return await execute(combatAction);
+    } catch (error) {
+      this.recordReject(deps, {
+        phase: combatAction.phase,
+        reason: CombatRejectReason.CastFailed,
+        actor: combatAction.actor,
+        actionId: combatAction.actionId,
+        instanceId: combatAction.instanceId,
+        target: combatAction.target,
+        details: { error: error instanceof Error ? error.message : String(error), engage: true },
+      }, { severity: 'debug' });
+      throw error;
+    }
+  }
+
+  async dispatchPlayerSkillToMonster(input, deps, execute) {
+    const combatAction = this.createPlayerSkillAction({
+      playerId: input.attacker?.playerId ?? input.playerId,
+      skillId: input.skillId,
+      targetMonsterId: input.targetMonsterId,
+    });
+    try {
+      return await execute(combatAction);
+    } catch (error) {
+      this.recordReject(deps, {
+        phase: combatAction.phase,
+        reason: CombatRejectReason.CastFailed,
+        actor: combatAction.actor,
+        actionId: combatAction.actionId,
+        instanceId: combatAction.instanceId,
+        target: combatAction.target,
+        details: { error: error instanceof Error ? error.message : String(error) },
+      }, { severity: 'debug' });
+      throw error;
+    }
+  }
+
+  async dispatchPlayerSkillToTile(input, deps, execute) {
+    const combatAction = this.createPlayerSkillAction({
+      playerId: input.attacker?.playerId ?? input.playerId,
+      skillId: input.skillId,
+      targetX: input.targetX,
+      targetY: input.targetY,
+    });
+    try {
+      return await execute(combatAction);
+    } catch (error) {
+      this.recordReject(deps, {
+        phase: combatAction.phase,
+        reason: CombatRejectReason.CastFailed,
+        actor: combatAction.actor,
+        actionId: combatAction.actionId,
+        instanceId: combatAction.instanceId,
+        target: combatAction.target,
+        details: { error: error instanceof Error ? error.message : String(error) },
+      }, { severity: 'debug' });
+      throw error;
+    }
+  }
+
   createReject(input: AnyRecord = {}) {
     return createCombatRejectOutcome(input);
   }

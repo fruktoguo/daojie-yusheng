@@ -21,6 +21,8 @@ export class WorldRuntimeEnhancementService {
  */
 
     worldRuntimeCraftMutationService;    
+    /** 正在提交 durable 强化 tick 的玩家，避免同一 active_job 并发推进造成 CAS 自撞。 */
+    activeTickPlayerIds = new Set();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -295,10 +297,23 @@ export class WorldRuntimeEnhancementService {
             this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement'), 'enhancement', deps);
             return;
         }
-        await this.tickEnhancementDurably(playerId, player, deps, durableOperationService, runtimeOwnerId, sessionEpoch).catch((error) => {
-            const message = error instanceof Error ? error.message : String(error);
-            deps.queuePlayerNotice(playerId, message, 'warn');
-        });
+        const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+        if (normalizedPlayerId && this.activeTickPlayerIds.has(normalizedPlayerId)) {
+            return;
+        }
+        if (normalizedPlayerId) {
+            this.activeTickPlayerIds.add(normalizedPlayerId);
+        }
+        try {
+            await this.tickEnhancementDurably(playerId, player, deps, durableOperationService, runtimeOwnerId, sessionEpoch).catch((error) => {
+                const message = error instanceof Error ? error.message : String(error);
+                deps.queuePlayerNotice(playerId, message, 'warn');
+            });
+        } finally {
+            if (normalizedPlayerId) {
+                this.activeTickPlayerIds.delete(normalizedPlayerId);
+            }
+        }
     }
 };
 
@@ -474,7 +489,7 @@ function buildCompleteEnhancementOperationId(playerId, activeJob, expectedJobVer
 }
 
 function resolveCompletedEnhancementJobVersion(activeJob) {
-    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)) + 1);
+    return Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)));
 }
 
 function buildNextEnhancementEquipmentSlots(player) {

@@ -194,13 +194,30 @@ export class WorldRuntimePersistenceStateService {
             persistedDomains.push('ground_item');
         }
         if (currentDomains.has('container_state')) {
-            await persistence.replaceContainerStates(instanceId, deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId));
+            const containerStates = deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId);
+            for (const state of containerStates) {
+                await persistence.saveContainerState({
+                    instanceId,
+                    containerId: state.containerId,
+                    sourceId: state.sourceId,
+                    statePayload: state,
+                });
+            }
             persistedDomains.push('container_state');
         }
         if (currentDomains.has('overlay')) {
-            await persistence.replaceOverlayChunks(instanceId, typeof instance.buildOverlayPersistenceChunks === 'function'
+            const overlayChunks = typeof instance.buildOverlayPersistenceChunks === 'function'
                 ? instance.buildOverlayPersistenceChunks()
-                : []);
+                : [];
+            for (const chunk of overlayChunks) {
+                await persistence.saveOverlayChunk({
+                    instanceId,
+                    patchKind: chunk.patchKind,
+                    chunkKey: chunk.chunkKey,
+                    patchVersion: chunk.patchVersion,
+                    patchPayload: chunk.patchPayload,
+                });
+            }
             persistedDomains.push('overlay');
         }
         if (currentDomains.has('monster_runtime')) {

@@ -47,6 +47,10 @@ import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
+import { MarketAuctionView } from './market-auction-view';
+import { MarketTradeDialog } from './market-trade-dialog';
+import { MarketBrowseView } from './market-browse-view';
+import type { MarketPanelInternals } from './market-panel-types';
 
 /** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: unknown): string {
@@ -366,11 +370,12 @@ export class MarketPanel {
   private tooltipNode: HTMLElement | null = null;
   /** 拍卖行倒计时本地 ticker，只局部更新倒计时文本。 */
   private auctionCountdownTimer: ReturnType<typeof window.setInterval> | null = null;
-  /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值，完成实例初始化。
- */
-
+  /** @internal 拍卖行子视图。 */
+  readonly auctionView = new MarketAuctionView(this as unknown as MarketPanelInternals);
+  /** @internal 交易弹窗子视图。 */
+  readonly tradeDialogView = new MarketTradeDialog(this as unknown as MarketPanelInternals);
+  /** @internal 浏览列表子视图。 */
+  readonly browseView = new MarketBrowseView(this as unknown as MarketPanelInternals);
 
   constructor() {
     this.bindPaneEvents();
@@ -903,446 +908,56 @@ export class MarketPanel {
 
   /** 打开拍卖行独立弹层。 */
   private openAuctionModal(tab: AuctionHouseTab = this.auctionTab): void {
-    this.auctionTab = tab;
-    this.auctionPage = this.auctionListings?.tab === tab ? this.auctionPage : 1;
-    this.requestAuctionListings(this.auctionPage);
-    this.syncAuctionSelection();
-    const selectedAuctionLot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, this.marketUpdate, this.auctionTab);
-    if (selectedAuctionLot) {
-      this.selectedItemKey = selectedAuctionLot.itemKey;
-      this.requestItemBook(selectedAuctionLot.itemKey);
-    }
-    this.renderAuctionModal();
+    this.auctionView.openAuctionModal(tab);
   }
 
   /** 渲染拍卖行独立界面。 */
   private renderAuctionModal(): void {
-    const marketUpdate = this.marketUpdate;
-    this.syncAuctionSelection();
-    const options = {
-      ownerId: MarketPanel.AUCTION_MODAL_OWNER,
-      size: 'full',
-      variantClass: 'detail-modal--market detail-modal--auction-house',
-      title: t('auction.title', undefined),
-      subtitle: t('auction.subtitle', undefined),
-      renderBody: (body: HTMLElement) => {
-        patchElementHtml(
-          body,
-          marketUpdate
-            ? this.renderAuctionModalBody(marketUpdate)
-            : `<div class="empty-hint">${escapeHtml(t('auction.loading', undefined))}</div>`,
-        );
-      },
-      onClose: () => {
-        this.tradeDialog = null;
-        this.tooltipNode = null;
-        this.tooltip.hide(true);
-        this.stopAuctionCountdownTicker();
-        this.syncTradeDialogOverlay();
-      },
-      onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
-        this.bindAuctionModalEvents(body, signal);
-        this.bindMarketModalDelegatedEvents(body, signal);
-        this.startAuctionCountdownTicker();
-        this.patchAuctionCountdowns();
-        this.syncTradeDialogOverlay();
-      },
-    } as const;
-    if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      detailModalHost.patch(options);
-      return;
-    }
-    detailModalHost.open(options);
+    this.auctionView.renderAuctionModal();
   }
 
-  /** 渲染拍卖行主体。 */
   private renderAuctionModalBody(update: S2C_MarketUpdate): string {
-    const lots = this.getCurrentAuctionLots();
-    return `
-      <div class="auction-house-shell">
-        <div class="auction-house-tabs" role="tablist" aria-label="拍卖行分栏">
-          <button class="auction-house-tab ${this.auctionTab === 'participate' ? 'active' : ''}" data-auction-tab="participate" type="button">${escapeHtml(t('auction.tab.participate', undefined))}</button>
-          <button class="auction-house-tab ${this.auctionTab === 'mine' ? 'active' : ''}" data-auction-tab="mine" type="button">${escapeHtml(t('auction.tab.mine', undefined))}</button>
-        </div>
-        ${this.renderAuctionSummaryCards(update)}
-        ${this.auctionTab === 'participate'
-          ? this.renderAuctionParticipateTab(update, lots)
-          : this.renderAuctionMineTab(update, lots)}
-      </div>
-    `;
+    return this.auctionView.renderAuctionModalBody(update);
   }
 
-  /** 渲染拍卖行顶部摘要卡。 */
   private renderAuctionSummaryCards(update: S2C_MarketUpdate): string {
-    const summary = this.getAuctionSummary(update);
-    return `
-      <div class="auction-house-summary">
-        <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
-          <span>${escapeHtml(t('auction.summary.active', undefined))}</span>
-          <strong>${formatDisplayInteger(summary.activeLots)}</strong>
-          <small>${escapeHtml(t('auction.summary.buyout', { count: formatDisplayInteger(summary.buyoutLots) }))}</small>
-        </div>
-        <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
-          <span>成交总额</span>
-          <strong>${this.formatMarketUnitPrice(summary.totalCurrentPrice)}</strong>
-          <small>${escapeHtml(update.currencyItemName)}</small>
-        </div>
-        <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
-          <span>我的竞拍</span>
-          <strong>${formatDisplayInteger(summary.myBidCount)}</strong>
-          <small>当前求购竞价</small>
-        </div>
-        <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
-          <span>我的寄拍</span>
-          <strong>${formatDisplayInteger(summary.myConsignments)}</strong>
-          <small>寄拍中 ${formatDisplayInteger(summary.consigningLots)}</small>
-        </div>
-      </div>
-    `;
+    return this.auctionView.renderAuctionSummaryCards(update);
   }
 
-  /** 渲染参与拍卖页。 */
-  private renderAuctionParticipateTab(update: S2C_MarketUpdate, lots: AuctionLotView[]): string {
-    const pagination = this.getAuctionPageState(lots);
-    const selected = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, update, 'participate') ?? lots[0] ?? null;
-    return `
-      <div class="auction-house-board">
-        ${this.renderAuctionFilterRail()}
-        <div class="auction-list-panel ui-surface-pane ui-surface-pane--stack">
-          <div class="auction-list-toolbar ui-action-row">
-            <div class="market-list-toolbar-meta">共 ${formatDisplayInteger(pagination.totalItems)} 件拍品，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页</div>
-            <div class="market-list-toolbar-actions">
-              <button class="small-btn ghost" data-auction-page="${pagination.page - 1}" type="button" ${pagination.page <= 1 ? 'disabled' : ''}>上一页</button>
-              <button class="small-btn ghost" data-auction-page="${pagination.page + 1}" type="button" ${pagination.page >= pagination.totalPages ? 'disabled' : ''}>下一页</button>
-              <button class="small-btn ghost" data-auction-refresh type="button">${escapeHtml(t('market.auction.refresh', undefined))}</button>
-            </div>
-          </div>
-          <div class="auction-list-head">
-            <span>${escapeHtml(t('market.auction.head.item', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.quality', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.current-price', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.buyout-price', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.remaining-time', undefined))}</span>
-          </div>
-          <div class="auction-list ui-scroll-panel">
-            ${lots.length > 0
-              ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '')).join('')
-              : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.participate', undefined))}</div>`}
-          </div>
-        </div>
-        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
-          ${this.renderAuctionDetailPanel(selected, update, 'participate')}
-        </div>
-      </div>
-    `;
+  private renderAuctionParticipateTab(update: S2C_MarketUpdate, lots: any[]): string {
+    return this.auctionView.renderAuctionParticipateTab(update, lots);
   }
 
-  /** 渲染我的寄拍页。 */
-  private renderAuctionMineTab(update: S2C_MarketUpdate, lots: AuctionLotView[]): string {
-    const pagination = this.getAuctionPageState(lots);
-    const selected = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, update, 'mine') ?? lots[0] ?? null;
-    const consigningCount = this.auctionListings?.summary.consigningLots ?? lots.filter((lot) => lot.status === 'consigning').length;
-    const soldCount = this.auctionListings?.summary.soldLots ?? lots.filter((lot) => lot.status === 'sold').length;
-    const failedCount = this.auctionListings?.summary.failedLots ?? lots.filter((lot) => lot.status === 'failed').length;
-    return `
-      <div class="auction-house-board auction-house-board--mine">
-        <div class="auction-consign-overview ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">${escapeHtml(t('market.auction.mine.title', undefined))}</div>
-          <div class="auction-status-strip">
-            <span class="auction-status-pill active">${escapeHtml(t('market.auction.mine.status.consigning', { count: formatDisplayInteger(consigningCount) }))}</span>
-            <span class="auction-status-pill sold">${escapeHtml(t('market.auction.mine.status.sold', { count: formatDisplayInteger(soldCount) }))}</span>
-            <span class="auction-status-pill failed">${escapeHtml(t('market.auction.mine.status.failed', { count: formatDisplayInteger(failedCount) }))}</span>
-          </div>
-          <div class="market-pane-copy">${escapeHtml(t('market.auction.mine.copy', undefined))}</div>
-        </div>
-        <div class="auction-list-panel ui-surface-pane ui-surface-pane--stack">
-          <div class="auction-list-toolbar ui-action-row">
-            <div class="market-list-toolbar-meta">我的寄拍 ${formatDisplayInteger(pagination.totalItems)} 件，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页</div>
-            <div class="market-list-toolbar-actions">
-              <button class="small-btn ghost" data-auction-page="${pagination.page - 1}" type="button" ${pagination.page <= 1 ? 'disabled' : ''}>上一页</button>
-              <button class="small-btn ghost" data-auction-page="${pagination.page + 1}" type="button" ${pagination.page >= pagination.totalPages ? 'disabled' : ''}>下一页</button>
-              <button class="small-btn ghost" data-auction-refresh type="button">${escapeHtml(t('market.auction.refresh', undefined))}</button>
-            </div>
-          </div>
-          <div class="auction-list-head auction-list-head--mine">
-            <span>${escapeHtml(t('market.auction.head.item', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.status', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.list-price', undefined))}</span>
-            <span>${escapeHtml(t('market.auction.head.remaining', undefined))}</span>
-          </div>
-          <div class="auction-list ui-scroll-panel">
-            ${lots.length > 0
-              ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '', true)).join('')
-              : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.mine', undefined))}</div>`}
-          </div>
-        </div>
-        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
-          ${this.renderAuctionDetailPanel(selected, update, 'mine')}
-        </div>
-      </div>
-    `;
+  private renderAuctionMineTab(update: S2C_MarketUpdate, lots: any[]): string {
+    return this.auctionView.renderAuctionMineTab(update, lots);
   }
 
-  /** 渲染拍卖行筛选栏。 */
   private renderAuctionFilterRail(): string {
-    const categories: Array<{ id: MarketCategoryFilter; label: string; count: number }> = [
-      { id: 'all', label: t('auction.filter.all', undefined), count: this.getAuctionCategoryCount('all', 0) },
-      ...ITEM_TYPES.map((type) => ({
-        id: type,
-        label: getItemTypeLabel(type),
-        count: this.getAuctionCategoryCount(type, 0),
-      })),
-    ];
-    return `
-      <aside class="auction-filter-rail ui-surface-pane ui-surface-pane--stack">
-        <label class="auction-search-field">
-          <span>${escapeHtml(t('auction.filter.search', undefined))}</span>
-          <input class="ui-search-input" data-auction-search id="auction-search-input" type="search" value="${escapeHtmlAttr(this.auctionSearchQuery)}" placeholder="${escapeHtmlAttr(t('auction.filter.placeholder', undefined))}" />
-        </label>
-        <div class="auction-filter-group">
-          <div class="market-list-toolbar-meta">分类</div>
-          <div class="auction-filter-buttons">
-            ${categories.map((category) => `
-              <button class="auction-filter-button ${this.auctionCategory === category.id ? 'active' : ''}" data-auction-category="${category.id}" type="button">
-                <span>${escapeHtml(category.label)}</span>
-                <strong>${formatDisplayInteger(category.count)}</strong>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-        <div class="auction-filter-note">${escapeHtml(t('auction.filter.note', undefined))}</div>
-      </aside>
-    `;
+    return this.auctionView.renderAuctionFilterRail();
   }
 
-  /** 渲染单个拍品行。 */
-  private renderAuctionLotRow(lot: AuctionLotView, activeLotId: string, mine = false): string {
-    const buyoutText = lot.buyoutPrice === null ? '--' : this.formatMarketUnitPrice(lot.buyoutPrice);
-    const remainingSeconds = this.getAuctionRemainingSeconds(lot);
-    const mineRibbon = mine
-      ? `<span class="auction-lot-ribbon" aria-hidden="true"><span>${escapeHtml(t('auction.ribbon.mine', undefined))}</span></span>`
-      : '';
-    return `
-      <button
-        class="auction-lot-row ${mine ? 'auction-lot-row--mine' : ''} ${lot.id === activeLotId ? 'active' : ''}"
-        data-auction-select-item="${escapeHtmlAttr(lot.id)}"
-        data-ui-key="auction:${escapeHtmlAttr(lot.id)}"
-        type="button"
-      >
-        ${mineRibbon}
-        <span class="auction-lot-item">
-          <strong>${escapeHtml(lot.itemName)}</strong>
-          <small>${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.lotNo)}</small>
-        </span>
-        <span class="auction-quality-tag">${escapeHtml(mine ? lot.statusLabel : lot.qualityLabel)}</span>
-        <span>${this.formatMarketUnitPrice(lot.currentPrice)}</span>
-        <span>${mine ? formatDisplayCountBadge(lot.remainingQuantity ?? 0) : buyoutText}</span>
-        ${mine ? '' : `<span class="auction-time ${this.getAuctionTimeClass(remainingSeconds)}" data-auction-countdown="${escapeHtmlAttr(lot.id)}">${escapeHtml(this.formatAuctionRemaining(remainingSeconds))}</span>`}
-      </button>
-    `;
+  private renderAuctionLotRow(lot: any, activeLotId: string, mine = false): string {
+    return this.auctionView.renderAuctionLotRow(lot, activeLotId, mine);
   }
 
-  /** 渲染拍品详情。 */
-  private renderAuctionDetailPanel(lot: AuctionLotView | null, update: S2C_MarketUpdate, tab: AuctionHouseTab): string {
-    if (!lot) {
-      return `<div class="empty-hint">${escapeHtml(t('auction.empty.select-lot', undefined))}</div>`;
-    }
-    const listedEntry = this.findListingVariantByKey(lot.itemKey, update) ?? this.buildMarketListingFromAuctionLot(lot);
-    const buyConflict = this.findConflictingOwnOrder(lot.itemKey, 'buy');
-    const canBid = tab === 'participate' && Boolean(listedEntry) && !buyConflict;
-    const canBuyout = canBid && lot.buyoutPrice !== null;
-    const ownedCurrency = this.findInventoryItemCountByItemId(update.currencyItemId);
-    return `
-      <div class="auction-detail-head">
-        <div class="auction-item-icon" aria-hidden="true">${escapeHtml(this.getAuctionItemInitial(lot.itemName))}</div>
-        <div class="auction-detail-title">
-          <div class="market-item-title ${listedEntry ? 'market-item-title--interactive' : ''}" ${listedEntry ? `data-market-item-tooltip="${escapeHtmlAttr(lot.itemKey)}"` : ''}>${escapeHtml(lot.itemName)}</div>
-          <div class="market-book-subtitle">${escapeHtml(lot.qualityLabel)} · ${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.statusLabel)}</div>
-        </div>
-        <div class="auction-countdown">
-          <span>${escapeHtml(t('auction.countdown', undefined))}</span>
-          <strong data-auction-countdown="${escapeHtmlAttr(lot.id)}">${escapeHtml(this.formatAuctionRemaining(this.getAuctionRemainingSeconds(lot)))}</strong>
-        </div>
-      </div>
-      <div class="auction-price-grid">
-        <div class="auction-price-card ui-surface-card ui-surface-card--compact">
-          <span>当前价</span>
-          <strong>${this.formatMarketUnitPrice(lot.currentPrice)}</strong>
-          <small>${formatDisplayInteger(lot.bidCount)} 次出价</small>
-        </div>
-        <div class="auction-price-card ui-surface-card ui-surface-card--compact">
-          <span>${escapeHtml(t('market.trade.buyout-confirm.price', undefined))}</span>
-          <strong>${lot.buyoutPrice === null ? '--' : this.formatMarketUnitPrice(lot.buyoutPrice)}</strong>
-          <small>${escapeHtml(update.currencyItemName)}</small>
-        </div>
-        <div class="auction-price-card ui-surface-card ui-surface-card--compact">
-          <span>我的灵石</span>
-          <strong>${formatDisplayInteger(ownedCurrency)}</strong>
-          <small>${escapeHtml(update.currencyItemName)}</small>
-        </div>
-      </div>
-      ${tab === 'participate'
-        ? `
-          <div class="auction-bid-actions">
-            <button class="small-btn" data-auction-action="bid" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBid ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.bid', undefined))}</button>
-            <button class="small-btn ghost" data-auction-action="buyout" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBuyout ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.buyout', undefined))}</button>
-          </div>
-          ${buyConflict ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.auction.hint.repeat-bid', undefined))}</div>` : ''}
-          <div class="market-action-hint">${escapeHtml(t('market.auction.hint.bid-and-buyout', undefined))}</div>
-          ${this.renderAuctionBidHistory(lot, update.currencyItemName)}
-        `
-        : `
-          <div class="auction-bid-actions">
-            <button class="small-btn ghost" data-auction-cancel="${escapeHtmlAttr(lot.orderId ?? '')}" type="button" ${lot.orderId ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.cancel-consign', undefined))}</button>
-          </div>
-          <div class="market-action-hint">${escapeHtml(t('market.auction.hint.remaining', { count: formatDisplayCountBadge(lot.remainingQuantity ?? 0) }))}</div>
-        `}
-    `;
+  private renderAuctionDetailPanel(lot: any, update: S2C_MarketUpdate, tab: AuctionHouseTab): string {
+    return this.auctionView.renderAuctionDetailPanel(lot, update, tab);
   }
 
-  /** 渲染出价记录。 */
-  private renderAuctionBidHistory(lot: AuctionLotView, currencyName: string): string {
-    const rows = Array.isArray(lot.bids) ? lot.bids.slice(0, 6) : [];
-    return `
-      <div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-        <div class="market-book-column-title">${escapeHtml(t('auction.bid-history.title', undefined))}</div>
-        ${rows.length > 0
-            ? rows.map((level, index) => `
-              <div class="auction-bid-row">
-                <span>${escapeHtml(level.bidderLabel || t('auction.bidder.anonymous', { index: formatDisplayInteger(index + 1) }))}</span>
-                <strong>${this.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</strong>
-                <small>${escapeHtml(this.formatAuctionBidTime(level.createdAtMs))}</small>
-              </div>
-            `).join('')
-            : `<div class="empty-hint">${escapeHtml(t('auction.bid-history.empty', undefined))}</div>`}
-      </div>
-    `;
+  private renderAuctionBidHistory(lot: any, currencyName: string): string {
+    return this.auctionView.renderAuctionBidHistory(lot, currencyName);
   }
 
-  /** 绑定拍卖行弹层事件。 */
   private bindAuctionModalEvents(body: HTMLElement, signal: AbortSignal): void {
-    body.querySelectorAll<HTMLElement>('[data-auction-tab]').forEach((button) => button.addEventListener('click', () => {
-      const tab = button.dataset.auctionTab as AuctionHouseTab | undefined;
-      if (!tab || tab === this.auctionTab) {
-        return;
-      }
-      this.auctionTab = tab;
-      this.selectedAuctionItemKey = null;
-      this.auctionPage = 1;
-      this.tradeDialog = null;
-      this.requestAuctionListings(1);
-      this.renderAuctionModal();
-    }, { signal }));
-
-    body.querySelectorAll<HTMLElement>('[data-auction-category]').forEach((button) => button.addEventListener('click', () => {
-      const category = button.dataset.auctionCategory as MarketCategoryFilter | undefined;
-      if (!category || category === this.auctionCategory) {
-        return;
-      }
-      this.auctionCategory = category;
-      this.selectedAuctionItemKey = null;
-      this.auctionPage = 1;
-      this.tradeDialog = null;
-      this.requestAuctionListings(1);
-      this.renderAuctionModal();
-    }, { signal }));
-
-    body.querySelector<HTMLInputElement>('[data-auction-search]')?.addEventListener('input', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) {
-        return;
-      }
-      this.auctionSearchQuery = target.value;
-      this.selectedAuctionItemKey = null;
-      this.auctionPage = 1;
-      this.requestAuctionListings(1);
-    }, { signal });
-
-    body.querySelectorAll<HTMLElement>('[data-auction-page]').forEach((button) => button.addEventListener('click', () => {
-      const nextPage = Number.parseInt(button.dataset.auctionPage ?? '1', 10);
-      if (!Number.isFinite(nextPage) || nextPage === this.auctionPage) {
-        return;
-      }
-      this.auctionPage = Math.max(1, Math.floor(nextPage));
-      this.selectedAuctionItemKey = null;
-      this.tradeDialog = null;
-      this.requestAuctionListings(this.auctionPage);
-      this.renderAuctionModal();
-    }, { signal }));
-
-    body.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => button.addEventListener('click', () => {
-      const lotId = button.dataset.auctionSelectItem;
-      if (!lotId || lotId === this.selectedAuctionItemKey) {
-        return;
-      }
-      const lot = this.resolveAuctionLotByKey(lotId, this.marketUpdate, this.auctionTab);
-      if (!lot) {
-        return;
-      }
-      this.selectedAuctionItemKey = lot.id;
-      this.selectedItemKey = lot.itemKey;
-      this.itemBook = null;
-      this.tradeDialog = null;
-      this.requestItemBook(lot.itemKey);
-      this.patchAuctionActiveSelection();
-      this.patchAuctionDetailPanel();
-      this.syncTradeDialogOverlay();
-    }, { signal }));
-
-    body.querySelectorAll<HTMLElement>('[data-auction-action]').forEach((button) => button.addEventListener('click', () => {
-      const action = button.dataset.auctionAction;
-      const itemKey = button.dataset.auctionActionItem;
-      const lot = this.resolveAuctionLotByKey(itemKey, this.marketUpdate, 'participate');
-      const entry = lot ? (this.findListingVariantByKey(lot.itemKey, this.marketUpdate) ?? this.buildMarketListingFromAuctionLot(lot)) : null;
-      if (!action || !lot || !entry) {
-        return;
-      }
-      this.selectedAuctionItemKey = entry.itemKey;
-      this.selectedItemKey = entry.itemKey;
-      if (action === 'buyout') {
-        this.openAuctionBuyoutConfirm(entry, lot);
-        return;
-      }
-      this.openAuctionBidDialog(entry, lot);
-    }, { signal }));
-
-    body.querySelectorAll<HTMLElement>('[data-auction-cancel]').forEach((button) => button.addEventListener('click', () => {
-      const orderId = button.dataset.auctionCancel;
-      if (!orderId) {
-        return;
-      }
-      this.callbacks?.onCancelOrder(orderId);
-    }, { signal }));
-
-    body.querySelector<HTMLElement>('[data-auction-refresh]')?.addEventListener('click', () => {
-      this.requestAuctionListings(this.auctionPage);
-    }, { signal });
+    this.auctionView.bindAuctionModalEvents(body, signal);
   }
 
-  /** 局部更新拍卖行列表选中态。 */
   private patchAuctionActiveSelection(): void {
-    const body = this.getOpenAuctionModalBody();
-    if (!body) {
-      return;
-    }
-    body.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.auctionSelectItem === this.selectedAuctionItemKey);
-    });
+    this.auctionView.patchAuctionActiveSelection();
   }
 
-  /** 局部更新拍卖行右侧详情。 */
   private patchAuctionDetailPanel(): void {
-    const body = this.getOpenAuctionModalBody();
-    const update = this.marketUpdate;
-    if (!body || !update) {
-      return;
-    }
-    const detail = body.querySelector<HTMLElement>('[data-auction-detail-panel]');
-    if (!detail) {
-      return;
-    }
-    const lot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, update, this.auctionTab);
-    patchElementHtml(detail, this.renderAuctionDetailPanel(lot, update, this.auctionTab));
+    this.auctionView.patchAuctionDetailPanel();
   }
 
   /** 渲染市场弹层主体和右侧分栏。 */
@@ -1369,159 +984,21 @@ export class MarketPanel {
 
   /** 渲染市场列表页和右侧书籍面板。 */
   private renderMarketTab(update: S2C_MarketUpdate): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const listedItems = this.getVisibleListedItems(update);
-    if (listedItems.length === 0) {
-      return `<div class="empty-hint">${escapeHtml(t('market.empty.category', undefined))}</div>`;
-    }
-    const groups = this.getVisibleListingGroups(update);
-    const pagination = this.getPaginationState(groups);
-    const selectedGroup = pagination.items.find((item) => item.itemId === this.selectedGroupItemId) ?? pagination.items[0] ?? null;
-    const browsingEnhancementVariants = Boolean(selectedGroup?.canEnhance && this.enhancementBrowseItemId === selectedGroup.itemId);
-    const selectedItem = browsingEnhancementVariants
-      ? selectedGroup?.variants.find((item) => item.itemKey === this.selectedItemKey) ?? null
-      : selectedGroup?.canEnhance
-        ? null
-        : selectedGroup?.variants[0] ?? null;
-    const cards = browsingEnhancementVariants
-      ? (selectedGroup?.variants ?? []).map((entry) => this.renderListedItem(entry, selectedItem?.itemKey ?? '', selectedGroup?.itemId ?? '')).join('')
-      : pagination.items.map((entry) => this.renderGroupItem(entry, selectedGroup?.itemId ?? '')).join('');
-    const orderBook = selectedItem && this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
-    const categoryTabs = this.renderCategoryTabs(update);
-    const subcategoryTabs = this.activeCategory === 'equipment'
-      ? this.renderEquipmentTabs(update)
-      : this.activeCategory === 'skill_book'
-        ? this.renderTechniqueTabs(update)
-        : '';
-    const compactList = this.hasCompactCategoryLayout();
-    const listToolbar = browsingEnhancementVariants && selectedGroup
-      ? this.renderVariantToolbar(selectedGroup, selectedGroup.variants.length)
-      : this.renderListToolbar(pagination.page, pagination.totalPages, pagination.totalItems);
-    return `
-      <div class="market-market-tab">
-        <div class="market-category-tabs">${categoryTabs}</div>
-        ${subcategoryTabs ? `<div class="market-category-tabs market-category-tabs--sub">${subcategoryTabs}</div>` : ''}
-        <div class="market-board">
-          <div class="market-board-list-wrap ui-surface-pane ui-surface-pane--stack">
-            ${listToolbar}
-            <div class="market-board-list ${compactList ? 'market-board-list--compact' : ''}">${cards}</div>
-          </div>
-          <div class="market-book-panel ui-surface-pane ui-surface-pane--stack">
-            ${selectedItem
-              ? this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)
-              : this.renderMarketBrowsePlaceholder(selectedGroup, browsingEnhancementVariants)}
-          </div>
-        </div>
-      </div>
-    `;
+    return this.browseView.renderMarketTab(update);
   }
 
-  /** 渲染一张市场列表卡片。 */
   private renderListedItem(entry: MarketListedItemView, activeItemKey: string, groupItemId?: string): string {
-    const ownedCount = this.findMatchingInventoryCount(entry.item);
-    const status = this.getItemStatusState(entry.item);
-    const ownedLabel = ownedCount > 0
-      ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
-      : '';
-    const itemName = this.getMarketDisplayName(entry.item);
-    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
-    const statusRibbon = status
-      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
-      : '';
-    return `
-      <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemKey === activeItemKey ? 'active' : ''}${statusClass}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" ${groupItemId ? `data-market-select-item-group="${escapeHtmlAttr(groupItemId)}"` : ''} data-market-item-tooltip="${escapeHtmlAttr(entry.itemKey)}" type="button">
-        ${statusRibbon}
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
-          <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
-          ${ownedLabel}
-        </div>
-        <div class="market-item-cell-prices">
-          <span>卖 ${entry.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(entry.lowestSellPrice) : '--'}</span>
-          <span>买 ${entry.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(entry.highestBuyPrice) : '--'}</span>
-        </div>
-      </button>
-    `;
+    return this.browseView.renderListedItem(entry, activeItemKey, groupItemId);
   }
 
-  /** 渲染物品组入口，可强化装备会先进入强化等级列表。 */
   private renderGroupItem(entry: MarketListingGroupView, activeItemId: string): string {
-    const ownedCount = entry.canEnhance
-      ? this.findEquipmentInventoryCountByLevel(entry.itemId, 0)
-      : this.findInventoryItemCountByItemId(entry.itemId);
-    const status = this.getItemStatusState(entry.item);
-    const ownedLabel = ownedCount > 0
-      ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
-      : '';
-    const referenceEntry = this.getGroupReferenceEntry(entry);
-    const itemName = this.getMarketDisplayName(referenceEntry?.item ?? entry.item);
-    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
-    const statusRibbon = status
-      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
-      : '';
-    return `
-      <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemId === activeItemId ? 'active' : ''}${statusClass}" data-market-select-group="${escapeHtmlAttr(entry.itemId)}" ${referenceEntry ? `data-market-item-tooltip="${escapeHtmlAttr(referenceEntry.itemKey)}"` : ''} type="button">
-        ${statusRibbon}
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
-          <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
-          ${ownedLabel}
-        </div>
-        <div class="market-item-cell-prices">
-          <span>卖 ${referenceEntry?.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(referenceEntry.lowestSellPrice) : '--'}</span>
-          <span>买 ${referenceEntry?.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(referenceEntry.highestBuyPrice) : '--'}</span>
-        </div>
-      </button>
-    `;
+    return this.browseView.renderGroupItem(entry, activeItemId);
   }
 
-  /** 渲染选中物品的卖盘、买盘和快捷操作。 */
   private renderBookPanel(entry: MarketListedItemView, book: MarketOrderBookView | null, currencyName: string): string {
-    const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
-    const sellConflict = this.findConflictingOwnOrder(entry.itemKey, 'sell');
-    const buyConflict = this.findConflictingOwnOrder(entry.itemKey, 'buy');
-    const itemName = this.getMarketDisplayName(entry.item);
-    const itemDesc = typeof entry.item.desc === 'string' ? entry.item.desc : '';
-    const showOrderBook = book !== null || !this.itemBookLoading;
-    return `
-      <div class="market-book-header">
-        <div>
-          <div class="market-item-title market-item-title--interactive" data-market-item-tooltip="selected">${escapeHtml(itemName)}</div>
-          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(entry.item.type))}${itemDesc ? ` · ${escapeHtml(itemDesc)}` : ''}</div>
-        </div>
-      </div>
-      <div class="market-book-columns">
-        <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
-          <div class="market-book-column-head">
-            <div class="market-book-column-title">${escapeHtml(t('market.book.column.sell', undefined))}</div>
-            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>${escapeHtml(t('market.book.action.sell', undefined))}</button>
-          </div>
-          ${sellConflict ? `<div class="market-action-hint">${escapeHtml(t('market.trade.hint.conflict-sell', undefined))}</div>` : ''}
-          ${showOrderBook
-            ? this.renderPriceLevels(book?.sells ?? [], currencyName, t('market.book.empty.sell', undefined), {
-              kind: 'buy',
-              label: t('market.book.action.buy', undefined),
-              confirmPurchase: true,
-              disabled: Boolean(buyConflict),
-            })
-            : this.renderBookLoading(t('market.book.loading.sell', undefined))}
-        </div>
-        <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
-          <div class="market-book-column-head">
-            <div class="market-book-column-title">${escapeHtml(t('market.book.column.buy', undefined))}</div>
-            <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>${escapeHtml(t('market.book.action.buy-request', undefined))}</button>
-          </div>
-          ${buyConflict ? `<div class="market-action-hint">${escapeHtml(t('market.trade.hint.conflict-buy', undefined))}</div>` : ''}
-          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, t('market.book.empty.buy', undefined), {
-            kind: 'sell',
-            label: t('market.book.action.sell-request', undefined),
-            disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
-          }) : this.renderBookLoading(t('market.book.loading.buy', undefined))}
-        </div>
-      </div>
-    `;
+    return this.browseView.renderBookPanel(entry, book, currencyName);
   }
 
-  /** 读取市场物品的已学/已阅状态。 */
   private getItemStatusState(item: ItemStack): { label: string; kind: 'learned' | 'unlocked' } | null {
     if (item.type === 'skill_book') {
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
@@ -1541,416 +1018,59 @@ export class MarketPanel {
     return null;
   }
 
-  /** 右侧未选中具体盘口时的占位说明。 */
   private renderMarketBrowsePlaceholder(group: MarketListingGroupView | null, browsingEnhancementVariants: boolean): string {
-    if (!group) {
-      return `<div class="empty-hint">${escapeHtml(t('market.empty.select-item', undefined))}</div>`;
-    }
-    const referenceEntry = this.getGroupReferenceEntry(group);
-    const titleClass = `market-item-title${referenceEntry ? ' market-item-title--interactive' : ''}`;
-    const titleTooltipAttr = referenceEntry ? ` data-market-item-tooltip="${escapeHtmlAttr(referenceEntry.itemKey)}"` : '';
-    const itemName = this.getMarketDisplayName(referenceEntry?.item ?? group.item);
-    if (browsingEnhancementVariants) {
-      return `
-        <div class="market-book-header">
-          <div>
-            <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
-            <div class="market-book-subtitle">${escapeHtml(t('market.book.subtitle.enhance-select', undefined))}</div>
-          </div>
-        </div>
-        <div class="empty-hint">${escapeHtml(t('market.book.empty.enhance-level', undefined))}</div>
-      `;
-    }
-    return `
-      <div class="market-book-header">
-        <div>
-          <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
-          <div class="market-book-subtitle">${escapeHtml(t('market.book.subtitle.group', {
-            typeLabel: getItemTypeLabel(group.item.type),
-          }))}</div>
-        </div>
-      </div>
-      <div class="empty-hint">${group.canEnhance
-        ? escapeHtml(t('market.book.group.hint.enhance', undefined))
-        : escapeHtml(t('market.book.group.hint.normal', undefined))}</div>
-    `;
+    return this.browseView.renderMarketBrowsePlaceholder(group, browsingEnhancementVariants);
   }
 
-  /** 渲染一档买卖盘价格和快捷下单按钮。 */
   private renderPriceLevels(
     levels: MarketOrderBookView['sells'],
     currencyName: string,
     emptyText: string,
-    quickAction?: {
-    /**
- * kind：kind相关字段。
- */
-
-      kind: MarketTradeDialogKind;
-      /**
- * label：label名称或显示文本。
- */
-
-      label: string;
-      /**
- * disabled：disabled相关字段。
- */
-
-      disabled?: boolean;
-      /** 是否使用购买确认页。 */
-      confirmPurchase?: boolean;
-    },
+    quickAction?: { kind: MarketTradeDialogKind; label: string; disabled?: boolean; confirmPurchase?: boolean },
   ): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (levels.length === 0) {
-      return `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
-    }
-    return levels.map((level, index) => `
-      <div class="market-book-level ui-surface-card ui-surface-card--compact">
-        <div class="market-book-level-main">
-          <span class="market-book-level-price">${this.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</span>
-          <span class="market-book-level-qty">总量 ${formatDisplayCountBadge(level.quantity)}</span>
-        </div>
-        ${quickAction && index === 0
-          ? `<button
-              class="small-btn ghost market-book-level-action"
-              data-market-open-dialog="${quickAction.kind}"
-              data-market-open-dialog-price="${level.unitPrice}"
-              data-market-open-dialog-confirm-purchase="${quickAction.confirmPurchase ? 'true' : 'false'}"
-              type="button"
-              ${quickAction.disabled ? 'disabled' : ''}
-            >${quickAction.label}</button>`
-          : ''}
-      </div>
-    `).join('');
+    return this.browseView.renderPriceLevels(levels, currencyName, emptyText, quickAction);
   }
 
-  /** 物品书籍还没回来时的占位文案。 */
   private renderBookLoading(text: string): string {
-    return `<div class="empty-hint">${escapeHtml(text)}</div>`;
+    return '<div class="empty-hint">' + escapeHtml(text) + '</div>';
   }
 
-  /** 渲染我的挂单、求购单和托管仓。 */
   private renderMyOrdersTab(update: S2C_MarketUpdate): string {
-    const buyOrders = update.myOrders.filter((order) => order.side === 'buy');
-    const sellOrders = update.myOrders.filter((order) => order.side === 'sell');
-    const storage = update.storage;
-    return `
-      <div class="market-my-orders">
-        <div class="market-my-orders-grid">
-          <div class="market-my-orders-column ui-surface-pane ui-surface-pane--stack">
-            <div class="panel-section-title">${escapeHtml(t('market.my-orders.buy', undefined))}</div>
-            ${buyOrders.length > 0 ? buyOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : `<div class="empty-hint">${escapeHtml(t('market.my-orders.empty.buy', undefined))}</div>`}
-          </div>
-          <div class="market-my-orders-column ui-surface-pane ui-surface-pane--stack">
-            <div class="panel-section-title">${escapeHtml(t('market.my-orders.sell', undefined))}</div>
-            ${sellOrders.length > 0 ? sellOrders.map((order) => this.renderOwnOrder(order, update.currencyItemName)).join('') : `<div class="empty-hint">${escapeHtml(t('market.my-orders.empty.sell', undefined))}</div>`}
-          </div>
-        </div>
-        <div class="market-storage-card ui-surface-pane ui-surface-pane--stack">
-          <div class="market-storage-head">
-            <div class="panel-section-title">${escapeHtml(t('market.storage.title', undefined))}</div>
-            <button class="small-btn" data-market-claim-storage type="button" ${storage.items.length > 0 ? '' : 'disabled'}>${escapeHtml(t('market.storage.claim-all', undefined))}</button>
-          </div>
-          ${this.renderStorage(storage)}
-        </div>
-      </div>
-    `;
+    return this.browseView.renderMyOrdersTab(update);
   }
 
-  /** 渲染交易历史分页。 */
   private renderTradeHistoryTab(currencyName: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const history = this.tradeHistory;
-    if (this.tradeHistoryLoading && !history) {
-      return `<div class="empty-hint">${escapeHtml(t('market.history.loading', undefined))}</div>`;
-    }
-    const records = history?.records ?? [];
-    const page = history?.page ?? this.tradeHistoryPage;
-    const pageSize = history?.pageSize ?? 10;
-    const totalVisible = history?.totalVisible ?? 0;
-    const totalPages = Math.max(1, Math.ceil(totalVisible / Math.max(1, pageSize)));
-    return `
-      <div class="market-trade-history">
-        <div class="market-list-toolbar ui-action-row">
-          <div class="market-list-toolbar-meta">仅显示最近 ${formatDisplayInteger(Math.min(100, totalVisible))} 条中的第 ${formatDisplayInteger(page)} / ${formatDisplayInteger(totalPages)} 页</div>
-          <div class="market-list-toolbar-actions">
-            <button class="small-btn ghost" data-market-history-page="${page - 1}" type="button" ${page <= 1 ? 'disabled' : ''}>上一页</button>
-            <button class="small-btn ghost" data-market-history-page="${page + 1}" type="button" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
-          </div>
-        </div>
-        <div class="market-trade-history-hint">只显示你自己的成交记录，不显示交易双方。</div>
-        <div class="market-trade-history-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
-          ${records.length > 0
-            ? records.map((record) => `
-              <div class="market-trade-history-item ui-surface-card ui-surface-card--compact">
-                <div class="market-trade-history-head">
-                  <span class="market-order-name">${escapeHtml(record.itemName)}</span>
-                  <span class="market-order-side ${record.side === 'buy' ? 'buy' : 'sell'}">${escapeHtml(record.side === 'buy' ? t('market.history.side.buy', undefined) : t('market.history.side.sell', undefined))}</span>
-                </div>
-                <div class="market-order-meta">数量 ${formatDisplayCountBadge(record.quantity)} · 单价 ${this.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</div>
-              </div>
-            `).join('')
-            : `<div class="empty-hint">${escapeHtml(this.tradeHistoryLoading ? t('market.history.loading', undefined) : t('market.history.empty', undefined))}</div>`}
-        </div>
-      </div>
-    `;
+    return this.browseView.renderTradeHistoryTab(currencyName);
   }
 
-  /** 渲染一条我的挂单卡片。 */
   private renderOwnOrder(order: MarketOwnOrderView, currencyName: string): string {
-    return `
-      <div class="market-order-card ui-surface-card ui-surface-card--compact">
-        <div class="market-order-card-head">
-          <span class="market-order-name">${escapeHtml(this.getMarketDisplayName(order.item))}</span>
-          <span class="market-order-side ${order.side === 'buy' ? 'buy' : 'sell'}">${escapeHtml(order.side === 'buy' ? t('market.order.side.buy', undefined) : t('market.order.side.sell', undefined))}</span>
-        </div>
-        <div class="market-order-meta">剩余 ${formatDisplayCountBadge(order.remainingQuantity)} · 单价 ${this.formatMarketUnitPrice(order.unitPrice)} ${escapeHtml(currencyName)}</div>
-        <button class="small-btn ghost" data-market-cancel-order="${order.id}" type="button">${escapeHtml(t('market.order.cancel', undefined))}</button>
-      </div>
-    `;
+    return this.browseView.renderOwnOrder(order, currencyName);
   }
 
-  /** 渲染坊市托管仓列表。 */
   private renderStorage(storage: MarketStorage): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (storage.items.length === 0) {
-      return `<div class="empty-hint">${escapeHtml(t('market.storage.empty', undefined))}</div>`;
-    }
-    return `
-      <div class="market-storage-list">
-        ${storage.items.map((item) => `
-          <div class="market-storage-item ui-surface-card ui-surface-card--compact">
-            <span>${escapeHtml(this.getMarketDisplayName(item))}</span>
-            <span>${formatDisplayCountBadge(item.count)}</span>
-          </div>
-        `).join('')}
-      </div>
-    `;
+    return this.browseView.renderStorage(storage);
   }
 
-  /** 渲染列表翻页工具条。 */
   private renderListToolbar(page: number, totalPages: number, totalItems: number): string {
-    return `
-      <div class="market-list-toolbar ui-action-row">
-        <div class="market-list-toolbar-meta">共 ${formatDisplayInteger(totalItems)} 件，第 ${formatDisplayInteger(page)} / ${formatDisplayInteger(totalPages)} 页</div>
-        <div class="market-list-toolbar-actions">
-        <button class="small-btn ghost" data-market-page="${page - 1}" type="button" ${page <= 1 ? 'disabled' : ''}>上一页</button>
-        <button class="small-btn ghost" data-market-page="${page + 1}" type="button" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
-        </div>
-      </div>
-    `;
+    return this.browseView.renderListToolbar(page, totalPages, totalItems);
   }
 
-  /** 渲染强化等级二级列表顶部的返回工具条。 */
   private renderVariantToolbar(group: MarketListingGroupView, totalVariants: number): string {
-    const itemName = this.getMarketDisplayName(group.item);
-    return `
-      <div class="market-list-toolbar ui-action-row">
-        <div class="market-list-toolbar-meta">${escapeHtml(itemName)} · 共 ${formatDisplayInteger(totalVariants)} 个强化等级</div>
-        <div class="market-list-toolbar-actions">
-          <button class="small-btn ghost" data-market-back-to-groups type="button">返回物品列表</button>
-        </div>
-      </div>
-    `;
+    return this.browseView.renderVariantToolbar(group, totalVariants);
   }
 
-  /** 计算交易弹窗派生状态，避免局部刷新和整渲染口径不一致。 */
   private getTradeDialogViewState(
     entry: MarketListedItemView,
     currencyItemId: string,
     currencyName: string,
   ): MarketTradeDialogViewState | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.tradeDialog) {
-      return null;
-    }
-    const rawDialog = this.tradeDialog;
-    const source: MarketTradeDialogSource = rawDialog.source ?? 'market';
-    const isAuctionBid = source === 'auction-bid';
-    const minUnitPrice = this.getTradeDialogMinUnitPrice(rawDialog);
-    const unitPrice = isAuctionBid
-      ? this.normalizeTradeDialogPrice(Math.max(rawDialog.unitPrice, minUnitPrice), 'up')
-      : rawDialog.unitPrice;
-    const dialog: MarketTradeDialogState = {
-      ...rawDialog,
-      unitPrice,
-    };
-    const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
-    const matchedSlotIndex = this.findMatchingInventorySlot(entry.item);
-    const isBuy = dialog.kind === 'buy';
-    const conflictOrder = this.findConflictingOwnOrder(entry.itemKey, dialog.kind);
-    const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
-    const quantityStep = this.getTradeDialogQuantityStep(dialog.unitPrice);
-    const dialogQuantity = isAuctionBid ? quantityStep : dialog.quantity;
-    const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
-    const inputMax = Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep);
-    dialog.quantity = this.normalizeTradeDialogQuantity(dialogQuantity, entry, dialog.kind, dialog.unitPrice);
-    const totalCost = this.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
-    const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
-    const insufficientStepQuantity = quantityMax <= 0;
-    const disabled = Boolean(conflictOrder)
-      || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
-    const hints: string[] = [];
-    if (isAuctionBid) {
-      hints.push(`<div class="market-action-hint">${escapeHtml(t('market.trade.hint.min-bid', {
-        unitPrice: this.formatMarketUnitPrice(minUnitPrice),
-        currencyName,
-      }))}</div>`);
-    }
-    if (!isAuctionBid && quantityStep > 1) {
-      hints.push(`<div class="market-action-hint">${escapeHtml(t('market.trade.hint.quantity-step', {
-        quantityStep: formatDisplayInteger(quantityStep),
-        currencyName,
-      }))}</div>`);
-    }
-    if (conflictOrder) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy'
-        ? t('market.trade.hint.conflict-buy', undefined)
-        : t('market.trade.hint.conflict-sell', undefined))}</div>`);
-    }
-    if (insufficientStepQuantity) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy
-        ? t('market.trade.hint.insufficient-step.buy', { currencyName, quantityStep: formatDisplayInteger(quantityStep) })
-        : t('market.trade.hint.insufficient-step.sell', { quantityStep: formatDisplayInteger(quantityStep) }))}</div>`);
-    }
-    if (insufficientCurrency && totalCost !== null) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.trade.hint.insufficient-currency', {
-        currencyName,
-        totalCost: formatDisplayInteger(totalCost),
-      }))}</div>`);
-    }
-    const nextDecreasePrice = this.getNextTradeDialogPrice(dialog.unitPrice, 'decrease', null, minUnitPrice);
-    const nextHalfPrice = this.getNextTradeDialogPrice(dialog.unitPrice, 'half', null, minUnitPrice);
-    return {
-      dialog,
-      source,
-      title: isAuctionBid ? t('market.trade.title.bid', undefined) : (isBuy ? t('market.trade.title.buy', undefined) : t('market.trade.title.sell', undefined)),
-      actionLabel: isAuctionBid ? t('market.trade.action.bid', undefined) : (isBuy ? t('market.trade.action.buy', undefined) : t('market.trade.action.sell', undefined)),
-      totalLabel: isAuctionBid ? t('market.trade.total.bid', undefined) : (dialog.kind === 'buy' ? t('market.trade.total.buy', undefined) : t('market.trade.total.sell', undefined)),
-      quantityStep,
-      inputMax,
-      totalText: totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${currencyName}`,
-      insufficientCurrency,
-      disabled,
-      maxButtonDisabled: this.getTradeDialogMaxButtonQuantity(entry, currencyItemId, dialog) <= 0,
-      showPricePresets: !isAuctionBid,
-      showQuantityControls: !isAuctionBid,
-      priceActionDisabled: {
-        decrease: isAuctionBid && nextDecreasePrice >= dialog.unitPrice,
-        half: isAuctionBid && nextHalfPrice >= dialog.unitPrice,
-        increase: dialog.unitPrice >= MARKET_DIALOG_MAX_PRICE,
-        double: dialog.unitPrice >= MARKET_DIALOG_MAX_PRICE,
-      },
-      hintsHtml: hints.join(''),
-    };
+    return this.tradeDialogView.getTradeDialogViewState(entry, currencyItemId, currencyName);
   }
 
-  /** 渲染交易弹窗，只保存临时输入状态。 */
   private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const state = this.getTradeDialogViewState(entry, currencyItemId, currencyName);
-    if (!state) {
-      return '';
-    }
-    const dialog = state.dialog;
-    return `
-      <div class="market-trade-modal-shell">
-        <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
-        <div class="market-trade-dialog market-trade-dialog--${dialog.kind} ${state.source === 'auction-bid' ? 'market-trade-dialog--auction-bid' : ''} ui-surface-pane ui-surface-pane--stack" role="dialog" aria-modal="true">
-        <div class="market-trade-dialog-head">
-          <div class="market-trade-dialog-title ui-title-block">
-            <div class="panel-section-title">${state.title}</div>
-            <div class="market-trade-dialog-item market-trade-dialog-item--interactive ui-title-block-subtitle" data-market-item-tooltip="selected">${escapeHtml(this.getMarketDisplayName(entry.item))}</div>
-          </div>
-          <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
-        </div>
-        <div class="market-trade-dialog-body">
-          ${state.showPricePresets
-            ? `
-              <div class="market-trade-dialog-section">
-                <div class="market-trade-dialog-section-label">快捷定价</div>
-                <div class="market-price-preset-row">
-                  ${MARKET_PRICE_PRESET_VALUES.map((preset) => `
-                    <button
-                      class="small-btn ghost ${preset === dialog.unitPrice ? 'active' : ''}"
-                      data-market-price-action="preset"
-                      data-market-price-preset="${preset}"
-                      type="button"
-                    >${escapeHtml(this.formatPricePresetLabel(preset))}</button>
-                  `).join('')}
-                </div>
-              </div>
-            `
-            : ''}
-          <div class="market-trade-dialog-section">
-            <div class="market-trade-dialog-field">
-              <span>${escapeHtml(t('market.trade.field.unit-price', undefined))}</span>
-              <div class="market-price-control-row">
-                <div class="market-price-control-side">
-                  <button class="small-btn ghost" data-market-price-action="half" type="button" ${state.priceActionDisabled.half ? 'disabled' : ''}>÷2</button>
-                  <button class="small-btn ghost" data-market-price-action="decrease" type="button" ${state.priceActionDisabled.decrease ? 'disabled' : ''}>-</button>
-                </div>
-                <div class="market-price-display" data-market-dialog-price-display>
-                  <strong>${this.formatMarketUnitPrice(dialog.unitPrice)}</strong>
-                  <span>${escapeHtml(currencyName)}</span>
-                </div>
-                <div class="market-price-control-side">
-                  <button class="small-btn ghost" data-market-price-action="increase" type="button" ${state.priceActionDisabled.increase ? 'disabled' : ''}>+</button>
-                  <button class="small-btn ghost" data-market-price-action="double" type="button" ${state.priceActionDisabled.double ? 'disabled' : ''}>x2</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="market-trade-dialog-section">
-            ${state.showQuantityControls
-              ? `
-                <div class="market-trade-dialog-field">
-                  <span>${escapeHtml(t('market.trade.field.quantity', undefined))}</span>
-                  <div class="market-quantity-row">
-                    <button class="small-btn ghost" data-market-quantity-action="one" type="button">1</button>
-                    <input
-                      class="gm-inline-input"
-                      data-market-dialog-quantity
-                      type="number"
-                      inputmode="numeric"
-                      min="${state.quantityStep}"
-                      step="${state.quantityStep}"
-                      max="${state.inputMax}"
-                      value="${dialog.quantity}"
-                    />
-                    <button
-                      class="small-btn ghost"
-                      data-market-quantity-action="max"
-                      type="button"
-                      ${state.maxButtonDisabled ? 'disabled' : ''}
-                    >${escapeHtml(t('market.trade.action.max', undefined))}</button>
-                  </div>
-                </div>
-              `
-              : ''}
-            <div class="market-trade-dialog-total ${state.insufficientCurrency ? 'error' : ''}" data-market-dialog-total>
-              <span>${escapeHtml(state.totalLabel)}</span>
-              <strong>${escapeHtml(state.totalText)}</strong>
-            </div>
-          </div>
-          <div class="market-trade-dialog-hints" data-market-dialog-hints>${state.hintsHtml}</div>
-        </div>
-        <div class="market-trade-dialog-actions">
-          <button class="small-btn ghost" data-market-close-dialog type="button">取消</button>
-          <button class="small-btn" data-market-submit-dialog="${dialog.kind}" type="button" ${state.disabled ? 'disabled' : ''}>${state.actionLabel}</button>
-        </div>
-      </div>
-      </div>
-    `;
+    return this.tradeDialogView.renderTradeDialog(entry, currencyItemId, currencyName);
   }
 
-  /** 弹层主体使用委托事件，避免局部 patch 后重复绑定列表和书籍节点。 */
   private bindMarketModalDelegatedEvents(body: HTMLElement, signal: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
     body.addEventListener('click', (event) => {
@@ -2161,102 +1281,29 @@ export class MarketPanel {
 
   /** 同步拍卖行当前选中项。 */
   private syncAuctionSelection(): void {
-    if (!this.marketUpdate) {
-      this.selectedAuctionItemKey = null;
-      return;
-    }
-    const lots = this.getCurrentAuctionLots();
-    if (lots.length === 0) {
-      this.selectedAuctionItemKey = null;
-      this.selectedItemKey = null;
-      return;
-    }
-    const selected = lots.some((lot) => lot.id === this.selectedAuctionItemKey)
-      ? this.selectedAuctionItemKey
-      : lots[0].id;
-    if (selected !== this.selectedAuctionItemKey) {
-      this.selectedAuctionItemKey = selected;
-      this.itemBook = null;
-    }
-    const selectedLot = lots.find((lot) => lot.id === this.selectedAuctionItemKey) ?? null;
-    this.selectedItemKey = selectedLot?.itemKey ?? null;
+    this.auctionView.syncAuctionSelection();
   }
 
-  /** 读取服务端拍卖行当前分页状态。 */
-  private getAuctionPageState(items: ArrayLike<unknown>): {
-    page: number;
-    totalPages: number;
-    totalItems: number;
-  } {
-    const pageSize = this.auctionListings?.pageSize ?? AUCTION_PAGE_SIZE;
-    const totalItems = this.auctionListings?.total ?? items.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(1, pageSize)));
-    const page = this.auctionListings?.page ?? Math.max(1, Math.min(totalPages, Math.floor(Number.isFinite(this.auctionPage) ? this.auctionPage : 1)));
-    this.auctionPage = page;
-    return {
-      page,
-      totalPages,
-      totalItems,
-    };
+  private getAuctionPageState(items: ArrayLike<unknown>): { page: number; totalPages: number; totalItems: number } {
+    return this.auctionView.getAuctionPageState(items);
   }
 
-  /** 读取当前服务端返回的拍卖行当前页拍品。 */
   private getCurrentAuctionLots(): AuctionLotView[] {
-    if (!this.auctionListings || this.auctionListings.tab !== this.auctionTab) {
-      return [];
-    }
-    return this.auctionListings.items.map((entry) => this.inflateAuctionLotEntry(entry));
+    return this.auctionView.getCurrentAuctionLots();
   }
 
-  /** 按 key 查找拍品。 */
   private resolveAuctionLotByKey(
     lotId: string | null | undefined,
-    _update: S2C_MarketUpdate | null,
+    update: S2C_MarketUpdate | null,
     tab: AuctionHouseTab = this.auctionTab,
   ): AuctionLotView | null {
-    if (!lotId || !this.auctionListings || this.auctionListings.tab !== tab) {
-      return null;
-    }
-    const lots = this.auctionListings.items.map((entry) => this.inflateAuctionLotEntry(entry));
-    return lots.find((lot) => lot.id === lotId || lot.itemKey === lotId) ?? null;
+    return this.auctionView.resolveAuctionLotByKey(lotId, update, tab);
   }
 
-  /** 把拍卖行分页摘要恢复成 UI 拍品视图。 */
   private inflateAuctionLotEntry(entry: AuctionLotPageEntry): AuctionLotView {
-    const item = entry.item ?? resolvePreviewItem({
-      itemId: entry.itemId,
-      count: 1,
-      name: '',
-      desc: '',
-      type: entry.itemType,
-      equipSlot: entry.itemType === 'equipment' ? entry.itemSubType as EquipSlot | undefined : undefined,
-      enhanceLevel: entry.enhanceLevel,
-    });
-    return {
-      id: entry.id,
-      itemKey: entry.itemKey,
-      item,
-      itemName: this.getMarketDisplayName(item),
-      typeLabel: getItemTypeLabel(item.type),
-      qualityLabel: this.getAuctionQualityLabel(item),
-      currentPrice: Math.max(1, Math.floor(Number(entry.currentPrice) || 1)),
-      buyoutPrice: entry.buyoutPrice === null || entry.buyoutPrice === undefined ? null : Math.max(1, Math.floor(Number(entry.buyoutPrice) || 1)),
-      bidCount: Math.max(0, Math.floor(Number(entry.bidCount) || 0)),
-      bids: Array.isArray(entry.bids) ? entry.bids : [],
-      startAtMs: Math.max(0, Math.floor(Number(entry.startAtMs) || Date.now())),
-      durationSeconds: Math.max(1, Math.floor(Number(entry.durationSeconds) || 1)),
-      status: entry.status,
-      statusLabel: entry.statusLabel,
-      sellerLabel: entry.sellerLabel,
-      lotNo: entry.lotNo,
-      heat: Math.max(0, Math.floor(Number(entry.heat) || 0)),
-      orderId: entry.orderId,
-      orderSide: entry.orderSide,
-      remainingQuantity: entry.remainingQuantity,
-    };
+    return this.auctionView.inflateAuctionLotEntry(entry);
   }
 
-  /** 把当前拍品转换成市场交易弹窗可复用的列表条目。 */
   private buildMarketListingFromAuctionLot(lot: AuctionLotView): MarketListedItemView {
     return {
       itemKey: lot.itemKey,
@@ -2270,125 +1317,48 @@ export class MarketPanel {
     };
   }
 
-  /** 根据开始时间和持续时间在前端计算剩余秒数，不依赖网络同步。 */
   private getAuctionRemainingSeconds(lot: AuctionLotView, now = Date.now()): number {
-    const endAtMs = lot.startAtMs + lot.durationSeconds * 1000;
-    return Math.max(0, Math.ceil((endAtMs - now) / 1000));
+    return this.auctionView.getAuctionRemainingSeconds(lot, now);
   }
 
-  /** 读取倒计时状态样式。 */
   private getAuctionTimeClass(remainingSeconds: number): string {
-    if (remainingSeconds <= 0) {
-      return 'ended';
-    }
-    if (remainingSeconds <= 1800) {
-      return 'urgent';
-    }
-    return '';
+    return this.auctionView.getAuctionTimeClass(remainingSeconds);
   }
 
-  /** 启动拍卖行本地倒计时，只 patch 倒计时文本。 */
   private startAuctionCountdownTicker(): void {
-    if (this.auctionCountdownTimer !== null || typeof window === 'undefined') {
-      return;
-    }
-    this.auctionCountdownTimer = window.setInterval(() => {
-      this.patchAuctionCountdowns();
-    }, 1000);
+    this.auctionView.startAuctionCountdownTicker();
   }
 
-  /** 停止拍卖行本地倒计时。 */
   private stopAuctionCountdownTicker(): void {
-    if (this.auctionCountdownTimer === null || typeof window === 'undefined') {
-      return;
-    }
-    window.clearInterval(this.auctionCountdownTimer);
-    this.auctionCountdownTimer = null;
+    this.auctionView.stopAuctionCountdownTicker();
   }
 
-  /** 局部 patch 当前可见拍品的倒计时，不重绘列表或详情。 */
   private patchAuctionCountdowns(): void {
-    const body = this.getOpenAuctionModalBody();
-    const update = this.marketUpdate;
-    if (!body || !update) {
-      this.stopAuctionCountdownTicker();
-      return;
-    }
-    const now = Date.now();
-    body.querySelectorAll<HTMLElement>('[data-auction-countdown]').forEach((node) => {
-      const lot = this.resolveAuctionLotByKey(node.dataset.auctionCountdown, update, this.auctionTab);
-      if (!lot) {
-        return;
-      }
-      const remainingSeconds = this.getAuctionRemainingSeconds(lot, now);
-      node.textContent = this.formatAuctionRemaining(remainingSeconds);
-      node.classList.toggle('urgent', remainingSeconds > 0 && remainingSeconds <= 1800);
-      node.classList.toggle('ended', remainingSeconds <= 0);
-    });
+    this.auctionView.patchAuctionCountdowns();
   }
 
-  /** 读取拍品品质显示。 */
   private getAuctionQualityLabel(item: ItemStack): string {
-    const grade = typeof item.grade === 'string' && item.grade.trim() ? item.grade.trim() : '';
-    if (grade) {
-      return grade;
-    }
-    const level = Number(item.level);
-    if (Number.isFinite(level) && level > 0) {
-      return `${formatDisplayInteger(Math.floor(level))}阶`;
-    }
-    return '凡品';
+    return this.auctionView.getAuctionQualityLabel(item);
   }
 
-  /** 读取拍品头像占位字。 */
   private getAuctionItemInitial(name: string): string {
-    const trimmed = name.trim();
-    return trimmed ? trimmed.slice(0, 1) : '拍';
+    return this.auctionView.getAuctionItemInitial(name);
   }
 
-  /** 格式化拍卖剩余时间。 */
   private formatAuctionRemaining(seconds: number): string {
-    const total = Math.max(0, Math.floor(seconds));
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const rest = total % 60;
-    const pad = (value: number) => String(value).padStart(2, '0');
-    if (hours > 0) {
-      return `${pad(hours)}:${pad(minutes)}:${pad(rest)}`;
-    }
-    return `${pad(minutes)}:${pad(rest)}`;
+    return this.auctionView.formatAuctionRemaining(seconds);
   }
 
-  /** 格式化拍卖出价时间，只用于当前页轻量记录。 */
   private formatAuctionBidTime(createdAtMs: number): string {
-    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Math.max(0, Number(createdAtMs) || 0)) / 1000));
-    if (elapsedSeconds < 60) {
-      return '刚刚';
-    }
-    if (elapsedSeconds < 3600) {
-      return `${formatDisplayInteger(Math.floor(elapsedSeconds / 60))}分钟前`;
-    }
-    return `${formatDisplayInteger(Math.floor(elapsedSeconds / 3600))}小时前`;
+    return this.auctionView.formatAuctionBidTime(createdAtMs);
   }
 
-  /** 读取服务端拍卖行摘要，未返回前只用本地已知的订单/托管仓兜底。 */
   private getAuctionSummary(update: S2C_MarketUpdate): S2C_AuctionListings['summary'] {
-    return this.auctionListings?.summary ?? {
-      activeLots: 0,
-      buyoutLots: 0,
-      totalCurrentPrice: 0,
-      myBidCount: 0,
-      myConsignments: 0,
-      consigningLots: 0,
-      soldLots: 0,
-      failedLots: 0,
-      storageCount: update.storage.items.reduce((sum, item) => sum + item.count, 0),
-    };
+    return this.auctionView.getAuctionSummary(update);
   }
 
-  /** 读取服务端拍卖行分类计数。 */
   private getAuctionCategoryCount(category: MarketCategoryFilter, fallback: number): number {
-    return this.normalizeMarketCount(this.auctionListings?.counts?.categoryCounts?.[category], fallback);
+    return this.auctionView.getAuctionCategoryCount(category, fallback);
   }
 
   /** 只同步当前可见区域里的背包相关状态。 */
@@ -2704,73 +1674,9 @@ export class MarketPanel {
 
   /** 把当前页平铺条目按物品 id 聚合成分组视图。 */
   private getVisibleListingGroups(update: S2C_MarketUpdate | null): MarketListingGroupView[] {
-    const items = this.getVisibleListedItems(update);
-    const groups = new Map<string, MarketListingGroupView>();
-    const orderedItemIds: string[] = [];
-    for (const entry of items) {
-      const existing = groups.get(entry.item.itemId);
-      if (existing) {
-        existing.variants.push(entry);
-        continue;
-      }
-      orderedItemIds.push(entry.item.itemId);
-      groups.set(entry.item.itemId, {
-        itemId: entry.item.itemId,
-        item: { ...entry.item },
-        canEnhance: entry.item.type === 'equipment',
-        variants: [entry],
-      });
-    }
-    return orderedItemIds.map((itemId) => {
-      const group = groups.get(itemId)!;
-      if (group.canEnhance) {
-        const variantsByLevel = new Map<number, MarketListedItemView>();
-        for (const entry of group.variants) {
-          const level = this.getMarketEnhanceLevel(entry.item);
-          if (level < 0 || level > MAX_ENHANCE_LEVEL) {
-            continue;
-          }
-          variantsByLevel.set(level, entry);
-        }
-        const filledVariants: MarketListedItemView[] = [];
-        for (let level = 0; level <= MAX_ENHANCE_LEVEL; level += 1) {
-          const existing = variantsByLevel.get(level);
-          if (existing) {
-            filledVariants.push(existing);
-            continue;
-          }
-          const item = this.buildLocalMarketItem(group.itemId, 1, level);
-          filledVariants.push({
-            itemKey: createItemStackSignature({ ...item, count: 1 }),
-            item,
-            sellOrderCount: 0,
-            sellQuantity: 0,
-            lowestSellPrice: undefined,
-            buyOrderCount: 0,
-            buyQuantity: 0,
-            highestBuyPrice: undefined,
-          });
-        }
-        group.variants = filledVariants;
-      } else {
-        group.variants.sort((left, right) => {
-          const leftLevel = this.getMarketEnhanceLevel(left.item);
-          const rightLevel = this.getMarketEnhanceLevel(right.item);
-          if (leftLevel !== rightLevel) {
-            return leftLevel - rightLevel;
-          }
-          return left.itemKey.localeCompare(right.itemKey);
-        });
-      }
-      const referenceEntry = this.getGroupReferenceEntry(group);
-      if (referenceEntry) {
-        group.item = { ...referenceEntry.item };
-      }
-      return group;
-    });
+    return this.browseView.getVisibleListingGroups(update);
   }
 
-  /** 分组展示优先用 +0 条目，没有再退到当前第一条。 */
   private getGroupReferenceEntry(group: MarketListingGroupView): MarketListedItemView | null {
     return group.variants.find((entry) => this.getMarketEnhanceLevel(entry.item) === 0) ?? group.variants[0] ?? null;
   }
@@ -3027,111 +1933,21 @@ export class MarketPanel {
 
   /** 打开交易弹窗，并用当前盘面价格作为初始值。 */
   private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null, confirmPurchase = false): void {
-    const unitPrice = this.getDefaultTradeDialogPrice(entry, kind, preferredPrice);
-    this.tradeDialog = {
-      kind,
-      source: 'market',
-      quantity: this.normalizeTradeDialogQuantity(1, entry, kind, unitPrice),
-      unitPrice,
-      confirmPurchase: kind === 'buy' && confirmPurchase,
-    };
-    this.syncTradeDialogOverlay();
+    this.tradeDialogView.openTradeDialog(entry, kind, preferredPrice, confirmPurchase);
   }
 
-  /** 打开拍卖加价弹窗，最低价固定为当前价按坊市档位加一档。 */
   private openAuctionBidDialog(entry: MarketListedItemView, lot: AuctionLotView): void {
-    const minUnitPrice = this.getAuctionMinimumBidPrice(lot);
-    this.tradeDialog = {
-      kind: 'buy',
-      source: 'auction-bid',
-      quantity: this.getTradeDialogQuantityStep(minUnitPrice),
-      unitPrice: minUnitPrice,
-      minUnitPrice,
-    };
-    this.syncTradeDialogOverlay();
+    this.tradeDialogView.openAuctionBidDialog(entry, lot);
   }
 
-  /** 打开拍卖一口价确认弹窗，不经过价格输入。 */
   private openAuctionBuyoutConfirm(entry: MarketListedItemView, lot: AuctionLotView): void {
-    if (lot.buyoutPrice === null) {
-      return;
-    }
-    const unitPrice = this.normalizeTradeDialogPrice(lot.buyoutPrice, 'up');
-    const quantity = this.normalizeTradeDialogQuantity(1, entry, 'buy', unitPrice);
-    const totalCost = this.getMarketTradeTotalCost(quantity, unitPrice);
-    const currencyItemName = this.marketUpdate?.currencyItemName ?? '';
-    const ownedCurrency = this.findInventoryItemCountByItemId(this.marketUpdate?.currencyItemId ?? '');
-    const insufficientCurrency = totalCost !== null && totalCost > ownedCurrency;
-    this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
-    confirmModalHost.open({
-      ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
-      title: t('auction.action.buyout', undefined),
-      subtitle: this.getMarketDisplayName(entry.item),
-      bodyHtml: this.renderAuctionBuyoutConfirmBody(lot, currencyItemName, quantity, unitPrice, totalCost, insufficientCurrency),
-      confirmLabel: t('auction.action.buyout', undefined),
-      confirmDisabled: insufficientCurrency || totalCost === null,
-      onConfirm: () => {
-        this.buyConfirmState = null;
-        this.callbacks?.onBuyoutAuctionLot(lot.id, lot.itemKey);
-        this.tradeDialog = null;
-        this.syncTradeDialogOverlay();
-      },
-      onClose: () => {
-        this.buyConfirmState = null;
-      },
-    });
+    this.tradeDialogView.openAuctionBuyoutConfirm(entry, lot);
   }
 
-  /** 渲染购买确认页，说明直接成交和剩余求购挂单的预估。 */
   private renderBuyConfirmBody(entry: MarketListedItemView, currencyName: string, quantity: number, unitPrice: number): string {
-    const estimate = this.estimateImmediateBuy(entry, quantity, unitPrice);
-    const maxReservedCost = this.getMarketTradeTotalCost(quantity, unitPrice);
-    const summary = estimate.immediateQuantity > 0
-      ? estimate.pendingQuantity > 0
-        ? t('market.trade.buy-confirm.summary.split', {
-          immediateQuantity: formatDisplayInteger(estimate.immediateQuantity),
-          pendingQuantity: formatDisplayInteger(estimate.pendingQuantity),
-        })
-        : t('market.trade.buy-confirm.summary.direct', {
-          immediateQuantity: formatDisplayInteger(estimate.immediateQuantity),
-        })
-      : t('market.trade.buy-confirm.summary.pending', undefined);
-    return `
-      <div class="market-trade-dialog-section">
-        <div class="market-trade-dialog-field">
-          <span>${escapeHtml(t('market.trade.buy-confirm.quantity', undefined))}</span>
-          <div class="market-price-display">
-            <strong>${formatDisplayInteger(quantity)}</strong>
-            <span>${escapeHtml(t('market.trade.buy-confirm.unit-price', {
-              unitPrice: this.formatMarketUnitPrice(unitPrice),
-              currencyName,
-            }))}</span>
-          </div>
-        </div>
-        <div class="market-trade-dialog-total">
-          <span>${escapeHtml(t('market.trade.buy-confirm.max-reserved', undefined))}</span>
-          <strong>${maxReservedCost === null ? '--' : `${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}`}</strong>
-        </div>
-      </div>
-      <div class="market-trade-dialog-section">
-        <div class="market-trade-dialog-field">
-          <span>${escapeHtml(t('market.trade.buy-confirm.estimate', undefined))}</span>
-          <div class="market-price-display">
-            <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
-            <span>${escapeHtml(t('market.trade.buy-confirm.immediate', undefined))}</span>
-          </div>
-        </div>
-        <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
-          <span>${escapeHtml(t('market.trade.buy-confirm.pending', undefined))}</span>
-          <strong>${escapeHtml(t('market.trade.buy-confirm.pending-count', { count: formatDisplayInteger(estimate.pendingQuantity) }))}</strong>
-        </div>
-      </div>
-      <div class="market-action-hint">${escapeHtml(summary)}</div>
-      <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">${escapeHtml(t('market.trade.buy-confirm.refund-hint', undefined))}</div>
-    `;
+    return this.tradeDialogView.renderBuyConfirmBody(entry, currencyName, quantity, unitPrice);
   }
 
-  /** 渲染拍卖一口价确认内容，不提供价格或数量输入。 */
   private renderAuctionBuyoutConfirmBody(
     lot: AuctionLotView,
     currencyName: string,
@@ -3140,341 +1956,44 @@ export class MarketPanel {
     totalCost: number | null,
     insufficientCurrency: boolean,
   ): string {
-    return `
-      <div class="market-trade-dialog-section">
-        <div class="market-trade-dialog-field">
-          <span>一口价</span>
-          <div class="market-price-display">
-            <strong>${this.formatMarketUnitPrice(unitPrice)}</strong>
-            <span>${escapeHtml(currencyName)}</span>
-          </div>
-        </div>
-        <div class="market-trade-dialog-total">
-          <span>${escapeHtml(t('market.trade.buyout-confirm.lot-no', undefined))}</span>
-          <strong>${escapeHtml(lot.lotNo)}</strong>
-        </div>
-      </div>
-      <div class="market-trade-dialog-section">
-        <div class="market-trade-dialog-total">
-          <span>${escapeHtml(t('market.trade.buyout-confirm.quantity', undefined))}</span>
-          <strong>${escapeHtml(t('market.trade.buyout-confirm.quantity-value', { count: formatDisplayInteger(quantity) }))}</strong>
-        </div>
-        <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
-          <span>${escapeHtml(t('market.trade.buyout-confirm.total', undefined))}</span>
-          <strong>${totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${escapeHtml(currencyName)}`}</strong>
-        </div>
-      </div>
-      <div class="market-action-hint ${insufficientCurrency ? 'market-action-hint--error' : ''}">
-        ${escapeHtml(insufficientCurrency
-          ? t('market.trade.buyout-confirm.insufficient', { currencyName })
-          : t('market.trade.buyout-confirm.ready', undefined))}
-      </div>
-    `;
+    return this.tradeDialogView.renderAuctionBuyoutConfirmBody(lot, currencyName, quantity, unitPrice, totalCost, insufficientCurrency);
   }
 
-  /** 按当前卖盘估算本次购买会立即成交多少。 */
   private estimateImmediateBuy(entry: MarketListedItemView, quantity: number, unitPrice: number): {
     immediateQuantity: number;
     pendingQuantity: number;
   } {
-    const book = this.itemBook;
-    if (!book || book.itemKey !== entry.itemKey) {
-      return {
-        immediateQuantity: 0,
-        pendingQuantity: quantity,
-      };
-    }
-    let remaining = quantity;
-    let immediateQuantity = 0;
-    for (const level of book.sells) {
-      if (remaining <= 0 || level.unitPrice > unitPrice) {
-        break;
-      }
-      const matched = Math.min(remaining, level.quantity);
-      if (matched <= 0) {
-        continue;
-      }
-      immediateQuantity += matched;
-      remaining -= matched;
-    }
-    return {
-      immediateQuantity,
-      pendingQuantity: Math.max(0, remaining),
-    };
+    return this.tradeDialogView.estimateImmediateBuy(entry, quantity, unitPrice);
   }
 
-  /** 根据当前临时态同步交易弹窗浮层。 */
   private syncTradeDialogOverlay(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const root = this.getTradeDialogOverlayRoot();
-    const update = this.marketUpdate;
-    const selected = this.getSelectedListedItem(update);
-    const marketModalOpen = this.modalTab === 'market' && detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
-    const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
-    if (!this.tradeDialog || (!marketModalOpen && !auctionModalOpen) || !update || !selected) {
-      patchElementHtml(root, '');
-      root.classList.add('hidden');
-      delete root.dataset.marketDialogItemKey;
-      delete root.dataset.marketDialogKind;
-      delete root.dataset.marketDialogSource;
-      this.tooltipNode = null;
-      this.tooltip.hide(true);
-      return;
-    }
-
-    root.classList.remove('hidden');
-    if (this.patchTradeDialogOverlay(root, selected, update)) {
-      return;
-    }
-    patchElementHtml(root, this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName));
-    root.dataset.marketDialogItemKey = selected.itemKey;
-    root.dataset.marketDialogKind = this.tradeDialog.kind;
-    root.dataset.marketDialogSource = this.tradeDialog.source ?? 'market';
-    this.bindTradeDialogOverlayEvents(root, selected, update);
-    this.bindItemTooltipEvents(root);
+    this.tradeDialogView.syncTradeDialogOverlay();
   }
 
-  /** 同一物品和方向下只 patch 交易浮层动态值，避免输入框被重建。 */
   private patchTradeDialogOverlay(
     root: HTMLElement,
     selected: MarketListedItemView,
     update: S2C_MarketUpdate,
   ): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const state = this.getTradeDialogViewState(selected, update.currencyItemId, update.currencyItemName);
-    if (
-      !state
-      || root.dataset.marketDialogItemKey !== selected.itemKey
-      || root.dataset.marketDialogKind !== state.dialog.kind
-      || root.dataset.marketDialogSource !== state.source
-    ) {
-      return false;
-    }
-    const dialogNode = root.querySelector<HTMLElement>('.market-trade-dialog');
-    const priceDisplay = root.querySelector<HTMLElement>('[data-market-dialog-price-display]');
-    const quantityInput = root.querySelector<HTMLInputElement>('[data-market-dialog-quantity]');
-    const maxButton = root.querySelector<HTMLButtonElement>('[data-market-quantity-action="max"]');
-    const totalNode = root.querySelector<HTMLElement>('[data-market-dialog-total]');
-    const totalValue = totalNode?.querySelector<HTMLElement>('strong') ?? null;
-    const totalLabel = totalNode?.querySelector<HTMLElement>('span') ?? null;
-    const hintsNode = root.querySelector<HTMLElement>('[data-market-dialog-hints]');
-    const submitButton = root.querySelector<HTMLButtonElement>('[data-market-submit-dialog]');
-    if (
-      !dialogNode
-      || !priceDisplay
-      || !totalNode
-      || !totalValue
-      || !totalLabel
-      || !hintsNode
-      || !submitButton
-      || (state.showQuantityControls && (!quantityInput || !maxButton))
-    ) {
-      return false;
-    }
-
-    dialogNode.classList.toggle('market-trade-dialog--buy', state.dialog.kind === 'buy');
-    dialogNode.classList.toggle('market-trade-dialog--sell', state.dialog.kind === 'sell');
-    dialogNode.classList.toggle('market-trade-dialog--auction-bid', state.source === 'auction-bid');
-    patchElementHtml(priceDisplay, `
-      <strong>${escapeHtml(this.formatMarketUnitPrice(state.dialog.unitPrice))}</strong>
-      <span>${escapeHtml(update.currencyItemName)}</span>
-    `);
-    root.querySelectorAll<HTMLButtonElement>('[data-market-price-preset]').forEach((button) => {
-      const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
-      button.classList.toggle('active', preset === state.dialog.unitPrice);
-    });
-    root.querySelectorAll<HTMLButtonElement>('[data-market-price-action]').forEach((button) => {
-      const action = button.dataset.marketPriceAction as MarketPriceAction | undefined;
-      if (!action) {
-        return;
-      }
-      button.disabled = state.priceActionDisabled[action] === true;
-    });
-    if (state.showQuantityControls && quantityInput && maxButton) {
-      quantityInput.min = String(state.quantityStep);
-      quantityInput.step = String(state.quantityStep);
-      quantityInput.max = String(state.inputMax);
-      if (document.activeElement !== quantityInput) {
-        quantityInput.value = String(state.dialog.quantity);
-      }
-      maxButton.disabled = state.maxButtonDisabled;
-    }
-    totalNode.classList.toggle('error', state.insufficientCurrency);
-    totalLabel.textContent = state.totalLabel;
-    totalValue.textContent = state.totalText;
-    patchElementHtml(hintsNode, state.hintsHtml);
-    submitButton.disabled = state.disabled;
-    submitButton.textContent = state.actionLabel;
-    return true;
+    return this.tradeDialogView.patchTradeDialogOverlay(root, selected, update);
   }
 
-  /** 给交易弹窗里会变化的控件装事件，所有修改都只落在临时态上。 */
   private bindTradeDialogOverlayEvents(
     root: HTMLElement,
     selected: MarketListedItemView,
     update: S2C_MarketUpdate,
   ): void {
-    root.querySelectorAll<HTMLElement>('[data-market-close-dialog]').forEach((button) => button.addEventListener('click', () => {
-      this.tradeDialog = null;
-      this.syncTradeDialogOverlay();
-    }));
-
-    root.querySelectorAll<HTMLInputElement>('[data-market-dialog-quantity]').forEach((input) => {
-      input.addEventListener('input', () => {
-        if (!this.tradeDialog) {
-          return;
-        }
-        this.tradeDialog = {
-          ...this.tradeDialog,
-          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
-        };
-      });
-
-      input.addEventListener('change', () => {
-        if (!this.tradeDialog) {
-          return;
-        }
-        this.tradeDialog = {
-          ...this.tradeDialog,
-          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
-        };
-        this.syncTradeDialogOverlay();
-      });
-    });
-
-    root.querySelectorAll<HTMLElement>('[data-market-price-action]').forEach((button) => button.addEventListener('click', () => {
-      if (!this.tradeDialog) {
-        return;
-      }
-      const action = button.dataset.marketPriceAction as MarketPriceAction | undefined;
-      if (!action) {
-        return;
-      }
-      const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
-      const nextUnitPrice = this.getNextTradeDialogPrice(
-        this.tradeDialog.unitPrice,
-        action,
-        preset,
-        this.getTradeDialogMinUnitPrice(this.tradeDialog),
-      );
-      const quantitySeed = this.tradeDialog.source === 'auction-bid'
-        ? this.getTradeDialogQuantityStep(nextUnitPrice)
-        : this.tradeDialog.quantity;
-      this.tradeDialog = {
-        ...this.tradeDialog,
-        unitPrice: nextUnitPrice,
-        quantity: this.normalizeTradeDialogQuantity(quantitySeed, selected, this.tradeDialog.kind, nextUnitPrice),
-      };
-      this.syncTradeDialogOverlay();
-    }));
-
-    root.querySelectorAll<HTMLElement>('[data-market-quantity-action]').forEach((button) => button.addEventListener('click', () => {
-      if (!this.tradeDialog) {
-        return;
-      }
-      const action = button.dataset.marketQuantityAction;
-      const quantity = action === 'max'
-        ? this.getTradeDialogMaxButtonQuantity(selected, update.currencyItemId, this.tradeDialog)
-        : this.getTradeDialogQuantityStep(this.tradeDialog.unitPrice);
-      this.tradeDialog = {
-        ...this.tradeDialog,
-        quantity: this.normalizeTradeDialogQuantity(quantity, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
-      };
-      this.syncTradeDialogOverlay();
-    }));
-
-    root.querySelectorAll<HTMLElement>('[data-market-submit-dialog]').forEach((button) => button.addEventListener('click', () => {
-      const kind = button.dataset.marketSubmitDialog as MarketTradeDialogKind | undefined;
-      if (!kind || !this.tradeDialog || this.tradeDialog.kind !== kind) {
-        return;
-      }
-      const minUnitPrice = this.getTradeDialogMinUnitPrice(this.tradeDialog);
-      const unitPrice = this.normalizeTradeDialogPrice(
-        Math.max(this.tradeDialog.unitPrice, minUnitPrice),
-        kind === 'buy' ? 'up' : 'down',
-      );
-      const quantitySeed = this.tradeDialog.source === 'auction-bid'
-        ? this.getTradeDialogQuantityStep(unitPrice)
-        : this.tradeDialog.quantity;
-      const quantity = this.normalizeTradeDialogQuantity(quantitySeed, selected, kind, unitPrice);
-      if (kind === 'buy') {
-        if (this.tradeDialog.source === 'auction-bid') {
-          const lot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey ?? selected.itemKey, update, 'participate');
-          if (!lot) {
-            return;
-          }
-          this.callbacks?.onPlaceAuctionBid(lot.id, lot.itemKey, unitPrice);
-          this.tradeDialog = null;
-          this.syncTradeDialogOverlay();
-          return;
-        }
-        if (this.tradeDialog.confirmPurchase) {
-          this.openBuyConfirm(selected, quantity, unitPrice);
-          return;
-        }
-        this.callbacks?.onCreateBuyOrder(selected.itemKey, quantity, unitPrice);
-        this.tradeDialog = null;
-        this.syncTradeDialogOverlay();
-        return;
-      }
-      const slotIndex = this.findMatchingInventorySlot(selected.item);
-      if (slotIndex === null) {
-        return;
-      }
-      this.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice);
-      this.tradeDialog = null;
-      this.syncTradeDialogOverlay();
-    }));
+    this.tradeDialogView.bindTradeDialogOverlayEvents(root, selected, update);
   }
 
-  /** 打开市场买入二次确认弹层。 */
   private openBuyConfirm(entry: MarketListedItemView, quantity: number, unitPrice: number): void {
-    const itemName = this.getMarketDisplayName(entry.item);
-    this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
-    confirmModalHost.open({
-      ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
-      title: t('auction.action.buy', undefined),
-      subtitle: itemName,
-      bodyHtml: this.renderBuyConfirmBody(entry, this.marketUpdate?.currencyItemName ?? '', quantity, unitPrice),
-      confirmLabel: t('auction.action.buy', undefined),
-      onConfirm: () => {
-        const latest = this.buyConfirmState;
-        const latestEntry = latest ? this.resolveMarketTooltipEntry(latest.itemKey) : null;
-        this.buyConfirmState = null;
-        if (!latest || !latestEntry) {
-          return;
-        }
-        this.callbacks?.onCreateBuyOrder(latestEntry.itemKey, latest.quantity, latest.unitPrice);
-        this.tradeDialog = null;
-        this.syncTradeDialogOverlay();
-      },
-      onClose: () => {
-        this.buyConfirmState = null;
-      },
-    });
+    this.tradeDialogView.openBuyConfirm(entry, quantity, unitPrice);
   }
 
-  /** 读取交易弹窗的挂载根节点，没有就现建一个。 */
   private getTradeDialogOverlayRoot(): HTMLElement {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    let root = document.getElementById(MarketPanel.TRADE_MODAL_ID);
-    if (root) {
-      if (root.parentElement !== document.body) {
-        document.body.appendChild(root);
-      }
-      return root;
-    }
-    root = document.createElement('div');
-    root.id = MarketPanel.TRADE_MODAL_ID;
-    root.className = 'market-trade-modal-layer hidden';
-    document.body.appendChild(root);
-    return root;
+    return this.tradeDialogView.getTradeDialogOverlayRoot();
   }
 
-  /** 查找与当前交易方向冲突的自有挂单。 */
   private findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null {
     const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
     return this.marketUpdate?.myOrders.find((order) =>

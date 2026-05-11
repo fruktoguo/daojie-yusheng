@@ -47,6 +47,9 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
+import { CraftAlchemyView } from './craft-alchemy-view';
+import { CraftEnhancementView } from './craft-enhancement-view';
+import { CraftQueueView } from './craft-queue-view';
 
 type CraftWorkbenchCallbacks = {
   onRequestAlchemy: (knownCatalogVersion?: number) => void;
@@ -373,6 +376,11 @@ export class CraftWorkbenchModal {
   private enhancementHistoryExpanded = false;
   private enhancementProtectionExpanded = false;
   private readonly enhancementFormulaTooltip = new FloatingTooltip();
+
+  /** @internal Sub-view delegates */
+  readonly alchemyView = new CraftAlchemyView(this as any);
+  readonly enhancementView = new CraftEnhancementView(this as any);
+  readonly queueView = new CraftQueueView(this as any);
 
   setCallbacks(callbacks: CraftWorkbenchCallbacks): void {
     this.callbacks = callbacks;
@@ -950,74 +958,19 @@ export class CraftWorkbenchModal {
   }
 
   private getCraftQueueKindLabel(kind: CraftQueueItemView['kind']): string {
-    if (kind === 'alchemy') {
-      return t('craft.workbench.mode.alchemy');
-    }
-    if (kind === 'forging') {
-      return t('craft.workbench.mode.forging');
-    }
-    if (kind === 'enhancement') {
-      return t('craft.workbench.mode.enhancement');
-    }
-    return t('craft.workbench.mode.technique');
+    return this.queueView.getCraftQueueKindLabel(kind);
   }
 
   private renderCraftQueueItemMeta(entry: CraftQueueItemView): string {
-    if (!entry.quantity) {
-      return '';
-    }
-    if (entry.kind === 'enhancement') {
-      return `<em>${escapeHtml(t('craft.workbench.queue.target-level', { level: formatDisplayInteger(entry.quantity) }))}</em>`;
-    }
-    return `<em>x${formatDisplayInteger(entry.quantity)}</em>`;
+    return this.queueView.renderCraftQueueItemMeta(entry);
   }
 
   private renderCraftQueueItemProgress(entry: CraftQueueDisplayItem): string {
-    const progress = entry.progress ?? {
-      ratio: 0,
-      label: entry.isActive ? '--' : '等待中',
-      detail: entry.isActive ? '进度未知' : '等待上一项完成',
-    };
-    return `
-      <div class="craft-queue-progress" data-craft-queue-progress="true">
-        <div class="craft-queue-progress-head">
-          <span data-craft-queue-progress-detail="true">${escapeHtml(progress.detail)}</span>
-          <strong data-craft-queue-progress-label="true">${escapeHtml(progress.label)}</strong>
-        </div>
-        <div class="craft-queue-progress-bar" aria-hidden="true">
-          <div class="craft-queue-progress-fill" data-craft-queue-progress-fill="true" style="width:${(progress.ratio * 100).toFixed(2)}%"></div>
-        </div>
-      </div>
-    `;
+    return this.queueView.renderCraftQueueItemProgress(entry);
   }
 
   private patchCraftQueueProgress(root: HTMLElement): void {
-    const queue = this.getCraftQueueSnapshot();
-    const items = root.querySelectorAll<HTMLElement>('.craft-queue-item');
-    items.forEach((item, index) => {
-      const entry = queue[index];
-      if (!entry) {
-        return;
-      }
-      const progress = entry.progress ?? {
-        ratio: 0,
-        label: entry.isActive ? '--' : '等待中',
-        detail: entry.isActive ? '进度未知' : '等待上一项完成',
-      };
-      item.classList.toggle('active', Boolean(entry.isActive));
-      const detail = item.querySelector<HTMLElement>('[data-craft-queue-progress-detail="true"]');
-      const label = item.querySelector<HTMLElement>('[data-craft-queue-progress-label="true"]');
-      const fill = item.querySelector<HTMLElement>('[data-craft-queue-progress-fill="true"]');
-      if (detail) {
-        detail.textContent = progress.detail;
-      }
-      if (label) {
-        label.textContent = progress.label;
-      }
-      if (fill) {
-        fill.style.width = `${(progress.ratio * 100).toFixed(2)}%`;
-      }
-    });
+    this.queueView.patchCraftQueueProgress(root);
   }
 
   private buildCraftHeaderKey(): string {
@@ -1100,77 +1053,11 @@ export class CraftWorkbenchModal {
   }
 
   private getCraftQueueSnapshot(): CraftQueueDisplayItem[] {
-    const activeAlchemyJob = this.alchemyPanel?.state?.job ?? null;
-    const activeEnhancementJob = this.enhancementPanel?.state?.job ?? null;
-    const queue = activeAlchemyJob?.queuedJobs
-      ?? activeEnhancementJob?.queuedJobs
-      ?? this.alchemyPanel?.state?.queue
-      ?? this.enhancementPanel?.state?.queue
-      ?? [];
-    const active: CraftQueueDisplayItem[] = [];
-    if (activeAlchemyJob) {
-      const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === activeAlchemyJob.recipeId);
-      const jobKind = activeAlchemyJob.jobType === 'forging' ? 'forging' : 'alchemy';
-      active.push({
-        queueId: activeAlchemyJob.jobRunId ?? `active:${jobKind}:${activeAlchemyJob.startedAt}`,
-        kind: jobKind,
-        label: recipe?.outputName ?? activeAlchemyJob.outputItemId,
-        quantity: Math.max(1, activeAlchemyJob.quantity - activeAlchemyJob.completedCount),
-        createdAt: activeAlchemyJob.startedAt,
-        isActive: true,
-        progress: this.buildCraftQueueTimeProgress(activeAlchemyJob.remainingTicks, activeAlchemyJob.totalTicks, activeAlchemyJob.phase),
-      });
-    } else if (activeEnhancementJob) {
-      active.push({
-        queueId: activeEnhancementJob.jobRunId ?? `active:enhancement:${activeEnhancementJob.startedAt}`,
-        kind: 'enhancement',
-        label: activeEnhancementJob.targetItemName,
-        quantity: activeEnhancementJob.desiredTargetLevel,
-        createdAt: activeEnhancementJob.startedAt,
-        isActive: true,
-        progress: this.buildCraftQueueTimeProgress(activeEnhancementJob.remainingTicks, activeEnhancementJob.totalTicks, activeEnhancementJob.phase),
-      });
-    }
-    return [
-      ...active,
-      ...queue.map((entry) => ({
-        ...entry,
-        isActive: false,
-        progress: {
-          ratio: 0,
-          label: '等待中',
-          detail: '等待上一项完成',
-        },
-      })),
-    ];
+    return this.queueView.getCraftQueueSnapshot();
   }
 
   private buildCraftQueueTimeProgress(remainingTicks: number | undefined, totalTicks: number | undefined, phase?: string): CraftQueueProgressView {
-    const total = Math.max(0, Math.floor(Number(totalTicks) || 0));
-    const remaining = Math.max(0, Math.floor(Number(remainingTicks) || 0));
-    if (total <= 0) {
-      return {
-        ratio: 0,
-        label: '--',
-        detail: '进度未知',
-      };
-    }
-    const ratio = Math.max(0, Math.min(1, 1 - (Math.min(remaining, total) / total)));
-    const label = `${formatDisplayInteger(Math.round(ratio * 100))}%`;
-    const phaseText = phase === 'paused'
-      ? '暂停'
-      : phase === 'preparing'
-        ? '准备'
-        : phase === 'brewing'
-          ? '炼制'
-          : phase === 'enhancing'
-            ? '强化'
-            : '进行中';
-    return {
-      ratio,
-      label,
-      detail: `${phaseText} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`,
-    };
+    return this.queueView.buildCraftQueueTimeProgress(remainingTicks, totalTicks, phase);
   }
 
   private bindActions(body: HTMLElement, signal: AbortSignal): void {
@@ -1543,39 +1430,7 @@ export class CraftWorkbenchModal {
   }
 
   private tryPatchAlchemyBody(body: HTMLElement): boolean {
-    const shell = body.querySelector<HTMLElement>('[data-alchemy-shell="true"]');
-    const jobHost = body.querySelector<HTMLElement>('[data-alchemy-job-card-host="true"]');
-    const topbar = body.querySelector<HTMLElement>('[data-alchemy-topbar="true"]');
-    const categoryTabs = body.querySelector<HTMLElement>('[data-alchemy-category-tabs="true"]');
-    const realmTabs = body.querySelector<HTMLElement>('[data-alchemy-realm-tabs="true"]');
-    const tabHost = body.querySelector<HTMLElement>('[data-alchemy-tab-host="true"]');
-    const recipeList = body.querySelector<HTMLElement>('[data-alchemy-recipe-list="true"]');
-    const detailPanel = body.querySelector<HTMLElement>('[data-alchemy-detail-panel="true"]');
-    if (!shell || !jobHost || !topbar || !categoryTabs || !realmTabs || !tabHost || !recipeList || !detailPanel) {
-      return false;
-    }
-    const viewState = this.captureAlchemyViewState(body);
-    const selectedRecipe = this.getSelectedAlchemyRecipe();
-    const nextDetailKey = selectedRecipe ? `${selectedRecipe.recipeId}:${this.activeAlchemyTab}` : 'empty';
-    const preserveDetail = viewState.detailKey === nextDetailKey;
-    const stableKey = this.buildAlchemyStableRenderKey();
-
-    this.patchAlchemyJobHost(jobHost);
-    patchElementHtml(topbar, this.renderAlchemyTopbar());
-    if (shell.dataset.alchemyStableRenderKey === stableKey && preserveDetail) {
-      this.restoreAlchemyViewState(body, viewState, true);
-      return true;
-    }
-    patchElementHtml(categoryTabs, this.renderAlchemyCategoryTabs());
-    patchElementHtml(realmTabs, this.renderAlchemyRealmTabs());
-    patchElementHtml(tabHost, this.renderAlchemyTabButtons());
-    patchElementHtml(recipeList, this.renderAlchemyRecipeList());
-    detailPanel.dataset.detailKey = nextDetailKey;
-    patchElementHtml(detailPanel, this.renderAlchemyDetailPanel());
-    shell.dataset.alchemyStableRenderKey = stableKey;
-    bindInlineItemTooltips(body);
-    this.restoreAlchemyViewState(body, viewState, preserveDetail);
-    return true;
+    return this.alchemyView.tryPatchAlchemyBody(body);
   }
 
   private buildAlchemyStableRenderKey(): string {
@@ -1747,29 +1602,7 @@ export class CraftWorkbenchModal {
   }
 
   private tryPatchEnhancementBody(body: HTMLElement): boolean {
-    const shell = body.querySelector<HTMLElement>('.enhancement-modal-shell');
-    const toolbar = body.querySelector<HTMLElement>('.enhancement-toolbar');
-    const workbench = body.querySelector<HTMLElement>('.enhancement-workbench');
-    if (!shell || !toolbar || !workbench) {
-      return false;
-    }
-    this.patchEnhancementToolbar(toolbar);
-    const activeJob = this.getActiveEnhancementJob();
-    const currentJobGrid = workbench.querySelector<HTMLElement>('[data-enhancement-job-key]');
-    const nextJobKey = this.getEnhancementJobPatchKey(activeJob);
-    if (activeJob && currentJobGrid?.dataset.enhancementJobKey === nextJobKey) {
-      this.patchEnhancementActiveJob(workbench, activeJob);
-      return true;
-    }
-    if (activeJob) {
-      patchElementHtml(workbench, this.renderEnhancementWorkbenchSection());
-      bindInlineItemTooltips(workbench);
-      return true;
-    }
-    if (!activeJob && !currentJobGrid) {
-      return shell.dataset.enhancementStableRenderKey === this.buildEnhancementStableRenderKey();
-    }
-    return false;
+    return this.enhancementView.tryPatchEnhancementBody(body);
   }
 
   private buildEnhancementStableRenderKey(): string {
@@ -1880,44 +1713,7 @@ export class CraftWorkbenchModal {
   }
 
   private renderAlchemyBody(): string {
-    const recipeTypeLabel = this.activeMode === 'forging'
-      ? t('craft.workbench.alchemy.control.recipe-type.forging')
-      : t('craft.workbench.alchemy.control.recipe-type.alchemy');
-    return `
-      <div class="alchemy-modal-shell" data-alchemy-shell="true" data-alchemy-stable-render-key="${escapeHtml(this.buildAlchemyStableRenderKey())}">
-        <div data-alchemy-job-card-host="true">${this.renderAlchemyJobCard(this.alchemyPanel?.state?.job ?? null)}</div>
-        <div class="alchemy-topbar" data-alchemy-topbar="true">
-          ${this.renderAlchemyTopbar()}
-        </div>
-        <div class="alchemy-control-row" data-alchemy-control-row="true">
-          <div class="alchemy-control-group alchemy-control-group--realms">
-            <span class="alchemy-control-label">${escapeHtml(t('craft.workbench.alchemy.control.realm'))}</span>
-            <div class="alchemy-realm-tabs" data-alchemy-realm-tabs="true">
-              ${this.renderAlchemyRealmTabs()}
-            </div>
-          </div>
-          <div class="alchemy-control-group alchemy-control-group--tabs">
-            <span class="alchemy-control-label">${escapeHtml(recipeTypeLabel)}</span>
-            <div class="alchemy-modal-tabs" data-alchemy-tab-host="true">
-              ${this.renderAlchemyTabButtons()}
-            </div>
-          </div>
-        </div>
-        <div class="alchemy-layout">
-          <aside class="alchemy-recipe-sidebar">
-            <div class="alchemy-category-tabs" data-alchemy-category-tabs="true">
-              ${this.renderAlchemyCategoryTabs()}
-            </div>
-            <div class="alchemy-recipe-list" data-alchemy-recipe-list="true">
-              ${this.renderAlchemyRecipeList()}
-            </div>
-          </aside>
-          <section class="alchemy-detail-panel" data-alchemy-detail-panel="true" data-detail-key="${escapeHtml(this.getSelectedAlchemyRecipe() ? `${this.getSelectedAlchemyRecipe()!.recipeId}:${this.activeAlchemyTab}` : 'empty')}">
-            ${this.renderAlchemyDetailPanel()}
-          </section>
-        </div>
-      </div>
-    `;
+    return this.alchemyView.renderAlchemyBody();
   }
 
   private renderAlchemyCategoryTabs(): string {
@@ -2250,48 +2046,7 @@ export class CraftWorkbenchModal {
   }
 
   private renderEnhancementBody(): string {
-    this.ensureLocalEnhancementHistoryLoaded();
-    const selected = this.getSelectedEnhancementCandidate();
-    const activeJob = this.getActiveEnhancementJob();
-    const selectedProtection = this.getSelectedEnhancementProtection(selected);
-    if (this.loading) {
-      return `<div class="enhancement-empty-state">${escapeHtml(t('craft.workbench.enhancement.empty.loading'))}</div>`;
-    }
-    if (this.enhancementResponseError || !this.getEnhancementPanelState()) {
-      return `<div class="enhancement-empty-state">${escapeHtml(this.enhancementResponseError ?? t('craft.workbench.enhancement.empty.error'))}</div>`;
-    }
-    if (!activeJob && (this.getEnhancementPanelState()?.candidates.length ?? 0) === 0) {
-      return `<div class="enhancement-empty-state">${escapeHtml(t('craft.workbench.enhancement.empty.no-target'))}</div>`;
-    }
-    const selectedRecord = activeJob
-      ? this.getEnhancementPanelState()?.records.find((entry) => entry.itemId === activeJob.targetItemId) ?? null
-      : selected
-        ? this.getEnhancementPanelState()?.records.find((entry) => entry.itemId === selected.item.itemId) ?? null
-        : null;
-    return `
-      <div class="enhancement-modal-shell" data-enhancement-stable-render-key="${escapeHtml(this.buildEnhancementStableRenderKey())}">
-        <div class="enhancement-toolbar">
-          ${this.renderEnhancementToolbar()}
-        </div>
-        <div class="enhancement-layout enhancement-layout--single-slot">
-          <section class="enhancement-workbench">
-            ${activeJob
-              ? this.renderEnhancementActiveJob(activeJob, selected)
-              : selected
-                ? this.renderEnhancementWorkbench(selected, selectedProtection)
-                : `
-                  <div class="enhancement-workbench-grid">
-                    <div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(activeJob, selected)}</div>
-                    <div class="enhancement-workbench-main"><div class="enhancement-empty-state">${escapeHtml(t('craft.workbench.enhancement.empty.select-item'))}</div></div>
-                  </div>
-                `}
-          </section>
-          <aside class="enhancement-history-panel">
-            ${this.renderEnhancementHistory(activeJob, selected, selectedRecord)}
-          </aside>
-        </div>
-      </div>
-    `;
+    return this.enhancementView.renderEnhancementBody();
   }
 
   private renderEnhancementFormulaPill(): string {
@@ -2777,142 +2532,9 @@ export class CraftWorkbenchModal {
   }
 
   private bindEnhancementEvents(body: HTMLElement, signal: AbortSignal): void {
-    this.bindEnhancementFormulaTooltip(body, signal);
-    body.querySelector('[data-enhancement-refresh="1"]')?.addEventListener('click', () => {
-      this.loading = true;
-      this.render();
-      this.callbacks?.onRequestEnhancement();
-    }, { signal });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-open-picker="1"]').forEach((button) => {
-      button.addEventListener('click', () => {
-        if (this.getActiveEnhancementJob()) {
-          return;
-        }
-        this.openEnhancementPickerModal();
-      }, { signal });
-    });
-    body.querySelector('[data-enhancement-open-history="1"]')?.addEventListener('click', () => {
-      this.openEnhancementHistoryListModal();
-    }, { signal });
-    body.querySelector('[data-enhancement-open-current-history="1"]')?.addEventListener('click', () => {
-      const activeJob = this.getActiveEnhancementJob();
-      const selected = this.getSelectedEnhancementCandidate();
-      const referenceItem = activeJob?.item ?? selected?.item ?? null;
-      const currentSessionRecord = this.getCurrentEnhancementSessionHistoryRecord(
-        activeJob,
-        referenceItem,
-        activeJob
-          ? this.getEnhancementPanelState()?.records.find((entry) => entry.itemId === activeJob.targetItemId) ?? null
-          : selected
-            ? this.getEnhancementPanelState()?.records.find((entry) => entry.itemId === selected.item.itemId) ?? null
-            : null,
-      );
-      if (!currentSessionRecord) {
-        this.openEnhancementHistoryListModal();
-        return;
-      }
-      this.openEnhancementHistoryDetailModal(
-        currentSessionRecord.itemId,
-        getEnhancementHistorySessionKey(currentSessionRecord),
-      );
-    }, { signal });
-    body.querySelector('[data-enhancement-toggle-history-inline="1"]')?.addEventListener('click', () => {
-      this.enhancementHistoryExpanded = !this.enhancementHistoryExpanded;
-      this.render();
-    }, { signal });
-    body.querySelector('[data-enhancement-toggle-protection-inline="1"]')?.addEventListener('click', () => {
-      this.enhancementProtectionExpanded = !this.enhancementProtectionExpanded;
-      this.render();
-    }, { signal });
-    body.querySelectorAll<HTMLInputElement>('input[name="enhancement-protection"]').forEach((input) => {
-      input.addEventListener('change', () => {
-        this.selectedEnhancementProtectionKey = input.value || null;
-        this.selectedEnhancementProtectionStartLevel = this.selectedEnhancementProtectionKey ? 2 : null;
-        this.render();
-      }, { signal });
-    });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-target-adjust]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const selected = this.getSelectedEnhancementCandidate();
-        if (!selected) {
-          return;
-        }
-        const delta = Math.floor(Number(button.dataset.enhancementTargetAdjust) || 0);
-        const minLevel = selected.currentLevel + 1;
-        const nextLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, (this.getSelectedEnhancementTargetLevel(selected) ?? minLevel) + delta));
-        this.selectedEnhancementTargetLevel = nextLevel;
-        if (this.selectedEnhancementProtectionKey) {
-          this.selectedEnhancementProtectionStartLevel = Math.min(
-            nextLevel,
-            this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2,
-          );
-        }
-        this.render();
-      }, { signal });
-    });
-    body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input="1"]')?.addEventListener('change', (event) => {
-      const selected = this.getSelectedEnhancementCandidate();
-      const input = event.currentTarget;
-      if (!selected || !(input instanceof HTMLInputElement)) {
-        return;
-      }
-      const minLevel = selected.currentLevel + 1;
-      this.selectedEnhancementTargetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, Math.floor(Number(input.value) || minLevel)));
-      if (this.selectedEnhancementProtectionKey) {
-        this.selectedEnhancementProtectionStartLevel = Math.min(
-          this.selectedEnhancementTargetLevel,
-          this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2,
-        );
-      }
-      this.render();
-    }, { signal });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-protection-adjust]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const selected = this.getSelectedEnhancementCandidate();
-        if (!selected || !this.selectedEnhancementProtectionKey) {
-          return;
-        }
-        const minLevel = 2;
-        const maxLevel = this.getSelectedEnhancementTargetLevel(selected) ?? minLevel;
-        const delta = Math.floor(Number(button.dataset.enhancementProtectionAdjust) || 0);
-        this.selectedEnhancementProtectionStartLevel = Math.max(
-          minLevel,
-          Math.min(maxLevel, (this.getSelectedEnhancementProtectionStartLevel(selected) ?? minLevel) + delta),
-        );
-        this.render();
-      }, { signal });
-    });
-    body.querySelector<HTMLInputElement>('[data-enhancement-protection-start-input="1"]')?.addEventListener('change', (event) => {
-      const selected = this.getSelectedEnhancementCandidate();
-      const input = event.currentTarget;
-      if (!selected || !(input instanceof HTMLInputElement) || !this.selectedEnhancementProtectionKey) {
-        return;
-      }
-      const minLevel = 2;
-      const maxLevel = this.getSelectedEnhancementTargetLevel(selected) ?? minLevel;
-      this.selectedEnhancementProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(input.value) || minLevel)));
-      this.render();
-    }, { signal });
-    body.querySelector('[data-enhancement-start="1"]')?.addEventListener('click', () => {
-      const selected = this.getSelectedEnhancementCandidate();
-      if (!selected || this.getActiveEnhancementJob()) {
-        return;
-      }
-      const protection = this.getSelectedEnhancementProtection(selected);
-      this.callbacks?.onStartEnhancement({
-        target: selected.ref,
-        protection: protection?.ref ?? null,
-        targetLevel: this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel,
-        protectionStartLevel: protection ? this.getSelectedEnhancementProtectionStartLevel(selected) : null,
-      });
-    }, { signal });
-    body.querySelector('[data-enhancement-cancel="1"]')?.addEventListener('click', () => {
-      if (!this.getActiveEnhancementJob()) {
-        return;
-      }
-      this.callbacks?.onCancelEnhancement();
-    }, { signal });
+    this.enhancementView.bindEnhancementEvents(body, signal);
   }
+
 
   private bindEnhancementFormulaTooltip(body: HTMLElement, signal?: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();

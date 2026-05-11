@@ -4,187 +4,682 @@
  * 从 action-panel.ts 拆分而来。
  */
 import type { ActionDef, PlayerState } from '@mud/shared';
+import { detailModalHost } from '../detail-modal-host';
+import { patchElementHtml } from '../dom-patch';
+import { t } from '../i18n';
+import { getLocalRealmLevelEntry } from '../../content/local-templates';
+import { formatDisplayNumber } from '../../utils/number';
+import { escapeHtml } from './action-panel-helpers';
 import type { ActionPanel } from './action-panel';
+import type {
+  ActionPanelInternal,
+  SectManagementData,
+  SectManagementMember,
+  SectManagementPermission,
+  SectManagementRole,
+  SectManagementSummary,
+  SectManagementTab,
+} from './action-panel-internal';
 
-// ─── 内部类型（迁移时从 action-panel.ts 搬入） ───
+// ─── 本地常量 ───
 
-type SectManagementTab = 'overview' | 'members' | 'roles' | 'manage' | 'guardian' | 'domain';
+const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
 
-interface SectManagementMember {
-  playerId: string;
-  name: string;
-  roleId: string;
-  roleLabel: string;
-  realmLv: number | null;
-  statusLabel: string;
-  self?: boolean;
-  leader?: boolean;
+const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
+  { id: 'leader', label: t('action.sect.role.leader', undefined), assignable: false },
+  { id: 'deputy', label: t('action.sect.role.deputy', undefined), assignable: true },
+  { id: 'elder', label: t('action.sect.role.elder', undefined), assignable: true },
+  { id: 'inner', label: t('action.sect.role.inner', undefined), assignable: true },
+  { id: 'outer', label: t('action.sect.role.outer', undefined), assignable: true },
+  { id: 'labor', label: t('action.sect.role.labor', undefined), assignable: true },
+  { id: 'supreme_elder', label: t('action.sect.role.supreme-elder', undefined), assignable: false },
+];
+
+const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
+  { id: 'guardian', label: t('action.sect.permission.guardian', undefined) },
+  { id: 'member_remove', label: t('action.sect.permission.member-remove', undefined) },
+  { id: 'member_role', label: t('action.sect.permission.member-role', undefined) },
+];
+
+// ─── 本地工具函数 ───
+
+function stripSectManagementData(desc: string | undefined): string {
+  return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
 }
 
-interface SectManagementRole {
-  id: string;
-  label: string;
-  assignable: boolean;
+function formatSectTimestamp(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return t('common.value.unknown', undefined);
+  }
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
 }
 
-interface SectManagementPermission {
-  id: string;
-  label: string;
+function formatSectMemberRealmLabel(member: SectManagementMember, fallback = t('common.value.unknown', undefined)): string {
+  if (!Number.isFinite(Number(member.realmLv)) || Number(member.realmLv) <= 0) {
+    return fallback;
+  }
+  const realmLv = Math.trunc(Number(member.realmLv));
+  return getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${realmLv}`;
 }
 
-interface SectManagementApplication {
-  playerId: string;
-  name: string;
-  appliedAt: number;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-interface SectManagementData {
-  selfPlayerId: string;
-  canEditPermissions: boolean;
-  canTransfer: boolean;
-  canDissolve: boolean;
-  canLeave: boolean;
-  canReviewApplications: boolean;
-  canManageGuardian: boolean;
-  canRemoveMembers: boolean;
-  canChangeRoles: boolean;
-  roles: SectManagementRole[];
-  permissions: SectManagementPermission[];
-  rolePermissions: Record<string, Record<string, boolean>>;
-  members: SectManagementMember[];
-  applications: SectManagementApplication[];
+function normalizeSectManagementRole(input: unknown): SectManagementRole {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementRole> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'outer';
+  const fallback = DEFAULT_SECT_MANAGEMENT_ROLES.find((role) => role.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+    assignable: source.assignable === true,
+  };
 }
 
-interface SectManagementSummary {
-  name: string;
-  mark: string;
-  domainLabel: string;
-  guardianStatusLabel: string;
-  guardianAuraLabel: string;
-  sectIdLabel: string;
-  leaderName: string;
-  realmLabel: string;
-  memberCountLabel: string;
-  notice: string;
-  data: SectManagementData;
+function normalizeSectManagementPermission(input: unknown): SectManagementPermission {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementPermission> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'guardian';
+  const fallback = DEFAULT_SECT_MANAGEMENT_PERMISSIONS.find((permission) => permission.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+  };
+}
+
+function normalizeSectManagementMember(input: unknown): SectManagementMember {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementMember> : {};
+  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
+  const roleId = typeof source.roleId === 'string' && source.roleId.trim() ? source.roleId.trim() : 'outer';
+  const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
+  return {
+    playerId,
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-member', undefined),
+    roleId,
+    roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
+    realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
+    statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : t('action.sect.status.offline', undefined),
+    self: source.self === true,
+    leader: source.leader === true,
+  };
+}
+
+function normalizeSectManagementApplication(input: unknown): { playerId: string; name: string; appliedAt: number } {
+  const source = input && typeof input === 'object' ? input as Partial<{ playerId: string; name: string; appliedAt: number }> : {};
+  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
+  return {
+    playerId,
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-applicant', undefined),
+    appliedAt: Number.isFinite(Number(source.appliedAt)) ? Math.trunc(Number(source.appliedAt)) : 0,
+  };
+}
+
+function normalizeSectManagementRolePermissions(
+  input: unknown,
+  roles: SectManagementRole[],
+  permissions: SectManagementPermission[],
+): Record<string, Record<string, boolean>> {
+  const source = input && typeof input === 'object' ? input as Record<string, Record<string, boolean>> : {};
+  const next: Record<string, Record<string, boolean>> = {};
+  for (const role of roles) {
+    next[role.id] = {};
+    for (const permission of permissions) {
+      next[role.id][permission.id] = source?.[role.id]?.[permission.id] === true || role.id === 'leader';
+    }
+  }
+  return next;
+}
+
+function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
+  const playerId = player?.id ?? '';
+  const name = player?.name || player?.displayName || playerId || t('action.sect.fallback.current-leader', undefined);
+  const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
+  return {
+    selfPlayerId: playerId,
+    canEditPermissions: true,
+    canTransfer: true,
+    canDissolve: true,
+    canLeave: false,
+    canReviewApplications: true,
+    canManageGuardian: true,
+    canRemoveMembers: true,
+    canChangeRoles: true,
+    roles: DEFAULT_SECT_MANAGEMENT_ROLES,
+    permissions: DEFAULT_SECT_MANAGEMENT_PERMISSIONS,
+    rolePermissions,
+    members: [{
+      playerId,
+      name,
+      roleId: 'leader',
+      roleLabel: t('action.sect.role.leader', undefined),
+      realmLv: Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv)) ? Math.trunc(Number(player?.realm?.realmLv ?? player?.realmLv)) : null,
+      statusLabel: t('action.sect.status.online', undefined),
+      self: true,
+      leader: true,
+    }],
+    applications: [],
+  };
+}
+
+function parseSectManagementData(desc: string | undefined, player: PlayerState | null): SectManagementData {
+  const fallback = buildFallbackSectManagementData(player);
+  const match = SECT_MANAGEMENT_DATA_PATTERN.exec(desc ?? '');
+  if (!match?.[1]) {
+    return fallback;
+  }
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match[1])) as Partial<SectManagementData>;
+    const roles = Array.isArray(parsed.roles) && parsed.roles.length > 0
+      ? parsed.roles.map(normalizeSectManagementRole)
+      : fallback.roles;
+    const permissions = Array.isArray(parsed.permissions) && parsed.permissions.length > 0
+      ? parsed.permissions.map(normalizeSectManagementPermission)
+      : fallback.permissions;
+    const members = Array.isArray(parsed.members) && parsed.members.length > 0
+      ? parsed.members.map(normalizeSectManagementMember)
+      : fallback.members;
+    const applications = Array.isArray(parsed.applications)
+      ? parsed.applications.map(normalizeSectManagementApplication).filter((entry) => entry.playerId)
+      : fallback.applications;
+    return {
+      selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
+      canEditPermissions: parsed.canEditPermissions === true,
+      canTransfer: parsed.canTransfer === true,
+      canDissolve: parsed.canDissolve === true,
+      canLeave: parsed.canLeave === true,
+      canReviewApplications: parsed.canReviewApplications === true,
+      canManageGuardian: parsed.canManageGuardian === true,
+      canRemoveMembers: parsed.canRemoveMembers === true,
+      canChangeRoles: parsed.canChangeRoles === true,
+      roles,
+      permissions,
+      rolePermissions: normalizeSectManagementRolePermissions(parsed.rolePermissions, roles, permissions),
+      members,
+      applications,
+    };
+  } catch (_error) {
+    return fallback;
+  }
 }
 
 // ─── 子面板类 ───
 
 export class SectManagementSubpanel {
-  private parent: ActionPanel;
+  private readonly p: ActionPanelInternal;
 
   constructor(parent: ActionPanel) {
-    this.parent = parent;
+    this.p = parent as unknown as ActionPanelInternal;
   }
-
-  // ─── 生命周期 ───
-
-  open(): void {
-    // TODO: migrate from action-panel.ts
-  }
-
-  close(): void {
-    // TODO: migrate from action-panel.ts
-  }
-
-  render(): void {
-    // TODO: migrate from action-panel.ts
-  }
-
-  bindEvents(root: HTMLElement, signal: AbortSignal): void {
-    // TODO: migrate from action-panel.ts
-  }
-
-  // ─── 宗门管理弹层 ───
 
   openSectManagementModal(): void {
-    // TODO: migrate from action-panel.ts
-  }
-
-  renderSectManagementModal(): void {
-    // TODO: migrate from action-panel.ts
+    this.p.sectManagementTab = 'overview';
+    this.p.sectManagementExternalRevision = '';
+    this.renderSectManagementModal();
   }
 
   renderSectManagementModalIfOpen(): void {
-    // TODO: migrate from action-panel.ts
+    if (!detailModalHost.isOpenFor(this.p.SECT_MANAGEMENT_MODAL_OWNER)) {
+      return;
+    }
+    const action = this.p.currentActions.find((entry) => entry.id === 'sect:manage');
+    if (!action) {
+      detailModalHost.close(this.p.SECT_MANAGEMENT_MODAL_OWNER);
+      return;
+    }
+    const summary = this.resolveSectManagementSummary(action);
+    const nextRevision = this.buildSectManagementRevision(summary);
+    if (this.p.sectManagementExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderSectManagementModal();
+  }
+
+  renderSectManagementModal(): void {
+    const action = this.p.currentActions.find((entry) => entry.id === 'sect:manage');
+    const summary = this.resolveSectManagementSummary(action);
+    const tabs = this.resolveSectManagementTabs(summary);
+    if (!tabs.some((entry) => entry.tab === this.p.sectManagementTab)) {
+      this.p.sectManagementTab = tabs[0]?.tab ?? 'overview';
+    }
+    this.p.sectManagementExternalRevision = this.buildSectManagementRevision(summary);
+    detailModalHost.open({
+      ownerId: this.p.SECT_MANAGEMENT_MODAL_OWNER,
+      variantClass: 'detail-modal--sect-management',
+      title: t('action.sect.manage.title', undefined),
+      subtitle: t('action.sect.manage.subtitle', { name: summary.name, mark: summary.mark }),
+      renderBody: (body) => {
+        patchElementHtml(body, `
+          <div class="sect-manage-shell">
+            <aside class="sect-manage-sidebar" aria-label="${t('action.sect.manage.sidebar.aria', undefined)}">
+              <div class="sect-manage-sidebar-title">${t('action.sect.manage.sidebar.title', undefined)}</div>
+              <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="${t('action.sect.manage.aria', undefined)}">
+                ${tabs.map((entry) => this.renderSectManagementTabButton(entry.tab, entry.label)).join('')}
+              </div>
+            </aside>
+            <main class="sect-manage-main">
+              <div class="skill-manage-summary sect-manage-summary">
+                <span>${escapeHtml(summary.name)}</span>
+                <span>${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
+                <span>${t('action.sect.manage.summary.domain', { domain: escapeHtml(summary.domainLabel) })}</span>
+                <span>${escapeHtml(summary.sectIdLabel)}</span>
+              </div>
+              <div class="sect-manage-content">
+                ${this.renderSectManagementTabPanel(summary)}
+              </div>
+            </main>
+          </div>
+        `);
+      },
+      onAfterRender: (body, signal) => {
+        body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
+            if (!tab || tab === this.p.sectManagementTab) return;
+            this.p.sectManagementTab = tab;
+            this.renderSectManagementModal();
+          }, { signal });
+        });
+        body.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const actionId = button.dataset.sectAction;
+            if (!actionId) return;
+            if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
+            if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
+            this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
+          }, { signal });
+        });
+        body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
+          select.addEventListener('change', () => {
+            const playerId = select.dataset.sectMemberRoleSelect;
+            const roleId = select.value;
+            if (!playerId || !roleId) return;
+            this.p.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
+          }, { signal });
+        });
+        body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
+          const stones = this.readSectGuardianInjectValue(body);
+          this.p.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, t('action.sect.manage.action.inject-aura', undefined));
+        }, { signal });
+        const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
+        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
+        syncGuardianInjectPreview();
+      },
+    });
   }
 
   resolveSectManagementTabs(summary: SectManagementSummary): Array<{ tab: SectManagementTab; label: string }> {
-    // TODO: migrate from action-panel.ts
-    return [];
+    const tabs: Array<{ tab: SectManagementTab; label: string }> = [
+      { tab: 'overview', label: t('action.sect.manage.tab.overview', undefined) },
+      { tab: 'members', label: t('action.sect.manage.tab.members', undefined) },
+    ];
+    if (summary.data.canEditPermissions) {
+      tabs.push({ tab: 'roles', label: t('action.sect.manage.tab.roles', undefined) });
+    }
+    if (
+      summary.data.canReviewApplications
+      || summary.data.canManageGuardian
+      || summary.data.canTransfer
+      || summary.data.canDissolve
+      || summary.data.canLeave
+    ) {
+      tabs.push({ tab: 'manage', label: t('action.sect.manage.tab.manage', undefined) });
+    }
+    if (summary.data.canManageGuardian) {
+      tabs.push({ tab: 'guardian', label: t('action.sect.manage.tab.guardian', undefined) });
+    }
+    tabs.push({ tab: 'domain', label: t('action.sect.manage.tab.domain', undefined) });
+    return tabs;
   }
 
   renderSectManagementTabButton(tab: SectManagementTab, label: string): string {
-    // TODO: migrate from action-panel.ts
-    return '';
+    const active = this.p.sectManagementTab === tab;
+    return `<button class="action-skill-subtab-btn sect-manage-tab-btn ${active ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">${label}</button>`;
   }
 
   renderSectManagementTabPanel(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectManagementOverviewPanel(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectManagementMembersPanel(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectManagementRolesPanel(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectManagementManagePanel(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectMemberRow(
-    summary: SectManagementSummary,
-    member: SectManagementMember,
-    assignableRoles: SectManagementRole[],
-  ): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectRolePermissionCard(summary: SectManagementSummary, role: SectManagementRole): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectStatCard(label: string, value: string): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  renderSectRoleCard(title: string, badge: string, permissions: string[], disabled: boolean): string {
-    // TODO: migrate from action-panel.ts
-    return '';
-  }
-
-  resolveSectManagementSummary(action?: ActionDef): SectManagementSummary {
-    // TODO: migrate from action-panel.ts
-    return {} as SectManagementSummary;
-  }
-
-  buildSectManagementRevision(summary: SectManagementSummary): string {
-    // TODO: migrate from action-panel.ts
-    return '';
+    switch (this.p.sectManagementTab) {
+      case 'overview':
+        return this.renderSectManagementOverviewPanel(summary);
+      case 'members':
+        return this.renderSectManagementMembersPanel(summary);
+      case 'roles':
+        return summary.data.canEditPermissions ? this.renderSectManagementRolesPanel(summary) : this.renderSectManagementOverviewPanel(summary);
+      case 'manage':
+        return this.renderSectManagementManagePanel(summary);
+      case 'guardian':
+        if (!summary.data.canManageGuardian) {
+          return this.renderSectManagementOverviewPanel(summary);
+        }
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">${t('action.sect.manage.guardian.title', undefined)}</div>
+              <div class="action-section-actions">
+                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.toggle', undefined)}</button>
+              </div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>${t('action.sect.manage.guardian.status', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
+              <span>${t('action.sect.manage.guardian.aura', { aura: escapeHtml(summary.guardianAuraLabel) })}</span>
+              <span>${t('action.sect.manage.guardian.core', undefined)}</span>
+              <span>${t('action.sect.manage.guardian.guard', undefined)}</span>
+            </div>
+            <div class="formation-config-grid">
+              <label class="formation-config-field ui-detail-field">
+                <strong>${t('action.sect.manage.guardian.inject-stones', undefined)}</strong>
+                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
+              </label>
+              <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
+                <strong>${t('action.sect.manage.guardian.cost', undefined)}</strong>
+                <output data-sect-guardian-inject-qi-cost>100,000</output>
+              </div>
+              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.action.inject-aura', undefined)}</button>
+            </div>
+            <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
+          </div>`;
+      case 'domain':
+      default:
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">${t('action.sect.manage.domain.title', undefined)}</div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>${escapeHtml(summary.name)}</span>
+              <span>${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
+              <span>${t('action.sect.manage.domain.region', { region: escapeHtml(summary.domainLabel) })}</span>
+            </div>
+            <div class="action-section-hint">${t('action.sect.manage.domain.copy', undefined)}</div>
+          </div>`;
+    }
   }
 
   readSectGuardianInjectValue(root: HTMLElement): number {
-    // TODO: migrate from action-panel.ts
-    return 0;
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
+    const value = Math.trunc(Number(input?.value ?? 0));
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
   }
 
   syncSectGuardianInjectPreview(root: HTMLElement): void {
-    // TODO: migrate from action-panel.ts
+    const stones = this.readSectGuardianInjectValue(root);
+    const qiCost = stones * 100;
+    const output = root.querySelector<HTMLOutputElement>('[data-sect-guardian-inject-qi-cost]');
+    if (output) {
+      output.value = formatDisplayNumber(qiCost);
+      output.textContent = formatDisplayNumber(qiCost);
+    }
+    const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-inject]');
+    if (button) {
+      const allowed = button.dataset.sectGuardianAllowed !== '0';
+      button.disabled = stones <= 0 || !allowed;
+      button.textContent = allowed
+        ? (stones > 0 ? t('action.sect.manage.action.inject-aura', undefined) : t('action.sect.manage.guardian.inject-stones-short', undefined))
+        : t('action.sect.manage.guardian.no-permission', undefined);
+    }
+  }
+
+  renderSectManagementOverviewPanel(summary: SectManagementSummary): string {
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-detail-card sect-detail-card--hero">
+          <div class="sect-detail-card-main">
+            <div class="sect-detail-name">${escapeHtml(summary.name)}</div>
+            <div class="sect-detail-tag-row">
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.level', undefined)}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.leader', { leaderName: escapeHtml(summary.leaderName) })}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.members', { memberCount: escapeHtml(summary.memberCountLabel) })}</span>
+              <span class="sect-detail-tag">${t('action.sect.manage.overview.mark', { mark: escapeHtml(summary.mark) })}</span>
+            </div>
+            <div class="sect-detail-notice">${escapeHtml(summary.notice)}</div>
+          </div>
+          <div class="sect-detail-card-actions">
+            <button class="small-btn ghost" data-sect-manage-tab="manage" type="button">${t('action.sect.manage.overview.manage', undefined)}</button>
+          </div>
+        </div>
+        <div class="sect-detail-stat-grid">
+          ${this.renderSectStatCard(t('action.sect.manage.stat.mark', undefined), summary.mark)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.domain', undefined), summary.domainLabel)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.members', undefined), summary.memberCountLabel)}
+          ${this.renderSectStatCard(t('action.sect.manage.stat.leader', undefined), summary.leaderName)}
+        </div>
+        <div class="sect-detail-action-grid">
+          <button class="sect-detail-action-card" data-sect-manage-tab="members" type="button">
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.members', undefined)}</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="roles" type="button">
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.roles', undefined)}</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="guardian" type="button">
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.guardian', undefined)}</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="domain" type="button">
+            <span class="sect-detail-action-title">${t('action.sect.manage.overview.actions.domain', undefined)}</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  renderSectManagementMembersPanel(summary: SectManagementSummary): string {
+    const assignableRoles = summary.data.roles.filter((role) => role.assignable);
+    const rows = summary.data.members.map((member) => this.renderSectMemberRow(summary, member, assignableRoles)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">${t('action.sect.manage.members.title', undefined)}</div>
+          </div>
+          <div class="sect-detail-count">${escapeHtml(summary.memberCountLabel)}</div>
+        </div>
+        <div class="sect-member-table">
+          <div class="sect-member-table-head">
+            <span>${t('action.sect.manage.members.column.member', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.role', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.realm', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.contrib', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.week-contrib', undefined)}</span>
+            <span>${t('action.sect.manage.members.column.status', undefined)}</span>
+          </div>
+          ${rows}
+        </div>
+        ${summary.data.members.length <= 1 ? `<div class="sect-empty-note">${t('action.sect.manage.members.empty', undefined)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  renderSectManagementRolesPanel(summary: SectManagementSummary): string {
+    const cards = summary.data.roles.map((role) => this.renderSectRolePermissionCard(summary, role)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">${t('action.sect.manage.roles.title', undefined)}</div>
+          </div>
+        </div>
+        <div class="sect-role-grid">
+          ${cards}
+        </div>
+        <div class="sect-current-role">${t('action.sect.manage.roles.copy', undefined)}</div>
+      </div>
+    `;
+  }
+
+  renderSectManagementManagePanel(summary: SectManagementSummary): string {
+    const transferTargets = summary.data.members.filter((member) => !member.self && !member.leader);
+    const transferButtons = transferTargets.length > 0
+      ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>${t('action.sect.manage.manage.transfer-to', { name: escapeHtml(member.name) })}</button>`).join('')
+      : `<div class="sect-empty-note">${t('action.sect.manage.manage.transfer-empty', undefined)}</div>`;
+    const applicationRows = summary.data.applications.length > 0
+      ? summary.data.applications.map((entry) => `
+        <div class="sect-application-table-row">
+          <span class="sect-member-name-cell">
+            <span class="sect-member-name-main">${escapeHtml(entry.name)}</span>
+            <span class="sect-member-name-sub">${t('action.sect.manage.manage.pending', undefined)}</span>
+          </span>
+          <span>${t('action.sect.manage.manage.application-type', undefined)}</span>
+          <span>${escapeHtml(formatSectTimestamp(entry.appliedAt))}</span>
+          <span class="action-section-actions">
+            <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.approve', undefined)}</button>
+            <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.reject', undefined)}</button>
+          </span>
+        </div>
+      `).join('')
+      : `<div class="sect-empty-note">${t('action.sect.manage.manage.applications-empty', undefined)}</div>`;
+    const cards: string[] = [];
+    if (summary.data.canReviewApplications) {
+      cards.push(`
+        <div class="sect-manage-card sect-manage-card--wide">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.review-title', undefined)}</div>
+          <div class="sect-application-table">
+            <div class="sect-application-table-head">
+              <span>${t('action.sect.manage.manage.column.applicant', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.type', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.time', undefined)}</span>
+              <span>${t('action.sect.manage.manage.column.actions', undefined)}</span>
+            </div>
+            ${applicationRows}
+          </div>
+        </div>
+      `);
+    }
+    if (summary.data.canManageGuardian) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.guardian-title', undefined)}</div>
+          <button class="small-btn" data-sect-manage-tab="guardian" type="button">${t('action.sect.manage.manage.go-guardian', undefined)}</button>
+        </div>
+      `);
+    }
+    if (summary.data.canTransfer) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.transfer-title', undefined)}</div>
+          <div class="action-section-actions">${transferButtons}</div>
+        </div>
+      `);
+    }
+    if (summary.data.canDissolve) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.dissolve-title', undefined)}</div>
+          <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button">${t('action.sect.manage.action.dissolve', undefined)}</button>
+        </div>
+      `);
+    }
+    if (summary.data.canLeave) {
+      cards.push(`
+        <div class="sect-manage-card">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.leave-title', undefined)}</div>
+          <button class="small-btn ghost" data-sect-action="sect:leave" type="button">${t('action.sect.manage.action.leave', undefined)}</button>
+        </div>
+      `);
+    }
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">${t('action.sect.manage.manage.title', undefined)}</div>
+          </div>
+        </div>
+        <div class="sect-manage-card-grid">
+          ${cards.join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  renderSectMemberRow(summary: SectManagementSummary, member: SectManagementMember, assignableRoles: SectManagementRole[]): string {
+    const canEditRole = summary.data.canChangeRoles && !member.leader;
+    const roleControl = canEditRole
+      ? `<select class="ui-input formation-config-input" data-sect-member-role-select="${escapeHtml(member.playerId)}">
+          ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
+        </select>`
+      : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
+    const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
+    const removeButton = canRemove
+      ? `<button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button">${t('action.sect.manage.member.remove', undefined)}</button>`
+      : '';
+    const statusClass = member.statusLabel === t('action.sect.status.online', undefined) ? 'sect-online-text' : 'sect-detail-tag';
+    return `
+      <div class="sect-member-table-row">
+        <span class="sect-member-name-cell">
+          <span class="sect-member-name-main">${escapeHtml(member.name)}</span>
+          <span class="sect-member-name-sub">${member.self ? t('action.sect.manage.member.self-role', undefined) : escapeHtml(member.roleLabel)}</span>
+        </span>
+        <span>${roleControl}</span>
+        <span>${escapeHtml(formatSectMemberRealmLabel(member, member.self ? summary.realmLabel : t('common.value.unknown', undefined)))}</span>
+        <span>0</span>
+        <span>0</span>
+        <span>
+          <span class="${statusClass}">${escapeHtml(member.statusLabel)}</span>
+          ${removeButton}
+        </span>
+      </div>
+    `;
+  }
+
+  renderSectRolePermissionCard(summary: SectManagementSummary, role: SectManagementRole): string {
+    const permissions = summary.data.permissions.map((permission) => {
+      const checked = summary.data.rolePermissions[role.id]?.[permission.id] === true;
+      const disabled = !summary.data.canEditPermissions || role.id === 'leader';
+      return `
+        <button class="skill-manage-toggle-chip ${checked ? 'active' : ''}" data-sect-action="sect:permission:toggle:${escapeHtml(role.id)}:${escapeHtml(permission.id)}" type="button"${disabled ? ' disabled' : ''}>
+          ${escapeHtml(permission.label)}
+        </button>
+      `;
+    }).join('');
+    return `
+      <div class="sect-role-card ${role.assignable ? '' : 'is-muted'}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(role.label)}</div>
+          <span class="sect-detail-tag ${role.assignable ? 'strong' : ''}">${role.assignable ? t('action.sect.manage.role.assignable', undefined) : t('action.sect.manage.role.unassignable', undefined)}</span>
+        </div>
+        <div class="sect-role-permissions">${permissions}</div>
+      </div>
+    `;
+  }
+
+  renderSectStatCard(label: string, value: string): string {
+    return `
+      <div class="sect-stat-card">
+        <div class="sect-stat-card-label">${escapeHtml(label)}</div>
+        <div class="sect-stat-card-value">${escapeHtml(value)}</div>
+      </div>
+    `;
+  }
+
+  renderSectRoleCard(title: string, badge: string, permissions: string[], disabled: boolean): string {
+    return `
+      <div class="sect-role-card ${disabled ? 'is-muted' : ''}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(title)}</div>
+          <span class="sect-detail-tag ${disabled ? '' : 'strong'}">${escapeHtml(badge)}</span>
+        </div>
+        <div class="sect-role-permissions">
+          ${permissions.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  resolveSectManagementSummary(action?: ActionDef): SectManagementSummary {
+    const rawDesc = action?.desc ?? '';
+    const data = parseSectManagementData(rawDesc, this.p.previewPlayer ?? null);
+    const desc = stripSectManagementData(rawDesc);
+    const name = desc.split('·')[0]?.trim() || action?.name || t('action.sect.manage.fallback.name', undefined);
+    const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.mark', undefined);
+    const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.domain', undefined);
+    const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);
+    const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-aura', undefined);
+    const sectIdLabel = this.p.previewPlayer?.sectId ? t('action.sect.manage.summary.sect-id', { sectId: this.p.previewPlayer.sectId }) : t('action.sect.manage.summary.bound', undefined);
+    const leaderName = data.members.find((member) => member.leader)?.name || this.p.previewPlayer?.name || this.p.previewPlayer?.displayName || this.p.previewPlayer?.id || t('action.sect.manage.fallback.leader', undefined);
+    const realmLabel = this.p.previewPlayer?.realm?.displayName || this.p.previewPlayer?.realmName || this.p.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
+    const memberCountLabel = String(data.members.length || 1);
+    const notice = t('action.sect.manage.notice', { name });
+    return { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+  }
+
+  buildSectManagementRevision(summary: SectManagementSummary): string {
+    return `${this.p.sectManagementTab}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.guardianStatusLabel}|${summary.guardianAuraLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}|${JSON.stringify(summary.data)}`;
   }
 }

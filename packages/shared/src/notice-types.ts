@@ -61,6 +61,18 @@ export interface CombatNoticePayload {
   killed?: boolean;
 }
 
+/** 结构化通知载荷：服务端只发数据，客户端负责文本拼接和渲染。 */
+export interface StructuredNoticePayload {
+  /** 语言包模板 key。 */
+  key: string;
+  /** 内插变量。 */
+  vars?: Record<string, string | number>;
+  /** 需要胶囊渲染的 vars key 列表。 */
+  pills?: string[];
+  /** 标签 badge 文本列表。 */
+  badges?: string[];
+}
+
 /** 单条通知消息视图。 */
 export interface NoticeItemView {
 /**
@@ -102,6 +114,8 @@ export interface NoticeItemView {
   castId?: string;
   /** 结构化战斗数据，存在时客户端优先使用此字段渲染。 */
   combat?: CombatNoticePayload;
+  /** 结构化通知数据，存在时客户端优先使用此字段渲染。 */
+  structured?: StructuredNoticePayload;
 }
 
 /** 通知批次视图。 */

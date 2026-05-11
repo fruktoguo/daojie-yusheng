@@ -3070,6 +3070,33 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected active-job durable update result: ${JSON.stringify(activeJobUpdateResult)}`);
     }
+    const activeJobIdempotentResult = await leaseAwareService.updateActiveJobState({
+      operationId: `${activeJobUpdateOperationId}:state-replay`,
+      playerId: activeJobPlayerId,
+      expectedRuntimeOwnerId: activeJobRuntimeOwnerId,
+      expectedSessionEpoch: 15,
+      expectedInstanceId: leasedActiveJobInstanceId,
+      expectedAssignedNodeId: 'node:durable-operation-smoke',
+      expectedOwnershipEpoch: 7,
+      action: 'update',
+      expectedJobRunId: `job:${activeJobPlayerId}:alchemy:1`,
+      expectedJobVersion: 4,
+      nextActiveJob: buildActiveJobSnapshot(activeJobPlayerId, {
+        jobRunId: `job:${activeJobPlayerId}:alchemy:1`,
+        jobType: 'alchemy',
+        jobVersion: 5,
+        phase: 'paused',
+        remainingTicks: 8,
+      }),
+    });
+    if (
+      !activeJobIdempotentResult.ok
+      || !activeJobIdempotentResult.alreadyCommitted
+      || activeJobIdempotentResult.jobRunId !== `job:${activeJobPlayerId}:alchemy:1`
+      || activeJobIdempotentResult.jobVersion !== 5
+    ) {
+      throw new Error(`unexpected active-job state-idempotent durable update result: ${JSON.stringify(activeJobIdempotentResult)}`);
+    }
     const activeJobReplayResult = await leaseAwareService.updateActiveJobState({
       operationId: activeJobUpdateOperationId,
       playerId: activeJobPlayerId,
