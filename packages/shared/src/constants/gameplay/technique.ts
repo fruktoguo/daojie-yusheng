@@ -1,5 +1,6 @@
 import { ATTR_KEYS } from './attributes';
-import type { AttrKey, Attributes, TechniqueGrade } from '../../types';
+import type { AttrKey, Attributes } from '../../attribute-types';
+import type { TechniqueGrade } from '../../cultivation-types';
 
 /**
  * 修炼、功法与品阶规则常量。

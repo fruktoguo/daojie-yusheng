@@ -1,4 +1,4 @@
-import type { TileType } from '../../types';
+import type { TileType } from '../../world-core-types';
 import { HOUSE_DECOR_TILE_TRAVERSAL_COST, HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR } from './house-terrain';
 
 /**

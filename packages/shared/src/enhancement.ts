@@ -1,11 +1,13 @@
 import type {
   Attributes,
+} from './attribute-types';
+import type {
   EnhancementMaterialRequirement,
   EnhancementTargetRef,
-  ItemStack,
-  PlayerSpecialStats,
   PlayerEnhancementJob,
-} from './types';
+} from './crafting-types';
+import type { PlayerSpecialStats } from './cultivation-types';
+import type { ItemStack } from './item-runtime-types';
 import type { PartialNumericStats } from './numeric';
 import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';

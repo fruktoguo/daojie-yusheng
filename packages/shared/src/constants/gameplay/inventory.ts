@@ -2,7 +2,7 @@
  * 背包与掉落物规则常量。
  */
 
-import type { ItemType } from '../../types';
+import type { ItemType } from '../../item-runtime-types';
 
 /** 默认背包容量。 */
 export const DEFAULT_INVENTORY_CAPACITY = 200;

@@ -6,7 +6,6 @@ import '../../http/native/native-gm.constants';
 import '../../content/content-template.repository';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
-import { MapPersistenceService } from '../../persistence/map-persistence.service';
 import { InstanceDomainPersistenceService } from '../../persistence/instance-domain-persistence.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
@@ -194,8 +193,6 @@ export class WorldRuntimeService {
 
     templateRepository;
 
-    mapPersistenceService;
-
     instanceDomainPersistenceService;
     instanceCatalogService;
 
@@ -355,7 +352,6 @@ export class WorldRuntimeService {
     constructor(
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
         @Inject(MapTemplateRepository) templateRepository: any,
-        @Inject(MapPersistenceService) mapPersistenceService: any,
         @Inject(InstanceDomainPersistenceService) instanceDomainPersistenceService: any,
         @Inject(InstanceCatalogService) instanceCatalogService: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
@@ -432,7 +428,6 @@ export class WorldRuntimeService {
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
-        this.mapPersistenceService = mapPersistenceService;
         this.instanceDomainPersistenceService = instanceDomainPersistenceService;
         this.instanceCatalogService = instanceCatalogService;
         this.playerRuntimeService = playerRuntimeService;

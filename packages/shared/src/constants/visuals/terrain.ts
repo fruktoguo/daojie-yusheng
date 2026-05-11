@@ -1,4 +1,4 @@
-import { TileType } from '../../types';
+import { TileType } from '../../world-core-types';
 import {
   HOUSE_DECOR_TILE_BG_COLORS,
   HOUSE_DECOR_TILE_GLYPHS,

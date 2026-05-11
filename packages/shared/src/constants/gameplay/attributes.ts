@@ -1,5 +1,5 @@
 import type { ElementStatGroup, NumericStats, PartialNumericStats, NumericValueType } from '../../numeric';
-import type { AttrKey } from '../../types';
+import type { AttrKey } from '../../attribute-types';
 
 /**
  * 角色属性与基础数值常量。

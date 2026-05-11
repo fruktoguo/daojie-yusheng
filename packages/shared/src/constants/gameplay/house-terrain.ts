@@ -1,4 +1,4 @@
-import { TileType } from '../../types';
+import { TileType } from '../../world-core-types';
 
 /**
  * 房屋装饰地块定义。

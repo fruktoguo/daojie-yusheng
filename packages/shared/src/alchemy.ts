@@ -5,8 +5,8 @@ import type {
   AlchemySkillState,
   PlayerAlchemyJob,
   PlayerAlchemyPreset,
-  TechniqueGrade,
-} from './types';
+} from './crafting-types';
+import type { TechniqueGrade } from './cultivation-types';
 import { computeAdjustedCraftTicks } from './craft-duration';
 import { computeCraftAdjustedSuccessRate } from './craft-success';
 

@@ -1,6 +1,7 @@
 import type { NumericRatioDivisors, NumericStats, RealmNumericTemplate } from '../../numeric';
-import type { Attributes, BreakthroughItemRequirement } from '../../types';
-import { PlayerRealmStage, TechniqueRealm } from '../../types';
+import type { Attributes } from '../../attribute-types';
+import type { BreakthroughItemRequirement } from '../../progression-view-types';
+import { PlayerRealmStage, TechniqueRealm } from '../../cultivation-types';
 import {
   addPartialNumericStats,
   cloneNumericRatioDivisors,

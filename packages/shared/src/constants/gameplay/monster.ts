@@ -1,4 +1,6 @@
-import type { NumericStatPercentages, MonsterTier, TechniqueGrade } from '../../types';
+import type { NumericStatPercentages } from '../../attribute-types';
+import type { MonsterTier } from '../../world-core-types';
+import type { TechniqueGrade } from '../../cultivation-types';
 
 /**
  * 妖兽六维、品阶与血脉层次规则常量。

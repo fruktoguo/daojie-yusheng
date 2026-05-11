@@ -1,21 +1,16 @@
 import type { ElementKey, NumericScalarStatKey } from '../../numeric';
-import { Direction, InteractableKind, StructureType, SurfaceType, TechniqueRealm, TerrainType, TileType } from '../../types';
+import { Direction, TileType } from '../../world-core-types';
+import { InteractableKind, StructureType, SurfaceType, TerrainType } from '../../map-layer-types';
+import { TechniqueRealm } from '../../cultivation-types';
 import { HOUSE_DECOR_TILE_LABELS } from '../gameplay/house-terrain';
-import type {
-  ActionType,
-  AttrKey,
-  EntityKind,
-  EquipSlot,
-  ItemType,
-  MapMinimapMarkerKind,
-  MonsterTier,
-  QuestLine,
-  QuestObjectiveType,
-  QuestStatus,
-  SkillFormulaVar,
-  TechniqueCategory,
-  TechniqueGrade,
-} from '../../types';
+import type { ActionType } from '../../action-combat-types';
+import type { AttrKey } from '../../attribute-types';
+import type { TechniqueCategory, TechniqueGrade } from '../../cultivation-types';
+import type { EntityKind, MonsterTier } from '../../world-core-types';
+import type { EquipSlot, ItemType } from '../../item-runtime-types';
+import type { MapMinimapMarkerKind } from '../../world-view-types';
+import type { QuestLine, QuestObjectiveType, QuestStatus } from '../../quest-types';
+import type { SkillFormulaVar } from '../../skill-types';
 
 /**
  * UI 标签映射常量（共享文案层）。

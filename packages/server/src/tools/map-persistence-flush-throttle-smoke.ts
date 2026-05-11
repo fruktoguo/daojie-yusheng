@@ -54,14 +54,6 @@ async function testLegacySnapshotWriteDisabledByDefault(): Promise<void> {
           };
         },
       } as never,
-      {
-        isEnabled() {
-          return true;
-        },
-        async saveMapSnapshot(instanceId: string) {
-          saveCalls.push(instanceId);
-        },
-      } as never,
     );
 
     await service.flushDirtyInstances();
@@ -95,11 +87,6 @@ async function testIntervalThrottle(): Promise<void> {
         return { skipped: false };
       },
     } as never,
-    {
-      isEnabled() {
-        return true;
-      },
-    } as never,
   );
 
   await service.flushDirtyInstances();
@@ -131,11 +118,6 @@ async function testIntervalSkipsDeferredTimeCheckpoint(): Promise<void> {
       async flushInstanceDomains(instanceId: string, domains: string[] | null) {
         flushCalls.push({ instanceId, domains });
         return { skipped: false };
-      },
-    } as never,
-    {
-      isEnabled() {
-        return false;
       },
     } as never,
   );
@@ -177,11 +159,6 @@ async function testIntervalBatchesDueTimeCheckpoints(): Promise<void> {
         return { skipped: false };
       },
     } as never,
-    {
-      isEnabled() {
-        return false;
-      },
-    } as never,
   );
   (service as unknown as { nextTimeCheckpointFlushAt: number }).nextTimeCheckpointFlushAt = 0;
 
@@ -220,11 +197,6 @@ async function testIntervalSkipsDeferredMonsterRuntime(): Promise<void> {
         return { skipped: false };
       },
     } as never,
-    {
-      isEnabled() {
-        return false;
-      },
-    } as never,
   );
   (service as unknown as { nextMonsterRuntimeFlushAt: number }).nextMonsterRuntimeFlushAt = Date.now() + 60_000;
 
@@ -256,11 +228,6 @@ async function testDomainOnlyShutdownFlush(): Promise<void> {
       async flushInstanceDomains(instanceId: string, domains: string[] | null) {
         flushCalls.push({ instanceId, domains });
         return { skipped: false };
-      },
-    } as never,
-    {
-      isEnabled() {
-        return false;
       },
     } as never,
   );

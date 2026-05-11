@@ -7,7 +7,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
-import { MapPersistenceService } from './map-persistence.service';
 
 const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
@@ -59,11 +58,6 @@ export class MapPersistenceFlushService {
 
     worldRuntimeService;
     /**
- * mapPersistenceService：地图Persistence服务引用。
- */
-
-    mapPersistenceService;
-    /**
  * logger：日志器引用。
  */
 
@@ -102,10 +96,8 @@ export class MapPersistenceFlushService {
 
     constructor(
         @Inject(WorldRuntimeService) worldRuntimeService: any,
-        @Inject(MapPersistenceService) mapPersistenceService: any,
     ) {
         this.worldRuntimeService = worldRuntimeService;
-        this.mapPersistenceService = mapPersistenceService;
     }
     /**
  * onModuleInit：执行on模块Init相关逻辑。

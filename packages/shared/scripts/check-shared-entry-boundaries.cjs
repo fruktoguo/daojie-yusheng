@@ -58,17 +58,6 @@ function checkProtocolBoundary() {
   }
 }
 
-function checkTypesBoundary() {
-  const { filePath, sourceFile } = loadSourceFile('types.ts');
-
-  for (const statement of sourceFile.statements) {
-    if (ts.isExportDeclaration(statement)) {
-      continue;
-    }
-    fail(`${filePath} must remain a pure compatibility barrel, found: ${ts.SyntaxKind[statement.kind]}`);
-  }
-}
-
 function checkNetworkProtobufBoundary() {
   const { filePath, sourceFile } = loadSourceFile('network-protobuf.ts');
   const allowedFunctions = new Set([
@@ -98,7 +87,6 @@ function checkNetworkProtobufBoundary() {
 }
 
 checkProtocolBoundary();
-checkTypesBoundary();
 checkNetworkProtobufBoundary();
 
 console.log('shared entry boundary check passed');

@@ -1,4 +1,4 @@
-import type { QuestLine, QuestObjectiveType, QuestStatus } from '../../types';
+import type { QuestLine, QuestObjectiveType, QuestStatus } from '../../quest-types';
 
 /**
  * 任务系统通用键集合常量。

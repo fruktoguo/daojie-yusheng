@@ -1,4 +1,4 @@
-import type { GameTimeState, MapTimeConfig, TimePhaseId, VisibleBuffState } from '../../types';
+import type { GameTimeState, MapTimeConfig, TimePhaseId, VisibleBuffState } from '../../world-core-types';
 
 /**
  * 地图世界常量（视野、昼夜与时间流）。

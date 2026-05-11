@@ -1,5 +1,5 @@
-import { TileType } from '../../types';
-import type { MapMinimapMarkerKind } from '../../types';
+import { TileType } from '../../world-core-types';
+import type { MapMinimapMarkerKind } from '../../world-view-types';
 import { HOUSE_DECOR_TILE_MINIMAP_COLORS } from '../gameplay/house-terrain';
 
 /**

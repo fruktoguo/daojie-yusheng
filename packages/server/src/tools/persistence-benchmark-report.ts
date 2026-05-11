@@ -133,7 +133,6 @@ async function main(): Promise<void> {
           return;
         },
       } as never,
-      mapPersistenceService,
     );
 
     await runBatched(instanceIds, concurrency, async (instanceId) => {
