@@ -3,6 +3,7 @@ import { computeAdjustedCraftTicks, computeCraftSkillExpGain, resolveAlchemyGrad
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
@@ -900,7 +901,8 @@ export class WorldRuntimeLootContainerService {
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             deps.refreshQuestStates(playerId);
-            deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
+            const n = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${formatItemStackLabel(item)}`, { vars: { itemName: formatItemStackLabel(item) }, pills: [{ key: 'itemName', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return;
         }
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
@@ -935,7 +937,8 @@ export class WorldRuntimeLootContainerService {
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, item);
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
+        const n2 = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${formatItemStackLabel(item)}`, { vars: { itemName: formatItemStackLabel(item) }, pills: [{ key: 'itemName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
     }    
     /**
  * dispatchTakeGroundAll：判断Take地面All是否满足条件。
@@ -979,7 +982,8 @@ export class WorldRuntimeLootContainerService {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
             }
             deps.refreshQuestStates(playerId);
-            deps.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
+            const n = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${formatItemListSummary(takenItems)}`, { vars: { itemList: formatItemListSummary(takenItems) }, pills: [{ key: 'itemList', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return;
         }
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
@@ -1023,9 +1027,11 @@ export class WorldRuntimeLootContainerService {
             return;
         }
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
+        const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${formatItemListSummary(takenItems)}`, { vars: { itemList: formatItemListSummary(takenItems) }, pills: [{ key: 'itemList', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n3.text, n3.kind, undefined, undefined, n3.structured);
         if (takenItems.length < pile.items.length) {
-            deps.queuePlayerNotice(playerId, '背包空间不足，剩余物品暂时拿不下。', 'info');
+            const nBagFull = buildStructuredNotice('info', 'notice.loot.bag-full', '背包空间不足，剩余物品暂时拿不下。', {});
+            deps.queuePlayerNotice(playerId, nBagFull.text, nBagFull.kind, undefined, undefined, nBagFull.structured);
         }
     }    
     /**

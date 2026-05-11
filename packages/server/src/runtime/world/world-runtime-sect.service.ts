@@ -3,6 +3,7 @@ import { FORMATION_AURA_PER_SPIRIT_STONE, TileType, formatDisplayInteger, getFir
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { createSquareExpansionShape, expandRuntimeTiles } from '../map/runtime-tile-expansion';
+import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const SECT_TABLE = 'server_sect';
@@ -138,7 +139,11 @@ class WorldRuntimeSectService {
         touchRuntimeInstanceRevision(deps, entranceInstance.meta.instanceId);
         touchRuntimeInstanceRevision(deps, sectInstance.meta.instanceId);
         this.persistSectsSoon();
-        deps.queuePlayerNotice(playerId, `建宗令化作山门，你开辟了${sect.name}。`, 'success');
+        const nFounded = buildStructuredNotice('success', 'notice.sect.founded', `建宗令化作山门，你开辟了${sect.name}。`, {
+            vars: { sectName: sect.name },
+            pills: [{ key: 'sectName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, nFounded.text, nFounded.kind, undefined, undefined, nFounded.structured);
         deps.refreshQuestStates?.(playerId);
         return sect;
     }
@@ -298,7 +303,8 @@ class WorldRuntimeSectService {
                 formationInstanceId: guardianId,
                 active: !(formation?.active !== false),
             }, deps);
-            deps.queuePlayerNotice(playerId, '护宗大阵状态已切换。', 'success');
+            const nToggled = buildStructuredNotice('success', 'notice.sect.formation-toggled', '护宗大阵状态已切换。');
+            deps.queuePlayerNotice(playerId, nToggled.text, nToggled.kind, undefined, undefined, nToggled.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:guardian:inject:')) {
@@ -311,7 +317,8 @@ class WorldRuntimeSectService {
                 formationInstanceId: formation?.id ?? guardianId,
                 spiritStoneCount: normalizeNonNegativeInteger(stoneText),
             }, deps);
-            deps.queuePlayerNotice(playerId, '护宗大阵灵力已注入。', 'success');
+            const nCharged = buildStructuredNotice('success', 'notice.sect.formation-charged', '护宗大阵灵力已注入。');
+            deps.queuePlayerNotice(playerId, nCharged.text, nCharged.kind, undefined, undefined, nCharged.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:guardian:refill') {
@@ -326,7 +333,8 @@ class WorldRuntimeSectService {
                     spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
                 }, deps);
             }
-            deps.queuePlayerNotice(playerId, '护宗大阵已补充灵力。', 'success');
+            const nReplenished = buildStructuredNotice('success', 'notice.sect.formation-replenished', '护宗大阵已补充灵力。');
+            deps.queuePlayerNotice(playerId, nReplenished.text, nReplenished.kind, undefined, undefined, nReplenished.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:member:remove:')) {

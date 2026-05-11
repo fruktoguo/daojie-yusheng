@@ -8,6 +8,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
@@ -114,7 +115,8 @@ export class WorldRuntimeNpcShopService {
                     this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
                     this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
                     deps.refreshQuestStates(playerId);
-                    deps.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, 'success');
+                    const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
+                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     return deps.getPlayerViewOrThrow(playerId);
                 });
             }
@@ -122,7 +124,8 @@ export class WorldRuntimeNpcShopService {
         this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
         this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, 'success');
+        const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
         return deps.getPlayerViewOrThrow(playerId);
     }
 };

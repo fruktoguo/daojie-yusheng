@@ -8,6 +8,7 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
@@ -63,7 +64,8 @@ export class WorldRuntimeUseItemService {
         }
         const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
-            deps.queuePlayerNotice(playerId, '阵盘需要通过背包中的布阵页面使用。', 'info');
+            const n = buildStructuredNotice('info', 'notice.item.formation-hint', '阵盘需要通过背包中的布阵页面使用。', {});
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return;
         }
         if (item.useBehavior === 'create_sect') {
@@ -99,7 +101,8 @@ export class WorldRuntimeUseItemService {
         else {
             deps.refreshQuestStates(playerId);
         }
-        deps.queuePlayerNotice(playerId, `使用 ${item.name}`, 'success');
+        const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
     /**
  * handleMapUnlockItem：处理地图Unlock道具并更新相关状态。
@@ -169,7 +172,8 @@ export class WorldRuntimeUseItemService {
         const targetLabel = targetLabelOverride || (mapUnlockIds.length === 1
             ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
             : `${item.name ?? '地图'}记载的区域`);
-        deps.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
+        const n = buildStructuredNotice('success', 'notice.item.map-unlocked', `已解锁地图：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
     /**
  * handleRespawnBindItem：处理复活点绑定道具。
@@ -195,7 +199,8 @@ export class WorldRuntimeUseItemService {
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         deps.refreshQuestStates(playerId);
         const targetLabel = this.templateRepository.getOrThrow(normalizedMapId).name;
-        deps.queuePlayerNotice(playerId, `复活点与遁返落点已绑定：${targetLabel}`, 'success');
+        const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
     /**
  * handleTileResourceItem：处理Tile资源道具并更新相关状态。

@@ -5,6 +5,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 interface CultivationPlayerRuntimePort<TPlayer = unknown> {
   getPlayerOrThrow(playerId: string): TPlayer;
@@ -16,7 +17,7 @@ interface CultivationDeps<TPlayer = unknown> {
   craftPanelRuntimeService: {
     getCultivationBlockReason(player: TPlayer): string | null | undefined;
   };
-  queuePlayerNotice(playerId: string, message: string, kind: 'info' | 'success' | 'warn' | 'error'): void;
+  queuePlayerNotice(playerId: string, message: string, kind: string, title?: unknown, icon?: unknown, structured?: unknown): void;
 }
 
 /** 功法修炼切换调度，校验阻塞后执行切换并通知玩家 */
@@ -35,10 +36,15 @@ export class WorldRuntimeCultivationService {
     }
     this.playerRuntimeService.cultivateTechnique(playerId, techniqueId);
     if (!techniqueId) {
-      deps.queuePlayerNotice(playerId, '已取消主修功法', 'info');
+      const n = buildStructuredNotice('info', 'notice.cultivation.cleared', '已取消主修功法');
+      deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
       return;
     }
     const techniqueName = this.playerRuntimeService.getTechniqueName(playerId, techniqueId) ?? techniqueId;
-    deps.queuePlayerNotice(playerId, `已设为主修 ${techniqueName}`, 'success');
+    const n = buildStructuredNotice('success', 'notice.cultivation.set-primary', `已设为主修 ${techniqueName}`, {
+      vars: { techniqueName },
+      pills: [{ key: 'techniqueName', style: 'target' }],
+    });
+    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
   }
 }

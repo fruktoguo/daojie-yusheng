@@ -8,6 +8,7 @@ import { WorldClientEventService } from '../../network/world-client-event.servic
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { emitTechniqueActivityPanel, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
 @Injectable()
@@ -190,11 +191,13 @@ export class WorldRuntimeCraftMutationService {
         for (const item of items) {
             try {
                 deps.spawnGroundItem(instance, player.x, player.y, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, 'loot');
+                const n = buildStructuredNotice('loot', 'notice.craft.overflow-ground', `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, { vars: { itemLabel: formatItemStackLabel(item) }, pills: [{ key: 'itemLabel', style: 'target' }] });
+                deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             }
             catch {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, 'warn');
+                const n = buildStructuredNotice('warn', 'notice.craft.overflow-inventory', `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, { vars: { itemLabel: formatItemStackLabel(item) }, pills: [{ key: 'itemLabel', style: 'target' }] });
+                deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             }
         }
     }

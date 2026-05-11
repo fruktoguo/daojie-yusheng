@@ -6,6 +6,7 @@ import { Inject, Injectable, BadRequestException, Logger, NotFoundException } fr
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../../debug/movement-debug';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 
@@ -285,7 +286,13 @@ export class WorldRuntimeNavigationService {
             ?? (typeof deps.getOrCreateDefaultLineInstance === 'function'
                 ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
                 : deps.getOrCreatePublicInstance(transfer.targetMapId));
-        deps.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${targetInstance.template.name}`, 'travel');
+        const mapName = targetInstance.template.name;
+        const travelMethod = transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉';
+        const n = buildStructuredNotice('travel', 'notice.travel.arrived', `${travelMethod}抵达 ${mapName}`, {
+            vars: { travelMethod, mapName },
+            pills: [{ key: 'mapName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(transfer.playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
     /**
  * materializeNavigationCommands：执行materialize导航Command相关逻辑。

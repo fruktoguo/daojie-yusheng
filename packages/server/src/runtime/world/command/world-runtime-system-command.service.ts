@@ -4,6 +4,7 @@ import { WorldRuntimeGmQueueService } from './world-runtime-gm-queue.service';
 import { WorldRuntimeMonsterSystemCommandService } from './world-runtime-monster-system-command.service';
 import { WorldRuntimePlayerCombatOutcomeService } from '../combat/world-runtime-player-combat-outcome.service';
 import { WorldRuntimeGmSystemCommandService } from './world-runtime-gm-system-command.service';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 
 /** world-runtime system-command orchestration：承接系统命令队列消费与分发。 */
 @Injectable()
@@ -131,7 +132,10 @@ export class WorldRuntimeSystemCommandService {
         const cooldownLeft = Math.max(0, readyTick - currentTick);
         if (cooldownLeft > 0) {
             if (typeof deps.queuePlayerNotice === 'function') {
-                deps.queuePlayerNotice(playerId, `行动尚在调息中，还需 ${cooldownLeft} 息`, 'system');
+                const n = buildStructuredNotice('system', 'notice.system.cooldown', `行动尚在调息中，还需 ${cooldownLeft} 息`, {
+                    vars: { cooldownLeft },
+                });
+                deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             }
             deps.playerRuntimeService.rebuildActionState?.(player, currentTick);
             return;

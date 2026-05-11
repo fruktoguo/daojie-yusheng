@@ -4,6 +4,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 const PRISON_MAP_ID = 'prison';
 
@@ -109,7 +110,12 @@ export class WorldRuntimeRespawnService {
             currentTick: targetInstance.tick,
             buffClearMode: options?.buffClearMode ?? 'death',
         });
-        deps.queuePlayerNotice(playerId, `已在 ${targetInstance.template.name} 复生`, 'travel');
+        const mapName = targetInstance.template.name;
+        const n = buildStructuredNotice('travel', 'notice.respawn.revived', `已在 ${mapName} 复生`, {
+            vars: { mapName },
+            pills: [{ key: 'mapName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
 };
 

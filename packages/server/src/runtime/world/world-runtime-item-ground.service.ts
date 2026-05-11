@@ -1,5 +1,6 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
@@ -45,7 +46,12 @@ export class WorldRuntimeItemGroundService {
             throw new BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
         }
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
+        const itemLabel = formatItemStackLabel(item);
+        const n = buildStructuredNotice('info', 'notice.item.dropped', `放下 ${itemLabel}`, {
+            vars: { itemName: itemLabel },
+            pills: [{ key: 'itemName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。

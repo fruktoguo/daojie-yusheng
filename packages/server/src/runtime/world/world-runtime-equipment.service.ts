@@ -6,6 +6,7 @@ import { Inject, Injectable, BadRequestException, NotFoundException } from '@nes
 import { createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** world-runtime equipment orchestration：承接装备穿戴/卸下结算。 */
 @Injectable()
@@ -79,14 +80,16 @@ export class WorldRuntimeEquipmentService {
                 }).then(() => {
                     this.playerRuntimeService.replaceInventoryItems(playerId, mutation.nextInventoryItems);
                     this.playerRuntimeService.replaceEquipmentSlots(playerId, mutation.nextEquipmentSlots);
-                    deps.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
+                    const n = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
                     return deps.getPlayerViewOrThrow(playerId);
                 });
             }
         }
         this.playerRuntimeService.equipItem(playerId, slotIndex);
-        deps.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
+        const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n1.text, n1.kind, undefined, undefined, n1.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }    
     /**
@@ -137,14 +140,16 @@ export class WorldRuntimeEquipmentService {
                 }).then(() => {
                     this.playerRuntimeService.replaceInventoryItems(playerId, mutation.nextInventoryItems);
                     this.playerRuntimeService.replaceEquipmentSlots(playerId, mutation.nextEquipmentSlots);
-                    deps.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
+                    const n = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
                     return deps.getPlayerViewOrThrow(playerId);
                 });
             }
         }
         this.playerRuntimeService.unequipItem(playerId, slot);
-        deps.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
+        const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }
 };

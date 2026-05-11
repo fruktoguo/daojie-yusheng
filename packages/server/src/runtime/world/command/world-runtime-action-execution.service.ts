@@ -1,6 +1,7 @@
 import { Inject, Injectable, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeNpcQuestWriteService } from '../world-runtime-npc-quest-write.service';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } from '../../../constants/gameplay/pvp';
 
@@ -115,7 +116,10 @@ export class WorldRuntimeActionExecutionService {
                 throw new BadRequestException('底蕴数量不能为空');
             }
             const result = this.playerRuntimeService.infuseBodyTraining(playerId, foundationAmount);
-            deps.queuePlayerNotice(playerId, `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, 'success');
+            const nBodyTraining = buildStructuredNotice('success', 'notice.action.body-training-convert', `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, {
+                vars: { foundationSpent: result.foundationSpent, expGained: result.expGained },
+            });
+            deps.queuePlayerNotice(playerId, nBodyTraining.text, nBodyTraining.kind, undefined, undefined, nBodyTraining.structured);
             return {
                 kind: 'queued',
                 view: deps.getPlayerViewOrThrow(playerId),
@@ -143,7 +147,11 @@ export class WorldRuntimeActionExecutionService {
                 deps.worldRuntimeCraftInterruptService?.interruptCraftForReason(playerId, player, 'cultivate', deps);
             }
             this.playerRuntimeService.updateCombatSettings(playerId, { cultivationActive: nextActive }, currentTick);
-            deps.queuePlayerNotice(playerId, nextActive ? '已恢复当前修炼' : '已停止当前修炼', 'info');
+            const cultText = nextActive ? '已恢复当前修炼' : '已停止当前修炼';
+            const nCult = buildStructuredNotice('info', 'notice.action.cultivation-toggled', cultText, {
+                vars: { state: nextActive ? 'resumed' : 'stopped' },
+            });
+            deps.queuePlayerNotice(playerId, nCult.text, nCult.kind, undefined, undefined, nCult.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'toggle:auto_switch_cultivation') {
@@ -180,18 +188,27 @@ export class WorldRuntimeActionExecutionService {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             const nextActive = !player.combat.senseQiActive;
             this.playerRuntimeService.updateCombatSettings(playerId, { senseQiActive: nextActive, wangQiActive: nextActive ? false : player.combat.wangQiActive === true }, currentTick);
-            deps.queuePlayerNotice(playerId, nextActive ? '已开启感气视角' : '已关闭感气视角', 'info');
+            const senseText = nextActive ? '已开启感气视角' : '已关闭感气视角';
+            const nSense = buildStructuredNotice('info', 'notice.action.aura-sense-toggled', senseText, {
+                vars: { state: nextActive ? 'on' : 'off' },
+            });
+            deps.queuePlayerNotice(playerId, nSense.text, nSense.kind, undefined, undefined, nSense.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'wang_qi:toggle') {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             if (!hasEquippedItem(player, 'equip.copper_luopan')) {
-                deps.queuePlayerNotice(playerId, '需要装备铜罗盘才能望气', 'warn');
+                const nCompass = buildStructuredNotice('warn', 'notice.action.compass-required', '需要装备铜罗盘才能望气');
+                deps.queuePlayerNotice(playerId, nCompass.text, nCompass.kind, undefined, undefined, nCompass.structured);
                 return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
             }
             const nextActive = !player.combat.wangQiActive;
             this.playerRuntimeService.updateCombatSettings(playerId, { wangQiActive: nextActive, senseQiActive: nextActive ? false : player.combat.senseQiActive === true }, currentTick);
-            deps.queuePlayerNotice(playerId, nextActive ? '已开启望气视角' : '已关闭望气视角', 'info');
+            const wangText = nextActive ? '已开启望气视角' : '已关闭望气视角';
+            const nWang = buildStructuredNotice('info', 'notice.action.qi-sense-toggled', wangText, {
+                vars: { state: nextActive ? 'on' : 'off' },
+            });
+            deps.queuePlayerNotice(playerId, nWang.text, nWang.kind, undefined, undefined, nWang.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('formation:toggle:')) {
