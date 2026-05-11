@@ -81,6 +81,7 @@ function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
     from: item.from,
     occurredAt: item.occurredAt,
     persistUntilAck: item.persistUntilAck,
+    ...(item.structured ? { structured: item.structured } : undefined),
   };
 }
 /**
@@ -135,7 +136,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               ? t('notice.channel.combat', undefined)
               : t('notice.channel.loot', undefined)
         );
-        void options.chatUI.addMessage(rawText, label, data.kind);
+        void options.chatUI.addMessage(rawText, label, data.kind, data.structured ? { structured: data.structured } : undefined);
         if (data.kind === 'quest' || data.kind === 'loot') {
           options.showToast(rawText, data.kind);
         }
@@ -150,13 +151,13 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               : t('notice.channel.travel', undefined)
         );
         const text = rewriteClientNoticeText(rawText);
-        void options.chatUI.addMessage(text, label, data.kind);
+        void options.chatUI.addMessage(text, label, data.kind, data.structured ? { structured: data.structured } : undefined);
         options.showToast(text, data.kind);
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
       const text = rewriteClientNoticeText(rawText);
-      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind);
+      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured ? { structured: data.structured } : undefined);
       if (text === t('notice.rewrite.unreachable', undefined)
         || text === t('notice.rewrite.target-too-far', undefined)) {
         options.clearCurrentPath();

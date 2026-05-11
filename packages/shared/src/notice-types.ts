@@ -61,14 +61,28 @@ export interface CombatNoticePayload {
   killed?: boolean;
 }
 
+/** 胶囊渲染配置。 */
+export interface NoticePillConfig {
+  /** 对应 vars 中的 key。 */
+  key: string;
+  /** 胶囊样式：target（目标名）、skill（技能名）、damage（数值）。默认 target。 */
+  style?: 'target' | 'skill' | 'damage';
+  /** 胶囊颜色（仅 damage 样式生效）。 */
+  color?: string;
+  /** hover tooltip 标题。 */
+  tooltipTitle?: string;
+  /** hover tooltip 内容行。 */
+  tooltipLines?: string[];
+}
+
 /** 结构化通知载荷：服务端只发数据，客户端负责文本拼接和渲染。 */
 export interface StructuredNoticePayload {
   /** 语言包模板 key。 */
   key: string;
   /** 内插变量。 */
   vars?: Record<string, string | number>;
-  /** 需要胶囊渲染的 vars key 列表。 */
-  pills?: string[];
+  /** 需要胶囊渲染的字段配置。 */
+  pills?: NoticePillConfig[];
   /** 标签 badge 文本列表。 */
   badges?: string[];
 }
@@ -185,4 +199,6 @@ export interface SystemMessageView {
 
     color?: string;
   };
+  /** 结构化通知数据，存在时客户端优先使用此字段渲染。 */
+  structured?: StructuredNoticePayload;
 }

@@ -1,4 +1,4 @@
-import type { NoticeKind, StructuredNoticePayload } from '@mud/shared';
+import type { NoticePillConfig, NoticeKind, StructuredNoticePayload } from '@mud/shared';
 
 /** 结构化通知入队参数。 */
 export interface StructuredNoticeInput {
@@ -15,7 +15,7 @@ export function buildStructuredNotice(
   kind: NoticeKind,
   key: string,
   fallbackText: string,
-  opts?: { vars?: Record<string, string | number>; pills?: string[]; badges?: string[] },
+  opts?: { vars?: Record<string, string | number>; pills?: NoticePillConfig[]; badges?: string[] },
 ): StructuredNoticeInput {
   return {
     kind,

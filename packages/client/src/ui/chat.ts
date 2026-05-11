@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { formatDisplayNumber, getDamageTrailColor, uiLabels, type CombatNoticePayload, type ElementKey, type SkillDamageKind } from '@mud/shared';
+import { formatDisplayNumber, getDamageTrailColor, uiLabels, type CombatNoticePayload, type ElementKey, type NoticePillConfig, type SkillDamageKind, type StructuredNoticePayload } from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -26,6 +26,7 @@ import {
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
+import { tLoose } from './i18n';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -77,6 +78,8 @@ interface ChatAddMessageOptions {
   combat?: unknown;
   /** 多目标合并战斗数据。 */
   combatGroup?: unknown[];
+  /** 结构化通知数据。 */
+  structured?: unknown;
 }
 
 /** 解析后的战斗伤害或治疗文本片段。 */
@@ -543,8 +546,89 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     return fragment;
   }
 
+  // 结构化通知渲染
+  if (entry.structured) {
+    appendStructuredNoticeLine(fragment, entry.structured, linePrefix);
+    return fragment;
+  }
+
   fragment.append(linePrefix + entry.text);
   return fragment;
+}
+
+/** 内插模板占位符正则。 */
+const NOTICE_PLACEHOLDER_PATTERN = /\{([a-zA-Z][a-zA-Z0-9_]*)\}/g;
+
+/** 渲染结构化通知消息：按语言包模板内插，pills 字段用胶囊样式。 */
+function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, raw: unknown, prefix: string): void {
+  const data = raw as StructuredNoticePayload;
+  if (!data || !data.key) {
+    container.append(prefix);
+    return;
+  }
+  const template = tLoose(data.key, undefined, data.key);
+  const vars = data.vars ?? {};
+  const pillMap = new Map<string, NoticePillConfig>();
+  for (const pill of data.pills ?? []) {
+    if (typeof pill === 'string') {
+      pillMap.set(pill, { key: pill });
+    } else if (pill && pill.key) {
+      pillMap.set(pill.key, pill);
+    }
+  }
+
+  container.append(prefix);
+
+  // 按占位符拆分模板，交替渲染文本和胶囊
+  let lastIndex = 0;
+  NOTICE_PLACEHOLDER_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = NOTICE_PLACEHOLDER_PATTERN.exec(template)) !== null) {
+    const before = template.slice(lastIndex, match.index);
+    if (before) container.append(before);
+    const varName = match[1];
+    const value = String(vars[varName] ?? match[0]);
+    const pillConfig = pillMap.get(varName);
+    if (pillConfig) {
+      container.appendChild(buildNoticePill(value, pillConfig));
+    } else {
+      container.append(value);
+    }
+    lastIndex = NOTICE_PLACEHOLDER_PATTERN.lastIndex;
+  }
+  const tail = template.slice(lastIndex);
+  if (tail) container.append(tail);
+
+  // 渲染 badges
+  for (const badge of data.badges ?? []) {
+    container.appendChild(buildLabelBadge(badge));
+  }
+}
+
+/** 根据 pill 配置构建胶囊元素。 */
+function buildNoticePill(value: string, config: NoticePillConfig): HTMLSpanElement {
+  const pill = document.createElement('span');
+  const style = config.style ?? 'target';
+  if (style === 'skill') {
+    pill.className = 'chat-skill-pill';
+  } else if (style === 'damage') {
+    pill.className = 'chat-damage-pill';
+    const color = config.color ?? '#ef4444';
+    pill.style.setProperty('--chat-damage-pill-color', color);
+    pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+    pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+    pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+  } else {
+    pill.className = 'chat-target-pill';
+  }
+  pill.textContent = value;
+  if (config.tooltipTitle) {
+    pill.dataset.chatDamageTooltipTitle = config.tooltipTitle;
+  }
+  if (config.tooltipLines && config.tooltipLines.length > 0) {
+    pill.dataset.chatDamageTooltipLines = config.tooltipLines.join('\n');
+  }
+  return pill;
 }
 
 /** 匹配"你对{target}施展{skill}"格式。 */
@@ -898,6 +982,7 @@ export class ChatUI {
       scope: resolvedScope,
       ...(resolvedOptions?.combat ? { combat: resolvedOptions.combat } : undefined),
       ...(resolvedOptions?.combatGroup ? { combatGroup: resolvedOptions.combatGroup } : undefined),
+      ...(resolvedOptions?.structured ? { structured: resolvedOptions.structured } : undefined),
     };
     const channels = this.resolveChannels(entry);
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));

@@ -60,6 +60,8 @@ export interface ChatStoredMessage {
   combat?: unknown;
   /** 结构化战斗数据（多目标合并）。 */
   combatGroup?: unknown[];
+  /** 结构化通知数据。 */
+  structured?: unknown;
 }
 
 /** DEFAULT_CHAT_CHANNEL：聊天CHANNEL默认值。 */
