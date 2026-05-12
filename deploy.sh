@@ -37,7 +37,7 @@ registry_host_from_prefix() {
   esac
 }
 
-ensure_registry_auth() {
+sync_registry_auth_if_available() {
   local registry
   registry="$(registry_host_from_prefix "${TENCENT_IMAGE_PREFIX}")"
   if [ -z "$registry" ]; then
@@ -46,26 +46,16 @@ ensure_registry_auth() {
 
   if [ -s "$DOCKER_AUTH_CONFIG_FILE" ] && grep -Fq "\"${registry}\"" "$DOCKER_AUTH_CONFIG_FILE"; then
     log_info "已检测到 Docker 镜像仓库登录信息: ${registry}"
+    mkdir -p "$WATCHTOWER_CONFIG_DIR"
+    cp "$DOCKER_AUTH_CONFIG_FILE" "$WATCHTOWER_CONFIG_FILE"
+    chmod 600 "$WATCHTOWER_CONFIG_FILE"
+    printf '      - %s:/config.json:ro\n' "$WATCHTOWER_CONFIG_FILE" > "$WATCHTOWER_AUTH_VOLUME_FILE"
+    log_info "Watchtower 镜像仓库凭据已同步"
   else
-    log_warn "未检测到 root 用户的 Docker 镜像仓库登录信息: ${registry}"
-    log_warn "私有 CCR 镜像需要先登录，否则 Swarm 和 Watchtower 可能无法拉取镜像"
-    printf "  是否现在执行 docker login %s？[Y/n]: " "$registry"
-    read -r login_answer </dev/tty
-    case "${login_answer:-Y}" in
-      y|Y|yes|YES)
-        docker login "$registry"
-        ;;
-      *)
-        log_error "缺少私有镜像仓库登录信息，已停止部署"
-        exit 1
-        ;;
-    esac
+    : > "$WATCHTOWER_AUTH_VOLUME_FILE"
+    log_info "未检测到 Docker 镜像仓库登录信息；按公开镜像仓库继续部署"
+    log_warn "如果该仓库实际是私有仓库，请先执行 sudo docker login ${registry} 后重跑"
   fi
-
-  mkdir -p "$WATCHTOWER_CONFIG_DIR"
-  cp "$DOCKER_AUTH_CONFIG_FILE" "$WATCHTOWER_CONFIG_FILE"
-  chmod 600 "$WATCHTOWER_CONFIG_FILE"
-  log_info "Watchtower 镜像仓库凭据已同步"
 }
 
 DEPLOY_DIR="/opt/daojie-yusheng"
@@ -76,6 +66,7 @@ DEPLOY_SCRIPT_URL="${DEPLOY_SCRIPT_URL:-https://raw.githubusercontent.com/frukto
 DOCKER_AUTH_CONFIG_FILE="/root/.docker/config.json"
 WATCHTOWER_CONFIG_DIR="${DEPLOY_DIR}/watchtower"
 WATCHTOWER_CONFIG_FILE="${WATCHTOWER_CONFIG_DIR}/config.json"
+WATCHTOWER_AUTH_VOLUME_FILE="${DEPLOY_DIR}/watchtower-volume.yml"
 
 mkdir -p "$DEPLOY_DIR"
 
@@ -199,7 +190,7 @@ else
   set -a && . "$ENV_FILE" && set +a
 fi
 
-ensure_registry_auth
+sync_registry_auth_if_available
 
 # ============================================================
 # 生成 Stack 文件（内嵌）
@@ -370,7 +361,7 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${WATCHTOWER_CONFIG_FILE:-/opt/daojie-yusheng/watchtower/config.json}:/config.json:ro
+      # WATCHTOWER_AUTH_VOLUME_PLACEHOLDER
     environment:
       WATCHTOWER_POLL_INTERVAL: 60
       WATCHTOWER_CLEANUP: "true"
@@ -397,6 +388,19 @@ networks:
     driver: overlay
     attachable: true
 STACK_EOF
+
+tmp_stack_file="${STACK_FILE}.tmp"
+watchtower_auth_volume="$(cat "$WATCHTOWER_AUTH_VOLUME_FILE")"
+awk -v replacement="$watchtower_auth_volume" '
+  /^[[:space:]]*#[[:space:]]*WATCHTOWER_AUTH_VOLUME_PLACEHOLDER$/ {
+    if (replacement != "") {
+      print replacement
+    }
+    next
+  }
+  { print }
+' "$STACK_FILE" > "$tmp_stack_file"
+mv "$tmp_stack_file" "$STACK_FILE"
 
 log_info "Stack 文件已生成: $STACK_FILE"
 

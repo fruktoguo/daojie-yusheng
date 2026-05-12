@@ -40,6 +40,8 @@
 tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 ```
 
+公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`，脚本检测到登录信息后会同步给 Watchtower。
+
 下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
 
 ### 1. 初始化 Swarm
