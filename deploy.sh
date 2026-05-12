@@ -363,6 +363,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # WATCHTOWER_AUTH_VOLUME_PLACEHOLDER
     environment:
+      DOCKER_API_VERSION: "1.44"
       WATCHTOWER_POLL_INTERVAL: 60
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_LABEL_ENABLE: "true"
