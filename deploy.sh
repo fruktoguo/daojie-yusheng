@@ -46,13 +46,7 @@ sync_registry_auth_if_available() {
 
   if [ -s "$DOCKER_AUTH_CONFIG_FILE" ] && grep -Fq "\"${registry}\"" "$DOCKER_AUTH_CONFIG_FILE"; then
     log_info "已检测到 Docker 镜像仓库登录信息: ${registry}"
-    mkdir -p "$WATCHTOWER_CONFIG_DIR"
-    cp "$DOCKER_AUTH_CONFIG_FILE" "$WATCHTOWER_CONFIG_FILE"
-    chmod 600 "$WATCHTOWER_CONFIG_FILE"
-    printf '      - %s:/config.json:ro\n' "$WATCHTOWER_CONFIG_FILE" > "$WATCHTOWER_AUTH_VOLUME_FILE"
-    log_info "Watchtower 镜像仓库凭据已同步"
   else
-    : > "$WATCHTOWER_AUTH_VOLUME_FILE"
     log_info "未检测到 Docker 镜像仓库登录信息；按公开镜像仓库继续部署"
     log_warn "如果该仓库实际是私有仓库，请先执行 sudo docker login ${registry} 后重跑"
   fi
@@ -64,9 +58,229 @@ STACK_FILE="${DEPLOY_DIR}/docker-stack.yml"
 STACK_NAME="daojie-yusheng"
 DEPLOY_SCRIPT_URL="${DEPLOY_SCRIPT_URL:-https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh}"
 DOCKER_AUTH_CONFIG_FILE="/root/.docker/config.json"
-WATCHTOWER_CONFIG_DIR="${DEPLOY_DIR}/watchtower"
-WATCHTOWER_CONFIG_FILE="${WATCHTOWER_CONFIG_DIR}/config.json"
-WATCHTOWER_AUTH_VOLUME_FILE="${DEPLOY_DIR}/watchtower-volume.yml"
+AUTO_UPDATE_SCRIPT="${DEPLOY_DIR}/ccr-auto-update.sh"
+AUTO_UPDATE_SERVICE_FILE="/etc/systemd/system/daojie-ccr-auto-update.service"
+AUTO_UPDATE_TIMER_FILE="/etc/systemd/system/daojie-ccr-auto-update.timer"
+
+install_ccr_auto_update() {
+  log_step "安装 CCR 自动更新器"
+
+  cat > "$AUTO_UPDATE_SCRIPT" <<'AUTO_UPDATE_EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/daojie-yusheng}"
+ENV_FILE="${ENV_FILE:-${DEPLOY_DIR}/prod.env}"
+STACK_NAME="${STACK_NAME:-daojie-yusheng}"
+LOCK_DIR="/tmp/daojie-ccr-auto-update.lock"
+STATE_FILE="${DEPLOY_DIR}/ccr-auto-update.state"
+
+log() {
+  printf '[daojie-ccr-auto-update] %s\n' "$1"
+}
+
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  log "已有更新任务正在运行，跳过本轮"
+  exit 0
+fi
+trap 'rmdir "$LOCK_DIR"' EXIT
+
+if [ ! -f "$ENV_FILE" ]; then
+  log "配置文件不存在: $ENV_FILE"
+  exit 0
+fi
+
+set -a
+. "$ENV_FILE"
+set +a
+
+CLIENT_IMAGE_TAG="${CLIENT_IMAGE_TAG:-latest}"
+SERVER_IMAGE_TAG="${SERVER_IMAGE_TAG:-latest}"
+
+if [ -z "${TENCENT_IMAGE_PREFIX:-}" ]; then
+  log "TENCENT_IMAGE_PREFIX 未配置，跳过"
+  exit 0
+fi
+
+remote_image_digest() {
+  local image="$1"
+  docker manifest inspect -v "$image" 2>/dev/null \
+    | sed -n 's/.*"digest": "\(sha256:[0-9a-f]\{64\}\)".*/\1/p' \
+    | head -n 1
+}
+
+service_image_digest() {
+  local service="$1"
+  docker service inspect "$service" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null \
+    | sed -n 's/.*@\(sha256:[0-9a-f]\{64\}\).*/\1/p' \
+    | head -n 1
+}
+
+state_digest() {
+  local key="$1"
+  if [ ! -f "$STATE_FILE" ]; then
+    return 0
+  fi
+  sed -n "s/^${key}=//p" "$STATE_FILE" | tail -n 1
+}
+
+write_state() {
+  local server_digest="$1"
+  local client_digest="$2"
+  local tmp_file
+
+  tmp_file="${STATE_FILE}.tmp"
+  {
+    printf 'server=%s\n' "$server_digest"
+    printf 'client=%s\n' "$client_digest"
+    date -u '+updated_at=%Y-%m-%dT%H:%M:%SZ'
+  } > "$tmp_file"
+  mv "$tmp_file" "$STATE_FILE"
+}
+
+service_exists() {
+  docker service inspect "$1" >/dev/null 2>&1
+}
+
+update_service_if_needed() {
+  local service="$1"
+  local image="$2"
+  local remote_digest="$3"
+  local current_digest
+
+  if ! service_exists "$service"; then
+    log "服务不存在，跳过: $service"
+    return 0
+  fi
+
+  current_digest="$(service_image_digest "$service")"
+  if [ -n "$current_digest" ] && [ "$current_digest" = "$remote_digest" ]; then
+    log "$service 已是最新: $current_digest"
+    return 0
+  fi
+
+  log "更新 $service: ${current_digest:-none} -> $remote_digest"
+  docker service update --with-registry-auth --detach=false --image "$image" "$service"
+}
+
+wait_http_ok() {
+  local name="$1"
+  local url="$2"
+  local attempt=1
+
+  while [ "$attempt" -le 30 ]; do
+    if command -v curl >/dev/null 2>&1; then
+      if curl -fsS "$url" >/dev/null 2>&1; then
+        log "$name 健康检查通过: $url"
+        return 0
+      fi
+    elif command -v wget >/dev/null 2>&1; then
+      if wget -q -O /dev/null "$url" >/dev/null 2>&1; then
+        log "$name 健康检查通过: $url"
+        return 0
+      fi
+    else
+      log "未找到 curl/wget，跳过 $name HTTP 健康检查"
+      return 0
+    fi
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+
+  log "$name 健康检查超时: $url"
+  return 1
+}
+
+server_image="${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG}"
+client_image="${TENCENT_IMAGE_PREFIX}/daojie-yusheng-client:${CLIENT_IMAGE_TAG}"
+
+server_digest="$(remote_image_digest "$server_image")"
+client_digest="$(remote_image_digest "$client_image")"
+
+if [ -z "$server_digest" ]; then
+  log "无法读取远端 server 镜像 digest: $server_image"
+  exit 0
+fi
+
+if [ -z "$client_digest" ]; then
+  log "无法读取远端 client 镜像 digest: $client_image"
+  exit 0
+fi
+
+server_current="$(service_image_digest "${STACK_NAME}_server")"
+backup_current="$(service_image_digest "${STACK_NAME}_backup-worker")"
+client_current="$(service_image_digest "${STACK_NAME}_client")"
+server_applied="${server_current:-$(state_digest server)}"
+backup_applied="${backup_current:-$server_applied}"
+client_applied="${client_current:-$(state_digest client)}"
+updated_server=0
+updated_client=0
+
+if [ "$server_applied" != "$server_digest" ]; then
+  update_service_if_needed "${STACK_NAME}_server" "$server_image" "$server_digest"
+  updated_server=1
+fi
+
+if [ "$backup_applied" != "$server_digest" ]; then
+  update_service_if_needed "${STACK_NAME}_backup-worker" "$server_image" "$server_digest"
+fi
+
+if [ "$client_applied" != "$client_digest" ]; then
+  update_service_if_needed "${STACK_NAME}_client" "$client_image" "$client_digest"
+  updated_client=1
+fi
+
+if [ "$updated_server" -eq 1 ]; then
+  wait_http_ok "server" "http://127.0.0.1:11922/health"
+else
+  log "${STACK_NAME}_server 无需更新"
+fi
+
+if [ "$updated_client" -eq 1 ]; then
+  wait_http_ok "client" "http://127.0.0.1:11921/"
+else
+  log "${STACK_NAME}_client 无需更新"
+fi
+
+write_state "$server_digest" "$client_digest"
+log "本轮检查完成"
+AUTO_UPDATE_EOF
+
+  chmod 755 "$AUTO_UPDATE_SCRIPT"
+
+  cat > "$AUTO_UPDATE_SERVICE_FILE" <<EOF
+[Unit]
+Description=Daojie Yusheng CCR Swarm auto update
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${AUTO_UPDATE_SCRIPT}
+EOF
+
+  cat > "$AUTO_UPDATE_TIMER_FILE" <<'EOF'
+[Unit]
+Description=Run Daojie Yusheng CCR Swarm auto update periodically
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=60
+AccuracySec=10
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable --now daojie-ccr-auto-update.timer
+    log_info "CCR 自动更新器已启用: daojie-ccr-auto-update.timer"
+  else
+    log_warn "未找到 systemctl，已写入自动更新脚本但未启用定时器: $AUTO_UPDATE_SCRIPT"
+  fi
+}
 
 mkdir -p "$DEPLOY_DIR"
 
@@ -232,8 +446,6 @@ cat > "$STACK_FILE" <<'STACK_EOF'
 services:
   client:
     image: ${TENCENT_IMAGE_PREFIX}/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       NGINX_WORKER_PROCESSES: auto
     ports:
@@ -267,8 +479,6 @@ services:
 
   server:
     image: ${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
@@ -389,22 +599,6 @@ services:
       update_config:
         order: stop-first
 
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # WATCHTOWER_AUTH_VOLUME_PLACEHOLDER
-    environment:
-      DOCKER_API_VERSION: "1.44"
-      WATCHTOWER_POLL_INTERVAL: 60
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_LABEL_ENABLE: "true"
-    deploy:
-      replicas: 1
-      placement:
-        constraints:
-          - node.role == manager
-
 volumes:
   pgdata:
     external: true
@@ -422,19 +616,6 @@ networks:
     attachable: true
 STACK_EOF
 
-tmp_stack_file="${STACK_FILE}.tmp"
-watchtower_auth_volume="$(cat "$WATCHTOWER_AUTH_VOLUME_FILE")"
-awk -v replacement="$watchtower_auth_volume" '
-  /^[[:space:]]*#[[:space:]]*WATCHTOWER_AUTH_VOLUME_PLACEHOLDER$/ {
-    if (replacement != "") {
-      print replacement
-    }
-    next
-  }
-  { print }
-' "$STACK_FILE" > "$tmp_stack_file"
-mv "$tmp_stack_file" "$STACK_FILE"
-
 log_info "Stack 文件已生成: $STACK_FILE"
 
 # ============================================================
@@ -443,8 +624,10 @@ log_info "Stack 文件已生成: $STACK_FILE"
 
 log_step "部署服务"
 
-WATCHTOWER_CONFIG_FILE="$WATCHTOWER_CONFIG_FILE" docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
 log_info "部署指令已发送"
+
+install_ccr_auto_update
 
 # ============================================================
 # 等待服务就绪
@@ -509,8 +692,9 @@ echo "    重新部署:  bash ${DEPLOY_DIR}/deploy.sh"
 echo ""
 echo "  配置文件:  ${ENV_FILE}"
 echo "  Stack文件: ${STACK_FILE}"
+echo "  自动更新:  ${AUTO_UPDATE_SCRIPT}"
 echo ""
-log_info "Watchtower 已启用，推送新镜像后 60 秒内自动更新"
+log_info "CCR 自动更新器已启用，推送新镜像后会定时检查并更新 Swarm service"
 
 # 保存部署脚本，方便后续重新运行
 if curl -fsSL "$DEPLOY_SCRIPT_URL" -o "${DEPLOY_DIR}/deploy.sh"; then

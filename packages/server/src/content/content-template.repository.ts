@@ -6,7 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, deriveTechniqueRealm, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp } from '@mud/shared';
+import { DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1;
@@ -275,9 +275,9 @@ export class ContentTemplateRepository {
 
         const level = Number.isFinite(input.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
 
-        const realmLv = Number.isFinite(input.realmLv)
+        const realmLv = template?.realmLv ?? (Number.isFinite(input.realmLv)
             ? Math.max(1, Math.trunc(Number(input.realmLv)))
-            : (template?.realmLv ?? 1);
+            : 1);
 
         const templateLayerByLevel: Map<any, any> = new Map((template?.layers ?? []).map((entry) => [entry.level, entry]));
         const layers = Array.isArray(input.layers) && input.layers.length > 0
@@ -1887,7 +1887,7 @@ function normalizeConsumableBuffs(raw) {
                 maxStacks: Number.isFinite(candidate.maxStacks) ? Math.max(1, Math.trunc(Number(candidate.maxStacks))) : undefined,
                 attrs: isRecord(candidate.attrs) ? { ...candidate.attrs } : undefined,
                 attrMode: candidate.attrMode === 'percent' ? 'percent' : candidate.attrMode === 'flat' ? 'flat' : undefined,
-                stats: resolveConfiguredBuffStats(candidate.stats, candidate.valueStats, resolveBuffModifierMode(candidate.statMode)),
+                stats: resolveConfiguredBuffStats(candidate.stats, candidate.valueStats, resolveBuffModifierMode(candidate.statMode), candidate.mainCombatStatsPercent),
                 statMode: candidate.statMode === 'percent' ? 'percent' : candidate.statMode === 'flat' ? 'flat' : undefined,
                 qiProjection: Array.isArray(candidate.qiProjection)
                     ? candidate.qiProjection
@@ -2096,12 +2096,53 @@ function normalizePartialNumericStats(input) {
     return Object.keys(stats).length > 0 ? stats : undefined;
 }
 
-function resolveConfiguredBuffStats(stats, valueStats, mode) {
+function mergePartialNumericStats(left, right) {
+    if (!left) {
+        return right;
+    }
+    if (!right) {
+        return left;
+    }
+    const merged = { ...left };
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+        const value = right[key];
+        if (!Number.isFinite(value)) {
+            continue;
+        }
+        merged[key] = (Number(merged[key]) || 0) + Number(value);
+    }
+    for (const groupKey of ['elementDamageBonus', 'elementDamageReduce']) {
+        const group = right[groupKey];
+        if (!isRecord(group)) {
+            continue;
+        }
+        const mergedGroup = isRecord(merged[groupKey]) ? { ...merged[groupKey] } : {};
+        for (const element of ELEMENT_KEYS) {
+            const value = group[element];
+            if (!Number.isFinite(value)) {
+                continue;
+            }
+            mergedGroup[element] = (Number(mergedGroup[element]) || 0) + Number(value);
+        }
+        if (Object.keys(mergedGroup).length > 0) {
+            merged[groupKey] = mergedGroup;
+        }
+    }
+    return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function resolveConfiguredBuffStats(stats, valueStats, mode, mainCombatStatsPercent) {
+    const mainCombatStats = mode === 'flat'
+        ? undefined
+        : createMonsterMainCombatStatModifierStats(Number(mainCombatStatsPercent));
     if (mode === 'flat') {
         return normalizePartialNumericStats(stats)
             ?? (isRecord(valueStats) ? compileValueStatsToActualStats(valueStats) : undefined);
     }
-    return normalizePartialNumericStats(stats) ?? normalizePartialNumericStats(valueStats);
+    return mergePartialNumericStats(
+        mainCombatStats,
+        normalizePartialNumericStats(stats) ?? normalizePartialNumericStats(valueStats),
+    );
 }
 
 function normalizeBuffSustainCost(input) {
@@ -2142,7 +2183,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
 
     const realmLv = Number.isFinite(candidate.realmLv) ? Math.max(1, Math.trunc(Number(candidate.realmLv))) : 1;
 
-    const layers = Array.isArray(candidate.layers)
+    const sparseLayers = Array.isArray(candidate.layers)
         ? candidate.layers
             .map((layer) => normalizeTechniqueLayer(layer, realmLv))
             .filter((entry) => Boolean(entry))
@@ -2154,13 +2195,35 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
             .map((skill) => normalizeSkill(skill, grade, realmLv, sharedTechniqueBuffs))
             .filter((entry) => Boolean(entry))
         : [];
-    return {
+    const category = isTechniqueCategory(candidate.category) ? candidate.category : inferTechniqueCategory(skills);
+    const template = {
         id: candidate.id,
         name: candidate.name,
         desc: typeof candidate.desc === 'string' ? candidate.desc : undefined,
         grade,
-        category: isTechniqueCategory(candidate.category) ? candidate.category : inferTechniqueCategory(skills),
+        category,
         realmLv,
+        attrRatio: isRecord(candidate.attrRatio) ? { ...candidate.attrRatio } : undefined,
+        attrFloat: Number.isFinite(candidate.attrFloat) ? Number(candidate.attrFloat) : undefined,
+        maxLayer: Number.isFinite(candidate.maxLayer) ? Math.max(1, Math.trunc(Number(candidate.maxLayer))) : undefined,
+        expDifficulty: Number.isFinite(candidate.expDifficulty) ? Number(candidate.expDifficulty) : undefined,
+        layerGains: isRecord(candidate.layerGains) ? cloneTechniqueLayerGains(candidate.layerGains) : undefined,
+        layers: sparseLayers,
+        skills,
+    };
+    const layers = expandTechniqueTemplateLayers(template);
+    return {
+        id: template.id,
+        name: template.name,
+        desc: template.desc,
+        grade,
+        category,
+        realmLv,
+        attrRatio: template.attrRatio,
+        attrFloat: template.attrFloat,
+        maxLayer: template.maxLayer,
+        expDifficulty: template.expDifficulty,
+        layerGains: template.layerGains,
         layers,
         skills,
     };
@@ -2185,6 +2248,90 @@ function normalizeTechniqueLayer(raw, realmLv) {
         specialStats: normalizeTechniqueLayerSpecialStats(candidate.specialStats),
         qiProjection: cloneQiProjectionModifiers(candidate.qiProjection),
     };
+}
+
+function expandTechniqueTemplateLayers(template) {
+    if (shouldExpandTechniqueAttrRatio(template)) {
+        return expandTechniqueAttrRatio(template).layers;
+    }
+    const maxLayer = Math.max(1, Math.trunc(Number(
+        template.maxLayer ?? (Array.isArray(template.layers) && template.layers.length > 0 ? template.layers.length : 1),
+    ) || 1));
+    if (template.layerGains && typeof template.layerGains === 'object') {
+        const gains = expandTechniqueLayerGains(template.layerGains, maxLayer);
+        const expCurve = expandTechniqueExpCurve(template.grade, template.realmLv, maxLayer, template.expDifficulty ?? 1, template.category);
+        const sparseByLevel = buildTechniqueLayerMap(template.layers);
+        return gains.map((gain, index) => {
+            const level = index + 1;
+            const sparse = sparseByLevel.get(level);
+            return {
+                level,
+                expToNext: expCurve.perLayerExp[index] ?? 0,
+                attrs: gain.attrs ? { ...gain.attrs } : (sparse?.attrs ? { ...sparse.attrs } : undefined),
+                specialStats: gain.specialStats ? { ...gain.specialStats } : (sparse?.specialStats ? { ...sparse.specialStats } : undefined),
+                qiProjection: cloneQiProjectionModifiers(sparse?.qiProjection),
+            };
+        });
+    }
+    if (Number.isFinite(template.maxLayer)) {
+        const expCurve = expandTechniqueExpCurve(template.grade, template.realmLv, maxLayer, template.expDifficulty ?? 1, template.category);
+        const sparseByLevel = buildTechniqueLayerMap(template.layers);
+        return Array.from({ length: maxLayer }, (_, index) => {
+            const level = index + 1;
+            const sparse = sparseByLevel.get(level);
+            return {
+                level,
+                expToNext: expCurve.perLayerExp[index] ?? 0,
+                attrs: sparse?.attrs ? { ...sparse.attrs } : undefined,
+                specialStats: sparse?.specialStats ? { ...sparse.specialStats } : undefined,
+                qiProjection: cloneQiProjectionModifiers(sparse?.qiProjection),
+            };
+        });
+    }
+    return (template.layers ?? []).map((entry) => ({
+        level: entry.level,
+        expToNext: entry.expToNext,
+        attrs: entry.attrs ? { ...entry.attrs } : undefined,
+        specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
+        qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
+    }));
+}
+
+function buildTechniqueLayerMap(layers) {
+    const map = new Map();
+    for (const entry of layers ?? []) {
+        if (!isRecord(entry) || !Number.isFinite(entry.level)) {
+            continue;
+        }
+        map.set(Math.max(1, Math.trunc(Number(entry.level))), entry);
+    }
+    return map;
+}
+
+function cloneTechniqueLayerGains(raw) {
+    if (!isRecord(raw)) {
+        return undefined;
+    }
+    const gains: Record<string, any> = {};
+    const attrs = normalizeTechniqueLayerAttrs(raw.attrs);
+    const specialStats = normalizeTechniqueLayerSpecialStats(raw.specialStats);
+    if (attrs) {
+        gains.attrs = attrs;
+    }
+    if (specialStats) {
+        gains.specialStats = specialStats;
+    }
+    if (Array.isArray(raw.deltas)) {
+        gains.deltas = raw.deltas
+            .filter((delta) => isRecord(delta) && Number.isFinite(delta.fromLevel))
+            .map((delta) => ({
+                fromLevel: Math.max(1, Math.trunc(Number(delta.fromLevel))),
+                toLevel: Number.isFinite(delta.toLevel) ? Math.max(1, Math.trunc(Number(delta.toLevel))) : undefined,
+                attrsAdd: normalizeTechniqueLayerAttrs(delta.attrsAdd),
+                specialStatsAdd: normalizeTechniqueLayerSpecialStats(delta.specialStatsAdd),
+            }));
+    }
+    return Object.keys(gains).length > 0 ? gains : undefined;
 }
 
 function cloneQiProjectionModifiers(source) {

@@ -12,7 +12,9 @@ import {
   Direction,
   formatDisplayCurrentMax,
   formatDisplayInteger,
+  MONSTER_MAIN_COMBAT_STAT_KEYS,
   MONSTER_GLOBAL_STAT_PERCENTS,
+  resolveMonsterMainCombatStatLevelModifierPercent,
   resolveMonsterNumericStatsFromTendency,
   resolveMonsterTemplateRecord,
 } from '@mud/shared';
@@ -126,10 +128,16 @@ function assertRuntimeMonsterStatsMatchGenerated(
     tier: rawMonster.tier,
     baselines,
   });
+  const mainCombatLevelModifier = resolveMonsterMainCombatStatLevelModifierPercent(rawMonster.level);
+  assert.equal(mainCombatLevelModifier, 0, 'level 1 monster should not get main combat stat level modifier');
   assert.equal(template.numericStats.hpRegenRate, Math.round(unscaledStats.hpRegenRate * (MONSTER_GLOBAL_STAT_PERCENTS.hpRegenRate ?? 100) / 100), 'monster hp regen should use the global monster multiplier');
   assert.equal(template.numericStats.dodge, Math.round(unscaledStats.dodge * (MONSTER_GLOBAL_STAT_PERCENTS.dodge ?? 100) / 100), 'monster dodge should use the global monster multiplier');
   assert.equal(template.numericStats.antiCrit, Math.round(unscaledStats.antiCrit * (MONSTER_GLOBAL_STAT_PERCENTS.antiCrit ?? 100) / 100), 'monster antiCrit should use the global monster multiplier');
   assert.equal(template.numericStats.resolvePower, unscaledStats.resolvePower, 'monster resolvePower should not use the global defensive multiplier');
+  assert.equal(Math.round(resolveMonsterMainCombatStatLevelModifierPercent(18)), 20, 'level 18 monster main combat stat modifier should reach 20%');
+  assert.equal(Math.round(resolveMonsterMainCombatStatLevelModifierPercent(30)), 100, 'level 30 monster main combat stat modifier should reach 100%');
+  assert.equal(resolveMonsterMainCombatStatLevelModifierPercent(31), 105, 'post level 30 monster main combat stat modifier should add 5% per level');
+  assert.equal(resolveMonsterMainCombatStatLevelModifierPercent(42), 200, 'each 12 levels after 30 should add an extra 40% on top of level growth');
   const dynamicLevel2 = resolveMonsterTemplateRecord({ ...rawMonster, level: 2 }, undefined, baselines);
   const dynamicMapId = 'smoke_dynamic_monster_level';
   repository.monsterRuntimeStatesByMapId.set(dynamicMapId, [{
@@ -250,8 +258,11 @@ function assertHuanlingZhenrenInitialWoundedBuff(
   );
   const woundedBuff = monster.buffs.find((buff) => buff.buffId === 'buff.huanling_zhenren_wounded');
   assert.equal(woundedBuff?.statMode, 'percent', 'wounded debuff should use percent stat mode');
-  assert.equal(woundedBuff?.stats?.maxHp, -4444, 'wounded debuff should reduce maxHp by 4444%');
-  assert.equal(woundedBuff?.stats?.antiCrit, -4444, 'wounded debuff should reduce antiCrit by 4444%');
+  for (const key of MONSTER_MAIN_COMBAT_STAT_KEYS) {
+    assert.equal(woundedBuff?.stats?.[key], -4444, `wounded debuff should reduce ${key} by 4444% through main combat stat shortcut`);
+  }
+  assert.equal(woundedBuff?.stats?.critDamage, undefined, 'wounded debuff should not reduce non-main critDamage through shortcut');
+  assert.equal(woundedBuff?.stats?.hpRegenRate, undefined, 'wounded debuff should not reduce non-main hpRegenRate through shortcut');
   assert.equal(monster.baseNumericStats.antiCrit, spawn.baseNumericStats.antiCrit, 'monster base antiCrit should survive runtime clone');
   assert.ok(monster.numericStats.antiCrit < spawn.baseNumericStats.antiCrit, 'wounded debuff should suppress monster antiCrit');
   assert.ok(monster.maxQi > 0, 'monster runtime should keep nonzero maxQi');

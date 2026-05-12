@@ -25,6 +25,23 @@
 
 源代码仍在 GitHub 和本地仓库里。腾讯云 CCR 只保存构建后的可运行镜像。
 
+## 服务端镜像体积口径
+
+服务端镜像采用“构建期全量依赖、运行期生产依赖”的生产档位：
+
+- 构建阶段安装全量 workspace 依赖，用于编译 shared/server 和生成运行数据。
+- 运行阶段只复制 Node runtime、生产 `node_modules`、`packages/server/dist`、`packages/shared/dist`、`packages/server/data`、`postgresql-client` 和必要运行目录。
+- `.dockerignore` 排除 `packages/*/.runtime`，运行期历史文件不进入镜像上下文。
+
+当前测试镜像约 `184MB`，主要构成：
+
+- Node 官方 runtime 约 `130MB`。
+- 生产 `node_modules` 约 `43MB`。
+- server/shared 编译产物和 server data 约 `23MB`。
+- `postgresql-client` 约 `5MB`。
+
+这属于商业级 Node 服务端的稳妥生产档位。Node runtime 和生产依赖不能删除；删除后 `node dist/main.js` 或 Nest、Socket.IO、PostgreSQL 驱动加载会失败。进一步压缩应作为独立优化处理，例如换 distroless/Wolfi runtime 或对 server 做 bundle，但需要重新验证健康检查、备份 worker、`pg_dump/psql`、TLS/DNS、日志和排障入口。
+
 ## 构建并推送镜像
 
 先登录腾讯云 CCR：
@@ -121,7 +138,9 @@ TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
   ./docker-build-tencent.sh latest
 ```
 
-然后重新部署 stack：
+如果使用一键部署脚本，服务器上会安装 `daojie-ccr-auto-update.timer`。推送新镜像后，服务器每 60 秒读取 CCR 远端 digest；发现变化时自动执行 Swarm service update，更新 `server`、`backup-worker` 和 `client`。
+
+也可以手动重新部署 stack：
 
 ```bash
 docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng-tencent
@@ -153,7 +172,7 @@ docker service rollback daojie-yusheng-tencent_client
 新增腾讯云方案只多了一条手动/自管链路：
 
 ```text
-本地或 CI 构建镜像 -> push 腾讯云 CCR -> docker stack deploy docker-stack.tencent.yml
+本地或 CI 构建镜像 -> push 腾讯云 CCR -> 服务器 CCR 自动更新器或 docker stack deploy
 ```
 
 如果以后要把 GitHub Actions 也改成自动推腾讯云 CCR，可以在现有 workflow 旁边新增一个 Tencent publish workflow；当前改动没有接管 GitHub 自动部署。

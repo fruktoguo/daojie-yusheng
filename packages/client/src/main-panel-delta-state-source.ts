@@ -563,7 +563,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       level: patch.level ?? previousSameTechnique?.level ?? 1,
       exp: patch.exp ?? previousSameTechnique?.exp ?? 0,
       expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
-      realmLv: patch.realmLv ?? previousSameTechnique?.realmLv ?? template?.realmLv ?? 1,
+      realmLv: template?.realmLv ?? patch.realmLv ?? previousSameTechnique?.realmLv ?? 1,
       realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
       name: applyNullablePatch(patch.name, previousSameTechnique?.name) ?? template?.name ?? patch.techId,
       skills: mergedSkills

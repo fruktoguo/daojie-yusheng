@@ -71,7 +71,7 @@ pnpm build:config-editor
 tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 ```
 
-脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码与 GM token/密钥管理 secret → 部署全套服务 → 建表 → 启动 Watchtower 自动更新。公开镜像仓库不需要登录；如果检测到已有 Docker 登录信息，脚本会同步给 Watchtower 用于私有镜像自动更新。
+脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码与 GM token/密钥管理 secret → 部署全套服务 → 建表 → 安装 CCR 自动更新器。公开镜像仓库不需要登录；私有镜像仓库需要先执行 `sudo docker login <registry>`。
 
 部署内容：
 
@@ -80,7 +80,8 @@ tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubuse
 - `postgres`：PostgreSQL 16
 - `redis`：Redis 7
 - `backup-worker`：数据库定时备份
-- `watchtower`：每 60 秒检查镜像更新并自动部署
+
+一键脚本额外安装 `daojie-ccr-auto-update.timer`：每 60 秒读取 CCR 远端 digest，变更时用 `docker service update` 更新 `server`、`backup-worker` 和 `client`。
 
 默认端口：
 

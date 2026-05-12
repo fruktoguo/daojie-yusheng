@@ -2,6 +2,7 @@ import {
   addPartialNumericStats,
   cloneNumericStats,
   createNumericStats,
+  percentModifierToMultiplier,
   type NumericStats,
   type PartialNumericStats,
 } from './numeric';
@@ -43,6 +44,23 @@ import type { NumericScalarStatKey } from './numeric';
 
 /** 怪物战斗模型：next 侧统一按 value_stats 运行时数值口径结算。 */
 export type MonsterCombatModel = 'value_stats';
+
+/** 怪物主要战斗属性：只覆盖直接决定战斗承压、输出与判定的核心字段。 */
+export const MONSTER_MAIN_COMBAT_STAT_KEYS = [
+  'maxHp',
+  'maxQi',
+  'maxQiOutputPerTick',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'antiCrit',
+  'breakPower',
+  'resolvePower',
+] as const satisfies readonly NumericScalarStatKey[];
 
 /** 怪物六维倾向百分比，缺省字段按 100% 处理。 */
 export type MonsterAttrTendency = Partial<Record<keyof Attributes, number>>;
@@ -1145,6 +1163,48 @@ export function applyNumericStatPercentages(stats: NumericStats, percents?: Nume
   return stats;
 }
 
+/** 按等级计算怪物主要战斗属性的额外增幅百分比。 */
+export function resolveMonsterMainCombatStatLevelModifierPercent(level?: number): number {
+  const normalizedLevel = normalizeMonsterLevel(level);
+  if (normalizedLevel <= 1) {
+    return 0;
+  }
+  if (normalizedLevel <= 18) {
+    return (normalizedLevel - 1) * (20 / 17);
+  }
+  if (normalizedLevel <= 30) {
+    return 20 + (normalizedLevel - 18) * (80 / 12);
+  }
+  const postLevel = normalizedLevel - 30;
+  return 100 + postLevel * 5 + Math.floor(postLevel / 12) * 40;
+}
+
+/** 构造“主要战斗属性”统一百分比修饰包，供配置简写和运行时 Buff 复用。 */
+export function createMonsterMainCombatStatModifierStats(percent: number): PartialNumericStats | undefined {
+  if (!Number.isFinite(percent) || percent === 0) {
+    return undefined;
+  }
+  const stats: PartialNumericStats = {};
+  for (const key of MONSTER_MAIN_COMBAT_STAT_KEYS) {
+    stats[key] = percent;
+  }
+  return stats;
+}
+
+/** 将百分比增减应用到怪物主要战斗属性；正值线性增幅，负值按统一 percentModifier 衰减。 */
+export function applyMonsterMainCombatStatModifier(stats: NumericStats, percent: number): NumericStats {
+  if (!Number.isFinite(percent) || percent === 0) {
+    return stats;
+  }
+  const multiplier = percentModifierToMultiplier(percent);
+  for (const key of MONSTER_MAIN_COMBAT_STAT_KEYS) {
+    const current = Number(stats[key] ?? 0);
+    const next = Math.round(Math.max(0, current) * multiplier);
+    stats[key] = key === 'maxHp' ? Math.max(1, next) : Math.max(0, next);
+  }
+  return stats;
+}
+
 /** 从属性驱动口径计算怪物最终数值。 */
 export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaInput): NumericStats {
   const base = computeMonsterBaseNumericStatsFromAttrs(input.attrs, input.equipment, input.level);
@@ -1437,6 +1497,7 @@ export function resolveMonsterTemplateRecord(
         tier,
       })
     : applyNumericStatPercentages(resolveMonsterNumericStatsFromValueStats(valueStats, level), resolvedStatPercents);
+  applyMonsterMainCombatStatModifier(computedStats, resolveMonsterMainCombatStatLevelModifierPercent(level));
   applyNumericStatPercentages(computedStats, MONSTER_GLOBAL_STAT_PERCENTS);
   computedStats.moveSpeed = Math.max(0, Math.round(getEffectiveMoveSpeed(computedStats.moveSpeed)));
   const count = Number.isFinite(monster.count)

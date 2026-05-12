@@ -26,6 +26,7 @@ import {
   type QiProjectionModifier,
   ratioValue,
   S2C_AttrUpdate,
+  TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE,
   TileType,
   stackQiEfficiencyBp,
   getMovePointsPerTick,
@@ -267,6 +268,10 @@ function isPillPercentAttrBonus(bonus: AttrBonus): boolean {
   return sourceSkillId.startsWith('pill.') || bonus.source.startsWith('buff:item_buff.');
 }
 
+function isTechniqueMaxPercentAttrBonus(bonus: AttrBonus): boolean {
+  return bonus.attrMode === 'percent' && bonus.source === TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE;
+}
+
 function sumAttrBonusPercent(bonuses: AttrBonus[], key: AttrKey, predicate: (bonus: AttrBonus) => boolean): number {
   let total = 0;
   for (const bonus of bonuses) {
@@ -289,10 +294,11 @@ function buildAttributeBreakdownLines(
   const displayFixedBaseValue = baseValue - baseIncludedExtraValue;
   const displayFixedTotalValue = displayFixedBaseValue + fixedExtraValue;
   const bodyTrainingMultiplier = percentModifierToMultiplier(resolveBodyTrainingAttributePercent(specialStats));
+  const techniqueMaxMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isTechniqueMaxPercentAttrBonus));
   const realmMultiplier = percentModifierToMultiplier(resolveRootFoundationAttributePercent(specialStats));
-  const buffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isPillPercentAttrBonus(bonus)));
+  const buffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isTechniqueMaxPercentAttrBonus(bonus) && !isPillPercentAttrBonus(bonus)));
   const pillMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isPillPercentAttrBonus));
-  const totalMultiplier = bodyTrainingMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
+  const totalMultiplier = bodyTrainingMultiplier * techniqueMaxMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
   return [
     renderTooltipPrimaryLine('实际：', formatDisplayInteger(finalValue)),
     renderTooltipSectionLine(`总固定值：${formatDisplayInteger(displayFixedTotalValue)}`, 'fixed'),
@@ -300,6 +306,7 @@ function buildAttributeBreakdownLines(
     renderTooltipChildLine('额外值：', `${fixedExtraValue >= 0 ? '+' : ''}${formatDisplayInteger(fixedExtraValue)}`, 'fixed'),
     renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
     renderTooltipChildLine('炼体：', formatMultiplierDisplay(bodyTrainingMultiplier), 'percent'),
+    renderTooltipChildLine('万法归元：', formatMultiplierDisplay(techniqueMaxMultiplier), 'percent'),
     renderTooltipChildLine('根基：', formatMultiplierDisplay(realmMultiplier), 'percent'),
     renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
     renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
@@ -1069,7 +1076,11 @@ export class AttrPanel {
     for (const bonus of bonuses) {
       for (const key of ATTR_KEYS) {
         if (bonus.attrs[key] !== undefined) {
-          result[key] += bonus.attrs[key]!;
+          if (bonus.attrMode === 'percent') {
+            result[key] = Math.max(0, result[key] * percentModifierToMultiplier(bonus.attrs[key]!));
+          } else {
+            result[key] += bonus.attrs[key]!;
+          }
         }
       }
     }

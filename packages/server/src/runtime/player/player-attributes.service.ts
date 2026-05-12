@@ -4,7 +4,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Injectable } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
@@ -83,7 +83,9 @@ export class PlayerAttributesService {
 
         const realmBaseAttrs = cloneAttributes(rawBaseAttrs);
 
-        const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
+        const techniqueStates = player.techniques.techniques.map(toTechniqueState);
+        const techniqueAttrBonus = calcTechniqueFinalAttrBonus(techniqueStates);
+        const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniqueStates);
 
         const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
         addAttributes(realmBaseAttrs, resolvePlayerRealmAttributeBonus(stage));
@@ -115,6 +117,7 @@ export class PlayerAttributesService {
         if (bodyTrainingLevel > 0) {
             accumulateAttributePercentBonus(attrPercentBonuses.bodyTraining, calcBodyTrainingAttrPercentBonus(bodyTrainingLevel));
         }
+        accumulateAttributePercentBonus(attrPercentBonuses.techniqueMax, techniqueMaxAttrPercentBonus);
         const flatBuffAttrs = createEmptyAttributes();
         for (const buff of getActiveBuffs(player.buffs.buffs)) {
             const effectFactor = getBuffEffectFactor(buff, realmLv);
@@ -131,6 +134,7 @@ export class PlayerAttributesService {
         }
         clampAttributes(finalAttrs);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.bodyTraining);
+        applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.techniqueMax);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.realm);
         addAttributes(finalAttrs, flatBuffAttrs);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.buff);
@@ -305,6 +309,7 @@ function createNumericStatPercentBonusAccumulator() {
 function createAttributePercentBonusAccumulator() {
     return {
         bodyTraining: createEmptyAttributes(),
+        techniqueMax: createEmptyAttributes(),
         realm: createEmptyAttributes(),
         pill: createEmptyAttributes(),
         buff: createEmptyAttributes(),
@@ -794,19 +799,6 @@ function collectProjectedRuntimeBonuses(bonuses) {
         return Boolean(entry.attrs || entry.stats);
     });
 }
-/**
- * resolveTechniqueAttrBonus：规范化或转换功法AttrBonu。
- * @param techniques 参数说明。
- * @param runtimeBonuses 参数说明。
- * @returns 无返回值，直接更新功法AttrBonu相关状态。
- */
-
-function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    return calcTechniqueFinalAttrBonus(techniques.map(toTechniqueState));
-}
-
 function resolveTechniqueSpecialStatBonus(techniques) {
     return calcTechniqueFinalSpecialStatBonus(techniques.map(toTechniqueState));
 }

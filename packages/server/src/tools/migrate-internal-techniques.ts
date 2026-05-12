@@ -1,17 +1,18 @@
 // @ts-nocheck
 /**
- * 用途：把 packages/server/data/content/techniques/ 下的老格式内功 JSON 迁移到
- *       量化格式（attrRatio + attrFloat + maxLayer + expDifficulty）。
+ * 用途：把 packages/server/data/content/techniques/ 下的老格式功法 JSON 迁移到
+ *       量化格式（maxLayer + expDifficulty + attrRatio 或 layerGains）。
  *
  * 行为：
- *   1. 扫描全部 techniques/**\/*.json，筛出 category === 'internal' 的条目。
- *   2. 按原 layers 的满层六维和反算 attrFloat / attrRatio。
- *   3. 保留 sparse `layers`，仅留下具有 qiProjection 的层，只写 { level, qiProjection }。
- *   4. 写回文件，输出 diff 报告：
+ *   1. 扫描全部 techniques/**\/*.json。
+ *   2. internal 按原 layers 的满层六维反算 attrFloat / attrRatio。
+ *   3. arts / divine / secret 把逐层 attrs / specialStats 压缩为 layerGains。
+ *   4. 保留 sparse `layers`，仅留下具有 qiProjection 的层，只写 { level, qiProjection }。
+ *   5. 写回文件，输出 diff 报告：
  *      - 六维总量差（旧 vs 新公式）、cosine 相似度；
  *      - 经验曲线总量差；
  *      - 被 clamp 的 attrFloat 列表。
- *   5. 按 `pnpm verify:quick` 规格，避免落库 / 网络依赖。
+ *   6. 按 `pnpm verify:quick` 规格，避免落库 / 网络依赖。
  *
  * 用法：
  *   node dist/tools/migrate-internal-techniques.js            # 试跑（仅打印报告）

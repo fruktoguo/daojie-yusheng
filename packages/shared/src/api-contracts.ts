@@ -3,6 +3,7 @@
  * 这些结构不参与 C2S / S2C 事件映射，单独拆出以避免 protocol.ts 混入过多非 socket 合同。
  */
 import type {
+  AttrKey,
   Attributes,
   NumericStatPercentages,
 } from './attribute-types';
@@ -16,7 +17,7 @@ import type {
 } from './mail-types';
 import type { QuestLine, QuestObjectiveType, QuestState } from './quest-types';
 import type { Suggestion } from './world-view-types';
-import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
+import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueLayerGains } from './cultivation-types';
 import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { PlayerState } from './player-runtime-types';
 import type { SkillDef, TemporaryBuffState } from './skill-types';
@@ -1493,6 +1494,31 @@ export interface GmEditorTechniqueOption {
  */
 
   realmLv?: number;
+  /**
+ * attrRatio：量化功法六维分配权重。
+ */
+
+  attrRatio?: Partial<Record<AttrKey, number>>;
+  /**
+ * attrFloat：量化功法总属性浮动。
+ */
+
+  attrFloat?: number;
+  /**
+ * maxLayer：量化功法总层数。
+ */
+
+  maxLayer?: number;
+  /**
+ * expDifficulty：量化功法经验难度。
+ */
+
+  expDifficulty?: number;
+  /**
+ * layerGains：量化功法逐层增量配置。
+ */
+
+  layerGains?: TechniqueLayerGains;
   /**
  * skills：技能相关字段。
  */

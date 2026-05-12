@@ -3,10 +3,10 @@
  * 加载后的展开结果与 shared 公式保持一致。
  *
  * 覆盖点（来自 docs/design/systems/AI功法生成方案.md §4 / §6 / §7.4）：
- *   - 各 category 模板 layers.length === 配置 maxLayer（internal 由 attrRatio 展开，其他由公式 + sparse overlay）
+ *   - 各 category 模板 layers.length === 配置 maxLayer（attrRatio / layerGains 由公式 + sparse overlay 展开）
  *   - expToNext 非负；最后一层 expToNext === 0（沿用 legacy 约定）
  *   - 非末层 expToNext > 0；阶段内部经验单调不减
- *   - internal：attrRatio 为正的维度在每层都能贡献至少 1 点属性；六维总量与 `calcInternalTechniqueAttrTotal` 对齐
+ *   - attrRatio 为正的维度在每层都能贡献至少 1 点属性；六维总量与 `calcInternalTechniqueAttrTotal` 对齐
  *   - arts：根级 skills 原样保留，运行时 skills 数组长度等于原 JSON skills 长度
  *   - divine / secret：逐层 attrs / specialStats 完整透传到运行时 layers
  *   - 天阶 `ningqi_chengji` 的 sparse qiProjection 按原 level 精确挂回（L7/14/21/28/35/42/48/49，L49 upgraded）
@@ -29,7 +29,7 @@ import {
   calcInternalTechniqueAttrTotal,
   expandTechniqueExpCurve,
   expandTechniqueLayerGains,
-  shouldExpandInternalTechnique,
+  shouldExpandTechniqueAttrRatio,
 } from '@mud/shared';
 
 const TECHNIQUES_ROOT = path.resolve(__dirname, '../../data/content/techniques');
@@ -69,6 +69,23 @@ function main(): void {
   const runtimeTemplates = repository.listTechniqueTemplates();
   const byId = new Map<string, (typeof runtimeTemplates)[number]>();
   for (const template of runtimeTemplates) byId.set(template.id, template);
+
+  const ningqi = repository.hydrateTechniqueState({
+    techId: 'ningqi_chengji',
+    level: 49,
+    realmLv: 49,
+    exp: 0,
+    expToNext: 0,
+    realm: 3,
+    skills: [],
+  });
+  assert.ok(ningqi, 'expected ningqi_chengji to hydrate from template');
+  assert.equal(
+    ningqi.realmLv,
+    31,
+    'ningqi_chengji template realmLv must win over persisted/current level contamination',
+  );
+  assert.equal(ningqi.layers.length, 49, 'ningqi_chengji should hydrate to 49 expanded layers');
 
   const raw = loadRawTemplates();
   assert.ok(raw.length > 0, 'expect at least one technique template in content data');
@@ -136,34 +153,34 @@ function main(): void {
       );
     }
 
-    if (category === 'internal') {
-      // attrRatio 语义：在每层均分的前提下，至少贡献一层
-      if (shouldExpandInternalTechnique({ category: 'internal', attrRatio: template.attrRatio as never })) {
-        const attrRatio = (template.attrRatio ?? {}) as Record<string, number>;
-        for (const key of TECHNIQUE_ATTR_KEYS) {
-          const weight = Number(attrRatio[key] ?? 0);
-          if (weight <= 0) continue;
-          const contributed = runtimeLayers.some((layer) => Number(layer.attrs?.[key] ?? 0) > 0);
-          assert.ok(contributed, `${id}: attrRatio[${key}]=${weight} but no runtime layer contributes > 0`);
-        }
-        // 六维总量对齐
-        const expectedAttrTotal = calcInternalTechniqueAttrTotal(
-          runtime.grade as never,
-          Number(runtime.realmLv),
-          Number(template.attrFloat ?? 0),
-        );
-        let actualAttrTotal = 0;
-        for (const layer of runtimeLayers) {
-          if (!layer.attrs) continue;
-          for (const k of TECHNIQUE_ATTR_KEYS) actualAttrTotal += Number(layer.attrs[k] ?? 0);
-        }
-        const attrDelta = Math.abs(actualAttrTotal - expectedAttrTotal);
-        assert.ok(
-          attrDelta <= tolerance(maxLayer),
-          `${id}: attr total drift too large: expected ~${expectedAttrTotal.toFixed(2)}, got ${actualAttrTotal}`,
-        );
+    // attrRatio 语义：在每层均分的前提下，至少贡献一层
+    if (shouldExpandTechniqueAttrRatio({ attrRatio: template.attrRatio as never })) {
+      const attrRatio = (template.attrRatio ?? {}) as Record<string, number>;
+      for (const key of TECHNIQUE_ATTR_KEYS) {
+        const weight = Number(attrRatio[key] ?? 0);
+        if (weight <= 0) continue;
+        const contributed = runtimeLayers.some((layer) => Number(layer.attrs?.[key] ?? 0) > 0);
+        assert.ok(contributed, `${id}: attrRatio[${key}]=${weight} but no runtime layer contributes > 0`);
       }
-    } else if (category === 'arts') {
+      // 六维总量对齐
+      const expectedAttrTotal = calcInternalTechniqueAttrTotal(
+        runtime.grade as never,
+        Number(runtime.realmLv),
+        Number(template.attrFloat ?? 0),
+      );
+      let actualAttrTotal = 0;
+      for (const layer of runtimeLayers) {
+        if (!layer.attrs) continue;
+        for (const k of TECHNIQUE_ATTR_KEYS) actualAttrTotal += Number(layer.attrs[k] ?? 0);
+      }
+      const attrDelta = Math.abs(actualAttrTotal - expectedAttrTotal);
+      assert.ok(
+        attrDelta <= tolerance(maxLayer),
+        `${id}: attr total drift too large: expected ~${expectedAttrTotal.toFixed(2)}, got ${actualAttrTotal}`,
+      );
+    }
+
+    if (category === 'arts') {
       // 根级 skills 数量守恒
       const rawSkills = Array.isArray(template.skills) ? template.skills.length : 0;
       const runtimeSkills = Array.isArray(runtime.skills) ? runtime.skills.length : 0;

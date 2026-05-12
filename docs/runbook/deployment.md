@@ -40,7 +40,7 @@
 tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 ```
 
-公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`，脚本检测到登录信息后会同步给 Watchtower。一键脚本会为已有 `prod.env` 自动补齐缺失的 GM token 签名密钥和密钥管理加密密钥。
+公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`。一键脚本会为已有 `prod.env` 自动补齐缺失的 GM token 签名密钥和密钥管理加密密钥，并安装 `daojie-ccr-auto-update.timer` 定时检查 CCR 镜像 digest。
 
 下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
 
@@ -119,6 +119,18 @@ TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
 
 ### 更新 Stack
 
+一键部署环境默认安装 CCR 自动更新器。推送新镜像后，服务器每 60 秒检查 CCR 远端 digest；如果 digest 变化，会自动更新 `daojie-yusheng_server`、`daojie-yusheng_backup-worker` 和 `daojie-yusheng_client`。
+
+检查自动更新器：
+
+```bash
+systemctl status daojie-ccr-auto-update.timer
+journalctl -u daojie-ccr-auto-update.service -n 80 --no-pager
+cat /opt/daojie-yusheng/ccr-auto-update.state
+```
+
+也可以手动重新部署 stack：
+
 ```bash
 docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng
 ```
@@ -188,6 +200,7 @@ docker service logs daojie-yusheng_server --tail 100
 - 环境变量未设置
 - 数据库连接失败
 - 镜像拉取失败
+- CCR 自动更新器未启用或无法读取远端 digest
 
 ### Q: 数据库连接失败？
 

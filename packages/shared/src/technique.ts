@@ -40,6 +40,7 @@ import {
 } from './constants/gameplay/technique';
 
 const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
+export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:technique-max';
 
 /** 创建全零六维属性对象 */
 export function createZeroAttributes(): Attributes {
@@ -424,6 +425,24 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
   return result;
 }
 
+/** 计算已学功法中每项六维的当前最高单项值，并换算成独立百分比乘区。 */
+export function calcTechniqueMaxAttrPercentBonus(techniques: readonly TechniqueState[]): Partial<Attributes> {
+  const result: Partial<Attributes> = {};
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    let maxValue = 0;
+    for (const technique of techniques) {
+      const value = Number(calcTechniqueAttrValues(technique.level, technique.layers)[key] ?? 0);
+      if (Number.isFinite(value) && value > maxValue) {
+        maxValue = value;
+      }
+    }
+    if (maxValue > 0) {
+      result[key] = maxValue / 10;
+    }
+  }
+  return result;
+}
+
 /** 汇总所有已学功法的最终特殊属性加成 */
 export function calcTechniqueFinalSpecialStatBonus(techniques: readonly TechniqueState[]): Pick<PlayerSpecialStats, 'comprehension' | 'luck'> {
   const result = {
@@ -451,22 +470,22 @@ export function calcTechniqueFinalQiProjection(techniques: readonly TechniqueSta
 }
 
 // ---------------------------------------------------------------------------
-// 内功量化展开：把 TechniqueTemplate 的 attrRatio / attrFloat / maxLayer /
-// expDifficulty 按公式展开为逐层 attrs + expToNext，供运行时走与静态功法一致
-// 的代码路径。同时允许通过 sparse `layers` 承载 qiProjection 等策划权威覆盖。
+// 功法量化展开：把 TechniqueTemplate 的 attrRatio / attrFloat / maxLayer /
+// expDifficulty / layerGains 按公式展开为逐层 attrs + expToNext，供运行时走与
+// 静态功法一致的代码路径。同时允许通过 sparse `layers` 承载 qiProjection 等策划权威覆盖。
 // 设计来源：docs/design/systems/AI功法生成方案.md §4 / §6 / §7.4。
 // ---------------------------------------------------------------------------
 
 /** 功法模板 schema 版本，便于后续 AI 生成入库时做兼容迁移。 */
 export const TECHNIQUE_SCHEMA_VERSION = 1 as const;
 
-/** 内功展开默认总层数。 */
+/** 量化功法展开默认总层数。 */
 export const TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER = 9 as const;
 
-/** 内功总层数允许范围（含端点）。 */
+/** 量化功法总层数允许范围（含端点）。 */
 export const TECHNIQUE_INTERNAL_MAX_LAYER_RANGE: readonly [number, number] = [3, 49];
 
-/** 内功属性浮动系数 `attrFloat` 允许范围（含端点）。 */
+/** 量化功法属性浮动系数 `attrFloat` 允许范围（含端点）。 */
 export const TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE: readonly [number, number] = [-0.15, 0.10];
 
 /** 经验难度系数 `expDifficulty` 允许范围（含端点）。 */
@@ -541,7 +560,7 @@ export function resolveTechniqueStageIndex(level: number, stageLayers: readonly 
 }
 
 /**
- * 内功六维总量公式：`T = (g²·(realmLv+25) + 50) × (1 + attrFloat)`。
+ * 功法六维总量公式：`T = (g²·(realmLv+25) + 50) × (1 + attrFloat)`。
  */
 export function calcInternalTechniqueAttrTotal(
   grade: TechniqueGrade,
@@ -559,7 +578,7 @@ export function calcInternalTechniqueAttrTotal(
 }
 
 /**
- * 内功总经验：`BASE × catFactor × (K^maxLayer - 1)/(K-1) × expDifficulty`，`BASE = g²·(realmLv+5)`。
+ * 功法总经验：`BASE × catFactor × (K^maxLayer - 1)/(K-1) × expDifficulty`，`BASE = g²·(realmLv+5)`。
  *
  * 返回值已乘以 `TECHNIQUE_EXP_BASE × realmLv`，与 `scaleTechniqueExp(expFactor, realmLv)` 的
  * 运行时单位对齐；这样展开后的 `expToNext` 可直接作为 `TechniqueLayerDef.expToNext` 使用，
@@ -621,17 +640,15 @@ function mergeSparseQiProjection(
   }
 }
 
-/**
- * 判断模板是否需要走量化展开。
- *
- * 触发条件：`category === 'internal'` 且有 `attrRatio` 非零权重。
- */
-export function shouldExpandInternalTechnique(template: Pick<TechniqueTemplate, 'category' | 'attrRatio'>): boolean {
-  if (template.category !== 'internal') return false;
+/** 判断模板是否需要走 `attrRatio` 六维量化展开。 */
+export function shouldExpandTechniqueAttrRatio(template: Pick<TechniqueTemplate, 'attrRatio'>): boolean {
   return sumAttrRatioWeights(template.attrRatio) > 0;
 }
 
-/** 内功展开结果（仅包含运行时需要的 layers 与诊断性统计）。 */
+/** @deprecated 使用 shouldExpandTechniqueAttrRatio；保留给历史迁移工具兼容。 */
+export const shouldExpandInternalTechnique = shouldExpandTechniqueAttrRatio;
+
+/** `attrRatio` 功法展开结果（仅包含运行时需要的 layers 与诊断性统计）。 */
 export interface InternalTechniqueExpansion {
   /** 展开后的完整 layers，可直接挂到 TechniqueState.layers。 */
   layers: TechniqueLayerDef[];
@@ -644,7 +661,7 @@ export interface InternalTechniqueExpansion {
 }
 
 /**
- * 展开内功量化模板：生成逐层 `{ level, expToNext, attrs, qiProjection? }`。
+ * 展开 `attrRatio` 量化模板：生成逐层 `{ level, expToNext, attrs, qiProjection? }`。
  *
  * 数值按 `AI功法生成方案.md §4 / §6 / §7.4`：
  * - 六维总量 `T = (g²·(realmLv+25) + 50) × (1 + attrFloat)`；
@@ -653,12 +670,9 @@ export interface InternalTechniqueExpansion {
  *
  * sparse overlay `template.layers` 仅保留 `{ level, qiProjection }` 的条目会被 merge 进结果。
  */
-export function expandInternalTechnique(template: TechniqueTemplate): InternalTechniqueExpansion {
-  if (template.category !== 'internal') {
-    throw new Error(`expandInternalTechnique: category must be 'internal', got ${template.category}`);
-  }
-
+export function expandTechniqueAttrRatio(template: TechniqueTemplate): InternalTechniqueExpansion {
   const grade = template.grade;
+  const category = template.category ?? 'internal';
   const realmLv = Number.isFinite(template.realmLv) ? Math.max(1, Math.trunc(template.realmLv)) : 1;
   const attrFloat = clampRange(
     Number(template.attrFloat ?? 0),
@@ -679,7 +693,7 @@ export function expandInternalTechnique(template: TechniqueTemplate): InternalTe
   );
 
   const attrTotal = calcInternalTechniqueAttrTotal(grade, realmLv, attrFloat);
-  const expCurve = expandTechniqueExpCurve(grade, realmLv, maxLayer, expDifficulty, 'internal');
+  const expCurve = expandTechniqueExpCurve(grade, realmLv, maxLayer, expDifficulty, category);
   const totalExp = expCurve.totalExp;
 
   const stageLayers = expCurve.stageLayers;
@@ -733,6 +747,9 @@ export function expandInternalTechnique(template: TechniqueTemplate): InternalTe
     stageLayers,
   };
 }
+
+/** @deprecated 使用 expandTechniqueAttrRatio；保留给历史迁移工具兼容。 */
+export const expandInternalTechnique = expandTechniqueAttrRatio;
 
 /**
  * 通用功法经验曲线展开：产出每一层已缩放的 `expToNext`，并把末层强制置 0。
@@ -812,7 +829,7 @@ export function calcTechniqueTotalExp(
 }
 
 /**
- * 非内功功法的逐层增量展开：把紧凑的 `TechniqueLayerGains`（base + deltas）拉平为逐层
+ * 功法逐层增量展开：把紧凑的 `TechniqueLayerGains`（base + deltas）拉平为逐层
  * `{ attrs, specialStats }` 数组，下游按 level-1 下标读取。
  *
  * - `attrs` / `specialStats`：作为每一层的基础常驻增量，逐层原样拷贝；

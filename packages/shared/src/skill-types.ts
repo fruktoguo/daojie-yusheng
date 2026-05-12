@@ -271,6 +271,11 @@ export interface SkillBuffEffectDef {
 
   valueStats?: PartialNumericStats;
   /**
+ * mainCombatStatsPercent：主要战斗属性统一百分比修饰。
+ */
+
+  mainCombatStatsPercent?: number;
+  /**
  * presentationScale：presentationScale相关字段。
  */
 
@@ -399,6 +404,11 @@ export interface MonsterInitialBuffDef {
  */
 
   valueStats?: PartialNumericStats;
+  /**
+ * mainCombatStatsPercent：主要战斗属性统一百分比修饰。
+ */
+
+  mainCombatStatsPercent?: number;
   /**
  * presentationScale：presentationScale相关字段。
  */

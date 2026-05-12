@@ -610,9 +610,35 @@ function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpe
     grade,
     category: normalizeTechniqueCategory(raw.category, skills),
     realmLv,
+    attrRatio: isPlainObject(raw.attrRatio) ? { ...raw.attrRatio } : undefined,
+    attrFloat: Number.isFinite(raw.attrFloat) ? Number(raw.attrFloat) : undefined,
+    maxLayer: Number.isFinite(raw.maxLayer) ? Math.max(1, Math.floor(Number(raw.maxLayer))) : undefined,
+    expDifficulty: Number.isFinite(raw.expDifficulty) ? Number(raw.expDifficulty) : undefined,
+    layerGains: isPlainObject(raw.layerGains) ? cloneLayerGains(raw.layerGains) : undefined,
     skills,
     layers,
   };
+}
+
+function cloneLayerGains(raw) {
+  const result = {};
+  if (isPlainObject(raw.attrs)) {
+    result.attrs = { ...raw.attrs };
+  }
+  if (isPlainObject(raw.specialStats)) {
+    result.specialStats = { ...raw.specialStats };
+  }
+  if (Array.isArray(raw.deltas)) {
+    result.deltas = raw.deltas
+      .filter((delta) => isPlainObject(delta))
+      .map((delta) => ({
+        fromLevel: delta.fromLevel,
+        toLevel: delta.toLevel,
+        attrsAdd: isPlainObject(delta.attrsAdd) ? { ...delta.attrsAdd } : undefined,
+        specialStatsAdd: isPlainObject(delta.specialStatsAdd) ? { ...delta.specialStatsAdd } : undefined,
+      }));
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**

@@ -57,20 +57,52 @@
 - `meridians`: 经脉 — 影响气机上限
 
 `statTendency` 战斗属性：
+- `maxHp`: 生命上限
 - `maxQi`: 气机上限
+- `maxQiOutputPerTick`: 灵力输出
 - `physAtk`: 物理攻击
 - `spellAtk`: 法术攻击
 - `physDef`: 物理防御
 - `spellDef`: 法术防御
+- `hit`: 命中
 - `dodge`: 闪避
 - `crit`: 暴击
-- `breakPower`: 破防
-- `resolvePower`: 韧性
+- `antiCrit`: 免爆
+- `breakPower`: 破招
+- `resolvePower`: 化解
 - `moveSpeed`: 移动速度
 
 数值为百分比，100 为基准值，大于 100 表示高于基准；未写的单项按 100 处理。
 
 当前实际公式详见 [怪物当前属性计算总览](../design/balance/怪物当前属性计算总览.md)。长期配置应优先写 `attrTendency/statTendency`，不要新增固定 `attrs`、`valueStats` 或 `stats` 作为怪物基础数值；这些字段仅作为旧配置兼容口径存在。
+
+## 主要战斗属性后处理
+
+怪物基础数值算完后，会额外按等级增幅主要战斗属性：
+
+```text
+maxHp, maxQi, maxQiOutputPerTick,
+physAtk, spellAtk, physDef, spellDef,
+hit, dodge, crit, antiCrit, breakPower, resolvePower
+```
+
+1 级增幅 `0%`，18 级增幅 `20%`，30 级增幅 `100%`，30 级后每级继续增加 `5%`，并且每 12 级额外增加 `40%`。这个规则由共享公式统一执行，不需要在怪物 JSON 中手动补。
+
+`initialBuffs`、技能 Buff 和消耗品 Buff 可以使用 `mainCombatStatsPercent` 作为百分比简写，内容加载期会展开到上述主要战斗属性。例如唤灵真人的重伤 debuff：
+
+```json
+{
+  "buffId": "buff.huanling_zhenren_wounded",
+  "name": "重伤",
+  "category": "debuff",
+  "duration": 999999,
+  "infiniteDuration": true,
+  "mainCombatStatsPercent": -4444,
+  "statMode": "percent"
+}
+```
+
+`mainCombatStatsPercent` 不影响暴伤、回血、回灵、速度、视野；`statMode` 为 `flat` 时不会展开该简写。
 
 ## 示例
 

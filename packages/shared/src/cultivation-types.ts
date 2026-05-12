@@ -66,10 +66,11 @@ export interface TechniqueLayerDef {
 }
 
 /**
- * 内功量化模板的 sparse overlay 层。
+ * 功法量化模板的 sparse overlay 层。
  *
- * 主干属性/经验由 `attrRatio` + 公式展开产生；本字段仅保留策划权威的逐层气机投影
- * 等非量化副产物（天阶 49 层等场景），按 `level` merge 进展开结果。
+ * 主干层数/经验/属性由 `maxLayer`、`attrRatio`、`layerGains` 等数字配置展开产生；
+ * 本字段仅保留策划权威的逐层气机投影等非量化副产物（天阶 49 层等场景），
+ * 按 `level` merge 进展开结果。
  */
 export interface TechniqueTemplateSparseLayer {
   /** 层号，与展开后的 `TechniqueLayerDef.level` 对齐。 */
@@ -79,9 +80,9 @@ export interface TechniqueTemplateSparseLayer {
 }
 
 /**
- * 非内功功法（arts / divine / secret）使用的逐层增量压缩配置。
+ * 功法逐层增量压缩配置。
  *
- * 运行时展开为每层 `{ attrs, specialStats }`，替代冗余的 `layers[]` 列表。
+ * 运行时展开为每层 `{ attrs, specialStats }`，替代冗余的逐层 `layers[]` 列表。
  *
  * - `attrs` / `specialStats`：每层常驻的基础增量，展开时逐层原样复制；
  * - `deltas[]`：按 `[fromLevel, toLevel]` 区间叠加的差量，`toLevel` 默认 `maxLayer`；
@@ -98,7 +99,7 @@ export interface TechniqueLayerGainsDelta {
   specialStatsAdd?: Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>>;
 }
 
-/** 非内功功法的每层增量打包配置。 */
+/** 功法每层增量打包配置。 */
 export interface TechniqueLayerGains {
   /** 每层常驻的基础六维增量。 */
   attrs?: Partial<Attributes>;
@@ -111,10 +112,11 @@ export interface TechniqueLayerGains {
 /**
  * 功法模板（内容配置层）。
  *
- * - 新"量化"格式：internal 功法使用 `attrRatio` + `attrFloat` + `maxLayer` + `expDifficulty`，
+ * - 新"量化"格式：所有功法使用 `maxLayer` + `expDifficulty` 表达数字层数和经验曲线；
+ *   六维属性可用 `attrRatio` 公式分配，或用 `layerGains` 表达每层增量。
  *   运行时启动期按公式展开为完整 layers，不进入高频路径。
- * - 旧"逐层"格式：使用 `layers[]` 显式配置每层 `attrs` 和 `expFactor`，仍作为过渡期兼容路径。
- * - `layers` 在新格式下只用于承载 sparse overlay（目前唯一用途：天阶 49 层的 qiProjection）。
+ * - 旧"逐层"格式：使用 `layers[]` 显式配置每层 `attrs` 和 `expFactor`，仅作为过渡期兼容路径。
+ * - `layers` 在新格式下只用于承载 sparse overlay（例如天阶 49 层的 qiProjection）。
  */
 export interface TechniqueTemplate {
   /** 功法唯一 id。 */
@@ -131,16 +133,16 @@ export interface TechniqueTemplate {
   realmLv: number;
 
   /**
-   * 内功六维分配权重（量化格式）。
+   * 六维分配权重（量化格式）。
    *
-   * - 仅 internal 生效；运行时按权重归一后按阶段/层分配到每层属性。
+   * - 所有功法均可使用；运行时按权重归一后按阶段/层分配到每层属性。
    * - 例：`{ strength: 0.37, spirit: 0.31, meridians: 0.32 }`；也可填 `37/31/32`，归一结果相同。
    */
   attrRatio?: Partial<Record<AttrKey, number>>;
   /**
-   * 内功六维总量浮动系数（量化格式）。
+   * 六维总量浮动系数（量化格式）。
    *
-   * - 仅 internal 生效，默认 0，规范范围 `[-0.15, +0.10]`。
+   * - 默认 0，规范范围 `[-0.15, +0.10]`。
    * - 公式：`T = (g²·(realmLv+25) + 50) × (1 + attrFloat)`。
    */
   attrFloat?: number;
@@ -167,7 +169,7 @@ export interface TechniqueTemplate {
    */
   layers?: TechniqueLayerDef[] | TechniqueTemplateSparseLayer[];
   /**
-   * 非内功功法（arts / divine / secret）的逐层增量压缩配置。
+   * 功法逐层增量压缩配置。
    *
    * 运行时展开为每层 `{ attrs, specialStats }`，与 legacy `layers[]` 等价但更紧凑。
    * 若同时指定 `layers[]` 和 `layerGains`，优先 `layerGains`。

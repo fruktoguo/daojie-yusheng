@@ -1,6 +1,9 @@
 import {
   calculateTechniqueSkillQiCost,
   deriveTechniqueRealm,
+  expandTechniqueAttrRatio,
+  expandTechniqueExpCurve,
+  expandTechniqueLayerGains,
   type GmEditorItemOption,
   type GmEditorTechniqueOption,
   type GmEditorRealmOption,
@@ -337,10 +340,10 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
-  const resolvedLayers = resolvePreviewTechniqueLayers(technique.layers, template.layers);
+  const resolvedLayers = resolvePreviewTechniqueLayers(technique.layers, template);
   const templateSkills = clone(template.skills ?? []);
   const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
-  const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
+  const realmLv = resolveTechniqueRealmLevel(template.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,
     name: technique.name || template.name,
@@ -362,29 +365,88 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
 
 function resolvePreviewTechniqueLayers(
   sourceLayers: TechniqueState['layers'] | undefined,
-  templateLayers: TechniqueLayerDef[] | undefined,
+  template: GmEditorTechniqueOption | undefined,
 ): TechniqueLayerDef[] {
-  const templateByLevel = new Map((templateLayers ?? []).map((entry) => [entry.level, entry] as const));
-  const baseLayers = sourceLayers && sourceLayers.length > 0
-    ? sourceLayers
-    : clone(templateLayers ?? []);
+  const templateLayers = template?.layers;
+  const expandedTemplateLayers = expandPreviewTechniqueTemplateLayers(template);
+  const templateByLevel = new Map((expandedTemplateLayers ?? []).map((entry) => [entry.level, entry] as const));
+  const sourceByLevel = new Map((sourceLayers ?? []).map((entry) => [entry.level, entry] as const));
+  const baseLayers = expandedTemplateLayers && expandedTemplateLayers.length > 0
+    ? expandedTemplateLayers
+    : sourceLayers && sourceLayers.length > 0
+      ? sourceLayers
+      : clone(templateLayers ?? []);
   return baseLayers.map((layer) => {
     const templateLayer = templateByLevel.get(layer.level);
+    const sourceLayer = sourceByLevel.get(layer.level);
     const legacySpecialStats = resolveLegacyLayerSpecialStats(layer.attrs);
     return {
       ...layer,
-      expToNext: templateLayer?.expToNext ?? layer.expToNext,
+      expToNext: templateLayer?.expToNext ?? sourceLayer?.expToNext ?? layer.expToNext,
       attrs: templateLayer?.attrs
         ? { ...templateLayer.attrs }
-        : cloneLayerAttrsWithoutSpecialStats(layer.attrs),
-      specialStats: layer.specialStats
-        ? { ...layer.specialStats }
-        : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
-      qiProjection: templateLayer?.qiProjection
-        ? templateLayer.qiProjection.map((entry) => ({ ...entry }))
-        : layer.qiProjection?.map((entry) => ({ ...entry })),
+        : cloneLayerAttrsWithoutSpecialStats(sourceLayer?.attrs ?? layer.attrs),
+      specialStats: sourceLayer?.specialStats
+        ? { ...sourceLayer.specialStats }
+        : layer.specialStats
+          ? { ...layer.specialStats }
+          : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
+      qiProjection: sourceLayer?.qiProjection
+        ? sourceLayer.qiProjection.map((entry) => ({ ...entry }))
+        : templateLayer?.qiProjection
+          ? templateLayer.qiProjection.map((entry) => ({ ...entry }))
+          : layer.qiProjection?.map((entry) => ({ ...entry })),
     };
   });
+}
+
+function expandPreviewTechniqueTemplateLayers(template: GmEditorTechniqueOption | undefined): TechniqueLayerDef[] | undefined {
+  if (!template) {
+    return undefined;
+  }
+  if (hasPositiveAttrRatio(template.attrRatio)) {
+    return expandTechniqueAttrRatio({
+      id: template.id,
+      name: template.name,
+      desc: template.desc,
+      grade: template.grade ?? 'mortal',
+      category: template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal'),
+      realmLv: resolveTechniqueRealmLevel(template.realmLv, template.grade),
+      attrRatio: template.attrRatio,
+      attrFloat: template.attrFloat,
+      maxLayer: template.maxLayer,
+      expDifficulty: template.expDifficulty,
+      layers: template.layers,
+    }).layers;
+  }
+  if (!Number.isFinite(template.maxLayer)) {
+    return template?.layers;
+  }
+  const maxLayer = Math.max(1, Math.floor(Number(template.maxLayer)));
+  const grade = template.grade ?? 'mortal';
+  const category = template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
+  const realmLv = resolveTechniqueRealmLevel(template.realmLv, grade);
+  const expCurve = expandTechniqueExpCurve(grade, realmLv, maxLayer, template.expDifficulty ?? 1, category);
+  const sparseByLevel = new Map((template.layers ?? []).map((entry) => [entry.level, entry] as const));
+  const gains = expandTechniqueLayerGains(template.layerGains, maxLayer);
+  return Array.from({ length: maxLayer }, (_, index) => {
+    const level = index + 1;
+    const sparse = sparseByLevel.get(level);
+    const gain = gains[index];
+    return {
+      level,
+      expToNext: expCurve.perLayerExp[index] ?? 0,
+      attrs: gain?.attrs ? { ...gain.attrs } : (sparse?.attrs ? { ...sparse.attrs } : undefined),
+      specialStats: gain?.specialStats ? { ...gain.specialStats } : (sparse?.specialStats ? { ...sparse.specialStats } : undefined),
+      qiProjection: sparse?.qiProjection ? sparse.qiProjection.map((entry) => ({ ...entry })) : undefined,
+    };
+  });
+}
+
+function hasPositiveAttrRatio(attrRatio: GmEditorTechniqueOption['attrRatio'] | undefined): boolean {
+  return Object.values(attrRatio ?? {}).some((value) => (
+    typeof value === 'number' && Number.isFinite(value) && value > 0
+  ));
 }
 
 function cloneLayerAttrsWithoutSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['attrs'] | undefined {

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
+const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, calcTechniqueMaxAttrPercentBonus, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -134,10 +134,17 @@ function testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate() {
     };
     service.recalculate(player);
     const techniqueBonus = calcTechniqueFinalAttrBonus(player.techniques.techniques);
+    const techniqueMaxPercentBonus = calcTechniqueMaxAttrPercentBonus(player.techniques.techniques);
     assert.equal(player.attrs.baseAttrs.constitution, DEFAULT_BASE_ATTRS.constitution + techniqueBonus.constitution);
     assert.equal(player.attrs.baseAttrs.spirit, DEFAULT_BASE_ATTRS.spirit + techniqueBonus.spirit);
-    assert.equal(player.attrs.finalAttrs.constitution, DEFAULT_BASE_ATTRS.constitution + techniqueBonus.constitution);
-    assert.equal(player.attrs.finalAttrs.spirit, DEFAULT_BASE_ATTRS.spirit + techniqueBonus.spirit);
+    assert.equal(
+        player.attrs.finalAttrs.constitution,
+        (DEFAULT_BASE_ATTRS.constitution + techniqueBonus.constitution) * (1 + techniqueMaxPercentBonus.constitution / 100),
+    );
+    assert.equal(
+        player.attrs.finalAttrs.spirit,
+        (DEFAULT_BASE_ATTRS.spirit + techniqueBonus.spirit) * (1 + techniqueMaxPercentBonus.spirit / 100),
+    );
 }
 
 function testAttrDetailUsesAggregateTechniqueAttrBonus() {
@@ -196,6 +203,80 @@ function testAttrDetailUsesAggregateTechniqueAttrBonus() {
         .reduce((sum, entry) => sum + (entry.attrs?.constitution ?? 0), 0);
     assert.equal(leakedPerTechniqueAttrs, 0);
     assert.ok(player.attrs.baseAttrs.constitution - (aggregateBonus?.attrs?.constitution ?? 0) >= 0);
+}
+
+function testTechniqueMaxAttrPercentBonusUsesCurrentHighestLearnedTechnique() {
+    const service = new PlayerAttributesService();
+    const createTechnique = (techId, level, layerAttrs) => ({
+        techId,
+        name: techId,
+        level,
+        exp: 0,
+        expToNext: 0,
+        realmLv: 1,
+        realm: 0,
+        grade: 'mortal',
+        category: 'internal',
+        skills: [],
+        layers: layerAttrs.map((attrs, index) => ({
+            level: index + 1,
+            expToNext: 0,
+            attrs,
+        })),
+    });
+    const techniques = [
+        createTechnique('technique:max:body', 2, [
+            { constitution: 100, spirit: 25 },
+            { constitution: 100, spirit: 25 },
+            { constitution: 999, spirit: 999 },
+        ]),
+        createTechnique('technique:max:spirit', 1, [
+            { constitution: 150, spirit: 180 },
+            { constitution: 500, spirit: 500 },
+        ]),
+    ];
+    const player = {
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    };
+    service.recalculate(player);
+    const aggregateBonus = calcTechniqueFinalAttrBonus(techniques);
+    const maxPercentBonus = calcTechniqueMaxAttrPercentBonus(techniques);
+    assert.equal(maxPercentBonus.constitution, 20);
+    assert.equal(maxPercentBonus.spirit, 18);
+    assert.equal(maxPercentBonus.perception ?? 0, 0);
+    assert.equal(
+        player.attrs.baseAttrs.constitution,
+        DEFAULT_BASE_ATTRS.constitution + aggregateBonus.constitution,
+    );
+    assert.equal(
+        player.attrs.finalAttrs.constitution,
+        (DEFAULT_BASE_ATTRS.constitution + aggregateBonus.constitution) * 1.2,
+    );
+    assert.equal(
+        player.attrs.finalAttrs.spirit,
+        (DEFAULT_BASE_ATTRS.spirit + aggregateBonus.spirit) * 1.18,
+    );
+    const bonuses = buildAttrDetailBonuses(player);
+    const techniqueMaxBonus = bonuses.find((entry) => entry.source === TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE);
+    assert.equal(techniqueMaxBonus?.label, '万法归元');
+    assert.equal(techniqueMaxBonus?.attrMode, 'percent');
+    assert.equal(techniqueMaxBonus?.attrs?.constitution, 20);
+    assert.equal(techniqueMaxBonus?.attrs?.spirit, 18);
 }
 
 function testCultivationEquipmentProgressBoostAffectsRuntimeStats() {
@@ -1000,6 +1081,7 @@ function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
 testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
 testAttrDetailUsesAggregateTechniqueAttrBonus();
+testTechniqueMaxAttrPercentBonusUsesCurrentHighestLearnedTechnique();
 testCultivationEquipmentProgressBoostAffectsRuntimeStats();
 testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
