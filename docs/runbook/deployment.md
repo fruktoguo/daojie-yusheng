@@ -34,6 +34,14 @@
 
 ## 首次部署
 
+生产服务器可以直接执行一键脚本。脚本会把配置和生成的 stack 文件保存在 `/opt/daojie-yusheng`：
+
+```bash
+tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
+```
+
+下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
+
 ### 1. 初始化 Swarm
 
 ```bash

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ============================================================
 # 道劫余生 - 一键部署脚本（自包含）
-# 用法：bash <(curl -fsSL https://你的地址/deploy.sh)
+# 用法：tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 # 幂等设计：重复运行安全，可用于首次部署 / 重新部署 / 重启
 # ============================================================
 
@@ -18,10 +18,64 @@ log_warn()  { printf '%b[WARN]%b  %s\n' "$YELLOW" "$NC" "$1"; }
 log_error() { printf '%b[ERROR]%b %s\n' "$RED" "$NC" "$1" >&2; }
 log_step()  { printf '\n%b==> %s%b\n' "$CYAN" "$1" "$NC"; }
 
+write_env_var() {
+  local key="$1"
+  local value="$2"
+  printf '%s=%q\n' "$key" "$value"
+}
+
+registry_host_from_prefix() {
+  local prefix="$1"
+  local first_part="${prefix%%/*}"
+  if [ "$first_part" = "$prefix" ]; then
+    return 0
+  fi
+  case "$first_part" in
+    *.*|*:*|localhost)
+      printf '%s' "$first_part"
+      ;;
+  esac
+}
+
+ensure_registry_auth() {
+  local registry
+  registry="$(registry_host_from_prefix "${TENCENT_IMAGE_PREFIX}")"
+  if [ -z "$registry" ]; then
+    return 0
+  fi
+
+  if [ -s "$DOCKER_AUTH_CONFIG_FILE" ] && grep -Fq "\"${registry}\"" "$DOCKER_AUTH_CONFIG_FILE"; then
+    log_info "已检测到 Docker 镜像仓库登录信息: ${registry}"
+  else
+    log_warn "未检测到 root 用户的 Docker 镜像仓库登录信息: ${registry}"
+    log_warn "私有 CCR 镜像需要先登录，否则 Swarm 和 Watchtower 可能无法拉取镜像"
+    printf "  是否现在执行 docker login %s？[Y/n]: " "$registry"
+    read -r login_answer </dev/tty
+    case "${login_answer:-Y}" in
+      y|Y|yes|YES)
+        docker login "$registry"
+        ;;
+      *)
+        log_error "缺少私有镜像仓库登录信息，已停止部署"
+        exit 1
+        ;;
+    esac
+  fi
+
+  mkdir -p "$WATCHTOWER_CONFIG_DIR"
+  cp "$DOCKER_AUTH_CONFIG_FILE" "$WATCHTOWER_CONFIG_FILE"
+  chmod 600 "$WATCHTOWER_CONFIG_FILE"
+  log_info "Watchtower 镜像仓库凭据已同步"
+}
+
 DEPLOY_DIR="/opt/daojie-yusheng"
 ENV_FILE="${DEPLOY_DIR}/prod.env"
 STACK_FILE="${DEPLOY_DIR}/docker-stack.yml"
 STACK_NAME="daojie-yusheng"
+DEPLOY_SCRIPT_URL="${DEPLOY_SCRIPT_URL:-https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh}"
+DOCKER_AUTH_CONFIG_FILE="/root/.docker/config.json"
+WATCHTOWER_CONFIG_DIR="${DEPLOY_DIR}/watchtower"
+WATCHTOWER_CONFIG_FILE="${WATCHTOWER_CONFIG_DIR}/config.json"
 
 mkdir -p "$DEPLOY_DIR"
 
@@ -131,19 +185,21 @@ else
   read -r input_cors </dev/tty
   input_cors="${input_cors:-*}"
 
-  cat > "$ENV_FILE" <<EOF
-TENCENT_IMAGE_PREFIX=${input_prefix}
-DB_PASSWORD=${input_db_pass}
-SERVER_PLAYER_TOKEN_SECRET=${input_jwt}
-GM_PASSWORD=${input_gm_pass}
-SERVER_CORS_ORIGINS=${input_cors}
-CLIENT_IMAGE_TAG=latest
-SERVER_IMAGE_TAG=latest
-EOF
+  {
+    write_env_var "TENCENT_IMAGE_PREFIX" "$input_prefix"
+    write_env_var "DB_PASSWORD" "$input_db_pass"
+    write_env_var "SERVER_PLAYER_TOKEN_SECRET" "$input_jwt"
+    write_env_var "GM_PASSWORD" "$input_gm_pass"
+    write_env_var "SERVER_CORS_ORIGINS" "$input_cors"
+    write_env_var "CLIENT_IMAGE_TAG" "latest"
+    write_env_var "SERVER_IMAGE_TAG" "latest"
+  } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   log_info "配置已保存到 $ENV_FILE"
   set -a && . "$ENV_FILE" && set +a
 fi
+
+ensure_registry_auth
 
 # ============================================================
 # 生成 Stack 文件（内嵌）
@@ -314,6 +370,7 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${WATCHTOWER_CONFIG_FILE:-/opt/daojie-yusheng/watchtower/config.json}:/config.json:ro
     environment:
       WATCHTOWER_POLL_INTERVAL: 60
       WATCHTOWER_CLEANUP: "true"
@@ -349,7 +406,7 @@ log_info "Stack 文件已生成: $STACK_FILE"
 
 log_step "部署服务"
 
-docker stack deploy -c "$STACK_FILE" "$STACK_NAME"
+WATCHTOWER_CONFIG_FILE="$WATCHTOWER_CONFIG_FILE" docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
 log_info "部署指令已发送"
 
 # ============================================================
@@ -418,7 +475,10 @@ echo "  Stack文件: ${STACK_FILE}"
 echo ""
 log_info "Watchtower 已启用，推送新镜像后 60 秒内自动更新"
 
-# 把自己复制到部署目录方便后续重新运行
-if [ "$(realpath "$0" 2>/dev/null)" != "$(realpath "${DEPLOY_DIR}/deploy.sh" 2>/dev/null)" ] 2>/dev/null; then
-  cp "$0" "${DEPLOY_DIR}/deploy.sh" 2>/dev/null && chmod +x "${DEPLOY_DIR}/deploy.sh" 2>/dev/null || true
+# 保存部署脚本，方便后续重新运行
+if curl -fsSL "$DEPLOY_SCRIPT_URL" -o "${DEPLOY_DIR}/deploy.sh"; then
+  chmod +x "${DEPLOY_DIR}/deploy.sh"
+  log_info "部署脚本已保存: ${DEPLOY_DIR}/deploy.sh"
+else
+  log_warn "部署脚本保存失败；可再次通过远程一键命令重新运行"
 fi

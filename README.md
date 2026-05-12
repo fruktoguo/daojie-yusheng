@@ -63,15 +63,15 @@ pnpm build:config-editor
 
 ## 生产部署
 
-服务器不需要源码、不需要 `pnpm install`。只需要 Docker 和一个 `deploy.sh` 脚本。
+服务器不需要源码、不需要 `pnpm install`。一键脚本会把部署文件保存到 `/opt/daojie-yusheng`，并使用 Docker Swarm 运行生产 stack。
 
-**一键部署**（把 `deploy.sh` 传到服务器后执行）：
+**一键部署**：
 
 ```bash
-bash deploy.sh
+tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 ```
 
-脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码 → 部署全套服务 → 建表 → 启动 Watchtower 自动更新。
+脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码 → 检查镜像仓库登录 → 部署全套服务 → 建表 → 启动 Watchtower 自动更新。
 
 部署内容：
 
