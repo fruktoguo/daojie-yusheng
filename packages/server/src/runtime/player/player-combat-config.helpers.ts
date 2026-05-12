@@ -62,10 +62,6 @@ type CombatRelationTargetInput =
 interface CanonicalCombatTargetingRules extends CombatTargetingRules {
   hostile: CombatTargetingRuleKey[];
   friendly: CombatTargetingRuleKey[];
-  includeNormalMonsters: boolean;
-  includeEliteMonsters: boolean;
-  includeBosses: boolean;
-  includePlayers: boolean;
 }
 
 function cloneAutoUsePillCondition(input: AutoUsePillConditionLike): AutoUsePillConditionLike {
@@ -190,41 +186,7 @@ function buildDefaultCombatTargetingRules(includeAllPlayersHostile = false): Can
   return {
     hostile,
     friendly,
-    includeNormalMonsters: hostile.includes('monster'),
-    includeEliteMonsters: hostile.includes('monster'),
-    includeBosses: hostile.includes('monster'),
-    includePlayers: hostile.includes('all_players'),
   };
-}
-
-function hasLegacyMonsterOverride(input: Partial<CombatTargetingRules> | null | undefined): boolean {
-  return input?.includeNormalMonsters !== undefined
-    || input?.includeEliteMonsters !== undefined
-    || input?.includeBosses !== undefined;
-}
-
-function resolveLegacyMonsterEnabled(input: Partial<CombatTargetingRules> | null | undefined, defaults: CombatTargetingRuleKey[]): boolean {
-  if (hasLegacyMonsterOverride(input)) {
-    return input?.includeNormalMonsters === true
-      || input?.includeEliteMonsters === true
-      || input?.includeBosses === true;
-  }
-  return defaults.includes('monster');
-}
-
-function buildLegacyHostileFallback(
-  input: Partial<CombatTargetingRules> | null | undefined,
-  defaults: CombatTargetingRuleKey[],
-): CombatTargetingRuleKey[] {
-  const fallback: CombatTargetingRuleKey[] = defaults.filter((entry) => entry !== 'monster' && entry !== 'all_players');
-  if (resolveLegacyMonsterEnabled(input, defaults)) {
-    fallback.unshift('monster');
-  }
-  const includePlayers = input?.includePlayers ?? defaults.includes('all_players');
-  if (includePlayers && !fallback.includes('all_players')) {
-    fallback.push('all_players');
-  }
-  return fallback;
 }
 
 function normalizeCombatTargetingScope(
@@ -256,21 +218,13 @@ export function cloneCombatTargetingRules(
     return undefined;
   }
 
-  const defaults = buildDefaultCombatTargetingRules(input.includePlayers === true);
-  const hostile = normalizeCombatTargetingScope(
-    input.hostile,
-    'hostile',
-    buildLegacyHostileFallback(input, defaults.hostile),
-  );
+  const defaults = buildDefaultCombatTargetingRules();
+  const hostile = normalizeCombatTargetingScope(input.hostile, 'hostile', defaults.hostile);
   const friendly = normalizeCombatTargetingScope(input.friendly, 'friendly', defaults.friendly);
 
   return {
     hostile,
     friendly,
-    includeNormalMonsters: hostile.includes('monster'),
-    includeEliteMonsters: hostile.includes('monster'),
-    includeBosses: hostile.includes('monster'),
-    includePlayers: hostile.includes('all_players'),
   };
 }
 
@@ -302,10 +256,7 @@ export function isSameCombatTargetingRules(
       return false;
     }
   }
-  return left.includeNormalMonsters === right.includeNormalMonsters
-    && left.includeEliteMonsters === right.includeEliteMonsters
-    && left.includeBosses === right.includeBosses
-    && left.includePlayers === right.includePlayers;
+  return true;
 }
 
 export function normalizePersistedCombatTargetingRules(input: unknown): CanonicalCombatTargetingRules | undefined {
@@ -313,14 +264,36 @@ export function normalizePersistedCombatTargetingRules(input: unknown): Canonica
     return undefined;
   }
 
-  return cloneCombatTargetingRules({
-    hostile: Array.isArray(input.hostile) ? (input.hostile as CombatTargetingRuleKey[]) : undefined,
-    friendly: Array.isArray(input.friendly) ? (input.friendly as CombatTargetingRuleKey[]) : undefined,
-    includeNormalMonsters: input.includeNormalMonsters === true ? true : input.includeNormalMonsters === false ? false : undefined,
-    includeEliteMonsters: input.includeEliteMonsters === true ? true : input.includeEliteMonsters === false ? false : undefined,
-    includeBosses: input.includeBosses === true ? true : input.includeBosses === false ? false : undefined,
-    includePlayers: input.includePlayers === true ? true : input.includePlayers === false ? false : undefined,
-  });
+  // Legacy compat: if no hostile array but old boolean fields exist, infer hostile from them
+  let hostile: CombatTargetingRuleKey[] | undefined = Array.isArray(input.hostile)
+    ? (input.hostile as CombatTargetingRuleKey[])
+    : undefined;
+
+  if (!hostile) {
+    const hasLegacy = input.includeNormalMonsters !== undefined
+      || input.includeEliteMonsters !== undefined
+      || input.includeBosses !== undefined
+      || input.includePlayers !== undefined;
+    if (hasLegacy) {
+      hostile = [];
+      if (input.includeNormalMonsters === true || input.includeEliteMonsters === true || input.includeBosses === true) {
+        hostile.push('monster');
+      }
+      if (input.includePlayers === true) {
+        hostile.push('all_players');
+      }
+    }
+  }
+
+  const friendly: CombatTargetingRuleKey[] | undefined = Array.isArray(input.friendly)
+    ? (input.friendly as CombatTargetingRuleKey[])
+    : undefined;
+
+  const defaults = buildDefaultCombatTargetingRules();
+  return {
+    hostile: normalizeCombatTargetingScope(hostile, 'hostile', defaults.hostile),
+    friendly: normalizeCombatTargetingScope(friendly, 'friendly', defaults.friendly),
+  };
 }
 
 export function isPlayerPassivelyHostileTarget(target: PlayerTargetLike | null | undefined): boolean {
@@ -343,10 +316,6 @@ function buildEffectiveCombatTargetingRules(attacker: PlayerTargetLike | null | 
   return {
     hostile,
     friendly,
-    includeNormalMonsters: hostile.includes('monster'),
-    includeEliteMonsters: hostile.includes('monster'),
-    includeBosses: hostile.includes('monster'),
-    includePlayers: hostile.includes('all_players'),
   };
 }
 

@@ -79,6 +79,9 @@ export class WorldRuntimeAlchemyService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
+        if (player.suppressImmediateDomainPersistence === true) {
+            return;
+        }
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.startTechniqueActivity(player, activityKind, payload, deps);
             if (!result.ok) {
@@ -200,6 +203,9 @@ export class WorldRuntimeAlchemyService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
+        if (player.suppressImmediateDomainPersistence === true) {
+            return;
+        }
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, normalizedActivityKind, deps);
             if (!result.ok) {
@@ -302,7 +308,7 @@ export class WorldRuntimeAlchemyService {
             const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
             const activeJobAfterTick = getAlchemyLikePlayerJob(player, normalizedActivityKind);
             const nextActiveJobSnapshot = resolveActiveJobSnapshot(player);
-            if (activeJobAfterTick) {
+            if (isSameActiveJobRun(activeJobBeforeTick, activeJobAfterTick)) {
                 await durableOperationService.updateActiveJobState({
                     operationId: buildTickAlchemyOperationId(playerId, activeJobAfterTick),
                     playerId,
@@ -566,6 +572,12 @@ function resolveAlchemyLikeActivityKind(payload) {
 
 function normalizeAlchemyLikeActivityKind(value) {
     return value === 'forging' ? 'forging' : 'alchemy';
+}
+
+function isSameActiveJobRun(before, after) {
+    const beforeJobRunId = typeof before?.jobRunId === 'string' && before.jobRunId.trim() ? before.jobRunId.trim() : '';
+    const afterJobRunId = typeof after?.jobRunId === 'string' && after.jobRunId.trim() ? after.jobRunId.trim() : '';
+    return Boolean(beforeJobRunId && afterJobRunId && beforeJobRunId === afterJobRunId);
 }
 
 function resolveActiveAlchemyLikeActivityKind(player) {

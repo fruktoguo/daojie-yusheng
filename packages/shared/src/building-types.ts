@@ -1,3 +1,4 @@
+import type { CellLayerTarget } from './map-layer-types';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -113,6 +114,7 @@ export interface CompiledBuildingDef {
   deconstructTicks: number;
   costItemIds: string[];
   costCounts: Uint32Array;
+  cellLayerTarget: CellLayerTarget;
 }
 
 export interface CompiledBuildingCatalog {

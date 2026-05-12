@@ -22,8 +22,6 @@ import type {
   SkillPlayerCastDef,
   SkillTargetingDef,
   SyncedItemStack,
-  TechniqueAttrCurveSegment,
-  TechniqueAttrCurves,
   TechniqueLayerDef,
   TechniqueUpdateEntryView,
   VisibleBuffState,
@@ -157,7 +155,6 @@ export function cloneTechniqueEntry(source: TechniqueUpdateEntryView): Technique
         skillsEnabled: source.skillsEnabled !== false,
         skills: source.skills?.map((entry) => cloneSkillDef(entry)),
         layers: source.layers?.map((entry) => cloneTechniqueLayerDef(entry)),
-        attrCurves: source.attrCurves ? cloneTechniqueAttrCurves(source.attrCurves) : undefined,
     };
 }
 
@@ -249,25 +246,6 @@ export function cloneTechniqueLayerDef(source: TechniqueLayerDef): TechniqueLaye
         specialStats: source.specialStats ? { ...source.specialStats } : undefined,
         qiProjection: source.qiProjection?.map((entry) => cloneQiProjectionModifier(entry)),
     };
-}
-
-export function cloneTechniqueAttrCurves(source: TechniqueAttrCurves): TechniqueAttrCurves {
-    const clone: TechniqueAttrCurves = {};
-    for (const key of ATTRIBUTE_KEYS) {
-        const segments = source[key];
-        if (segments) {
-            clone[key] = cloneTechniqueAttrCurveSegmentList(segments);
-        }
-    }
-    return clone;
-}
-
-export function cloneTechniqueAttrCurveSegmentList(source: TechniqueAttrCurveSegment[]): TechniqueAttrCurveSegment[] {
-    return source.map((entry) => ({
-        startLevel: entry.startLevel,
-        endLevel: entry.endLevel,
-        gainPerLevel: entry.gainPerLevel,
-    }));
 }
 
 export function cloneAttributes(source: Attributes) {

@@ -70,6 +70,9 @@ export class WorldRuntimeCraftInterruptService {
     reason: string,
     deps: CraftInterruptDeps,
   ): void {
+    if ((player as { suppressImmediateDomainPersistence?: boolean } | null)?.suppressImmediateDomainPersistence === true) {
+      return;
+    }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
       this.worldRuntimeCraftMutationService.flushCraftMutation(
         playerId,

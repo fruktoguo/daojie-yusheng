@@ -42,8 +42,6 @@ export interface OfflineGainItemView {
   gained: number;
   lost: number;
   net: number;
-  /** 兼容旧离线收益报告，等同于 gained。 */
-  count?: number;
 }
 
 /** 统计记录里的角色成长收支。 */
@@ -53,8 +51,6 @@ export interface OfflineGainProgressView {
   gained: number;
   lost: number;
   net: number;
-  /** 兼容旧离线收益报告，等同于 gained。 */
-  amount?: number;
   levelGain?: number;
   levelLoss?: number;
   currentLevel?: number;
@@ -67,8 +63,6 @@ export interface OfflineGainTechniqueView {
   expGained: number;
   expLost: number;
   netExp: number;
-  /** 兼容旧离线收益报告，等同于 expGained。 */
-  expGain?: number;
   levelGain?: number;
   levelLoss?: number;
   currentLevel?: number;
@@ -81,8 +75,6 @@ export interface OfflineGainProfessionView {
   expGained: number;
   expLost: number;
   netExp: number;
-  /** 兼容旧离线收益报告，等同于 expGained。 */
-  expGain?: number;
   levelGain?: number;
   levelLoss?: number;
   currentLevel?: number;

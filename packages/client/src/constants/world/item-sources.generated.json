@@ -130,15 +130,6 @@
       "mode": "direct",
       "chance": 0.8,
       "count": 2
-    },
-    {
-      "kind": "mining",
-      "mapId": "runtime",
-      "mapName": "运行时资源点",
-      "landmarkId": "runtime:tile.BlackIronOre",
-      "landmarkName": "玄铁矿",
-      "mode": "damage_or_destroy",
-      "count": 1
     }
   ],
   "blade_pattern_crystal": [
@@ -5137,15 +5128,6 @@
   "spirit_stone": [
     {
       "kind": "mining",
-      "mapId": "runtime",
-      "mapName": "运行时资源点",
-      "landmarkId": "runtime:tile.SpiritOre",
-      "landmarkName": "灵石矿",
-      "mode": "damage_or_destroy",
-      "count": 1
-    },
-    {
-      "kind": "mining",
       "mapId": "yunlai_town_ore_basement",
       "mapName": "云来镇·旧屋矿窖",
       "landmarkId": "lm_ore_basement_spirit_vein",
@@ -5338,15 +5320,6 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_stele_puppet",
       "monsterName": "断碑锋傀",
-      "count": 1
-    },
-    {
-      "kind": "mining",
-      "mapId": "runtime",
-      "mapName": "运行时资源点",
-      "landmarkId": "runtime:tile.BrokenSwordHeap",
-      "landmarkName": "断剑堆",
-      "mode": "damage_or_destroy",
       "count": 1
     }
   ],

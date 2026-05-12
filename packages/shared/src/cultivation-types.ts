@@ -34,27 +34,7 @@ export type TechniqueGrade = 'mortal' | 'yellow' | 'mystic' | 'earth' | 'heaven'
 /** 功法分类。 */
 export type TechniqueCategory = 'arts' | 'internal' | 'divine' | 'secret';
 
-/** 功法单属性成长分段。 */
-export interface TechniqueAttrCurveSegment {
-/**
- * startLevel：start等级数值。
- */
 
-  startLevel: number;  
-  /**
- * endLevel：end等级数值。
- */
-
-  endLevel?: number;  
-  /**
- * gainPerLevel：gainPer等级数值。
- */
-
-  gainPerLevel: number;
-}
-
-/** 功法六维成长曲线。 */
-export type TechniqueAttrCurves = Partial<Record<AttrKey, TechniqueAttrCurveSegment[]>>;
 
 /** 功法单层配置。 */
 export interface TechniqueLayerDef {
@@ -193,8 +173,7 @@ export interface TechniqueTemplate {
    * 若同时指定 `layers[]` 和 `layerGains`，优先 `layerGains`。
    */
   layerGains?: TechniqueLayerGains;
-  /** 旧格式的六维曲线（历史兼容，不在新格式使用）。 */
-  attrCurves?: TechniqueAttrCurves;
+
   /** 功法携带的主动技能（术法类使用，内功一般为空）。 */
   skills?: SkillDef[];
 }
@@ -502,11 +481,7 @@ export interface TechniqueState {
  */
 
   layers?: TechniqueLayerDef[];  
-  /**
- * attrCurves：attrCurve相关字段。
- */
 
-  attrCurves?: TechniqueAttrCurves;
 }
 
 /** 炼体状态。 */

@@ -63,18 +63,15 @@ pnpm build:config-editor
 
 ## 生产部署
 
-当前项目提供两种生产部署方式。简单稳定优先选第一种；需要完整 CI/CD、按 commit 自动构建和发布时使用第二种。
+服务器不需要源码、不需要 `pnpm install`。只需要 Docker 和一个 `deploy.sh` 脚本。
 
-### 方式一：腾讯云 CCR 公有镜像 + Docker Swarm
+**一键部署**（把 `deploy.sh` 传到服务器后执行）：
 
-这是最简单的服务器部署方式：服务器不需要源码构建，也不需要 `pnpm install`。它只需要 Docker、`docker-stack.tencent.yml`、环境变量和持久化数据卷，然后直接从腾讯云 CCR 拉镜像运行。
-
-当前公有镜像：
-
-```text
-ccr.ccs.tencentyun.com/yuohira/daojie-yusheng-client:latest
-ccr.ccs.tencentyun.com/yuohira/daojie-yusheng-server:latest
+```bash
+bash deploy.sh
 ```
+
+脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码 → 部署全套服务 → 建表 → 启动 Watchtower 自动更新。
 
 部署内容：
 
@@ -82,135 +79,38 @@ ccr.ccs.tencentyun.com/yuohira/daojie-yusheng-server:latest
 - `server`：Node.js 后端，容器内监听 `13001`
 - `postgres`：PostgreSQL 16
 - `redis`：Redis 7
+- `backup-worker`：数据库定时备份
+- `watchtower`：每 60 秒检查镜像更新并自动部署
 
 默认端口：
 
 - `11921`：前端入口
 - `11922`：后端健康检查和 API 直连入口
 
-首次部署：
+**日常更新流程**：
 
 ```bash
-# 服务器只需要拿到部署文件，不需要在服务器构建镜像。
-# 如果已经 clone 了仓库，直接进入仓库根目录即可。
-git clone https://github.com/fruktoguo/mud-mmo-next.git
-cd mud-mmo-next
-
-docker swarm init
-bash scripts/tencent-swarm-volumes.sh
-
-cat > prod.env <<'EOF'
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/yuohira
-CLIENT_IMAGE_TAG=latest
-SERVER_IMAGE_TAG=latest
-
-DB_USERNAME=mud
-DB_PASSWORD=换成强密码
-DB_DATABASE=daojie_yusheng
-
-SERVER_PLAYER_TOKEN_SECRET=换成长随机密钥
-GM_PASSWORD=换成GM强密码
-SERVER_CORS_ORIGINS=https://你的域名
-EOF
-
-chmod 600 prod.env
-set -a
-. ./prod.env
-set +a
-
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng
+# 本地构建并推送镜像
+docker login ccr.ccs.tencentyun.com
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-tencent.sh latest
+# 推送后 60 秒内服务器自动拉取更新，无需 SSH
 ```
 
-检查状态：
+**手动管理**：
 
 ```bash
+# 检查状态
 docker stack services daojie-yusheng
+
+# 查看日志
 docker service logs daojie-yusheng_server -f
 
-curl http://127.0.0.1:11922/health
-curl http://127.0.0.1:11921/
-```
-
-首次空库建议执行一次数据库预检和建表补齐：
-
-```bash
-container_id="$(docker ps \
-  --filter label=com.docker.swarm.service.name=daojie-yusheng_server \
-  --format '{{.ID}}' | head -n 1)"
-
-docker exec "$container_id" node dist/tools/deploy-database-preflight.js --ensure-current-schema
-```
-
-更新镜像后重新部署：
-
-```bash
-set -a
-. ./prod.env
-set +a
-
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng
-```
-
-回滚：
-
-```bash
-docker service rollback daojie-yusheng_client
+# 回滚
 docker service rollback daojie-yusheng_server
+
+# 重新部署（在服务器上）
+bash /opt/daojie-yusheng/deploy.sh
 ```
-
-如果需要自己构建并推送腾讯云镜像：
-
-```bash
-docker login ccr.ccs.tencentyun.com
-
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/yuohira \
-  ./docker-build-tencent.sh latest
-```
-
-### 方式二：GitHub Actions + GHCR 自动部署
-
-这是当前保留的自动化主线：推送到 `main` 后，GitHub Actions 会验证、构建 client/server 镜像，推送到 GHCR，然后通过 Docker Swarm 更新生产 stack。
-
-自动部署链路：
-
-```text
-git push main
--> .github/workflows/deploy.yml
--> 构建 ghcr.io/fruktoguo/daojie-yusheng-client:sha-<commit>
--> 构建 ghcr.io/fruktoguo/daojie-yusheng-server:sha-<commit>
--> docker stack deploy -c docker-stack.yml daojie-yusheng
--> 生产路由健康检查
-```
-
-需要在 GitHub 仓库配置的生产 Secrets：
-
-```text
-DEPLOY_SSH_HOST
-DEPLOY_SSH_PORT
-DEPLOY_SSH_USER
-DEPLOY_SSH_KEY
-GHCR_USERNAME
-GHCR_PAT
-PROD_DB_USERNAME
-PROD_DB_PASSWORD
-PROD_DB_DATABASE
-PROD_JWT_SECRET
-PROD_GM_PASSWORD
-```
-
-手动发布固定 `prod` 标签：
-
-```text
-Actions -> Publish Prod Image
-```
-
-手动部署指定镜像标签：
-
-```text
-Actions -> Deploy Prod Stack
-```
-
-这条链路适合正式团队协作和可追踪发布；腾讯云 CCR 方式适合服务器直接拉公有镜像、快速部署和备用发布链。
 
 ## 验证
 
@@ -218,7 +118,6 @@ Actions -> Deploy Prod Stack
 pnpm verify:release:doctor
 pnpm verify:release
 pnpm verify:release:with-db
-pnpm verify:release:shadow
 pnpm verify:release:acceptance
 pnpm verify:release:full
 pnpm audit:protocol

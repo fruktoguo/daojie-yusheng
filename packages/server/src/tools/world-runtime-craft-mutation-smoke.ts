@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 
 const { WorldRuntimeCraftMutationService } = require('../runtime/world/world-runtime-craft-mutation.service');
 
-async function testPersistActiveJobUsesExactLeaseFence() {
-    const durableCalls = [];
+async function testDurableRuntimeSkipsFallbackActiveJobSnapshot() {
+    const fallbackWrites = [];
     const service = new WorldRuntimeCraftMutationService(
         {
             getPlayer(playerId) {
@@ -34,6 +34,9 @@ async function testPersistActiveJobUsesExactLeaseFence() {
             },
         },
         {
+            persistTechniqueActivitySnapshot(player) {
+                fallbackWrites.push(player.alchemyJob?.jobVersion ?? null);
+            },
             buildTechniqueActivityPanelPayload() {
                 return {};
             },
@@ -59,8 +62,7 @@ async function testPersistActiveJobUsesExactLeaseFence() {
                     return true;
                 },
                 async updateActiveJobState(input) {
-                    durableCalls.push({ ...input });
-                    return { ok: true, alreadyCommitted: false };
+                    throw new Error(`durable CAS path must own active_job persistence, got ${input.operationId}`);
                 },
             },
             instanceCatalogService: {
@@ -83,16 +85,7 @@ async function testPersistActiveJobUsesExactLeaseFence() {
         },
     );
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(durableCalls.length, 1);
-    assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:craft');
-    assert.equal(durableCalls[0]?.expectedSessionEpoch, 6);
-    assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:craft');
-    assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:craft');
-    assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 21);
-    assert.equal(durableCalls[0]?.expectedJobRunId, 'job:craft:alchemy:1');
-    assert.equal(durableCalls[0]?.expectedJobVersion, 2);
-    assert.equal(durableCalls[0]?.nextActiveJob?.jobRunId, 'job:craft:alchemy:1');
-    assert.equal(durableCalls[0]?.operationId, 'op:player:craft:active-job:job:craft:alchemy:1:v3:running');
+    assert.deepEqual(fallbackWrites, []);
 
     service.flushCraftMutation(
         'player:craft',
@@ -104,8 +97,7 @@ async function testPersistActiveJobUsesExactLeaseFence() {
                     return true;
                 },
                 async updateActiveJobState(input) {
-                    durableCalls.push({ ...input });
-                    return { ok: true, alreadyCommitted: false };
+                    throw new Error(`durable CAS path must own active_job persistence, got ${input.operationId}`);
                 },
             },
             instanceCatalogService: {
@@ -128,11 +120,11 @@ async function testPersistActiveJobUsesExactLeaseFence() {
         },
     );
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(durableCalls[1]?.operationId, durableCalls[0]?.operationId);
+    assert.deepEqual(fallbackWrites, []);
 }
 
-async function testPersistActiveJobSkipsWhenLeaseMissing() {
-    const durableCalls = [];
+async function testFallbackActiveJobSnapshotStillWorksWithoutDurableSession() {
+    const fallbackWrites = [];
     const service = new WorldRuntimeCraftMutationService(
         {
             getPlayer(playerId) {
@@ -161,6 +153,9 @@ async function testPersistActiveJobSkipsWhenLeaseMissing() {
             },
         },
         {
+            persistTechniqueActivitySnapshot(player) {
+                fallbackWrites.push(player.alchemyJob?.jobRunId ?? null);
+            },
             buildTechniqueActivityPanelPayload() {
                 return {};
             },
@@ -183,11 +178,10 @@ async function testPersistActiveJobSkipsWhenLeaseMissing() {
         {
             durableOperationService: {
                 isEnabled() {
-                    return true;
+                    return false;
                 },
                 async updateActiveJobState(input) {
-                    durableCalls.push({ ...input });
-                    return { ok: true, alreadyCommitted: false };
+                    throw new Error(`durable path should be disabled, got ${input.operationId}`);
                 },
             },
             instanceCatalogService: {
@@ -210,16 +204,16 @@ async function testPersistActiveJobSkipsWhenLeaseMissing() {
         },
     );
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(durableCalls.length, 0);
+    assert.deepEqual(fallbackWrites, ['job:craft:alchemy:missing-lease']);
 }
 
 async function main() {
-    await testPersistActiveJobUsesExactLeaseFence();
-    await testPersistActiveJobSkipsWhenLeaseMissing();
+    await testDurableRuntimeSkipsFallbackActiveJobSnapshot();
+    await testFallbackActiveJobSnapshotStillWorksWithoutDurableSession();
     console.log(JSON.stringify({
         ok: true,
         case: 'world-runtime-craft-mutation',
-        answers: 'WorldRuntimeCraftMutationService 现已把 active_job 的 durable 出口补上 instanceId/assignedNodeId/ownershipEpoch exact lease 透传，并在 lease 缺失时跳过 durable 提交；同一份作业状态重复 flush 时会复用稳定 operationId。当前仍是 fire-and-forget durable 记账，不证明 craft tick 会等待事务提交后再返回成功',
+        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，避免旧 fire-and-forget flush 读到新内存版本后抢先推进 player_active_job；durable 不可用时仍保留后备快照持久化。',
     }, null, 2));
 }
 

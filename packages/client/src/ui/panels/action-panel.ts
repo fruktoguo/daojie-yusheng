@@ -31,7 +31,6 @@ import { formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
 import {
   appendUnique,
-  buildLegacyHostileTargetingFallback,
   decodePresetTextValue,
   escapeHtml,
   getSkillAffinityBadge,
@@ -2530,7 +2529,7 @@ export class ActionPanel {
     const hostile = this.normalizeCombatTargetingScope(
       source.hostile,
       HOSTILE_TARGETING_KEYS,
-      buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
+      defaults.hostile ?? [],
     );
     const friendly = this.normalizeCombatTargetingScope(
       source.friendly,
@@ -2540,20 +2539,16 @@ export class ActionPanel {
     return {
       hostile,
       friendly,
-      includeNormalMonsters: hostile.includes('monster'),
-      includeEliteMonsters: hostile.includes('monster'),
-      includeBosses: hostile.includes('monster'),
-      includePlayers: hostile.includes('all_players'),
     };
   }
 
   /** 复制目标选择规则。 */
   private cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
-    const defaults = this.buildDefaultCombatTargetingRules(rules.includePlayers === true);
+    const defaults = this.buildDefaultCombatTargetingRules((rules.hostile ?? []).includes('all_players'));
     const hostile = this.normalizeCombatTargetingScope(
       rules.hostile,
       HOSTILE_TARGETING_KEYS,
-      buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
+      defaults.hostile ?? [],
     );
     const friendly = this.normalizeCombatTargetingScope(
       rules.friendly,
@@ -2563,10 +2558,6 @@ export class ActionPanel {
     return {
       hostile,
       friendly,
-      includeNormalMonsters: hostile.includes('monster'),
-      includeEliteMonsters: hostile.includes('monster'),
-      includeBosses: hostile.includes('monster'),
-      includePlayers: hostile.includes('all_players'),
     };
   }
 
@@ -2639,10 +2630,7 @@ export class ActionPanel {
     if ((normalizedLeft.friendly ?? []).some((entry, index) => entry !== normalizedRight.friendly?.[index])) {
       return false;
     }
-    return normalizedLeft.includeNormalMonsters === normalizedRight.includeNormalMonsters
-      && normalizedLeft.includeEliteMonsters === normalizedRight.includeEliteMonsters
-      && normalizedLeft.includeBosses === normalizedRight.includeBosses
-      && normalizedLeft.includePlayers === normalizedRight.includePlayers;
+    return true;
   }
 
   /** 构建战斗设置外部摘要。 */
@@ -4042,11 +4030,11 @@ export class ActionPanel {
     const nextRules = this.syncCombatTargetingDraft();
     const pillsChanged = !this.areAutoUsePillConfigsEqual(nextPills, this.getAutoUsePills());
     const rulesChanged = !this.areCombatTargetingRulesEqual(nextRules, this.getCombatTargetingRules());
-    const allowAoeChanged = (nextRules.includePlayers === true) !== this.allowAoePlayerHit;
+    const allowAoeChanged = ((nextRules.hostile ?? []).includes('all_players')) !== this.allowAoePlayerHit;
     if (this.previewPlayer) {
       this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(nextPills);
       this.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextRules);
-      this.previewPlayer.allowAoePlayerHit = nextRules.includePlayers === true;
+      this.previewPlayer.allowAoePlayerHit = (nextRules.hostile ?? []).includes('all_players');
     }
     this.render(this.currentActions);
     this.discardCombatSettingsDraft();

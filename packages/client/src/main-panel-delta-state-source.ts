@@ -558,7 +558,6 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     const template = getLocalTechniqueTemplate(patch.techId);
     const mergedSkills = applyNullablePatch(patch.skills, previousSameTechnique?.skills);
     const mergedLayers = applyNullablePatch(patch.layers, previousSameTechnique?.layers);
-    const mergedAttrCurves = applyNullablePatch(patch.attrCurves, previousSameTechnique?.attrCurves);
     return resolvePreviewTechnique({
       techId: patch.techId,
       level: patch.level ?? previousSameTechnique?.level ?? 1,
@@ -577,9 +576,6 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         : template?.layers
           ? cloneJson(template.layers)
           : undefined,
-      attrCurves: mergedAttrCurves
-        ? cloneJson(mergedAttrCurves)
-        : undefined,
     });
   }  
   /**
@@ -983,9 +979,6 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         }
       }
       if (!isPlainEqual(previous.layers ?? null, next.layers ?? null)) {
-        return true;
-      }
-      if (!isPlainEqual(previous.attrCurves ?? null, next.attrCurves ?? null)) {
         return true;
       }
     }

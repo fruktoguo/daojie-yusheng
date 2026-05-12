@@ -240,6 +240,7 @@ interface InternalRuntimeInstanceLike {
   getTileAura(x: number, y: number): number | undefined;
   getEffectiveTileType?(x: number, y: number): unknown;
   getTileLayerState?(x: number, y: number): unknown;
+  toTileIndex?(x: number, y: number): number;
   isInBounds?(x: number, y: number): boolean;
   listTileResources?(x: number, y: number): Array<{ resourceKey: string; value: number; sourceValue?: number }> | undefined;
   listMonsters(): RuntimeMonsterLike[];
@@ -247,6 +248,7 @@ interface InternalRuntimeInstanceLike {
     getCellCount?(): number;
     getX?(cellIndex: number): number;
     getY?(cellIndex: number): number;
+    getCompositeFlags?(cellIndex: number): number;
   };
   listBuildingSummaries?(): unknown[];
   listRoomSummaries?(): unknown[];
@@ -747,7 +749,9 @@ export class NativeGmMapRuntimeQueryService {
  /**
  * resources：resource相关字段。
  */
- resources?: LegacyAuraResource[] }>> = [];
+ resources?: LegacyAuraResource[];
+ layers?: unknown;
+ compositeFlags?: number }>> = [];
 
     for (let row = runtimeStartY; row < endY; row += 1) {
       const line: Array<{      
@@ -766,7 +770,9 @@ export class NativeGmMapRuntimeQueryService {
  /**
  * resources：resource相关字段。
  */
- resources?: LegacyAuraResource[] }> = [];
+ resources?: LegacyAuraResource[];
+ layers?: unknown;
+ compositeFlags?: number }> = [];
       const terrainRow = template.source.tiles[row] ?? '';
       for (let column = runtimeStartX; column < endX; column += 1) {
         const aura =
@@ -779,12 +785,21 @@ export class NativeGmMapRuntimeQueryService {
           aura,
           resources: internalInstance?.listTileResources?.(column, row),
         });
+        const layers = internalInstance?.getTileLayerState?.(column, row);
+        const tileIndex = typeof internalInstance?.toTileIndex === 'function'
+          ? internalInstance.toTileIndex(column, row)
+          : -1;
+        const compositeFlags = tileIndex >= 0 && typeof internalInstance?.tilePlane?.getCompositeFlags === 'function'
+          ? internalInstance.tilePlane.getCompositeFlags(tileIndex)
+          : undefined;
 
         line.push({
           type: tile.type,
           walkable: tile.walkable,
           aura: tile.aura,
           resources: tile.resources,
+          layers,
+          compositeFlags,
         });
       }
       tiles.push(line);

@@ -617,7 +617,6 @@ function toTechniqueState(entry) {
             specialStats: layer.specialStats ? { ...layer.specialStats } : undefined,
             qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
         })),
-        attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
     };
 }
 /**

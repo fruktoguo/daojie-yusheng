@@ -194,8 +194,6 @@ message TechniqueUpdateEntryPayload {
   optional bool clearSkills = 11;
   optional string layersJson = 12;
   optional bool clearLayers = 13;
-  optional string attrCurvesJson = 14;
-  optional bool clearAttrCurves = 15;
   optional string category = 17;
   optional bool clearCategory = 18;
 }

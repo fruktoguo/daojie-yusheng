@@ -1247,7 +1247,7 @@ export class NativeGmPlayerService {
 
 
   private hydrateGmTechniqueSnapshot(entry) {
-  // GM 前端保存时会裁掉 layers/skills/attrCurves，属性重算必须在服务端补回模板定义。
+  // GM 前端保存时会裁掉 layers/skills，属性重算必须在服务端补回模板定义。
 
     const techId = typeof entry?.techId === 'string' ? entry.techId.trim() : '';
     if (!techId) {

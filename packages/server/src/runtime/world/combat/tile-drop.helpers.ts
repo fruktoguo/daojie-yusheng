@@ -1,8 +1,8 @@
 import {
   MINING_EXP_BASE_ACTION_TICKS,
-  ORE_TILE_LEVEL,
   applyEquipmentAttributeEffectivenessToItemStack,
   computeCraftSkillExpGain,
+  getOreMiningLevel,
   getMiningDamageMultiplier,
   isOreMinableTileType,
 } from '@mud/shared';
@@ -57,7 +57,7 @@ export function applyMiningExpForTileDamage(input: {
     return 0;
   }
 
-  const oreTileLevel = ORE_TILE_LEVEL[input.tileType as any] ?? 1;
+  const oreTileLevel = getOreMiningLevel(input.tileType as any) ?? 1;
   const realmLevel = input.attacker?.realmLv ?? input.attacker?.realm?.realmLv ?? 1;
   const miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
   const referenceLevel = Math.min(oreTileLevel, miningLevel, realmLevel);

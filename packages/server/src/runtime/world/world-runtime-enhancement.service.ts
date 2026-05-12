@@ -65,6 +65,9 @@ export class WorldRuntimeEnhancementService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
+        if (player.suppressImmediateDomainPersistence === true) {
+            return;
+        }
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload, deps);
             if (!result.ok) {
@@ -182,6 +185,9 @@ export class WorldRuntimeEnhancementService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
+        if (player.suppressImmediateDomainPersistence === true) {
+            return;
+        }
         if (!durableOperationService?.isEnabled?.() || !runtimeOwnerId || sessionEpoch <= 0) {
             const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement', deps);
             if (!result.ok) {
@@ -277,7 +283,7 @@ export class WorldRuntimeEnhancementService {
             }
             const leaseContext = await resolveRequiredInstanceLeaseContext(player.instanceId, deps);
             const nextActiveJobSnapshot = resolveActiveJobSnapshot(player);
-            if (player?.enhancementJob) {
+            if (isSameActiveJobRun(activeJobBeforeTick, player?.enhancementJob)) {
                 await durableOperationService.updateActiveJobState({
                     operationId: buildTickEnhancementOperationId(playerId, player.enhancementJob),
                     playerId,
@@ -379,6 +385,12 @@ export class WorldRuntimeEnhancementService {
 
 function cloneInventoryItems(items) {
     return Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];
+}
+
+function isSameActiveJobRun(before, after) {
+    const beforeJobRunId = typeof before?.jobRunId === 'string' && before.jobRunId.trim() ? before.jobRunId.trim() : '';
+    const afterJobRunId = typeof after?.jobRunId === 'string' && after.jobRunId.trim() ? after.jobRunId.trim() : '';
+    return Boolean(beforeJobRunId && afterJobRunId && beforeJobRunId === afterJobRunId);
 }
 
 function cloneWalletBalances(balances) {

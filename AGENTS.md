@@ -448,3 +448,45 @@ interface StructuredNoticePayload {
 - 新增或修改通知消息时，必须使用结构化载荷格式
 - 现有纯文本链路按 `docs/plans/旧文本通知链路删除计划.md` 逐步迁移
 - 战斗系统旧文本 `text` 字段和客户端正则 fallback 待删除
+
+
+---
+
+## 23. 发布工作流（方式一：腾讯云 CCR + Docker Swarm）
+
+**日常开发**：
+- 使用 `pnpm dev:server` / `pnpm dev:client` 进行热重载开发
+- 不需要构建镜像
+
+**发布前本地镜像验证**：
+```bash
+# 1. 本地构建镜像（不推送）
+docker build -t daojie-local/daojie-yusheng-server -f packages/server/Dockerfile .
+docker build -t daojie-local/daojie-yusheng-client -f packages/client/Dockerfile .
+
+# 2. 用本地镜像跑生产 stack 验证
+TENCENT_IMAGE_PREFIX=daojie-local \
+DB_PASSWORD=dev123 \
+SERVER_PLAYER_TOKEN_SECRET=dev-secret \
+GM_PASSWORD=dev-gm \
+SERVER_CORS_ORIGINS=http://localhost:11921 \
+docker stack deploy -c docker-stack.tencent.yml daojie-yusheng
+
+# 3. 验证通过后清理
+docker stack rm daojie-yusheng
+```
+
+**推送镜像**：
+```bash
+docker login ccr.ccs.tencentyun.com
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-tencent.sh latest
+```
+
+**服务器自动更新**：
+- 生产 stack 中包含 Watchtower 服务，定期检查 CCR 镜像更新并自动拉取部署
+- 推送镜像后无需 SSH 到服务器，等待自动更新即可
+
+**发布前必须确认**：
+- 本地镜像 stack 验证通过（与生产环境完全一致的容器编排）
+- `pnpm verify:release` 或对应门禁通过
+- 不要推送未经镜像验证的改动到 CCR

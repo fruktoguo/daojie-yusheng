@@ -208,7 +208,6 @@ export function createTechniqueFromCatalog(
     grade: option.grade ?? 'mortal',
     category: option.category,
     layers: option.layers ? clone(option.layers) : [],
-    attrCurves: {},
   } as TechniqueState;
 }
 

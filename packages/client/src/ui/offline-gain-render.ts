@@ -177,7 +177,7 @@ function renderItemSection(report: OfflineGainReportView): string {
     report.items.map((entry) => `
       <div class="offline-gain-row">
         <span>${escapeHtml(entry.name || entry.itemId)}</span>
-        <strong>${escapeHtml(formatSignedAmount(entry.gained ?? entry.count ?? 0, entry.lost ?? 0))}</strong>
+        <strong>${escapeHtml(formatSignedAmount(entry.gained ?? 0, entry.lost ?? 0))}</strong>
       </div>
     `),
   );

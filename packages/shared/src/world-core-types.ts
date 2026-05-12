@@ -281,6 +281,8 @@ export interface Tile {
   structureType?: StructureType | null;
   /** 交互对象种类。只携带短枚举，不携带对象详情。 */
   interactableKinds?: InteractableKind[];
+  /** GM/诊断用 composite flags；普通客户端不参与权威裁定。 */
+  compositeFlags?: number;
 }
 
 /** 玩家当前视野窗口中的格子。 */

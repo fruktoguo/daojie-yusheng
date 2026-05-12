@@ -245,7 +245,6 @@ export class ContentTemplateRepository {
                 specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
                 qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })),
-            attrCurves: template.attrCurves ? { ...template.attrCurves } : undefined,
         };
     }
     
@@ -327,9 +326,6 @@ export class ContentTemplateRepository {
             })
             : (template?.skills.map((entry) => ({ ...entry })) ?? []);
 
-        const attrCurves = input.attrCurves && typeof input.attrCurves === 'object'
-            ? { ...input.attrCurves }
-            : (template?.attrCurves ? { ...template.attrCurves } : undefined);
         return {
             techId,
 
@@ -338,12 +334,11 @@ export class ContentTemplateRepository {
             exp: Number.isFinite(input.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0,
             expToNext,
             realmLv,
-            realm: Number.isFinite(input.realm) ? Math.max(0, Math.trunc(Number(input.realm))) : deriveTechniqueRealm(level, layers, attrCurves),
+            realm: Number.isFinite(input.realm) ? Math.max(0, Math.trunc(Number(input.realm))) : deriveTechniqueRealm(level, layers),
             skills,
             grade,
             category,
             layers,
-            attrCurves,
         };
     }
     
@@ -2167,7 +2162,6 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
         category: isTechniqueCategory(candidate.category) ? candidate.category : inferTechniqueCategory(skills),
         realmLv,
         layers,
-        attrCurves: normalizeTechniqueAttrCurves(candidate.attrCurves),
         skills,
     };
 }
@@ -2297,34 +2291,6 @@ function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
         return legacy;
     }
     return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
-}
-
-function normalizeTechniqueAttrCurves(raw) {
-
-    if (!raw || typeof raw !== 'object') {
-        return undefined;
-    }
-
-    const result = {};
-    for (const [key, segments] of Object.entries(raw)) {
-        if (!Array.isArray(segments)) {
-            continue;
-        }
-
-        const normalizedSegments = segments
-            .filter((entry) => Boolean(entry && typeof entry === 'object'))
-            .map((entry) => ({
-            startLevel: Number.isFinite(entry.startLevel) ? Math.max(1, Math.trunc(Number(entry.startLevel))) : 1,
-            endLevel: Number.isFinite(entry.endLevel) ? Math.max(1, Math.trunc(Number(entry.endLevel))) : undefined,
-            gainPerLevel: Number.isFinite(entry.gainPerLevel) ? Number(entry.gainPerLevel) : 0,
-        }))
-            .filter((entry) => entry.gainPerLevel !== 0)
-            .sort((left, right) => left.startLevel - right.startLevel || ((left.endLevel ?? Number.MAX_SAFE_INTEGER) - (right.endLevel ?? Number.MAX_SAFE_INTEGER)));
-        if (normalizedSegments.length > 0) {
-            result[key] = normalizedSegments;
-        }
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {

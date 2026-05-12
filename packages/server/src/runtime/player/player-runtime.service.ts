@@ -5956,7 +5956,6 @@ function toTechniqueUpdateEntry(technique) {
                     : undefined,
             })) : undefined,
         })) ?? null,
-        attrCurves: technique.attrCurves ? { ...technique.attrCurves } : null,
     };
 }
 /**

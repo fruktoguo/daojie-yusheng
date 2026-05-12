@@ -804,7 +804,6 @@ function toTechniqueState(entry) {
             attrs: layer.attrs ? { ...layer.attrs } : undefined,
             qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
         })),
-        attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
     };
 }
 function cloneTechniqueSkill(source) {

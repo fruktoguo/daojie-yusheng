@@ -4054,7 +4054,6 @@ function createDefaultTechnique(): TechniqueState {
     grade: 'mortal',
     category: 'internal',
     layers: [],
-    attrCurves: {},
   };
 }
 
@@ -6161,7 +6160,6 @@ function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
     grade: technique.grade,
     category: technique.category,
     layers: undefined,
-    attrCurves: undefined,
   };
 }
 

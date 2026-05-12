@@ -186,7 +186,6 @@ function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | nu
         kind: normalizeProgressKind(entry?.kind),
         label: normalizeString(entry?.label) || '收益',
         ...normalizeAmountRecord(entry),
-        amount: normalizePositiveInteger(entry?.amount ?? entry?.gained),
         levelGain: normalizeOptionalInteger(entry?.levelGain),
         levelLoss: normalizeOptionalInteger(entry?.levelLoss),
         currentLevel: normalizeOptionalInteger(entry?.currentLevel),
@@ -196,10 +195,9 @@ function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | nu
       .map((entry) => ({
         techniqueId: normalizeString(entry?.techniqueId),
         name: normalizeString(entry?.name) || undefined,
-        expGained: normalizePositiveInteger(entry?.expGained ?? entry?.expGain),
+        expGained: normalizePositiveInteger(entry?.expGained ?? (entry as any)?.expGain),
         expLost: normalizePositiveInteger(entry?.expLost),
-        netExp: normalizeSignedInteger(entry?.netExp ?? (normalizePositiveInteger(entry?.expGained ?? entry?.expGain) - normalizePositiveInteger(entry?.expLost))),
-        expGain: normalizePositiveInteger(entry?.expGain ?? entry?.expGained),
+        netExp: normalizeSignedInteger(entry?.netExp ?? (normalizePositiveInteger(entry?.expGained ?? (entry as any)?.expGain) - normalizePositiveInteger(entry?.expLost))),
         levelGain: normalizeOptionalInteger(entry?.levelGain),
         levelLoss: normalizeOptionalInteger(entry?.levelLoss),
         currentLevel: normalizeOptionalInteger(entry?.currentLevel),
@@ -209,10 +207,9 @@ function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | nu
       .map((entry) => ({
         professionType: normalizeString(entry?.professionType) || 'unknown',
         label: normalizeString(entry?.label) || '技艺',
-        expGained: normalizePositiveInteger(entry?.expGained ?? entry?.expGain),
+        expGained: normalizePositiveInteger(entry?.expGained ?? (entry as any)?.expGain),
         expLost: normalizePositiveInteger(entry?.expLost),
-        netExp: normalizeSignedInteger(entry?.netExp ?? (normalizePositiveInteger(entry?.expGained ?? entry?.expGain) - normalizePositiveInteger(entry?.expLost))),
-        expGain: normalizePositiveInteger(entry?.expGain ?? entry?.expGained),
+        netExp: normalizeSignedInteger(entry?.netExp ?? (normalizePositiveInteger(entry?.expGained ?? (entry as any)?.expGain) - normalizePositiveInteger(entry?.expLost))),
         levelGain: normalizeOptionalInteger(entry?.levelGain),
         levelLoss: normalizeOptionalInteger(entry?.levelLoss),
         currentLevel: normalizeOptionalInteger(entry?.currentLevel),
@@ -235,7 +232,6 @@ function normalizeItemDelta(entry: unknown): OfflineGainReportView['items'][numb
     gained: amount.gained || count,
     lost: amount.lost,
     net: amount.net || (amount.gained || count) - amount.lost,
-    count,
   };
 }
 

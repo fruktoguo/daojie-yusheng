@@ -475,8 +475,6 @@ function normalizeTechniques(value) {
                     attrs: layer?.attrs && typeof layer.attrs === 'object' ? { ...layer.attrs } : undefined,
                 }))
                 : undefined,
-
-            attrCurves: technique.attrCurves && typeof technique.attrCurves === 'object' ? { ...technique.attrCurves } : undefined,
         });
     }
     techniques.sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));

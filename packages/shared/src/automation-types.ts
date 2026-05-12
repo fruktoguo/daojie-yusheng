@@ -103,26 +103,6 @@ export interface CombatTargetingRules {
  */
 
   friendly?: CombatTargetingRuleKey[];
-/**
- * includeNormalMonsters：集合字段。
- */
-
-  includeNormalMonsters?: boolean;  
-  /**
- * includeEliteMonsters：集合字段。
- */
-
-  includeEliteMonsters?: boolean;  
-  /**
- * includeBosses：includeBosse相关字段。
- */
-
-  includeBosses?: boolean;  
-  /**
- * includePlayers：集合字段。
- */
-
-  includePlayers?: boolean;
 }
 
 export const HOSTILE_COMBAT_TARGETING_RULE_KEYS = [
@@ -196,22 +176,12 @@ export function normalizeCombatTargetingRules(
   const record = typeof value === 'object' && value !== null
     ? value as CombatTargetingRules
     : {};
-  const legacyIncludePlayers = record.includePlayers === true || fallback.includePlayers === true;
-  const legacyMonsterEnabled = record.includeNormalMonsters === true
-    || record.includeEliteMonsters === true
-    || record.includeBosses === true
-    || fallback.includeNormalMonsters === true
-    || fallback.includeEliteMonsters === true
-    || fallback.includeBosses === true;
-  const hostileFallback = [...(fallback.hostile ?? DEFAULT_HOSTILE_COMBAT_TARGETING_RULES)];
-  if (legacyMonsterEnabled && !hostileFallback.includes('monster')) {
-    hostileFallback.unshift('monster');
-  }
-  if (legacyIncludePlayers && !hostileFallback.includes('all_players')) {
-    hostileFallback.push('all_players');
-  }
   return {
-    hostile: normalizeCombatTargetingRuleList(record.hostile, HOSTILE_COMBAT_TARGETING_RULE_KEYS, hostileFallback),
+    hostile: normalizeCombatTargetingRuleList(
+      record.hostile,
+      HOSTILE_COMBAT_TARGETING_RULE_KEYS,
+      fallback.hostile ?? DEFAULT_HOSTILE_COMBAT_TARGETING_RULES,
+    ),
     friendly: normalizeCombatTargetingRuleList(
       record.friendly,
       FRIENDLY_COMBAT_TARGETING_RULE_KEYS,

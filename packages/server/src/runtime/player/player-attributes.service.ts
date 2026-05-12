@@ -768,7 +768,6 @@ function toTechniqueState(entry) {
         grade: entry.grade ?? undefined,
         category: entry.category ?? undefined,
         layers: entry.layers ?? undefined,
-        attrCurves: entry.attrCurves ?? undefined,
     };
 }
 /**

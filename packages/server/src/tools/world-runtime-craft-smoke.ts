@@ -123,6 +123,46 @@ function testInterruptCraftForReason() {
     ]);
 }
 
+function testInterruptCraftSkipsDuringDurableCommitWindow() {
+    const log = [];
+    const service = new WorldRuntimeCraftInterruptService({
+        listActiveTechniqueActivityKinds() {
+            log.push(['listActiveTechniqueActivityKinds']);
+            return ['enhancement'];
+        },
+        interruptTechniqueActivity() {
+            log.push(['interruptTechniqueActivity']);
+            return { ok: true, messages: [], panelChanged: true, groundDrops: [] };
+        },
+    }, {
+        flushCraftMutation() {
+            log.push(['flushCraftMutation']);
+        },
+    });
+    service.interruptCraftForReason(
+        'player:1',
+        {
+            playerId: 'player:1',
+            suppressImmediateDomainPersistence: true,
+            gatherJob: { remainingTicks: 2 },
+            buildingJob: { remainingTicks: 3 },
+        },
+        'move',
+        {
+            worldRuntimeLootContainerService: {
+                interruptGather() {
+                    log.push(['interruptGather']);
+                    return { ok: true, messages: [], panelChanged: false, groundDrops: [] };
+                },
+            },
+            interruptBuildingConstruction() {
+                log.push(['interruptBuildingConstruction']);
+            },
+        },
+    );
+    assert.deepEqual(log, []);
+}
+
 function testShortCraftSkillExpGain() {
     const expToNextByLevel = resolveTestRealmExpToNext;
     const lowTickAlchemyGain = computeCraftSkillExpGain({
@@ -541,6 +581,9 @@ async function testAdvanceCraftJobs() {
 Promise.resolve()
     .then(() => {
     testInterruptCraftForReason();
+})
+    .then(() => {
+    testInterruptCraftSkipsDuringDurableCommitWindow();
 })
     .then(() => {
     testShortCraftSkillExpGain();

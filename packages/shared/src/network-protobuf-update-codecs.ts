@@ -1,6 +1,6 @@
 import type { ActionDef } from './action-combat-types';
 import type { AttrBonus } from './attribute-types';
-import type { BodyTrainingState, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState } from './cultivation-types';
+import type { BodyTrainingState, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState } from './cultivation-types';
 import type { ActionUpdateEntryView as ActionUpdateEntry, TechniqueUpdateEntryView as TechniqueUpdateEntry } from './panel-update-types';
 import type { S2C_ActionsUpdate, S2C_AttrUpdate, S2C_TechniqueUpdate } from './protocol';
 import {
@@ -43,11 +43,6 @@ export function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string
   } else if (entry.layers !== undefined) {
     wire.layersJson = JSON.stringify(entry.layers);
   }
-  if (entry.attrCurves === null) {
-    wire.clearAttrCurves = true;
-  } else if (entry.attrCurves !== undefined) {
-    wire.attrCurvesJson = JSON.stringify(entry.attrCurves);
-  }
   return wire;
 }
 
@@ -78,11 +73,6 @@ export function fromWireTechniqueEntry(wire: Record<string, unknown>): Technique
     patch.layers = null;
   } else if (typeof wire.layersJson === 'string') {
     patch.layers = parseJson<TechniqueLayerDef[]>(wire.layersJson);
-  }
-  if (wire.clearAttrCurves === true) {
-    patch.attrCurves = null;
-  } else if (typeof wire.attrCurvesJson === 'string') {
-    patch.attrCurves = parseJson<TechniqueAttrCurves>(wire.attrCurvesJson);
   }
   return patch;
 }

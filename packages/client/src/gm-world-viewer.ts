@@ -574,8 +574,14 @@ export class GmWorldViewer {
         tileCache.set(`${wx},${wy}`, {
           type: vt.type as TileType,
           walkable: vt.walkable,
-          blocksSight: false,
+          blocksSight: vt.blocksSight === true,
           aura: vt.aura ?? 0,
+          resources: vt.resources,
+          terrainType: vt.terrainType,
+          surfaceType: vt.surfaceType,
+          structureType: vt.structureType,
+          interactableKinds: vt.interactableKinds,
+          compositeFlags: vt.compositeFlags,
           occupiedBy: null,
           modifiedAt: null,
         });
@@ -1557,6 +1563,19 @@ export class GmWorldViewer {
     if (this.selectedCell) {
       const key = `${this.selectedCell.x},${this.selectedCell.y}`;
       const tile = this.currentTileCache.get(key);
+      const layerRows = tile
+        ? [
+          `<div class="panel-row"><span class="panel-label">底层地形</span><span class="panel-value">${escapeHtml(String(tile.terrainType ?? '无'))}</span></div>`,
+          `<div class="panel-row"><span class="panel-label">地表铺装</span><span class="panel-value">${escapeHtml(String(tile.surfaceType ?? '无'))}</span></div>`,
+          `<div class="panel-row"><span class="panel-label">地上结构</span><span class="panel-value">${escapeHtml(String(tile.structureType ?? '无'))}</span></div>`,
+          Array.isArray(tile.interactableKinds) && tile.interactableKinds.length > 0
+            ? `<div class="panel-row"><span class="panel-label">交互对象</span><span class="panel-value">${tile.interactableKinds.map((kind) => escapeHtml(String(kind))).join('、')}</span></div>`
+            : '',
+          typeof tile.compositeFlags === 'number'
+            ? `<div class="panel-row"><span class="panel-label">合成标志</span><span class="panel-value">${tile.compositeFlags}</span></div>`
+            : '',
+        ].join('')
+        : '';
       this.syncInfoSection(
         'cell',
         `
@@ -1564,6 +1583,7 @@ export class GmWorldViewer {
           ${tile
             ? `
               <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${TILE_TYPE_LABELS[tile.type] ?? tile.type}</span></div>
+              ${layerRows}
               <div class="panel-row"><span class="panel-label">可行走</span><span class="panel-value">${tile.walkable ? '是' : '否'}</span></div>
               <div class="panel-row"><span class="panel-label">灵气</span><span class="panel-value">${tile.aura ?? 0}</span></div>
               ${tile.resources && tile.resources.length > 0

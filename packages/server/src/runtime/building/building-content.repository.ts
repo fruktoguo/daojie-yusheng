@@ -19,6 +19,7 @@ import {
   BUILDING_VISUAL_LAYER_ID_BY_KEY,
   FENGSHUI_ELEMENT_INDEX,
   getDefaultTileDurabilityMultiplier,
+  resolvePlacementLayerTarget,
   type BuildingDef,
   type CompiledBuildingCatalog,
   type CompiledBuildingDef,
@@ -60,6 +61,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
     if (!layerId) {
       throw new Error(`building_def_invalid_layer:${id}`);
     }
+    const cellLayerTarget = resolvePlacementLayerTarget(layer);
 
     const footprint = Array.isArray(definition.placement?.footprint)
       ? definition.placement.footprint
@@ -124,6 +126,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       ),
       costItemIds: cost.map((entry, costIndex) => normalizeRequiredKey(entry.itemId, `${id}.cost[${costIndex}].itemId`)),
       costCounts: Uint32Array.from(cost.map((entry) => clampInt(entry.count, 1, Number.MAX_SAFE_INTEGER))),
+      cellLayerTarget,
     };
 
     defs.push(compiled);

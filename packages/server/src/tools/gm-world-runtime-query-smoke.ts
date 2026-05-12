@@ -20,6 +20,12 @@ function createService(log = []) {
       getY(cellIndex) {
         return cellIndex < 64 ? Math.trunc(cellIndex / 8) : 7;
       },
+      getCompositeFlags(cellIndex) {
+        return cellIndex === 9 ? 2 : 1;
+      },
+    },
+    toTileIndex(x, y) {
+      return y * 8 + x;
     },
     isInBounds(x, y) {
       return (x >= 0 && y >= 0 && x < 8 && y < 8) || (x === 9 && y === 7);
@@ -35,6 +41,22 @@ function createService(log = []) {
     },
     getTileAura() {
       return 7;
+    },
+    getTileLayerState(x, y) {
+      if (x === 1 && y === 1) {
+        return {
+          terrain: 'grass',
+          surface: null,
+          structure: 'wall',
+          legacyTileType: 'wall',
+        };
+      }
+      return {
+        terrain: 'floor',
+        surface: 'floor',
+        structure: null,
+        legacyTileType: 'floor',
+      };
     },
     listTileResources() {
       return [];
@@ -139,6 +161,9 @@ function main() {
   assert.ok(monster, 'gm world runtime should include live monsters');
   assert.equal(runtimeTile?.type, 'wall', 'gm world runtime should project live effective tile type');
   assert.equal(runtimeTile?.walkable, false, 'gm world runtime should project live tile walkability');
+  assert.equal(runtimeTile?.layers?.terrain, 'grass', 'gm world runtime should expose tile layer truth');
+  assert.equal(runtimeTile?.layers?.structure, 'wall', 'gm world runtime should expose structure layer truth');
+  assert.equal(runtimeTile?.compositeFlags, 2, 'gm world runtime should expose composite flags for repair tooling');
   assert.equal(expandedRuntime.width, 10, 'gm world runtime should include live tile-plane width');
   assert.equal(expandedRuntime.tiles[0]?.[1]?.type, 'stone', 'gm world runtime should read expanded live tiles');
   assert.deepEqual(monster, {

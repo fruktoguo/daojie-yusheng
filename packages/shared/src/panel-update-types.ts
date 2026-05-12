@@ -182,11 +182,6 @@ export interface TechniqueUpdateEntryView {
  */
 
   layers?: TechniqueLayerDef[] | null;  
-  /**
- * attrCurves：attrCurve相关字段。
- */
-
-  attrCurves?: TechniqueState['attrCurves'] | null;
 }
 
 /** 行动面板局部更新项。 */

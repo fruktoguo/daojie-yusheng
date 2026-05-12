@@ -1,9 +1,8 @@
-// @ts-nocheck
-"use strict";
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-const { StructureType, SurfaceType, TerrainType, TileType } = require("@mud/shared");
-const { RuntimeTilePlane } = require("../runtime/map/runtime-tile-plane");
+import { StructureType, SurfaceType, TerrainType, TileType, getLayeredTileTraversalCost, getTileTraversalCost } from '@mud/shared';
+
+import { RuntimeTilePlane, TILE_FLAG_BLOCKS_SIGHT, TILE_FLAG_WALKABLE } from '../runtime/map/runtime-tile-plane';
 
 function main() {
   const plane = new RuntimeTilePlane(2, 4);
@@ -50,6 +49,13 @@ function main() {
   assert.equal(plane.getTileType(paved), TileType.Road);
   assert.equal(plane.getTerrain(paved), TerrainType.Mud);
   assert.equal(plane.getSurface(paved), SurfaceType.Road);
+  assert.equal(getLayeredTileTraversalCost(plane.getTerrain(paved), plane.getSurface(paved)), getTileTraversalCost(TileType.Road));
+  assert.equal(getLayeredTileTraversalCost(plane.getTerrain(paved), null), getTileTraversalCost(TileType.Mud));
+  assert.equal((plane.getCompositeFlags(layered) & TILE_FLAG_WALKABLE) !== 0, true);
+  assert.equal(plane.setStructure(layered, StructureType.Wall), true);
+  assert.equal((plane.getCompositeFlags(layered) & TILE_FLAG_WALKABLE) !== 0, false);
+  assert.equal((plane.getCompositeFlags(layered) & TILE_FLAG_BLOCKS_SIGHT) !== 0, true);
+  assert.equal(plane.setStructure(layered, null), true);
 
   const contextual = RuntimeTilePlane.fromTemplate({
     width: 3,

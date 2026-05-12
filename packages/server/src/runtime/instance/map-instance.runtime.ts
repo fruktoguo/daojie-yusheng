@@ -3,7 +3,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, SurfaceType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getMaxStoredMovePoints, getMovePointsPerTick, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, SurfaceType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -48,39 +48,15 @@ const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
 const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_TICKS', 'MAP_TIME_CHECKPOINT_INTERVAL_TICKS'), 300, 30, 86_400);
 
-/** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
+/** DEFAULT_TERRAIN_DURABILITY_BY_TILE：真正 terrain 层的默认耐久配置；structure 耐久见 shared structure profile。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
-    [TileType.Wall]: { material: 'stone', multiplier: 50 },
     [TileType.Cloud]: {
         material: 'vine',
         multiplier: 3,
         damageDrops: [{ itemId: 'cloud_puff', count: 1, chanceBps: 200 }],
         destroyDrops: [{ itemId: 'cloud_puff', count: 1 }],
     },
-    [TileType.Tree]: { material: 'wood', multiplier: 10 },
-    [TileType.Bamboo]: { material: 'bamboo', multiplier: 8 },
     [TileType.Cliff]: { material: 'stone', multiplier: 50 },
-    [TileType.Stone]: { material: 'stone', multiplier: 50 },
-    [TileType.SpiritOre]: {
-        material: 'spiritOre',
-        multiplier: 10000,
-        damageDrops: [{ itemId: 'spirit_stone', count: 1, chanceBps: 20 }],
-        destroyDrops: [{ itemId: 'spirit_stone', count: 1 }],
-    },
-    [TileType.BlackIronOre]: {
-        material: 'blackIronOre',
-        multiplier: 2000,
-        damageDrops: [{ itemId: 'black_iron_chunk', count: 1, chanceBps: 50 }],
-        destroyDrops: [{ itemId: 'black_iron_chunk', count: 1 }],
-    },
-    [TileType.BrokenSwordHeap]: {
-        material: 'brokenSwordHeap',
-        multiplier: 2,
-        damageDrops: [{ itemId: 'sword_pellet', count: 1, chanceBps: 1200 }],
-        destroyDrops: [{ itemId: 'sword_pellet', count: 1 }],
-    },
-    [TileType.Door]: { material: 'ironwood', multiplier: 14 },
-    [TileType.Window]: { material: 'wood', multiplier: 10 },
 };
 
 /** SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS：特殊地形恢复速度倍率，越高表示复原越快。 */
@@ -914,7 +890,7 @@ class MapInstanceRuntime {
             if (this.hasBuildingLayerOverlapAtCell(cellIndex, compiled.layerId)) {
                 return { ok: false, reason: 'building_layer_overlap', x: cellX, y: cellY };
             }
-            if (!isTileTypeWalkable(this.getEffectiveTileTypeByCellIndex(cellIndex))) {
+            if (!this.isCellIndexWalkable(cellIndex)) {
                 return { ok: false, reason: 'tile_not_clear', x: cellX, y: cellY };
             }
             cells.push(cellIndex);
@@ -2293,8 +2269,11 @@ class MapInstanceRuntime {
             return buildingCombat;
         }
         const tileType = this.getBaseTileType(x, y);
+        const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(tileIndex)
+            : null;
 
-        const maxHp = resolveTileDurability(this.template, tileType, x, y);
+        const maxHp = resolveTileDurability(this.template, tileType, x, y, layerState);
         if (maxHp <= 0) {
             return null;
         }
@@ -2302,6 +2281,8 @@ class MapInstanceRuntime {
         const current = this.tileDamageByTile.get(tileIndex);
         return {
             tileType,
+            terrainType: layerState?.terrain ?? null,
+            structureType: layerState?.structure ?? null,
             hp: current?.hp ?? maxHp,
             maxHp,
             modifiedAt: current?.modifiedAt ?? null,
@@ -2414,7 +2395,7 @@ class MapInstanceRuntime {
 
         const nextHp = Math.max(0, current.hp - appliedDamage);
         const destroyed = nextHp <= 0;
-        const tileDrops = this.rollTileDrops(current.tileType, appliedDamage, destroyed);
+        const tileDrops = this.rollTileDrops(current, appliedDamage, destroyed);
         const affectsRoomTopology = destroyed === true
             && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getDestroyedTileLayerStateByCellIndex(tileIndex).tileType);
         const affectsRoomIntegrity = destroyed !== true
@@ -2506,7 +2487,7 @@ class MapInstanceRuntime {
         if (this.hasBlockingEntityAt(normalizedX, normalizedY)) {
             return { allowed: false, reason: 'blocked', tileIndex };
         }
-        if (!isTileTypeWalkable(this.getEffectiveTileType(normalizedX, normalizedY))) {
+        if (!this.isCellIndexWalkable(tileIndex)) {
             return { allowed: false, reason: 'not_walkable', tileIndex };
         }
         return { allowed: true, reason: 'available', tileIndex };
@@ -2570,7 +2551,10 @@ class MapInstanceRuntime {
             const x = this.tilePlane.getX(normalizedTileIndex);
             const y = this.tilePlane.getY(normalizedTileIndex);
             const tileType = this.getBaseTileType(x, y);
-            const maxHp = Math.max(1, Math.trunc(Number(current?.maxHp) || resolveTileDurability(this.template, tileType)));
+            const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+                ? this.tilePlane.getTileLayerState(normalizedTileIndex)
+                : null;
+            const maxHp = Math.max(1, Math.trunc(Number(current?.maxHp) || resolveTileDurability(this.template, tileType, x, y, layerState)));
             if (current?.destroyed === true) {
                 if (typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
                     continue;
@@ -3188,7 +3172,10 @@ class MapInstanceRuntime {
             const x = this.tilePlane.getX(resolvedTileIndex);
             const y = this.tilePlane.getY(resolvedTileIndex);
             const tileType = this.getBaseTileType(x, y);
-            const resolvedMaxHp = resolveTileDurability(this.template, tileType, x, y);
+            const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+                ? this.tilePlane.getTileLayerState(resolvedTileIndex)
+                : null;
+            const resolvedMaxHp = resolveTileDurability(this.template, tileType, x, y, layerState);
             if (resolvedMaxHp <= 0) {
                 continue;
             }
@@ -4065,9 +4052,9 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return toGroundPileView(pile);
     }
-    /** rollTileDrops：按通用可拆地块掉落配置结算本次伤害和拆除掉落。 */
-    rollTileDrops(tileType, appliedDamage, destroyed) {
-        const config = DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
+    /** rollTileDrops：按 structure/terrain 分层耐久配置结算本次伤害和拆除掉落。 */
+    rollTileDrops(tileState, appliedDamage, destroyed) {
+        const config = resolveTileDurabilityProfile(tileState?.tileType, tileState);
         if (!config) {
             return [];
         }
@@ -4269,17 +4256,25 @@ class MapInstanceRuntime {
         if (this.isDynamicallyBlockedTile(x, y, playerId)) {
             return Number.POSITIVE_INFINITY;
         }
-        const tileType = this.getEffectiveTileType(x, y);
-        if (!isTileTypeWalkable(tileType)) {
+        const tileIndex = this.toTileIndex(x, y);
+        if (!this.isCellIndexWalkable(tileIndex)) {
             return Number.POSITIVE_INFINITY;
         }
-        const tileIndex = this.toTileIndex(x, y);
         const movementCostOverride = this.template?.movementCostOverrideByTile?.[tileIndex] ?? 0;
         if (Number.isFinite(movementCostOverride) && movementCostOverride > 0) {
             return Math.max(1, Math.trunc(movementCostOverride));
         }
-        /** return：return。 */
-        return getTileTraversalCost(tileType);
+        if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
+            const destroyedState = this.getDestroyedTileLayerStateByCellIndex(tileIndex);
+            return getLayeredTileTraversalCost(destroyedState.terrainType, destroyedState.surfaceType ?? null);
+        }
+        const state = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(tileIndex)
+            : null;
+        if (state) {
+            return getLayeredTileTraversalCost(state.terrain, state.surface ?? null);
+        }
+        return getTileTraversalCost(this.getEffectiveTileTypeByCellIndex(tileIndex));
     }
     /** getTileQiDrainPerTick：读取地块每息灵力消耗。 */
     getTileQiDrainPerTick(x, y) {
@@ -4797,7 +4792,20 @@ class MapInstanceRuntime {
         if (this.isDynamicallyBlockedTile(x, y, playerId)) {
             return false;
         }
-        return isTileTypeWalkable(this.getEffectiveTileType(x, y));
+        return this.isCellIndexWalkable(this.toTileIndex(x, y));
+    }
+    /** isCellIndexWalkable：按预合成 flags 判断静态通行，摧毁/临时地块按有效投影兜底。 */
+    isCellIndexWalkable(cellIndexInput) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        if (this.temporaryTileByTile.has(cellIndex) || this.tileDamageByTile.get(cellIndex)?.destroyed === true) {
+            return isTileTypeWalkable(this.getEffectiveTileTypeByCellIndex(cellIndex));
+        }
+        return typeof this.tilePlane.isWalkable === 'function'
+            ? this.tilePlane.isWalkable(cellIndex)
+            : isTileTypeWalkable(this.getEffectiveTileTypeByCellIndex(cellIndex));
     }
     /** isDynamicallyBlockedTile：判断运行期动态阻挡是否覆盖目标地块。 */
     isDynamicallyBlockedTile(x, y, playerId = null) {
@@ -4842,7 +4850,13 @@ class MapInstanceRuntime {
             const compositeBlocked = this.resolveCompositeSightBlocked(x, y);
             return compositeBlocked === null ? true : compositeBlocked;
         }
-        return doesTileTypeBlockSight(this.getEffectiveTileType(x, y));
+        const tileIndex = this.toTileIndex(x, y);
+        if (this.temporaryTileByTile.has(tileIndex) || this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
+            return doesTileTypeBlockSight(this.getEffectiveTileTypeByCellIndex(tileIndex));
+        }
+        return typeof this.tilePlane.blocksSight === 'function'
+            ? this.tilePlane.blocksSight(tileIndex)
+            : doesTileTypeBlockSight(this.getEffectiveTileTypeByCellIndex(tileIndex));
     }
     /** canSeeTileFrom：判断 origin 在指定半径内是否能看见目标地块。 */
     canSeeTileFrom(originX, originY, targetX, targetY, radius) {
@@ -5499,22 +5513,30 @@ function normalizeTileRestoreTicksLeft(value, tileType) {
     const normalized = Math.trunc(Number(value));
     return Number.isFinite(normalized) && normalized > 0 ? normalized : calculateTileRestoreTicks(tileType);
 }
-/** resolveTileDurability：解析地形耐久配置。 */
-function resolveTileDurability(template, tileType, x = null, y = null) {
+/** resolveTileDurabilityProfile：解析分层耐久配置，structure 优先，terrain 仅处理真正地形层。 */
+function resolveTileDurabilityProfile(tileType, layerState = null) {
+    const structureProfile = getStructureDurabilityProfile(layerState?.structure ?? layerState?.structureType ?? null);
+    if (structureProfile) {
+        return structureProfile;
+    }
+    return DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType] ?? null;
+}
+/** resolveTileDurability：解析地形/结构耐久配置。 */
+function resolveTileDurability(template, tileType, x = null, y = null, layerState = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (template?.source?.sectMap === true && tileType === TileType.Stone) {
+    const profile = resolveTileDurabilityProfile(tileType, layerState);
+    if (!profile) {
+        return 0;
+    }
+
+    if (template?.source?.sectMap === true && (layerState?.structure ?? layerState?.structureType ?? null) === StructureType.Stone) {
         const centerX = Number.isFinite(Number(template.source.sectCoreX)) ? Math.trunc(Number(template.source.sectCoreX)) : Math.trunc(template.width / 2);
         const centerY = Number.isFinite(Number(template.source.sectCoreY)) ? Math.trunc(Number(template.source.sectCoreY)) : Math.trunc(template.height / 2);
         const dx = Number.isFinite(Number(x)) ? Math.abs(Math.trunc(Number(x)) - centerX) : 1;
         const dy = Number.isFinite(Number(y)) ? Math.abs(Math.trunc(Number(y)) - centerY) : 1;
         const ring = Math.max(1, dx, dy);
         return Math.max(1, Math.trunc(100000 * Math.pow(2, Math.max(0, ring - 1))));
-    }
-
-    const profile = DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
-    if (!profile) {
-        return 0;
     }
 
     const terrainRealmLv = Number.isFinite(template.source?.terrainRealmLv)

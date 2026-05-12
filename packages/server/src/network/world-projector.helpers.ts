@@ -150,7 +150,6 @@ function toTechniqueState(entry: TechniqueUpdateEntryView): TechniqueState {
     grade: entry.grade,
     category: entry.category,
     layers: entry.layers,
-    attrCurves: entry.attrCurves,
   };
 }
 

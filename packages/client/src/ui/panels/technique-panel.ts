@@ -235,7 +235,7 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
 
 /** getResolvedTechniqueRealm：读取Resolved Technique境界。 */
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
-  return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
+  return deriveTechniqueRealm(tech.level, tech.layers);
 }
 
 /** getTechniqueRealmLevelLabel：读取Technique境界等级标签。 */
@@ -320,12 +320,11 @@ function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
   layers?: TechniqueLayerDef[],
-  attrCurves?: TechniqueState['attrCurves'],
 ): number | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   for (let level = 1; level <= maxLevel; level += 1) {
-    if (deriveTechniqueRealm(level, layers, attrCurves) === realm) {
+    if (deriveTechniqueRealm(level, layers) === realm) {
       return level;
     }
   }
@@ -338,7 +337,7 @@ function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<n
 
   const milestones = new Map<number, TechniqueRealm>();
   for (const realm of [TechniqueRealm.Minor, TechniqueRealm.Major, TechniqueRealm.Perfection]) {
-    const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers, tech.attrCurves);
+    const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers);
     if (level !== null) {
       milestones.set(level, realm);
     }
@@ -549,7 +548,7 @@ export class TechniquePanel {
 
   /** renderTechniqueCard：渲染Technique卡片。 */
   private renderTechniqueCard(tech: TechniqueState): string {
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
     const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
     const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
@@ -637,7 +636,7 @@ export class TechniquePanel {
     if (filter === 'all') {
       return true;
     }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     if (filter === 'in_progress') {
       return tech.level < maxLevel;
     }
@@ -726,9 +725,9 @@ export class TechniquePanel {
       return;
     }
 
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
@@ -809,7 +808,7 @@ export class TechniquePanel {
       rows.push({
         level,
         expToNext: level >= maxLevel ? 0 : 0,
-        attrs: calcTechniqueNextLevelGains(level - 1, tech.layers, tech.attrCurves),
+        attrs: calcTechniqueNextLevelGains(level - 1, tech.layers),
         specialStats: calcTechniqueNextLevelSpecialStatGains(level - 1, tech.layers),
       });
     }
@@ -867,7 +866,7 @@ export class TechniquePanel {
     milestones: Map<number, TechniqueRealm>,
   ): string {
     const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
     const skills = skillsByLevel.get(layer.level) ?? [];
     const skillTags = skills.length > 0
       ? skills.map((skill) => {
@@ -880,7 +879,7 @@ export class TechniquePanel {
       : `<span class="tech-layer-empty">${t('technique.layer.no-skill', undefined)}</span>`;
 
     const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
+    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
     const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
@@ -1375,7 +1374,7 @@ export class TechniquePanel {
         return false;
       }
 
-      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
       const isCultivating = cultivatingTechId === tech.techId;
       const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
       const progressRatio = getTechniqueProgressRatio(tech);
@@ -1431,9 +1430,9 @@ export class TechniquePanel {
     if (!expNode || !totalExpNode || !currentAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
       return false;
     }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
@@ -1531,9 +1530,9 @@ export class TechniquePanel {
       expPercent: Math.round(getTechniqueProgressRatio(tech) * 100),
       selectedLevel,
       nodes: layers.map((layer) => {
-        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers);
         const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-        const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
+        const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
         const progressText = layer.level < tech.level
           ? t('technique.constellation.progress.passed', undefined)
           : layer.level === tech.level
@@ -1618,14 +1617,14 @@ export class TechniquePanel {
     if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode || !skillsNode) {
       return;
     }
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
     const milestone = milestones.get(layer.level);
     const skills = skillsByLevel.get(layer.level) ?? [];
     const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
     const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
     const milestoneText = milestone ? t('technique.layer.milestone', { realm: getTechniqueRealmLabel(milestone) }) : t('technique.layer.realm-stage', { realm: getTechniqueRealmLabel(selectedRealm) });
     const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers, tech.attrCurves);
+    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
 
     card.classList.toggle('passed', layer.level < tech.level);
     card.classList.toggle('current', layer.level === tech.level);

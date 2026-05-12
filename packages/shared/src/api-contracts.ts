@@ -16,7 +16,7 @@ import type {
 } from './mail-types';
 import type { QuestLine, QuestObjectiveType, QuestState } from './quest-types';
 import type { Suggestion } from './world-view-types';
-import type { TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
+import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
 import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { PlayerState } from './player-runtime-types';
 import type { SkillDef, TemporaryBuffState } from './skill-types';
@@ -1356,11 +1356,6 @@ export interface GmEditorTechniqueOption {
  */
 
   layers?: TechniqueLayerDef[];
-  /**
- * attrCurves：attrCurve相关字段。
- */
-
-  attrCurves?: TechniqueAttrCurves;
 }
 
 /** GM 编辑器里的物品候选项。 */

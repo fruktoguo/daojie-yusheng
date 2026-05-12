@@ -23,7 +23,6 @@ import type {
   SkillPlayerCastDef,
   SkillTargetingDef,
   SyncedItemStack,
-  TechniqueAttrCurveSegment,
   TechniqueLayerDef,
   TechniqueUpdateEntryView,
   VisibleBuffState,
@@ -640,8 +639,7 @@ export function isSameTechniqueEntry(left: TechniqueUpdateEntryView | null | und
         && left.grade === right.grade
         && left.category === right.category
         && isSameTechniqueSkillList(left.skills, right.skills)
-        && isSameTechniqueLayerList(left.layers, right.layers)
-        && isSameTechniqueAttrCurves(left.attrCurves, right.attrCurves);
+        && isSameTechniqueLayerList(left.layers, right.layers);
 }
 
 export function isSameTechniqueSkillList(left: TechniqueUpdateEntryView['skills'], right: TechniqueUpdateEntryView['skills']) {
@@ -668,21 +666,6 @@ export function isSameTechniqueLayerList(left: TechniqueUpdateEntryView['layers'
     }
     for (let index = 0; index < left.length; index += 1) {
         if (!isSameTechniqueLayerDef(left[index] ?? null, right[index] ?? null)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-export function isSameTechniqueAttrCurves(left: TechniqueUpdateEntryView['attrCurves'], right: TechniqueUpdateEntryView['attrCurves']) {
-    if (left === right) {
-        return true;
-    }
-    if (!left || !right) {
-        return false;
-    }
-    for (const key of ATTRIBUTE_KEYS) {
-        if (!isSameTechniqueAttrCurveSegmentList(left[key], right[key])) {
             return false;
         }
     }
@@ -870,32 +853,7 @@ export function isSameTechniqueLayerDef(left: TechniqueLayerDef | null | undefin
         && isSameQiProjectionModifierList(left.qiProjection, right.qiProjection);
 }
 
-export function isSameTechniqueAttrCurveSegmentList(
-    left: TechniqueAttrCurveSegment[] | null | undefined,
-    right: TechniqueAttrCurveSegment[] | null | undefined,
-) {
-    if (left === right) {
-        return true;
-    }
-    if (!left || !right || left.length !== right.length) {
-        return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-        const leftEntry = left[index];
-        const rightEntry = right[index];
-        if (!leftEntry || !rightEntry) {
-            return false;
-        }
-        if (
-            leftEntry.startLevel !== rightEntry.startLevel
-            || leftEntry.endLevel !== rightEntry.endLevel
-            || leftEntry.gainPerLevel !== rightEntry.gainPerLevel
-        ) {
-            return false;
-        }
-    }
-    return true;
-}
+
 
 export function isSameAttrBonusMeta(left: Record<string, unknown> | null | undefined, right: Record<string, unknown> | null | undefined) {
     return isSameAttrBonusMetaRecord(left, right);

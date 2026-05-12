@@ -16,7 +16,7 @@ import { t } from '../i18n';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
-import { buildLegacyHostileTargetingFallback, escapeHtml, isAutoUseConsumableCandidate, isRecord } from './action-panel-helpers';
+import { escapeHtml, isAutoUseConsumableCandidate, isRecord } from './action-panel-helpers';
 import type { ActionPanel } from './action-panel';
 import type {
   ActionPanelInternal,
@@ -107,7 +107,7 @@ export class CombatSettingsSubpanel {
     const hostile = this.normalizeCombatTargetingScope(
       source.hostile,
       HOSTILE_TARGETING_KEYS,
-      buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
+      defaults.hostile ?? [],
     );
     const friendly = this.normalizeCombatTargetingScope(
       source.friendly,
@@ -117,19 +117,15 @@ export class CombatSettingsSubpanel {
     return {
       hostile,
       friendly,
-      includeNormalMonsters: hostile.includes('monster'),
-      includeEliteMonsters: hostile.includes('monster'),
-      includeBosses: hostile.includes('monster'),
-      includePlayers: hostile.includes('all_players'),
     };
   }
 
   cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
-    const defaults = this.buildDefaultCombatTargetingRules(rules.includePlayers === true);
+    const defaults = this.buildDefaultCombatTargetingRules((rules.hostile ?? []).includes('all_players'));
     const hostile = this.normalizeCombatTargetingScope(
       rules.hostile,
       HOSTILE_TARGETING_KEYS,
-      buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
+      defaults.hostile ?? [],
     );
     const friendly = this.normalizeCombatTargetingScope(
       rules.friendly,
@@ -139,10 +135,6 @@ export class CombatSettingsSubpanel {
     return {
       hostile,
       friendly,
-      includeNormalMonsters: hostile.includes('monster'),
-      includeEliteMonsters: hostile.includes('monster'),
-      includeBosses: hostile.includes('monster'),
-      includePlayers: hostile.includes('all_players'),
     };
   }
 
@@ -170,10 +162,7 @@ export class CombatSettingsSubpanel {
     if ((normalizedLeft.friendly ?? []).some((entry, index) => entry !== normalizedRight.friendly?.[index])) {
       return false;
     }
-    return normalizedLeft.includeNormalMonsters === normalizedRight.includeNormalMonsters
-      && normalizedLeft.includeEliteMonsters === normalizedRight.includeEliteMonsters
-      && normalizedLeft.includeBosses === normalizedRight.includeBosses
-      && normalizedLeft.includePlayers === normalizedRight.includePlayers;
+    return true;
   }
 
   getAutoBattleTargetingMode(): AutoBattleTargetingMode {
@@ -647,11 +636,11 @@ export class CombatSettingsSubpanel {
     const nextRules = this.syncCombatTargetingDraft();
     const pillsChanged = !this.areAutoUsePillConfigsEqual(nextPills, this.getAutoUsePills());
     const rulesChanged = !this.areCombatTargetingRulesEqual(nextRules, this.getCombatTargetingRules());
-    const allowAoeChanged = (nextRules.includePlayers === true) !== this.p.allowAoePlayerHit;
+    const allowAoeChanged = ((nextRules.hostile ?? []).includes('all_players')) !== this.p.allowAoePlayerHit;
     if (this.p.previewPlayer) {
       this.p.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(nextPills);
       this.p.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextRules);
-      this.p.previewPlayer.allowAoePlayerHit = nextRules.includePlayers === true;
+      this.p.previewPlayer.allowAoePlayerHit = (nextRules.hostile ?? []).includes('all_players');
     }
     this.p.render(this.p.currentActions);
     this.discardCombatSettingsDraft();

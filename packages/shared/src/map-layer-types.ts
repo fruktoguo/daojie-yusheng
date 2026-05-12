@@ -1,4 +1,5 @@
 import { TileType } from './world-core-types';
+import { TILE_TRAVERSAL_COST } from './constants/gameplay/terrain';
 
 /** 底层地形：描述 cell 本身的自然/基础地貌。 */
 export enum TerrainType {
@@ -52,6 +53,11 @@ export enum InteractableKind {
   Mechanism = 'mechanism',
 }
 
+const legacyTileTypeSet = new Set(Object.values(TileType));
+const terrainTypeSet = new Set(Object.values(TerrainType));
+const surfaceTypeSet = new Set(Object.values(SurfaceType));
+const structureTypeSet = new Set(Object.values(StructureType));
+
 /** 由旧 TileType 编译出来的分层 seed。 */
 export interface TileLayerSeed {
   terrain: TerrainType;
@@ -59,6 +65,50 @@ export interface TileLayerSeed {
   structure: StructureType | null;
   interactables: readonly InteractableKind[];
   legacyTileType: TileType;
+}
+
+export type CellLayerTarget = 'terrain' | 'surface' | 'structure' | 'interactable';
+
+export interface TerrainDef {
+  id: TerrainType;
+  name: string;
+  walkable: boolean;
+  blocksSight: boolean;
+  traversalCost: number;
+  hpMultiplier: number;
+  tags: readonly string[];
+  color?: string;
+  icon?: string;
+}
+
+export interface SurfaceDef {
+  id: SurfaceType;
+  name: string;
+  traversalCost: number;
+  comfort?: number;
+  fengShuiTraits?: readonly string[];
+  tags: readonly string[];
+  color?: string;
+  icon?: string;
+}
+
+export interface StructureDef {
+  id: StructureType;
+  name: string;
+  blocksMove: boolean;
+  blocksSight: boolean;
+  roomBoundary: boolean;
+  openingKind: 'none' | 'door' | 'window';
+  damageable: boolean;
+  hpMultiplier: number;
+  tags: readonly string[];
+  color?: string;
+  icon?: string;
+}
+
+export interface LayerCatalogValidationResult {
+  ok: boolean;
+  errors: string[];
 }
 
 const EMPTY_INTERACTABLES: readonly InteractableKind[] = Object.freeze([]);
@@ -160,9 +210,63 @@ export function isTerrainTypeWalkable(terrainInput: TerrainType | string | null 
     && terrain !== TerrainType.Void;
 }
 
+export function getTerrainTypeTraversalCost(terrainInput: TerrainType | string | null | undefined): number {
+  return TILE_TRAVERSAL_COST[tileTypeFromTerrainType(normalizeTerrainType(terrainInput))] ?? 400;
+}
+
+export function getSurfaceTypeTraversalCost(surfaceInput: SurfaceType | string | null | undefined): number | null {
+  const surface = normalizeSurfaceType(surfaceInput);
+  return surface ? TILE_TRAVERSAL_COST[tileTypeFromSurfaceType(surface)] ?? 400 : null;
+}
+
+export function getLayeredTileTraversalCost(
+  terrainInput: TerrainType | string | null | undefined,
+  surfaceInput?: SurfaceType | string | null,
+): number {
+  return getSurfaceTypeTraversalCost(surfaceInput) ?? getTerrainTypeTraversalCost(terrainInput);
+}
+
 export function doesTerrainTypeBlockSight(terrainInput: TerrainType | string | null | undefined): boolean {
   const terrain = normalizeTerrainType(terrainInput);
   return terrain === TerrainType.Cliff || terrain === TerrainType.Cloud;
+}
+
+export function validateLayerCatalog(
+  terrainDefs: readonly TerrainDef[] = DEFAULT_TERRAIN_DEFS,
+  surfaceDefs: readonly SurfaceDef[] = DEFAULT_SURFACE_DEFS,
+  structureDefs: readonly StructureDef[] = DEFAULT_STRUCTURE_DEFS,
+): LayerCatalogValidationResult {
+  const errors: string[] = [];
+  validateDefSet('terrain', terrainDefs, Object.values(TerrainType), errors);
+  validateDefSet('surface', surfaceDefs, Object.values(SurfaceType), errors);
+  validateDefSet('structure', structureDefs, Object.values(StructureType), errors);
+  for (const def of terrainDefs) {
+    if (!Number.isFinite(def.traversalCost) || def.traversalCost <= 0) errors.push(`terrain_invalid_traversal:${def.id}`);
+    if (!Number.isFinite(def.hpMultiplier) || def.hpMultiplier < 0) errors.push(`terrain_invalid_hp_multiplier:${def.id}`);
+  }
+  for (const def of surfaceDefs) {
+    if (!Number.isFinite(def.traversalCost) || def.traversalCost <= 0) errors.push(`surface_invalid_traversal:${def.id}`);
+  }
+  for (const def of structureDefs) {
+    if (!Number.isFinite(def.hpMultiplier) || def.hpMultiplier < 0) errors.push(`structure_invalid_hp_multiplier:${def.id}`);
+    if (!['none', 'door', 'window'].includes(def.openingKind)) errors.push(`structure_invalid_opening:${def.id}`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+export function resolvePlacementLayerTarget(layer: string | null | undefined): CellLayerTarget {
+  switch (layer) {
+    case 'structure':
+      return 'structure';
+    case 'floor':
+      return 'surface';
+    case 'facility':
+    case 'furniture':
+    case 'decoration':
+      return 'interactable';
+    default:
+      throw new Error(`building_placement_layer_target_invalid:${String(layer)}`);
+  }
 }
 
 export function doesStructureTypeBlockMove(structureInput: StructureType | string | null | undefined): boolean {
@@ -186,6 +290,77 @@ export function doesStructureTypeBlockSight(structureInput: StructureType | stri
 
 export function isStructureTypeDamageable(structureInput: StructureType | string | null | undefined): boolean {
   return normalizeStructureType(structureInput) !== null;
+}
+
+export type StructureDurabilityMaterial =
+  | 'wood'
+  | 'bamboo'
+  | 'ironwood'
+  | 'stone'
+  | 'spiritOre'
+  | 'blackIronOre'
+  | 'brokenSwordHeap';
+
+export interface StructureDamageDropEntry {
+  itemId: string;
+  count: number;
+  chanceBps?: number;
+}
+
+export interface StructureDurabilityProfile {
+  material: StructureDurabilityMaterial;
+  multiplier: number;
+  damageDrops?: readonly StructureDamageDropEntry[];
+  destroyDrops?: readonly StructureDamageDropEntry[];
+  miningLevel?: number;
+}
+
+export const STRUCTURE_DURABILITY_PROFILE_BY_TYPE: Partial<Record<StructureType, StructureDurabilityProfile>> = {
+  [StructureType.Wall]: { material: 'stone', multiplier: 50 },
+  [StructureType.Tree]: { material: 'wood', multiplier: 10 },
+  [StructureType.Bamboo]: { material: 'bamboo', multiplier: 8 },
+  [StructureType.Stone]: { material: 'stone', multiplier: 50 },
+  [StructureType.SpiritOre]: {
+    material: 'spiritOre',
+    multiplier: 10000,
+    miningLevel: 20,
+    damageDrops: [{ itemId: 'spirit_stone', count: 1, chanceBps: 20 }],
+    destroyDrops: [{ itemId: 'spirit_stone', count: 1 }],
+  },
+  [StructureType.BlackIronOre]: {
+    material: 'blackIronOre',
+    multiplier: 2000,
+    miningLevel: 11,
+    damageDrops: [{ itemId: 'black_iron_chunk', count: 1, chanceBps: 50 }],
+    destroyDrops: [{ itemId: 'black_iron_chunk', count: 1 }],
+  },
+  [StructureType.BrokenSwordHeap]: {
+    material: 'brokenSwordHeap',
+    multiplier: 2,
+    damageDrops: [{ itemId: 'sword_pellet', count: 1, chanceBps: 1200 }],
+    destroyDrops: [{ itemId: 'sword_pellet', count: 1 }],
+  },
+  [StructureType.Door]: { material: 'ironwood', multiplier: 14 },
+  [StructureType.Window]: { material: 'wood', multiplier: 10 },
+};
+
+export function getStructureDurabilityProfile(
+  structureInput: StructureType | string | null | undefined,
+): StructureDurabilityProfile | null {
+  const structure = normalizeStructureType(structureInput);
+  return structure ? STRUCTURE_DURABILITY_PROFILE_BY_TYPE[structure] ?? null : null;
+}
+
+export function isStructureTypeOre(structureInput: StructureType | string | null | undefined): boolean {
+  const profile = getStructureDurabilityProfile(structureInput);
+  return Number.isFinite(profile?.miningLevel) && Number(profile?.miningLevel) > 0;
+}
+
+export function getStructureOreLevel(structureInput: StructureType | string | null | undefined): number | null {
+  const profile = getStructureDurabilityProfile(structureInput);
+  return Number.isFinite(profile?.miningLevel) && Number(profile?.miningLevel) > 0
+    ? Math.max(1, Math.trunc(Number(profile?.miningLevel)))
+    : null;
 }
 
 export function normalizeTerrainType(input: TerrainType | string | null | undefined): TerrainType {
@@ -336,7 +511,163 @@ function tileTypeFromStructureType(structure: StructureType): TileType {
   }
 }
 
-const legacyTileTypeSet = new Set(Object.values(TileType));
-const terrainTypeSet = new Set(Object.values(TerrainType));
-const surfaceTypeSet = new Set(Object.values(SurfaceType));
-const structureTypeSet = new Set(Object.values(StructureType));
+const terrainHpMultiplierByType: Readonly<Partial<Record<TerrainType, number>>> = Object.freeze({
+  [TerrainType.Cliff]: 50,
+  [TerrainType.Cloud]: 3,
+});
+
+const surfaceComfortByType: Readonly<Partial<Record<SurfaceType, number>>> = Object.freeze({
+  [SurfaceType.Floor]: 1,
+  [SurfaceType.Road]: 0,
+  [SurfaceType.Trail]: 0,
+  [SurfaceType.Veranda]: 1,
+  [SurfaceType.StoneStairs]: 0,
+});
+
+function resolveTerrainTags(terrain: TerrainType): string[] {
+  const tags = ['terrain'];
+  if (isTerrainTypeWalkable(terrain)) tags.push('walkable');
+  if (doesTerrainTypeBlockSight(terrain)) tags.push('blocks_sight');
+  if (terrain === TerrainType.Water) tags.push('water');
+  if (terrain === TerrainType.Mud || terrain === TerrainType.Swamp || terrain === TerrainType.ColdBog) tags.push('wet');
+  if (terrain === TerrainType.MoltenPool) tags.push('hot');
+  if (terrain === TerrainType.ColdBog) tags.push('cold');
+  if (terrain === TerrainType.StoneGround || terrain === TerrainType.Cliff) tags.push('stone');
+  return tags;
+}
+
+function resolveSurfaceTags(surface: SurfaceType): string[] {
+  const tags = ['surface'];
+  if (surface === SurfaceType.Road || surface === SurfaceType.Trail) tags.push('path');
+  if (surface === SurfaceType.Floor || surface === SurfaceType.Veranda) tags.push('floor');
+  if (surface === SurfaceType.StoneStairs) tags.push('stairs', 'stone');
+  return tags;
+}
+
+function resolveSurfaceFengShuiTraits(surface: SurfaceType): string[] {
+  if (surface === SurfaceType.Floor || surface === SurfaceType.Veranda) {
+    return ['surface.floor'];
+  }
+  if (surface === SurfaceType.StoneStairs) {
+    return ['surface.stone'];
+  }
+  return [];
+}
+
+function isStructureRoomBoundary(structure: StructureType): boolean {
+  return structure === StructureType.Wall
+    || structure === StructureType.Door
+    || structure === StructureType.Window
+    || structure === StructureType.BrokenWindow
+    || structure === StructureType.HouseEave
+    || structure === StructureType.HouseCorner
+    || structure === StructureType.ScreenWall;
+}
+
+function resolveStructureOpeningKind(structure: StructureType): 'none' | 'door' | 'window' {
+  if (structure === StructureType.Door) return 'door';
+  if (structure === StructureType.Window || structure === StructureType.BrokenWindow) return 'window';
+  return 'none';
+}
+
+function resolveStructureTags(
+  structure: StructureType,
+  profile: StructureDurabilityProfile | null,
+): string[] {
+  const tags = ['structure'];
+  if (doesStructureTypeBlockMove(structure)) tags.push('blocks_move');
+  if (doesStructureTypeBlockSight(structure)) tags.push('blocks_sight');
+  if (isStructureRoomBoundary(structure)) tags.push('room_boundary');
+  if (profile?.material) tags.push(`material.${profile.material}`);
+  if (Number.isFinite(profile?.miningLevel) && Number(profile?.miningLevel) > 0) tags.push('ore', 'minable');
+  return tags;
+}
+
+function validateDefSet<T extends string>(
+  kind: string,
+  defs: readonly { id: T; name: string; tags: readonly string[] }[],
+  expectedIds: readonly T[],
+  errors: string[],
+): void {
+  const seen = new Set<string>();
+  for (const def of defs) {
+    if (!def || typeof def.id !== 'string' || !expectedIds.includes(def.id)) {
+      errors.push(`${kind}_invalid_id:${String(def?.id)}`);
+      continue;
+    }
+    if (seen.has(def.id)) {
+      errors.push(`${kind}_duplicate:${def.id}`);
+      continue;
+    }
+    seen.add(def.id);
+    if (typeof def.name !== 'string' || def.name.trim().length === 0) errors.push(`${kind}_missing_name:${def.id}`);
+    if (!Array.isArray(def.tags)) errors.push(`${kind}_invalid_tags:${def.id}`);
+  }
+  for (const id of expectedIds) {
+    if (!seen.has(id)) errors.push(`${kind}_missing:${id}`);
+  }
+}
+
+function buildDefaultTerrainDefs(): readonly TerrainDef[] {
+  return Object.freeze(
+    Object.values(TerrainType).map((id) => Object.freeze({
+      id,
+      name: id,
+      walkable: isTerrainTypeWalkable(id),
+      blocksSight: doesTerrainTypeBlockSight(id),
+      traversalCost: getTerrainTypeTraversalCost(id),
+      hpMultiplier: terrainHpMultiplierByType[id] ?? 0,
+      tags: Object.freeze(resolveTerrainTags(id)),
+    })),
+  );
+}
+
+function buildDefaultSurfaceDefs(): readonly SurfaceDef[] {
+  return Object.freeze(
+    Object.values(SurfaceType).map((id) => Object.freeze({
+      id,
+      name: id,
+      traversalCost: getSurfaceTypeTraversalCost(id) ?? 400,
+      comfort: surfaceComfortByType[id] ?? 0,
+      fengShuiTraits: Object.freeze(resolveSurfaceFengShuiTraits(id)),
+      tags: Object.freeze(resolveSurfaceTags(id)),
+    })),
+  );
+}
+
+function buildDefaultStructureDefs(): readonly StructureDef[] {
+  return Object.freeze(
+    Object.values(StructureType).map((id) => {
+      const profile = getStructureDurabilityProfile(id);
+      return Object.freeze({
+        id,
+        name: id,
+        blocksMove: doesStructureTypeBlockMove(id),
+        blocksSight: doesStructureTypeBlockSight(id),
+        roomBoundary: isStructureRoomBoundary(id),
+        openingKind: resolveStructureOpeningKind(id),
+        damageable: isStructureTypeDamageable(id),
+        hpMultiplier: profile?.multiplier ?? 0,
+        tags: Object.freeze(resolveStructureTags(id, profile)),
+      });
+    }),
+  );
+}
+
+export const DEFAULT_TERRAIN_DEFS: readonly TerrainDef[] = buildDefaultTerrainDefs();
+
+export const DEFAULT_SURFACE_DEFS: readonly SurfaceDef[] = buildDefaultSurfaceDefs();
+
+export const DEFAULT_STRUCTURE_DEFS: readonly StructureDef[] = buildDefaultStructureDefs();
+
+export const TERRAIN_DEF_BY_ID: Readonly<Record<TerrainType, TerrainDef>> = Object.freeze(
+  Object.fromEntries(DEFAULT_TERRAIN_DEFS.map((entry) => [entry.id, entry])) as Record<TerrainType, TerrainDef>,
+);
+
+export const SURFACE_DEF_BY_ID: Readonly<Record<SurfaceType, SurfaceDef>> = Object.freeze(
+  Object.fromEntries(DEFAULT_SURFACE_DEFS.map((entry) => [entry.id, entry])) as Record<SurfaceType, SurfaceDef>,
+);
+
+export const STRUCTURE_DEF_BY_ID: Readonly<Record<StructureType, StructureDef>> = Object.freeze(
+  Object.fromEntries(DEFAULT_STRUCTURE_DEFS.map((entry) => [entry.id, entry])) as Record<StructureType, StructureDef>,
+);
