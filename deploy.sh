@@ -493,6 +493,7 @@ services:
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
       SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
+      SERVER_OUTBOX_RUNTIME_ENABLED: "1"
     ports:
       - target: 13001
         published: 11922
