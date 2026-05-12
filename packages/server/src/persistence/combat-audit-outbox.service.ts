@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { GmRuntimeFlagPersistenceService } from './gm-runtime-flag-persistence.service';
 
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
@@ -39,9 +40,22 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   private flushing = false;
   private sequence = 0;
 
-  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
+  constructor(
+    @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+    @Inject(GmRuntimeFlagPersistenceService) private readonly flagService: GmRuntimeFlagPersistenceService | null = null,
+  ) {}
 
   async onModuleInit(): Promise<void> {
+    if (this.flagService) {
+      await this.flagService.ensureInitialized();
+      if (!this.flagService.getFlag('combat_audit_enabled')) {
+        this.logger.log('combat audit outbox 已禁用：runtime flag combat_audit_enabled = false');
+        return;
+      }
+    } else if (process.env.SERVER_COMBAT_AUDIT_ENABLED !== 'true') {
+      this.logger.log('combat audit outbox 已禁用：SERVER_COMBAT_AUDIT_ENABLED !== true');
+      return;
+    }
     this.pool = this.databasePoolProvider?.getPool('combat-audit-outbox') ?? null;
     if (!this.pool) {
       this.logger.log('combat audit outbox 已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');

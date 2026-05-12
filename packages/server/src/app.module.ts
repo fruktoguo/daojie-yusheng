@@ -131,6 +131,7 @@ import { PlayerIdentityPersistenceService } from './persistence/player-identity-
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
 import { NodeRegistryService } from './persistence/node-registry.service';
 import { GmMapConfigPersistenceService } from './persistence/gm-map-config-persistence.service';
+import { GmRuntimeFlagPersistenceService } from './persistence/gm-runtime-flag-persistence.service';
 import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
 import { PlayerSessionRouteService } from './persistence/player-session-route.service';
 import { OutboxDispatcherService } from './persistence/outbox-dispatcher.service';
@@ -259,6 +260,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     DurableOperationService,
     NodeRegistryService,
     GmMapConfigPersistenceService,
+    GmRuntimeFlagPersistenceService,
     NodeRegistryRuntimeService,
     PlayerSessionRouteService,
     OutboxDispatcherService,

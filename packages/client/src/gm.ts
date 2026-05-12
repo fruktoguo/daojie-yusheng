@@ -280,6 +280,13 @@ const serverPanelDatabaseEl = document.getElementById('server-panel-database') a
 const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
 /** serverPanelWorkersEl：服务端面板Workers El。 */
 const serverPanelWorkersEl = document.getElementById('server-panel-workers') as HTMLElement;
+const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement;
+const serverPanelFlagsEl = document.getElementById('server-panel-flags') as HTMLElement;
+const serverFlagsRefreshBtn = document.getElementById('server-flags-refresh') as HTMLButtonElement;
+const serverFlagsMetaEl = document.getElementById('server-flags-meta') as HTMLDivElement;
+const serverFlagsContentEl = document.getElementById('server-flags-content') as HTMLDivElement;
+const serverFlagsNewKeyInput = document.getElementById('server-flags-new-key') as HTMLInputElement;
+const serverFlagsAddBtn = document.getElementById('server-flags-add') as HTMLButtonElement;
 /** serverWorkersRefreshBtn：服务端Workers刷新Btn。 */
 const serverWorkersRefreshBtn = document.getElementById('server-workers-refresh') as HTMLButtonElement;
 /** serverWorkersMetaEl：服务端Workers元信息El。 */
@@ -453,7 +460,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'flags';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -725,6 +732,8 @@ let serverLogsLoading = false;
 let workerState: GmWorkerStateRes | null = null;
 /** workerStateLoading：Worker状态读取中。 */
 let workerStateLoading = false;
+let runtimeFlags: Array<{ key: string; value: boolean }> = [];
+let runtimeFlagsLoading = false;
 let redeemGroupsState: RedeemCodeGroupView[] = [];
 /** selectedRedeemGroupId：selected兑换分组ID。 */
 let selectedRedeemGroupId: string | null = null;
@@ -2564,6 +2573,7 @@ function switchServerTab(tab: GmServerTab): void {
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
   serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
+  serverSubtabFlagsBtn.classList.toggle('active', tab === 'flags');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
@@ -2571,6 +2581,7 @@ function switchServerTab(tab: GmServerTab): void {
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
+  serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
@@ -2584,6 +2595,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'workers' && !workerState && !workerStateLoading) {
     loadWorkerState(false).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载 worker 状态失败', true);
+    });
+  }
+  if (tab === 'flags' && !runtimeFlagsLoading) {
+    loadRuntimeFlags().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载运行时开关失败', true);
     });
   }
 }
@@ -2726,6 +2742,86 @@ async function loadWorkerState(silent = false): Promise<void> {
     workerStateLoading = false;
     renderWorkerPanel();
   }
+}
+
+async function loadRuntimeFlags(): Promise<void> {
+  if (!token || runtimeFlagsLoading) return;
+  runtimeFlagsLoading = true;
+  renderRuntimeFlagsPanel();
+  try {
+    const res = await request<{ flags: Array<{ key: string; value: boolean }> }>(`${GM_API_BASE_PATH}/runtime-flags`);
+    runtimeFlags = res.flags ?? [];
+  } finally {
+    runtimeFlagsLoading = false;
+    renderRuntimeFlagsPanel();
+  }
+}
+
+async function toggleRuntimeFlag(key: string, value: boolean): Promise<void> {
+  if (!token) return;
+  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    body: JSON.stringify({ value }),
+  });
+  await loadRuntimeFlags();
+}
+
+async function addRuntimeFlag(key: string): Promise<void> {
+  if (!token || !key.trim()) return;
+  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key.trim())}`, {
+    method: 'POST',
+    body: JSON.stringify({ value: false }),
+  });
+  await loadRuntimeFlags();
+}
+
+async function deleteRuntimeFlag(key: string): Promise<void> {
+  if (!token) return;
+  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+  });
+  await loadRuntimeFlags();
+}
+
+function renderRuntimeFlagsPanel(): void {
+  serverFlagsRefreshBtn.disabled = runtimeFlagsLoading;
+  if (runtimeFlagsLoading) {
+    serverFlagsMetaEl.textContent = '加载中...';
+    return;
+  }
+  serverFlagsMetaEl.textContent = `共 ${runtimeFlags.length} 个开关`;
+  if (runtimeFlags.length === 0) {
+    serverFlagsContentEl.innerHTML = '<div class="empty-hint">当前没有运行时开关。</div>';
+    return;
+  }
+  const rows = runtimeFlags.map((flag) => {
+    const checked = flag.value ? 'checked' : '';
+    return `<div class="flag-row" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
+        <code>${flag.key}</code>
+      </label>
+      <span style="color:var(--text-secondary);font-size:0.85em;">${flag.value ? '启用' : '禁用'}</span>
+      <button class="small-btn flag-delete-btn" data-flag-key="${flag.key}" type="button" style="margin-left:auto;">删除</button>
+    </div>`;
+  });
+  serverFlagsContentEl.innerHTML = rows.join('');
+  serverFlagsContentEl.querySelectorAll<HTMLInputElement>('input[data-flag-key]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.flagKey!;
+      toggleRuntimeFlag(key, input.checked).catch((err: unknown) => {
+        setStatus(err instanceof Error ? err.message : '切换开关失败', true);
+      });
+    });
+  });
+  serverFlagsContentEl.querySelectorAll<HTMLButtonElement>('.flag-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.flagKey!;
+      deleteRuntimeFlag(key).catch((err: unknown) => {
+        setStatus(err instanceof Error ? err.message : '删除开关失败', true);
+      });
+    });
+  });
 }
 
 /** getWorkerRowMarkup：读取Worker行Markup。 */
@@ -7980,6 +8076,21 @@ serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'))
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
 serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
+serverSubtabFlagsBtn.addEventListener('click', () => switchServerTab('flags'));
+serverFlagsRefreshBtn.addEventListener('click', () => {
+  loadRuntimeFlags().catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '加载运行时开关失败', true);
+  });
+});
+serverFlagsAddBtn.addEventListener('click', () => {
+  const key = serverFlagsNewKeyInput.value.trim();
+  if (!key) return;
+  addRuntimeFlag(key).then(() => {
+    serverFlagsNewKeyInput.value = '';
+  }).catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '添加开关失败', true);
+  });
+});
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
 cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
 cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));

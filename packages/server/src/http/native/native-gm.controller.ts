@@ -7,6 +7,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
+import { GmRuntimeFlagPersistenceService } from '../../persistence/gm-runtime-flag-persistence.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmMailService } from './native-gm-mail.service';
@@ -243,6 +244,7 @@ export class NativeGmController {
     private readonly nextGmPlayerService: NativeGmPlayerService,
     private readonly nextGmMailService: NativeGmMailService,
     @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: RedeemCodeRuntimeServicePort,
+    @Inject(GmRuntimeFlagPersistenceService) private readonly runtimeFlagService: GmRuntimeFlagPersistenceService,
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
   }
@@ -981,5 +983,30 @@ export class NativeGmController {
   clearWorldObservation(@Param('viewerId') viewerId: string) {
     this.nextGmWorldService.clearWorldObservation(viewerId);
     return { ok: true };
+  }
+
+  @Get('runtime-flags')
+  async listRuntimeFlags() {
+    const flags = await this.runtimeFlagService.listFlags();
+    return { flags };
+  }
+
+  @Post('runtime-flags/:key')
+  async setRuntimeFlag(@Param('key') key: string, @Body() body: { value?: boolean }) {
+    if (!key || typeof key !== 'string') {
+      throw new BadRequestException('key is required');
+    }
+    const value = body?.value === true;
+    await this.runtimeFlagService.setFlag(key, value);
+    return { ok: true, key, value };
+  }
+
+  @Delete('runtime-flags/:key')
+  async deleteRuntimeFlag(@Param('key') key: string) {
+    if (!key || typeof key !== 'string') {
+      throw new BadRequestException('key is required');
+    }
+    await this.runtimeFlagService.deleteFlag(key);
+    return { ok: true, key };
   }
 }
