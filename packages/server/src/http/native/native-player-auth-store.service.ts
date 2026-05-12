@@ -1197,7 +1197,7 @@ function buildConflictMessage(requestedKind: AuthConflictKind, conflictKind: Aut
  */
 
 
-async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
+export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const client = await pool.connect();

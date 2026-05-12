@@ -2841,6 +2841,26 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     ON ${PLAYER_WALLET_TABLE}(player_id, wallet_type ASC)
   `);
   await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_INVENTORY_ITEM_TABLE} (
+      item_instance_id varchar(180) PRIMARY KEY,
+      player_id varchar(100) NOT NULL,
+      slot_index bigint NOT NULL,
+      item_id varchar(160) NOT NULL,
+      count bigint NOT NULL DEFAULT 1,
+      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(player_id, slot_index)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_inventory_item_player_idx
+    ON ${PLAYER_INVENTORY_ITEM_TABLE}(player_id, slot_index ASC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_inventory_item_item_idx
+    ON ${PLAYER_INVENTORY_ITEM_TABLE}(item_id, player_id ASC)
+  `);
+  await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
       storage_item_id varchar(160) PRIMARY KEY,
       player_id varchar(100) NOT NULL,

@@ -1,14 +1,15 @@
-// @ts-nocheck
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
-const { spawnSync } = require('node:child_process');
-const path = require('node:path');
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
-const { resolveServerDatabaseUrl } = require('../config/env-alias');
-const {
+import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { ensurePlayerAuthTable } from '../http/native/native-player-auth-store.service';
+import { ensurePlayerIdentityTable } from '../persistence/player-identity-persistence.service';
+import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   ensurePlayerDomainTables,
-} = require('../persistence/player-domain-persistence.service');
+} from '../persistence/player-domain-persistence.service';
 
 const SUMMARY_QUERY_REQUIRED_TABLES = [
   'player_recovery_watermark',
@@ -19,18 +20,31 @@ const SUMMARY_QUERY_REQUIRED_TABLES = [
   'player_vitals',
   'player_attr_state',
   'player_combat_preferences',
-];
+] as const;
 
 const LEGACY_PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
 
-function parseArgs(argv) {
+interface DeployPreflightOptions {
+  ensureCurrentSchema: boolean;
+  applyTemporaryConversion: boolean;
+}
+
+interface DatabaseInspection {
+  tables: Record<string, boolean>;
+  playerDomainSchemaReady: boolean;
+  playerDomainMissingTables: string[];
+  legacyPlayerSnapshotRows: number;
+  playerRecoveryWatermarkRows: number;
+}
+
+function parseArgs(argv: string[]): DeployPreflightOptions {
   return {
     ensureCurrentSchema: argv.includes('--ensure-current-schema'),
     applyTemporaryConversion: argv.includes('--apply-temporary-conversion'),
   };
 }
 
-async function main() {
+async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
@@ -38,13 +52,23 @@ async function main() {
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
-  const actions = [];
+  const actions: Array<Record<string, unknown>> = [];
   try {
     const before = await inspectDatabase(pool);
 
-    if (options.ensureCurrentSchema && !before.playerDomainSchemaReady) {
-      await ensurePlayerDomainTables(pool);
-      actions.push({ type: 'ensure-current-player-domain-schema' });
+    if (options.ensureCurrentSchema) {
+      if (!before.tables.server_player_auth) {
+        await ensurePlayerAuthTable(pool);
+        actions.push({ type: 'ensure-current-player-auth-schema' });
+      }
+      if (!before.tables.server_player_identity) {
+        await ensurePlayerIdentityTable(pool);
+        actions.push({ type: 'ensure-current-player-identity-schema' });
+      }
+      if (!before.playerDomainSchemaReady) {
+        await ensurePlayerDomainTables(pool);
+        actions.push({ type: 'ensure-current-player-domain-schema' });
+      }
     }
 
     const afterSchema = await inspectDatabase(pool);
@@ -66,6 +90,7 @@ async function main() {
       .filter((tableName) => !after.tables[tableName]);
 
     const ok = summaryMissingTables.length === 0
+      && after.playerDomainMissingTables.length === 0
       && !remainingLegacyPlayerMigration;
 
     process.stdout.write(JSON.stringify({
@@ -80,6 +105,8 @@ async function main() {
       checks: {
         summaryQueryReady: summaryMissingTables.length === 0,
         summaryMissingTables,
+        playerDomainSchemaReady: after.playerDomainMissingTables.length === 0,
+        playerDomainMissingTables: after.playerDomainMissingTables,
         needsLegacyPlayerMigration: remainingLegacyPlayerMigration,
       },
       temporaryRemovalNote: 'Remove this deploy preflight once the test and production databases are both confirmed on current-schema truth.',
@@ -88,6 +115,9 @@ async function main() {
 
     if (summaryMissingTables.length > 0) {
       throw new Error(`missing required GM summary tables: ${summaryMissingTables.join(', ')}`);
+    }
+    if (after.playerDomainMissingTables.length > 0) {
+      throw new Error(`missing required player domain tables: ${after.playerDomainMissingTables.join(', ')}`);
     }
     if (remainingLegacyPlayerMigration) {
       throw new Error(options.applyTemporaryConversion
@@ -99,13 +129,13 @@ async function main() {
   }
 }
 
-async function inspectDatabase(pool) {
+async function inspectDatabase(pool: Pool): Promise<DatabaseInspection> {
   const tableNames = Array.from(new Set([
     ...PLAYER_DOMAIN_PROJECTED_TABLES,
     ...SUMMARY_QUERY_REQUIRED_TABLES,
     LEGACY_PLAYER_SNAPSHOT_TABLE,
   ])).sort();
-  const tableRows = await pool.query(
+  const tableRows = await pool.query<{ name: string; exists: boolean }>(
     `
       SELECT name, to_regclass(name) IS NOT NULL AS exists
       FROM unnest($1::text[]) AS name
@@ -132,18 +162,18 @@ async function inspectDatabase(pool) {
   };
 }
 
-async function countRows(pool, tableName) {
-  const result = await pool.query(`SELECT count(*)::bigint AS count FROM ${tableName}`);
+async function countRows(pool: Pool, tableName: string): Promise<number> {
+  const result = await pool.query<{ count: string }>(`SELECT count(*)::bigint AS count FROM ${tableName}`);
   return Number(result.rows[0]?.count ?? 0);
 }
 
-function shouldMigrateLegacyPlayerSnapshots(inspected) {
+function shouldMigrateLegacyPlayerSnapshots(inspected: DatabaseInspection): boolean {
   return inspected.tables[LEGACY_PLAYER_SNAPSHOT_TABLE] === true
     && inspected.legacyPlayerSnapshotRows > 0
     && inspected.playerRecoveryWatermarkRows < inspected.legacyPlayerSnapshotRows;
 }
 
-function runMigrationScript(scriptName, args) {
+function runMigrationScript(scriptName: string, args: string[]): ReturnType<typeof spawnSync> {
   const scriptPath = path.resolve(__dirname, scriptName);
   const result = spawnSync(process.execPath, [scriptPath, ...args], {
     env: process.env,
@@ -155,8 +185,8 @@ function runMigrationScript(scriptName, args) {
   return result;
 }
 
-main().catch((error) => {
-  process.stderr.write(error?.stack || String(error));
+main().catch((error: unknown) => {
+  process.stderr.write(error instanceof Error ? error.stack ?? error.message : String(error));
   process.stderr.write('\n');
   process.exit(1);
 });

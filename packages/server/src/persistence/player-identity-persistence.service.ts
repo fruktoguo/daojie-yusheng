@@ -386,7 +386,7 @@ export class PlayerIdentityPersistenceService {
  * @returns 无返回值，直接更新ensure玩家Identity表相关状态。
  */
 
-async function ensurePlayerIdentityTable(pool) {
+export async function ensurePlayerIdentityTable(pool) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const client = await pool.connect();
