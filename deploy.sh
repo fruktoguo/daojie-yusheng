@@ -57,7 +57,8 @@ log_info "Docker 就绪"
 
 if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
   log_step "初始化 Docker Swarm"
-  docker swarm init 2>/dev/null || docker swarm init --advertise-addr "$(hostname -I | awk '{print $1}')" 2>/dev/null || true
+  docker swarm leave --force 2>/dev/null || true
+  docker swarm init 2>/dev/null || docker swarm init --advertise-addr "$(hostname -I | awk '{print $1}')"
   log_info "Swarm 初始化完成"
 else
   log_info "Swarm 已激活"
