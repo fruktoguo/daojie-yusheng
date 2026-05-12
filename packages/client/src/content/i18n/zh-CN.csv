@@ -2062,6 +2062,8 @@ notice.channel.success,通知,天机,成功频道兜底名
 notice.channel.system,通知,系统,系统频道兜底名
 notice.channel.travel,通知,江湖,旅行频道兜底名
 notice.channel.warn,通知,警示,警告频道兜底名
+notice.equip.equipped,通知,装备 {itemName},装备穿戴通知
+notice.equip.unequipped,通知,卸下 {itemName},装备卸下通知
 notice.loot.tile-drop-inventory,通知,获得 {itemLabel},通用可拆地块掉落通知
 notice.rewrite.target-too-far,通知,目标过远，神识难及,客户端路径提示改写
 notice.rewrite.unreachable,通知,此地无法抵达,客户端路径提示改写
