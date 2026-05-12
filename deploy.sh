@@ -109,25 +109,25 @@ else
   echo ""
 
   printf "  腾讯云 CCR 镜像前缀: "
-  read -r input_prefix
+  read -r input_prefix </dev/tty
   [ -z "$input_prefix" ] && log_error "不能为空" && exit 1
 
   default_db_pass="$(generate_secret)"
   printf "  数据库密码 [回车自动生成]: "
-  read -r input_db_pass
+  read -r input_db_pass </dev/tty
   input_db_pass="${input_db_pass:-$default_db_pass}"
 
   default_jwt="$(generate_secret)"
   printf "  玩家 Token 密钥 [回车自动生成]: "
-  read -r input_jwt
+  read -r input_jwt </dev/tty
   input_jwt="${input_jwt:-$default_jwt}"
 
   printf "  GM 管理密码: "
-  read -r input_gm_pass
+  read -r input_gm_pass </dev/tty
   [ -z "$input_gm_pass" ] && log_error "不能为空" && exit 1
 
   printf "  前端域名（如 https://example.com）[回车默认不限制]: "
-  read -r input_cors
+  read -r input_cors </dev/tty
   input_cors="${input_cors:-*}"
 
   cat > "$ENV_FILE" <<EOF
