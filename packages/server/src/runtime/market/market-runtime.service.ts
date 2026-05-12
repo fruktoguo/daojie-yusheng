@@ -5,13 +5,14 @@
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
+import { buildStructuredNotice } from '../world/structured-notice.helpers';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
 const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
@@ -56,6 +57,8 @@ export class MarketRuntimeService {
     auctionBidsByItemKey = new Map();
     /** 拍卖行权威结束时间，前端只用投影字段本地倒计时。 */
     auctionTimingByItemKey = new Map();
+    /** clientAuctionLotKey → auctionLotKey 索引，避免 resolveAuctionLotKey O(n) 扫描。 */
+    auctionClientKeyToLotKey = new Map<string, string>();
     /** 串行化坊市写操作，避免并发修改同一份内存状态。 */
     marketOperationQueue = Promise.resolve();
     /** 注入内容、玩家与坊市持久化服务。 */
@@ -341,14 +344,26 @@ export class MarketRuntimeService {
             if (!quantity || !unitPrice) {
                 return this.singleMessage(playerId, '挂售数量或单价无效。');
             }
-            if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
+            if (listingMode === 'auction' && (!Number.isInteger(unitPrice) || unitPrice < 1)) {
+                return this.singleMessage(playerId, '拍卖总价必须是正整数。');
+            }
+            if (listingMode !== 'auction' && !isValidMarketTradeQuantity(unitPrice, quantity)) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
+            const auctionBuyoutPrice = listingMode === 'auction'
+                ? this.normalizeAuctionBuyoutPrice(payload?.buyoutPrice, unitPrice)
+                : null;
+            const auctionListingFee = listingMode === 'auction'
+                ? this.calculateAuctionListingFee(unitPrice)
+                : 0;
             if (item.count < quantity) {
                 return this.singleMessage(playerId, '挂售数量超过了当前持有数量。');
             }
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
+            }
+            if (auctionListingFee > 0 && !this.canAffordMarketCurrency(playerId, auctionListingFee)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
 
             const orderItem = this.toOrderItem(item);
@@ -358,12 +373,17 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '同一种物品已在求购中，不能同时挂售。');
             }
             this.captureOnlinePlayerState(playerId, context);
+            if (auctionListingFee > 0 && !this.consumeMarketCurrencyFromInventory(playerId, auctionListingFee)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
+            }
 
             const removed = this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
 
             const result = this.createEmptyResult(playerId);
 
-            const buyOrders = this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
+            const buyOrders = listingMode === 'auction'
+                ? []
+                : this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
 
             const matchPlan = this.planOrderMatches(buyOrders, removed.count, unitPrice);
 
@@ -412,11 +432,27 @@ export class MarketRuntimeService {
                 };
                 this.openOrders.push(order);
                 if (listingMode === 'auction') {
-                    this.initializeAuctionOrderState(order, context);
+                    this.initializeAuctionOrderState(order, context, auctionBuyoutPrice);
                 }
                 this.markOrderDirty(order.id, context);
-                const listingText = listingMode === 'auction' ? '已寄拍' : '已挂售';
-                this.pushNotice(result, playerId, `${listingText} ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
+                const listingText = listingMode === 'auction'
+                    ? `已寄拍 ${orderItem.name} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`
+                    : `已挂售 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
+                if (listingMode === 'auction') {
+                    this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.consigned', listingText, {
+                        vars: {
+                            itemName: orderItem.name,
+                            quantity: remaining,
+                            currencyName: this.getCurrencyItemName(),
+                            totalPrice: this.formatUnitPrice(unitPrice),
+                            listingFee: this.formatUnitPrice(auctionListingFee),
+                        },
+                        pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+                    });
+                }
+                else {
+                    this.pushNotice(result, playerId, listingText, 'success');
+                }
             }
             this.compactOpenOrders();
             return result;
@@ -536,7 +572,7 @@ export class MarketRuntimeService {
             }
 
             const itemKey = this.resolveInternalMarketItemKey(payload.itemKey);
-            if (this.hasAuctionSellOrders(itemKey) && this.getSortedAuctionBids(itemKey).some((bid) => bid.reservedCost > 0)) {
+            if (this.buildAuctionListedItems().some((entry) => entry.orderItemKey === itemKey && this.getSortedAuctionBids(entry.itemKey).some((bid) => bid.reservedCost > 0))) {
                 return this.singleMessage(playerId, '该物品已有拍卖出价，请从拍卖行一口价或等待结算。');
             }
             const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
@@ -833,7 +869,7 @@ export class MarketRuntimeService {
     async cancelOrder(playerId, payload) {
         const requestedOrderId = String(payload.orderId ?? '').trim();
         const requestedOrder = this.openOrders.find((entry) => entry.id === requestedOrderId && entry.ownerId === playerId);
-        if (requestedOrder?.side === 'sell' && this.isAuctionOrder(requestedOrder) && this.getSortedAuctionBids(this.getOrderItemKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
+        if (requestedOrder?.side === 'sell' && this.isAuctionOrder(requestedOrder) && this.getSortedAuctionBids(this.buildAuctionLotKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
             return this.singleMessage(playerId, '这件寄拍已有出价，不能直接撤回。');
         }
         if (this.durableOperationService?.isEnabled()) {
@@ -1119,9 +1155,9 @@ export class MarketRuntimeService {
             buyQuantity: entry.buyQuantity,
         }));
     }
-    /** 只聚合显式拍卖订单，普通坊市挂售不进入拍卖行。 */
+    /** 只列出显式拍卖订单，普通坊市挂售不进入拍卖行。 */
     buildAuctionListedItems() {
-        const grouped = new Map();
+        const entries = [];
         for (const order of this.openOrders) {
             if (!this.isAuctionOrder(order)
                 || order.side !== 'sell'
@@ -1132,24 +1168,20 @@ export class MarketRuntimeService {
             }
             const orderItem = this.toOrderItem(order.item);
             const orderItemKey = this.buildItemKey(orderItem);
-            const current = grouped.get(orderItemKey) ?? {
-                itemKey: orderItemKey,
+            entries.push({
+                itemKey: this.buildAuctionLotKey(order),
+                orderItemKey,
                 item: { ...orderItem },
-                sellOrderCount: 0,
-                sellQuantity: 0,
+                sellOrderCount: 1,
+                sellQuantity: order.remainingQuantity,
                 buyOrderCount: 0,
                 buyQuantity: 0,
-                orders: [],
-            };
-            current.sellOrderCount += 1;
-            current.sellQuantity += order.remainingQuantity;
-            current.lowestSellPrice = current.lowestSellPrice === undefined
-                ? order.unitPrice
-                : Math.min(current.lowestSellPrice, order.unitPrice);
-            current.orders.push(order);
-            grouped.set(orderItemKey, current);
+                lowestSellPrice: order.unitPrice,
+                order,
+                orders: [order],
+            });
         }
-        return Array.from(grouped.values());
+        return entries;
     }
     /** 构造可参与拍卖的拍品摘要，拍卖行分页会在服务端继续裁剪。 */
     buildAuctionParticipateLotEntries(viewerId = '') {
@@ -1158,11 +1190,11 @@ export class MarketRuntimeService {
         return this.buildAuctionListedItems()
             .filter((entry) => entry.lowestSellPrice !== undefined)
             .map((entry) => {
-            const clientItemKey = this.buildClientMarketKey(entry.itemKey);
-            const relatedOrders = Array.isArray(entry.orders) ? entry.orders : [];
-            const createdAt = relatedOrders.reduce((min, order) => Math.min(min, Number(order.createdAt) || min), Number.MAX_SAFE_INTEGER);
+            const clientItemKey = this.buildClientAuctionLotKey(entry.itemKey);
+            const order = entry.order ?? entry.orders?.[0];
+            const createdAt = Number(order?.createdAt) || Date.now();
             const seed = this.buildAuctionStableNumber(clientItemKey || entry.itemKey);
-            const timing = this.buildAuctionTiming(entry.itemKey, seed, createdAt === Number.MAX_SAFE_INTEGER ? Date.now() : createdAt);
+            const timing = this.buildAuctionTiming(entry.itemKey, seed, createdAt);
             if (timing.ended) {
                 return null;
             }
@@ -1170,6 +1202,7 @@ export class MarketRuntimeService {
             const bids = this.getAuctionBidViews(entry.itemKey, viewerId);
             const highestBid = bids[0]?.unitPrice;
             const currentPrice = Math.max(1, Math.floor(highestBid ?? lowestSell ?? 1));
+            const buyoutPrice = this.getAuctionOrderBuyoutPrice(order, Math.max(1, Math.floor(lowestSell ?? 1)));
             return {
                 id: clientItemKey,
                 itemKey: clientItemKey,
@@ -1181,14 +1214,14 @@ export class MarketRuntimeService {
                     ? Math.max(0, Math.trunc(Number(entry.item.enhanceLevel)))
                     : undefined,
                 currentPrice,
-                buyoutPrice: lowestSell !== undefined ? Math.max(currentPrice, Math.floor(lowestSell)) : null,
+                buyoutPrice: buyoutPrice !== null && buyoutPrice >= currentPrice ? buyoutPrice : null,
                 bidCount: bids.length,
                 bids,
                 startAtMs: timing.startAtMs,
                 durationSeconds: timing.durationSeconds,
                 status: 'active',
                 statusLabel: '正在拍卖',
-                sellerLabel: `${entry.sellOrderCount} 位寄拍`,
+                sellerLabel: '匿名寄拍',
                 lotNo: `#${1000 + (seed % 9000)}`,
                 heat: entry.sellOrderCount * 3 + bids.length * 2,
                 remainingQuantity: entry.sellQuantity || entry.buyQuantity,
@@ -1213,13 +1246,15 @@ export class MarketRuntimeService {
             && this.canTradeItemOnMarket(order.item))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
             .map((order) => {
-            const clientItemKey = this.buildClientMarketKey(this.getOrderItemKey(order));
+            const clientItemKey = this.buildClientAuctionLotKey(this.buildAuctionLotKey(order));
             const seed = this.buildAuctionStableNumber(order.id);
-            const timing = this.buildAuctionTiming(this.getOrderItemKey(order), seed, order.createdAt);
-            const bids = this.getAuctionBidViews(this.getOrderItemKey(order), playerId);
+            const auctionLotKey = this.buildAuctionLotKey(order);
+            const timing = this.buildAuctionTiming(auctionLotKey, seed, order.createdAt);
+            const bids = this.getAuctionBidViews(auctionLotKey, playerId);
             const highestBid = bids[0]?.unitPrice;
             const status = timing.ended ? (bids.length > 0 ? 'sold' : 'failed') : 'consigning';
             const statusLabel = status === 'sold' ? '已成交' : status === 'failed' ? '流拍' : '寄拍中';
+            const buyoutPrice = this.getAuctionOrderBuyoutPrice(order, Math.max(1, Math.floor(order.unitPrice)));
             return {
                 id: order.id,
                 itemKey: clientItemKey,
@@ -1231,7 +1266,7 @@ export class MarketRuntimeService {
                     ? Math.max(0, Math.trunc(Number(order.item.enhanceLevel)))
                     : undefined,
                 currentPrice: Math.max(1, Math.floor(highestBid ?? order.unitPrice)),
-                buyoutPrice: order.unitPrice,
+                buyoutPrice,
                 bidCount: bids.length,
                 bids,
                 startAtMs: timing.startAtMs,
@@ -1251,7 +1286,7 @@ export class MarketRuntimeService {
     async placeAuctionBid(playerId, payload) {
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const requestedKey = String(payload?.itemKey ?? payload?.lotId ?? '').trim();
-            const itemKey = this.resolveInternalMarketItemKey(requestedKey);
+            const itemKey = this.resolveAuctionLotKey(requestedKey);
             if (!itemKey) {
                 return this.singleMessage(playerId, '拍品不存在或已结束。');
             }
@@ -1259,7 +1294,7 @@ export class MarketRuntimeService {
             if (sellOrders.length === 0) {
                 return this.singleMessage(playerId, '拍品不存在、已结束，或不能对自己的寄拍出价。');
             }
-            const lot = this.buildAuctionParticipateLotEntries(playerId).find((entry) => this.resolveInternalMarketItemKey(entry.itemKey) === itemKey);
+            const lot = this.buildAuctionParticipateLotEntries(playerId).find((entry) => this.resolveAuctionLotKey(entry.itemKey) === itemKey);
             if (!lot) {
                 return this.singleMessage(playerId, '拍品不存在或已结束。');
             }
@@ -1275,8 +1310,7 @@ export class MarketRuntimeService {
             if (unitPrice < minBidPrice) {
                 return this.singleMessage(playerId, `最低加价为 ${this.formatUnitPrice(minBidPrice)} ${this.getCurrencyItemName()}。`);
             }
-            const quantity = getMarketMinimumTradeQuantity(unitPrice);
-            const totalCost = calculateMarketTradeTotalCost(quantity, unitPrice);
+            const totalCost = calculateMarketTradeTotalCost(1, unitPrice);
             if (totalCost === null) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法出价。`);
             }
@@ -1321,7 +1355,15 @@ export class MarketRuntimeService {
             this.auctionBidsByItemKey.set(itemKey, bids);
             this.persistAuctionStateToCarrier(itemKey, context);
             const extensionText = extension.extended ? '，剩余时间已延长至 30 秒' : '';
-            this.pushNotice(result, playerId, `你在拍卖行出价 ${lot.item?.name ?? lot.itemId}，当前价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}${extensionText}。`, 'success');
+            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.bid-placed', `你在拍卖行出价 ${lot.item?.name ?? lot.itemId}，当前总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}${extensionText}。`, {
+                vars: {
+                    itemName: lot.item?.name ?? lot.itemId,
+                    currencyName: this.getCurrencyItemName(),
+                    totalPrice: this.formatUnitPrice(unitPrice),
+                    extensionText,
+                },
+                pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+            });
             return result;
         });
     }
@@ -1329,7 +1371,7 @@ export class MarketRuntimeService {
     async buyoutAuctionLot(playerId, payload) {
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const requestedKey = String(payload?.itemKey ?? payload?.lotId ?? '').trim();
-            const itemKey = this.resolveInternalMarketItemKey(requestedKey);
+            const itemKey = this.resolveAuctionLotKey(requestedKey);
             if (!itemKey) {
                 return this.singleMessage(playerId, '拍品不存在或已结束。');
             }
@@ -1342,7 +1384,13 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '拍品不存在、已结束，或不能一口价自己的寄拍。');
             }
             const bids = this.getSortedAuctionBids(itemKey);
-            const buyoutUnitPrice = Math.max(sellOrder.unitPrice, bids[0]?.unitPrice ?? sellOrder.unitPrice);
+            const configuredBuyoutPrice = this.getAuctionOrderBuyoutPrice(sellOrder, Math.max(1, Math.floor(sellOrder.unitPrice)));
+            const currentPrice = Math.max(1, Math.floor(bids[0]?.unitPrice ?? sellOrder.unitPrice));
+            if (configuredBuyoutPrice === null || configuredBuyoutPrice < currentPrice) {
+                return this.singleMessage(playerId, '该拍品不支持一口价。');
+            }
+            const buyoutUnitPrice = configuredBuyoutPrice;
+            const tradeQuantity = Math.max(1, Math.trunc(Number(sellOrder.remainingQuantity) || 1));
             const totalCost = calculateMarketTradeTotalCost(1, buyoutUnitPrice);
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(buyoutUnitPrice));
@@ -1373,21 +1421,27 @@ export class MarketRuntimeService {
                 this.deliverMarketCurrencyToPlayer(bid.bidderId, reservedCost, context);
                 this.pushNotice(result, bid.bidderId, `拍卖行 ${sellOrder.item.name ?? sellOrder.item.itemId} 已被一口价，冻结灵石已退回。`, 'info');
             }
-            this.deliverItemToPlayer(playerId, { ...sellOrder.item, count: 1 }, context);
+            this.deliverItemToPlayer(playerId, { ...sellOrder.item, count: tradeQuantity }, context);
             this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
             this.recordTrade({
                 buyerId: playerId,
                 sellerId: sellOrder.ownerId,
                 itemId: sellOrder.item.itemId,
-                quantity: 1,
+                quantity: tradeQuantity,
                 unitPrice: buyoutUnitPrice,
             }, context);
-            sellOrder.remainingQuantity -= 1;
+            sellOrder.remainingQuantity -= tradeQuantity;
             sellOrder.updatedAt = Date.now();
             this.markOrderDirty(sellOrder.id, context);
             this.touchAffectedPlayer(result, sellOrder.ownerId);
-            this.pushNotice(result, playerId, `你在拍卖行一口价竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x1，一口价支付 ${this.getCurrencyItemName()} x${totalCost}。`, 'success');
-            this.pushNotice(result, sellOrder.ownerId, `你的寄拍已被一口价拍下：${sellOrder.item.name ?? sellOrder.item.itemId} x1，入账 ${this.getCurrencyItemName()} x${totalCost}。`, 'success');
+            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.buyout-buyer', `你在拍卖行一口价竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，一口价支付 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+                pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+            });
+            this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.buyout-seller', `你的寄拍已被一口价拍下：${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+                pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+            });
             if (sellOrder.remainingQuantity <= 0) {
                 sellOrder.status = 'filled';
                 this.deleteOrder(sellOrder.id, context);
@@ -1400,7 +1454,7 @@ export class MarketRuntimeService {
     }
     /** 读取拍卖出价记录，按当前观看者做轻量匿名标签。 */
     getAuctionBidViews(itemKey, viewerId = '') {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey);
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey);
         const bids = this.getSortedAuctionBids(normalizedItemKey);
         return bids
             .slice(0, 6)
@@ -1412,7 +1466,7 @@ export class MarketRuntimeService {
     }
     /** 读取拍卖出价内部排序，最高价排在最前。 */
     getSortedAuctionBids(itemKey) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const bids = this.auctionBidsByItemKey.get(normalizedItemKey) ?? [];
         return bids
             .map((entry) => ({
@@ -1428,10 +1482,16 @@ export class MarketRuntimeService {
     isAuctionOrder(order) {
         return Boolean(order?.auction && typeof order.auction === 'object' && order.auction.mode === 'auction');
     }
-    /** 读取指定物品的显式拍卖卖单。 */
+    /** 读取指定拍品 key 对应的显式拍卖卖单。 */
     getAuctionSellOrders(itemKey) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
-        return this.getSortedOrders(normalizedItemKey, 'sell').filter((order) => this.isAuctionOrder(order));
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
+        return this.openOrders
+            .filter((order) => order.status === 'open'
+            && order.side === 'sell'
+            && order.remainingQuantity > 0
+            && this.isAuctionOrder(order)
+            && this.buildAuctionLotKey(order) === normalizedItemKey)
+            .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
     }
     /** 是否存在指定物品的显式拍卖卖单。 */
     hasAuctionSellOrders(itemKey) {
@@ -1439,11 +1499,16 @@ export class MarketRuntimeService {
     }
     /** 启动恢复时从订单 raw_payload 中恢复拍卖状态。 */
     hydrateAuctionStateFromOpenOrders() {
+        this.auctionClientKeyToLotKey.clear();
         for (const order of this.openOrders) {
             if (!this.isAuctionOrder(order) || order.side !== 'sell' || order.status !== 'open' || order.remainingQuantity <= 0) {
                 continue;
             }
-            const itemKey = this.getOrderItemKey(order);
+            const itemKey = this.buildAuctionLotKey(order);
+            const clientKey = this.buildClientAuctionLotKey(itemKey);
+            if (clientKey) {
+                this.auctionClientKeyToLotKey.set(clientKey, itemKey);
+            }
             const auction = this.normalizeAuctionOrderState(order.auction);
             if (!auction) {
                 continue;
@@ -1462,16 +1527,20 @@ export class MarketRuntimeService {
         }
     }
     /** 初始化新寄拍的拍卖状态，并写回承载订单用于持久化。 */
-    initializeAuctionOrderState(order, context) {
+    initializeAuctionOrderState(order, context, buyoutPrice = null) {
         if (!order || order.side !== 'sell') {
             return;
         }
-        const itemKey = this.getOrderItemKey(order);
+        const itemKey = this.buildAuctionLotKey(order);
         if (!itemKey) {
             return;
         }
+        const clientKey = this.buildClientAuctionLotKey(itemKey);
+        if (clientKey) {
+            this.auctionClientKeyToLotKey.set(clientKey, itemKey);
+        }
         if (!this.auctionTimingByItemKey.has(itemKey)) {
-            const seed = this.buildAuctionStableNumber(this.buildClientMarketKey(itemKey) || itemKey);
+            const seed = this.buildAuctionStableNumber(this.buildClientAuctionLotKey(itemKey) || itemKey);
             const base = this.buildAuctionBaseTiming(seed, order.createdAt, false);
             const normalEndAtMs = base.startAtMs + base.durationSeconds * 1000;
             this.auctionTimingByItemKey.set(itemKey, {
@@ -1489,6 +1558,7 @@ export class MarketRuntimeService {
             order.auction = {
                 version: 1,
                 mode: 'auction',
+                buyoutPrice,
                 startAtMs: timing.startAtMs,
                 normalDurationSeconds: timing.normalDurationSeconds,
                 endAtMs: timing.endAtMs,
@@ -1525,6 +1595,7 @@ export class MarketRuntimeService {
         return {
             version: 1,
             mode: 'auction',
+            buyoutPrice: this.normalizeAuctionBuyoutPrice(raw.buyoutPrice, 1),
             startAtMs,
             normalDurationSeconds,
             endAtMs,
@@ -1534,7 +1605,7 @@ export class MarketRuntimeService {
     }
     /** 把当前拍卖状态写回同 itemKey 的最早有效卖单，复用市场订单持久化。 */
     persistAuctionStateToCarrier(itemKey, context) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const timing = this.auctionTimingByItemKey.get(normalizedItemKey);
         if (!timing) {
             return;
@@ -1547,6 +1618,7 @@ export class MarketRuntimeService {
         carrier.auction = {
             version: 1,
             mode: 'auction',
+            buyoutPrice: this.getAuctionOrderBuyoutPrice(carrier, Math.max(1, Math.floor(carrier.unitPrice))),
             startAtMs: timing.startAtMs,
             normalDurationSeconds: timing.normalDurationSeconds,
             endAtMs: timing.endAtMs,
@@ -1560,11 +1632,11 @@ export class MarketRuntimeService {
     }
     /** 清理指定拍品的拍卖状态，并同步清掉承载订单字段。 */
     clearAuctionStateForItemKey(itemKey, context) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         this.auctionBidsByItemKey.delete(normalizedItemKey);
         this.auctionTimingByItemKey.delete(normalizedItemKey);
         for (const order of this.openOrders) {
-            if (this.getOrderItemKey(order) !== normalizedItemKey || !order.auction) {
+            if (this.buildAuctionLotKey(order) !== normalizedItemKey || !order.auction) {
                 continue;
             }
             delete order.auction;
@@ -1576,7 +1648,7 @@ export class MarketRuntimeService {
     }
     /** 若同一物品仍有寄拍库存，成交后为下一件重新开一个拍卖窗口。 */
     reopenAuctionStateIfActive(itemKey, context) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const nextOrder = this.getAuctionSellOrders(normalizedItemKey)
             .find((order) => !context || !context.deletedOrderIds.has(order.id));
         if (!nextOrder) {
@@ -1603,7 +1675,7 @@ export class MarketRuntimeService {
     }
     /** 结算单个到期拍品。 */
     settleExpiredAuctionLot(itemKey, now, context, result) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const timing = this.auctionTimingByItemKey.get(normalizedItemKey);
         if (!timing || timing.endAtMs > now) {
             return false;
@@ -1621,6 +1693,7 @@ export class MarketRuntimeService {
             this.clearAuctionStateForItemKey(normalizedItemKey, context);
             return true;
         }
+        const tradeQuantity = Math.max(1, Math.trunc(Number(sellOrder.remainingQuantity) || 1));
         const totalCost = calculateMarketTradeTotalCost(1, highestBid.unitPrice);
         if (totalCost === null || highestBid.reservedCost < totalCost) {
             this.refundAuctionBidReserves(normalizedItemKey, context, result, `拍卖行拍品结算失败，冻结灵石已退回。`);
@@ -1640,20 +1713,26 @@ export class MarketRuntimeService {
         if (overpayRefund > 0) {
             this.deliverMarketCurrencyToPlayer(highestBid.bidderId, overpayRefund, context);
         }
-        this.deliverItemToPlayer(highestBid.bidderId, { ...sellOrder.item, count: 1 }, context);
+        this.deliverItemToPlayer(highestBid.bidderId, { ...sellOrder.item, count: tradeQuantity }, context);
         this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
         this.recordTrade({
             buyerId: highestBid.bidderId,
             sellerId: sellOrder.ownerId,
             itemId: sellOrder.item.itemId,
-            quantity: 1,
+            quantity: tradeQuantity,
             unitPrice: highestBid.unitPrice,
         }, context);
-        sellOrder.remainingQuantity -= 1;
+        sellOrder.remainingQuantity -= tradeQuantity;
         sellOrder.updatedAt = now;
         this.markOrderDirty(sellOrder.id, context);
-        this.pushNotice(result, highestBid.bidderId, `你竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x1，成交价 ${this.formatUnitPrice(highestBid.unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
-        this.pushNotice(result, sellOrder.ownerId, `你的寄拍已成交：${sellOrder.item.name ?? sellOrder.item.itemId} x1，入账 ${this.getCurrencyItemName()} x${totalCost}。`, 'success');
+        this.pushStructuredNotice(result, highestBid.bidderId, 'success', 'notice.market.auction.settled-buyer', `你竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，整包成交价 ${this.formatUnitPrice(highestBid.unitPrice)} ${this.getCurrencyItemName()}。`, {
+            vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: this.formatUnitPrice(highestBid.unitPrice) },
+            pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+        });
+        this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.settled-seller', `你的寄拍已成交：${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
+            vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+            pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+        });
         if (sellOrder.remainingQuantity <= 0) {
             sellOrder.status = 'filled';
             this.deleteOrder(sellOrder.id, context);
@@ -1799,7 +1878,7 @@ export class MarketRuntimeService {
     }
     /** 读取或初始化拍卖结束时间状态；延时时通过 durationSeconds 投影给前端。 */
     getAuctionTimingState(itemKey, startAtMs, normalDurationSeconds, now = Date.now()) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const normalEndAtMs = startAtMs + normalDurationSeconds * 1000;
         const maxEndAtMs = normalEndAtMs + AUCTION_MAX_EXTENSION_MS;
         const existing = this.auctionTimingByItemKey.get(normalizedItemKey);
@@ -1826,7 +1905,7 @@ export class MarketRuntimeService {
     }
     /** 最后 30 秒内出价时，把结束时间直接调整到 now + 30 秒，不累加。 */
     extendAuctionIfEndingSoon(itemKey, now = Date.now()) {
-        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey) || String(itemKey ?? '');
+        const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
         const timing = this.auctionTimingByItemKey.get(normalizedItemKey);
         if (!timing) {
             return { extended: false };
@@ -2124,6 +2203,11 @@ export class MarketRuntimeService {
     getOrderItemKey(order) {
         return this.buildItemKey(order.item);
     }
+    /** 单个拍卖寄拍订单的权威拍品 key，避免同种物品多笔寄拍互相合并。 */
+    buildAuctionLotKey(order) {
+        const orderId = typeof order?.id === 'string' ? order.id.trim() : '';
+        return orderId ? `auction:${orderId}` : '';
+    }
     /**
  * buildClientMarketKey：把内部长签名压成客户端可传输的短 key。
  * @param itemKey 内部长签名。
@@ -2136,6 +2220,10 @@ export class MarketRuntimeService {
             return '';
         }
         return createHash('sha1').update(normalizedItemKey).digest('base64url').replace(/[-_]/g, '').slice(0, 18);
+    }
+    /** 把拍卖内部订单 key 压成客户端拍品 key。 */
+    buildClientAuctionLotKey(itemKey) {
+        return this.buildClientMarketKey(itemKey);
     }
     /**
  * resolveInternalMarketItemKey：把客户端短 key 还原成内部完整签名。
@@ -2167,6 +2255,21 @@ export class MarketRuntimeService {
         }
         const listed = this.buildListedItems().find((entry) => this.buildClientMarketKey(entry.itemKey) === normalizedItemKey);
         return listed?.itemKey ?? normalizedItemKey;
+    }
+    /** 把客户端拍品 key 还原成单个拍卖订单 key。 */
+    resolveAuctionLotKey(itemKey) {
+        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
+        if (!normalizedItemKey) {
+            return '';
+        }
+        if (normalizedItemKey.startsWith('auction:')) {
+            return normalizedItemKey;
+        }
+        const cached = this.auctionClientKeyToLotKey.get(normalizedItemKey);
+        if (cached) {
+            return cached;
+        }
+        return normalizedItemKey;
     }
     /**
  * buildMarketListingSubType：按大类提炼列表所需的二级分类。
@@ -2422,6 +2525,28 @@ export class MarketRuntimeService {
         }
         return unitPrice;
     }
+    /** 规范化拍卖一口价：0、无效值或低于起拍价都表示不支持一口价。 */
+    normalizeAuctionBuyoutPrice(value, startPrice) {
+        const numericStart = Math.max(1, Math.trunc(Number(startPrice) || 1));
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+            return null;
+        }
+        const normalized = this.normalizeUnitPrice(numericValue);
+        if (!normalized || normalized < numericStart) {
+            return null;
+        }
+        return normalized;
+    }
+    /** 读取订单持久化的一口价，兼容旧拍卖订单没有一口价字段的情况。 */
+    getAuctionOrderBuyoutPrice(order, startPrice) {
+        return this.normalizeAuctionBuyoutPrice(order?.auction?.buyoutPrice, startPrice);
+    }
+    /** 拍卖上架费：10 + 起拍总价 1%，向上取整。 */
+    calculateAuctionListingFee(startPrice) {
+        const normalizedStartPrice = Math.max(1, Math.trunc(Number(startPrice) || 1));
+        return AUCTION_LISTING_FEE_BASE + Math.ceil(normalizedStartPrice * AUCTION_LISTING_FEE_RATE);
+    }
     /**
  * buildTradeQuantityError：构建并返回目标对象。
  * @param unitPrice 参数说明。
@@ -2610,6 +2735,12 @@ export class MarketRuntimeService {
         result.notices.push({ playerId, text, kind });
         this.touchAffectedPlayer(result, playerId);
     }
+    /** 推送市场结构化通知，text 只作为旧客户端兜底。 */
+    pushStructuredNotice(result, playerId, kind, key, text, opts) {
+        const notice = buildStructuredNotice(kind, key, text, opts);
+        result.notices.push({ playerId, text: notice.text, kind: notice.kind, structured: notice.structured });
+        this.touchAffectedPlayer(result, playerId);
+    }
     /**
  * markOrderDirty：处理订单Dirty并更新相关状态。
  * @param orderId order ID。
@@ -2641,7 +2772,7 @@ export class MarketRuntimeService {
         this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
         const activeAuctionItemKeys = new Set(this.openOrders
             .filter((order) => this.isAuctionOrder(order) && order.side === 'sell' && this.canTradeItemOnMarket(order.item))
-            .map((order) => this.getOrderItemKey(order)));
+            .map((order) => this.buildAuctionLotKey(order)));
         for (const itemKey of Array.from(this.auctionBidsByItemKey.keys())) {
             if (!activeAuctionItemKeys.has(itemKey)) {
                 this.auctionBidsByItemKey.delete(itemKey);
@@ -2650,6 +2781,21 @@ export class MarketRuntimeService {
         for (const itemKey of Array.from(this.auctionTimingByItemKey.keys())) {
             if (!activeAuctionItemKeys.has(itemKey)) {
                 this.auctionTimingByItemKey.delete(itemKey);
+            }
+        }
+        this.rebuildAuctionClientKeyIndex();
+    }
+    /** 重建 clientKey → lotKey 索引。 */
+    rebuildAuctionClientKeyIndex() {
+        this.auctionClientKeyToLotKey.clear();
+        for (const order of this.openOrders) {
+            if (!this.isAuctionOrder(order) || order.side !== 'sell') {
+                continue;
+            }
+            const lotKey = this.buildAuctionLotKey(order);
+            const clientKey = this.buildClientAuctionLotKey(lotKey);
+            if (clientKey && lotKey) {
+                this.auctionClientKeyToLotKey.set(clientKey, lotKey);
             }
         }
     }

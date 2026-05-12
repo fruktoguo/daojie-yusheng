@@ -993,6 +993,153 @@ export interface GmServerLogsRes {
   bufferSize: number;
 }
 
+/** GM worker 监控状态。 */
+export type GmWorkerStatus = 'active' | 'pending' | 'idle' | 'warn' | 'error' | 'unknown';
+
+/** GM worker 监控分类。 */
+export type GmWorkerKind = 'player_flush' | 'instance_flush' | 'outbox' | 'database_backup' | 'cleanup';
+
+/** GM worker 单项工作状态。 */
+export interface GmWorkerRow {
+/**
+ * id：worker 稳定 ID。
+ */
+
+  id: string;
+  /**
+ * label：GM 展示名称。
+ */
+
+  label: string;
+  /**
+ * kind：worker 分类。
+ */
+
+  kind: GmWorkerKind;
+  /**
+ * status：当前状态。
+ */
+
+  status: GmWorkerStatus;
+  /**
+ * domain：账本或工作域。
+ */
+
+  domain?: string;
+  /**
+ * ownershipEpoch：实例 ownership epoch。
+ */
+
+  ownershipEpoch?: number;
+  /**
+ * pendingCount：待处理数量。
+ */
+
+  pendingCount: number;
+  /**
+ * claimedCount：当前被认领数量。
+ */
+
+  claimedCount: number;
+  /**
+ * delayedCount：延迟重试数量。
+ */
+
+  delayedCount: number;
+  /**
+ * writeCount：统计窗口内完成/写入数量。
+ */
+
+  writeCount: number;
+  /**
+ * writesPerSecond：统计窗口内吞吐。
+ */
+
+  writesPerSecond: number;
+  /**
+ * deadLetterCount：死信数量。
+ */
+
+  deadLetterCount?: number;
+  /**
+ * oldestPendingAt：最早待处理时间。
+ */
+
+  oldestPendingAt?: string | null;
+  /**
+ * latestUpdatedAt：最近更新时间。
+ */
+
+  latestUpdatedAt?: string | null;
+  /**
+ * note：补充说明。
+ */
+
+  note?: string;
+}
+
+/** GM worker 告警项。 */
+export interface GmWorkerAlert {
+/**
+ * workerId：关联 worker ID。
+ */
+
+  workerId: string;
+  /**
+ * level：告警等级。
+ */
+
+  level: 'warn' | 'error';
+  /**
+ * reason：告警原因。
+ */
+
+  reason: string;
+  /**
+ * count：相关数量。
+ */
+
+  count?: number;
+}
+
+/** GM worker 监控响应。 */
+export interface GmWorkerStateRes {
+/**
+ * generatedAt：采样生成时间。
+ */
+
+  generatedAt: string;
+  /**
+ * windowSeconds：吞吐统计窗口。
+ */
+
+  windowSeconds: number;
+  /**
+ * rows：worker 状态列表。
+ */
+
+  rows: GmWorkerRow[];
+  /**
+ * alerts：告警列表。
+ */
+
+  alerts: GmWorkerAlert[];
+  /**
+ * sources：本次采样的数据源状态。
+ */
+
+  sources: {
+    flushLedgerEnabled: boolean;
+    outboxEnabled: boolean;
+    backupWorkerHeartbeatActive: boolean;
+  };
+  /**
+ * note：补充说明。
+ */
+
+  note?: string;
+}
+
 /** 数据库备份的来源类型。 */
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import' | 'uploaded';
 

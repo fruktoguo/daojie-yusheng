@@ -476,12 +476,21 @@ function normalizeAuctionPayload(raw) {
     return {
         version: 1,
         mode: 'auction',
+        buyoutPrice: normalizeAuctionBuyoutPrice(raw.buyoutPrice),
         startAtMs,
         normalDurationSeconds,
         endAtMs,
         maxEndAtMs,
         bids,
     };
+}
+function normalizeAuctionBuyoutPrice(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+        return null;
+    }
+    const normalized = normalizeUnitPrice(numericValue);
+    return normalized && normalized > 0 ? normalized : null;
 }
 /**
  * normalizeTradeRecord：规范化或转换TradeRecord。

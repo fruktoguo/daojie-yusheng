@@ -1581,6 +1581,9 @@
         radial-gradient(circle at top right, rgba(154, 112, 54, 0.12), transparent 28%),
         var(--surface-gradient-paper);
     }
+    .detail-modal-card.detail-modal--auction-consign {
+      width: min(720px, calc(100vw - 28px));
+    }
     .detail-modal-card.detail-modal--skill-management {
       width: min(1180px, calc(100vw - 24px));
       height: min(88dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
@@ -4733,6 +4736,20 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .market-pane-headline-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .market-pane-headline-actions .small-btn {
+      min-height: 30px;
+      padding: 4px 10px;
+      font-size: var(--font-size-11);
+      white-space: nowrap;
+    }
     .auction-pane {
       margin-top: 10px;
     }
@@ -5814,6 +5831,183 @@
       white-space: nowrap;
     }
     .auction-status-strip {
+      display: grid;
+      gap: 6px;
+    }
+    .auction-consign-modal-shell {
+      min-height: 0;
+    }
+    .auction-consign-panel {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+    .auction-consign-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+    .auction-consign-title-row strong {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-14);
+    }
+    .auction-consign-title-row span {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      white-space: nowrap;
+    }
+    .auction-consign-search {
+      display: grid;
+      gap: 6px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .auction-consign-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      align-content: start;
+      gap: 6px;
+      max-height: 236px;
+      min-height: 0;
+      padding-right: 2px;
+    }
+    .auction-consign-item {
+      position: relative;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      align-content: stretch;
+      gap: 4px;
+      min-height: 76px;
+      padding: 6px 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      text-align: center;
+      cursor: pointer;
+    }
+    .auction-consign-item:hover,
+    .auction-consign-item.active {
+      border-color: var(--ink-black);
+      background: var(--surface-hover);
+      color: var(--ink-black);
+    }
+    .auction-consign-item span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      align-self: center;
+      justify-self: center;
+      max-width: 100%;
+      width: 100%;
+      text-align: center;
+    }
+    .auction-consign-item strong {
+      justify-self: end;
+      text-align: right;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--stamp-red);
+      font-size: var(--font-size-11);
+      white-space: nowrap;
+    }
+    .auction-consign-fields {
+      display: grid;
+      grid-template-columns: minmax(148px, 0.56fr) minmax(280px, 1fr);
+      gap: 10px 12px;
+      min-width: 0;
+    }
+    .auction-consign-fields-main {
+      display: contents;
+    }
+    .auction-consign-fields-buyout {
+      display: block;
+      grid-column: 2;
+      justify-content: flex-start;
+      min-width: 0;
+    }
+    .auction-consign-fields-buyout .auction-consign-price-field {
+      width: min(420px, 100%);
+    }
+    .auction-consign-fields .market-trade-dialog-field,
+    .auction-consign-fields .market-quantity-row,
+    .auction-consign-fields .market-price-control-row {
+      min-width: 0;
+    }
+    .auction-consign-fields .market-quantity-row {
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      gap: 4px;
+    }
+    .auction-consign-fields .market-quantity-row .gm-inline-input {
+      width: 72px;
+      flex: 0 0 72px;
+    }
+    .auction-consign-fields .market-quantity-row .small-btn {
+      min-width: 38px;
+      padding: 2px 8px;
+    }
+    .auction-consign-package-count {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--market-trade-display-border);
+      border-radius: 9px;
+      background: var(--market-trade-display-bg);
+      color: var(--ink-grey);
+    }
+    .auction-consign-package-count span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auction-consign-package-count strong {
+      color: var(--stamp-red);
+      font-size: var(--font-size-14);
+      font-weight: var(--font-weight-strong);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .auction-consign-price-field {
+      gap: 8px;
+    }
+    .auction-consign-price-presets {
+      justify-content: center;
+    }
+    .auction-consign-fields-buyout .auction-consign-price-presets {
+      justify-content: center;
+    }
+    .auction-consign-fields-buyout .market-price-control-row {
+      justify-content: flex-start;
+    }
+    .auction-consign-price-presets .small-btn {
+      min-width: 42px;
+      padding: 2px 8px;
+    }
+    .auction-consign-fields .market-price-control-row {
+      justify-content: flex-start;
+      gap: 4px;
+    }
+    .auction-consign-fields .market-price-control-side {
+      gap: 4px;
+    }
+    .auction-consign-fields .market-price-control-row .market-price-display {
+      min-width: 146px;
+      flex: 1 1 146px;
+      max-width: 190px;
+    }
+    .auction-consign-fields .market-price-control-row .small-btn {
+      min-width: 40px;
+      padding: 2px 8px;
+    }
+    .auction-consign-preview {
       display: grid;
       gap: 6px;
     }

@@ -260,6 +260,49 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
     );
     return Array.isArray(result.rows) ? (result.rows as Array<Record<string, unknown>>) : [];
   }
+
+  async listBacklogSummary(): Promise<Array<Record<string, unknown>>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `
+        SELECT
+          domain,
+          COUNT(*)::bigint AS backlog_count,
+          COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
+          COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
+          COUNT(*) FILTER (WHERE next_attempt_at IS NOT NULL AND next_attempt_at > now())::bigint AS delayed_count,
+          COALESCE(MIN(next_attempt_at), MIN(updated_at)) AS oldest_pending_at
+        FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        GROUP BY domain
+        ORDER BY backlog_count DESC, domain ASC
+      `,
+    );
+    return Array.isArray(result.rows) ? (result.rows as Array<Record<string, unknown>>) : [];
+  }
+
+  async listRecentThroughputSummary(input?: { windowSeconds?: number }): Promise<Array<Record<string, unknown>>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const windowSeconds = normalizePositiveInteger(input?.windowSeconds, 60, 1, 86_400);
+    const result = await this.pool.query(
+      `
+        SELECT
+          domain,
+          COUNT(*)::bigint AS write_count,
+          ROUND(COUNT(*)::numeric / NULLIF($1::numeric, 0), 6) AS writes_per_second,
+          COALESCE(MAX(updated_at), MAX(COALESCE(dirty_since_at, now()))) AS latest_updated_at
+        FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE updated_at >= now() - ($1::bigint * interval '1 second')
+        GROUP BY domain
+        ORDER BY write_count DESC, domain ASC
+      `,
+      [windowSeconds],
+    );
+    return Array.isArray(result.rows) ? (result.rows as Array<Record<string, unknown>>) : [];
+  }
 }
 
 async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {

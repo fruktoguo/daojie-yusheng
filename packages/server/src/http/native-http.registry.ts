@@ -11,6 +11,7 @@ import { NativeGmMapRuntimeQueryService } from './native/native-gm-map-runtime-q
 import { NativeGmStateQueryService } from './native/native-gm-state-query.service';
 import { NativeGmSuggestionQueryService } from './native/native-gm-suggestion-query.service';
 import { NativeGmPlayerService } from './native/native-gm-player.service';
+import { NativeGmWorkerService } from './native/native-gm-worker.service';
 import { NativeGmWorldService } from './native/native-gm-world.service';
 import { NativeGmAuthGuard } from './native/native-gm-auth.guard';
 import { NativePlayerAuthStoreService } from './native/native-player-auth-store.service';
@@ -60,6 +61,7 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmStateQueryService,
   NativeGmSuggestionQueryService,
   NativeGmPlayerService,
+  NativeGmWorkerService,
   NativeGmWorldService,
   NativeGmSecretStoreService,
 ];

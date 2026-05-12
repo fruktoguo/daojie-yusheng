@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } f
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { isRelationMissingError } from './pg-error-utils';
 
 const PLAYER_COUNTERS_TABLE = 'player_counters';
 
@@ -19,6 +20,7 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
   private readonly pendingWrites = new Map<string, Promise<void>>();
   private pool: Pool | null = null;
   private enabled = false;
+  private recreating = false;
 
   constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
@@ -135,16 +137,47 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
 
   private async persistOne(playerId: string, key: string, value: number): Promise<void> {
     if (!this.pool || !this.enabled) return;
-    await this.pool.query(
-      `
-        INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
-        VALUES ($1, $2, $3, now())
-        ON CONFLICT (player_id, counter_key) DO UPDATE SET
-          value = EXCLUDED.value,
-          updated_at = now()
-      `,
-      [playerId, key, value],
-    );
+    try {
+      await this.pool.query(
+        `
+          INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
+          VALUES ($1, $2, $3, now())
+          ON CONFLICT (player_id, counter_key) DO UPDATE SET
+            value = EXCLUDED.value,
+            updated_at = now()
+        `,
+        [playerId, key, value],
+      );
+    } catch (error: unknown) {
+      if (isRelationMissingError(error)) {
+        await this.tryRecreateTable();
+        await this.pool.query(
+          `
+            INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
+            VALUES ($1, $2, $3, now())
+            ON CONFLICT (player_id, counter_key) DO UPDATE SET
+              value = EXCLUDED.value,
+              updated_at = now()
+          `,
+          [playerId, key, value],
+        );
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async tryRecreateTable(): Promise<void> {
+    if (!this.pool || this.recreating) return;
+    this.recreating = true;
+    try {
+      await ensurePlayerCountersTable(this.pool);
+      this.logger.warn('player_counters 表已自动重建');
+    } catch (e: unknown) {
+      this.logger.error('player_counters 表自动重建失败', e instanceof Error ? e.message : String(e));
+    } finally {
+      this.recreating = false;
+    }
   }
 }
 

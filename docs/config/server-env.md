@@ -36,10 +36,13 @@ redis://:password@host:6379
 | 变量 | 别名 | 必填 | 说明 |
 |------|------|------|------|
 | `SERVER_GM_PASSWORD` | `GM_PASSWORD` | 生产必填 | GM 登录密码 |
+| `SERVER_GM_AUTH_SECRET` | `GM_AUTH_SECRET` | 生产必填 | GM 访问 token 签名密钥 |
+| `SERVER_SECRET_ENCRYPTION_KEY` | `SECRET_ENCRYPTION_KEY` | 生产必填 | GM 密钥管理模块的主加密密钥 |
 | `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD` | `GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD` | 否 | 允许本地开发使用默认密码 |
 
 **安全注意**：
 - 生产环境必须设置强密码
+- 生产环境必须设置独立的 GM token 签名密钥和密钥管理加密密钥
 - 本地开发可设置 `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=true` 使用默认密码
 
 ## CORS 配置

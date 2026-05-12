@@ -209,8 +209,14 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
  */
 
 
-    sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number): void {
-      deps.emitEvent(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice });
+    sendCreateMarketSellOrder(
+      slotIndex: number,
+      quantity: number,
+      unitPrice: number,
+      listingMode?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['listingMode'],
+      buyoutPrice?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['buyoutPrice'],
+    ): void {
+      deps.emitEvent(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice, listingMode, buyoutPrice });
     },
     /**
  * sendCreateMarketBuyOrder：构建sendCreate坊市Buy订单。

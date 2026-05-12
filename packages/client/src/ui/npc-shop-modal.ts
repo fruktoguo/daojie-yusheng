@@ -9,6 +9,7 @@ import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { confirmModalHost } from './confirm-modal-host';
 import { resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { t } from './i18n';
+import { renderTradeQuantityControl } from './trade-control-renderers';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -660,25 +661,17 @@ export class NpcShopModal {
         <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
           <div class="market-trade-dialog-field">
             <span>${escapeHtml(t('npc-shop.field.quantity', undefined))}</span>
-            <div class="market-quantity-row">
-              <button class="small-btn ghost" data-npc-shop-quick-qty="${escapeHtmlAttr(selectedItem.itemId)}" data-npc-shop-quick-qty-value="1" type="button">1</button>
-              <input
-                class="gm-inline-input ui-input"
-                data-npc-shop-quantity="${escapeHtmlAttr(selectedItem.itemId)}"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                step="1"
-                value="${escapeHtmlAttr(quantityText || '1')}"
-              />
-              <button
-                class="small-btn ghost"
-                data-npc-shop-quick-qty="${escapeHtmlAttr(selectedItem.itemId)}"
-                data-npc-shop-quick-qty-value="${Math.max(1, maxPurchasable)}"
-                type="button"
-                ${maxPurchasable <= 0 ? 'disabled' : ''}
-              >${escapeHtml(t('npc-shop.action.max', undefined))}</button>
-            </div>
+            ${renderTradeQuantityControl({
+              value: quantityText || '1',
+              inputClassName: 'gm-inline-input ui-input',
+              inputAttrs: { 'data-npc-shop-quantity': selectedItem.itemId },
+              leftButtons: [{ label: '1', attrs: { 'data-npc-shop-quick-qty': selectedItem.itemId, 'data-npc-shop-quick-qty-value': '1' } }],
+              rightButtons: [{
+                label: t('npc-shop.action.max', undefined),
+                attrs: { 'data-npc-shop-quick-qty': selectedItem.itemId, 'data-npc-shop-quick-qty-value': Math.max(1, maxPurchasable) },
+                disabled: maxPurchasable <= 0,
+              }],
+            })}
           </div>
           <div class="market-trade-dialog-total ${insufficientCurrency || soldOut || stockExceeded ? 'error' : ''}">
             <span>${escapeHtml(t('npc-shop.field.total-price', undefined))}</span>

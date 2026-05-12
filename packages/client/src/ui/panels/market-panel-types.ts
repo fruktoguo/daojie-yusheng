@@ -47,6 +47,16 @@ export interface MarketTradeDialogState {
   confirmPurchase?: boolean;
 }
 
+/** 拍卖寄拍独立面板里的可编辑状态。 */
+export interface AuctionConsignPanelState {
+  open: boolean;
+  slotIndex: number | null;
+  quantity: number;
+  totalPrice: number;
+  buyoutPrice: number;
+  query: string;
+}
+
 /** 交易弹窗一次渲染需要的派生状态。 */
 export interface MarketTradeDialogViewState {
   dialog: MarketTradeDialogState;
@@ -117,6 +127,7 @@ export interface MarketPanelCallbacks {
   onRequestItemBook: (itemKey: string) => void;
   onRequestTradeHistory: (page: number) => void;
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
+  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number) => void;
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onPlaceAuctionBid: (lotId: string, itemKey: string, unitPrice: number) => void;
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
@@ -149,6 +160,7 @@ export interface MarketPanelInternals {
   auctionSearchQuery: string;
   selectedAuctionItemKey: string | null;
   auctionPage: number;
+  auctionConsignPanel: AuctionConsignPanelState;
   currentPage: number;
   tradeHistoryPage: number;
   itemBookLoading: boolean;
@@ -165,6 +177,7 @@ export interface MarketPanelInternals {
   // --- 方法 ---
   getOpenModalBody(): HTMLElement | null;
   getOpenAuctionModalBody(): HTMLElement | null;
+  getOpenAuctionConsignModalBody(): HTMLElement | null;
   getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null;
   getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[];
   getVisibleListingGroups(update: S2C_MarketUpdate | null): MarketListingGroupView[];

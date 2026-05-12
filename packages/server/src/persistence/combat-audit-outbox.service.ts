@@ -216,30 +216,6 @@ async function insertCombatAuditBatch(pool: Pool, batch: QueuedCombatAuditEvent[
       };
       await client.query(
         `
-          INSERT INTO ${OUTBOX_EVENT_TABLE}(
-            event_id,
-            operation_id,
-            topic,
-            partition_key,
-            payload_jsonb,
-            status,
-            attempt_count,
-            next_retry_at,
-            created_at
-          )
-          VALUES ($1, $2, $3, $4, $5::jsonb, 'ready', 0, now(), now())
-          ON CONFLICT (event_id) DO NOTHING
-        `,
-        [
-          `outbox:${entry.operationId}`,
-          entry.operationId,
-          COMBAT_AUDIT_TOPIC,
-          playerId || normalizeString(event.instanceId) || 'combat',
-          JSON.stringify(payload),
-        ],
-      );
-      await client.query(
-        `
           INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
             log_id,
             operation_id,

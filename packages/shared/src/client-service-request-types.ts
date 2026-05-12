@@ -254,6 +254,11 @@ export interface CreateMarketSellOrderView {
 
   unitPrice: number;
   /**
+ * buyoutPrice：拍卖一口价总价。0 或低于起拍价表示不支持一口价。
+ */
+
+  buyoutPrice?: number;
+  /**
  * listingMode：挂单入口，默认普通坊市，auction 表示显式寄拍。
  */
 

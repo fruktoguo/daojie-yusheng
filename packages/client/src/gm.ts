@@ -63,6 +63,8 @@ import {
   type GmShortcutRunRes,
   type GmSpawnBotsReq,
   type GmStateRes,
+  type GmWorkerRow,
+  type GmWorkerStateRes,
   type GmTriggerDatabaseBackupRes,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
@@ -262,6 +264,8 @@ const serverSubtabMemoryBtn = document.getElementById('server-subtab-memory') as
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 /** serverSubtabLogsBtn：服务端Subtab日志Btn。 */
 const serverSubtabLogsBtn = document.getElementById('server-subtab-logs') as HTMLButtonElement;
+/** serverSubtabWorkersBtn：服务端Subtab Workers Btn。 */
+const serverSubtabWorkersBtn = document.getElementById('server-subtab-workers') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
 /** serverPanelTrafficEl：服务端面板Traffic El。 */
@@ -274,6 +278,14 @@ const serverPanelMemoryEl = document.getElementById('server-panel-memory') as HT
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
 /** serverPanelLogsEl：服务端面板日志El。 */
 const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
+/** serverPanelWorkersEl：服务端面板Workers El。 */
+const serverPanelWorkersEl = document.getElementById('server-panel-workers') as HTMLElement;
+/** serverWorkersRefreshBtn：服务端Workers刷新Btn。 */
+const serverWorkersRefreshBtn = document.getElementById('server-workers-refresh') as HTMLButtonElement;
+/** serverWorkersMetaEl：服务端Workers元信息El。 */
+const serverWorkersMetaEl = document.getElementById('server-workers-meta') as HTMLDivElement;
+/** serverWorkersContentEl：服务端Workers内容El。 */
+const serverWorkersContentEl = document.getElementById('server-workers-content') as HTMLDivElement;
 /** serverLogsLoadOlderBtn：服务端日志加载更早Btn。 */
 const serverLogsLoadOlderBtn = document.getElementById('server-logs-load-older') as HTMLButtonElement;
 /** serverLogsRefreshBtn：服务端日志刷新Btn。 */
@@ -441,7 +453,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -649,6 +661,10 @@ function buildGmServerLogsApiPath(beforeSeq?: number): string {
   return `${GM_API_BASE_PATH}/logs?${params.toString()}`;
 }
 
+function buildGmWorkersApiPath(): string {
+  return `${GM_API_BASE_PATH}/workers`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -705,6 +721,10 @@ let serverLogsHasMore = false;
 let serverLogsBufferSize = 0;
 /** serverLogsLoading：服务端日志读取中。 */
 let serverLogsLoading = false;
+/** workerState：Worker状态。 */
+let workerState: GmWorkerStateRes | null = null;
+/** workerStateLoading：Worker状态读取中。 */
+let workerStateLoading = false;
 let redeemGroupsState: RedeemCodeGroupView[] = [];
 /** selectedRedeemGroupId：selected兑换分组ID。 */
 let selectedRedeemGroupId: string | null = null;
@@ -2543,12 +2563,14 @@ function switchServerTab(tab: GmServerTab): void {
   serverSubtabMemoryBtn.classList.toggle('active', tab === 'memory');
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
+  serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
   serverPanelMemoryEl.classList.toggle('hidden', tab !== 'memory');
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
+  serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
@@ -2557,6 +2579,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'logs' && serverLogsEntries.length === 0 && !serverLogsLoading) {
     loadServerLogs(false).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载服务端日志失败', true);
+    });
+  }
+  if (tab === 'workers' && !workerState && !workerStateLoading) {
+    loadWorkerState(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载 worker 状态失败', true);
     });
   }
 }
@@ -2623,6 +2650,149 @@ async function loadServerLogs(loadOlder: boolean): Promise<void> {
       serverLogsContentEl.scrollTop = serverLogsContentEl.scrollHeight;
     }
   }
+}
+
+/** renderWorkerPanel：渲染Worker状态面板。 */
+function renderWorkerPanel(): void {
+  serverWorkersRefreshBtn.disabled = workerStateLoading;
+  if (workerStateLoading) {
+    serverWorkersMetaEl.textContent = 'Worker 状态读取中…';
+  } else if (workerState) {
+    const alertText = workerState.alerts.length > 0 ? `告警 ${workerState.alerts.length} 条` : '暂无告警';
+    serverWorkersMetaEl.textContent = `采样 ${formatDateTime(workerState.generatedAt)} · 窗口 ${workerState.windowSeconds}s · ${alertText}`;
+  } else {
+    serverWorkersMetaEl.textContent = 'Worker 状态尚未加载。';
+  }
+
+  if (!workerState) {
+    serverWorkersContentEl.innerHTML = '<div class="empty-hint">当前还没有 worker 状态。</div>';
+    return;
+  }
+
+  const alerts = workerState.alerts.length > 0
+    ? `
+      <div class="network-breakdown">
+        <div class="network-breakdown-head">
+          <div class="panel-title">Worker 告警</div>
+          <div class="network-breakdown-subtitle">积压、死信和心跳异常会在这里集中显示</div>
+        </div>
+        <div class="network-breakdown-list">
+          ${workerState.alerts.map((alert) => `
+            <div class="network-row">
+              <div class="network-row-label">${escapeHtml(getWorkerAlertLabel(alert.reason))}</div>
+              <div class="network-row-meta">${escapeHtml(alert.workerId)}${alert.count !== undefined ? ` · ${alert.count}` : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `
+    : '<div class="note-card">当前没有 worker 告警。</div>';
+  const rows = workerState.rows.length > 0
+    ? workerState.rows.map(getWorkerRowMarkup).join('')
+    : '<div class="empty-hint">当前还没有 worker 记录。</div>';
+
+  serverWorkersContentEl.innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card"><div class="panel-title">Worker 总数</div><div class="panel-value">${workerState.rows.length}</div></div>
+      <div class="summary-card"><div class="panel-title">活跃/待处理</div><div class="panel-value">${countWorkerRows(workerState.rows, ['active', 'pending'])}</div></div>
+      <div class="summary-card"><div class="panel-title">积压总数</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'pendingCount')}</div></div>
+      <div class="summary-card"><div class="panel-title">死信</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'deadLetterCount')}</div></div>
+    </div>
+    <div class="note-card">${escapeHtml(workerState.note ?? 'Worker 面板读取低频诊断快照，不改变 worker 运行。')}</div>
+    ${alerts}
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">Worker 工作情况</div>
+        <div class="network-breakdown-subtitle">按玩家刷盘、实例刷盘、outbox 和备份 worker 汇总</div>
+      </div>
+      <div class="network-breakdown-list">${rows}</div>
+    </div>
+  `;
+}
+
+/** loadWorkerState：读取Worker状态。 */
+async function loadWorkerState(silent = false): Promise<void> {
+  if (!token || workerStateLoading) {
+    return;
+  }
+  workerStateLoading = true;
+  renderWorkerPanel();
+  try {
+    workerState = await request<GmWorkerStateRes>(buildGmWorkersApiPath());
+    if (!silent) {
+      setStatus(`已刷新 ${workerState.rows.length} 个 worker 状态`);
+    }
+  } finally {
+    workerStateLoading = false;
+    renderWorkerPanel();
+  }
+}
+
+/** getWorkerRowMarkup：读取Worker行Markup。 */
+function getWorkerRowMarkup(row: GmWorkerRow): string {
+  const statusLabel = getWorkerStatusLabel(row.status);
+  const statusClass = row.status === 'error' || row.status === 'warn' ? ' danger' : '';
+  const meta = [
+    row.domain ? `域 ${row.domain}` : '',
+    row.ownershipEpoch ? `epoch ${row.ownershipEpoch}` : '',
+    `待处理 ${row.pendingCount}`,
+    `认领 ${row.claimedCount}`,
+    `延迟 ${row.delayedCount}`,
+    `窗口完成 ${row.writeCount}`,
+    `${formatWorkerRate(row.writesPerSecond)}`,
+    row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
+    row.oldestPendingAt ? `最早待处理 ${formatDateTime(row.oldestPendingAt)}` : '',
+    row.latestUpdatedAt ? `最近更新 ${formatDateTime(row.latestUpdatedAt)}` : '',
+  ].filter(Boolean);
+  return `
+    <div class="network-row">
+      <div class="network-row-label">${escapeHtml(row.label)} <span class="pill${statusClass}">${escapeHtml(statusLabel)}</span></div>
+      <div class="network-row-meta">${escapeHtml(meta.join(' · '))}</div>
+      ${row.note ? `<div class="editor-note" style="margin-top: 6px;">${escapeHtml(row.note)}</div>` : ''}
+    </div>
+  `;
+}
+
+function getWorkerStatusLabel(status: GmWorkerRow['status']): string {
+  switch (status) {
+    case 'active':
+      return '工作中';
+    case 'pending':
+      return '待处理';
+    case 'idle':
+      return '空闲';
+    case 'warn':
+      return '需关注';
+    case 'error':
+      return '异常';
+    default:
+      return '未知';
+  }
+}
+
+function getWorkerAlertLabel(reason: string): string {
+  switch (reason) {
+    case 'dead_letter_present':
+      return '存在死信';
+    case 'backlog_high':
+      return '积压过高';
+    case 'worker_inactive':
+      return 'worker 心跳或活跃状态异常';
+    default:
+      return reason;
+  }
+}
+
+function formatWorkerRate(value: number): string {
+  return `${Math.max(0, Number(value) || 0).toFixed(3)} /s`;
+}
+
+function countWorkerRows(rows: GmWorkerRow[], statuses: GmWorkerRow['status'][]): number {
+  return rows.filter((row) => statuses.includes(row.status)).length;
+}
+
+function sumWorkerRows(rows: GmWorkerRow[], key: 'pendingCount' | 'deadLetterCount'): number {
+  return rows.reduce((total, row) => total + Math.max(0, Number(row[key] ?? 0) || 0), 0);
 }
 
 /** formatDatabaseBackupKind：格式化数据库备份种类。 */
@@ -7809,6 +7979,7 @@ serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
 serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'));
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
+serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
 cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
 cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
@@ -8087,6 +8258,11 @@ serverLogsLoadOlderBtn.addEventListener('click', () => {
 serverLogsRefreshBtn.addEventListener('click', () => {
   loadServerLogs(false).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.server.logs.refresh.failed'), true);
+  });
+});
+serverWorkersRefreshBtn.addEventListener('click', () => {
+  loadWorkerState(false).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '刷新 worker 状态失败', true);
   });
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {

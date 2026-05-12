@@ -26,7 +26,7 @@ import {
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
-import { tLoose } from './i18n';
+import { hasI18nKey, tLoose } from './i18n';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -587,7 +587,9 @@ function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, r
     const before = template.slice(lastIndex, match.index);
     if (before) container.append(before);
     const varName = match[1];
-    const value = String(vars[varName] ?? match[0]);
+    const rawValue = String(vars[varName] ?? match[0]);
+    const enumKey = `notice.enum.${rawValue}`;
+    const value = hasI18nKey(enumKey) ? tLoose(enumKey) : rawValue;
     const pillConfig = pillMap.get(varName);
     if (pillConfig) {
       container.appendChild(buildNoticePill(value, pillConfig));

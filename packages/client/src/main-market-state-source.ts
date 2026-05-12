@@ -70,6 +70,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onRequestItemBook: (itemKey) => options.socket.sendRequestMarketItemBook(itemKey),
     onRequestTradeHistory: (page) => options.socket.sendRequestMarketTradeHistory(page),
     onCreateSellOrder: (slotIndex, quantity, unitPrice) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
+    onCreateAuctionSellOrder: (slotIndex, quantity, unitPrice, buyoutPrice) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice, 'auction', buyoutPrice),
     onCreateBuyOrder: (itemKey, quantity, unitPrice) => options.socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),
     onPlaceAuctionBid: (lotId, itemKey, unitPrice) => options.socket.sendPlaceAuctionBid(lotId, itemKey, unitPrice),
     onBuyoutAuctionLot: (lotId, itemKey) => options.socket.sendBuyoutAuctionLot(lotId, itemKey),

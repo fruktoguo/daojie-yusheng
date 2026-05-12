@@ -8,8 +8,8 @@ import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } f
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './outbox-event-consumer-registry.service';
 
-const DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS = 1_000;
-const DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE = 32;
+const DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS = 250;
+const DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE = 128;
 const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
 const DEFAULT_OUTBOX_MAX_ATTEMPTS = 8;

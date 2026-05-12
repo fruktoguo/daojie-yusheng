@@ -466,6 +466,7 @@ export class WorldClientEventService {
             this.playerRuntimeService.enqueueNotice(notice.playerId, {
                 text: notice.text,
                 kind: notice.kind,
+                structured: notice.structured,
             });
         }
         for (const affectedPlayerId of affectedPlayerIds) {

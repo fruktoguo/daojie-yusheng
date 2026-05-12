@@ -10,3 +10,9 @@ export const MARKET_MIN_UNIT_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 
 /** 市场最高单价 */
 export const MARKET_MAX_UNIT_PRICE = 10_000_000_000;
+
+/** 拍卖上架费基础值 */
+export const AUCTION_LISTING_FEE_BASE = 10;
+
+/** 拍卖上架费费率（起拍总价的百分比） */
+export const AUCTION_LISTING_FEE_RATE = 0.01;

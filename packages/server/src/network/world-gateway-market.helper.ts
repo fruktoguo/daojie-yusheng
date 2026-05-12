@@ -190,6 +190,7 @@ class WorldGatewayMarketHelper {
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
                 listingMode: payload?.listingMode,
+                buyoutPrice: payload?.buyoutPrice,
             });
             this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }

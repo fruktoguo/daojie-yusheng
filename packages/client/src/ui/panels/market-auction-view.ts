@@ -1,12 +1,13 @@
-import type { AuctionHouseTab, MarketListedItemView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
+import type { AuctionHouseTab, ItemStack, MarketListedItemView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
+import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { patchElementHtml } from '../dom-patch';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
-import type { MarketPanelInternals, AuctionLotView, MarketCategoryFilter } from './market-panel-types';
-import { ITEM_TYPES } from '@mud/shared';
+import { renderTradePriceStepControl, renderTradeQuantityControl } from '../trade-control-renderers';
+import type { MarketPanelInternals, AuctionLotView, MarketCategoryFilter, MarketPriceAction } from './market-panel-types';
 
 /** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: unknown): string {
@@ -23,6 +24,8 @@ function escapeHtmlAttr(value: unknown): string {
 
 /** 拍卖行每页最多显示的拍品数量。 */
 const AUCTION_PAGE_SIZE = 10;
+const AUCTION_PRICE_PRESET_VALUES = MARKET_PRICE_PRESET_VALUES.filter((value) => value >= 1);
+type AuctionConsignPriceField = 'start' | 'buyout';
 
 /**
  * 拍卖行子视图：拍卖列表、竞拍和拍品行渲染。
@@ -339,6 +342,219 @@ export class MarketAuctionView {
     `;
   }
 
+  renderAuctionConsignModal(): void {
+    const update = this.panel.marketUpdate;
+    const options = {
+      ownerId: 'auction-consign-panel',
+      size: 'wide',
+      variantClass: 'detail-modal--market detail-modal--auction-consign',
+      title: t('market.auction.consign.title', undefined),
+      subtitle: t('market.auction.consign.subtitle', undefined),
+      renderBody: (body: HTMLElement) => {
+        patchElementHtml(
+          body,
+          update
+            ? `<div class="auction-consign-modal-shell">${this.renderAuctionConsignPanel(update)}</div>`
+            : `<div class="empty-hint">${escapeHtml(t('auction.loading', undefined))}</div>`,
+        );
+      },
+      onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
+        this.bindAuctionConsignModalEvents(body, signal);
+        this.panel.bindItemTooltipEvents(body, signal);
+      },
+    } as const;
+    if (detailModalHost.isOpenFor('auction-consign-panel')) {
+      detailModalHost.patch(options);
+      return;
+    }
+    detailModalHost.open(options);
+  }
+
+  renderAuctionConsignPanel(update: S2C_MarketUpdate): string {
+    const state = this.panel.auctionConsignPanel;
+    const items = this.getFilteredAuctionConsignItems(update);
+    const allItems = this.getAuctionConsignItems(update);
+    const hasFilteredOutSelection = state.slotIndex !== null && !items.some((entry) => entry.slotIndex === state.slotIndex);
+    const selectedItem = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const quantityMax = Math.max(1, selectedItem?.count ?? 1);
+    const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
+    const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
+    const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+    const price = selectedItem ? this.resolveAuctionConsignUnitPrice(totalPrice) : { unitPrice: null, actualTotal: null };
+    const listingFee = price.actualTotal === null ? null : this.getAuctionListingFee(price.actualTotal);
+    const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
+    const insufficientFee = listingFee !== null && listingFee > ownedCurrency;
+    const disabled = !selectedItem || price.unitPrice === null || insufficientFee;
+    return `
+      <div class="auction-consign-panel" data-auction-consign-panel>
+        <div class="auction-consign-title-row">
+          <strong>${escapeHtml(t('market.auction.consign.title', undefined))}</strong>
+          <span data-auction-consign-count>${escapeHtml(this.renderAuctionConsignCount(update))}</span>
+        </div>
+        <label class="auction-consign-search">
+          <span>${escapeHtml(t('market.auction.consign.search', undefined))}</span>
+          <input class="ui-search-input" data-auction-consign-search type="search" value="${escapeHtmlAttr(state.query)}" placeholder="${escapeHtmlAttr(t('market.auction.consign.search-placeholder', undefined))}" autocomplete="off" />
+        </label>
+        <div class="auction-consign-items ui-scroll-panel" data-auction-consign-items>
+          ${this.renderAuctionConsignItems(update)}
+        </div>
+        <div class="auction-consign-fields">
+          <div class="auction-consign-fields-main">
+            <div class="market-trade-dialog-field" data-auction-consign-quantity-field>
+              <span>${escapeHtml(t('market.auction.consign.package-count', undefined))}</span>
+              <div data-auction-consign-quantity-control>
+                ${this.renderAuctionConsignQuantityControl(selectedItem, quantity, quantityMax)}
+              </div>
+            </div>
+            ${this.renderAuctionConsignPriceField('start', t('market.auction.consign.start-price', undefined), totalPrice, update.currencyItemName, !selectedItem)}
+          </div>
+          <div class="auction-consign-fields-buyout">
+            ${this.renderAuctionConsignPriceField('buyout', t('market.auction.consign.buyout-price', undefined), buyoutPrice, update.currencyItemName, !selectedItem)}
+          </div>
+        </div>
+        <div class="auction-consign-preview" data-auction-consign-preview>
+          ${this.renderAuctionConsignPreview(selectedItem, totalPrice, buyoutPrice, price, update.currencyItemName, ownedCurrency)}
+        </div>
+        ${hasFilteredOutSelection && selectedItem ? `<div class="market-action-hint">${escapeHtml(t('market.auction.consign.filtered-selected', undefined))}</div>` : ''}
+        <button class="small-btn" data-auction-consign-submit type="button" ${disabled ? 'disabled' : ''}>${escapeHtml(t('market.auction.consign.submit', undefined))}</button>
+      </div>
+    `;
+  }
+
+  renderAuctionConsignQuantityControl(item: ItemStack | null, quantity: number, quantityMax: number): string {
+    if (!item) {
+      return `
+        <div class="auction-consign-package-count">
+          <span>${escapeHtml(t('market.auction.consign.no-selection', undefined))}</span>
+          <strong>--</strong>
+        </div>
+      `;
+    }
+    return renderTradeQuantityControl({
+      value: quantity,
+      min: 1,
+      step: 1,
+      max: quantityMax,
+      inputAttrs: { 'data-auction-consign-quantity': true },
+      leftButtons: [
+        { label: '-', attrs: { 'data-auction-consign-quantity-action': 'decrease' }, disabled: quantity <= 1 },
+      ],
+      rightButtons: [
+        { label: '+', attrs: { 'data-auction-consign-quantity-action': 'increase' }, disabled: quantity >= quantityMax },
+        { label: t('market.trade.action.max', undefined), attrs: { 'data-auction-consign-quantity-action': 'max' }, disabled: quantity >= quantityMax },
+      ],
+    });
+  }
+
+  renderAuctionConsignPriceField(field: AuctionConsignPriceField, label: string, price: number, currencyName: string, disabled: boolean): string {
+    const decreasePrice = this.getNextAuctionConsignPrice(field, price, 'decrease');
+    const halfPrice = this.getNextAuctionConsignPrice(field, price, 'half');
+    const increasePrice = this.getNextAuctionConsignPrice(field, price, 'increase');
+    const doublePrice = this.getNextAuctionConsignPrice(field, price, 'double');
+    return `
+      <label class="market-trade-dialog-field auction-consign-price-field">
+        <span>${escapeHtml(label)}</span>
+        <div class="market-price-preset-row auction-consign-price-presets">
+          ${(field === 'buyout' ? [0, ...AUCTION_PRICE_PRESET_VALUES] : AUCTION_PRICE_PRESET_VALUES).map((preset) => `
+            <button
+              class="small-btn ghost ${preset === price ? 'active' : ''}"
+              data-auction-consign-price-field="${field}"
+              data-auction-consign-price-action="preset"
+              data-auction-consign-price-preset="${preset}"
+              type="button"
+              ${disabled ? 'disabled' : ''}
+            >${escapeHtml(preset <= 0 ? '0' : this.panel.formatPricePresetLabel(preset))}</button>
+          `).join('')}
+        </div>
+        ${renderTradePriceStepControl({
+          value: price <= 0 ? '0' : this.panel.formatMarketUnitPrice(price),
+          currencyName,
+          displayAttrs: { [`data-auction-consign-${field}-price-display`]: true },
+          leftButtons: [
+            { label: '÷2', attrs: { 'data-auction-consign-price-field': field, 'data-auction-consign-price-action': 'half' }, disabled: disabled || halfPrice >= price },
+            { label: '-', attrs: { 'data-auction-consign-price-field': field, 'data-auction-consign-price-action': 'decrease' }, disabled: disabled || decreasePrice >= price },
+          ],
+          rightButtons: [
+            { label: '+', attrs: { 'data-auction-consign-price-field': field, 'data-auction-consign-price-action': 'increase' }, disabled: disabled || increasePrice <= price },
+            { label: 'x2', attrs: { 'data-auction-consign-price-field': field, 'data-auction-consign-price-action': 'double' }, disabled: disabled || doublePrice <= price },
+          ],
+        })}
+      </label>
+    `;
+  }
+
+  renderAuctionConsignItem(slotIndex: number, item: ItemStack, active: boolean): string {
+    const enhanceLevel = this.panel.getMarketEnhanceLevel(item);
+    const suffix = item.type === 'equipment' && enhanceLevel > 0 ? ` +${enhanceLevel}` : '';
+    const itemName = `${this.panel.getMarketDisplayName(item)}${suffix}`;
+    return `
+      <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-slot="${slotIndex}" data-market-item-tooltip="auction-consign-slot:${slotIndex}" type="button">
+        <span title="${escapeHtmlAttr(itemName)}">${escapeHtml(itemName)}</span>
+        <strong>${formatDisplayCountBadge(item.count)}</strong>
+      </button>
+    `;
+  }
+
+  renderAuctionConsignItems(update: S2C_MarketUpdate): string {
+    const items = this.getFilteredAuctionConsignItems(update);
+    if (items.length === 0) {
+      const key = this.panel.auctionConsignPanel.query.trim() ? 'market.auction.consign.search-empty' : 'market.auction.consign.empty';
+      return `<div class="empty-hint">${escapeHtml(t(key, undefined))}</div>`;
+    }
+    return items.map((entry) => this.renderAuctionConsignItem(entry.slotIndex, entry.item, this.panel.auctionConsignPanel.slotIndex === entry.slotIndex)).join('');
+  }
+
+  renderAuctionConsignCount(update: S2C_MarketUpdate): string {
+    return t('market.auction.consign.visible-count', {
+      visible: formatDisplayInteger(this.getFilteredAuctionConsignItems(update).length),
+      total: formatDisplayInteger(this.getAuctionConsignItems(update).length),
+    });
+  }
+
+  renderAuctionConsignPreview(
+    item: ItemStack | null,
+    totalPrice: number,
+    buyoutPrice: number,
+    price: { unitPrice: number | null; actualTotal: number | null },
+    currencyName: string,
+    ownedCurrency: number,
+  ): string {
+    if (!item) {
+      return `<div class="market-action-hint">${escapeHtml(t('market.auction.consign.select-hint', undefined))}</div>`;
+    }
+    if (price.unitPrice === null || price.actualTotal === null) {
+      return `<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.auction.consign.invalid-total', undefined))}</div>`;
+    }
+    const quantity = Math.max(1, Math.min(item.count, Math.floor(Number(this.panel.auctionConsignPanel.quantity) || 1)));
+    const resolvedBuyoutPrice = buyoutPrice >= price.actualTotal ? buyoutPrice : null;
+    const listingFee = this.getAuctionListingFee(price.actualTotal);
+    const insufficientFee = listingFee > ownedCurrency;
+    return `
+      <div class="market-trade-dialog-total">
+        <span>${escapeHtml(t('market.auction.consign.package', { count: formatDisplayInteger(quantity) }))}</span>
+        <strong>${formatDisplayInteger(price.actualTotal)} ${escapeHtml(currencyName)}</strong>
+      </div>
+      <div class="market-trade-dialog-total">
+        <span>${escapeHtml(t('market.auction.consign.buyout-price', undefined))}</span>
+        <strong>${resolvedBuyoutPrice === null ? escapeHtml(t('market.auction.consign.no-buyout', undefined)) : `${formatDisplayInteger(resolvedBuyoutPrice)} ${escapeHtml(currencyName)}`}</strong>
+      </div>
+      <div class="market-trade-dialog-total ${insufficientFee ? 'error' : ''}">
+        <span>${escapeHtml(t('market.auction.consign.listing-fee', undefined))}</span>
+        <strong>${formatDisplayInteger(listingFee)} ${escapeHtml(currencyName)}</strong>
+      </div>
+      <div class="market-action-hint">${escapeHtml(t('market.auction.consign.total-hint', {
+        totalPrice: formatDisplayInteger(price.actualTotal),
+        buyoutPrice: resolvedBuyoutPrice === null ? t('market.auction.consign.no-buyout', undefined) : formatDisplayInteger(resolvedBuyoutPrice),
+        listingFee: formatDisplayInteger(listingFee),
+        currencyName,
+      }))}</div>
+      ${insufficientFee ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.auction.consign.insufficient-fee', {
+        currencyName,
+        listingFee: formatDisplayInteger(listingFee),
+      }))}</div>` : ''}
+    `;
+  }
+
   bindAuctionModalEvents(body: HTMLElement, signal: AbortSignal): void {
     const p = this.panel;
     body.querySelectorAll<HTMLElement>('[data-auction-tab]').forEach((button) => button.addEventListener('click', () => {
@@ -422,6 +638,299 @@ export class MarketAuctionView {
     body.querySelector<HTMLElement>('[data-auction-refresh]')?.addEventListener('click', () => {
       p.requestAuctionListings(p.auctionPage);
     }, { signal });
+  }
+
+  bindAuctionConsignModalEvents(body: HTMLElement, signal: AbortSignal): void {
+    const p = this.panel;
+    body.querySelector<HTMLInputElement>('[data-auction-consign-search]')?.addEventListener('input', (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement)) return;
+      p.auctionConsignPanel = {
+        ...p.auctionConsignPanel,
+        query: input.value,
+      };
+      this.patchAuctionConsignItems();
+    }, { signal });
+
+    body.addEventListener('input', (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || !input.matches('[data-auction-consign-quantity]')) return;
+      const state = p.auctionConsignPanel;
+      const item = state.slotIndex === null ? null : p.inventory.items[state.slotIndex] ?? null;
+      if (!item) return;
+      const max = Math.max(1, item.count);
+      p.auctionConsignPanel = {
+        ...state,
+        quantity: Math.max(1, Math.min(max, Math.floor(Number(input.value) || 1))),
+      };
+      this.patchAuctionConsignPreview();
+    }, { signal });
+
+    body.addEventListener('click', (event) => {
+      const target = event.target;
+      const quantityActionButton = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-quantity-action]') : null;
+      if (quantityActionButton && body.contains(quantityActionButton)) {
+        const state = p.auctionConsignPanel;
+        const item = state.slotIndex === null ? null : p.inventory.items[state.slotIndex] ?? null;
+        if (!item) return;
+        const action = quantityActionButton.dataset.auctionConsignQuantityAction;
+        const max = Math.max(1, item.count);
+        const current = Math.max(1, Math.min(max, Math.floor(Number(state.quantity) || 1)));
+        const nextQuantity = action === 'max'
+          ? max
+          : action === 'increase'
+            ? Math.min(max, current + 1)
+            : Math.max(1, current - 1);
+        p.auctionConsignPanel = {
+          ...state,
+          quantity: nextQuantity,
+        };
+        this.patchAuctionConsignQuantityControl();
+        this.patchAuctionConsignPreview();
+        return;
+      }
+      const priceActionButton = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-price-action]') : null;
+      if (priceActionButton && body.contains(priceActionButton)) {
+        const action = priceActionButton.dataset.auctionConsignPriceAction as MarketPriceAction | undefined;
+        const field = priceActionButton.dataset.auctionConsignPriceField as AuctionConsignPriceField | undefined;
+        if (!action) return;
+        const preset = this.panel.readDatasetNumber(priceActionButton.dataset.auctionConsignPricePreset);
+        const nextPrice = this.getNextAuctionConsignPrice(field === 'buyout' ? 'buyout' : 'start', field === 'buyout' ? p.auctionConsignPanel.buyoutPrice : p.auctionConsignPanel.totalPrice, action, preset);
+        p.auctionConsignPanel = {
+          ...p.auctionConsignPanel,
+          ...(field === 'buyout' ? { buyoutPrice: nextPrice } : { totalPrice: nextPrice }),
+        };
+        this.patchAuctionConsignPreview();
+        return;
+      }
+      const button = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-slot]') : null;
+      if (!button || !body.contains(button)) return;
+      const slotIndex = Number.parseInt(button.dataset.auctionConsignSlot ?? '', 10);
+      const item = Number.isFinite(slotIndex) ? p.inventory.items[slotIndex] : null;
+      if (!item) return;
+      p.auctionConsignPanel = {
+        open: true,
+        slotIndex,
+        quantity: Math.max(1, Math.min(item.count, Math.floor(Number(p.auctionConsignPanel.quantity) || item.count))),
+        totalPrice: this.normalizeAuctionConsignTotalPrice(p.auctionConsignPanel.totalPrice, 'up'),
+        buyoutPrice: this.normalizeAuctionConsignBuyoutPrice(p.auctionConsignPanel.buyoutPrice),
+        query: p.auctionConsignPanel.query,
+      };
+      this.patchAuctionConsignSelectedItem();
+      this.patchAuctionConsignPreview();
+    }, { signal });
+    body.querySelector<HTMLElement>('[data-auction-consign-submit]')?.addEventListener('click', () => {
+      const state = p.auctionConsignPanel;
+      if (state.slotIndex === null) return;
+      const item = p.inventory.items[state.slotIndex] ?? null;
+      if (!item) return;
+      const quantity = Math.max(1, Math.min(item.count, Math.floor(Number(state.quantity) || 1)));
+      const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
+      const price = this.resolveAuctionConsignUnitPrice(totalPrice);
+      if (price.unitPrice === null) {
+        this.patchAuctionConsignPreview();
+        return;
+      }
+      const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+      const resolvedBuyoutPrice = buyoutPrice >= price.unitPrice ? buyoutPrice : 0;
+      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice);
+      p.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, query: '' };
+      p.requestAuctionListings(1);
+      detailModalHost.close('auction-consign-panel');
+    }, { signal });
+
+  }
+
+  patchAuctionConsignPreview(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body || !update) return;
+    const preview = body.querySelector<HTMLElement>('[data-auction-consign-preview]');
+    const submit = body.querySelector<HTMLButtonElement>('[data-auction-consign-submit]');
+    const state = this.panel.auctionConsignPanel;
+    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const quantityMax = Math.max(1, item?.count ?? 1);
+    const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
+    const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
+    const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+    const price = item ? this.resolveAuctionConsignUnitPrice(totalPrice) : { unitPrice: null, actualTotal: null };
+    this.panel.auctionConsignPanel = {
+      ...state,
+      quantity,
+      totalPrice,
+      buyoutPrice,
+    };
+    if (preview) {
+      patchElementHtml(preview, this.renderAuctionConsignPreview(item, totalPrice, buyoutPrice, price, update.currencyItemName, this.panel.findInventoryItemCountByItemId(update.currencyItemId)));
+    }
+    if (submit) {
+      const listingFee = price.actualTotal === null ? null : this.getAuctionListingFee(price.actualTotal);
+      const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
+      submit.disabled = !item || price.unitPrice === null || (listingFee !== null && listingFee > ownedCurrency);
+    }
+    this.patchAuctionConsignPriceControl();
+  }
+
+  patchAuctionConsignModalState(): void {
+    this.patchAuctionConsignItems();
+    this.patchAuctionConsignSelectedItem();
+    this.patchAuctionConsignPreview();
+  }
+
+  patchAuctionConsignItems(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body || !update) return;
+    const list = body.querySelector<HTMLElement>('[data-auction-consign-items]');
+    if (!list) return;
+    patchElementHtml(list, this.renderAuctionConsignItems(update));
+    const count = body.querySelector<HTMLElement>('[data-auction-consign-count]');
+    if (count) {
+      count.textContent = this.renderAuctionConsignCount(update);
+    }
+    this.panel.bindItemTooltipEvents(list);
+    this.patchAuctionConsignSelectedItem();
+  }
+
+  patchAuctionConsignSelectedItem(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    if (!body) return;
+    const state = this.panel.auctionConsignPanel;
+    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    body.querySelectorAll<HTMLElement>('[data-auction-consign-slot]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.auctionConsignSlot === String(state.slotIndex));
+    });
+    const quantityMax = Math.max(1, item?.count ?? 1);
+    const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
+    this.panel.auctionConsignPanel = {
+      ...state,
+      quantity,
+    };
+    this.patchAuctionConsignQuantityControl();
+    this.patchAuctionConsignPriceControl();
+  }
+
+  patchAuctionConsignQuantityControl(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    if (!body) return;
+    const state = this.panel.auctionConsignPanel;
+    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const quantityMax = Math.max(1, item?.count ?? 1);
+    const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
+    const control = body.querySelector<HTMLElement>('[data-auction-consign-quantity-control]');
+    const input = body.querySelector<HTMLInputElement>('[data-auction-consign-quantity]');
+    if (control) {
+      patchElementHtml(control, this.renderAuctionConsignQuantityControl(item, quantity, quantityMax));
+      return;
+    }
+    if (input && document.activeElement !== input) {
+      input.value = String(quantity);
+    }
+  }
+
+  patchAuctionConsignPriceControl(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body || !update) return;
+    const state = this.panel.auctionConsignPanel;
+    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
+    const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+    this.panel.auctionConsignPanel = {
+      ...state,
+      totalPrice,
+      buyoutPrice,
+    };
+    this.patchAuctionConsignPriceDisplay(body, update.currencyItemName, 'start', totalPrice);
+    this.patchAuctionConsignPriceDisplay(body, update.currencyItemName, 'buyout', buyoutPrice);
+    body.querySelectorAll<HTMLButtonElement>('[data-auction-consign-price-action]').forEach((button) => {
+      const action = button.dataset.auctionConsignPriceAction as MarketPriceAction | undefined;
+      const field = button.dataset.auctionConsignPriceField as AuctionConsignPriceField | undefined;
+      const currentPrice = field === 'buyout' ? buyoutPrice : totalPrice;
+      const nextPrice = action ? this.getNextAuctionConsignPrice(field === 'buyout' ? 'buyout' : 'start', currentPrice, action, this.panel.readDatasetNumber(button.dataset.auctionConsignPricePreset)) : currentPrice;
+      button.disabled = !item
+        || (action === 'decrease' && nextPrice >= currentPrice)
+        || (action === 'half' && nextPrice >= currentPrice)
+        || ((action === 'increase' || action === 'double') && nextPrice <= currentPrice);
+      if (action === 'preset') {
+        button.classList.toggle('active', this.panel.readDatasetNumber(button.dataset.auctionConsignPricePreset) === currentPrice);
+      }
+    });
+  }
+
+  patchAuctionConsignPriceDisplay(body: HTMLElement, currencyName: string, field: AuctionConsignPriceField, price: number): void {
+    const display = body.querySelector<HTMLElement>(`[data-auction-consign-${field}-price-display]`);
+    if (!display) return;
+    patchElementHtml(display, `
+      <strong>${escapeHtml(price <= 0 ? '0' : this.panel.formatMarketUnitPrice(price))}</strong>
+      <span>${escapeHtml(currencyName)}</span>
+    `);
+  }
+
+  getAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ slotIndex: number; item: ItemStack }> {
+    const currencyItemId = update?.currencyItemId ?? '';
+    return this.panel.inventory.items
+      .map((item, slotIndex) => ({ slotIndex, item }))
+      .filter((entry) => entry.item.count > 0 && entry.item.itemId !== currencyItemId);
+  }
+
+  getFilteredAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ slotIndex: number; item: ItemStack }> {
+    const query = this.panel.auctionConsignPanel.query.trim().toLocaleLowerCase();
+    const items = this.getAuctionConsignItems(update);
+    if (!query) {
+      return items;
+    }
+    return items.filter((entry) => {
+      const displayName = this.panel.getMarketDisplayName(entry.item).toLocaleLowerCase();
+      const itemId = entry.item.itemId.toLocaleLowerCase();
+      return displayName.includes(query) || itemId.includes(query);
+    });
+  }
+
+  resolveAuctionConsignUnitPrice(totalPrice: number): { unitPrice: number | null; actualTotal: number | null } {
+    const normalizedTotal = this.normalizeAuctionConsignTotalPrice(totalPrice, 'up');
+    if (!Number.isSafeInteger(normalizedTotal) || normalizedTotal <= 0) {
+      return { unitPrice: null, actualTotal: null };
+    }
+    return { unitPrice: normalizedTotal, actualTotal: normalizedTotal };
+  }
+
+  normalizeAuctionConsignTotalPrice(value: number, direction: 'up' | 'down'): number {
+    return this.panel.normalizeTradeDialogPrice(Math.max(1, Math.floor(Number(value) || 1)), direction);
+  }
+
+  normalizeAuctionConsignBuyoutPrice(value: number): number {
+    const numeric = Math.floor(Number(value) || 0);
+    if (numeric <= 0) return 0;
+    return this.panel.normalizeTradeDialogPrice(numeric, 'up');
+  }
+
+  getAuctionListingFee(totalPrice: number): number {
+    const normalizedTotal = Math.max(1, Math.floor(Number(totalPrice) || 1));
+    return AUCTION_LISTING_FEE_BASE + Math.ceil(normalizedTotal * AUCTION_LISTING_FEE_RATE);
+  }
+
+  getNextAuctionConsignTotalPrice(currentPrice: number, action: MarketPriceAction): number {
+    return this.getNextAuctionConsignPrice('start', currentPrice, action);
+  }
+
+  getNextAuctionConsignPrice(field: AuctionConsignPriceField, currentPrice: number, action: MarketPriceAction, preset: number | null = null): number {
+    if (field === 'buyout') {
+      const current = this.normalizeAuctionConsignBuyoutPrice(currentPrice);
+      if (action === 'preset') {
+        return this.normalizeAuctionConsignBuyoutPrice(preset ?? 0);
+      }
+      if (action === 'decrease' && current <= 1) return 0;
+      const seed = current <= 0 && (action === 'increase' || action === 'double') ? 1 : current;
+      const next = this.panel.getNextTradeDialogPrice(seed, action, null, 1);
+      return this.normalizeAuctionConsignBuyoutPrice(next);
+    }
+    return this.panel.getNextTradeDialogPrice(
+      this.normalizeAuctionConsignTotalPrice(currentPrice, action === 'decrease' || action === 'half' ? 'down' : 'up'),
+      action,
+      preset,
+      1,
+    );
   }
 
   patchAuctionActiveSelection(): void {

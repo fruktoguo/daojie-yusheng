@@ -391,10 +391,26 @@ function summarizeProtocolAuditPayload(payload) {
   var job = runtimeState?.job && typeof runtimeState.job === 'object' ? runtimeState.job : null;
   return {
     kind: payload.kind,
+    text: payload.text,
+    structuredKey: payload.structured?.key,
     ok: payload.ok,
     error: payload.error,
     message: payload.message,
     code: payload.code,
+    myOrderCount: Array.isArray(payload.myOrders) ? payload.myOrders.length : undefined,
+    myOrders: Array.isArray(payload.myOrders)
+      ? payload.myOrders.slice(0, 5).map(function (entry) {
+        return {
+          id: entry?.id,
+          side: entry?.side,
+          itemId: entry?.item?.itemId,
+          remainingQuantity: entry?.remainingQuantity,
+          unitPrice: entry?.unitPrice,
+        };
+      })
+      : undefined,
+    listedItemCount: Array.isArray(payload.listedItems) ? payload.listedItems.length : undefined,
+    storageItemCount: Array.isArray(payload.storage?.items) ? payload.storage.items.length : undefined,
     catalogVersion: payload.catalogVersion,
     catalogLen: Array.isArray(payload.catalog) ? payload.catalog.length : undefined,
     presetsLen: Array.isArray(payload.presets) ? payload.presets.length : undefined,
@@ -1967,15 +1983,16 @@ async function playerControlCase(runtime) {
     },
   });
   await lib.waitForState(runtime.api, playerId, function (current) {
-    return current?.combat?.combatTargetingRules?.includeNormalMonsters === false
-      && current.combat.combatTargetingRules.includeEliteMonsters === false
-      && current.combat.combatTargetingRules.includeBosses === false
-      && Array.isArray(current.combat.combatTargetingRules.hostile)
-      && current.combat.combatTargetingRules.hostile.includes("monster") === false
-      && current.combat.combatTargetingRules.hostile.includes("all_players") === false
-      && Array.isArray(current.combat.combatTargetingRules.friendly)
-      && current.combat.combatTargetingRules.friendly.includes("party") === true
-      && current.combat.combatTargetingRules.includePlayers === false;
+    const rules = current?.combat?.combatTargetingRules;
+    return Array.isArray(rules?.hostile)
+      && rules.hostile.includes("monster") === false
+      && rules.hostile.includes("all_players") === false
+      && rules.hostile.includes("demonized_players") === true
+      && rules.hostile.includes("retaliators") === true
+      && rules.hostile.includes("terrain") === true
+      && Array.isArray(rules?.friendly)
+      && rules.friendly.includes("party") === true
+      && rules.friendly.includes("non_hostile_players") === true;
   }, 5000, "updateCombatTargetingRules");
   socket.emit(C2S.UpdateAutoBattleTargetingMode, { mode: "nearest" });
   await lib.waitForState(runtime.api, playerId, function (current) {
@@ -2541,6 +2558,7 @@ async function marketCase(runtime) {
   }, 5000);
   await runtime.api.grantItem(sellerId, tradeItemId, 4);
   await runtime.api.grantItem(sellerId, auctionItemId, 1);
+  await runtime.api.grantItem(sellerId, "spirit_stone", 20);
   await runtime.api.grantItem(buyerId, "spirit_stone", 40);
 /**
  * 记录seller状态。
@@ -2579,13 +2597,21 @@ async function marketCase(runtime) {
  */
   var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; }).itemKey;
   sellerState = (await runtime.api.fetchState(sellerId)).player;
-  var auctionListed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, auctionItemId), quantity: 1, unitPrice: 1, listingMode: 'auction' }, S2C.MarketUpdate, function (payload) {
+  var auctionListed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, auctionItemId), quantity: 1, unitPrice: 1, listingMode: 'auction', buyoutPrice: 2 }, S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; });
   }, 5000);
-  var auctionItemKey = auctionListed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; }).itemKey;
-  await emitAndWait(buyer, C2S.RequestAuctionListings, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' }, S2C.AuctionListings, function (payload) {
-    return payload && Array.isArray(payload.items) && payload.items.some(function (entry) { return entry.itemKey === auctionItemKey; });
+  var auctionOrderId = auctionListed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; }).id;
+  var auctionListings = await emitAndWait(buyer, C2S.RequestAuctionListings, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' }, S2C.AuctionListings, function (payload) {
+    return payload && Array.isArray(payload.items) && payload.items.some(function (entry) {
+      return entry.item && entry.item.itemId === auctionItemId;
+    });
   }, 5000);
+  var auctionItemKey = auctionListings.items.find(function (entry) {
+    return entry.item && entry.item.itemId === auctionItemId;
+  }).itemKey;
+  if (!auctionItemKey || auctionItemKey === itemKey || auctionItemKey === auctionOrderId) {
+    throw new Error("failed to resolve auction lot key from auction listings");
+  }
   await emitAndWait(buyer, C2S.PlaceAuctionBid, { lotId: auctionItemKey, itemKey: auctionItemKey, unitPrice: 2 }, S2C.AuctionListings, function (payload) {
     return payload && Array.isArray(payload.items) && payload.items.some(function (entry) { return entry.itemKey === auctionItemKey && entry.currentPrice >= 2 && entry.bidCount >= 1; });
   }, 5000);

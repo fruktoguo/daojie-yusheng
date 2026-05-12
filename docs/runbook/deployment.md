@@ -40,7 +40,7 @@
 tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
 ```
 
-公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`，脚本检测到登录信息后会同步给 Watchtower。
+公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`，脚本检测到登录信息后会同步给 Watchtower。一键脚本会为已有 `prod.env` 自动补齐缺失的 GM token 签名密钥和密钥管理加密密钥。
 
 下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
 
@@ -76,6 +76,8 @@ export DB_USERNAME=mud
 export DB_PASSWORD='强密码'
 export DB_DATABASE=daojie_yusheng
 export SERVER_PLAYER_TOKEN_SECRET='长随机密钥'
+export SERVER_GM_AUTH_SECRET='长随机密钥'
+export SERVER_SECRET_ENCRYPTION_KEY='长随机密钥'
 export GM_PASSWORD='GM强密码'
 export SERVER_CORS_ORIGINS='https://你的域名'
 ```

@@ -965,6 +965,12 @@
       border-color: rgba(110, 110, 110, 0.18);
     }
 
+    .pill.danger {
+      border-color: rgba(197, 60, 60, 0.34);
+      color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+    }
+
     .editor-head {
       margin-bottom: 10px;
       align-items: flex-start;
@@ -1781,6 +1787,7 @@
           <button class="workspace-tab" id="server-subtab-memory" type="button" data-i18n="gm.server-subtab-memory">内存信息</button>
           <button class="workspace-tab" id="server-subtab-database" type="button" data-i18n="gm.server-subtab-database">数据库</button>
           <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
+          <button class="workspace-tab" id="server-subtab-workers" type="button">Worker</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
           <div class="summary-grid">
@@ -1976,6 +1983,15 @@
             <div id="server-logs-meta" class="server-log-meta" data-i18n="gm.server-logs-meta">日志尚未加载。</div>
           </div>
           <pre id="server-logs-content" class="server-log-view" data-i18n="gm.server-logs-meta">日志尚未加载。</pre>
+        </div>
+        <div id="server-panel-workers" class="server-tab-panel hidden">
+          <div class="server-log-toolbar">
+            <button id="server-workers-refresh" class="small-btn" type="button">刷新 worker 状态</button>
+            <div id="server-workers-meta" class="server-log-meta">Worker 状态尚未加载。</div>
+          </div>
+          <div id="server-workers-content">
+            <div class="empty-hint">当前还没有 worker 状态。</div>
+          </div>
         </div>
       </div>
     </section>

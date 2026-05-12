@@ -105,6 +105,11 @@ interface MarketPanelCallbacks {
 
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
   /**
+ * onCreateAuctionSellOrder：onCreateAuctionSell订单相关字段。
+ */
+
+  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number) => void;
+  /**
  * onCreateBuyOrder：onCreateBuy订单相关字段。
  */
 
@@ -166,6 +171,16 @@ interface MarketTradeDialogState {
   minUnitPrice?: number;
   /** 是否来自卖盘快捷购买，需要二次确认购买。 */
   confirmPurchase?: boolean;
+}
+
+/** 拍卖寄拍独立面板里的可编辑状态。 */
+interface AuctionConsignPanelState {
+  open: boolean;
+  slotIndex: number | null;
+  quantity: number;
+  totalPrice: number;
+  buyoutPrice: number;
+  query: string;
 }
 
 /** 交易弹窗一次渲染需要的派生状态，供整渲染和局部 patch 共用。 */
@@ -301,6 +316,8 @@ export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
   /** 拍卖行详情弹窗的归属标识。 */
   private static readonly AUCTION_MODAL_OWNER = 'auction-house-panel';
+  /** 发起拍卖独立弹窗的归属标识。 */
+  private static readonly AUCTION_CONSIGN_MODAL_OWNER = 'auction-consign-panel';
   /** 交易弹窗根节点的 id。 */
   private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
   /** 买入确认弹层的归属标识。 */
@@ -345,6 +362,15 @@ export class MarketPanel {
   private selectedAuctionItemKey: string | null = null;
   /** 拍卖行当前页码。 */
   private auctionPage = 1;
+  /** 拍卖发起面板状态，独立于当前拍品列表选中。 */
+  private auctionConsignPanel: AuctionConsignPanelState = {
+    open: false,
+    slotIndex: null,
+    quantity: 1,
+    totalPrice: 1,
+    buyoutPrice: 0,
+    query: '',
+  };
   /** 当前列表页码。 */
   private currentPage = 1;
   /** 交易历史页码。 */
@@ -404,6 +430,8 @@ export class MarketPanel {
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.patchAuctionDetailPanel();
       this.syncTradeDialogOverlay();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+      this.patchAuctionConsignModalState();
     }
   }
 
@@ -418,6 +446,8 @@ export class MarketPanel {
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.patchAuctionDetailPanel();
       this.syncTradeDialogOverlay();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+      this.patchAuctionConsignModalState();
     }
   }
 
@@ -450,6 +480,8 @@ export class MarketPanel {
       this.requestItemBook(selectedAuctionLot.itemKey);
     }
       this.renderAuctionModal();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+      this.patchAuctionConsignModalState();
     } else {
       this.syncTradeDialogOverlay();
     }
@@ -516,6 +548,8 @@ export class MarketPanel {
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.syncAuctionSelection();
       this.renderAuctionModal();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+      this.patchAuctionConsignModalState();
     } else {
       this.syncTradeDialogOverlay();
     }
@@ -539,6 +573,8 @@ export class MarketPanel {
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.renderAuctionModal();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+      this.patchAuctionConsignModalState();
     }
   }
 
@@ -600,6 +636,7 @@ export class MarketPanel {
     this.auctionSearchQuery = '';
     this.selectedAuctionItemKey = null;
     this.auctionPage = 1;
+    this.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, query: '' };
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
@@ -617,6 +654,7 @@ export class MarketPanel {
     confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
     detailModalHost.close(MarketPanel.MODAL_OWNER);
     detailModalHost.close(MarketPanel.AUCTION_MODAL_OWNER);
+    detailModalHost.close(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
   }
 
   /** 渲染面板首屏摘要，只保留打开坊市的入口。 */
@@ -640,7 +678,10 @@ export class MarketPanel {
         <div class="panel-section market-pane auction-pane ui-surface-pane ui-surface-pane--stack">
           <div class="market-pane-headline">
             <div class="panel-section-title">${escapeHtml(t('market.auction.summary.title', undefined))}</div>
-            <button class="small-btn ghost" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
+            <div class="market-pane-headline-actions">
+              <button class="small-btn ghost" data-auction-consign-open type="button">${escapeHtml(t('market.auction.action.create', undefined))}</button>
+              <button class="small-btn ghost" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
+            </div>
           </div>
           <div class="market-pane-copy ui-form-copy">${escapeHtml(t('market.auction.summary.copy', undefined))}</div>
           <div class="auction-pane-cards">
@@ -686,6 +727,13 @@ export class MarketPanel {
           this.callbacks?.onRequestMarket();
         }
         this.openAuctionModal(tab);
+        return;
+      }
+      if (target.closest('[data-auction-consign-open]')) {
+        if (!this.requestMarketBootstrap()) {
+          this.callbacks?.onRequestMarket();
+        }
+        this.openAuctionConsignModal();
       }
     });
   }
@@ -914,6 +962,30 @@ export class MarketPanel {
   /** 渲染拍卖行独立界面。 */
   private renderAuctionModal(): void {
     this.auctionView.renderAuctionModal();
+  }
+
+  /** 打开发起拍卖独立弹层。 */
+  private openAuctionConsignModal(): void {
+    const first = this.auctionView.getAuctionConsignItems(this.marketUpdate).at(0);
+    this.auctionConsignPanel = {
+      open: true,
+      slotIndex: this.auctionConsignPanel.slotIndex ?? first?.slotIndex ?? null,
+      quantity: this.auctionConsignPanel.quantity,
+      totalPrice: this.auctionConsignPanel.totalPrice,
+      buyoutPrice: this.auctionConsignPanel.buyoutPrice,
+      query: this.auctionConsignPanel.query,
+    };
+    this.renderAuctionConsignModal();
+  }
+
+  /** 渲染发起拍卖独立弹层。 */
+  private renderAuctionConsignModal(): void {
+    this.auctionView.renderAuctionConsignModal();
+  }
+
+  /** 局部刷新发起拍卖弹层，避免服务端回包打断输入焦点。 */
+  private patchAuctionConsignModalState(): void {
+    this.auctionView.patchAuctionConsignModalState();
   }
 
   private renderAuctionModalBody(update: S2C_MarketUpdate): string {
@@ -1240,6 +1312,14 @@ export class MarketPanel {
   /** 读取当前已打开的拍卖行弹层 body。 */
   private getOpenAuctionModalBody(): HTMLElement | null {
     if (!detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      return null;
+    }
+    return document.getElementById('detail-modal-body');
+  }
+
+  /** 读取当前已打开的发起拍卖弹层 body。 */
+  private getOpenAuctionConsignModalBody(): HTMLElement | null {
+    if (!detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       return null;
     }
     return document.getElementById('detail-modal-body');
@@ -2276,6 +2356,11 @@ export class MarketPanel {
       const selected = this.getSelectedListedItem(this.marketUpdate)
         ?? (this.selectedItemKey ? this.resolveMarketTooltipEntry(this.selectedItemKey) : null);
       return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
+    }
+    if (key.startsWith('auction-consign-slot:')) {
+      const slotIndex = Number.parseInt(key.slice('auction-consign-slot:'.length), 10);
+      const item = Number.isFinite(slotIndex) ? this.inventory.items[slotIndex] ?? null : null;
+      return item ? this.buildMarketItemTooltipPayload(item) : null;
     }
     const listed = this.resolveMarketTooltipEntry(key);
     return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;

@@ -9,6 +9,7 @@ import { patchElementHtml } from '../dom-patch';
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { t } from '../i18n';
+import { renderTradePriceStepControl, renderTradeQuantityControl } from '../trade-control-renderers';
 import type {
   MarketPanelInternals,
   MarketTradeDialogKind,
@@ -54,7 +55,7 @@ export class MarketTradeDialog {
     this.panel.tradeDialog = {
       kind: 'buy',
       source: 'auction-bid',
-      quantity: this.panel.getTradeDialogQuantityStep(minUnitPrice),
+      quantity: 1,
       unitPrice: minUnitPrice,
       minUnitPrice,
     };
@@ -65,7 +66,7 @@ export class MarketTradeDialog {
     if (lot.buyoutPrice === null) return;
     const p = this.panel;
     const unitPrice = p.normalizeTradeDialogPrice(lot.buyoutPrice, 'up');
-    const quantity = p.normalizeTradeDialogQuantity(1, entry, 'buy', unitPrice);
+    const quantity = 1;
     const totalCost = p.getMarketTradeTotalCost(quantity, unitPrice);
     const currencyItemName = p.marketUpdate?.currencyItemName ?? '';
     const ownedCurrency = p.findInventoryItemCountByItemId(p.marketUpdate?.currencyItemId ?? '');
@@ -105,19 +106,19 @@ export class MarketTradeDialog {
       ? p.normalizeTradeDialogPrice(Math.max(rawDialog.unitPrice, minUnitPrice), 'up')
       : rawDialog.unitPrice;
     const dialog: MarketTradeDialogState = { ...rawDialog, unitPrice };
-    const matchedInventoryCount = p.findMatchingInventoryCount(entry.item);
-    const matchedSlotIndex = p.findMatchingInventorySlot(entry.item);
+    const matchedInventoryCount = isAuctionBid ? 0 : p.findMatchingInventoryCount(entry.item);
+    const matchedSlotIndex = isAuctionBid ? null : p.findMatchingInventorySlot(entry.item);
     const isBuy = dialog.kind === 'buy';
-    const conflictOrder = p.findConflictingOwnOrder(entry.itemKey, dialog.kind);
+    const conflictOrder = isAuctionBid ? null : p.findConflictingOwnOrder(entry.itemKey, dialog.kind);
     const ownedCurrency = p.findInventoryItemCountByItemId(currencyItemId);
-    const quantityStep = p.getTradeDialogQuantityStep(dialog.unitPrice);
-    const dialogQuantity = isAuctionBid ? quantityStep : dialog.quantity;
-    const quantityMax = p.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
+    const quantityStep = isAuctionBid ? 1 : p.getTradeDialogQuantityStep(dialog.unitPrice);
+    const dialogQuantity = isAuctionBid ? 1 : dialog.quantity;
+    const quantityMax = isAuctionBid ? 1 : p.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
     const inputMax = Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep);
-    dialog.quantity = p.normalizeTradeDialogQuantity(dialogQuantity, entry, dialog.kind, dialog.unitPrice);
+    dialog.quantity = isAuctionBid ? 1 : p.normalizeTradeDialogQuantity(dialogQuantity, entry, dialog.kind, dialog.unitPrice);
     const totalCost = p.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
     const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
-    const insufficientStepQuantity = quantityMax <= 0;
+    const insufficientStepQuantity = !isAuctionBid && quantityMax <= 0;
     const disabled = Boolean(conflictOrder)
       || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
     const hints: string[] = [];
@@ -199,20 +200,19 @@ export class MarketTradeDialog {
           <div class="market-trade-dialog-section">
             <div class="market-trade-dialog-field">
               <span>${escapeHtml(t('market.trade.field.unit-price', undefined))}</span>
-              <div class="market-price-control-row">
-                <div class="market-price-control-side">
-                  <button class="small-btn ghost" data-market-price-action="half" type="button" ${state.priceActionDisabled.half ? 'disabled' : ''}>÷2</button>
-                  <button class="small-btn ghost" data-market-price-action="decrease" type="button" ${state.priceActionDisabled.decrease ? 'disabled' : ''}>-</button>
-                </div>
-                <div class="market-price-display" data-market-dialog-price-display>
-                  <strong>${p.formatMarketUnitPrice(dialog.unitPrice)}</strong>
-                  <span>${escapeHtml(currencyName)}</span>
-                </div>
-                <div class="market-price-control-side">
-                  <button class="small-btn ghost" data-market-price-action="increase" type="button" ${state.priceActionDisabled.increase ? 'disabled' : ''}>+</button>
-                  <button class="small-btn ghost" data-market-price-action="double" type="button" ${state.priceActionDisabled.double ? 'disabled' : ''}>x2</button>
-                </div>
-              </div>
+              ${renderTradePriceStepControl({
+                value: p.formatMarketUnitPrice(dialog.unitPrice),
+                currencyName,
+                displayAttrs: { 'data-market-dialog-price-display': true },
+                leftButtons: [
+                  { label: '÷2', attrs: { 'data-market-price-action': 'half' }, disabled: state.priceActionDisabled.half },
+                  { label: '-', attrs: { 'data-market-price-action': 'decrease' }, disabled: state.priceActionDisabled.decrease },
+                ],
+                rightButtons: [
+                  { label: '+', attrs: { 'data-market-price-action': 'increase' }, disabled: state.priceActionDisabled.increase },
+                  { label: 'x2', attrs: { 'data-market-price-action': 'double' }, disabled: state.priceActionDisabled.double },
+                ],
+              })}
             </div>
           </div>
           <div class="market-trade-dialog-section">
@@ -220,25 +220,15 @@ export class MarketTradeDialog {
               ? `
                 <div class="market-trade-dialog-field">
                   <span>${escapeHtml(t('market.trade.field.quantity', undefined))}</span>
-                  <div class="market-quantity-row">
-                    <button class="small-btn ghost" data-market-quantity-action="one" type="button">1</button>
-                    <input
-                      class="gm-inline-input"
-                      data-market-dialog-quantity
-                      type="number"
-                      inputmode="numeric"
-                      min="${state.quantityStep}"
-                      step="${state.quantityStep}"
-                      max="${state.inputMax}"
-                      value="${dialog.quantity}"
-                    />
-                    <button
-                      class="small-btn ghost"
-                      data-market-quantity-action="max"
-                      type="button"
-                      ${state.maxButtonDisabled ? 'disabled' : ''}
-                    >${escapeHtml(t('market.trade.action.max', undefined))}</button>
-                  </div>
+                  ${renderTradeQuantityControl({
+                    value: dialog.quantity,
+                    min: state.quantityStep,
+                    step: state.quantityStep,
+                    max: state.inputMax,
+                    inputAttrs: { 'data-market-dialog-quantity': true },
+                    leftButtons: [{ label: '1', attrs: { 'data-market-quantity-action': 'one' } }],
+                    rightButtons: [{ label: t('market.trade.action.max', undefined), attrs: { 'data-market-quantity-action': 'max' }, disabled: state.maxButtonDisabled }],
+                  })}
                 </div>
               `
               : ''}
@@ -365,7 +355,7 @@ export class MarketTradeDialog {
       if (!action) return;
       const preset = p.readDatasetNumber(button.dataset.marketPricePreset);
       const nextUnitPrice = p.getNextTradeDialogPrice(p.tradeDialog.unitPrice, action, preset, p.getTradeDialogMinUnitPrice(p.tradeDialog));
-      const quantitySeed = p.tradeDialog.source === 'auction-bid' ? p.getTradeDialogQuantityStep(nextUnitPrice) : p.tradeDialog.quantity;
+      const quantitySeed = p.tradeDialog.source === 'auction-bid' ? 1 : p.tradeDialog.quantity;
       p.tradeDialog = { ...p.tradeDialog, unitPrice: nextUnitPrice, quantity: p.normalizeTradeDialogQuantity(quantitySeed, selected, p.tradeDialog.kind, nextUnitPrice) };
       this.syncTradeDialogOverlay();
     }));
@@ -385,7 +375,7 @@ export class MarketTradeDialog {
       if (!kind || !p.tradeDialog || p.tradeDialog.kind !== kind) return;
       const minUnitPrice = p.getTradeDialogMinUnitPrice(p.tradeDialog);
       const unitPrice = p.normalizeTradeDialogPrice(Math.max(p.tradeDialog.unitPrice, minUnitPrice), kind === 'buy' ? 'up' : 'down');
-      const quantitySeed = p.tradeDialog.source === 'auction-bid' ? p.getTradeDialogQuantityStep(unitPrice) : p.tradeDialog.quantity;
+      const quantitySeed = p.tradeDialog.source === 'auction-bid' ? 1 : p.tradeDialog.quantity;
       const quantity = p.normalizeTradeDialogQuantity(quantitySeed, selected, kind, unitPrice);
       if (kind === 'buy') {
         if (p.tradeDialog.source === 'auction-bid') {

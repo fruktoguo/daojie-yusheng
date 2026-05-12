@@ -57,7 +57,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
     const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 30_000, 1_000, 300_000);
-    const limit = normalizePositiveInteger(input.limit, 32, 1, 200);
+    const limit = normalizePositiveInteger(input.limit, 128, 1, 1024);
     const topicPrefixes = Array.isArray(input.topicPrefixes)
       ? input.topicPrefixes.map((prefix) => normalizeRequiredString(prefix)).filter(Boolean)
       : [];
@@ -152,7 +152,21 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
         [normalizedEventId],
       );
       if (Array.isArray(deadLettered.rows) && deadLettered.rows.length > 0) {
-        await insertDeadLetterEvent(this.pool, deadLettered.rows[0] as Record<string, unknown>);
+        const client = await this.pool.connect();
+        try {
+          await client.query('BEGIN');
+          await insertDeadLetterEventWithClient(client, deadLettered.rows[0] as Record<string, unknown>);
+          await client.query(
+            `DELETE FROM ${OUTBOX_EVENT_TABLE} WHERE event_id = $1 AND status = 'dead_letter'`,
+            [normalizedEventId],
+          );
+          await client.query('COMMIT');
+        } catch (e) {
+          await client.query('ROLLBACK');
+          throw e;
+        } finally {
+          client.release();
+        }
       }
     }
     return (result.rowCount ?? 0) > 0;
@@ -389,8 +403,8 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${DEAD_LETTER_EVENT_TABLE} (
       dead_letter_id bigserial PRIMARY KEY,
-      event_id varchar(120) NOT NULL,
-      operation_id varchar(120),
+      event_id varchar(180) NOT NULL,
+      operation_id varchar(180),
       topic varchar(200) NOT NULL,
       partition_key varchar(200) NOT NULL,
       payload_jsonb jsonb NOT NULL,
@@ -411,8 +425,8 @@ async function ensureOutboxConsumerDedupeTable(pool: Pool): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${OUTBOX_CONSUMER_DEDUPE_TABLE} (
       dedupe_key varchar(180) PRIMARY KEY,
-      event_id varchar(120) NOT NULL,
-      operation_id varchar(120),
+      event_id varchar(180) NOT NULL,
+      operation_id varchar(180),
       topic varchar(200),
       state varchar(32) NOT NULL DEFAULT 'processing',
       claimed_by varchar(120),
@@ -440,14 +454,14 @@ function buildConsumerDedupeKeys(eventId: string, operationId: string): string[]
   return keys;
 }
 
-async function insertDeadLetterEvent(pool: Pool, row: Record<string, unknown>): Promise<void> {
+async function insertDeadLetterEventWithClient(queryable: { query: Pool['query'] }, row: Record<string, unknown>): Promise<void> {
   const eventId = normalizeRequiredString(row.event_id);
   const topic = normalizeRequiredString(row.topic);
   const partitionKey = normalizeRequiredString(row.partition_key);
   if (!eventId || !topic || !partitionKey) {
     return;
   }
-  await pool.query(
+  await queryable.query(
     `
       INSERT INTO ${DEAD_LETTER_EVENT_TABLE}(
         event_id, operation_id, topic, partition_key, payload_jsonb, status, attempt_count, failed_at, created_at

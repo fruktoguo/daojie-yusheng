@@ -876,6 +876,17 @@
       .market-book-columns {
         grid-template-columns: minmax(0, 1fr);
       }
+      .market-pane-headline {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .market-pane-headline-actions {
+        width: 100%;
+        justify-content: stretch;
+      }
+      .market-pane-headline-actions .small-btn {
+        flex: 1 1 130px;
+      }
       .auction-pane-cards,
       .auction-house-summary,
       .auction-price-grid {
@@ -893,6 +904,9 @@
     padding: 12px 10px 10px;
   }
   .detail-modal-card.detail-modal--auction-house {
+    height: min(88dvh, calc(100dvh - 8px));
+  }
+  .detail-modal-card.detail-modal--auction-consign {
     height: min(88dvh, calc(100dvh - 8px));
   }
   .market-modal-shell--wide {
@@ -965,6 +979,34 @@
   }
   .auction-consign-overview {
     padding: 8px;
+  }
+  .auction-consign-items {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    max-height: 180px;
+  }
+  .auction-consign-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .auction-consign-fields-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .auction-consign-fields-buyout {
+    grid-column: 1;
+    justify-content: stretch;
+  }
+  .auction-consign-fields-buyout .auction-consign-price-field {
+    width: 100%;
+  }
+  .auction-consign-fields-buyout .auction-consign-price-presets {
+    justify-content: center;
+  }
+  .auction-consign-fields-buyout .market-price-control-row {
+    justify-content: flex-start;
+  }
+  .auction-consign-fields .market-price-control-row {
+    justify-content: flex-start;
   }
   .auction-status-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));

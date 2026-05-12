@@ -60,6 +60,7 @@ async function main(): Promise<void> {
 
   try {
     await ensureWorkerWorkspace(backupDirectory, workerRootDirectory);
+    await waitForDatabase(pool);
     await ensureBackupMetadataTable(pool);
     await recoverInterruptedJob(statePath);
 
@@ -444,6 +445,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolveSleep) => {
     setTimeout(resolveSleep, ms);
   });
+}
+
+const WAIT_FOR_DB_MAX_ATTEMPTS = 30;
+const WAIT_FOR_DB_INTERVAL_MS = 2_000;
+
+async function waitForDatabase(pool: Pool): Promise<void> {
+  for (let attempt = 1; attempt <= WAIT_FOR_DB_MAX_ATTEMPTS; attempt++) {
+    try {
+      await pool.query('SELECT 1');
+      return;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`[database-backup-worker] 等待数据库就绪 (${attempt}/${WAIT_FOR_DB_MAX_ATTEMPTS}): ${message}`);
+      if (attempt >= WAIT_FOR_DB_MAX_ATTEMPTS) {
+        throw new Error(`数据库在 ${WAIT_FOR_DB_MAX_ATTEMPTS} 次尝试后仍不可用: ${message}`);
+      }
+      await sleep(WAIT_FOR_DB_INTERVAL_MS);
+    }
+  }
 }
 
 void main().catch((error) => {

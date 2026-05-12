@@ -8,6 +8,7 @@ import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAdminService } from './native-gm-admin.service';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
+import { NativeGmWorkerService } from './native-gm-worker.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
 /** 数据库恢复请求体。 */
 interface DatabaseRestoreBody {
@@ -29,7 +30,10 @@ interface UploadRequestLike {
 @Controller(GM_HTTP_CONTRACT.gmBasePath)
 @UseGuards(NativeGmAuthGuard)
 export class NativeGmAdminController {
-  constructor(private readonly nextGmAdminService: NativeGmAdminService) {}
+  constructor(
+    private readonly nextGmAdminService: NativeGmAdminService,
+    private readonly nativeGmWorkerService: NativeGmWorkerService,
+  ) {}
 
   /** 查询数据库连接状态和备份列表。 */
   @Get('database/state')
@@ -41,6 +45,12 @@ export class NativeGmAdminController {
   @Get('logs')
   getServerLogs(@Query('limit') limit = '100', @Query('before') beforeSeq = '') {
     return readConsoleLogEntries({ beforeSeq, limit });
+  }
+
+  /** 读取 worker 刷盘、outbox 和备份心跳的低频状态汇总。 */
+  @Get('workers')
+  getWorkerState() {
+    return this.nativeGmWorkerService.getWorkerState();
   }
 
   /** 触发一次数据库全量备份。 */

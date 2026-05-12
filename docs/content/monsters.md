@@ -20,8 +20,8 @@
 | `char` | string | 是 | 地图上显示的单字符 |
 | `color` | string | 是 | 字符颜色（十六进制） |
 | `level` | number | 是 | 怪物等级 |
-| `grade` | string | 是 | 品阶：`mortal` / `qi` / `foundation` |
-| `tier` | string | 是 | 细分阶段，如 `mortal_blood` |
+| `grade` | string | 是 | 品阶：`mortal` / `yellow` / `mystic` / `earth` / `heaven` / `spirit` / `saint` / `emperor` |
+| `tier` | string | 是 | 层级：`mortal_blood` 普通、`variant` 精英、`demon_king` Boss |
 
 ### 刷新配置
 
@@ -68,7 +68,9 @@
 - `resolvePower`: 韧性
 - `moveSpeed`: 移动速度
 
-数值为百分比，100 为基准值，大于 100 表示高于基准。
+数值为百分比，100 为基准值，大于 100 表示高于基准；未写的单项按 100 处理。
+
+当前实际公式详见 [怪物当前属性计算总览](../design/balance/怪物当前属性计算总览.md)。长期配置应优先写 `attrTendency/statTendency`，不要新增固定 `attrs`、`valueStats` 或 `stats` 作为怪物基础数值；这些字段仅作为旧配置兼容口径存在。
 
 ## 示例
 

@@ -90,6 +90,9 @@ export class OutboxEventConsumerRegistryService {
     this.registerExact('player.active_job.started', logOnly);
     this.registerExact('player.active_job.cancelled', logOnly);
     this.registerExact('player.active_job.completed', logOnly);
+    this.registerExact('player.inventory.granted', logOnly);
+    this.registerExact('player.quest.submitted', logOnly);
+    this.registerExact('combat.audit.recorded', logOnly);
   }
 }
 

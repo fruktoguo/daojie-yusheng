@@ -134,12 +134,30 @@ generate_secret() {
   openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64
 }
 
+ensure_generated_env_var() {
+  local key="$1"
+  local value
+
+  if [ -n "${!key:-}" ]; then
+    return 0
+  fi
+
+  value="$(generate_secret)"
+  write_env_var "$key" "$value" >> "$ENV_FILE"
+  printf -v "$key" '%s' "$value"
+  export "$key"
+  log_info "已自动生成缺失配置: $key"
+}
+
 if [ -f "$ENV_FILE" ]; then
   log_info "已有配置: $ENV_FILE"
   set -a && . "$ENV_FILE" && set +a
 
+  ensure_generated_env_var "SERVER_GM_AUTH_SECRET"
+  ensure_generated_env_var "SERVER_SECRET_ENCRYPTION_KEY"
+
   missing=0
-  for var in TENCENT_IMAGE_PREFIX DB_PASSWORD SERVER_PLAYER_TOKEN_SECRET GM_PASSWORD; do
+  for var in TENCENT_IMAGE_PREFIX DB_PASSWORD SERVER_PLAYER_TOKEN_SECRET GM_PASSWORD SERVER_GM_AUTH_SECRET SERVER_SECRET_ENCRYPTION_KEY; do
     if [ -z "${!var:-}" ]; then
       log_error "配置缺失: $var"
       missing=1
@@ -168,6 +186,16 @@ else
   read -r input_jwt </dev/tty
   input_jwt="${input_jwt:-$default_jwt}"
 
+  default_gm_auth_secret="$(generate_secret)"
+  printf "  GM Token 签名密钥 [回车自动生成]: "
+  read -r input_gm_auth_secret </dev/tty
+  input_gm_auth_secret="${input_gm_auth_secret:-$default_gm_auth_secret}"
+
+  default_secret_encryption_key="$(generate_secret)"
+  printf "  GM 密钥管理加密密钥 [回车自动生成]: "
+  read -r input_secret_encryption_key </dev/tty
+  input_secret_encryption_key="${input_secret_encryption_key:-$default_secret_encryption_key}"
+
   printf "  GM 管理密码: "
   read -r input_gm_pass </dev/tty
   [ -z "$input_gm_pass" ] && log_error "不能为空" && exit 1
@@ -180,6 +208,8 @@ else
     write_env_var "TENCENT_IMAGE_PREFIX" "$input_prefix"
     write_env_var "DB_PASSWORD" "$input_db_pass"
     write_env_var "SERVER_PLAYER_TOKEN_SECRET" "$input_jwt"
+    write_env_var "SERVER_GM_AUTH_SECRET" "$input_gm_auth_secret"
+    write_env_var "SERVER_SECRET_ENCRYPTION_KEY" "$input_secret_encryption_key"
     write_env_var "GM_PASSWORD" "$input_gm_pass"
     write_env_var "SERVER_CORS_ORIGINS" "$input_cors"
     write_env_var "CLIENT_IMAGE_TAG" "latest"
@@ -246,6 +276,8 @@ services:
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-*}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
+      SERVER_GM_AUTH_SECRET: ${SERVER_GM_AUTH_SECRET}
+      SERVER_SECRET_ENCRYPTION_KEY: ${SERVER_SECRET_ENCRYPTION_KEY}
       SERVER_GM_PASSWORD: ${GM_PASSWORD}
       GM_PASSWORD: ${GM_PASSWORD}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}

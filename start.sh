@@ -19,6 +19,7 @@ cleanup() {
   kill_process_tree_if_running "${SERVER_PID:-}"
   kill_process_tree_if_running "${CLIENT_PID:-}"
   kill_process_tree_if_running "${SHARED_WATCH_PID:-}"
+  kill_process_tree_if_running "${BACKUP_WORKER_PID:-}"
 }
 
 # 终止pidifrunning。
@@ -339,6 +340,10 @@ ensure_server_local_secret_env() {
   local generated_gm_password=""
 # 记录运行时令牌。
   local generated_runtime_token=""
+# 记录 GM token 签名密钥。
+  local generated_gm_auth_secret=""
+# 记录密钥管理加密密钥。
+  local generated_secret_encryption_key=""
 
   if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}" ]]; then
     generated_player_token_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
@@ -352,6 +357,16 @@ ensure_server_local_secret_env() {
 
   if [[ -z "${SERVER_RUNTIME_TOKEN:-}" ]]; then
     generated_runtime_token="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if [[ -z "${SERVER_GM_AUTH_SECRET:-${GM_AUTH_SECRET:-}}" ]]; then
+    generated_gm_auth_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if [[ -z "${SERVER_SECRET_ENCRYPTION_KEY:-${SECRET_ENCRYPTION_KEY:-}}" ]]; then
+    generated_secret_encryption_key="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
     needs_write=1
   fi
 
@@ -372,6 +387,14 @@ ensure_server_local_secret_env() {
 
   if [[ -n "$generated_runtime_token" ]] && ! grep -q '^SERVER_RUNTIME_TOKEN=' "$local_env_file"; then
     printf 'SERVER_RUNTIME_TOKEN=%s\n' "$generated_runtime_token" >> "$local_env_file"
+  fi
+
+  if [[ -n "$generated_gm_auth_secret" ]] && ! grep -q '^SERVER_GM_AUTH_SECRET=' "$local_env_file"; then
+    printf 'SERVER_GM_AUTH_SECRET=%s\n' "$generated_gm_auth_secret" >> "$local_env_file"
+  fi
+
+  if [[ -n "$generated_secret_encryption_key" ]] && ! grep -q '^SERVER_SECRET_ENCRYPTION_KEY=' "$local_env_file"; then
+    printf 'SERVER_SECRET_ENCRYPTION_KEY=%s\n' "$generated_secret_encryption_key" >> "$local_env_file"
   fi
 
   echo "==> 已写入本地主线密钥缓存 ${local_env_file}"
@@ -443,11 +466,15 @@ prepare_server_base_env() {
   export DB_PASSWORD="${DB_PASSWORD:-jiuzhou123}"
   export DB_DATABASE="${DB_DATABASE:-daojie_yusheng}"
   export SERVER_PLAYER_TOKEN_SECRET="${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}"
+  export SERVER_GM_AUTH_SECRET="${SERVER_GM_AUTH_SECRET:-${GM_AUTH_SECRET:-}}"
+  export SERVER_SECRET_ENCRYPTION_KEY="${SERVER_SECRET_ENCRYPTION_KEY:-${SECRET_ENCRYPTION_KEY:-}}"
   export GM_PASSWORD="${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}"
   export SERVER_GM_PASSWORD="${SERVER_GM_PASSWORD:-$GM_PASSWORD}"
   export SERVER_GM_DATABASE_BACKUP_DIR="${SERVER_GM_DATABASE_BACKUP_DIR:-${GM_DATABASE_BACKUP_DIR:-}}"
 
   require_env_value "SERVER_PLAYER_TOKEN_SECRET" "请按线上部署同名变量提供 SERVER_PLAYER_TOKEN_SECRET，可放在 .env/.env.local 或 packages/server/.env(.local)。"
+  require_env_value "SERVER_GM_AUTH_SECRET" "请按线上部署同名变量提供 SERVER_GM_AUTH_SECRET，可放在 .env/.env.local 或 packages/server/.env(.local)。"
+  require_env_value "SERVER_SECRET_ENCRYPTION_KEY" "请按线上部署同名变量提供 SERVER_SECRET_ENCRYPTION_KEY，可放在 .env/.env.local 或 packages/server/.env(.local)。"
   require_env_value "SERVER_GM_PASSWORD" "请按线上部署同名变量提供 SERVER_GM_PASSWORD 或 GM_PASSWORD，可放在 .env/.env.local 或 packages/server/.env(.local)。"
   require_env_value "SERVER_RUNTIME_TOKEN" "请按线上部署同名变量提供 SERVER_RUNTIME_TOKEN，可放在 .env/.env.local 或 packages/server/.env(.local)。"
 }
@@ -523,6 +550,8 @@ try_start_existing_service_container() {
   local display_name="$2"
 # 记录containerID。
   local container_id=""
+# 记录启动输出。
+  local start_output=""
 
   container_id="$(docker_compose_service_container_id "$service_name")"
 
@@ -531,8 +560,18 @@ try_start_existing_service_container() {
   fi
 
   echo "==> 启动已有本地 ${display_name} 容器: ${container_id}"
-  docker start "$container_id" >/dev/null
-  return 0
+  if start_output="$(docker start "$container_id" 2>&1)"; then
+    return 0
+  fi
+
+  echo "$start_output" >&2
+  if grep -q 'network .* not found' <<<"$start_output"; then
+    echo "==> ${display_name} 容器引用的 Docker network 已不存在，删除旧容器并保留数据卷等待 Compose 重建"
+    docker rm -f "$container_id" >/dev/null
+    return 1
+  fi
+
+  return 1
 }
 
 # 校验当前配置的数据库是否已经能在本地 PostgreSQL 容器内通过账号密码访问。
@@ -785,6 +824,7 @@ case "$MODE" in
 
     export SERVER_DATABASE_URL="${SERVER_DATABASE_URL:-$DATABASE_URL}"
     export DATABASE_URL="$SERVER_DATABASE_URL"
+    export SERVER_OUTBOX_RUNTIME_ENABLED="${SERVER_OUTBOX_RUNTIME_ENABLED:-1}"
     export SERVER_DEBUG_MOVEMENT="${SERVER_DEBUG_MOVEMENT:-0}"
     export VITE_DEBUG_MOVEMENT="${VITE_DEBUG_MOVEMENT:-${SERVER_DEBUG_MOVEMENT}}"
     export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-http://127.0.0.1:${SERVER_PORT}}"
@@ -806,6 +846,13 @@ case "$MODE" in
 
     wait_for_server_port_ready "127.0.0.1" "${SERVER_PORT}" "${SERVER_STARTUP_TIMEOUT_SECONDS:-120}"
 
+    echo "==> 启动数据库备份 worker..."
+    export SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR="${SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR:-.runtime}"
+    export SERVER_GM_DATABASE_BACKUP_DIR="${SERVER_GM_DATABASE_BACKUP_DIR:-.runtime/gm-database-backups}"
+    setsid bash -c 'exec node packages/server/dist/tools/database-backup-worker.js' &
+# 记录备份workerpid。
+    BACKUP_WORKER_PID=$!
+
     echo "==> 启动主线客户端 (port ${CLIENT_PORT}, proxy -> ${VITE_DEV_PROXY_TARGET})..."
     setsid bash -c 'cd packages/client && exec npx vite --host --strictPort --port "$CLIENT_PORT"' &
 # 记录客户端pid。
@@ -818,6 +865,8 @@ case "$MODE" in
     echo "  client API : ${VITE_DEV_PROXY_TARGET}"
     echo "  postgres   : localhost:${DB_PORT}/${DB_DATABASE}"
     echo "  redis      : localhost:${REDIS_PORT}"
+    echo "  outbox     : in-process runtime"
+    echo "  backup     : database-backup-worker"
     echo "  move debug : server=${SERVER_DEBUG_MOVEMENT} client=${VITE_DEBUG_MOVEMENT}"
     echo "  Ctrl+C 停止所有服务"
     echo "========================================="
@@ -838,6 +887,8 @@ services:
   server:
     environment:
       SERVER_PLAYER_TOKEN_SECRET: '$(escape_yaml_single_quoted "$SERVER_PLAYER_TOKEN_SECRET")'
+      SERVER_GM_AUTH_SECRET: '$(escape_yaml_single_quoted "$SERVER_GM_AUTH_SECRET")'
+      SERVER_SECRET_ENCRYPTION_KEY: '$(escape_yaml_single_quoted "$SERVER_SECRET_ENCRYPTION_KEY")'
       SERVER_GM_PASSWORD: '$(escape_yaml_single_quoted "$SERVER_GM_PASSWORD")'
       GM_PASSWORD: '$(escape_yaml_single_quoted "$GM_PASSWORD")'
 EOF
@@ -860,6 +911,8 @@ EOF
     echo "  DB_PORT=15432             指定主线 PostgreSQL 端口"
     echo "  REDIS_PORT=16379          指定主线 Redis 端口"
     echo "  SERVER_PLAYER_TOKEN_SECRET=... 指定玩家令牌签名密钥"
+    echo "  SERVER_GM_AUTH_SECRET=... 指定 GM token 签名密钥"
+    echo "  SERVER_SECRET_ENCRYPTION_KEY=... 指定 GM 密钥管理加密密钥"
     echo "  SERVER_GM_PASSWORD=...    指定 GM 强密码"
     echo "  SERVER_RUNTIME_TOKEN=...   指定线上同名运行时令牌"
     echo "  SERVER_DEBUG_MOVEMENT=1    开启服务端移动诊断日志"

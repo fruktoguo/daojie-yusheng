@@ -46,6 +46,8 @@ const NODE_KEY_ATTRIBUTES = [
   'data-chat-message-id',
   // 炼丹 / 制作
   'data-craft-recipe-id',
+  // NPC 商店
+  'data-npc-shop-quantity',
   // 建造 / 定义
   'data-def-id',
   // 通用 id 兜底

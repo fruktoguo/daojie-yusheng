@@ -7,6 +7,7 @@ import { Injectable, Logger, type BeforeApplicationShutdown, type OnModuleInit }
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { isRelationMissingError } from './pg-error-utils';
 
 /** 通天塔进度数据结构 */
 export interface TongtianTowerProgress {
@@ -25,6 +26,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit, BeforeAppl
   private readonly pendingWritesByPlayerId = new Map<string, Promise<void>>();
   private pool: Pool | null = null;
   private enabled = false;
+  private recreating = false;
 
   constructor(private readonly databasePoolProvider: DatabasePoolProvider) {}
 
@@ -182,7 +184,35 @@ export class TongtianTowerPersistenceService implements OnModuleInit, BeforeAppl
         this.enabled = false;
         return;
       }
+      if (isRelationMissingError(error)) {
+        await this.tryRecreateTable();
+        await this.pool.query(
+          `
+            INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
+            VALUES ($1, $2, $3, now())
+            ON CONFLICT (player_id) DO UPDATE SET
+              current_layer = EXCLUDED.current_layer,
+              highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
+              updated_at = now()
+          `,
+          [progress.playerId, progress.currentLayer, progress.highestLayer],
+        );
+        return;
+      }
       throw error;
+    }
+  }
+
+  private async tryRecreateTable(): Promise<void> {
+    if (!this.pool || this.recreating) return;
+    this.recreating = true;
+    try {
+      await ensureTongtianTowerProgressTable(this.pool);
+      this.logger.warn('player_tongtian_tower_progress 表已自动重建');
+    } catch (e: unknown) {
+      this.logger.error('player_tongtian_tower_progress 表自动重建失败', e instanceof Error ? e.message : String(e));
+    } finally {
+      this.recreating = false;
     }
   }
 }

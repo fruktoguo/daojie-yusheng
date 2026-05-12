@@ -83,6 +83,8 @@ export DB_USERNAME=mud
 export DB_PASSWORD='换成强密码'
 export DB_DATABASE=daojie_yusheng
 export SERVER_PLAYER_TOKEN_SECRET='换成长随机密钥'
+export SERVER_GM_AUTH_SECRET='换成长随机密钥'
+export SERVER_SECRET_ENCRYPTION_KEY='换成长随机密钥'
 export GM_PASSWORD='换成GM强密码'
 export SERVER_CORS_ORIGINS='https://你的域名'
 ```
