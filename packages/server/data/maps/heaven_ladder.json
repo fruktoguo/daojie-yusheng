@@ -34,6 +34,23 @@
       "targetPortalId": "guizang_vein_cavern:32,31",
       "observeTitle": "归藏回阶",
       "observeDesc": "回身仍能看见归藏脉窟的道基古阵，退回去便能离开天梯。"
+    },
+    {
+      "x": 57,
+      "y": 3,
+      "targetMapId": "yunxu_terrace",
+      "targetX": 29,
+      "targetY": 6,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "heaven_ladder:57,3",
+      "direction": "two_way",
+      "targetPortalId": "yunxu_terrace:29,6",
+      "observeTitle": "云墟台",
+      "observeDesc": "走过最后一阶，道压散尽。前方云雾中一座石台浮现，筑基修士的聚集地已在眼前。"
     }
   ],
   "spawnPoint": {

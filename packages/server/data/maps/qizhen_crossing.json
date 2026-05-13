@@ -161,6 +161,23 @@
       "id": "qizhen_crossing:29,15",
       "direction": "two_way",
       "targetPortalId": "sky_ruins_core_well:15,9"
+    },
+    {
+      "x": 29,
+      "y": 9,
+      "targetMapId": "yunxu_terrace",
+      "targetX": 7,
+      "targetY": 30,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "id": "qizhen_crossing:29,9",
+      "direction": "two_way",
+      "targetPortalId": "yunxu_terrace:7,30",
+      "observeTitle": "云墟台云渡",
+      "observeDesc": "一道旧阵光柱从压基坪直上云端，踏入后可抵达筑基修士聚集的云墟台。"
     }
   ],
   "spawnPoint": {
