@@ -233,6 +233,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     miningDamageRate: item.miningDamageRate ?? template.miningDamageRate,
     consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
+    contextActions: item.contextActions ?? template.contextActions,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
     respawnBindMapId: item.respawnBindMapId ?? template.respawnBindMapId,

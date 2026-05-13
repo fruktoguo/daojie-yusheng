@@ -7036,6 +7036,15 @@
       "tags": [
         "forging_tool"
       ],
+      "contextActions": [
+        {
+          "id": "forging:open",
+          "name": "炼器",
+          "type": "craft",
+          "desc": "查看当前炼器工具与器方目录。",
+          "cooldownLeft": 0
+        }
+      ],
       "alchemySuccessRate": 0.1,
       "alchemySpeedRate": 0.2
     },
@@ -7062,6 +7071,15 @@
       "tags": [
         "enhancement_hammer"
       ],
+      "contextActions": [
+        {
+          "id": "enhancement:open",
+          "name": "强化",
+          "type": "craft",
+          "desc": "查看当前强化候选、保护材料与强化状态。",
+          "cooldownLeft": 0
+        }
+      ],
       "enhancementSuccessRate": 0.01,
       "enhancementSpeedRate": 0.2
     },
@@ -7076,6 +7094,15 @@
       "tags": [
         "alchemy_furnace"
       ],
+      "contextActions": [
+        {
+          "id": "alchemy:open",
+          "name": "炼丹",
+          "type": "craft",
+          "desc": "查看当前丹炉、丹方目录与炼制状态。",
+          "cooldownLeft": 0
+        }
+      ],
       "alchemySuccessRate": 0.1,
       "alchemySpeedRate": 0.2
     },
@@ -7089,6 +7116,15 @@
       "equipSlot": "weapon",
       "tags": [
         "building_hammer"
+      ],
+      "contextActions": [
+        {
+          "id": "building:open",
+          "name": "营造",
+          "type": "craft",
+          "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
+          "cooldownLeft": 0
+        }
       ]
     },
     {
