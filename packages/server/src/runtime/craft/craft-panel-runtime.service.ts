@@ -6,7 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, applyAsymptoticSuccessModifier, computeAdjustedCraftTicks, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, applyAsymptoticSuccessModifier, applyEquipmentAttributeEffectivenessToItemStack, computeAdjustedCraftTicks, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
@@ -1371,7 +1371,10 @@ export class CraftPanelRuntimeService {
  */
 
     getWeapon(player) {
-        return this.getEquippedItem(player, 'weapon');
+        const weapon = this.getEquippedItem(player, 'weapon');
+        return weapon
+            ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
+            : null;
     }
     /**
  * getEquippedItem：读取Equipped道具。

@@ -4,7 +4,7 @@
  * 不修改玩家运行态，仅做只读投影。
  */
 import { Injectable } from '@nestjs/common';
-import { EQUIP_SLOTS, applyAsymptoticSuccessModifier, computeAdjustedCraftTicks, computeEnhancementAdjustedSuccessRate as computeSharedEnhancementAdjustedSuccessRate } from '@mud/shared';
+import { EQUIP_SLOTS, applyAsymptoticSuccessModifier, applyEquipmentAttributeEffectivenessToItemStack, computeAdjustedCraftTicks, computeEnhancementAdjustedSuccessRate as computeSharedEnhancementAdjustedSuccessRate } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
@@ -201,7 +201,10 @@ function getEnhancementRequirements(config, targetLevel) {
  */
 
 function getWeapon(player) {
-    return getEquippedItem(player, 'weapon');
+    const weapon = getEquippedItem(player, 'weapon');
+    return weapon
+        ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
+        : null;
 }
 /**
  * getEquippedItem：读取Equipped道具。

@@ -1419,9 +1419,10 @@ export class PlayerRuntimeService {
  */
 
     enqueueNotice(playerId, input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const player = this.getPlayerOrThrow(playerId);
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
         this.rollbackExpiredTransfer(player);
         if (player.transferWriteBlocked) {
             return player;

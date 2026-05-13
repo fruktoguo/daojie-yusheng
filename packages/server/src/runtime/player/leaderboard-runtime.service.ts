@@ -303,13 +303,13 @@ export class LeaderboardRuntimeService {
                 : undefined,
             realmProgress: toNonNegativeInteger(player.realm?.progress, 0),
             foundation: toNonNegativeInteger(player.foundation, 0),
-            monsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'monsterKillCount') ?? player.monsterKillCount, 0),
-            eliteMonsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'eliteMonsterKillCount') ?? player.eliteMonsterKillCount, 0),
-            bossMonsterKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'bossMonsterKillCount') ?? player.bossMonsterKillCount, 0),
+            monsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'monsterKillCount'),
+            eliteMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'eliteMonsterKillCount'),
+            bossMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'bossMonsterKillCount'),
             spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID),
             marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
-            playerKillCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'playerKillCount') ?? player.playerKillCount, 0),
-            deathCount: toNonNegativeInteger(this.playerCountersPersistenceService?.get?.(player.playerId, 'deathCount') ?? player.deathCount, 0),
+            playerKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'playerKillCount'),
+            deathCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'deathCount'),
             bodyTrainingLevel: toNonNegativeInteger(player.bodyTraining?.level, 0),
             bodyTrainingExp: toNonNegativeInteger(player.bodyTraining?.exp, 0),
             bodyTrainingExpToNext: toNonNegativeInteger(player.bodyTraining?.expToNext, 0),
@@ -598,4 +598,14 @@ function readMarketStorageItemCount(items, itemId) {
         const storageItemId = entry?.item?.itemId ?? entry?.itemId;
         return storageItemId === itemId ? total + toNonNegativeInteger(entry.count, 0) : total;
     }, 0);
+}
+
+function readPlayerCounterValue(counterService, player, key) {
+    const counters = typeof counterService?.getAll === 'function'
+        ? counterService.getAll(player.playerId)
+        : null;
+    if (counters && typeof counters.has === 'function' && counters.has(key)) {
+        return toNonNegativeInteger(counters.get(key), 0);
+    }
+    return toNonNegativeInteger(player?.[key], 0);
 }
