@@ -172,24 +172,6 @@ export class WorldRuntimeCraftMutationService {
         if (!activeJob || !activeJob.jobRunId) {
             return;
         }
-        const durableOperationService = deps?.durableOperationService ?? null;
-        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
-            ? player.runtimeOwnerId.trim()
-            : '';
-        const sessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-            : 0;
-        const activeJobKind = activeJob.jobType === 'enhancement'
-            ? 'enhancement'
-            : activeJob.jobType === 'forging'
-                ? 'forging'
-                : 'alchemy';
-        if (durableOperationService?.isEnabled?.()
-            && runtimeOwnerId
-            && sessionEpoch > 0
-            && (activeJobKind === 'alchemy' || activeJobKind === 'forging' || activeJobKind === 'enhancement')) {
-            return;
-        }
         await this.craftPanelRuntimeService.persistTechniqueActivitySnapshot(player);
     }
 

@@ -2383,9 +2383,9 @@ function cloneEnhancementJob(entry) {
 }
 
 function createCraftJobRunId(playerId, jobType) {
-    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
     const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : jobType === 'forging' ? 'forging' : 'alchemy';
-    return `job:${normalizedPlayerId || 'player'}:${normalizedJobType}:${Date.now().toString(36)}`;
+    const entropy = Math.random().toString(36).slice(2, 8);
+    return `job:${normalizedJobType}:${Date.now().toString(36)}${entropy}`;
 }
 
 function normalizeCraftQueueStartMode(value) {
