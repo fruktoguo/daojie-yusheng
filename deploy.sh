@@ -73,7 +73,6 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/daojie-yusheng}"
 ENV_FILE="${ENV_FILE:-${DEPLOY_DIR}/prod.env}"
 STACK_NAME="${STACK_NAME:-daojie-yusheng}"
 LOCK_DIR="/tmp/daojie-ccr-auto-update.lock"
-STATE_FILE="${DEPLOY_DIR}/ccr-auto-update.state"
 
 log() {
   printf '[daojie-ccr-auto-update] %s\n' "$1"
@@ -102,64 +101,49 @@ if [ -z "${TENCENT_IMAGE_PREFIX:-}" ]; then
   exit 0
 fi
 
-remote_image_digest() {
+# 拉取镜像并返回本地镜像 ID（穿透 registry 缓存）
+pull_image_id() {
   local image="$1"
-  docker manifest inspect -v "$image" 2>/dev/null \
-    | sed -n 's/.*"digest": "\(sha256:[0-9a-f]\{64\}\)".*/\1/p' \
-    | head -n 1
+  if ! docker pull "$image" >/dev/null 2>&1; then
+    return 1
+  fi
+  docker image inspect "$image" --format '{{.Id}}' 2>/dev/null | head -n 1
 }
 
-service_image_digest() {
+# 获取服务运行中容器的镜像 ID（真实运行态，不依赖 service spec）
+running_image_id() {
   local service="$1"
-  docker service inspect "$service" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null \
-    | sed -n 's/.*@\(sha256:[0-9a-f]\{64\}\).*/\1/p' \
-    | head -n 1
-}
-
-state_digest() {
-  local key="$1"
-  if [ ! -f "$STATE_FILE" ]; then
+  local container_id
+  container_id="$(docker ps --filter "label=com.docker.swarm.service.name=$service" --format '{{.ID}}' | head -n 1)"
+  if [ -z "$container_id" ]; then
     return 0
   fi
-  sed -n "s/^${key}=//p" "$STATE_FILE" | tail -n 1
-}
-
-write_state() {
-  local server_digest="$1"
-  local client_digest="$2"
-  local tmp_file
-
-  tmp_file="${STATE_FILE}.tmp"
-  {
-    printf 'server=%s\n' "$server_digest"
-    printf 'client=%s\n' "$client_digest"
-    date -u '+updated_at=%Y-%m-%dT%H:%M:%SZ'
-  } > "$tmp_file"
-  mv "$tmp_file" "$STATE_FILE"
+  docker inspect "$container_id" --format '{{.Image}}' 2>/dev/null | head -n 1
 }
 
 service_exists() {
   docker service inspect "$1" >/dev/null 2>&1
 }
 
-update_service_if_needed() {
+update_service() {
   local service="$1"
   local image="$2"
-  local remote_digest="$3"
-  local current_digest
+  local pulled_id="$3"
+  local running_id
 
   if ! service_exists "$service"; then
     log "服务不存在，跳过: $service"
     return 0
   fi
 
-  current_digest="$(service_image_digest "$service")"
-  if [ -n "$current_digest" ] && [ "$current_digest" = "$remote_digest" ]; then
-    log "$service 已是最新: $current_digest"
+  running_id="$(running_image_id "$service")"
+
+  if [ -n "$running_id" ] && [ "$running_id" = "$pulled_id" ]; then
+    log "$service 已是最新"
     return 0
   fi
 
-  log "更新 $service: ${current_digest:-none} -> $remote_digest"
+  log "更新 $service: ${running_id:-none} -> $pulled_id"
   docker service update --with-registry-auth --detach=false --image "$image" "$service"
 }
 
@@ -194,39 +178,33 @@ wait_http_ok() {
 server_image="${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG}"
 client_image="${TENCENT_IMAGE_PREFIX}/daojie-yusheng-client:${CLIENT_IMAGE_TAG}"
 
-server_digest="$(remote_image_digest "$server_image")"
-client_digest="$(remote_image_digest "$client_image")"
-
-if [ -z "$server_digest" ]; then
-  log "无法读取远端 server 镜像 digest: $server_image"
+log "拉取 server 镜像..."
+server_pulled_id="$(pull_image_id "$server_image")"
+if [ -z "$server_pulled_id" ]; then
+  log "拉取 server 镜像失败: $server_image"
   exit 0
 fi
 
-if [ -z "$client_digest" ]; then
-  log "无法读取远端 client 镜像 digest: $client_image"
+log "拉取 client 镜像..."
+client_pulled_id="$(pull_image_id "$client_image")"
+if [ -z "$client_pulled_id" ]; then
+  log "拉取 client 镜像失败: $client_image"
   exit 0
 fi
 
-server_current="$(service_image_digest "${STACK_NAME}_server")"
-backup_current="$(service_image_digest "${STACK_NAME}_backup-worker")"
-client_current="$(service_image_digest "${STACK_NAME}_client")"
-server_applied="${server_current:-$(state_digest server)}"
-backup_applied="${backup_current:-$server_applied}"
-client_applied="${client_current:-$(state_digest client)}"
 updated_server=0
 updated_client=0
 
-if [ "$server_applied" != "$server_digest" ]; then
-  update_service_if_needed "${STACK_NAME}_server" "$server_image" "$server_digest"
+server_running="$(running_image_id "${STACK_NAME}_server")"
+if [ "$server_running" != "$server_pulled_id" ]; then
+  update_service "${STACK_NAME}_server" "$server_image" "$server_pulled_id"
+  update_service "${STACK_NAME}_backup-worker" "$server_image" "$server_pulled_id"
   updated_server=1
 fi
 
-if [ "$backup_applied" != "$server_digest" ]; then
-  update_service_if_needed "${STACK_NAME}_backup-worker" "$server_image" "$server_digest"
-fi
-
-if [ "$client_applied" != "$client_digest" ]; then
-  update_service_if_needed "${STACK_NAME}_client" "$client_image" "$client_digest"
+client_running="$(running_image_id "${STACK_NAME}_client")"
+if [ "$client_running" != "$client_pulled_id" ]; then
+  update_service "${STACK_NAME}_client" "$client_image" "$client_pulled_id"
   updated_client=1
 fi
 
@@ -242,7 +220,6 @@ else
   log "${STACK_NAME}_client 无需更新"
 fi
 
-write_state "$server_digest" "$client_digest"
 log "本轮检查完成"
 AUTO_UPDATE_EOF
 
