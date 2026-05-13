@@ -35,7 +35,9 @@ type MainMarketStateSourceOptions = {
     | 'sendBuyoutAuctionLot'
     | 'sendCancelMarketOrder'
     | 'sendClaimMarketStorage'
-  >;
+  > & {
+    sendRequestMarketTradeHistory: (page: number, source?: 'market' | 'auction') => void;
+  };
   /**
  * getPlayer：玩家引用。
  */
@@ -68,7 +70,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onRequestListings: (payload) => options.socket.sendRequestMarketListings(payload),
     onRequestAuctionListings: (payload) => options.socket.sendRequestAuctionListings(payload),
     onRequestItemBook: (itemKey) => options.socket.sendRequestMarketItemBook(itemKey),
-    onRequestTradeHistory: (page) => options.socket.sendRequestMarketTradeHistory(page),
+    onRequestTradeHistory: (page, source) => options.socket.sendRequestMarketTradeHistory(page, source),
     onCreateSellOrder: (slotIndex, quantity, unitPrice) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
     onCreateAuctionSellOrder: (slotIndex, quantity, unitPrice, buyoutPrice) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice, 'auction', buyoutPrice),
     onCreateBuyOrder: (itemKey, quantity, unitPrice) => options.socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),

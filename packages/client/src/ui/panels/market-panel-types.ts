@@ -125,7 +125,7 @@ export interface MarketPanelCallbacks {
   onRequestListings: (payload: import('@mud/shared').C2S_RequestMarketListings) => void;
   onRequestAuctionListings: (payload: import('@mud/shared').C2S_RequestAuctionListings) => void;
   onRequestItemBook: (itemKey: string) => void;
-  onRequestTradeHistory: (page: number) => void;
+  onRequestTradeHistory: (page: number, source?: 'market' | 'auction') => void;
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
   onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number) => void;
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
@@ -212,7 +212,7 @@ export interface MarketPanelInternals {
   requestItemBook(itemKey: string): void;
   requestListings(page: number): void;
   requestAuctionListings(page: number): void;
-  requestTradeHistory(page: number): void;
+  requestTradeHistory(page: number, source?: 'market' | 'auction'): void;
   syncTradeDialogOverlay(): void;
   syncPageSelection(): void;
   clampPage(page: number, totalItems: number): number;

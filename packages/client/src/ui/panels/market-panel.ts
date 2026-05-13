@@ -98,7 +98,7 @@ interface MarketPanelCallbacks {
  * onRequestTradeHistory：onRequestTradeHistory相关字段。
  */
 
-  onRequestTradeHistory: (page: number) => void;
+  onRequestTradeHistory: (page: number, source?: 'market' | 'auction') => void;
   /**
  * onCreateSellOrder：onCreateSell订单相关字段。
  */
@@ -614,6 +614,8 @@ export class MarketPanel {
     this.tradeHistoryPage = data.page;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
+    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      this.renderAuctionModal();
     }
   }
 
@@ -1955,10 +1957,11 @@ export class MarketPanel {
   }
 
   /** 向外部请求交易历史分页。 */
-  private requestTradeHistory(page: number): void {
+  private requestTradeHistory(page: number, source?: 'market' | 'auction'): void {
     this.tradeHistoryLoading = true;
     this.tradeHistoryPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
-    this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage);
+    const requestSource = source ?? (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER) ? 'auction' : 'market');
+    this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage, requestSource);
   }
 
   /** 向外部请求当前筛选条件下的列表分页。 */
