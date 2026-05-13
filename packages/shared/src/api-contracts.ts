@@ -1456,6 +1456,10 @@ export interface GmDatabaseTableStat {
   indexSize: string;
   toastBytes: number;
   toastSize: string;
+  cleanupAllowed?: boolean;
+  cleanupOlderThanAllowed?: boolean;
+  cleanupTimeColumn?: string | null;
+  cleanupBlockedReason?: string | null;
 }
 
 /** 数据库表占用统计响应。 */
