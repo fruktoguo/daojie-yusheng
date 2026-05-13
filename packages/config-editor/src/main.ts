@@ -522,13 +522,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
     try {
-      const payload = await response.json() as { error?: string; message?: string };
-      message = payload.error ?? payload.message ?? message;
-    } catch {
       const text = await response.text();
       if (text.trim()) {
-        message = text.trim();
+        try {
+          const payload = JSON.parse(text) as { error?: string; message?: string };
+          message = payload.error ?? payload.message ?? message;
+        } catch {
+          message = text.trim();
+        }
       }
+    } catch {
+      // body unreadable, keep default status message
     }
     throw new Error(message);
   }
