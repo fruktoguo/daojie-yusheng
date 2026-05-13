@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   assertCombatAoiResultEventBudget,
   computeAffectedCellsFromAnchor,
@@ -27,7 +27,6 @@ import {
   queryMonsterSkillFailureReasons,
   queryRecentCombatAuditEvents,
 } from '../../combat/combat-event-query';
-import { CombatAuditOutboxService } from '../../../persistence/combat-audit-outbox.service';
 
 type AnyRecord = Record<string, any>;
 
@@ -37,11 +36,7 @@ export class WorldRuntimeCombatActionService {
   private readonly logger = new Logger(WorldRuntimeCombatActionService.name);
   private readonly combatEvents = [];
 
-  constructor(
-    @Optional()
-    @Inject(CombatAuditOutboxService)
-    private readonly combatAuditOutboxService: CombatAuditOutboxService | null = null,
-  ) {}
+  constructor() {}
 
   createMonsterAction(action, phase: any = CombatActionPhase.Instant) {
     const kind = resolveMonsterCombatActionKind(action);
@@ -2312,10 +2307,7 @@ export class WorldRuntimeCombatActionService {
   }
 
   enqueueCombatAuditEvent(auditEvent) {
-    if (!auditEvent || typeof this.combatAuditOutboxService?.enqueue !== 'function') {
-      return false;
-    }
-    return this.combatAuditOutboxService.enqueue(auditEvent);
+    return false;
   }
 
   listCombatEvents(limit = 50) {

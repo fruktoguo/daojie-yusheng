@@ -54,7 +54,6 @@ async function testMonsterKillCountersUseTierBuckets() {
   const service = new WorldRuntimePlayerCombatService(
     contentTemplateRepository as never,
     playerRuntimeService as never,
-    null,
     {
       increment(playerId: string, key: string) {
         increments.push([playerId, key]);

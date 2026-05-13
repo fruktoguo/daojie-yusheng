@@ -2,8 +2,6 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
-import { applyDurableInventoryGrant, canUseDurableInventoryGrant } from '../world-runtime-inventory-grant.helpers';
-import { CombatAuditOutboxService } from '../../../persistence/combat-audit-outbox.service';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
@@ -24,7 +22,6 @@ export class WorldRuntimePlayerCombatService {
  */
 
     playerRuntimeService;
-    combatAuditOutboxService;
     playerCountersPersistenceService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
@@ -36,13 +33,12 @@ export class WorldRuntimePlayerCombatService {
     constructor(
         @Inject(ContentTemplateRepository) contentTemplateRepository: ContentTemplateRepository,
         @Inject(PlayerRuntimeService) playerRuntimeService: PlayerRuntimeService,
-        @Optional() @Inject(CombatAuditOutboxService) combatAuditOutboxService: CombatAuditOutboxService | null = null,
-        @Optional() @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
+        @Optional() playerCountersPersistenceServiceOrLegacyAudit: PlayerCountersPersistenceService | null = null,
+        @Optional() legacyPlayerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
-        this.combatAuditOutboxService = combatAuditOutboxService;
-        this.playerCountersPersistenceService = playerCountersPersistenceService;
+        this.playerCountersPersistenceService = legacyPlayerCountersPersistenceService ?? playerCountersPersistenceServiceOrLegacyAudit;
     }    
     /**
  * handlePlayerMonsterKill：处理玩家怪物Kill并更新相关状态。
@@ -255,41 +251,8 @@ export class WorldRuntimePlayerCombatService {
             if (!player) {
                 throw new Error(`inventory_grant_player_missing:${playerId}`);
             }
-            if (!this.canUseDurableInventoryGrant(player, deps)) {
-                throw new Error(`durable_inventory_grant_required:monster_loot:${playerId}:${item.itemId}`);
-            }
-            const committed = await this.grantInventoryItemDurably({
-                playerId,
-                player,
-                item,
-                deps,
-                instance,
-                sourceType: 'monster_loot',
-                sourceRefId: sourceRefId || `monster-loot:${instance?.meta?.instanceId ?? player.instanceId}:${x}:${y}:${item.itemId}`,
-                successNotice: `获得 ${formatItemStackLabel(item)}`,
-                fallbackNotice: `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但本次奖励落盘失败。`,
-                fallbackPosition: { x, y },
-            });
-            if (committed) {
-                this.recordCombatSemanticAudit('loot_grant', {
-                    instanceId: instance?.meta?.instanceId ?? player.instanceId ?? null,
-                    actor: { kind: 'player', id: playerId },
-                    actionId: 'monster_loot',
-                    target: buildItemAuditTarget(item),
-                    result: {
-                        item: buildItemAuditSnapshot(item),
-                        sourceType: 'monster_loot',
-                        sourceRefId: sourceRefId || `monster-loot:${instance?.meta?.instanceId ?? player.instanceId}:${x}:${y}:${item.itemId}`,
-                        granted: true,
-                    },
-                    application: {
-                        dirtyDomains: ['player:inventory'],
-                        persistenceTransfer: 'durable_operation',
-                        writesDatabaseInTick: false,
-                    },
-                    tags: ['semantic', 'loot', 'monster_loot'],
-                });
-            }
+            this.playerRuntimeService.receiveInventoryItem(playerId, item);
+            deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
@@ -298,27 +261,6 @@ export class WorldRuntimePlayerCombatService {
             pills: [{ key: 'itemLabel', style: 'target' }],
         });
         deps.queuePlayerNotice(playerId, dropNotice.text, dropNotice.kind, undefined, undefined, dropNotice.structured);
-        this.recordCombatSemanticAudit('loot_drop', {
-            instanceId: instance?.meta?.instanceId ?? null,
-            actor: { kind: 'player', id: playerId },
-            actionId: 'monster_loot',
-            target: buildItemAuditTarget(item),
-            result: {
-                item: buildItemAuditSnapshot(item),
-                sourceType: 'monster_loot',
-                sourceRefId: sourceRefId || `monster-loot:${instance?.meta?.instanceId ?? ''}:${x}:${y}:${item.itemId}`,
-                dropped: true,
-                reason: 'inventory_full',
-                x,
-                y,
-            },
-            application: {
-                dirtyDomains: ['instance:ground_items'],
-                persistenceTransfer: 'dirty_domain_flush',
-                writesDatabaseInTick: false,
-            },
-            tags: ['semantic', 'loot', 'monster_loot'],
-        });
     }    
     /**
  * dispatchDamagePlayer：判断Damage玩家是否满足条件。
@@ -446,42 +388,8 @@ export class WorldRuntimePlayerCombatService {
         const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
         if (reward && deathSite.instance) {
             if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward.itemId)) {
-                if (!this.canUseDurableInventoryGrant(killer, deps)) {
-                    throw new Error(`durable_inventory_grant_required:pvp_loot:${killer.playerId}:${reward.itemId}`);
-                }
-                const committed = await this.grantInventoryItemDurably({
-                    playerId: killer.playerId,
-                    player: killer,
-                    item: reward,
-                    deps,
-                    instance: deathSite.instance,
-                    sourceType: 'pvp_loot',
-                    sourceRefId: `pvp:${killer.playerId}:${victim.playerId}:${reward.itemId}`,
-                    successNotice: `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`,
-                    fallbackNotice: `${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处，但本次奖励落盘失败。`,
-                    fallbackPosition: { x: deathSite.x, y: deathSite.y },
-                });
-                if (committed) {
-                    this.recordCombatSemanticAudit('loot_grant', {
-                        instanceId: deathSite.instance?.meta?.instanceId ?? killer.instanceId ?? null,
-                        actor: { kind: 'player', id: killer.playerId },
-                        actionId: 'pvp_loot',
-                        target: buildItemAuditTarget(reward),
-                        result: {
-                            item: buildItemAuditSnapshot(reward),
-                            sourceType: 'pvp_loot',
-                            sourceRefId: `pvp:${killer.playerId}:${victim.playerId}:${reward.itemId}`,
-                            victimPlayerId: victim.playerId,
-                            granted: true,
-                        },
-                        application: {
-                            dirtyDomains: ['player:inventory'],
-                            persistenceTransfer: 'durable_operation',
-                            writesDatabaseInTick: false,
-                        },
-                        tags: ['semantic', 'loot', 'pvp_loot'],
-                    });
-                }
+                this.playerRuntimeService.receiveInventoryItem(killer.playerId, reward);
+                deps.queuePlayerNotice(killer.playerId, `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`, 'loot');
             }
             else {
                 deps.spawnGroundItem(deathSite.instance, deathSite.x, deathSite.y, reward);
@@ -490,103 +398,12 @@ export class WorldRuntimePlayerCombatService {
                     pills: [{ key: 'itemName', style: 'target' }, { key: 'victimName', style: 'target' }],
                 });
                 deps.queuePlayerNotice(killer.playerId, pvpDropNotice.text, pvpDropNotice.kind, undefined, undefined, pvpDropNotice.structured);
-                this.recordCombatSemanticAudit('loot_drop', {
-                    instanceId: deathSite.instance?.meta?.instanceId ?? killer.instanceId ?? null,
-                    actor: { kind: 'player', id: killer.playerId },
-                    actionId: 'pvp_loot',
-                    target: buildItemAuditTarget(reward),
-                    result: {
-                        item: buildItemAuditSnapshot(reward),
-                        sourceType: 'pvp_loot',
-                        sourceRefId: `pvp:${killer.playerId}:${victim.playerId}:${reward.itemId}`,
-                        victimPlayerId: victim.playerId,
-                        dropped: true,
-                        reason: 'inventory_full',
-                        x: deathSite.x,
-                        y: deathSite.y,
-                    },
-                    application: {
-                        dirtyDomains: ['instance:ground_items'],
-                        persistenceTransfer: 'dirty_domain_flush',
-                        writesDatabaseInTick: false,
-                    },
-                    tags: ['semantic', 'loot', 'pvp_loot'],
-                });
             }
         }
     }
 
-    canUseDurableInventoryGrant(player: any, deps: any) {
-        return canUseDurableInventoryGrant(player, deps?.durableOperationService ?? null);
-    }
-
-    async grantInventoryItemDurably(input: any) {
-        const committed = await applyDurableInventoryGrant({
-            playerId: input.playerId,
-            player: input.player,
-            playerRuntimeService: this.playerRuntimeService,
-            durableOperationService: input.deps.durableOperationService,
-            instanceCatalogService: input.deps.instanceCatalogService,
-            operationId: buildInventoryGrantOperationId(input.playerId, input.sourceType, input.sourceRefId, input.item),
-            sourceType: input.sourceType,
-            sourceRefId: input.sourceRefId,
-            grantedItems: [input.item],
-            mutateRuntime: async () => {
-                this.playerRuntimeService.receiveInventoryItem(input.playerId, input.item);
-            },
-            onFailure: async (error: unknown) => {
-                this.logger.warn(`背包奖励 durable 提交失败，已改为地面掉落：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} reason=${error instanceof Error ? error.message : String(error)}`);
-                this.dropInventoryGrantFallback(input);
-            },
-            swallowFailure: true,
-        });
-        if (committed) {
-            input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');
-        }
-        return committed === true;
-    }
-    dropInventoryGrantFallback(input: any) {
-        input.deps.spawnGroundItem(input.instance, input.fallbackPosition.x, input.fallbackPosition.y, input.item);
-        input.deps.queuePlayerNotice(input.playerId, input.fallbackNotice, 'loot');
-        this.recordCombatSemanticAudit('loot_drop', {
-            instanceId: input.instance?.meta?.instanceId ?? input.player?.instanceId ?? null,
-            actor: { kind: 'player', id: input.playerId },
-            actionId: input.sourceType,
-            target: buildItemAuditTarget(input.item),
-            result: {
-                item: buildItemAuditSnapshot(input.item),
-                sourceType: input.sourceType,
-                sourceRefId: input.sourceRefId,
-                dropped: true,
-                reason: 'durable_grant_failed',
-                x: input.fallbackPosition?.x ?? null,
-                y: input.fallbackPosition?.y ?? null,
-            },
-            application: {
-                dirtyDomains: ['instance:ground_items'],
-                persistenceTransfer: 'dirty_domain_flush',
-                writesDatabaseInTick: false,
-            },
-            tags: ['semantic', 'loot', input.sourceType],
-        });
-    }
     recordCombatSemanticAudit(action: string, input: any = {}) {
-        if (typeof this.combatAuditOutboxService?.enqueue !== 'function') {
-            return false;
-        }
-        return this.combatAuditOutboxService.enqueue({
-            type: 'combat_audit',
-            action,
-            instanceId: input.instanceId ?? null,
-            phase: input.phase ?? 'settlement',
-            actor: input.actor ?? null,
-            actionId: input.actionId ?? action,
-            target: input.target ?? null,
-            result: input.result ?? {},
-            application: input.application ?? null,
-            createdAt: input.createdAt ?? new Date().toISOString(),
-            tags: Array.isArray(input.tags) ? input.tags : ['semantic'],
-        });
+        return false;
     }
 
     /** 递增怪物击杀计数器。 */
@@ -638,22 +455,6 @@ function buildPlayerAuditTarget(player: any) {
     };
 }
 
-function buildItemAuditTarget(item: any) {
-    return {
-        kind: 'item',
-        id: typeof item?.itemId === 'string' ? item.itemId : null,
-    };
-}
-
-function buildItemAuditSnapshot(item: any) {
-    return {
-        itemId: typeof item?.itemId === 'string' ? item.itemId : null,
-        name: typeof item?.name === 'string' ? item.name : null,
-        count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
-        type: typeof item?.type === 'string' ? item.type : null,
-    };
-}
-
 function capturePlayerProgressionAuditSnapshot(player: any) {
     return {
         realmLv: Math.max(1, Math.trunc(Number(player?.realm?.realmLv ?? 1))),
@@ -697,58 +498,6 @@ function resolveCultivatingTechniqueExp(player: any) {
         return techniques[techniqueId]?.exp ?? 0;
     }
     return 0;
-}
-
-function captureInventoryGrantRollbackState(player: any) {
-    return {
-        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
-        inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
-        inventoryRevision: Math.max(0, Math.trunc(Number(player.inventory?.revision ?? 0))),
-        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
-        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
-        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
-    };
-}
-
-function restoreInventoryGrantRollbackState(player: any, rollbackState: any, playerRuntimeService: any) {
-    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
-        ? rollbackState.inventoryItems.map((entry: any) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
-        : [];
-    player.inventory.revision = rollbackState.inventoryRevision;
-    player.persistentRevision = rollbackState.persistentRevision;
-    player.selfRevision = rollbackState.selfRevision;
-    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
-    playerRuntimeService.playerProgressionService.refreshPreview(player);
-}
-
-async function resolveCombatInstanceLeaseContext(instanceId: string, deps: any) {
-    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
-    if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
-        return null;
-    }
-    const row = await deps.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
-    if (!row) {
-        return null;
-    }
-    const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
-    const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
-    if (!assignedNodeId || ownershipEpoch <= 0) {
-        return null;
-    }
-    return {
-        assignedNodeId,
-        ownershipEpoch,
-    };
-}
-
-function buildInventoryGrantOperationId(playerId: string, sourceType: string, sourceRefId: string, item: any) {
-    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
-    const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim() ? sourceType.trim() : 'inventory';
-    const normalizedSourceRefId = typeof sourceRefId === 'string' && sourceRefId.trim() ? sourceRefId.trim() : 'source';
-    const normalizedItemId = typeof item?.itemId === 'string' && item.itemId.trim() ? item.itemId.trim() : 'item';
-    const normalizedCount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-    return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemId}:x${normalizedCount}`;
 }
 
 function resolvePlayerDeathSite(victim: any, deps: any) {
