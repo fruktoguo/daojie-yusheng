@@ -769,9 +769,6 @@ export class WorldRuntimeLootContainerService {
             job.totalTicks = totalTicks;
             job.remainingTicks = totalTicks;
         }
-        const gatherContainerRollbackState = cloneContainerState(state);
-        const gatherJobRollbackState = player?.gatherJob ? structuredClone(player.gatherJob) : player?.gatherJob ?? null;
-        const gatherDirtyBefore = this.dirtyContainerPersistenceInstanceIds.has(location.instanceId);
         state.activeSearch.remainingTicks -= 1;
         job.remainingTicks = Math.max(0, state.activeSearch.remainingTicks);
         this.markContainerPersistenceDirty(location.instanceId);
@@ -801,25 +798,6 @@ export class WorldRuntimeLootContainerService {
                 }]);
         }
         state.activeSearch = undefined;
-        if (this.canUseDurableInventoryGrant(player, deps)) {
-            return await this.completeGatherDurably({
-                playerId,
-                player,
-                deps,
-                instanceId: location.instanceId,
-                state,
-                harvestedRow: {
-                    ...harvestedRow,
-                    item: harvestedItem,
-                    entries: [],
-                },
-                container,
-                job,
-                containerStateRollback: gatherContainerRollbackState,
-                gatherJobRollbackState,
-                dirtyBefore: gatherDirtyBefore,
-            });
-        }
         this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
         const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, player.gatherSkill, harvestedItem.level, computeHerbNativeGatherTicks(container, harvestedRow));
         const skillChanged = skillExpResult.changed;
@@ -881,23 +859,6 @@ export class WorldRuntimeLootContainerService {
             }
         }
         if (buildIsContainerSourceId(sourceId)) {
-            if (this.canUseDurableInventoryGrant(player, deps)) {
-                const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);
-                const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
-                await this.grantLootItemsDurably({
-                    playerId,
-                    player,
-                    items: [item],
-                    deps,
-                    instance: null,
-                    sourceType: 'container_take',
-                    sourceRefId: `${sourceId}:${itemKey}`,
-                    successNotice: `获得 ${formatItemStackLabel(item)}`,
-                    restoreOnFailure: () => this.restoreContainerStateRollback(location.instanceId, containerRollbackState),
-                    failureNotice: '拿取失败，物品仍保留在容器中。',
-                });
-                return;
-            }
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             deps.refreshQuestStates(playerId);
@@ -954,26 +915,6 @@ export class WorldRuntimeLootContainerService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (buildIsContainerSourceId(sourceId)) {
-            if (this.canUseDurableInventoryGrant(player, deps)) {
-                const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);
-                const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
-                if (takenItems.length === 0) {
-                    throw new BadRequestException('当前没有可拿取的物品');
-                }
-                await this.grantLootItemsDurably({
-                    playerId,
-                    player,
-                    items: takenItems,
-                    deps,
-                    instance: null,
-                    sourceType: 'container_take_all',
-                    sourceRefId: sourceId,
-                    successNotice: `获得 ${formatItemListSummary(takenItems)}`,
-                    restoreOnFailure: () => this.restoreContainerStateRollback(location.instanceId, containerRollbackState),
-                    failureNotice: '拿取失败，物品仍保留在容器中。',
-                });
-                return;
-            }
             const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
             if (takenItems.length === 0) {
                 throw new BadRequestException('当前没有可拿取的物品');
@@ -1005,7 +946,6 @@ export class WorldRuntimeLootContainerService {
             if (!taken) {
                 continue;
             }
-            this.playerRuntimeService.receiveInventoryItem(playerId, taken);
             takenItems.push(taken);
         }
         if (takenItems.length === 0) {
@@ -1025,6 +965,9 @@ export class WorldRuntimeLootContainerService {
                 partialNotice: takenItems.length < pile.items.length ? '背包空间不足，剩余物品暂时拿不下。' : '',
             });
             return;
+        }
+        for (const item of takenItems) {
+            this.playerRuntimeService.receiveInventoryItem(playerId, item);
         }
         deps.refreshQuestStates(playerId);
         const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${formatItemListSummary(takenItems)}`, { vars: { itemList: formatItemListSummary(takenItems) }, pills: [{ key: 'itemList', style: 'target' }] });
@@ -1113,30 +1056,6 @@ export class WorldRuntimeLootContainerService {
         return Boolean(durableOperationService?.isEnabled?.() && typeof durableOperationService?.grantInventoryItems === 'function' && runtimeOwnerId && sessionEpoch > 0);
     }
 
-    captureContainerStateRollback(instanceId, playerId, player, sourceId, deps) {
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
-        return {
-            dirtyBefore: this.dirtyContainerPersistenceInstanceIds.has(instanceId),
-            sourceId: resolved.state.sourceId,
-            state: cloneContainerState(resolved.state),
-        };
-    }
-
-    restoreContainerStateRollback(instanceId, rollbackState) {
-        let states = this.containerStatesByInstanceId.get(instanceId);
-        if (!states) {
-            states = new Map();
-            this.containerStatesByInstanceId.set(instanceId, states);
-        }
-        states.set(rollbackState.sourceId, cloneContainerState(rollbackState.state));
-        if (rollbackState.dirtyBefore) {
-            this.dirtyContainerPersistenceInstanceIds.add(instanceId);
-        }
-        else {
-            this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-        }
-    }
-
     async grantLootItemsDurably(input) {
         const rollbackState = captureInventoryGrantRollbackState(input.player);
         input.player.suppressImmediateDomainPersistence = true;
@@ -1190,88 +1109,6 @@ export class WorldRuntimeLootContainerService {
         if (input.partialNotice) {
             input.deps.queuePlayerNotice(input.playerId, input.partialNotice, 'info');
         }
-    }
-
-    async completeGatherDurably(input) {
-        const inventoryRollbackState = captureInventoryGrantRollbackState(input.player);
-        const gatherSkillRollbackState = input.player?.gatherSkill ? structuredClone(input.player.gatherSkill) : input.player?.gatherSkill ?? null;
-        input.player.suppressImmediateDomainPersistence = true;
-        let skillChanged = false;
-        try {
-            this.playerRuntimeService.receiveInventoryItem(input.playerId, input.harvestedRow.item);
-            const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, input.player.gatherSkill, input.harvestedRow.item.level, computeHerbNativeGatherTicks(input.container, input.harvestedRow));
-            skillChanged = skillExpResult.changed;
-            const nextRow = groupContainerLootRows(input.state.entries)[0] ?? null;
-            if (nextRow) {
-                const totalTicks = computeEffectiveHerbGatherTicks(input.player, input.container, nextRow);
-                input.state.activeSearch = {
-                    itemKey: nextRow.itemKey,
-                    totalTicks,
-                    remainingTicks: totalTicks,
-                };
-                input.player.gatherJob = {
-                    ...input.job,
-                    startedAt: Date.now(),
-                    totalTicks,
-                    remainingTicks: totalTicks,
-                    pausedTicks: 0,
-                    phase: 'gathering',
-                };
-            }
-            else {
-                input.player.gatherJob = null;
-            }
-            const dirtyDomains = ['inventory'];
-            if (skillChanged) {
-                dirtyDomains.push('profession');
-            }
-            this.playerRuntimeService.markPersistenceDirtyDomains(input.player, dirtyDomains);
-            this.playerRuntimeService.bumpPersistentRevision(input.player);
-            const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
-            await input.deps.durableOperationService.grantInventoryItems({
-                operationId: buildLootInventoryGrantOperationId(input.playerId, 'gather_completion', `${input.state.sourceId}:${input.harvestedRow.itemKey}`, [input.harvestedRow.item]),
-                playerId: input.playerId,
-                expectedRuntimeOwnerId: input.player.runtimeOwnerId,
-                expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
-                expectedInstanceId: input.player.instanceId ?? null,
-                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                sourceType: 'gather_completion',
-                sourceRefId: `${input.state.sourceId}:${input.harvestedRow.itemKey}`,
-                grantedItems: buildGrantedInventorySnapshots([input.harvestedRow.item]),
-                nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
-            });
-            grantCraftRealmProgress(this.playerRuntimeService, input.player, skillExpResult.gain / 2);
-        }
-        catch (_error) {
-            restoreInventoryGrantRollbackState(input.player, inventoryRollbackState, this.playerRuntimeService);
-            input.player.gatherSkill = gatherSkillRollbackState ? structuredClone(gatherSkillRollbackState) : gatherSkillRollbackState;
-            input.player.gatherJob = input.gatherJobRollbackState ? structuredClone(input.gatherJobRollbackState) : input.gatherJobRollbackState;
-            let states = this.containerStatesByInstanceId.get(input.instanceId);
-            if (!states) {
-                states = new Map();
-                this.containerStatesByInstanceId.set(input.instanceId, states);
-            }
-            states.set(input.containerStateRollback.sourceId, cloneContainerState(input.containerStateRollback));
-            if (input.dirtyBefore) {
-                this.dirtyContainerPersistenceInstanceIds.add(input.instanceId);
-            }
-            else {
-                this.dirtyContainerPersistenceInstanceIds.delete(input.instanceId);
-            }
-            return buildContainerTickResult(false, [{
-                    kind: 'warn',
-                    text: '采集失败，草药仍保留在原处。',
-                }]);
-        }
-        finally {
-            input.player.suppressImmediateDomainPersistence = inventoryRollbackState.suppressImmediateDomainPersistence === true;
-        }
-        input.deps.refreshQuestStates(input.playerId);
-        return buildContainerTickResult(false, [{
-                kind: 'loot',
-                text: `获得 ${formatItemStackLabel(input.harvestedRow.item)}`,
-            }], true, false, Boolean(skillChanged));
     }
 
     /**
