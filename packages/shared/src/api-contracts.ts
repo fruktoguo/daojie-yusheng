@@ -1444,6 +1444,43 @@ export interface GmUploadDatabaseBackupRes {
   scope?: GmDatabaseBackupScope;
 }
 
+/** 数据库单表占用统计。 */
+export interface GmDatabaseTableStat {
+  tableName: string;
+  rowEstimate: number;
+  totalBytes: number;
+  totalSize: string;
+  tableBytes: number;
+  tableSize: string;
+  indexBytes: number;
+  indexSize: string;
+  toastBytes: number;
+  toastSize: string;
+}
+
+/** 数据库表占用统计响应。 */
+export interface GmDatabaseTableStatsRes {
+  tables: GmDatabaseTableStat[];
+  totalBytes: number;
+  totalSize: string;
+  fetchedAt: string;
+}
+
+/** 数据库表清理请求。 */
+export interface GmDatabaseCleanupReq {
+  target: string;
+  mode?: 'older_than' | 'all';
+  olderThanDays?: number;
+}
+
+/** 数据库表清理响应。 */
+export interface GmDatabaseCleanupRes {
+  target: string;
+  mode: 'older_than' | 'all';
+  deletedRows: number;
+  message: string;
+}
+
 /** 触发数据库恢复的请求。 */
 export interface GmRestoreDatabaseReq {
 /**
@@ -1603,6 +1640,11 @@ export interface GmEditorItemOption {
  */
 
   tags?: string[];
+  /**
+ * contextActions：装备后暴露到交互列表的动作。
+ */
+
+  contextActions?: ItemStack['contextActions'];
   /**
  * effects：effect相关字段。
  */

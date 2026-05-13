@@ -3,6 +3,7 @@ import type { QiProjectionModifier } from './qi';
 import type { Attributes } from './attribute-types';
 import type { PlayerSpecialStats, TechniqueGrade } from './cultivation-types';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, TimePhaseId } from './world-core-types';
+import type { ActionDef } from './action-combat-types';
 
 /** 物品类型。 */
 export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 'skill_book';
@@ -702,6 +703,11 @@ export interface ItemStack {
  */
 
   tags?: string[];  
+  /**
+ * contextActions：装备后向交互列表暴露的动作。
+ */
+
+  contextActions?: ActionDef[];
   /**
  * enhanceLevel：enhance等级数值。
  */

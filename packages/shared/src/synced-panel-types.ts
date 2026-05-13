@@ -120,6 +120,11 @@ export interface SyncedItemStack {
 
   tags?: string[];
   /**
+ * contextActions：装备后暴露到交互列表的动作。
+ */
+
+  contextActions?: ItemStack['contextActions'];
+  /**
  * enhanceLevel：enhance等级数值。
  */
 

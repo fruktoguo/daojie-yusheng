@@ -1,7 +1,7 @@
 import type { AccountRedeemCodesRes } from './api-contracts';
 import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
-import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeSource } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
 import type { QuestRuntimeStateView } from './quest-types';
 import type { Suggestion } from './world-view-types';
@@ -286,6 +286,11 @@ export interface MarketItemBookView {
 /** 坊市成交历史视图。 */
 export interface MarketTradeHistoryView {
 /**
+ * source：成交记录来源。
+ */
+
+  source: MarketTradeSource;
+  /**
  * page：page相关字段。
  */
 

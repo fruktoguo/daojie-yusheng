@@ -67,6 +67,17 @@ export interface TileLayerSeed {
   legacyTileType: TileType;
 }
 
+export interface TileLayerFallbackContext {
+  mapId?: string | null;
+  templateId?: string | null;
+  instanceId?: string | null;
+  x?: number | null;
+  y?: number | null;
+  seed?: number | null;
+  routeDomain?: string | null;
+  mapKind?: string | null;
+}
+
 export type CellLayerTarget = 'terrain' | 'surface' | 'structure' | 'interactable';
 
 export interface TerrainDef {
@@ -112,9 +123,10 @@ export interface LayerCatalogValidationResult {
 }
 
 const EMPTY_INTERACTABLES: readonly InteractableKind[] = Object.freeze([]);
+const DEFAULT_TILE_LAYER_FALLBACK = seed(TerrainType.Grass, SurfaceType.Floor, null, TileType.Floor);
 
 const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
-  [TileType.Floor]: seed(TerrainType.Floor, SurfaceType.Floor, null, TileType.Floor),
+  [TileType.Floor]: defaultGroundSeed(TileType.Floor),
   [TileType.Road]: seed(TerrainType.Grass, SurfaceType.Road, null, TileType.Road),
   [TileType.Trail]: seed(TerrainType.Grass, SurfaceType.Trail, null, TileType.Trail),
   [TileType.Wall]: seed(TerrainType.Floor, null, StructureType.Wall, TileType.Wall),
@@ -125,9 +137,9 @@ const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
   [TileType.HouseCorner]: seed(TerrainType.Floor, null, StructureType.HouseCorner, TileType.HouseCorner),
   [TileType.ScreenWall]: seed(TerrainType.Floor, null, StructureType.ScreenWall, TileType.ScreenWall),
   [TileType.Veranda]: seed(TerrainType.Floor, SurfaceType.Veranda, null, TileType.Veranda),
-  [TileType.Portal]: seed(TerrainType.Floor, SurfaceType.Floor, null, TileType.Portal, [InteractableKind.Portal]),
-  [TileType.Stairs]: seed(TerrainType.Floor, SurfaceType.Floor, null, TileType.Stairs, [InteractableKind.Stairs]),
-  [TileType.StoneStairs]: seed(TerrainType.StoneGround, SurfaceType.StoneStairs, null, TileType.StoneStairs),
+  [TileType.Portal]: defaultGroundSeed(TileType.Portal, null, [InteractableKind.Portal]),
+  [TileType.Stairs]: defaultGroundSeed(TileType.Stairs, null, [InteractableKind.Stairs]),
+  [TileType.StoneStairs]: defaultGroundSeed(TileType.StoneStairs, null, EMPTY_INTERACTABLES, SurfaceType.StoneStairs),
   [TileType.Grass]: seed(TerrainType.Grass, null, null, TileType.Grass),
   [TileType.Hill]: seed(TerrainType.Hill, null, null, TileType.Hill),
   [TileType.Cliff]: seed(TerrainType.Cliff, null, null, TileType.Cliff),
@@ -141,16 +153,21 @@ const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
   [TileType.Void]: seed(TerrainType.Void, null, null, TileType.Void),
   [TileType.Tree]: seed(TerrainType.Grass, null, StructureType.Tree, TileType.Tree),
   [TileType.Bamboo]: seed(TerrainType.Grass, null, StructureType.Bamboo, TileType.Bamboo),
-  [TileType.Stone]: seed(TerrainType.StoneGround, null, StructureType.Stone, TileType.Stone),
-  [TileType.SpiritOre]: seed(TerrainType.StoneGround, null, StructureType.SpiritOre, TileType.SpiritOre),
-  [TileType.BlackIronOre]: seed(TerrainType.StoneGround, null, StructureType.BlackIronOre, TileType.BlackIronOre),
-  [TileType.BrokenSwordHeap]: seed(TerrainType.StoneGround, null, StructureType.BrokenSwordHeap, TileType.BrokenSwordHeap),
+  [TileType.Stone]: defaultGroundSeed(TileType.Stone, StructureType.Stone),
+  [TileType.SpiritOre]: defaultGroundSeed(TileType.SpiritOre, StructureType.SpiritOre),
+  [TileType.BlackIronOre]: defaultGroundSeed(TileType.BlackIronOre, StructureType.BlackIronOre),
+  [TileType.BrokenSwordHeap]: defaultGroundSeed(TileType.BrokenSwordHeap, StructureType.BrokenSwordHeap),
 };
+
+/** 未定义/未知地图格子的统一四层默认回退。后续程序化扩展只需要扩展这个入口。 */
+export function resolveDefaultTileLayerFallback(_context?: TileLayerFallbackContext | null): TileLayerSeed {
+  return DEFAULT_TILE_LAYER_FALLBACK;
+}
 
 /** 旧 TileType -> 多层 seed，供现有二维字符串地图冷路径编译使用。 */
 export function resolveTileLayerSeedFromTileType(tileType: TileType | string | null | undefined): TileLayerSeed {
   const normalized = normalizeLegacyTileType(tileType);
-  return TILE_LAYER_SEED_BY_TILE_TYPE[normalized] ?? TILE_LAYER_SEED_BY_TILE_TYPE[TileType.Floor];
+  return TILE_LAYER_SEED_BY_TILE_TYPE[normalized] ?? resolveDefaultTileLayerFallback();
 }
 
 /** 旧二维地图缺少结构下方地面层；按周围可见地面推断墙/门/窗等结构的底层。 */
@@ -397,6 +414,15 @@ function seed(
   });
 }
 
+function defaultGroundSeed(
+  legacyTileType: TileType,
+  structure: StructureType | null = null,
+  interactables: readonly InteractableKind[] = EMPTY_INTERACTABLES,
+  surface: SurfaceType | null = DEFAULT_TILE_LAYER_FALLBACK.surface,
+): TileLayerSeed {
+  return seed(DEFAULT_TILE_LAYER_FALLBACK.terrain, surface, structure, legacyTileType, interactables);
+}
+
 function normalizeLegacyTileType(tileType: TileType | string | null | undefined): TileType {
   return typeof tileType === 'string' && legacyTileTypeSet.has(tileType as TileType)
     ? tileType as TileType
@@ -472,8 +498,8 @@ function tileTypeFromTerrainType(terrain: TerrainType): TileType {
     case TerrainType.Cloud: return TileType.Cloud;
     case TerrainType.CloudFloor: return TileType.CloudFloor;
     case TerrainType.Void: return TileType.Void;
-    case TerrainType.StoneGround: return TileType.Stone;
     case TerrainType.Floor:
+    case TerrainType.StoneGround:
     default:
       return TileType.Floor;
   }
@@ -532,7 +558,7 @@ function resolveTerrainTags(terrain: TerrainType): string[] {
   if (terrain === TerrainType.Mud || terrain === TerrainType.Swamp || terrain === TerrainType.ColdBog) tags.push('wet');
   if (terrain === TerrainType.MoltenPool) tags.push('hot');
   if (terrain === TerrainType.ColdBog) tags.push('cold');
-  if (terrain === TerrainType.StoneGround || terrain === TerrainType.Cliff) tags.push('stone');
+  if (terrain === TerrainType.Cliff) tags.push('stone');
   return tags;
 }
 

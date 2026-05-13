@@ -4,6 +4,8 @@ import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { ObservationInsight } from './observation-types';
 import type { TileRuntimeResourceView } from './service-sync-types';
 import type { NpcQuestMarker } from './world-view-types';
+import type { InteractableKind, StructureType, SurfaceType, TerrainType } from './map-layer-types';
+import type { TileType } from './world-core-types';
 
 /**
  * 低频实体/地块详情投影视图，供协议层和客户端详情面板共用。
@@ -352,6 +354,51 @@ export interface TileDetailView {
  */
 
   y: number;  
+  /**
+ * type：服务端权威的当前生效地块类型。
+ */
+
+  type?: TileType;  
+  /**
+ * walkable：服务端权威通行结果。
+ */
+
+  walkable?: boolean;  
+  /**
+ * blocksSight：服务端权威视线遮挡结果。
+ */
+
+  blocksSight?: boolean;  
+  /**
+ * movementCost：服务端权威实际移动消耗。
+ */
+
+  movementCost?: number;  
+  /**
+ * qiDrainPerTick：当前地块每息灵力消耗。
+ */
+
+  qiDrainPerTick?: number;  
+  /**
+ * terrainType：服务端权威底层地形。
+ */
+
+  terrainType?: TerrainType;  
+  /**
+ * surfaceType：服务端权威地表铺装。
+ */
+
+  surfaceType?: SurfaceType | null;  
+  /**
+ * structureType：服务端权威地上结构。
+ */
+
+  structureType?: StructureType | null;  
+  /**
+ * interactableKinds：服务端权威交互对象种类。
+ */
+
+  interactableKinds?: InteractableKind[];  
   /**
  * aura：aura相关字段。
  */

@@ -109,6 +109,8 @@ export interface MarketOrderBookView {
 
 /** 玩家视角下的坊市成交记录方向 */
 export type MarketTradeHistorySide = 'buy' | 'sell';
+/** 成交记录来源：普通坊市成交或拍卖行成交。 */
+export type MarketTradeSource = 'market' | 'auction';
 
 /** 玩家可见的坊市成交记录 */
 export interface MarketTradeHistoryEntryView {
@@ -122,6 +124,11 @@ export interface MarketTradeHistoryEntryView {
  */
 
   side: MarketTradeHistorySide;
+  /**
+ * source：成交来源。
+ */
+
+  source: MarketTradeSource;
   /**
  * itemId：道具ID标识。
  */
