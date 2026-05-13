@@ -198,6 +198,12 @@ function cloneTilePatch(source) {
     const tile: Record<string, any> = {
         type: source.type,
     };
+    if (typeof source.walkable === 'boolean') {
+        tile.walkable = source.walkable;
+    }
+    if (typeof source.blocksSight === 'boolean') {
+        tile.blocksSight = source.blocksSight;
+    }
     if (Number.isFinite(source.aura) && source.aura > 0) {
         tile.aura = source.aura;
     }
@@ -215,6 +221,21 @@ function cloneTilePatch(source) {
         tile.hp = source.hp;
         tile.maxHp = source.maxHp;
         tile.hpVisible = true;
+    }
+    if (typeof source.modifiedAt === 'number' && Number.isFinite(source.modifiedAt)) {
+        tile.modifiedAt = source.modifiedAt;
+    }
+    if (typeof source.terrainType === 'string' && source.terrainType.length > 0) {
+        tile.terrainType = source.terrainType;
+    }
+    if (Object.prototype.hasOwnProperty.call(source, 'surfaceType')) {
+        tile.surfaceType = typeof source.surfaceType === 'string' && source.surfaceType.length > 0 ? source.surfaceType : null;
+    }
+    if (Object.prototype.hasOwnProperty.call(source, 'structureType')) {
+        tile.structureType = typeof source.structureType === 'string' && source.structureType.length > 0 ? source.structureType : null;
+    }
+    if (Array.isArray(source.interactableKinds) && source.interactableKinds.length > 0) {
+        tile.interactableKinds = source.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0);
     }
     return tile;
 }

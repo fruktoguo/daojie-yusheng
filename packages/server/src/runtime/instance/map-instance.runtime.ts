@@ -3,7 +3,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, SurfaceType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -17,6 +17,7 @@ import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpe
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
 const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
+const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -275,6 +276,16 @@ class MapInstanceRuntime {
      */
 
     dynamicTileBlocker = null;    
+    /** sectVirtualBoundaryLayerState：宗门模板外未定义边界的分层投影。 */
+    sectVirtualBoundaryLayerState = {
+        terrain: DEFAULT_TILE_LAYER_FALLBACK_SEED.terrain,
+        surface: DEFAULT_TILE_LAYER_FALLBACK_SEED.surface,
+        structure: StructureType.Stone,
+        interactableKinds: [],
+        interactableFlags: 0,
+        legacyTileType: TileType.Stone,
+        virtualBoundary: true,
+    };
     /**
      * compositeSightResolver：跨地图视觉叠加查询，例如二楼窗口外投影到父地图。
      */
@@ -757,7 +768,7 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomains(['tile_cell']);
-        if (this.shouldRecalculateRoomsForTileMutation(tileIndex, TileType.Floor, tileType)) {
+        if (this.shouldRecalculateRoomsForTileMutation(tileIndex, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType, tileType)) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'runtime_tile_activated', dirtyCellCount: 1 });
             this.markPersistenceDirtyDomains(['room', 'fengshui']);
         }
@@ -772,6 +783,45 @@ class MapInstanceRuntime {
         for (let tileIndex = 0; tileIndex < count; tileIndex += 1) {
             visitor(this.tilePlane.getX(tileIndex), this.tilePlane.getY(tileIndex), tileIndex);
         }
+    }
+    /** resolveDefaultTileLayerFallbackForCell：统一读取未知/缺失地块四层默认回退，后续程序化扩展只扩这个入口的上下文。 */
+    resolveDefaultTileLayerFallbackForCell(tileIndexInput = -1, xInput = null, yInput = null) {
+        const tileIndex = Math.trunc(Number(tileIndexInput));
+        const hasCell = Number.isFinite(tileIndex) && tileIndex >= 0 && tileIndex < this.tilePlane.getCellCount();
+        const x = Number.isFinite(Number(xInput))
+            ? Math.trunc(Number(xInput))
+            : hasCell
+            ? this.tilePlane.getX(tileIndex)
+            : null;
+        const y = Number.isFinite(Number(yInput))
+            ? Math.trunc(Number(yInput))
+            : hasCell
+            ? this.tilePlane.getY(tileIndex)
+            : null;
+        return resolveDefaultTileLayerFallback({
+            mapId: this.template?.id ?? this.meta?.mapId ?? null,
+            templateId: this.meta?.templateId ?? this.template?.id ?? null,
+            instanceId: this.meta?.instanceId ?? null,
+            x,
+            y,
+            routeDomain: this.meta?.routeDomain ?? null,
+            mapKind: this.template?.source?.sectMap === true ? 'sect' : null,
+        });
+    }
+    /** applyDefaultTileLayerFallback：把已激活 cell 重置为统一默认四层，不硬编码地板。 */
+    applyDefaultTileLayerFallback(tileIndexInput) {
+        const tileIndex = Math.trunc(Number(tileIndexInput));
+        if (!Number.isFinite(tileIndex) || tileIndex < 0 || tileIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        const fallback = this.resolveDefaultTileLayerFallbackForCell(tileIndex);
+        this.tilePlane.setTerrain(tileIndex, fallback.terrain);
+        this.tilePlane.setSurface(tileIndex, fallback.surface);
+        this.tilePlane.setStructure(tileIndex, fallback.structure);
+        if (typeof this.tilePlane.setInteractableKinds === 'function') {
+            this.tilePlane.setInteractableKinds(tileIndex, [...fallback.interactables]);
+        }
+        return true;
     }
     /** applyBuildingVisualTileType：按建筑 placement layer 写入地表或结构层，避免覆盖底层地形。 */
     applyBuildingVisualTileType(cellIndex, compiled) {
@@ -1291,7 +1341,7 @@ class MapInstanceRuntime {
     getEffectiveTileTypeByCellIndex(cellIndexInput) {
         const cellIndex = Math.trunc(Number(cellIndexInput));
         if (!Number.isFinite(cellIndex) || cellIndex < 0) {
-            return TileType.Floor;
+            return this.resolveDefaultTileLayerFallbackForCell(cellIndex).legacyTileType;
         }
         const temporary = this.temporaryTileByTile.get(cellIndex);
         if (temporary) {
@@ -1307,13 +1357,13 @@ class MapInstanceRuntime {
     getGroundTileTypeByCellIndex(cellIndexInput) {
         const cellIndex = Math.trunc(Number(cellIndexInput));
         if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
-            return TileType.Floor;
+            return this.resolveDefaultTileLayerFallbackForCell(cellIndex).legacyTileType;
         }
         const state = typeof this.tilePlane.getTileLayerState === 'function'
             ? this.tilePlane.getTileLayerState(cellIndex)
             : null;
         if (!state) {
-            return TileType.Floor;
+            return this.resolveDefaultTileLayerFallbackForCell(cellIndex).legacyTileType;
         }
         return composeTileTypeFromLayers(
             state.terrain,
@@ -1330,11 +1380,12 @@ class MapInstanceRuntime {
                 ? this.tilePlane.getTileLayerState(cellIndex)
                 : null);
         if (!state) {
+            const fallback = this.resolveDefaultTileLayerFallbackForCell(cellIndex);
             return {
-                tileType: TileType.Floor,
-                terrainType: TerrainType.Floor,
-                surfaceType: SurfaceType.Floor,
-                interactableKinds: [],
+                tileType: fallback.legacyTileType,
+                terrainType: fallback.terrain,
+                surfaceType: fallback.surface,
+                interactableKinds: [...fallback.interactables],
             };
         }
         const interactableKinds = Array.isArray(state.interactableKinds) ? state.interactableKinds.slice() : [];
@@ -1347,11 +1398,12 @@ class MapInstanceRuntime {
                 interactableKinds,
             };
         }
+        const fallback = this.resolveDefaultTileLayerFallbackForCell(cellIndex);
         return {
-            tileType: TileType.Floor,
-            terrainType: TerrainType.Floor,
-            surfaceType: SurfaceType.Floor,
-            interactableKinds: [],
+            tileType: fallback.legacyTileType,
+            terrainType: fallback.terrain,
+            surfaceType: fallback.surface,
+            interactableKinds: [...fallback.interactables],
         };
     }
     /** isRoomTopologyCell：判断地块类型或动态建筑拓扑是否可能改变房间边界/覆盖。 */
@@ -2159,6 +2211,9 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return 0;
+            }
             return null;
         }
         return this.getTileResource(DEFAULT_TILE_AURA_RESOURCE_KEY, x, y);
@@ -2168,6 +2223,9 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return 0;
+            }
             return null;
         }
         return this.getTileResourceValueByIndex(resourceKey, this.toTileIndex(x, y));
@@ -2177,6 +2235,9 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return [];
+            }
             return null;
         }
         const tileIndex = this.toTileIndex(x, y);
@@ -2247,6 +2308,23 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                const maxHp = resolveTileDurability(this.template, TileType.Stone, x, y, this.sectVirtualBoundaryLayerState);
+                return maxHp > 0
+                    ? {
+                        tileType: TileType.Stone,
+                        terrainType: this.sectVirtualBoundaryLayerState.terrain,
+                        surfaceType: this.sectVirtualBoundaryLayerState.surface,
+                        structureType: StructureType.Stone,
+                        hp: maxHp,
+                        maxHp,
+                        modifiedAt: null,
+                        respawnLeft: 0,
+                        destroyed: false,
+                        virtualBoundary: true,
+                    }
+                    : null;
+            }
             return null;
         }
 
@@ -2306,6 +2384,12 @@ class MapInstanceRuntime {
         if (current.destroyed === true) {
             return null;
         }
+        if (current.virtualBoundary === true) {
+            const activated = this.activateRuntimeTile(x, y, TileType.Stone);
+            if (activated.tileIndex < 0) {
+                return null;
+            }
+        }
 
         const normalizedDamage = Math.max(0, Math.round(damage));
         if (normalizedDamage <= 0) {
@@ -2319,6 +2403,36 @@ class MapInstanceRuntime {
         }
 
         const tileIndex = this.toTileIndex(x, y);
+        if (current.virtualBoundary === true) {
+            const baseHp = Math.max(1, Math.trunc(Number(current.maxHp) || 1));
+            const appliedDamage = Math.min(baseHp, normalizedDamage);
+            const nextHp = Math.max(0, baseHp - appliedDamage);
+            const destroyed = nextHp <= 0;
+            if (!destroyed) {
+                this.tileDamageByTile.set(tileIndex, {
+                    hp: nextHp,
+                    maxHp: baseHp,
+                    destroyed: false,
+                    respawnLeft: 0,
+                    modifiedAt: Date.now(),
+                });
+                this.markTileDamagePersistenceDirty(tileIndex);
+            } else {
+                this.applyDefaultTileLayerFallback(tileIndex);
+                this.tileDamageByTile.delete(tileIndex);
+                this.markTileDamagePersistenceDirty(tileIndex);
+            }
+            this.worldRevision += 1;
+            this.persistentRevision += 1;
+            return {
+                destroyed,
+                hp: nextHp,
+                maxHp: baseHp,
+                appliedDamage,
+                targetType: current.tileType,
+                virtualBoundary: true,
+            };
+        }
         const temporary = this.temporaryTileByTile.get(tileIndex);
         if (temporary) {
             const appliedDamage = Math.min(Math.max(0, Math.trunc(Number(temporary.hp) || 0)), normalizedDamage);
@@ -2401,6 +2515,26 @@ class MapInstanceRuntime {
         const affectsRoomIntegrity = destroyed !== true
             && current.hp >= current.maxHp
             && this.isCellInRoomInfluence(tileIndex);
+        if (destroyed && this.isSectRuntimeExpandedBoundaryStone(tileIndex, current)) {
+            this.applyDefaultTileLayerFallback(tileIndex);
+            this.tileDamageByTile.delete(tileIndex);
+            this.worldRevision += 1;
+            this.markTileDamagePersistenceDirty(tileIndex);
+            if (this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType)) {
+                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'sect_boundary_opened', dirtyCellCount: 1 });
+                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+            }
+            this.persistentRevision += 1;
+            return {
+                destroyed,
+                hp: nextHp,
+                maxHp: current.maxHp,
+                appliedDamage,
+                targetType: current.tileType,
+                tileDrops,
+                sectBoundaryOpened: true,
+            };
+        }
         this.tileDamageByTile.set(tileIndex, {
             hp: nextHp,
             maxHp: current.maxHp,
@@ -2575,7 +2709,7 @@ class MapInstanceRuntime {
                     }
                     else {
                         this.tileDamageByTile.delete(tileIndex);
-                        if (this.shouldRecalculateRoomsForTileMutation(normalizedTileIndex, TileType.Floor, tileType)) {
+                        if (this.shouldRecalculateRoomsForTileMutation(normalizedTileIndex, this.getDestroyedTileLayerStateByCellIndex(normalizedTileIndex).tileType, tileType)) {
                             topologyChangedCellCount += 1;
                         }
                     }
@@ -2656,7 +2790,7 @@ class MapInstanceRuntime {
 
         const tileIndex = this.toTileIndex(x, y);
         if (tileIndex < 0) {
-            return TileType.Floor;
+            return this.resolveDefaultTileLayerFallbackForCell(-1, x, y).legacyTileType;
         }
         return this.tilePlane.getTileType(tileIndex);
     }
@@ -2665,13 +2799,19 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
-            return TileType.Floor;
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return TileType.Stone;
+            }
+            return this.resolveDefaultTileLayerFallbackForCell(-1, x, y).legacyTileType;
         }
         return this.getEffectiveTileTypeByCellIndex(this.toTileIndex(x, y));
     }
     /** getTileLayerState：读取指定坐标的权威分层状态，供低频投影和诊断使用。 */
     getTileLayerState(x, y) {
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return this.sectVirtualBoundaryLayerState;
+            }
             return null;
         }
         const tileIndex = this.toTileIndex(x, y);
@@ -3287,7 +3427,7 @@ class MapInstanceRuntime {
             if (activated?.tileIndex >= 0) {
                 this.applyPersistedTileLayers(activated.tileIndex, entry);
             }
-            if (activated?.created === true && this.shouldRecalculateRoomsForTileMutation(activated.tileIndex, TileType.Floor, tileType)) {
+            if (activated?.created === true && this.shouldRecalculateRoomsForTileMutation(activated.tileIndex, this.resolveDefaultTileLayerFallbackForCell(activated.tileIndex).legacyTileType, tileType)) {
                 topologyChangedCellCount += 1;
             }
         }
@@ -3298,9 +3438,36 @@ class MapInstanceRuntime {
         this.persistedRevision = 1;
         this.clearDirtyDomains();
     }
-    /** applyPersistedTileLayers：回填动态地块的分层真源；旧数据缺字段时保留 tileType 映射结果。 */
+    /** applyPersistedTileLayers：回填动态地块的分层真源；修正旧库中 tileType 与分层自相矛盾的记录。 */
     applyPersistedTileLayers(tileIndex, entry) {
         if (!entry || tileIndex < 0 || tileIndex >= this.tilePlane.getCellCount()) {
+            return;
+        }
+        const tileType = typeof entry.tileType === 'string' && entry.tileType.length > 0
+            ? entry.tileType
+            : this.tilePlane.getTileType(tileIndex);
+        const persistedTerrainType = typeof entry.terrainType === 'string' && entry.terrainType.length > 0 ? entry.terrainType : undefined;
+        const persistedSurfaceType = Object.prototype.hasOwnProperty.call(entry, 'surfaceType')
+            ? (typeof entry.surfaceType === 'string' && entry.surfaceType.length > 0 ? entry.surfaceType : null)
+            : undefined;
+        const persistedStructureType = Object.prototype.hasOwnProperty.call(entry, 'structureType')
+            ? (typeof entry.structureType === 'string' && entry.structureType.length > 0 ? entry.structureType : null)
+            : undefined;
+        const persistedInteractableKinds = Array.isArray(entry.interactableKinds) ? entry.interactableKinds : undefined;
+        if (this.shouldNormalizePersistedRuntimeTileToDefaultFallback(tileType, persistedTerrainType, persistedSurfaceType, persistedStructureType, persistedInteractableKinds)) {
+            this.applyDefaultTileLayerFallback(tileIndex);
+            this.markPersistenceDirtyDomains(['tile_cell']);
+            return;
+        }
+        if (this.shouldNormalizePersistedRuntimeTileLayers(tileType, persistedTerrainType, persistedSurfaceType, persistedStructureType, persistedInteractableKinds)) {
+            const seed = resolveTileLayerSeedFromTileType(tileType);
+            this.tilePlane.setTerrain(tileIndex, seed.terrain);
+            this.tilePlane.setSurface(tileIndex, seed.surface);
+            this.tilePlane.setStructure(tileIndex, seed.structure);
+            if (typeof this.tilePlane.setInteractableKinds === 'function') {
+                this.tilePlane.setInteractableKinds(tileIndex, [...seed.interactables]);
+            }
+            this.markPersistenceDirtyDomains(['tile_cell']);
             return;
         }
         if (typeof entry.terrainType === 'string' && entry.terrainType.length > 0) {
@@ -3315,6 +3482,28 @@ class MapInstanceRuntime {
         if (Array.isArray(entry.interactableKinds) && typeof this.tilePlane.setInteractableKinds === 'function') {
             this.tilePlane.setInteractableKinds(tileIndex, entry.interactableKinds);
         }
+    }
+    /** shouldNormalizePersistedRuntimeTileToDefaultFallback：旧脏层缺少结构真源时，按统一默认四层回退，不按宗门或坐标特判。 */
+    shouldNormalizePersistedRuntimeTileToDefaultFallback(tileType, terrainType, surfaceType, structureType, interactableKinds) {
+        const hasSurface = surfaceType !== undefined && surfaceType !== null;
+        const hasStructure = structureType !== undefined && structureType !== null;
+        const hasInteractables = Array.isArray(interactableKinds) && interactableKinds.length > 0;
+        const seed = resolveTileLayerSeedFromTileType(tileType);
+        if (seed.structure && structureType === null) {
+            return true;
+        }
+        return terrainType === TerrainType.StoneGround && !hasSurface && !hasStructure && !hasInteractables;
+    }
+    /** shouldNormalizePersistedRuntimeTileLayers：旧 bug 可能把 floor 地块持久化成 stone_ground，回读时按 tileType 自修复。 */
+    shouldNormalizePersistedRuntimeTileLayers(tileType, terrainType, surfaceType, structureType, interactableKinds) {
+        const seed = resolveTileLayerSeedFromTileType(tileType);
+        const composed = composeTileTypeFromLayers(
+            terrainType ?? seed.terrain,
+            surfaceType === undefined ? seed.surface : surfaceType,
+            structureType === undefined ? seed.structure : structureType,
+            interactableKinds ?? [...seed.interactables],
+        );
+        return composed !== tileType;
     }
     /** patchTileResources：在现有地块资源上叠加差量持久化条目，不重置未覆盖资源。 */
     patchTileResources(entries) {
@@ -4840,13 +5029,16 @@ class MapInstanceRuntime {
     }
     /** canResolveSightCoordinate：判断坐标是否存在可用于视野计算的地块。 */
     canResolveSightCoordinate(x, y) {
-        return this.isInBounds(x, y) || this.resolveCompositeSightBlocked(x, y) !== null;
+        return this.isInBounds(x, y) || this.isSectVirtualBoundaryTile(x, y) || this.resolveCompositeSightBlocked(x, y) !== null;
     }
     /** isTileSightBlocked：判断地块是否阻挡视线。动态阵法边界只挡通行，不挡视线。 */
     isTileSightBlocked(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
+            if (this.isSectVirtualBoundaryTile(x, y)) {
+                return true;
+            }
             const compositeBlocked = this.resolveCompositeSightBlocked(x, y);
             return compositeBlocked === null ? true : compositeBlocked;
         }
@@ -4862,14 +5054,15 @@ class MapInstanceRuntime {
     canSeeTileFrom(originX, originY, targetX, targetY, radius) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isInBounds(originX, originY) || !this.isInBounds(targetX, targetY)) {
+        if (!this.isInBounds(originX, originY) || (!this.isInBounds(targetX, targetY) && !this.isSectVirtualBoundaryTile(targetX, targetY))) {
             return false;
         }
         const normalizedRadius = Math.max(0, Math.trunc(Number(radius) || 0));
         if (chebyshevDistance(originX, originY, targetX, targetY) > normalizedRadius) {
             return false;
         }
-        return this.collectVisibleTileIndices(originX, originY, normalizedRadius).has(this.toTileIndex(targetX, targetY));
+        const visibility = this.collectVisibleTileVisibility(originX, originY, normalizedRadius);
+        return visibility.keys.has(`${Math.trunc(Number(targetX))},${Math.trunc(Number(targetY))}`);
     }
     /** collectVisibleTileIndices：收集视野内可见地块索引。 */
     collectVisibleTileIndices(originX, originY, radius) {
@@ -5190,6 +5383,48 @@ class MapInstanceRuntime {
     /** isInBounds：判断坐标是否在地图范围内。 */
     isInBounds(x, y) {
         return this.tilePlane.getCellIndex(x, y) >= 0;
+    }
+    /** isSectVirtualBoundaryTile：宗门模板外紧邻已定义地块的未定义坐标按边界石头投影。 */
+    isSectVirtualBoundaryTile(x, y) {
+        if (this.template?.source?.sectMap !== true) {
+            return false;
+        }
+        const tx = Math.trunc(Number(x));
+        const ty = Math.trunc(Number(y));
+        if (!Number.isFinite(tx) || !Number.isFinite(ty) || this.tilePlane.getCellIndex(tx, ty) >= 0) {
+            return false;
+        }
+        for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) {
+                if (dx === 0 && dy === 0) {
+                    continue;
+                }
+                if (this.tilePlane.getCellIndex(tx + dx, ty + dy) >= 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    /** isSectRuntimeExpandedBoundaryStone：宗门模板外已激活的边界石，打穿后应变成地板而不是复生石头。 */
+    isSectRuntimeExpandedBoundaryStone(tileIndex, combatState = null) {
+        if (this.template?.source?.sectMap !== true || !Number.isFinite(Number(tileIndex))) {
+            return false;
+        }
+        const normalizedTileIndex = Math.trunc(Number(tileIndex));
+        if (normalizedTileIndex < 0 || normalizedTileIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        const x = this.tilePlane.getX(normalizedTileIndex);
+        const y = this.tilePlane.getY(normalizedTileIndex);
+        if (x >= 0 && y >= 0 && x < this.template.width && y < this.template.height) {
+            return false;
+        }
+        const layerState = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(normalizedTileIndex)
+            : null;
+        return (combatState?.tileType ?? this.tilePlane.getTileType(normalizedTileIndex)) === TileType.Stone
+            && (layerState?.structure ?? null) === StructureType.Stone;
     }
     /** setOccupied：设置地块占用状态。 */
     setOccupied(x, y, handle) {

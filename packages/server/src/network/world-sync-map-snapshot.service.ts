@@ -12,7 +12,11 @@ import {
   getQiResourceDisplayLabel,
   getFirstGrapheme,
   getTileTypeFromMapChar,
+  isTileTypeWalkable,
+  doesTileTypeBlockSight,
+  resolveDefaultTileLayerFallback,
   resolveTileLayerSeedFromTemplateContext,
+  resolveTileLayerSeedFromTileType,
   parseQiResourceKey,
   resolveGameTimeState,
 } from '@mud/shared';
@@ -334,7 +338,8 @@ export class WorldSyncMapSnapshotService {
     }
 
     const destroyed = state.combat?.destroyed === true;
-    const tileType = state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : TileType.Floor);
+    const defaultLayerFallback = resolveDefaultTileLayerFallback({ templateId: template?.id ?? null, instanceId, x, y });
+    const tileType = state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : defaultLayerFallback.legacyTileType);
     const resources = Array.isArray(state.resources)
       ? state.resources
         .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
@@ -346,11 +351,22 @@ export class WorldSyncMapSnapshotService {
       type: tileType,
     };
     applyTileEffectProjection(tile, template, x, y, tileType);
+    tile.walkable = destroyed
+      ? true
+      : (typeof state.walkable === 'boolean' ? state.walkable : isTileTypeWalkable(tileType));
+    tile.blocksSight = destroyed
+      ? false
+      : (typeof state.blocksSight === 'boolean' ? state.blocksSight : doesTileTypeBlockSight(tileType));
     const layerState = state.layers ?? null;
-    const terrainType = typeof layerState?.terrain === 'string' ? layerState.terrain : undefined;
-    const surfaceType = typeof layerState?.surface === 'string' ? layerState.surface : undefined;
-    const structureType = destroyed === true ? null : (typeof layerState?.structure === 'string' ? layerState.structure : undefined);
-    const interactableKinds = Array.isArray(layerState?.interactableKinds)
+    const fallbackLayerSeed = destroyed === true
+      ? defaultLayerFallback
+      : resolveTileLayerSeedFromTileType(tileType);
+    const terrainType = typeof layerState?.terrain === 'string' && destroyed !== true ? layerState.terrain : fallbackLayerSeed.terrain;
+    const surfaceType = layerState && destroyed !== true ? layerState.surface ?? null : fallbackLayerSeed.surface;
+    const structureType = destroyed === true ? null : (layerState ? layerState.structure ?? null : fallbackLayerSeed.structure);
+    const interactableKinds = destroyed === true
+      ? [...fallbackLayerSeed.interactables]
+      : Array.isArray(layerState?.interactableKinds)
       ? layerState.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
       : undefined;
     if (terrainType) {
@@ -359,7 +375,7 @@ export class WorldSyncMapSnapshotService {
     if (surfaceType !== undefined) {
       tile.surfaceType = surfaceType;
     }
-    if (structureType !== undefined) {
+    if (structureType !== undefined || destroyed === true) {
       tile.structureType = structureType;
     }
     if (interactableKinds && interactableKinds.length > 0) {
