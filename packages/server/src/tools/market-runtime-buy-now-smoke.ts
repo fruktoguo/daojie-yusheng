@@ -162,6 +162,11 @@ async function main(): Promise<void> {
   assert.equal(sellerPlayer.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count ?? 0, 6);
   assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.length, 0);
   assert.equal(result.notices.some((entry) => entry.playerId === buyerId), true);
+  const buyerMarketHistory = service.buildTradeHistoryPage(buyerId, 1, 'market');
+  const buyerAuctionHistory = service.buildTradeHistoryPage(buyerId, 1, 'auction');
+  assert.equal(buyerMarketHistory.records.length, 1);
+  assert.equal(buyerMarketHistory.records[0]?.source, 'market');
+  assert.equal(buyerAuctionHistory.records.length, 0);
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-buy-now' }, null, 2));
 }
 

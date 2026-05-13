@@ -205,8 +205,8 @@ function testApplyTransfer() {
     });
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
-        ['disconnectPlayer', 'player:1'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
+        ['disconnectPlayer', 'player:1'],
         ['connectPlayer', {
             playerId: 'player:1',
             sessionId: 'session:1',
@@ -293,8 +293,8 @@ function testApplyTransferUsesRealPreference() {
     assert.deepEqual(log, [
         ['getPlayer', 'player:real'],
         ['beginTransfer', 'player:real', 'yunlai_town'],
-        ['disconnectPlayer', 'player:real'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'real'],
+        ['disconnectPlayer', 'player:real'],
         ['connectPlayer', {
             playerId: 'player:real',
             sessionId: 'session:real',
@@ -386,9 +386,77 @@ function testLeaseFenceBlocksTransfer() {
     assert.equal(fencedReason, 'transfer_lease_check_failed');
 }
 
+function testSectPortalTransferKeepsOriginalTarget() {
+    const log = [];
+    const service = new WorldRuntimeTransferService();
+    const source = {
+        disconnectPlayer(playerId) {
+            log.push(['disconnectPlayer', playerId]);
+        },
+    };
+    const target = {
+        meta: { instanceId: 'public:entrance' },
+        connectPlayer(payload) {
+            log.push(['connectPlayer', payload]);
+        },
+        setPlayerMoveSpeed(playerId, speed) {
+            log.push(['setPlayerMoveSpeed', playerId, speed]);
+        },
+    };
+    let handledTransfer = null;
+    service.applyTransfer({
+        playerId: 'player:outsider',
+        sessionId: 'session:outsider',
+        fromInstanceId: 'sect:test:main',
+        targetMapId: 'entrance_map',
+        targetInstanceId: 'public:entrance',
+        targetX: 10,
+        targetY: 10,
+        reason: 'manual_portal',
+    }, {
+        getInstanceRuntime(instanceId) {
+            if (instanceId === 'sect:test:main') return source;
+            if (instanceId === 'public:entrance') return target;
+            return null;
+        },
+        setPlayerLocation(playerId, location) {
+            log.push(['setPlayerLocation', playerId, location.instanceId]);
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return {
+                    playerId,
+                    attrs: { numericStats: { moveSpeed: 8 } },
+                };
+            },
+        },
+        worldRuntimeNavigationService: {
+            handleTransfer(entry) {
+                handledTransfer = entry;
+                log.push(['handleTransfer', entry.targetX, entry.targetY]);
+            },
+        },
+    });
+    assert.deepEqual(log, [
+        ['disconnectPlayer', 'player:outsider'],
+        ['connectPlayer', {
+            playerId: 'player:outsider',
+            sessionId: 'session:outsider',
+            preferredX: 10,
+            preferredY: 10,
+        }],
+        ['setPlayerMoveSpeed', 'player:outsider', 8],
+        ['setPlayerLocation', 'player:outsider', 'public:entrance'],
+        ['handleTransfer', 10, 10],
+    ]);
+    assert.equal(handledTransfer.targetX, 10);
+    assert.equal(handledTransfer.targetY, 10);
+}
+
 testMissingSourceIsNoop();
 testApplyTransfer();
 testApplyTransferUsesRealPreference();
 testLeaseFenceBlocksTransfer();
+testSectPortalTransferKeepsOriginalTarget();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-transfer' }, null, 2));

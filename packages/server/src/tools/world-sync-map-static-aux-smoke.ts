@@ -97,7 +97,20 @@ function testMovingVisibleWindowUsesTilePatchesNotMapStatic() {
 
     assert.equal(plan.mapChanged, false);
     const addedPatch = plan.tilePatches.find((patch) => patch.x === 5 && patch.y === 3);
-    assert.deepEqual(addedPatch, { x: 5, y: 3, tile: { type: 'floor', aura: 26 } });
+    assert.deepEqual(addedPatch, {
+        x: 5,
+        y: 3,
+        tile: {
+            type: 'floor',
+            walkable: true,
+            blocksSight: false,
+            aura: 26,
+            modifiedAt: 1778174219098,
+            terrainType: 'floor',
+            surfaceType: 'floor',
+            structureType: null,
+        },
+    });
     assert.ok(plan.tilePatches.some((patch) => patch.x === 2 && patch.y === 3 && patch.tile === null));
     assert.deepEqual(plan.visibleMinimapMarkerAdds.map((entry) => entry.id), ['marker.new']);
     assert.deepEqual(plan.visibleMinimapMarkerRemoves, ['marker.old']);
@@ -117,8 +130,14 @@ function testTilePatchKeepsOnlyCompactSpecialResourceSignal() {
         y: 3,
         tile: {
             type: 'floor',
+            walkable: true,
+            blocksSight: false,
             aura: 26,
             resources: [{ key: 'sha.refined.neutral', level: 26 }],
+            modifiedAt: 1778174219098,
+            terrainType: 'floor',
+            surfaceType: 'floor',
+            structureType: null,
         },
     });
 }
@@ -141,9 +160,49 @@ function testTilePatchKeepsTileEffectProjectionFields() {
         y: 3,
         tile: {
             type: 'floor',
+            walkable: true,
+            blocksSight: false,
             aura: 26,
             movementCost: 9280,
             qiDrainPerTick: 73455,
+            modifiedAt: 1778174219098,
+            terrainType: 'floor',
+            surfaceType: 'floor',
+            structureType: null,
+        },
+    });
+}
+
+function testTilePatchKeepsAuthorityTraversalAndLayerFields() {
+    const { service, setVisibleTiles } = createService();
+    const initial = service.buildInitialMapStaticState(createView(3, 4), {}, {});
+    service.commitPlayerCache('player:1', initial.cacheState);
+
+    const nextVisibleTiles = buildVisibleTilesByKey(3, 3);
+    const projectedTile = nextVisibleTiles.byKey.get('5,3');
+    projectedTile.type = 'stone';
+    projectedTile.walkable = true;
+    projectedTile.blocksSight = false;
+    projectedTile.terrainType = 'stone_ground';
+    projectedTile.surfaceType = null;
+    projectedTile.structureType = null;
+    projectedTile.modifiedAt = 1778174999999;
+    setVisibleTiles(nextVisibleTiles);
+    const plan = service.buildDeltaMapStaticPlan('player:1', createView(4, 4), {}, {});
+    const addedPatch = plan.tilePatches.find((patch) => patch.x === 5 && patch.y === 3);
+
+    assert.deepEqual(addedPatch, {
+        x: 5,
+        y: 3,
+        tile: {
+            type: 'stone',
+            walkable: true,
+            blocksSight: false,
+            aura: 26,
+            modifiedAt: 1778174999999,
+            terrainType: 'stone_ground',
+            surfaceType: null,
+            structureType: null,
         },
     });
 }
@@ -165,6 +224,7 @@ function testInstanceChangeStillRequiresMapStatic() {
 testMovingVisibleWindowUsesTilePatchesNotMapStatic();
 testTilePatchKeepsOnlyCompactSpecialResourceSignal();
 testTilePatchKeepsTileEffectProjectionFields();
+testTilePatchKeepsAuthorityTraversalAndLayerFields();
 testInstanceChangeStillRequiresMapStatic();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-map-static-aux' }, null, 2));

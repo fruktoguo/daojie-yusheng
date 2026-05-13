@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeContextActionQueryService } = require("../runtime/world/world-runtime-context-action-query.service");
+const { WorldRuntimeContextActionQueryService } = require("../runtime/world/query/world-runtime-context-action-query.service");
 /**
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
@@ -89,7 +89,28 @@ function testBuildContextActions() {
             },
         },
         equipment: {
-            slots: [{ slot: 'weapon', item: { tags: ['alchemy_furnace', 'enhancement_hammer'] } }],
+            slots: [{
+                slot: 'weapon',
+                item: {
+                    tags: ['alchemy_furnace', 'enhancement_hammer'],
+                    contextActions: [
+                        {
+                            id: 'alchemy:open',
+                            name: '炼丹',
+                            type: 'craft',
+                            desc: '查看当前丹炉、丹方目录与炼制状态。',
+                            cooldownLeft: 0,
+                        },
+                        {
+                            id: 'enhancement:open',
+                            name: '强化',
+                            type: 'craft',
+                            desc: '查看当前强化候选、保护材料与强化状态。',
+                            cooldownLeft: 0,
+                        },
+                    ],
+                },
+            }],
         },
         alchemyJob: null,
         enhancementJob: null,
@@ -110,10 +131,8 @@ function testBuildContextActions() {
     assert.deepEqual(actions.map((entry) => entry.id), [
         'alchemy:open',
         'battle:force_attack',
-        'building:open',
         'cultivation:toggle',
         'enhancement:open',
-        'forging:open',
         'npc:npc_a',
         'npc_quests:npc_a',
         'npc_shop:npc_a',
@@ -149,18 +168,59 @@ function testBuildContextActions() {
         ['buildNpcQuestContextAction', 'player:1', 'npc_b'],
     ]);
 }
+
+function testSectEntrancePortalTravelIsNotMemberGated() {
+    const log = [];
+    const service = createService({
+        sectId: 'sect:other',
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:sect-visitor',
+        self: { x: 2, y: 2 },
+        localPortals: [
+            {
+                trigger: 'manual',
+                kind: 'sect_entrance',
+                sectId: 'sect:owner',
+                x: 2,
+                y: 2,
+                targetMapId: 'sect_domain_alpha',
+            },
+        ],
+        localNpcs: [],
+    });
+    assert.equal(actions.find((entry) => entry.id === 'portal:travel')?.name, '传送至：青玄宗');
+}
 /**
  * testJobFallbackWithoutWeapon：执行testJobFallbackWithoutWeapon相关逻辑。
  * @returns 无返回值，直接更新testJobFallbackWithoutWeapon相关状态。
  */
 
 
-function testJobFallbackWithoutWeapon() {
+function testEquippedContextActionsAreConfigDriven() {
     const log = [];
     const service = createService({
         attrs: { numericStats: { viewRange: 3 } },
         realm: { breakthroughReady: false },
-        equipment: { slots: [] },
+        equipment: {
+            slots: [{
+                slot: 'weapon',
+                item: {
+                    itemId: 'equip.copper_enhancement_hammer',
+                    tags: ['enhancement_hammer'],
+                    contextActions: [{
+                        id: 'enhancement:open',
+                        name: '强化',
+                        type: 'craft',
+                        desc: '查看当前强化候选、保护材料与强化状态。',
+                        cooldownLeft: 0,
+                    }],
+                },
+            }],
+        },
         alchemyJob: { state: 'running' },
         enhancementJob: { state: 'running' },
     }, log);
@@ -170,10 +230,10 @@ function testJobFallbackWithoutWeapon() {
         localPortals: [],
         localNpcs: [],
     });
-    assert.ok(actions.some((entry) => entry.id === 'alchemy:open'));
-    assert.ok(actions.some((entry) => entry.id === 'building:open'));
     assert.ok(actions.some((entry) => entry.id === 'enhancement:open'));
-    assert.ok(actions.some((entry) => entry.id === 'forging:open'));
+    assert.ok(!actions.some((entry) => entry.id === 'alchemy:open'));
+    assert.ok(!actions.some((entry) => entry.id === 'building:open'));
+    assert.ok(!actions.some((entry) => entry.id === 'forging:open'));
 }
 
 function testReturnActionShowsBoundRespawnTarget() {
@@ -230,7 +290,8 @@ function testReturnActionShowsCooldownLeft() {
 }
 
 testBuildContextActions();
-testJobFallbackWithoutWeapon();
+testSectEntrancePortalTravelIsNotMemberGated();
+testEquippedContextActionsAreConfigDriven();
 testReturnActionShowsBoundRespawnTarget();
 testReturnActionShowsCooldownLeft();
 

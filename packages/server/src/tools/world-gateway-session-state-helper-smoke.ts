@@ -27,11 +27,11 @@ function testSessionStateHelper() {
     helper.subscribeMarket('player:1');
     helper.setMarketListingsRequest('player:1', { page: 2 });
     helper.setAuctionListingsRequest('player:1', { tab: 'mine', page: 2 });
-    helper.setMarketTradeHistoryRequest('player:1', 3);
+    helper.setMarketTradeHistoryRequest('player:1', { page: 3, source: 'auction' });
     assert.equal(helper.getMarketSubscribers().has('player:1'), true);
     assert.deepEqual(helper.getMarketListingsRequest('player:1'), { page: 2 });
     assert.deepEqual(helper.getAuctionListingsRequest('player:1'), { tab: 'mine', page: 2 });
-    assert.equal(helper.getMarketTradeHistoryRequests().get('player:1'), 3);
+    assert.deepEqual(helper.getMarketTradeHistoryRequests().get('player:1'), { page: 3, source: 'auction' });
     helper.clearDisconnectedPlayerState({ playerId: 'player:1', connected: true });
     assert.equal(helper.getMarketSubscribers().has('player:1'), true);
     helper.clearDisconnectedPlayerState({ playerId: 'player:1', connected: false });

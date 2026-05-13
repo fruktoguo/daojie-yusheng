@@ -23,6 +23,10 @@ function createRuntimePlayer(input: {
   realmLv: number;
   progress: number;
   playerKillCount?: number;
+  monsterKillCount?: number;
+  eliteMonsterKillCount?: number;
+  bossMonsterKillCount?: number;
+  deathCount?: number;
   cultivationActive?: boolean;
 }) {
   return {
@@ -41,11 +45,11 @@ function createRuntimePlayer(input: {
       progress: input.progress,
     },
     foundation: input.realmLv * 10,
-    monsterKillCount: 0,
-    eliteMonsterKillCount: 0,
-    bossMonsterKillCount: 0,
+    monsterKillCount: input.monsterKillCount ?? 0,
+    eliteMonsterKillCount: input.eliteMonsterKillCount ?? 0,
+    bossMonsterKillCount: input.bossMonsterKillCount ?? 0,
     playerKillCount: input.playerKillCount ?? 0,
-    deathCount: 0,
+    deathCount: input.deathCount ?? 0,
     bodyTraining: { level: 0, exp: 0, expToNext: 1 },
     inventory: { items: [] },
     wallet: { balances: [] },
@@ -79,6 +83,8 @@ async function main(): Promise<void> {
     realmLv: 3,
     progress: 10,
     playerKillCount: 1,
+    monsterKillCount: 2,
+    eliteMonsterKillCount: 1,
   });
   const offlinePlayer = createRuntimePlayer({
     playerId: 'player:offline',
@@ -90,6 +96,8 @@ async function main(): Promise<void> {
     realmLv: 9,
     progress: 90,
     playerKillCount: 7,
+    monsterKillCount: 3,
+    bossMonsterKillCount: 1,
   });
   const offlineIdlePlayer = createRuntimePlayer({
     playerId: 'player:offline-idle',
@@ -101,6 +109,8 @@ async function main(): Promise<void> {
     realmLv: 7,
     progress: 70,
     playerKillCount: 5,
+    monsterKillCount: 4,
+    deathCount: 2,
     cultivationActive: true,
   });
 
@@ -175,6 +185,23 @@ async function main(): Promise<void> {
       ];
     },
   };
+  const playerCountersPersistenceService = {
+    getAll(playerId: string) {
+      const countersByPlayerId = new Map<string, Map<string, number>>([
+        [onlinePlayer.playerId, new Map([
+          ['monsterKillCount', 9],
+          ['eliteMonsterKillCount', 2],
+          ['playerKillCount', 4],
+        ])],
+        [offlinePlayer.playerId, new Map([
+          ['monsterKillCount', 11],
+          ['bossMonsterKillCount', 3],
+          ['playerKillCount', 8],
+        ])],
+      ]);
+      return countersByPlayerId.get(playerId) ?? new Map<string, number>();
+    },
+  };
 
   const service = new LeaderboardRuntimeService(
     playerRuntimeService as never,
@@ -182,6 +209,7 @@ async function main(): Promise<void> {
     mapTemplateRepository as never,
     playerDomainPersistenceService as never,
     playerIdentityPersistenceService as never,
+    playerCountersPersistenceService as never,
   );
 
   const leaderboard = await service.buildLeaderboard(10, null);
@@ -196,6 +224,23 @@ async function main(): Promise<void> {
   assert.deepEqual(
     leaderboard.boards.playerKills.map((entry) => entry.playerId),
     ['player:offline', 'player:offline-idle', 'player:online'],
+  );
+  assert.deepEqual(
+    leaderboard.boards.playerKills.map((entry) => entry.playerKillCount),
+    [8, 5, 4],
+  );
+  assert.deepEqual(
+    leaderboard.boards.monsterKills.map((entry) => ({
+      playerId: entry.playerId,
+      totalKills: entry.totalKills,
+      eliteKills: entry.eliteKills,
+      bossKills: entry.bossKills,
+    })),
+    [
+      { playerId: 'player:offline', totalKills: 11, eliteKills: 0, bossKills: 3 },
+      { playerId: 'player:online', totalKills: 9, eliteKills: 2, bossKills: 0 },
+      { playerId: 'player:offline-idle', totalKills: 4, eliteKills: 0, bossKills: 0 },
+    ],
   );
 
   const locations = await service.buildLeaderboardPlayerLocations([
@@ -227,7 +272,13 @@ async function main(): Promise<void> {
     mortal: 3,
     qiRefiningOrAbove: 0,
   });
-  assert.equal(worldSummary.summary.killCounts.playerKills, 13);
+  assert.deepEqual(worldSummary.summary.killCounts, {
+    normalMonsters: 19,
+    eliteMonsters: 2,
+    bossMonsters: 3,
+    playerKills: 17,
+    playerDeaths: 2,
+  });
   assert.equal(worldSummary.summary.actionCounts.cultivation, 1);
 
   console.log('leaderboard-offline-snapshots-smoke passed');

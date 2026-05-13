@@ -14,7 +14,7 @@ function main() {
   assert.equal(plane.has(0, 0), true);
   assert.equal(plane.getHandle(0, 0), 1);
   assert.equal(plane.getTileType(first), TileType.Floor);
-  assert.equal(plane.getTerrain(first), TerrainType.Floor);
+  assert.equal(plane.getTerrain(first), TerrainType.Grass);
   assert.equal(plane.getSurface(first), SurfaceType.Floor);
   assert.equal(plane.getStructure(first), null);
   assert.equal(plane.isWalkable(first), true);
@@ -28,7 +28,8 @@ function main() {
   assert.equal(plane.getX(negative), -17);
   assert.equal(plane.getY(negative), 9);
   assert.equal(plane.has(-17, 9), true);
-  assert.equal(plane.getTerrain(negative), TerrainType.StoneGround);
+  assert.equal(plane.getTerrain(negative), TerrainType.Grass);
+  assert.equal(plane.getSurface(negative), SurfaceType.Floor);
   assert.equal(plane.getStructure(negative), StructureType.Stone);
   assert.equal(plane.isWalkable(negative), false);
 

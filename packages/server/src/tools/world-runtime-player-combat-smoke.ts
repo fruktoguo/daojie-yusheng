@@ -6,6 +6,7 @@ import { WorldRuntimePlayerCombatService } from '../runtime/world/combat/world-r
 async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
+  await testMonsterKillCountersUseTierBuckets();
   await testMonsterLootDurableGrant();
   await testMonsterLootRequiresDurableContext();
   await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
@@ -19,6 +20,84 @@ async function main(): Promise<void> {
     answers: '怪物掉落直入背包与 PvP 血精奖励现在都会走 grantInventoryItems durable 主链；缺少 durable 上下文时 fail closed，不再回退到运行态背包；只有 durable 提交失败或背包满才落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；真实怪物击杀、经验、掉落和玩家死亡副作用点会产出语义化 combat audit action',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testMonsterKillCountersUseTierBuckets() {
+  const increments: Array<[string, string]> = [];
+  const killer = {
+    playerId: 'player:combat:counter:killer',
+    instanceId: 'instance:combat:counter',
+    realm: { realmLv: 3 },
+    attrs: {
+      numericStats: {
+        lootRate: 0,
+        rareLootRate: 0,
+      },
+    },
+  };
+  const contentTemplateRepository = {
+    rollMonsterDrops() {
+      return [];
+    },
+    getMonsterCombatProfile() {
+      return { expMultiplier: 1 };
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return playerId === killer.playerId ? killer : null;
+    },
+    grantMonsterKillProgress() {
+      return { changed: false };
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService(
+    contentTemplateRepository as never,
+    playerRuntimeService as never,
+    null,
+    {
+      increment(playerId: string, key: string) {
+        increments.push([playerId, key]);
+      },
+    } as never,
+  );
+  const instance = {
+    meta: { instanceId: 'instance:combat:counter' },
+    getMonsterDamageContributionEntries() {
+      return [{ playerId: killer.playerId, damage: 1 }];
+    },
+  };
+  const deps = {
+    queuePlayerNotice() {},
+    advanceKillQuestProgress() {},
+    resolveCurrentTickForPlayerId() {
+      return 1;
+    },
+  };
+
+  for (const [runtimeId, tier] of [
+    ['monster:normal:1', 'mortal_blood'],
+    ['monster:elite:1', 'variant'],
+    ['monster:boss:1', 'demon_king'],
+  ] as const) {
+    await service.handlePlayerMonsterKill(instance as never, {
+      runtimeId,
+      monsterId: runtimeId,
+      name: runtimeId,
+      level: 1,
+      tier,
+      x: 1,
+      y: 1,
+    } as never, killer.playerId, deps as never);
+  }
+
+  assert.deepEqual(increments, [
+    [killer.playerId, 'monsterKillCount'],
+    [killer.playerId, 'monsterKillCount'],
+    [killer.playerId, 'eliteMonsterKillCount'],
+    [killer.playerId, 'monsterKillCount'],
+    [killer.playerId, 'bossMonsterKillCount'],
+  ]);
 }
 
 async function testCombatSemanticAuditEvents() {

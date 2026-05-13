@@ -984,6 +984,7 @@ async function loadLegacyMarketTrades(pool, limit) {
   return result.rows.map((row) => ({
     version: 1,
     id: normalizeString(row.id),
+    source: 'market',
     buyerId: normalizeString(row.buyerId),
     sellerId: normalizeString(row.sellerId),
     itemId: normalizeString(row.itemId),

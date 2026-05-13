@@ -325,7 +325,8 @@ function testDestroyedStoneTurnsIntoWalkableGroundProjection() {
 
   const tile = snapshotService.buildTileSyncState(template, 'instance:tile-smoke', 1, 0);
   assert.equal(tile?.type, TileType.Floor);
-  assert.equal(tile?.terrainType, 'floor');
+  assert.equal(tile?.terrainType, 'grass');
+  assert.equal(tile?.surfaceType, 'floor');
   assert.equal(tile?.structureType, null);
   assert.equal(tile?.hpVisible, undefined);
 }
