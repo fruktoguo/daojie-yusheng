@@ -826,6 +826,7 @@ case "$MODE" in
     export DATABASE_URL="$SERVER_DATABASE_URL"
     export SERVER_OUTBOX_RUNTIME_ENABLED="${SERVER_OUTBOX_RUNTIME_ENABLED:-1}"
     export SERVER_DEBUG_MOVEMENT="${SERVER_DEBUG_MOVEMENT:-0}"
+    export SERVER_DEV_RESTART_DEBOUNCE_MS="${SERVER_DEV_RESTART_DEBOUNCE_MS:-60000}"
     export VITE_DEBUG_MOVEMENT="${VITE_DEBUG_MOVEMENT:-${SERVER_DEBUG_MOVEMENT}}"
     export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-http://127.0.0.1:${SERVER_PORT}}"
 
@@ -867,6 +868,7 @@ case "$MODE" in
     echo "  redis      : localhost:${REDIS_PORT}"
     echo "  outbox     : in-process runtime"
     echo "  backup     : database-backup-worker"
+    echo "  restart    : debounce ${SERVER_DEV_RESTART_DEBOUNCE_MS}ms"
     echo "  move debug : server=${SERVER_DEBUG_MOVEMENT} client=${VITE_DEBUG_MOVEMENT}"
     echo "  Ctrl+C 停止所有服务"
     echo "========================================="
