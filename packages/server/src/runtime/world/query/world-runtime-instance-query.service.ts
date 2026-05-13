@@ -18,6 +18,8 @@ interface TileStateInstanceLike {
   getTileAura(x: number, y: number): unknown | null;
   getEffectiveTileType?: (x: number, y: number) => unknown;
   getTileLayerState?: (x: number, y: number) => unknown;
+  isWalkable?: (x: number, y: number, playerId?: string | null) => boolean;
+  isTileSightBlocked?: (x: number, y: number) => boolean;
   listTileResources?: (x: number, y: number) => unknown[];
   getSafeZoneAtTile(x: number, y: number): unknown;
   getContainerAtTile(x: number, y: number): unknown;
@@ -27,6 +29,8 @@ interface TileStateInstanceLike {
 
 export interface RuntimeInstanceTileStateView {
   tileType?: unknown;
+  walkable?: boolean;
+  blocksSight?: boolean;
   aura: unknown;
   resources: unknown[];
   safeZone: unknown;
@@ -61,6 +65,8 @@ export class WorldRuntimeInstanceQueryService {
     }
     return {
       tileType: typeof instance.getEffectiveTileType === 'function' ? instance.getEffectiveTileType(x, y) : undefined,
+      walkable: typeof instance.isWalkable === 'function' ? instance.isWalkable(x, y, null) : undefined,
+      blocksSight: typeof instance.isTileSightBlocked === 'function' ? instance.isTileSightBlocked(x, y) : undefined,
       layers: typeof instance.getTileLayerState === 'function' ? instance.getTileLayerState(x, y) : undefined,
       aura,
       resources: instance.listTileResources?.(x, y) ?? [],

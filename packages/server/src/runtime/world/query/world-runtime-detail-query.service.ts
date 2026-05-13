@@ -264,6 +264,12 @@ export class WorldRuntimeDetailQueryService {
         const portal = instance.getPortalAtTile(x, y);
         const safeZone = instance.getSafeZoneAtTile(x, y);
         const tileCombat = instance.getTileCombatState?.(x, y) ?? null;
+        const tileLayerState = instance.getTileLayerState?.(x, y) ?? null;
+        const tileType = instance.getEffectiveTileType?.(x, y);
+        const walkable = instance.isWalkable?.(x, y, viewer.playerId);
+        const blocksSight = instance.isTileSightBlocked?.(x, y);
+        const movementCost = instance.getTileTraversalCost?.(x, y, viewer.playerId);
+        const qiDrainPerTick = instance.getTileQiDrainPerTick?.(x, y);
         const container = instance.getContainerAtTile(x, y);
         const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
         const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
@@ -340,6 +346,17 @@ export class WorldRuntimeDetailQueryService {
         return {
             x,
             y,
+            type: tileType,
+            walkable: typeof walkable === 'boolean' ? walkable : undefined,
+            blocksSight: typeof blocksSight === 'boolean' ? blocksSight : undefined,
+            movementCost: Number.isFinite(movementCost) ? Math.trunc(movementCost) : undefined,
+            qiDrainPerTick: Number.isFinite(qiDrainPerTick) && qiDrainPerTick > 0 ? Math.trunc(qiDrainPerTick) : undefined,
+            terrainType: tileLayerState?.terrain,
+            surfaceType: tileLayerState ? tileLayerState.surface ?? null : undefined,
+            structureType: tileLayerState ? tileLayerState.structure ?? null : undefined,
+            interactableKinds: tileLayerState && Array.isArray(tileLayerState.interactableKinds)
+                ? [...tileLayerState.interactableKinds]
+                : undefined,
             aura: (() => {
                 const auraLevel = buildTileRuntimeAuraLevel(resources, aura, viewer);
                 return auraLevel > 0 ? auraLevel : undefined;
