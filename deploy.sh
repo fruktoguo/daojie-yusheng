@@ -220,6 +220,11 @@ else
   log "${STACK_NAME}_client 无需更新"
 fi
 
+if [ "$updated_server" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
+  log "清理旧镜像..."
+  docker image prune -f >/dev/null 2>&1 || true
+fi
+
 log "本轮检查完成"
 AUTO_UPDATE_EOF
 
