@@ -3003,18 +3003,25 @@ function renderTableStatsContent(): string {
     `;
   }
   const tables = tableStatsState.tables;
-  const tableRows = tables.map((t) => `
-    <div class="network-row">
-      <div class="network-row-label">${escapeHtml(t.tableName)}</div>
-      <div class="network-row-meta">行数(估) ${escapeHtml(String(t.rowEstimate))} · 总大小 ${escapeHtml(t.totalSize)} · 数据 ${escapeHtml(t.tableSize)} · 索引 ${escapeHtml(t.indexSize)}</div>
-      ${isCleanableTable(t.tableName) ? `
-        <div class="button-row" style="margin-top:4px;">
-          <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than" type="button" ${cleanupBusy ? 'disabled' : ''}>清理 7 天前数据</button>
-          <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="all" type="button" ${cleanupBusy ? 'disabled' : ''}>直接清空</button>
-        </div>
-      ` : ''}
-    </div>
-  `).join('');
+  const tableRows = tables.map((t) => {
+    const cleanupAllowed = t.cleanupAllowed === true;
+    const cleanupOlderThanAllowed = cleanupAllowed && t.cleanupOlderThanAllowed === true;
+    const cleanupMeta = cleanupAllowed
+      ? `可清理${t.cleanupTimeColumn ? ` · 时间列 ${t.cleanupTimeColumn}` : ''}`
+      : (t.cleanupBlockedReason || '真源保护');
+    return `
+      <div class="network-row">
+        <div class="network-row-label">${escapeHtml(t.tableName)}</div>
+        <div class="network-row-meta">行数(估) ${escapeHtml(String(t.rowEstimate))} · 总大小 ${escapeHtml(t.totalSize)} · 数据 ${escapeHtml(t.tableSize)} · 索引 ${escapeHtml(t.indexSize)} · ${escapeHtml(cleanupMeta)}</div>
+        ${cleanupAllowed ? `
+          <div class="button-row" style="margin-top:4px;">
+            <button class="small-btn danger" ${cleanupOlderThanAllowed ? `data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than"` : 'title="缺少可按时间清理的列"'} type="button" ${cleanupBusy || !cleanupOlderThanAllowed ? 'disabled' : ''}>清理 7 天前数据</button>
+            <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="all" type="button" ${cleanupBusy ? 'disabled' : ''}>直接清空</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
 
   return `
     <div class="button-row">
@@ -3024,16 +3031,11 @@ function renderTableStatsContent(): string {
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">各表占用明细</div>
-        <div class="network-breakdown-subtitle">可清理目标：outbox_event、outbox_consumer_dedupe、server_log；可清理 7 天前数据，也可直接清空整表</div>
+        <div class="network-breakdown-subtitle">除真实落盘数据表外，可清理 7 天前数据，也可直接清空整表；实际权限由服务端保护</div>
       </div>
       <div class="network-breakdown-list">${tableRows}</div>
     </div>
   `;
-}
-
-const CLEANABLE_TABLES = new Set(['outbox_event', 'outbox_consumer_dedupe', 'server_log']);
-function isCleanableTable(name: string): boolean {
-  return CLEANABLE_TABLES.has(name);
 }
 
 async function loadTableStats(): Promise<void> {
