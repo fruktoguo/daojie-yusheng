@@ -305,6 +305,19 @@ function isCrowdEntityKind(kind: string | null | undefined): boolean {
 function getTileTypeName(type: TileType): string {
   return getTileTypeLabel(type, t('observe.tile.unknown-type', undefined));
 }
+
+function getObservedTilePrimaryTypeLabel(tile: Tile): string {
+  if (typeof tile.structureType === 'string' && tile.structureType.length > 0) {
+    return getStructureTypeLabel(tile.structureType, getTileTypeName(tile.type));
+  }
+  if (typeof tile.surfaceType === 'string' && tile.surfaceType.length > 0) {
+    return getSurfaceTypeLabel(tile.surfaceType, getTileTypeName(tile.type));
+  }
+  if (typeof tile.terrainType === 'string' && tile.terrainType.length > 0) {
+    return getTerrainTypeLabel(tile.terrainType, getTileTypeName(tile.type));
+  }
+  return getTileTypeName(tile.type);
+}
 /**
  * formatTraversalCost：规范化或转换Traversal消耗。
  * @param tile Tile 参数说明。
@@ -323,6 +336,28 @@ function formatTraversalCost(tile: Tile): string {
     ? Math.trunc(movementCost)
     : getTileTraversalCost(tile.type);
   return t('observe.tile.traversal.cost', { cost });
+}
+
+function mergeObservedTileWithDetail(tile: Tile, detail: S2C_TileDetail | null): Tile {
+  if (!detail) {
+    return tile;
+  }
+  return {
+    ...tile,
+    type: detail.type ?? tile.type,
+    walkable: typeof detail.walkable === 'boolean' ? detail.walkable : tile.walkable,
+    blocksSight: typeof detail.blocksSight === 'boolean' ? detail.blocksSight : tile.blocksSight,
+    movementCost: typeof detail.movementCost === 'number' && Number.isFinite(detail.movementCost)
+      ? detail.movementCost
+      : tile.movementCost,
+    qiDrainPerTick: typeof detail.qiDrainPerTick === 'number' && Number.isFinite(detail.qiDrainPerTick)
+      ? detail.qiDrainPerTick
+      : tile.qiDrainPerTick,
+    terrainType: detail.terrainType ?? tile.terrainType,
+    surfaceType: detail.surfaceType === undefined ? tile.surfaceType : detail.surfaceType,
+    structureType: detail.structureType === undefined ? tile.structureType : detail.structureType,
+    interactableKinds: Array.isArray(detail.interactableKinds) ? detail.interactableKinds : tile.interactableKinds,
+  };
 }
 /**
  * formatCurrentMax：规范化或转换当前Max。
@@ -1154,6 +1189,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     }
     const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
     const observeError = isMatchingObservedTile(targetX, targetY) ? activeObservedTileError : null;
+    const observedTile = mergeObservedTileWithDetail(tile, observedTileDetail);
     const groundPile = options.getVisibleGroundPileAt(targetX, targetY);
     const groundItems = observedTileDetail?.ground?.items ?? groundPile?.items ?? [];
     const groundSourceId = observedTileDetail?.ground?.sourceId ?? null;
@@ -1164,45 +1200,45 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       return order(left.kind) - order(right.kind);
     });
     const terrainRows = [
-      { label: t('observe.tile.label.type', undefined), value: getTileTypeName(tile.type) },
-      { label: t('observe.tile.label.terrain', undefined), value: getTerrainTypeLabel(tile.terrainType, getTileTypeName(tile.type)) },
-      { label: t('observe.tile.label.surface', undefined), value: getSurfaceTypeLabel(tile.surfaceType, t('observe.value.none', undefined)) },
-      { label: t('observe.tile.label.structure', undefined), value: getStructureTypeLabel(tile.structureType, t('observe.value.none', undefined)) },
-      { label: t('observe.tile.label.walkable', undefined), value: tile.walkable ? t('observe.tile.walkable.yes', undefined) : t('observe.tile.walkable.no', undefined) },
-      { label: t('observe.tile.label.traversal-cost', undefined), value: formatTraversalCost(tile) },
-      { label: t('observe.tile.label.blocks-sight', undefined), value: tile.blocksSight ? t('observe.tile.blocks-sight.yes', undefined) : t('observe.tile.blocks-sight.no', undefined) },
+      { label: t('observe.tile.label.type', undefined), value: getObservedTilePrimaryTypeLabel(observedTile) },
+      { label: t('observe.tile.label.terrain', undefined), value: getTerrainTypeLabel(observedTile.terrainType, getObservedTilePrimaryTypeLabel(observedTile)) },
+      { label: t('observe.tile.label.surface', undefined), value: getSurfaceTypeLabel(observedTile.surfaceType, t('observe.value.none', undefined)) },
+      { label: t('observe.tile.label.structure', undefined), value: getStructureTypeLabel(observedTile.structureType, t('observe.value.none', undefined)) },
+      { label: t('observe.tile.label.walkable', undefined), value: observedTile.walkable ? t('observe.tile.walkable.yes', undefined) : t('observe.tile.walkable.no', undefined) },
+      { label: t('observe.tile.label.traversal-cost', undefined), value: formatTraversalCost(observedTile) },
+      { label: t('observe.tile.label.blocks-sight', undefined), value: observedTile.blocksSight ? t('observe.tile.blocks-sight.yes', undefined) : t('observe.tile.blocks-sight.no', undefined) },
     ];
-    if (Number.isFinite(tile.qiDrainPerTick) && (tile.qiDrainPerTick ?? 0) > 0) {
-      terrainRows.push({ label: t('observe.tile.label.qi-drain', undefined), value: `${Math.trunc(tile.qiDrainPerTick ?? 0)}` });
+    if (Number.isFinite(observedTile.qiDrainPerTick) && (observedTile.qiDrainPerTick ?? 0) > 0) {
+      terrainRows.push({ label: t('observe.tile.label.qi-drain', undefined), value: `${Math.trunc(observedTile.qiDrainPerTick ?? 0)}` });
     }
-    if (Array.isArray(tile.interactableKinds) && tile.interactableKinds.length > 0) {
+    if (Array.isArray(observedTile.interactableKinds) && observedTile.interactableKinds.length > 0) {
       terrainRows.push({
         label: t('observe.tile.label.interactable', undefined),
-        value: tile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
+        value: observedTile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
       });
     }
     const observedTileHp = typeof observedTileDetail?.hp === 'number'
       && typeof observedTileDetail?.maxHp === 'number'
       ? { hp: observedTileDetail.hp, maxHp: observedTileDetail.maxHp }
-      : typeof tile.hp === 'number' && typeof tile.maxHp === 'number'
-        ? { hp: tile.hp, maxHp: tile.maxHp }
+      : typeof observedTile.hp === 'number' && typeof observedTile.maxHp === 'number'
+        ? { hp: observedTile.hp, maxHp: observedTile.maxHp }
         : null;
     if (observedTileHp) {
       terrainRows.push({
-        label: tile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
+        label: observedTile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
         value: formatCurrentMax(observedTileHp.hp, observedTileHp.maxHp),
       });
     }
     if (sortedEntities.length > 0) {
       terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
-    } else if (tile.occupiedBy) {
+    } else if (observedTile.occupiedBy) {
       terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: t('observe.tile.presence.unknown', undefined) });
     }
-    if (tile.modifiedAt) {
+    if (observedTile.modifiedAt) {
       terrainRows.push({ label: t('observe.tile.label.modified', undefined), value: t('observe.tile.modified.recent', undefined) });
     }
-    if (tile.hiddenEntrance) {
-      terrainRows.push({ label: t('observe.tile.label.hidden', undefined), value: tile.hiddenEntrance.title });
+    if (observedTile.hiddenEntrance) {
+      terrainRows.push({ label: t('observe.tile.label.hidden', undefined), value: observedTile.hiddenEntrance.title });
     }
     if (safeZone) {
       terrainRows.push({

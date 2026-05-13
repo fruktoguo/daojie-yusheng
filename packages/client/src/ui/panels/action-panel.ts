@@ -888,7 +888,7 @@ export class ActionPanel {
 
       types: string[];
     }> = [
-      { id: 'dialogue', label: t('action.tab.dialogue', undefined), types: ['quest', 'interact', 'travel'] },
+      { id: 'dialogue', label: t('action.tab.dialogue', undefined), types: ['quest', 'interact', 'travel', 'craft'] },
       { id: 'skill', label: t('action.tab.skill', undefined), types: ['skill', 'battle', 'gather'] },
       { id: 'toggle', label: t('action.tab.toggle', undefined), types: ['toggle'] },
       { id: 'utility', label: t('action.tab.utility', undefined), types: ['toggle'] },

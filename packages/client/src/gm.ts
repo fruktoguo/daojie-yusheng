@@ -20,7 +20,10 @@ import {
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
   type GmPlayerDatabaseTableView,
+  type GmDatabaseCleanupReq,
   type GmDatabaseStateRes,
+  type GmDatabaseTableStatsRes,
+  type GmDatabaseCleanupRes,
   type GmUploadDatabaseBackupRes,
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
@@ -567,6 +570,11 @@ let databaseImportBusy = false;
 let databaseImportStatus = '';
 /** selectedDatabaseImportFile：当前已选择但尚未上传的数据库备份文件。 */
 let selectedDatabaseImportFile: File | null = null;
+type DatabaseSubTab = 'backup' | 'table-stats';
+let databaseSubTab: DatabaseSubTab = 'backup';
+let tableStatsState: GmDatabaseTableStatsRes | null = null;
+let tableStatsLoading = false;
+let cleanupBusy = false;
 let suggestions: Suggestion[] = [];
 /** EditorCatalogSource：编辑器目录数据的当前来源标记。 */
 type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
@@ -2923,6 +2931,18 @@ function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): s
 
 /** renderDatabasePanel：渲染数据库面板。 */
 function renderDatabasePanel(): void {
+  const subTabBar = `
+    <div class="button-row">
+      <button class="small-btn ${databaseSubTab === 'backup' ? 'primary' : ''}" data-db-subtab="backup" type="button">备份管理</button>
+      <button class="small-btn ${databaseSubTab === 'table-stats' ? 'primary' : ''}" data-db-subtab="table-stats" type="button">表占用分析</button>
+    </div>
+  `;
+
+  if (databaseSubTab === 'table-stats') {
+    serverPanelDatabaseEl.innerHTML = subTabBar + renderTableStatsContent();
+    return;
+  }
+
   const busy = databaseState?.runningJob?.status === 'running' || databaseImportBusy;
   const backups = databaseState?.backups ?? [];
   const importStatus = databaseImportStatus
@@ -2943,7 +2963,7 @@ function renderDatabasePanel(): void {
       `).join('')
     : '<div class="empty-hint">当前还没有持久化备份。</div>';
 
-  serverPanelDatabaseEl.innerHTML = `
+  serverPanelDatabaseEl.innerHTML = subTabBar + `
     <div class="button-row">
       <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
       <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出数据库备份</button>
@@ -2968,6 +2988,90 @@ function renderDatabasePanel(): void {
       <div class="network-breakdown-list">${rows}</div>
     </div>
   `;
+}
+
+function renderTableStatsContent(): string {
+  if (tableStatsLoading) {
+    return '<div class="note-card">正在加载表占用统计…</div>';
+  }
+  if (!tableStatsState) {
+    return `
+      <div class="button-row">
+        <button class="small-btn primary" data-action="load-table-stats" type="button">加载表占用统计</button>
+      </div>
+      <div class="empty-hint">点击上方按钮查询各表占用情况。</div>
+    `;
+  }
+  const tables = tableStatsState.tables;
+  const tableRows = tables.map((t) => `
+    <div class="network-row">
+      <div class="network-row-label">${escapeHtml(t.tableName)}</div>
+      <div class="network-row-meta">行数(估) ${escapeHtml(String(t.rowEstimate))} · 总大小 ${escapeHtml(t.totalSize)} · 数据 ${escapeHtml(t.tableSize)} · 索引 ${escapeHtml(t.indexSize)}</div>
+      ${isCleanableTable(t.tableName) ? `
+        <div class="button-row" style="margin-top:4px;">
+          <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than" type="button" ${cleanupBusy ? 'disabled' : ''}>清理 7 天前数据</button>
+          <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="all" type="button" ${cleanupBusy ? 'disabled' : ''}>直接清空</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  return `
+    <div class="button-row">
+      <button class="small-btn primary" data-action="load-table-stats" type="button">刷新统计</button>
+    </div>
+    <div class="note-card">总占用: ${escapeHtml(tableStatsState.totalSize)} · 统计时间: ${escapeHtml(formatDateTime(tableStatsState.fetchedAt))}</div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">各表占用明细</div>
+        <div class="network-breakdown-subtitle">可清理目标：outbox_event、outbox_consumer_dedupe、server_log；可清理 7 天前数据，也可直接清空整表</div>
+      </div>
+      <div class="network-breakdown-list">${tableRows}</div>
+    </div>
+  `;
+}
+
+const CLEANABLE_TABLES = new Set(['outbox_event', 'outbox_consumer_dedupe', 'server_log']);
+function isCleanableTable(name: string): boolean {
+  return CLEANABLE_TABLES.has(name);
+}
+
+async function loadTableStats(): Promise<void> {
+  if (!token) return;
+  tableStatsLoading = true;
+  renderDatabasePanel();
+  try {
+    tableStatsState = await request<GmDatabaseTableStatsRes>(`${GM_API_BASE_PATH}/database/table-stats`);
+    setStatus('表占用统计已加载');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '加载表占用统计失败', true);
+  } finally {
+    tableStatsLoading = false;
+    renderDatabasePanel();
+  }
+}
+
+async function cleanupTable(target: string, mode: GmDatabaseCleanupReq['mode'] = 'older_than'): Promise<void> {
+  if (!token || cleanupBusy) return;
+  cleanupBusy = true;
+  renderDatabasePanel();
+  try {
+    const requestBody: GmDatabaseCleanupReq = mode === 'all'
+      ? { target, mode }
+      : { target, mode: 'older_than', olderThanDays: 7 };
+    const result = await request<GmDatabaseCleanupRes>(`${GM_API_BASE_PATH}/database/cleanup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    setStatus(result.message);
+    await loadTableStats();
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '清理失败', true);
+  } finally {
+    cleanupBusy = false;
+    renderDatabasePanel();
+  }
 }
 
 /** renderRedeemPanel：渲染兑换面板。 */
@@ -8378,6 +8482,36 @@ serverWorkersRefreshBtn.addEventListener('click', () => {
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
   const target = event.target as HTMLElement | null;
+
+  const subTabBtn = target?.closest<HTMLButtonElement>('[data-db-subtab]');
+  if (subTabBtn?.dataset.dbSubtab) {
+    databaseSubTab = subTabBtn.dataset.dbSubtab as DatabaseSubTab;
+    renderDatabasePanel();
+    if (databaseSubTab === 'table-stats' && !tableStatsState && !tableStatsLoading) {
+      loadTableStats().catch(() => {});
+    }
+    return;
+  }
+
+  const loadStatsBtn = target?.closest<HTMLButtonElement>('[data-action="load-table-stats"]');
+  if (loadStatsBtn) {
+    loadTableStats().catch(() => {});
+    return;
+  }
+
+  const cleanupBtn = target?.closest<HTMLButtonElement>('[data-cleanup-target]');
+  if (cleanupBtn?.dataset.cleanupTarget) {
+    const tableName = cleanupBtn.dataset.cleanupTarget;
+    const cleanupMode = cleanupBtn.dataset.cleanupMode === 'all' ? 'all' : 'older_than';
+    const confirmMessage = cleanupMode === 'all'
+      ? `确认直接清空 ${tableName}？这会删除该表所有记录，此操作不可撤销。`
+      : `确认清理 ${tableName} 中 7 天前的数据？此操作不可撤销。`;
+    if (confirm(confirmMessage)) {
+      cleanupTable(tableName, cleanupMode).catch(() => {});
+    }
+    return;
+  }
+
   const refreshButton = target?.closest<HTMLButtonElement>('#database-refresh');
   if (refreshButton) {
     loadDatabaseState(false).catch((error: unknown) => {
