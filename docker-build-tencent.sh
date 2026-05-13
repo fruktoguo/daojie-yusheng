@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-IMAGE_PREFIX="${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}"
+IMAGE_PREFIX="${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/yuohira}"
 VERSION="latest"
 MODE="all"
 VERSION_SET=0
