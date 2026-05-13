@@ -148,6 +148,80 @@ const MAINLINE_BACKUP_TABLES = [
     'asset_audit_log',
 ];
 
+const DATABASE_CLEANUP_OPERATIONAL_TABLES = new Set([
+    'asset_audit_log',
+    'asset_audit_log_archive',
+    'dead_letter_event',
+    'durable_operation_log',
+    'instance_flush_ledger',
+    'node_registry',
+    'outbox_consumer_dedupe',
+    'outbox_event',
+    'player_flush_ledger',
+    'player_session_route',
+    'server_db_backup_metadata',
+    'server_db_job_state',
+    'server_log',
+]);
+
+const DATABASE_CLEANUP_PROTECTED_EXACT_TABLES = new Set([
+    ...MAINLINE_BACKUP_TABLES,
+    'instance_catalog',
+    'persistent_documents',
+    'player_counters',
+    'player_mail_archive',
+    'player_mail_attachment_archive',
+    'player_offline_gain_report',
+    'player_offline_gain_session',
+    'player_statistic_day_total',
+    'player_tongtian_tower_progress',
+    'server_gm_runtime_flag',
+    'server_gm_secrets',
+    'server_player_snapshot',
+    'users',
+    'players',
+]);
+
+for (const tableName of DATABASE_CLEANUP_OPERATIONAL_TABLES) {
+    DATABASE_CLEANUP_PROTECTED_EXACT_TABLES.delete(tableName);
+}
+
+const DATABASE_CLEANUP_PROTECTED_PREFIXES = [
+    'instance_',
+    'player_',
+    'server_afdian_',
+    'server_gm_',
+    'server_market_',
+    'server_player_',
+    'server_redeem_',
+    'server_sect',
+    'server_suggestion',
+];
+
+const DATABASE_CLEANUP_TIME_COLUMN_CANDIDATES = [
+    'created_at',
+    'failed_at',
+    'dirty_since_at',
+    'updated_at',
+    'delivered_at',
+    'committed_at',
+    'archived_at',
+    'heartbeat_at',
+    'started_at',
+    'created_at_text',
+    'updated_at_text',
+];
+
+interface DatabaseTableColumnInfo {
+    columnName: string;
+    dataType: string;
+}
+
+interface DatabaseCleanupTimeColumn {
+    columnName: string;
+    kind: 'timestamp' | 'epoch_ms' | 'iso_text';
+}
+
 const MAINLINE_RESTORE_CLEAR_TABLES = [...MAINLINE_BACKUP_TABLES].reverse();
 const MAINLINE_RESTORE_DERIVED_MIRROR_TABLES = new Set([
     'player_identity',
@@ -1940,7 +2014,8 @@ export class NativeGmAdminService {
         if (!this.pool || !this.persistenceEnabled) {
             throw new BadRequestException('数据库连接不可用');
         }
-        const result = await this.pool.query(`
+        const [result, columnsResult] = await Promise.all([
+            this.pool.query(`
             SELECT
                 relname AS table_name,
                 reltuples::bigint AS row_estimate,
@@ -1952,13 +2027,24 @@ export class NativeGmAdminService {
             LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE relkind = 'r' AND n.nspname = 'public'
             ORDER BY pg_total_relation_size(c.oid) DESC
-        `);
+        `),
+            this.pool.query(`
+            SELECT table_name, column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+        `),
+        ]);
+        const columnsByTable = buildTableColumnsMap(columnsResult.rows);
         let totalBytes = 0;
         const tables = result.rows.map((row) => {
             const tb = Number(row.total_bytes);
             totalBytes += tb;
+            const tableName = String(row.table_name);
+            const columns = columnsByTable.get(tableName) ?? [];
+            const cleanupBlockedReason = getDatabaseCleanupBlockedReason(tableName, columns);
+            const cleanupTimeColumn = cleanupBlockedReason ? null : resolveDatabaseCleanupTimeColumn(columns);
             return {
-                tableName: row.table_name,
+                tableName,
                 rowEstimate: Number(row.row_estimate),
                 totalBytes: tb,
                 totalSize: formatPgBytes(tb),
@@ -1968,6 +2054,10 @@ export class NativeGmAdminService {
                 indexSize: formatPgBytes(Number(row.index_bytes)),
                 toastBytes: Number(row.toast_bytes),
                 toastSize: formatPgBytes(Number(row.toast_bytes)),
+                cleanupAllowed: !cleanupBlockedReason,
+                cleanupOlderThanAllowed: !cleanupBlockedReason && Boolean(cleanupTimeColumn),
+                cleanupTimeColumn: cleanupTimeColumn?.columnName ?? null,
+                cleanupBlockedReason,
             };
         });
         return {
@@ -1982,44 +2072,47 @@ export class NativeGmAdminService {
         if (!this.pool || !this.persistenceEnabled) {
             throw new BadRequestException('数据库连接不可用');
         }
-        const ALLOWED_TARGETS: Record<string, { table: string; timeColumn: string; label: string }> = {
-            outbox_event: { table: 'outbox_event', timeColumn: 'created_at', label: 'Outbox 事件' },
-            outbox_consumer_dedupe: { table: 'outbox_consumer_dedupe', timeColumn: 'updated_at', label: 'Outbox 去重记录' },
-            server_log: { table: 'server_log', timeColumn: 'created_at', label: '服务端日志' },
-        };
-        const config = ALLOWED_TARGETS[target];
-        if (!config) {
-            throw new BadRequestException(`不支持清理目标: ${target}，允许: ${Object.keys(ALLOWED_TARGETS).join(', ')}`);
-        }
+        const tableName = normalizeDatabaseCleanupTableName(target);
         if (mode !== 'older_than' && mode !== 'all') {
             throw new BadRequestException('mode 必须是 older_than 或 all');
         }
+        const columns = await loadPublicRegularTableColumns(this.pool, tableName);
+        const cleanupBlockedReason = getDatabaseCleanupBlockedReason(tableName, columns);
+        if (cleanupBlockedReason) {
+            throw new BadRequestException(`${cleanupBlockedReason}: ${tableName}`);
+        }
+        const quotedTableName = quoteIdentifier(tableName);
         if (mode === 'all') {
-            const countResult = await this.pool.query(`SELECT COUNT(*)::bigint AS row_count FROM ${config.table}`);
+            const countResult = await this.pool.query(`SELECT COUNT(*)::bigint AS row_count FROM ${quotedTableName}`);
             const deletedRows = Number(countResult.rows[0]?.row_count ?? 0);
-            await this.pool.query(`TRUNCATE TABLE ${config.table}`);
-            await this.pool.query(`ANALYZE ${config.table}`);
+            await this.pool.query(`TRUNCATE TABLE ${quotedTableName}`);
+            await this.pool.query(`ANALYZE ${quotedTableName}`);
             return {
-                target,
+                target: tableName,
                 mode,
                 deletedRows,
-                message: `已清空 ${config.label}，释放表占用，删除 ${deletedRows} 条记录`,
+                message: `已清空 ${tableName}，释放表占用，删除 ${deletedRows} 条记录`,
             };
         }
         if (olderThanDays < 1) {
             throw new BadRequestException('olderThanDays 必须 >= 1');
         }
+        const cleanupTimeColumn = resolveDatabaseCleanupTimeColumn(columns);
+        if (!cleanupTimeColumn) {
+            throw new BadRequestException(`表 ${tableName} 缺少可按时间清理的列`);
+        }
+        const predicate = buildDatabaseCleanupTimePredicate(cleanupTimeColumn);
         const result = await this.pool.query(
-            `DELETE FROM ${config.table} WHERE ${config.timeColumn} < now() - $1::interval`,
+            `DELETE FROM ${quotedTableName} WHERE ${predicate}`,
             [`${olderThanDays} days`],
         );
         const deletedRows = result.rowCount ?? 0;
-        await this.pool.query(`ANALYZE ${config.table}`);
+        await this.pool.query(`ANALYZE ${quotedTableName}`);
         return {
-            target,
+            target: tableName,
             mode,
             deletedRows,
-            message: `已清理 ${config.label} 中 ${olderThanDays} 天前的 ${deletedRows} 条记录`,
+            message: `已清理 ${tableName} 中 ${olderThanDays} 天前的 ${deletedRows} 条记录`,
         };
     }
 }
@@ -2029,6 +2122,108 @@ function formatPgBytes(bytes: number): string {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function buildTableColumnsMap(rows: Array<Record<string, unknown>>): Map<string, DatabaseTableColumnInfo[]> {
+    const map = new Map<string, DatabaseTableColumnInfo[]>();
+    for (const row of rows) {
+        const tableName = String(row.table_name ?? '');
+        const columnName = String(row.column_name ?? '');
+        const dataType = String(row.data_type ?? '');
+        if (!tableName || !columnName) continue;
+        const columns = map.get(tableName) ?? [];
+        columns.push({ columnName, dataType });
+        map.set(tableName, columns);
+    }
+    return map;
+}
+
+function normalizeDatabaseCleanupTableName(target: string): string {
+    const tableName = String(target ?? '').trim();
+    if (!/^[a-z_][a-z0-9_]*$/iu.test(tableName)) {
+        throw new BadRequestException('清理目标表名非法');
+    }
+    return tableName;
+}
+
+function getDatabaseCleanupBlockedReason(tableName: string, columns: DatabaseTableColumnInfo[]): string | null {
+    if (!columns.length) {
+        return '表不存在或不是 public 普通表';
+    }
+    if (DATABASE_CLEANUP_OPERATIONAL_TABLES.has(tableName)) {
+        return null;
+    }
+    if (DATABASE_CLEANUP_PROTECTED_EXACT_TABLES.has(tableName)) {
+        return '真实落盘数据表不允许清理';
+    }
+    if (DATABASE_CLEANUP_PROTECTED_PREFIXES.some((prefix) => tableName.startsWith(prefix))) {
+        return '真实落盘数据表不允许清理';
+    }
+    return null;
+}
+
+async function loadPublicRegularTableColumns(pool: Pool, tableName: string): Promise<DatabaseTableColumnInfo[]> {
+    const result = await pool.query(
+        `
+        SELECT c.column_name, c.data_type
+        FROM information_schema.columns c
+        JOIN pg_class pc ON pc.relname = c.table_name
+        JOIN pg_namespace pn ON pn.oid = pc.relnamespace AND pn.nspname = c.table_schema
+        WHERE c.table_schema = 'public'
+          AND c.table_name = $1
+          AND pc.relkind = 'r'
+        ORDER BY c.ordinal_position ASC
+        `,
+        [tableName],
+    );
+    return result.rows.map((row) => ({
+        columnName: String(row.column_name ?? ''),
+        dataType: String(row.data_type ?? ''),
+    })).filter((column) => column.columnName);
+}
+
+function resolveDatabaseCleanupTimeColumn(columns: DatabaseTableColumnInfo[]): DatabaseCleanupTimeColumn | null {
+    const columnsByName = new Map(columns.map((column) => [column.columnName, column]));
+    for (const candidate of DATABASE_CLEANUP_TIME_COLUMN_CANDIDATES) {
+        const column = columnsByName.get(candidate);
+        if (!column) continue;
+        const kind = resolveDatabaseCleanupTimeColumnKind(column);
+        if (kind) {
+            return { columnName: column.columnName, kind };
+        }
+    }
+    for (const column of columns) {
+        const kind = resolveDatabaseCleanupTimeColumnKind(column);
+        if (kind && /(?:^|_)(?:created|updated|failed|delivered|archived|heartbeat|started|dirty_since)(?:_|$)/iu.test(column.columnName)) {
+            return { columnName: column.columnName, kind };
+        }
+    }
+    return null;
+}
+
+function resolveDatabaseCleanupTimeColumnKind(column: DatabaseTableColumnInfo): DatabaseCleanupTimeColumn['kind'] | null {
+    const dataType = column.dataType.toLowerCase();
+    if (dataType === 'timestamp with time zone' || dataType === 'timestamp without time zone' || dataType === 'date') {
+        return 'timestamp';
+    }
+    if ((dataType === 'bigint' || dataType === 'integer' || dataType === 'numeric') && /(?:_at_ms|_ms)$/iu.test(column.columnName)) {
+        return 'epoch_ms';
+    }
+    if ((dataType === 'character varying' || dataType === 'text' || dataType === 'character') && /_at_text$/iu.test(column.columnName)) {
+        return 'iso_text';
+    }
+    return null;
+}
+
+function buildDatabaseCleanupTimePredicate(column: DatabaseCleanupTimeColumn): string {
+    const quotedColumn = quoteIdentifier(column.columnName);
+    if (column.kind === 'epoch_ms') {
+        return `${quotedColumn} < (EXTRACT(EPOCH FROM (now() - $1::interval)) * 1000)::bigint`;
+    }
+    if (column.kind === 'iso_text') {
+        return `${quotedColumn} < to_char((now() AT TIME ZONE 'UTC') - $1::interval, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+    }
+    return `${quotedColumn} < now() - $1::interval`;
 }
 
 async function ensureNativeGmAdminTables(pool) {
