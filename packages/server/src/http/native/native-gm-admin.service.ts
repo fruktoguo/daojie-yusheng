@@ -1935,6 +1935,100 @@ export class NativeGmAdminService {
             delete process.env.AFDIAN_TOKEN;
         }
     }
+
+    async getDatabaseTableStats() {
+        if (!this.pool || !this.persistenceEnabled) {
+            throw new BadRequestException('数据库连接不可用');
+        }
+        const result = await this.pool.query(`
+            SELECT
+                relname AS table_name,
+                reltuples::bigint AS row_estimate,
+                pg_total_relation_size(c.oid) AS total_bytes,
+                pg_relation_size(c.oid) AS table_bytes,
+                COALESCE(pg_indexes_size(c.oid), 0) AS index_bytes,
+                COALESCE(pg_total_relation_size(reltoastrelid), 0) AS toast_bytes
+            FROM pg_class c
+            LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE relkind = 'r' AND n.nspname = 'public'
+            ORDER BY pg_total_relation_size(c.oid) DESC
+        `);
+        let totalBytes = 0;
+        const tables = result.rows.map((row) => {
+            const tb = Number(row.total_bytes);
+            totalBytes += tb;
+            return {
+                tableName: row.table_name,
+                rowEstimate: Number(row.row_estimate),
+                totalBytes: tb,
+                totalSize: formatPgBytes(tb),
+                tableBytes: Number(row.table_bytes),
+                tableSize: formatPgBytes(Number(row.table_bytes)),
+                indexBytes: Number(row.index_bytes),
+                indexSize: formatPgBytes(Number(row.index_bytes)),
+                toastBytes: Number(row.toast_bytes),
+                toastSize: formatPgBytes(Number(row.toast_bytes)),
+            };
+        });
+        return {
+            tables,
+            totalBytes,
+            totalSize: formatPgBytes(totalBytes),
+            fetchedAt: new Date().toISOString(),
+        };
+    }
+
+    async cleanupDatabaseTable(target: string, mode: 'older_than' | 'all' = 'older_than', olderThanDays = 7) {
+        if (!this.pool || !this.persistenceEnabled) {
+            throw new BadRequestException('数据库连接不可用');
+        }
+        const ALLOWED_TARGETS: Record<string, { table: string; timeColumn: string; label: string }> = {
+            outbox_event: { table: 'outbox_event', timeColumn: 'created_at', label: 'Outbox 事件' },
+            outbox_consumer_dedupe: { table: 'outbox_consumer_dedupe', timeColumn: 'updated_at', label: 'Outbox 去重记录' },
+            server_log: { table: 'server_log', timeColumn: 'created_at', label: '服务端日志' },
+        };
+        const config = ALLOWED_TARGETS[target];
+        if (!config) {
+            throw new BadRequestException(`不支持清理目标: ${target}，允许: ${Object.keys(ALLOWED_TARGETS).join(', ')}`);
+        }
+        if (mode !== 'older_than' && mode !== 'all') {
+            throw new BadRequestException('mode 必须是 older_than 或 all');
+        }
+        if (mode === 'all') {
+            const countResult = await this.pool.query(`SELECT COUNT(*)::bigint AS row_count FROM ${config.table}`);
+            const deletedRows = Number(countResult.rows[0]?.row_count ?? 0);
+            await this.pool.query(`TRUNCATE TABLE ${config.table}`);
+            await this.pool.query(`ANALYZE ${config.table}`);
+            return {
+                target,
+                mode,
+                deletedRows,
+                message: `已清空 ${config.label}，释放表占用，删除 ${deletedRows} 条记录`,
+            };
+        }
+        if (olderThanDays < 1) {
+            throw new BadRequestException('olderThanDays 必须 >= 1');
+        }
+        const result = await this.pool.query(
+            `DELETE FROM ${config.table} WHERE ${config.timeColumn} < now() - $1::interval`,
+            [`${olderThanDays} days`],
+        );
+        const deletedRows = result.rowCount ?? 0;
+        await this.pool.query(`ANALYZE ${config.table}`);
+        return {
+            target,
+            mode,
+            deletedRows,
+            message: `已清理 ${config.label} 中 ${olderThanDays} 天前的 ${deletedRows} 条记录`,
+        };
+    }
+}
+
+function formatPgBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 async function ensureNativeGmAdminTables(pool) {

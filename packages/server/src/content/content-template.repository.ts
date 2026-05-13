@@ -91,6 +91,7 @@ export class ContentTemplateRepository {
             equipValueStats: template.equipValueStats ? { ...template.equipValueStats } : undefined,
             equipSpecialStats: template.equipSpecialStats ? { ...template.equipSpecialStats } : undefined,
             tags: Array.isArray(template.tags) ? template.tags.slice() : undefined,
+            contextActions: Array.isArray(template.contextActions) ? template.contextActions.map((entry) => ({ ...entry })) : undefined,
             effects: Array.isArray(template.effects) ? template.effects.map((entry) => ({ ...entry })) : undefined,
             healAmount: template.healAmount,
             healPercent: template.healPercent,
@@ -1806,6 +1807,7 @@ function normalizeItemTemplate(raw) {
         miningDamageRate: normalizeUtilityRate(candidate.miningDamageRate),
         consumeBuffs: normalizeConsumableBuffs(raw.consumeBuffs),
         tags: normalizeItemTags(candidate.tags, materialCategory),
+        contextActions: normalizeItemContextActions(candidate.contextActions),
 
         mapUnlockId: typeof candidate.mapUnlockId === 'string' ? candidate.mapUnlockId : undefined,
         mapUnlockIds: Array.isArray(candidate.mapUnlockIds)
@@ -1836,6 +1838,36 @@ function normalizeItemTemplate(raw) {
 function normalizeUtilityRate(value) {
 
     return Number.isFinite(value) ? Number(value) : undefined;
+}
+
+function normalizeItemContextActions(raw) {
+    if (!Array.isArray(raw)) {
+        return undefined;
+    }
+    const actions = [];
+    const seen = new Set();
+    for (const entry of raw) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        const candidate = entry;
+        const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+        const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+        const desc = typeof candidate.desc === 'string' ? candidate.desc.trim() : '';
+        const type = typeof candidate.type === 'string' ? candidate.type.trim() : '';
+        if (!id || !name || !desc || type !== 'craft' || seen.has(id)) {
+            continue;
+        }
+        actions.push({
+            id,
+            name,
+            type,
+            desc,
+            cooldownLeft: Math.max(0, Math.trunc(Number(candidate.cooldownLeft) || 0)),
+        });
+        seen.add(id);
+    }
+    return actions.length > 0 ? actions : undefined;
 }
 
 function normalizeConsumableBuffs(raw) {

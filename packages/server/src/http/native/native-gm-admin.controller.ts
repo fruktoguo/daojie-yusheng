@@ -15,6 +15,13 @@ interface DatabaseRestoreBody {
   backupId?: string;
 }
 
+/** 数据库清理请求体。 */
+interface DatabaseCleanupBody {
+  target?: string;
+  mode?: 'older_than' | 'all';
+  olderThanDays?: number;
+}
+
 /** Express 下载响应接口。 */
 interface DownloadResponseLike {
   download(filePath: string, fileName: string): void;
@@ -84,5 +91,17 @@ export class NativeGmAdminController {
   @Post('database/restore')
   triggerDatabaseRestore(@Body() body: DatabaseRestoreBody) {
     return this.nextGmAdminService.triggerDatabaseRestore(body?.backupId ?? '');
+  }
+
+  /** 查询各表占用统计。 */
+  @Get('database/table-stats')
+  getDatabaseTableStats() {
+    return this.nextGmAdminService.getDatabaseTableStats();
+  }
+
+  /** 清理指定表的过期数据。 */
+  @Post('database/cleanup')
+  triggerDatabaseCleanup(@Body() body: DatabaseCleanupBody) {
+    return this.nextGmAdminService.cleanupDatabaseTable(body?.target ?? '', body?.mode, body?.olderThanDays);
   }
 }
