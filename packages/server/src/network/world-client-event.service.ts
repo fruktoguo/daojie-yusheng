@@ -433,13 +433,22 @@ export class WorldClientEventService {
  * @returns 无返回值，直接更新坊市TradeHistoryPage相关状态。
  */
 
-    resolveMarketTradeHistoryPage(playerId, tradeHistoryRequests) {
+    resolveMarketTradeHistoryRequest(playerId, tradeHistoryRequests) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (tradeHistoryRequests instanceof Map) {
-            const page = tradeHistoryRequests.get(playerId);
-            if (Number.isFinite(page)) {
-                return Math.max(1, Math.trunc(page));
+            const request = tradeHistoryRequests.get(playerId);
+            if (request && typeof request === 'object') {
+                return {
+                    page: Number.isFinite(request.page) ? Math.max(1, Math.trunc(request.page)) : 1,
+                    source: request.source === 'auction' ? 'auction' : 'market',
+                };
+            }
+            if (Number.isFinite(request)) {
+                return {
+                    page: Math.max(1, Math.trunc(request)),
+                    source: 'market',
+                };
             }
         }
         return null;
@@ -503,11 +512,11 @@ export class WorldClientEventService {
                 }
                 continue;
             }
-            const page = this.resolveMarketTradeHistoryPage(tradeHistoryPlayerId, options?.marketTradeHistoryRequests);
-            if (!page) {
+            const request = this.resolveMarketTradeHistoryRequest(tradeHistoryPlayerId, options?.marketTradeHistoryRequests);
+            if (!request) {
                 continue;
             }
-            this.emitMarketTradeHistory(socket, this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, page));
+            this.emitMarketTradeHistory(socket, this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, request.page, request.source));
         }
     }
     /**

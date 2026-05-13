@@ -119,8 +119,10 @@ class WorldGatewaySessionStateHelper {
  * @returns 无返回值，直接更新坊市TradeHistoryRequest相关状态。
  */
 
-    setMarketTradeHistoryRequest(playerId, page) {
-        this.marketTradeHistoryRequestsByPlayerId.set(playerId, Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1);
+    setMarketTradeHistoryRequest(playerId, request) {
+        const source = request?.source === 'auction' ? 'auction' : 'market';
+        const page = Number.isFinite(request?.page) ? Math.max(1, Math.trunc(request.page)) : 1;
+        this.marketTradeHistoryRequestsByPlayerId.set(playerId, { page, source });
     }
     /**
  * getMarketSubscribers：读取坊市Subscriber。
