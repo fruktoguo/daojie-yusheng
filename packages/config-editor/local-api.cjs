@@ -262,6 +262,7 @@ function listEditorItems() {
         equipValueStats: normalizeEquipValueStats(entry.equipValueStats),
         effects: Array.isArray(entry.effects) ? entry.effects : undefined,
         tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
+        contextActions: Array.isArray(entry.contextActions) ? entry.contextActions.filter((action) => action && typeof action === 'object') : undefined,
         mapUnlockId: typeof entry.mapUnlockId === 'string' ? entry.mapUnlockId.trim() : undefined,
         tileAuraGainAmount: Number.isFinite(entry.tileAuraGainAmount) ? Number(entry.tileAuraGainAmount) : undefined,
         allowBatchUse: entry.allowBatchUse === true ? true : undefined,
