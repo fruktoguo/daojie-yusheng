@@ -3,6 +3,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 import { Pool } from 'pg';
 
@@ -15,18 +16,22 @@ const databaseUrl = resolveServerDatabaseUrl();
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const OUTBOX_CONSUMER_DEDUPE_TABLE = 'outbox_consumer_dedupe';
+const OUTBOX_DEDUPE_KEY_MAX_LENGTH = 180;
 const EXPECTED_BUILT_IN_OUTBOX_TOPICS = [
+  'combat.audit.recorded',
   'player.active_job.cancelled',
   'player.active_job.completed',
   'player.active_job.started',
   'player.active_job.updated',
   'player.equipment.updated',
+  'player.inventory.granted',
   'player.mail.claimed',
   'player.market.buy_now',
   'player.market.sell_now',
   'player.market.sell_now.trade_delivered',
   'player.market.storage.claimed',
   'player.npc_shop.item_purchased',
+  'player.quest.submitted',
   'player.wallet.updated',
 ].sort();
 
@@ -64,6 +69,19 @@ async function main(): Promise<void> {
   const runtimeRetryEventId = `${eventId}:runtime-retry`;
   const runtimeDeadLetterEventId = `${eventId}:runtime-dead-letter`;
   const registryEventId = `${eventId}:registry`;
+  const longActiveJobEventId = [
+    'outbox',
+    'op',
+    'p_outbox_smoke_longid_1234567890abcdef_1774096797420',
+    'enhancement-update',
+    'job',
+    'p_outbox_smoke_longid_1234567890abcdef_1774096797420',
+    'enhancement',
+    Date.now().toString(36),
+    'v21559',
+    'enhancing',
+  ].join(':');
+  const longActiveJobOperationId = longActiveJobEventId.replace(/^outbox:/, '');
   const topicPrefix = `smoke.outbox.dispatcher.${Date.now().toString(36)}`;
 
   try {
@@ -213,6 +231,46 @@ async function main(): Promise<void> {
 
     await seedOutboxRow({
       pool,
+      eventId: longActiveJobEventId,
+      operationId: longActiveJobOperationId,
+      topic: 'player.active_job.updated',
+      partitionKey: `player:${Date.now().toString(36)}:active-job`,
+      status: 'claimed',
+      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+    });
+    const longDedupeRuntime = new OutboxDispatcherRuntimeService(dispatcher);
+    await longDedupeRuntime.consumeEvent(
+      {
+        event_id: longActiveJobEventId,
+        operation_id: longActiveJobOperationId,
+        topic: 'player.active_job.updated',
+      },
+      async () => undefined,
+    );
+    const longDedupeRows = await fetchConsumerDedupeRows(pool, [longActiveJobEventId], [longActiveJobOperationId]);
+    assert.ok(longDedupeRows.some((row) => row.dedupe_key === buildExpectedDedupeKey('event', longActiveJobEventId) && row.state === 'delivered'));
+    assert.ok(longDedupeRows.some((row) => row.dedupe_key === buildExpectedDedupeKey('op', longActiveJobOperationId) && row.state === 'delivered'));
+    const longDeliveredRow = await fetchOutboxRow(pool, longActiveJobEventId);
+    assert.equal(longDeliveredRow?.status, 'delivered');
+    await seedOutboxRow({
+      pool,
+      eventId: longActiveJobEventId,
+      operationId: longActiveJobOperationId,
+      topic: 'player.active_job.updated',
+      partitionKey: `player:${Date.now().toString(36)}:active-job`,
+      status: 'claimed',
+      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      attemptCount: 0,
+    });
+    const longDeadLettered = await dispatcher.markFailed(longActiveJobEventId, 10_000, 1);
+    assert.equal(longDeadLettered, true);
+    const longDeadLetterSourceRow = await fetchOutboxRow(pool, longActiveJobEventId);
+    assert.equal(longDeadLetterSourceRow, null);
+    const longDeadLetterArchive = await fetchDeadLetterRow(pool, longActiveJobEventId);
+    assert.equal(longDeadLetterArchive?.event_id, longActiveJobEventId);
+
+    await seedOutboxRow({
+      pool,
       eventId: registryEventId,
       operationId: `op:${registryEventId}`,
       topic: `${topicPrefix}.registry`,
@@ -290,7 +348,7 @@ async function main(): Promise<void> {
       }
     }
     const runtimeDeadLetterRow = await fetchOutboxRow(pool, runtimeDeadLetterEventId);
-    assert.equal(runtimeDeadLetterRow?.status, 'dead_letter');
+    assert.equal(runtimeDeadLetterRow, null);
     const runtimeDeadLetterArchive = await fetchDeadLetterRow(pool, runtimeDeadLetterEventId);
     assert.equal(runtimeDeadLetterArchive?.event_id, runtimeDeadLetterEventId);
 
@@ -324,6 +382,7 @@ async function main(): Promise<void> {
         `${eventId}:reclaim`,
         `${eventId}:dedupe`,
         `${eventId}:dedupe-op`,
+        longActiveJobEventId,
       ],
     ).catch(() => undefined);
     await pool.end().catch(() => undefined);
@@ -461,6 +520,14 @@ async function fetchConsumerDedupeRows(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildExpectedDedupeKey(prefix: 'event' | 'op', value: string): string {
+  const rawKey = `${prefix}:${value}`;
+  if (rawKey.length <= OUTBOX_DEDUPE_KEY_MAX_LENGTH) {
+    return rawKey;
+  }
+  return `${prefix}:sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
 main().catch((error) => {

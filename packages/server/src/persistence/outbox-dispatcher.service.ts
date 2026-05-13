@@ -3,6 +3,7 @@
  * 管理 outbox_event 表的事件认领、投递确认、失败重试和死信转移，
  * 同时维护 consumer dedupe 表防止重复消费。
  */
+import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -12,6 +13,7 @@ import { ensureBigintColumnType } from './schema-bigint-migration';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const OUTBOX_CONSUMER_DEDUPE_TABLE = 'outbox_consumer_dedupe';
+const OUTBOX_DEDUPE_KEY_MAX_LENGTH = 180;
 
 /** Outbox 事件分发服务：认领、投递、重试、死信和去重 */
 @Injectable()
@@ -418,6 +420,9 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS dead_letter_event_topic_idx
     ON ${DEAD_LETTER_EVENT_TABLE}(topic, failed_at DESC)
   `);
+  await ensureVarcharColumnLength(pool, DEAD_LETTER_EVENT_TABLE, 'event_id', 180);
+  await ensureVarcharColumnLength(pool, DEAD_LETTER_EVENT_TABLE, 'operation_id', 180);
+  await ensureVarcharColumnLength(pool, DEAD_LETTER_EVENT_TABLE, 'partition_key', 200);
   await ensureBigintColumnType(pool, DEAD_LETTER_EVENT_TABLE, 'attempt_count');
 }
 
@@ -444,14 +449,27 @@ async function ensureOutboxConsumerDedupeTable(pool: Pool): Promise<void> {
     ON ${OUTBOX_CONSUMER_DEDUPE_TABLE}(operation_id, updated_at DESC)
     WHERE operation_id IS NOT NULL
   `);
+  await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'dedupe_key', 180);
+  await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'event_id', 180);
+  await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'operation_id', 180);
 }
 
 function buildConsumerDedupeKeys(eventId: string, operationId: string): string[] {
-  const keys = [`event:${eventId}`];
+  const keys = [buildConsumerDedupeKey('event', eventId)];
   if (operationId) {
-    keys.push(`op:${operationId}`);
+    keys.push(buildConsumerDedupeKey('op', operationId));
   }
   return keys;
+}
+
+function buildConsumerDedupeKey(prefix: string, value: string): string {
+  const normalizedPrefix = prefix === 'op' ? 'op' : 'event';
+  const normalizedValue = normalizeRequiredString(value);
+  const rawKey = `${normalizedPrefix}:${normalizedValue}`;
+  if (rawKey.length <= OUTBOX_DEDUPE_KEY_MAX_LENGTH) {
+    return rawKey;
+  }
+  return `${normalizedPrefix}:sha256:${createHash('sha256').update(normalizedValue).digest('hex')}`;
 }
 
 async function insertDeadLetterEventWithClient(queryable: { query: Pool['query'] }, row: Record<string, unknown>): Promise<void> {
@@ -480,4 +498,54 @@ async function insertDeadLetterEventWithClient(queryable: { query: Pool['query']
       row.created_at ?? null,
     ],
   );
+}
+
+async function ensureVarcharColumnLength(
+  queryable: Pool,
+  tableName: string,
+  columnName: string,
+  minLength: number,
+): Promise<void> {
+  assertSafeIdentifier(tableName);
+  assertSafeIdentifier(columnName);
+  const result = await queryable.query(
+    `
+      SELECT data_type, character_maximum_length
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName],
+  );
+  const row = Array.isArray(result.rows) ? (result.rows[0] as Record<string, unknown> | undefined) : undefined;
+  if (!row) {
+    return;
+  }
+  const dataType = typeof row.data_type === 'string' ? row.data_type : '';
+  if (dataType === 'text') {
+    return;
+  }
+  if (dataType !== 'character varying') {
+    return;
+  }
+  const currentLength = Number(row.character_maximum_length ?? 0);
+  if (Number.isFinite(currentLength) && currentLength >= minLength) {
+    return;
+  }
+  await queryable.query(
+    `ALTER TABLE ${quoteIdentifier(tableName)} ALTER COLUMN ${quoteIdentifier(columnName)} TYPE varchar(${minLength})`,
+  );
+}
+
+function assertSafeIdentifier(identifier: string): void {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(identifier)) {
+    throw new Error(`unsafe_sql_identifier:${identifier}`);
+  }
+}
+
+function quoteIdentifier(identifier: string): string {
+  assertSafeIdentifier(identifier);
+  return `"${identifier.replace(/"/g, '""')}"`;
 }
