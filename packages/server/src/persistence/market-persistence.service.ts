@@ -516,6 +516,7 @@ function normalizeTradeRecord(raw) {
     return {
         version: 1,
         id: candidate.id,
+        source: candidate.source === 'auction' ? 'auction' : 'market',
         buyerId: candidate.buyerId,
         sellerId: candidate.sellerId,
         itemId: candidate.itemId,

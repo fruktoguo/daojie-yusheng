@@ -162,8 +162,9 @@ class WorldGatewayMarketHelper {
             return;
         }
         try {
-            this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, payload?.page);
-            const response = this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
+            const source = payload?.source === 'auction' ? 'auction' : 'market';
+            this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, { page: payload?.page, source });
+            const response = this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page, source);
             this.gateway.gatewayClientEmitHelper.emitMarketTradeHistory(client, response);
         }
         catch (error) {

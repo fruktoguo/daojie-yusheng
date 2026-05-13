@@ -306,10 +306,12 @@ export class MarketRuntimeService {
         };
     }
     /** 构造玩家自己的成交历史分页。 */
-    buildTradeHistoryPage(playerId, page) {
+    buildTradeHistoryPage(playerId, page, source = 'market') {
+
+        const normalizedSource = this.normalizeTradeSource(source);
 
         const visibleRecords = this.tradeHistory
-            .filter((entry) => entry.buyerId === playerId || entry.sellerId === playerId)
+            .filter((entry) => this.normalizeTradeSource(entry.source) === normalizedSource && (entry.buyerId === playerId || entry.sellerId === playerId))
             .slice(0, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
 
         const totalVisible = visibleRecords.length;
@@ -320,6 +322,7 @@ export class MarketRuntimeService {
 
         const start = (normalizedPage - 1) * MARKET_TRADE_HISTORY_PAGE_SIZE;
         return {
+            source: normalizedSource,
             page: normalizedPage,
             pageSize: MARKET_TRADE_HISTORY_PAGE_SIZE,
             totalVisible,
@@ -396,6 +399,7 @@ export class MarketRuntimeService {
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
                 this.deliverMarketCurrencyToPlayer(playerId, match.totalCost, context);
                 this.recordTrade({
+                    source: 'market',
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
                     itemId: orderItem.itemId,
@@ -514,6 +518,7 @@ export class MarketRuntimeService {
                 this.deliverItemToPlayer(playerId, { ...orderItem, count: tradeQuantity }, context);
                 this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, match.totalCost, context);
                 this.recordTrade({
+                    source: 'market',
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
                     itemId: orderItem.itemId,
@@ -666,6 +671,7 @@ export class MarketRuntimeService {
                                     this.playerRuntimeService.creditWallet(sellOrder.ownerId, MARKET_CURRENCY_ITEM_ID, sellerPlan.totalCost);
                                 }
                                 this.recordTrade({
+                                    source: 'market',
                                     buyerId: playerId,
                                     sellerId: sellOrder.ownerId,
                                     itemId: item.itemId,
@@ -697,6 +703,7 @@ export class MarketRuntimeService {
                 this.deliverItemToPlayer(playerId, { ...item, count: tradeQuantity }, context);
                 this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, match.totalCost, context);
                 this.recordTrade({
+                    source: 'market',
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
                     itemId: item.itemId,
@@ -813,6 +820,7 @@ export class MarketRuntimeService {
                                 const tradeQuantity = match.quantity;
                                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
                                 this.recordTrade({
+                                    source: 'market',
                                     buyerId: buyOrder.ownerId,
                                     sellerId: playerId,
                                     itemId: orderItem.itemId,
@@ -844,6 +852,7 @@ export class MarketRuntimeService {
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
                 this.deliverMarketCurrencyToPlayer(playerId, match.totalCost, context);
                 this.recordTrade({
+                    source: 'market',
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
                     itemId: orderItem.itemId,
@@ -1424,6 +1433,7 @@ export class MarketRuntimeService {
             this.deliverItemToPlayer(playerId, { ...sellOrder.item, count: tradeQuantity }, context);
             this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
             this.recordTrade({
+                source: 'auction',
                 buyerId: playerId,
                 sellerId: sellOrder.ownerId,
                 itemId: sellOrder.item.itemId,
@@ -1716,6 +1726,7 @@ export class MarketRuntimeService {
         this.deliverItemToPlayer(highestBid.bidderId, { ...sellOrder.item, count: tradeQuantity }, context);
         this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
         this.recordTrade({
+            source: 'auction',
             buyerId: highestBid.bidderId,
             sellerId: sellOrder.ownerId,
             itemId: sellOrder.item.itemId,
@@ -2657,6 +2668,7 @@ export class MarketRuntimeService {
         context.newTradeRecords.push({
             version: 1,
             id: randomUUID(),
+            source: this.normalizeTradeSource(payload.source),
             buyerId: payload.buyerId,
             sellerId: payload.sellerId,
             itemId: payload.itemId,
@@ -2677,12 +2689,17 @@ export class MarketRuntimeService {
             id: record.id,
 
             side: record.buyerId === playerId ? 'buy' : 'sell',
+            source: this.normalizeTradeSource(record.source),
             itemId: record.itemId,
             itemName: this.contentTemplateRepository.getItemName(record.itemId) ?? record.itemId,
             quantity: record.quantity,
             unitPrice: record.unitPrice,
             createdAt: record.createdAt,
         };
+    }
+    /** 规范化成交来源，兼容旧历史记录缺少 source 的情况。 */
+    normalizeTradeSource(source) {
+        return source === 'auction' ? 'auction' : 'market';
     }
     /**
  * createEmptyResult：构建并返回目标对象。
