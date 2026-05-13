@@ -42,16 +42,6 @@ export class WorldRuntimeTransferService {
         if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
             deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
         }
-        logServerNextMovement(this.logger, 'runtime.transfer.apply', {
-            playerId: transfer.playerId,
-            sessionId: transfer.sessionId,
-            fromInstanceId: transfer.fromInstanceId,
-            toMapId: transfer.targetMapId,
-            targetX: transfer.targetX,
-            targetY: transfer.targetY,
-            reason: transfer.reason,
-        });
-        source.disconnectPlayer(transfer.playerId);
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
         let target = null;
         const targetInstanceId = typeof transfer.targetInstanceId === 'string' && transfer.targetInstanceId.trim()
@@ -68,6 +58,16 @@ export class WorldRuntimeTransferService {
                 ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
                 : deps.getOrCreatePublicInstance(transfer.targetMapId);
         }
+        logServerNextMovement(this.logger, 'runtime.transfer.apply', {
+            playerId: transfer.playerId,
+            sessionId: transfer.sessionId,
+            fromInstanceId: transfer.fromInstanceId,
+            toMapId: transfer.targetMapId,
+            targetX: transfer.targetX,
+            targetY: transfer.targetY,
+            reason: transfer.reason,
+        });
+        source.disconnectPlayer(transfer.playerId);
         target.connectPlayer({
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,

@@ -122,9 +122,10 @@ export class WorldRuntimeSystemCommandService {
  */
 
     dispatchReturnToSpawn(playerId, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
+        const player = deps.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
         const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(playerId)
             : 0;

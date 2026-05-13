@@ -197,10 +197,11 @@ export class WorldRuntimeGmQueueService {
  */
 
     dispatchGmUpdatePlayer(command, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const playerId = command.playerId;
-        const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
+        const player = deps.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
         const requestedInstanceId = typeof command.instanceId === 'string' ? command.instanceId.trim() : '';
         const targetInstance = requestedInstanceId
             ? deps.getInstanceRuntime(requestedInstanceId)
@@ -247,9 +248,10 @@ export class WorldRuntimeGmQueueService {
  */
 
     dispatchGmSpawnBots(anchorPlayerId, count, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const anchor = deps.playerRuntimeService.getPlayerOrThrow(anchorPlayerId);
+        const anchor = deps.playerRuntimeService.getPlayer(anchorPlayerId);
+        if (!anchor) {
+            return;
+        }
         for (let index = 0; index < count; index += 1) {
             const sequence = this.nextGmBotSequence++;
             const playerId = `${NATIVE_GM_BOT_ID_PREFIX}${Date.now().toString(36)}_${sequence.toString(36)}`;

@@ -2,7 +2,6 @@ import { BadRequestException, ForbiddenException, Logger, NotFoundException } fr
 import { FORMATION_AURA_PER_SPIRIT_STONE, TileType, formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
-import { createSquareExpansionShape, expandRuntimeTiles } from '../map/runtime-tile-expansion';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
@@ -12,10 +11,9 @@ const SECT_INSTANCE_PREFIX = 'sect:';
 const SECT_BASE_CLEAR_RADIUS = 1;
 const SECT_FOUNDING_CLEAR_RADIUS = 2;
 const SECT_ENTRANCE_INTERACTION_RADIUS = 2;
-const SECT_INNATE_STABILIZER_RADIUS = 8;
 const SECT_INITIAL_STONE_MARGIN = 1;
 const SECT_EXPAND_CHUNK = 8;
-const SECT_SPARSE_EXPAND_RADIUS = 2;
+const SECT_INNATE_STABILIZER_RADIUS = 8;
 const SECT_CORE_CHAR = '宗';
 const SECT_ENTRANCE_CHAR = '门';
 const SECT_GUARDIAN_INITIAL_AURA = 100000;
@@ -402,7 +400,8 @@ class WorldRuntimeSectService {
             if (!sectId || portal?.kind !== 'sect_entrance' || seen.has(sectId)) {
                 continue;
             }
-            if (chebyshevDistance(view.self?.x, view.self?.y, portal.x, portal.y) > SECT_ENTRANCE_INTERACTION_RADIUS) {
+            const portalDistance = chebyshevDistance(view.self?.x, view.self?.y, portal.x, portal.y);
+            if (portalDistance > SECT_ENTRANCE_INTERACTION_RADIUS) {
                 continue;
             }
             const sect = this.findSectById(sectId);
@@ -415,17 +414,20 @@ class WorldRuntimeSectService {
                     this.playerRuntimeService.setPlayerSectId?.(view.playerId, sect.sectId);
                     this.playerSectId.set(view.playerId, sect.sectId);
                 }
+            }
+            if (portalDistance <= 1) {
                 actions.push({
                     id: `sect:enter:${encodeURIComponent(sect.sectId)}`,
-                    name: `返回宗门：${sect.name}`,
+                    name: `进入宗门：${sect.name}`,
                     type: 'travel',
-                    desc: `从${sect.name}山门回到宗门核心。`,
+                    desc: `从${sect.name}山门进入宗门核心。`,
                     cooldownLeft: 0,
                 });
-                seen.add(sectId);
-                continue;
             }
             seen.add(sectId);
+            if (playerSectId === sect.sectId || isSectMember(sect, view.playerId)) {
+                continue;
+            }
             actions.push({
                 id: `sect:apply:${encodeURIComponent(sect.sectId)}`,
                 name: `递拜帖：申请加入${sect.name}`,
@@ -445,22 +447,21 @@ class WorldRuntimeSectService {
             throw new NotFoundException('山门气机已散，无法返回宗门');
         }
         ensureSectState(sect, this.playerRuntimeService);
-        if (!isSectMember(sect, playerId)) {
-            throw new ForbiddenException('你尚未列入该宗门名册');
-        }
         const location = deps.getPlayerLocationOrThrow(playerId);
         if (location.instanceId !== sect.entranceInstanceId) {
             throw new BadRequestException('需要在该宗门山门前返回宗门');
         }
-        if (chebyshevDistance(player.x, player.y, sect.entranceX, sect.entranceY) > SECT_ENTRANCE_INTERACTION_RADIUS) {
+        if (chebyshevDistance(player.x, player.y, sect.entranceX, sect.entranceY) > 1) {
             throw new BadRequestException('需要靠近护宗大阵前的山门传送点');
         }
-        if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
-            this.playerRuntimeService.setPlayerSectId(playerId, sect.sectId);
-        } else {
-            player.sectId = sect.sectId;
+        if (isSectMember(sect, playerId)) {
+            if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
+                this.playerRuntimeService.setPlayerSectId(playerId, sect.sectId);
+            } else {
+                player.sectId = sect.sectId;
+            }
+            this.playerSectId.set(playerId, sect.sectId);
         }
-        this.playerSectId.set(playerId, sect.sectId);
         deps.applyTransfer?.({
             playerId,
             sessionId: location.sessionId,
@@ -766,8 +767,6 @@ class WorldRuntimeSectService {
         if (!sect || !dirs || typeof dirs !== 'object') {
             return false;
         }
-        const previousCoreX = sect.coreX;
-        const previousCoreY = sect.coreY;
         const previousBounds = normalizeSectBounds(sect);
         const nextBounds = {
             minX: previousBounds.minX - Math.max(0, Math.trunc(Number(dirs.left) || 0)),
@@ -785,28 +784,18 @@ class WorldRuntimeSectService {
         sect.mapMaxX = nextBounds.maxX;
         sect.mapMinY = nextBounds.minY;
         sect.mapMaxY = nextBounds.maxY;
-        sect.coreX = -nextBounds.minX;
-        sect.coreY = -nextBounds.minY;
         sect.expansionRadius = Math.max(
             Math.abs(nextBounds.minX),
             Math.abs(nextBounds.maxX),
             Math.abs(nextBounds.minY),
             Math.abs(nextBounds.maxY),
         );
-        sect.sectTemplateId = buildSectTemplateId(sect.sectId, nextBounds);
         sect.updatedAt = Date.now();
-        const template = this.registerSectTemplate(sect);
         const sectInstance = deps.getInstanceRuntime(sect.sectInstanceId);
-        if (sectInstance && typeof sectInstance.replaceTemplateForSectExpansion === 'function') {
-            sectInstance.replaceTemplateForSectExpansion(template);
+        if (sectInstance) {
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
             if (entranceInstance) {
                 this.attachSectPortals(sect, entranceInstance, sectInstance);
-            }
-            const dx = sect.coreX - previousCoreX;
-            const dy = sect.coreY - previousCoreY;
-            if (dx !== 0 || dy !== 0) {
-                deps.queuePlayerNotice?.(sect.leaderPlayerId, `宗门核心坐标随地脉边界偏移至 (${sect.coreX}, ${sect.coreY})。`, 'info');
             }
         }
         this.persistSectsSoon();
@@ -824,38 +813,51 @@ class WorldRuntimeSectService {
         }
         const tx = Math.trunc(Number(x));
         const ty = Math.trunc(Number(y));
-        if (!Number.isFinite(tx) || !Number.isFinite(ty) || typeof instance.activateRuntimeTile !== 'function') {
+        if (!Number.isFinite(tx) || !Number.isFinite(ty)) {
             return false;
         }
         const tileState = typeof instance.getTileCombatState === 'function'
             ? instance.getTileCombatState(tx, ty)
             : null;
-        if (tileState?.destroyed !== true || tileState?.tileType !== TileType.Stone) {
+        const openedBoundaryFloor = tileState === null
+            && typeof instance.getEffectiveTileType === 'function'
+            && instance.getEffectiveTileType(tx, ty) === TileType.Floor
+            && typeof instance.getTileLayerState === 'function'
+            && (instance.getTileLayerState(tx, ty)?.structure ?? null) === null;
+        const destroyedBoundaryStone = tileState?.destroyed === true && tileState?.tileType === TileType.Stone;
+        if (!destroyedBoundaryStone && !openedBoundaryFloor) {
             return false;
         }
         if (!isRuntimeBoundaryTile(instance, tx, ty)) {
             return false;
         }
-        const shape = createSquareExpansionShape(SECT_SPARSE_EXPAND_RADIUS);
-        const result = expandRuntimeTiles(instance, tx, ty, shape, SECT_TILE_GENERATOR, { sect });
-        const created = result.created;
-        if (created > 0) {
-            deps.queuePlayerNotice?.(sect.leaderPlayerId, `${sect.name}边界被凿开，地脉显化了 ${created} 处新地块。`, 'info');
+        const previousBounds = normalizeSectBounds(sect);
+        forEachRuntimeBoundaryGap(instance, tx, ty, (gapX, gapY) => {
+            updateSectRuntimeBoundsForTile(sect, gapX, gapY);
+        });
+        const nextBounds = normalizeSectBounds(sect);
+        if (areSectBoundsEqual(previousBounds, nextBounds)) {
+            return false;
         }
-        return created > 0;
+        sect.updatedAt = Date.now();
+        const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
+        if (entranceInstance) {
+            this.attachSectPortals(sect, entranceInstance, instance);
+        }
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(sect.leaderPlayerId, `${sect.name}边界被凿开，地脉向外扩展了。`, 'info');
+        return true;
     }
 
     expandSect(sect, deps) {
-        const previousCoreX = sect.coreX;
-        const previousCoreY = sect.coreY;
         const expanded = this.expandSectBounds(sect, {
             left: SECT_EXPAND_CHUNK,
             right: SECT_EXPAND_CHUNK,
             up: SECT_EXPAND_CHUNK,
             down: SECT_EXPAND_CHUNK,
         }, deps);
-        if (expanded && (sect.coreX !== previousCoreX || sect.coreY !== previousCoreY)) {
-            deps.queuePlayerNotice?.(sect.leaderPlayerId, `宗门地脉已向四方显化，核心坐标为 (${sect.coreX}, ${sect.coreY})。`, 'info');
+        if (expanded) {
+            deps.queuePlayerNotice?.(sect.leaderPlayerId, '宗门地脉已向四方显化。', 'info');
         }
         return expanded;
     }
@@ -1651,16 +1653,17 @@ function removeSectRuntimePortals(instance, sectId) {
 
 function buildSectMapDocument(sect) {
     const bounds = normalizeSectBounds(sect);
-    const width = bounds.maxX - bounds.minX + 1;
-    const height = bounds.maxY - bounds.minY + 1;
-    const centerX = -bounds.minX;
-    const centerY = -bounds.minY;
+    const templateBounds = buildInitialSectBounds();
+    const width = templateBounds.maxX - templateBounds.minX + 1;
+    const height = templateBounds.maxY - templateBounds.minY + 1;
+    const centerX = -templateBounds.minX;
+    const centerY = -templateBounds.minY;
     const tiles = [];
     for (let y = 0; y < height; y += 1) {
         let row = '';
         for (let x = 0; x < width; x += 1) {
-            const logicalX = bounds.minX + x;
-            const logicalY = bounds.minY + y;
+            const logicalX = templateBounds.minX + x;
+            const logicalY = templateBounds.minY + y;
             if (x === centerX && y === centerY) {
                 row += 'P';
             } else if (Math.abs(logicalX) <= SECT_BASE_CLEAR_RADIUS && Math.abs(logicalY) <= SECT_BASE_CLEAR_RADIUS) {
@@ -1945,24 +1948,32 @@ function isRuntimeBoundaryTile(instance, x, y) {
     if (!Number.isFinite(tx) || !Number.isFinite(ty) || instance.isInBounds(tx, ty) !== true) {
         return false;
     }
-    return instance.isInBounds(tx - 1, ty) !== true
-        || instance.isInBounds(tx + 1, ty) !== true
-        || instance.isInBounds(tx, ty - 1) !== true
-        || instance.isInBounds(tx, ty + 1) !== true;
+    let boundary = false;
+    forEachRuntimeBoundaryGap(instance, tx, ty, () => {
+        boundary = true;
+    });
+    return boundary;
 }
 
-function resolveSectGeneratedTileType(sect, x, y) {
-    const coreX = Math.trunc(Number(sect?.coreX) || 0);
-    const coreY = Math.trunc(Number(sect?.coreY) || 0);
-    const ring = Math.max(Math.abs(Math.trunc(Number(x)) - coreX), Math.abs(Math.trunc(Number(y)) - coreY));
-    return ring <= SECT_BASE_CLEAR_RADIUS ? TileType.Floor : TileType.Stone;
+function forEachRuntimeBoundaryGap(instance, x, y, visitor) {
+    if (!instance || typeof instance.isInBounds !== 'function' || typeof visitor !== 'function') {
+        return;
+    }
+    const tx = Math.trunc(Number(x));
+    const ty = Math.trunc(Number(y));
+    if (!Number.isFinite(tx) || !Number.isFinite(ty) || instance.isInBounds(tx, ty) !== true) {
+        return;
+    }
+    for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+            const nextX = tx + dx;
+            const nextY = ty + dy;
+            if (instance.isInBounds(nextX, nextY) !== true) {
+                visitor(nextX, nextY);
+            }
+        }
+    }
 }
-
-const SECT_TILE_GENERATOR = {
-    generate(x, y, context, out) {
-        out.tileType = resolveSectGeneratedTileType(context?.sect, x, y);
-    },
-};
 
 function updateSectRuntimeBoundsForTile(sect, x, y) {
     const coreX = Math.trunc(Number(sect?.coreX) || 0);
@@ -1980,4 +1991,11 @@ function updateSectRuntimeBoundsForTile(sect, x, y) {
         Math.abs(sect.mapMinY),
         Math.abs(sect.mapMaxY),
     );
+}
+
+function areSectBoundsEqual(left, right) {
+    return left?.minX === right?.minX
+        && left?.maxX === right?.maxX
+        && left?.minY === right?.minY
+        && left?.maxY === right?.maxY;
 }

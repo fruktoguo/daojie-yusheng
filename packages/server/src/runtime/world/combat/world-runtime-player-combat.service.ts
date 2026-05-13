@@ -329,9 +329,10 @@ export class WorldRuntimePlayerCombatService {
  */
 
     async dispatchDamagePlayer(playerId: string, amount: number, deps: any) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
         if (player.hp <= 0) {
             await this.handlePlayerDefeat(playerId, deps);
             return;

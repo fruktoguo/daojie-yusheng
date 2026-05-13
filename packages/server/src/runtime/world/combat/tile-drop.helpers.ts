@@ -27,8 +27,9 @@ export function resolveMiningAdjustedTileDamage(input: {
   }
 
   const miningLevel = input.attacker?.miningSkill?.level ?? 0;
-  const weapon = input.attacker?.equipment?.weapon
-    ? applyEquipmentAttributeEffectivenessToItemStack(input.attacker.equipment.weapon, input.attacker?.realm?.realmLv)
+  const equippedWeapon = resolveEquippedWeapon(input.attacker);
+  const weapon = equippedWeapon
+    ? applyEquipmentAttributeEffectivenessToItemStack(equippedWeapon, input.attacker?.realm?.realmLv ?? input.attacker?.realmLv)
     : null;
   const miningDamageRate = weapon?.miningDamageRate ?? 0;
   const levelMultiplier = getMiningDamageMultiplier(miningLevel);
@@ -37,6 +38,13 @@ export function resolveMiningAdjustedTileDamage(input: {
     damage: Math.max(1, Math.round(baseDamage * levelMultiplier * equipMultiplier)),
     isOreTile,
   };
+}
+
+function resolveEquippedWeapon(attacker: any): any | null {
+  const slotWeapon = Array.isArray(attacker?.equipment?.slots)
+    ? attacker.equipment.slots.find((entry: any) => entry?.slot === 'weapon')?.item
+    : null;
+  return slotWeapon ?? attacker?.equipment?.weapon ?? null;
 }
 
 export function applyMiningExpForTileDamage(input: {

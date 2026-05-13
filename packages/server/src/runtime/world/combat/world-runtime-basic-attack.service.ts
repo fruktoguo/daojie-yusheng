@@ -313,11 +313,12 @@ export class WorldRuntimeBasicAttackService {
  */
 
     async dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
-        const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
+        const target = this.playerRuntimeService.getPlayer(targetPlayerId);
+        if (!target) {
+            return;
+        }
         if (target.instanceId !== attacker.instanceId) {
             throw new BadRequestException('目标不在同一地图');
         }

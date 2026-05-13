@@ -79,6 +79,10 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 const isFormationTerrainStabilized = typeof deps.worldRuntimeFormationService?.createTerrainStabilizationChecker === 'function'
                     ? deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId)
                     : ((x, y) => deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true);
+                const isTerrainStabilized = (x, y) => (
+                    isFormationTerrainStabilized(x, y) === true
+                    || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
+                );
                 const result = instance.tickOnce();
                 if (typeof instance.advanceTileResourceFlow === 'function') {
                     instance.advanceTileResourceFlow();
@@ -87,15 +91,10 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
                 }
                 if (typeof instance.advanceTemporaryTiles === 'function') {
-                    instance.advanceTemporaryTiles(instance.tick, (x, y) => (
-                        isFormationTerrainStabilized(x, y) === true
-                    ));
+                    instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized);
                 }
                 if (typeof instance.advanceTileRecovery === 'function') {
-                    instance.advanceTileRecovery((x, y) => (
-                        isFormationTerrainStabilized(x, y) === true
-                        || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
-                    ));
+                    instance.advanceTileRecovery(isTerrainStabilized);
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
                     for (const building of result.completedBuildings) {

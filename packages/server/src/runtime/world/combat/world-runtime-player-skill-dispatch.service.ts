@@ -572,7 +572,10 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
-        const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
+        const target = this.playerRuntimeService.getPlayer(targetPlayerId);
+        if (!target) {
+            throw new BadRequestException('目标玩家已离线');
+        }
         if (attacker.instanceId !== target.instanceId) {
             throw new BadRequestException(`目标 ${targetPlayerId} 不在同一地图实例`);
         }

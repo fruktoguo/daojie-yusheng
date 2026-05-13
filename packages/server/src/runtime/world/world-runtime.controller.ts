@@ -328,7 +328,8 @@ export class WorldRuntimeController {
     getMarketTradeHistory(@Param('playerId') playerId, @Query() query) {
 
         const page = Number(query.page);
-        return this.marketRuntimeService.buildTradeHistoryPage(playerId, Number.isFinite(page) ? Math.trunc(page) : 1);
+        const source = query.source === 'auction' ? 'auction' : 'market';
+        return this.marketRuntimeService.buildTradeHistoryPage(playerId, Number.isFinite(page) ? Math.trunc(page) : 1, source);
     }
     /** updateVitals：同步玩家基础状态。 */
     @Post('players/:playerId/vitals')
