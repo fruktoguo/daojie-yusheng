@@ -3,9 +3,7 @@
  * 处理装备穿脱的背包操作、属性刷新和持久化提交
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** world-runtime equipment orchestration：承接装备穿戴/卸下结算。 */
@@ -16,7 +14,6 @@ export class WorldRuntimeEquipmentService {
  */
 
     playerRuntimeService;    
-    durableOperationService;
     /**
      * 构造器：初始化 当前 实例并建立基础状态。
      * @param playerRuntimeService 参数说明。
@@ -25,10 +22,8 @@ export class WorldRuntimeEquipmentService {
 
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
-        @Inject(DurableOperationService) durableOperationService: any = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
-        this.durableOperationService = durableOperationService;
     }    
     /**
  * dispatchEquipItem：判断Equip道具是否满足条件。
@@ -51,41 +46,6 @@ export class WorldRuntimeEquipmentService {
             : null;
         if (lockReason) {
             throw new BadRequestException(lockReason);
-        }
-        const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
-        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
-            ? player.runtimeOwnerId.trim()
-            : '';
-        const sessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-            : 0;
-        if (durableOperationService?.isEnabled?.() && runtimeOwnerId && sessionEpoch > 0) {
-            const mutation = buildEquipMutation(this.playerRuntimeService.snapshot(playerId), slotIndex);
-            if (mutation) {
-                const location = deps.getPlayerLocation?.(playerId);
-                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
-                const operationId = `op:${playerId}:equipment:${Date.now().toString(36)}`;
-                return durableOperationService.updateEquipmentLoadout({
-                    operationId,
-                    playerId,
-                    expectedRuntimeOwnerId: runtimeOwnerId,
-                    expectedSessionEpoch: sessionEpoch,
-                    expectedInstanceId: location?.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    action: 'equip',
-                    slot: mutation.slot,
-                    nextInventoryItems: mutation.nextInventoryItems,
-                    nextEquipmentSlots: mutation.nextEquipmentSlots,
-                }).then(() => {
-                    this.playerRuntimeService.replaceInventoryItems(playerId, mutation.nextInventoryItems);
-                    this.playerRuntimeService.replaceEquipmentSlots(playerId, mutation.nextEquipmentSlots);
-                    const n = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
-                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-                    deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
-                    return deps.getPlayerViewOrThrow(playerId);
-                });
-            }
         }
         this.playerRuntimeService.equipItem(playerId, slotIndex);
         const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
@@ -112,161 +72,9 @@ export class WorldRuntimeEquipmentService {
         if (lockReason) {
             throw new BadRequestException(lockReason);
         }
-        const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
-        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
-            ? player.runtimeOwnerId.trim()
-            : '';
-        const sessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-            : 0;
-        if (durableOperationService?.isEnabled?.() && runtimeOwnerId && sessionEpoch > 0) {
-            const mutation = buildUnequipMutation(this.playerRuntimeService.snapshot(playerId), slot);
-            if (mutation) {
-                const location = deps.getPlayerLocation?.(playerId);
-                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
-                const operationId = `op:${playerId}:equipment:${Date.now().toString(36)}`;
-                return durableOperationService.updateEquipmentLoadout({
-                    operationId,
-                    playerId,
-                    expectedRuntimeOwnerId: runtimeOwnerId,
-                    expectedSessionEpoch: sessionEpoch,
-                    expectedInstanceId: location?.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    action: 'unequip',
-                    slot: mutation.slot,
-                    nextInventoryItems: mutation.nextInventoryItems,
-                    nextEquipmentSlots: mutation.nextEquipmentSlots,
-                }).then(() => {
-                    this.playerRuntimeService.replaceInventoryItems(playerId, mutation.nextInventoryItems);
-                    this.playerRuntimeService.replaceEquipmentSlots(playerId, mutation.nextEquipmentSlots);
-                    const n = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
-                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-                    deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
-                    return deps.getPlayerViewOrThrow(playerId);
-                });
-            }
-        }
         this.playerRuntimeService.unequipItem(playerId, slot);
         const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }
 };
-
-function buildEquipMutation(snapshot, slotIndex) {
-    if (!snapshot || !snapshot.inventory || !snapshot.equipment) {
-        return null;
-    }
-    const inventoryItems = Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [];
-    const equipmentSlots = Array.isArray(snapshot.equipment.slots) ? snapshot.equipment.slots.map((entry) => ({
-        slot: entry.slot,
-        item: entry.item ? { ...entry.item } : null,
-    })) : [];
-    const item = inventoryItems[slotIndex];
-    if (!item || !item.equipSlot) {
-        return null;
-    }
-    const equipmentEntry = equipmentSlots.find((entry) => entry.slot === item.equipSlot);
-    if (!equipmentEntry) {
-        return null;
-    }
-    const equippedItem = takeSingleInventoryItemForEquipment(inventoryItems, slotIndex);
-    if (!equippedItem) {
-        return null;
-    }
-    const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
-    equipmentEntry.item = { ...equippedItem };
-    if (previousEquipped) {
-        mergeInventoryStack(inventoryItems, previousEquipped);
-    }
-    return {
-        slot: equipmentEntry.slot,
-        nextInventoryItems: inventoryItems.map((entry) => ({ ...entry })),
-        nextEquipmentSlots: equipmentSlots.map((entry) => ({
-            slot: entry.slot,
-            item: entry.item ? { ...entry.item } : null,
-        })),
-    };
-}
-
-function buildUnequipMutation(snapshot, slot) {
-    if (!snapshot || !snapshot.inventory || !snapshot.equipment) {
-        return null;
-    }
-    const inventoryItems = Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [];
-    const equipmentSlots = Array.isArray(snapshot.equipment.slots) ? snapshot.equipment.slots.map((entry) => ({
-        slot: entry.slot,
-        item: entry.item ? { ...entry.item } : null,
-    })) : [];
-    const equipmentEntry = equipmentSlots.find((entry) => entry.slot === slot);
-    if (!equipmentEntry || !equipmentEntry.item) {
-        return null;
-    }
-    mergeInventoryStack(inventoryItems, equipmentEntry.item);
-    equipmentEntry.item = null;
-    return {
-        slot: equipmentEntry.slot,
-        nextInventoryItems: inventoryItems.map((entry) => ({ ...entry })),
-        nextEquipmentSlots: equipmentSlots.map((entry) => ({
-            slot: entry.slot,
-            item: entry.item ? { ...entry.item } : null,
-        })),
-    };
-}
-
-function mergeInventoryStack(items, item) {
-    if (!item) {
-        return;
-    }
-    const normalizedCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
-    const signature = createItemStackSignature(item);
-    const existing = items.find((entry) => createItemStackSignature(entry) === signature);
-    if (existing) {
-        existing.count = Math.max(1, Math.trunc(Number(existing.count ?? 1))) + normalizedCount;
-        return;
-    }
-    items.push({ ...item, count: normalizedCount });
-}
-
-function takeSingleInventoryItemForEquipment(items, slotIndex) {
-    const item = items[slotIndex];
-    if (!item) {
-        return null;
-    }
-    const itemCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
-    if (itemCount <= 1) {
-        const [removed] = items.splice(slotIndex, 1);
-        return {
-            ...removed,
-            count: 1,
-        };
-    }
-    item.count = itemCount - 1;
-    return {
-        ...item,
-        count: 1,
-    };
-}
-
-async function resolveInstanceLeaseContext(instanceId, deps) {
-    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
-    const instanceCatalogService = deps?.instanceCatalogService ?? null;
-    if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
-        return null;
-    }
-    const catalog = await instanceCatalogService.loadInstanceCatalog?.(normalizedInstanceId);
-    const assignedNodeId = typeof catalog?.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
-        ? catalog.assigned_node_id.trim()
-        : '';
-    const ownershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
-        ? Math.max(1, Math.trunc(Number(catalog.ownership_epoch)))
-        : 0;
-    if (!assignedNodeId || ownershipEpoch <= 0) {
-        return null;
-    }
-    return {
-        assignedNodeId,
-        ownershipEpoch,
-    };
-}
