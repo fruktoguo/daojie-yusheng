@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * 用途：监听编译结果并热重启 server 开发进程。
  */
@@ -18,9 +16,27 @@ let watchReady = false;
 let expectedServerExitPid: number | null = null;
 let expectedServerExitReason: string | null = null;
 let restartTimer: NodeJS.Timeout | null = null;
+let debouncedRestartTimer: NodeJS.Timeout | null = null;
+let debouncedRestartReason: string | null = null;
 const recentUnexpectedExitAt: number[] = [];
 const shouldClearConsoleOnRestart =
   process.stdout.isTTY && process.env.SERVER_DEV_CLEAR_CONSOLE_ON_RESTART !== "0";
+const restartDebounceMs = parseNonNegativeInteger(
+  process.env.SERVER_DEV_RESTART_DEBOUNCE_MS,
+  0,
+);
+
+function parseNonNegativeInteger(value: string | undefined, fallback: number) {
+  if (value === undefined || value.trim() === "") {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+}
+
 /**
  * padDatePart：处理padDatePart并更新相关状态。
  * @param value number 参数说明。
@@ -87,6 +103,18 @@ function clearRestartTimer() {
   }
   clearTimeout(restartTimer);
   restartTimer = null;
+}
+
+/**
+ * clearDebouncedRestartTimer：清理源码变更触发的防抖重启计时器。
+ */
+function clearDebouncedRestartTimer() {
+  if (!debouncedRestartTimer) {
+    return;
+  }
+  clearTimeout(debouncedRestartTimer);
+  debouncedRestartTimer = null;
+  debouncedRestartReason = null;
 }
 
 /**
@@ -238,6 +266,34 @@ function restartServer(reason: string) {
   log(`${reason}，重启 server...`);
   stopServer(() => startServer(), reason);
 }
+
+/**
+ * scheduleDebouncedRestart：源码编译完成后延迟重启，频繁变更时刷新等待时间。
+ */
+function scheduleDebouncedRestart(reason: string) {
+  if (shuttingDown) {
+    return;
+  }
+  if (restartDebounceMs <= 0) {
+    restartServer(reason);
+    return;
+  }
+  const isRefresh = debouncedRestartTimer !== null;
+  clearDebouncedRestartTimer();
+  debouncedRestartReason = reason;
+  log(
+    `${reason}，${restartDebounceMs}ms 后重启 server${
+      isRefresh ? "（检测到新变更，已刷新等待时间）" : ""
+    }`,
+  );
+  debouncedRestartTimer = setTimeout(() => {
+    const pendingReason = debouncedRestartReason ?? reason;
+    debouncedRestartTimer = null;
+    debouncedRestartReason = null;
+    restartServer(pendingReason);
+  }, restartDebounceMs);
+  debouncedRestartTimer.unref();
+}
 /**
  * shutdown：执行shutdown相关逻辑。
  * @param tscWatcher import("node:child_process").ChildProcess 参数说明。
@@ -253,6 +309,7 @@ function shutdown(tscWatcher: import("node:child_process").ChildProcess) {
   }
   shuttingDown = true;
   clearRestartTimer();
+  clearDebouncedRestartTimer();
   log("正在停止热更新进程...");
 
   if (tscWatcher.exitCode === null) {
@@ -275,10 +332,14 @@ const handleWatcherText = (text: string) => {
   }
   if (!watchReady) {
     watchReady = true;
-    log("TypeScript 监听已就绪，后续编译成功会自动重启 server");
+    log(
+      `TypeScript 监听已就绪，后续编译成功会自动重启 server${
+        restartDebounceMs > 0 ? `（防抖 ${restartDebounceMs}ms）` : ""
+      }`,
+    );
     return;
   }
-  restartServer("检测到源码编译完成");
+  scheduleDebouncedRestart("检测到源码编译完成");
 };
 
 forwardWithCapture(tscWatcher.stdout, handleWatcherText);
