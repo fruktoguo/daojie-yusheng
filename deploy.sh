@@ -221,8 +221,17 @@ else
 fi
 
 if [ "$updated_server" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
-  log "清理旧镜像..."
+  log "清理旧镜像（保留最近 3 个版本）..."
+  # 清理 dangling 镜像（无标签的中间层）
   docker image prune -f >/dev/null 2>&1 || true
+  # 对每个仓库，保留最近 3 个镜像，删除更旧的
+  for repo in "${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server" "${TENCENT_IMAGE_PREFIX}/daojie-yusheng-client"; do
+    # 按创建时间倒序列出该仓库所有镜像 ID，跳过前 3 个，删除剩余
+    old_images="$(docker images "$repo" --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r | tail -n +4 | awk '{print $1}')"
+    if [ -n "$old_images" ]; then
+      echo "$old_images" | xargs -r docker rmi -f 2>/dev/null || true
+    fi
+  done
 fi
 
 log "本轮检查完成"
