@@ -437,7 +437,7 @@ function serializeMonsterTemplate(existing, monster) {
   next.count = monster.count;
   next.maxAlive = monster.maxAlive;
   next.aggroRange = monster.aggroRange;
-  delete next.viewRange;
+  assignOptional(next, 'viewRange', Number.isFinite(monster.viewRange) && monster.viewRange !== monster.aggroRange ? monster.viewRange : undefined);
   next.aggroMode = monster.aggroMode;
   assignOptional(next, 'respawnTicks', monster.respawnTicks);
   assignOptional(next, 'expMultiplier', shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? monster.expMultiplier : undefined);
@@ -448,6 +448,7 @@ function serializeMonsterTemplate(existing, monster) {
   delete next.statPercents;
   assignOptional(next, 'equipment', monster.equipment && Object.keys(monster.equipment).length > 0 ? monster.equipment : undefined);
   assignOptional(next, 'skills', Array.isArray(monster.skills) && monster.skills.length > 0 ? monster.skills : undefined);
+  assignOptional(next, 'initialBuffs', Array.isArray(monster.initialBuffs) && monster.initialBuffs.length > 0 ? monster.initialBuffs : undefined);
   next.drops = Array.isArray(monster.drops) ? monster.drops.map((drop) => normalizeMonsterDrop(drop)) : [];
 
   delete next.computedStats;
@@ -846,6 +847,7 @@ function dehydrateMapDocument(document) {
   const monsterTemplates = loadMonsterTemplates();
   return {
     ...document,
+    layeredCells: undefined,
     monsterSpawns: Array.isArray(document.monsterSpawns)
       ? document.monsterSpawns.map((spawn) => dehydrateMonsterSpawnRecord(spawn, monsterTemplates))
       : [],
@@ -910,8 +912,7 @@ function buildLocalEditableMapList() {
         width: document.width,
         height: document.height,
         description: document.description,
-        dangerLevel: document.dangerLevel,
-        recommendedRealm: document.recommendedRealm,
+        mapLv: document.mapLv,
         portalCount: document.portals.length,
         npcCount: document.npcs.length,
         monsterSpawnCount: document.monsterSpawns.length,
@@ -921,6 +922,9 @@ function buildLocalEditableMapList() {
         if ((left.catalogMode ?? 'main') !== (right.catalogMode ?? 'main')) {
           return (left.catalogMode ?? 'main').localeCompare(right.catalogMode ?? 'main', 'zh-CN');
         }
+        const lLv = left.mapLv ?? 0;
+        const rLv = right.mapLv ?? 0;
+        if (lLv !== rLv) return rLv - lLv;
         if ((left.catalogGroupName ?? '') !== (right.catalogGroupName ?? '')) {
           return (left.catalogGroupName ?? '').localeCompare(right.catalogGroupName ?? '', 'zh-CN');
         }

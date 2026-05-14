@@ -1,0 +1,285 @@
+/* Legacy classes used by GmMapEditor's internal DOM rendering.
+   These match the old index.html styles needed for map-row, small-btn, etc. */
+
+.map-row {
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  border-radius: calc(var(--radius) * 0.8);
+  cursor: pointer;
+  transition: 140ms ease;
+  display: block;
+}
+.map-row:hover {
+  background: var(--accent);
+  border-color: var(--ring);
+}
+.map-row.active {
+  background: color-mix(in oklch, var(--primary) 15%, var(--card));
+  border-color: var(--primary);
+}
+.map-row-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-row-meta {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.small-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border-radius: calc(var(--radius) * 0.8);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+.small-btn:hover {
+  background: var(--accent);
+  border-color: var(--ring);
+}
+.small-btn.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.small-btn.primary:hover {
+  opacity: 0.9;
+}
+.small-btn.danger {
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
+.small-btn.danger:hover {
+  background: color-mix(in oklch, var(--destructive) 10%, var(--card));
+}
+
+.map-tool-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border-radius: calc(var(--radius) * 0.6);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+.map-tool-btn:hover {
+  border-color: var(--ring);
+  background: var(--accent);
+}
+.map-tool-btn.active {
+  background: color-mix(in oklch, var(--primary) 15%, var(--card));
+  border-color: var(--primary);
+  color: var(--foreground);
+}
+
+.map-tile-btn {
+  min-height: 30px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: calc(var(--radius) * 0.6);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: 140ms ease;
+  line-height: 1.2;
+}
+.map-tile-btn:hover {
+  border-color: var(--ring);
+}
+.map-tile-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 22%, transparent);
+}
+
+.map-entity-btn {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  border-radius: calc(var(--radius) * 0.6);
+  font-size: 0.6875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+.map-entity-btn:hover {
+  border-color: var(--ring);
+  background: var(--accent);
+}
+.map-entity-btn.active {
+  background: color-mix(in oklch, var(--primary) 15%, var(--card));
+  border-color: var(--primary);
+}
+
+.map-entity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.empty-hint {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  padding: 12px 0;
+}
+
+.editor-section {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.2);
+  padding: 10px;
+  margin-top: 8px;
+}
+.editor-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.editor-section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.editor-section-note, .editor-note {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.button-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.map-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.map-field.wide {
+  grid-column: 1 / -1;
+}
+.map-field span {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.map-field input,
+.map-field select,
+.map-field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: calc(var(--radius) * 0.8);
+  padding: 5px 8px;
+  font-size: 0.75rem;
+}
+.map-field input:focus,
+.map-field select:focus,
+.map-field textarea:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent);
+}
+
+.map-form-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.map-form-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inspector-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inspector-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inspector-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.paint-layer-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.1);
+  background: color-mix(in oklch, var(--muted) 35%, var(--background));
+}
+
+.paint-layer-tabs .side-tab {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.8);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.paint-layer-tabs .side-tab:hover {
+  border-color: var(--ring);
+  background: var(--accent);
+}
+
+.paint-layer-tabs .side-tab.active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 24%, transparent);
+}
+
+.map-cell-layer-editor {
+  padding: 10px;
+  border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+  border-radius: calc(var(--radius) * 1.1);
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.map-cell-layer-editor .map-field span {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.map-summary-card {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}

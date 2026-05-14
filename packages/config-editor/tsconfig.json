@@ -5,11 +5,14 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
     "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
       "@mud/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src", "../../packages/client/src/gm-map-editor.ts"]
+  "include": ["src"]
 }
