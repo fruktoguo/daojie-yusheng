@@ -77,6 +77,7 @@ export * from './detail-view-types';
 export * from './session-sync-types';
 export * from './service-sync-types';
 export * from './notice-types';
+export * from './runtime-event-bus.types';
 export * from './offline-gain-types';
 export * from './world-core-types';
 export * from './leaderboard-types';

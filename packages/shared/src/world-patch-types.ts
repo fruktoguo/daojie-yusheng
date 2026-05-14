@@ -4,6 +4,7 @@ import type { FormationLifecycle, FormationRangeShape } from './formation-types'
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
 import type { PlayerWalletState } from './player-runtime-types';
+import type { TickEventBusPayload } from './runtime-event-bus.types';
 import type { MapMinimapMarker, NpcQuestMarker } from './world-view-types';
 
 /**
@@ -682,6 +683,11 @@ export interface WorldDeltaView {
  */
 
   fx?: CombatEffect[];  
+  /**
+ * eventBus：tick 末尾运行时事件总线载荷，只携带当前玩家本次增量需要消费的临时表现事件。
+ */
+
+  eventBus?: TickEventBusPayload;
   /**
  * path：路径相关字段。
  */
