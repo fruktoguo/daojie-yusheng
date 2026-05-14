@@ -10,6 +10,7 @@ import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
@@ -61,12 +62,12 @@ export class PlayerRuntimeService {
     playerProgressionService;
     /** 玩家分域持久化服务，承接低频改动即写。 */
     playerDomainPersistenceService;
+    /** 运行时事件总线，统一收编通知、战斗表现等 tick 内事件。 */
+    runtimeEventBusService;
     /** 玩家在线态 store，集中托管运行时拥有的热状态。 */
     runtimeState = createPlayerRuntimeStateStore<any>();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
     players = this.runtimeState.players;
-    /** 断线重连或死亡切换时，暂存的战斗副作用。 */
-    pendingCombatEffectsByPlayerId = this.runtimeState.pendingCombatEffectsByPlayerId;
     /** 数据库禁用时的离线收益基线缓存。 */
     offlineGainSessionsByPlayerId = new Map();
     /** 玩家统计持续快照，用于把 tick 外即时资产变化纳入下一次低频统计。 */
@@ -90,12 +91,14 @@ export class PlayerRuntimeService {
         @Inject(PlayerAttributesService) playerAttributesService: any,
         @Inject(PlayerProgressionService) playerProgressionService: any,
         @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any = undefined,
+        @Inject(RuntimeEventBusService) runtimeEventBusService: any = undefined,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerAttributesService = playerAttributesService;
         this.playerProgressionService = playerProgressionService;
         this.playerDomainPersistenceService = playerDomainPersistenceService;
+        this.runtimeEventBusService = runtimeEventBusService;
     }
     /** 读取或创建玩家在线态快照，首次连接时从持久化状态回填。 */
     async loadOrCreatePlayer(playerId, sessionId, loader, options = undefined) {
@@ -109,7 +112,6 @@ export class PlayerRuntimeService {
             } else {
                 this.refreshRuntimeSession(existing, sessionId);
             }
-            this.pendingCombatEffectsByPlayerId.delete(playerId);
             return existing;
         }
 
@@ -145,7 +147,6 @@ export class PlayerRuntimeService {
             } else {
                 this.refreshRuntimeSession(lateExisting, sessionId);
             }
-            this.pendingCombatEffectsByPlayerId.delete(playerId);
             return lateExisting;
         }
 
@@ -179,7 +180,6 @@ export class PlayerRuntimeService {
         const player = this.createFreshPlayer(playerId, sessionId);
         this.bindRuntimeSession(player, sessionId);
         this.players.set(playerId, player);
-        this.pendingCombatEffectsByPlayerId.delete(playerId);
         return player;
     }
     /** 创建新玩家的初始运行时状态，包含装备、动作、修炼与通知容器。 */
@@ -526,7 +526,6 @@ export class PlayerRuntimeService {
         this.scheduledPlayerStatisticLedgerFlushes.delete(playerId);
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(playerId);
         this.pendingOfflineGainReportsByPlayerId.delete(playerId);
-        this.pendingCombatEffectsByPlayerId.delete(playerId);
     }
     /** 打开指定坐标的战利品窗口。 */
     openLootWindow(playerId, tileX, tileY) {
@@ -1445,58 +1444,13 @@ export class PlayerRuntimeService {
             player.transferBufferedNotices.push(notice);
             return player;
         }
-        player.notices.queue.push(notice);
+        // 委托给 EventBus（如果可用），否则回退到本地队列
+        if (this.runtimeEventBusService) {
+            this.runtimeEventBusService.queuePlayerNotice(playerId, notice);
+        } else {
+            player.notices.queue.push(notice);
+        }
         return player;
-    }
-    /**
- * enqueueCombatEffect：处理战斗Effect并更新相关状态。
- * @param playerId 玩家 ID。
- * @param effect 参数说明。
- * @returns 无返回值，直接更新战斗Effect相关状态。
- */
-
-    enqueueCombatEffect(playerId, effect) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const player = this.players.get(playerId);
-        if (!player || !player.sessionId) {
-            return;
-        }
-
-        const queue = this.pendingCombatEffectsByPlayerId.get(playerId);
-        if (queue) {
-            queue.push(cloneCombatEffect(effect));
-            return;
-        }
-        this.pendingCombatEffectsByPlayerId.set(playerId, [cloneCombatEffect(effect)]);
-    }
-    /**
- * enqueueCombatEffects：处理战斗Effect并更新相关状态。
- * @param playerId 玩家 ID。
- * @param effects 参数说明。
- * @returns 无返回值，直接更新战斗Effect相关状态。
- */
-
-    enqueueCombatEffects(playerId, effects) {
-        for (const effect of effects) {
-            this.enqueueCombatEffect(playerId, effect);
-        }
-    }
-    /**
- * drainCombatEffects：执行drain战斗Effect相关逻辑。
- * @param playerId 玩家 ID。
- * @returns 无返回值，直接更新drain战斗Effect相关状态。
- */
-
-    drainCombatEffects(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const queue = this.pendingCombatEffectsByPlayerId.get(playerId);
-        if (!queue || queue.length === 0) {
-            return [];
-        }
-        this.pendingCombatEffectsByPlayerId.delete(playerId);
-        return queue.map((entry) => cloneCombatEffect(entry));
     }
     /**
  * drainNotices：执行drainNotice相关逻辑。
@@ -1507,6 +1461,12 @@ export class PlayerRuntimeService {
     drainNotices(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        // 优先从 EventBus drain
+        if (this.runtimeEventBusService) {
+            const result = this.runtimeEventBusService.drainPlayer(playerId);
+            return result?.notices ?? [];
+        }
+        // 回退到本地队列
         const player = this.getPlayerOrThrow(playerId);
         if (player.notices.queue.length === 0) {
             return [];
@@ -2913,6 +2873,12 @@ export class PlayerRuntimeService {
     advanceSinglePlayerTick(player, currentTick, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            // stateDelta 快照：记录 tick 前的关键数值
+            const _prevHp = player.hp;
+            const _prevMp = player.mp;
+            const _prevExp = player.exp;
+            const _prevLevel = player.level;
+
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
             if (advancePlayerChronology(player)) {
                 markPlayerDirtyDomains(player, ['progression']);
@@ -2952,7 +2918,30 @@ export class PlayerRuntimeService {
                 this.rebuildActionState(player, currentTick);
             }
             this.accumulateOfflineGainAfterTick(player, offlineGainBefore);
+
+            // stateDelta 发射：仅在数值实际变化时入队
+            this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
     }
+
+    /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
+    private emitPlayerStateDeltaIfChanged(player, prevHp, prevMp, prevExp, prevLevel, buffTickResult) {
+        if (!this.runtimeEventBusService) return;
+        const delta: Record<string, unknown> = {};
+        if (player.hp !== prevHp) delta.hp = player.hp;
+        if (player.mp !== prevMp) delta.mp = player.mp;
+        if (player.exp !== prevExp) delta.exp = player.exp;
+        if (player.level !== prevLevel) delta.level = player.level;
+        if (buffTickResult?.changed && buffTickResult.added?.length || buffTickResult?.removed?.length) {
+            delta.buffs = {
+                added: buffTickResult.added ?? [],
+                removed: buffTickResult.removed ?? [],
+            };
+        }
+        if (Object.keys(delta).length > 0) {
+            this.runtimeEventBusService.queuePlayerStateDelta(player.playerId, delta);
+        }
+    }
+
     /** captureOfflineGainBeforeTick：捕获离线收益tick前快照。 */
     captureOfflineGainBeforeTick(player) {
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
@@ -3297,7 +3286,6 @@ export class PlayerRuntimeService {
 
     restoreSnapshot(snapshot) {
         this.players.set(snapshot.playerId, cloneRuntimePlayerState(snapshot));
-        this.pendingCombatEffectsByPlayerId.delete(snapshot.playerId);
     }
     /**
  * hydrateFromSnapshot：执行hydrateFrom快照相关逻辑。
@@ -3674,7 +3662,14 @@ export class PlayerRuntimeService {
         if (buffered.length === 0) {
             return player;
         }
-        player.notices.queue.push(...buffered);
+        // 委托给 EventBus（如果可用），否则回退到本地队列
+        if (this.runtimeEventBusService) {
+            for (const notice of buffered) {
+                this.runtimeEventBusService.queuePlayerNotice(player.playerId, notice);
+            }
+        } else {
+            player.notices.queue.push(...buffered);
+        }
         return player;
     }
     /**
@@ -3695,12 +3690,17 @@ export class PlayerRuntimeService {
                 if (!text) {
                     continue;
                 }
-                player.notices.queue.push({
+                const entry = {
                     id: player.notices.nextId,
                     kind: notice.kind,
                     text,
-                });
+                };
                 player.notices.nextId += 1;
+                if (this.runtimeEventBusService) {
+                    this.runtimeEventBusService.queuePlayerNotice(player.playerId, entry);
+                } else {
+                    player.notices.queue.push(entry);
+                }
             }
         }
         if (result.changed && (rebuildActions || result.actionsDirty === true)) {
@@ -3736,13 +3736,18 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         const text = '根基已达当前境界上限，已关闭自动凝练根基。';
-        if (emitNotice && !player.notices.queue.some((notice) => notice.text === text)) {
-            player.notices.queue.push({
+        if (emitNotice) {
+            const entry = {
                 id: player.notices.nextId,
-                kind: 'info',
+                kind: 'info' as const,
                 text,
-            });
+            };
             player.notices.nextId += 1;
+            if (this.runtimeEventBusService) {
+                this.runtimeEventBusService.queuePlayerNotice(player.playerId, entry);
+            } else {
+                player.notices.queue.push(entry);
+            }
         }
         return true;
     }
@@ -6988,13 +6993,4 @@ function canonicalizeRuntimeBonusSource(source) {
         return `equipment:${normalized.slice('equip:'.length)}`;
     }
     return normalized;
-}
-/**
- * cloneCombatEffect：构建战斗Effect。
- * @param source 来源对象。
- * @returns 无返回值，直接更新战斗Effect相关状态。
- */
-
-function cloneCombatEffect(source) {
-    return { ...source };
 }

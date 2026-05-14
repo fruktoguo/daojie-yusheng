@@ -294,6 +294,22 @@ export class WorldRuntimeTickDispatchService {
         deps.worldRuntimeCombatEffectsService.pushCombatEffect(instanceId, effect);
     }
     /**
+ * queuePlayerFeedback：向玩家推送即时反馈（确认/拒绝/冷却/资源不足等）。
+ * @param playerId 玩家 ID。
+ * @param kind 反馈类型：'confirm' | 'reject' | 'cooldown' | 'insufficient'。
+ * @param action 触发动作标识。
+ * @param message 反馈文本。
+ * @param deps 运行时依赖。
+ */
+
+    queuePlayerFeedback(playerId, kind, action, message, deps) {
+        try {
+            deps.playerRuntimeService?.runtimeEventBusService?.queuePlayerFeedback(playerId, { type: kind, action, message });
+        } catch {
+            // 玩家不在线时忽略
+        }
+    }
+    /**
  * pushActionLabelEffect：处理ActionLabelEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param x X 坐标。

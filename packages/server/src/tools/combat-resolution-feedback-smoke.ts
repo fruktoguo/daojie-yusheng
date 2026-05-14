@@ -13,6 +13,7 @@ import {
   formatCombatResolutionOutcome,
 } from '../runtime/world/query/world-runtime.observation.helpers';
 import { WorldRuntimeCombatEffectsService } from '../runtime/world/combat/world-runtime-combat-effects.service';
+import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
 import { emitCombatPresentation } from '../runtime/world/combat/world-runtime-combat-presentation.helpers';
 
 function createCombatStats(overrides: Record<string, unknown> = {}) {
@@ -117,7 +118,7 @@ function testSkillResolutionKeepsDodgedFeedback(): void {
 }
 
 function testCombatPresentationSuppressesJudgementFloatText(): void {
-  const service = new WorldRuntimeCombatEffectsService();
+  const service = new WorldRuntimeCombatEffectsService(new RuntimeEventBusService());
   const notices: string[] = [];
   emitCombatPresentation({
     deps: {

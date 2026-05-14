@@ -77,6 +77,12 @@ export class WorldRuntimeCraftMutationService {
             ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
             : this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
         emitTechniqueActivityPanel(socket, panel, payload);
+
+        // EventBus: 同步发射 panelPatch 供统一消费侧使用
+        const eventBus = this.playerRuntimeService.runtimeEventBusService;
+        if (eventBus && payload) {
+            eventBus.queuePlayerPanelPatch(playerId, panel, payload);
+        }
     }    
     /**
  * emitAllTechniqueActivityPanelUpdates：按统一技艺顺序补发所有面板。

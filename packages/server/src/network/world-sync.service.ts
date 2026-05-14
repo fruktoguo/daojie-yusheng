@@ -5,6 +5,7 @@
 
 import { Inject, Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
+import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
@@ -15,153 +16,138 @@ import { WorldSessionService } from './world-session.service';
 
 @Injectable()
 export class WorldSyncService {
-        worldRuntimeService;
-        playerRuntimeService;
-        worldSessionService;
-        worldSyncQuestLootService;
-        worldSyncProtocolService;
-        worldSyncAuxStateService;
-        worldSyncEnvelopeService;    
     constructor(
-        @Inject(WorldRuntimeService) worldRuntimeService: any,
-        @Inject(PlayerRuntimeService) playerRuntimeService: any,
-        @Inject(WorldSessionService) worldSessionService: any,
-        @Inject(WorldSyncQuestLootService) worldSyncQuestLootService: any,
-        @Inject(WorldSyncProtocolService) worldSyncProtocolService: any,
-        @Inject(WorldSyncAuxStateService) worldSyncAuxStateService: any,
-        @Inject(WorldSyncEnvelopeService) worldSyncEnvelopeService: any,
-    ) {
-        this.worldRuntimeService = worldRuntimeService;
-        this.playerRuntimeService = playerRuntimeService;
-        this.worldSessionService = worldSessionService;
-        this.worldSyncQuestLootService = worldSyncQuestLootService;
-        this.worldSyncProtocolService = worldSyncProtocolService;
-        this.worldSyncAuxStateService = worldSyncAuxStateService;
-        this.worldSyncEnvelopeService = worldSyncEnvelopeService;
-    }
-    emitInitialSync(playerId, socketOverride = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        @Inject(WorldRuntimeService) private readonly worldRuntimeService: any,
+        @Inject(PlayerRuntimeService) private readonly playerRuntimeService: any,
+        @Inject(WorldSessionService) private readonly worldSessionService: any,
+        @Inject(WorldSyncQuestLootService) private readonly worldSyncQuestLootService: any,
+        @Inject(WorldSyncProtocolService) private readonly worldSyncProtocolService: any,
+        @Inject(WorldSyncAuxStateService) private readonly worldSyncAuxStateService: any,
+        @Inject(WorldSyncEnvelopeService) private readonly worldSyncEnvelopeService: any,
+        @Inject(RuntimeGmStateService) private readonly runtimeGmStateService: any,
+    ) {}
+
+    emitInitialSync(playerId: string, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
-        if (!binding) {
-            return;
-        }
+        if (!binding) return;
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
-        if (!socket || !view) {
-            return;
-        }
+        if (!socket || !view) return;
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
         this.emitEnvelope(socket, envelope);
         this.emitAuxInitialSync(binding.playerId, socket, view, player);
         this.worldSyncQuestLootService.emitQuestSync(socket, binding.playerId, player.quests.revision);
-        this.emitPendingNotices(binding.playerId, socket);
+        this.emitPendingInitialNotices(binding.playerId, socket);
         this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
     }
-        emitDeltaSync(playerId, socketOverride = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    emitDeltaSync(playerId: string, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
-        if (!binding) {
-            return;
-        }
+        if (!binding) return;
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
-        if (!socket || !view) {
-            return;
-        }
-        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
-        const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
-        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
-        const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(binding.playerId, socket, view, player, { deferMapChanged: true });
-        this.emitEnvelope(socket, envelope);
-        if (!auxEmittedBeforeEnvelope) {
-            this.emitAuxDeltaSync(binding.playerId, socket, view, player);
-        }
-        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
-        this.emitPendingNotices(binding.playerId, socket);
-        this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
+        if (!socket || !view) return;
+        this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view);
     }
-        flushConnectedPlayers() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    flushConnectedPlayers() {
         this.clearPurgedPlayerCaches();
         for (const binding of this.worldSessionService.listBindings()) {
             const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
             const view = this.worldRuntimeService.getPlayerView(binding.playerId);
-            if (!socket || !view) {
-                continue;
-            }
-            this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
-            const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
-            const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
-            const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(binding.playerId, socket, view, player, { deferMapChanged: true });
-            this.emitEnvelope(socket, envelope);
-            if (!auxEmittedBeforeEnvelope) {
-                this.emitAuxDeltaSync(binding.playerId, socket, view, player);
-            }
-            this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
-            this.emitPendingNotices(binding.playerId, socket);
-            this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
+            if (!socket || !view) continue;
+            this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view);
         }
     }
-        emitEnvelope(socket, envelope) {
+
+    emitEnvelope(socket: any, envelope: any) {
         this.worldSyncProtocolService.sendEnvelope(socket, envelope);
     }
-        clearDetachedPlayerCaches(playerId) {
+
+    clearDetachedPlayerCaches(playerId: string) {
         this.clearPlayerCaches(playerId, true);
     }
-        clearPurgedPlayerCaches() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    emitLootWindowUpdate(playerId: string) {
+        this.worldSyncQuestLootService.emitLootWindowUpdate(playerId);
+    }
+
+    openLootWindow(playerId: string, x: number, y: number) {
+        return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
+    }
+
+    private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any) {
+        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
+        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
+        const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true });
+        this.emitEnvelope(socket, envelope);
+        if (!auxEmittedBeforeEnvelope) {
+            this.emitAuxDeltaSync(playerId, socket, view, player);
+        }
+        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player.quests.revision);
+        this.emitPendingRuntimeEvents(playerId, socket, envelope);
+        this.emitPendingPlayerStatisticRecords(playerId, socket);
+    }
+
+    private clearPurgedPlayerCaches() {
         const purgedPlayerIds = this.worldSessionService.consumePurgedPlayerIds();
         for (const playerId of purgedPlayerIds) {
             this.clearPlayerCaches(playerId, false);
         }
     }
-        clearPlayerCaches(playerId, detachRuntimeSession) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    private clearPlayerCaches(playerId: string, detachRuntimeSession: boolean) {
         this.worldSyncEnvelopeService.clearPlayerCache(playerId);
         if (detachRuntimeSession) {
             this.playerRuntimeService.detachSession(playerId);
         }
         this.worldSyncQuestLootService.clearPlayerCache(playerId);
         this.worldSyncAuxStateService.clearPlayerCache(playerId);
-    }    
-    emitLootWindowUpdate(playerId) {
-        this.worldSyncQuestLootService.emitLootWindowUpdate(playerId);
-    }    
-    openLootWindow(playerId, x, y) {
-        return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
-    }    
-    emitAuxInitialSync(playerId, socket, view, player) {
+    }
+
+    private emitAuxInitialSync(playerId: string, socket: any, view: any, player: any) {
         this.worldSyncAuxStateService.emitAuxInitialSync(playerId, socket, view, player);
-    }    
-    emitAuxDeltaSync(playerId, socket, view, player, options = undefined) {
+    }
+
+    private emitAuxDeltaSync(playerId: string, socket: any, view: any, player: any, options: any = undefined) {
         return this.worldSyncAuxStateService.emitAuxDeltaSync(playerId, socket, view, player, options);
-    }    
-    emitPendingNotices(playerId, socket) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-        const items = this.playerRuntimeService.drainNotices(playerId);
-        if (items.length === 0) {
+    }
+
+    private emitPendingRuntimeEvents(playerId: string, socket: any, envelope: any) {
+        if (envelope?.gmStatePush) {
+            this.runtimeGmStateService.emitState(socket);
+        }
+        if (envelope?.worldDelta?.eventBus) {
             return;
         }
-        this.worldSyncProtocolService.sendNotices(socket, items);
+        const items = this.playerRuntimeService.drainNotices(playerId);
+        if (items.length > 0) {
+            this.worldSyncProtocolService.sendNotices(socket, items);
+        }
     }
-    emitPendingPlayerStatisticRecords(playerId, socket) {
+
+    private emitPendingInitialNotices(playerId: string, socket: any) {
+        const items = this.playerRuntimeService.drainNotices(playerId);
+        if (items.length > 0) {
+            this.worldSyncProtocolService.sendNotices(socket, items);
+        }
+    }
+
+    private emitPendingPlayerStatisticRecords(playerId: string, socket: any) {
         const records = typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
             ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId)
             : [];
         const totals = typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'
             ? this.playerRuntimeService.consumePlayerStatisticTotalsForEmit(playerId)
             : null;
-        if (typeof socket?.emit !== 'function') {
-            return;
-        }
-        if ((!Array.isArray(records) || records.length === 0) && !totals) {
-            return;
-        }
+        if (typeof socket?.emit !== 'function') return;
+        if ((!Array.isArray(records) || records.length === 0) && !totals) return;
         socket.emit(S2C.OfflineGainReports, {
             reports: Array.isArray(records) ? records : [],
             ...(totals ? { totals } : {}),
         });
     }
-};
+}

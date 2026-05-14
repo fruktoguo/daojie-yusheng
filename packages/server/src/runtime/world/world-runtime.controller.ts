@@ -7,6 +7,7 @@ import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { MarketRuntimeService } from '../market/market-runtime.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { SuggestionRuntimeService } from '../suggestion/suggestion-runtime.service';
+import { RuntimeEventBusMetricsService } from '../event-bus/runtime-event-bus-metrics.service';
 import { RuntimeHttpAccessGuard } from './runtime-http-access.guard';
 import { WorldRuntimeService } from './world-runtime.service';
 
@@ -53,6 +54,7 @@ export class WorldRuntimeController {
  */
 
     durableOperationService;
+    runtimeEventBusMetricsService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -66,7 +68,7 @@ export class WorldRuntimeController {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(@Inject(WorldRuntimeService) worldRuntimeService, @Inject(MailRuntimeService) mailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService, @Inject(PlayerRuntimeService) playerRuntimeService, @Inject(SuggestionRuntimeService) suggestionRuntimeService, @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService, @Inject(MapPersistenceFlushService) mapPersistenceFlushService, @Inject(DurableOperationService) durableOperationService) {
+    constructor(@Inject(WorldRuntimeService) worldRuntimeService, @Inject(MailRuntimeService) mailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService, @Inject(PlayerRuntimeService) playerRuntimeService, @Inject(SuggestionRuntimeService) suggestionRuntimeService, @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService, @Inject(MapPersistenceFlushService) mapPersistenceFlushService, @Inject(DurableOperationService) durableOperationService, @Inject(RuntimeEventBusMetricsService) runtimeEventBusMetricsService) {
         this.worldRuntimeService = worldRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -75,6 +77,7 @@ export class WorldRuntimeController {
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mapPersistenceFlushService = mapPersistenceFlushService;
         this.durableOperationService = durableOperationService;
+        this.runtimeEventBusMetricsService = runtimeEventBusMetricsService;
     }
     onModuleInit() {
         if (typeof this.playerPersistenceFlushService?.setLeaseGuard === 'function') {
@@ -94,6 +97,13 @@ export class WorldRuntimeController {
     @Get('summary')
     getSummary() {
         return this.worldRuntimeService.getRuntimeSummary();
+    }
+    /** getEventBusMetrics：读取运行时事件总线内存指标。 */
+    @Get('event-bus/metrics')
+    getEventBusMetrics() {
+        return {
+            metrics: this.runtimeEventBusMetricsService.getMetrics(),
+        };
     }
     /** getTemplates：读取地图模板列表。 */
     @Get('templates')

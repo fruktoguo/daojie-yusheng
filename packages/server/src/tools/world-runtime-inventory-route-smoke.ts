@@ -91,6 +91,7 @@ async function main(): Promise<void> {
         };
       },
     } as never,
+    { getMetrics: () => ({}) } as never,
   );
 
   const result = await controller.grantItem(playerId, { itemId: 'rat_tail', count: 2 });

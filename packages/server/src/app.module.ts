@@ -157,6 +157,8 @@ import { InstanceMonsterRuntimeFlushWorker } from './runtime/world/worker/instan
 import { CheckpointCompactionWorker } from './runtime/world/worker/checkpoint-compaction.worker';
 import { SuggestionRuntimeService } from './runtime/suggestion/suggestion-runtime.service';
 import { RedeemCodeRuntimeService } from './runtime/redeem/redeem-code-runtime.service';
+import { RuntimeEventBusMetricsService } from './runtime/event-bus/runtime-event-bus-metrics.service';
+import { RuntimeEventBusService } from './runtime/event-bus/runtime-event-bus.service';
 import { WorldTickService } from './runtime/tick/world-tick.service';
 import { WorldRuntimeController } from './runtime/world/world-runtime.controller';
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
@@ -327,6 +329,8 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     RuntimeMaintenanceService,
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
+    RuntimeEventBusMetricsService,
+    RuntimeEventBusService,
     WorldTickService,
     WorldGateway,
   ],

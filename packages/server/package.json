@@ -126,6 +126,8 @@
     "smoke:content-monster-spawn": "pnpm compile && node dist/tools/content-monster-spawn-smoke.js",
     "smoke:tongtian-tower": "pnpm compile && node dist/tools/tongtian-tower-smoke.js",
     "smoke:tongtian-tower:persistence": "pnpm compile && node dist/tools/tongtian-tower-persistence-smoke.js",
+    "smoke:event-bus": "pnpm compile && node dist/tools/runtime-event-bus-smoke.js",
+    "bench:event-bus": "pnpm compile && node dist/tools/bench-event-bus.js",
     "bench:tick": "pnpm compile && node dist/tools/bench-tick.js",
     "bench:sync": "pnpm compile && node dist/tools/bench-sync.js",
     "bench:combat": "pnpm compile && node dist/tools/bench-combat.js",

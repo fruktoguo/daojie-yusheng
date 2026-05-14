@@ -353,6 +353,16 @@ async function emitAndWait(socket, emitEvent, payload, responseEvent, predicate,
 }
 
 /**
+ * 等待 tick delta envelope 内的 EventBus 通知。
+ */
+async function waitForEventBusNotice(socket, afterCount, predicate, timeoutMs) {
+  return socket.waitForEventAfter(S2C.WorldDelta, afterCount, function (payload) {
+    var items = payload?.eventBus?.notices;
+    return Array.isArray(items) && items.some(predicate);
+  }, timeoutMs);
+}
+
+/**
  * enrichEmitAndWaitError：失败时附带近期协议摘要，避免审计超时只留下 after 计数。
  */
 function enrichEmitAndWaitError(socket, error, emitEvent, responseEvent, afterCount) {
@@ -1745,12 +1755,10 @@ async function shopCase(runtime) {
 /**
  * 记录noticeafter。
  */
-  var noticeAfter = socket.getEventCount(S2C.Notice);
+  var worldDeltaAfter = socket.getEventCount(S2C.WorldDelta);
   socket.emit(C2S.BuyNpcShopItem, { npcId: "npc_herbalist_lan", itemId: itemId, quantity: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) { return count(player, itemId) >= before + 1; }, 5000, "npcBuy");
-  await socket.waitForEventAfter(S2C.Notice, noticeAfter, function (payload) {
-    return Array.isArray(payload && payload.items) && payload.items.length > 0;
-  }, 5000);
+  await waitForEventBusNotice(socket, worldDeltaAfter, function () { return true; }, 5000);
 }
 /**
  * 处理detail任务case。
@@ -2031,12 +2039,10 @@ async function playerControlCase(runtime) {
 /**
  * 记录noticeafter。
  */
-  var noticeAfter = socket.getEventCount(S2C.Notice);
+  var worldDeltaAfter = socket.getEventCount(S2C.WorldDelta);
   socket.emit(C2S.HeavenGateAction, { action: "open" });
-  await socket.waitForEventAfter(S2C.Notice, noticeAfter, function (payload) {
-    return Array.isArray(payload?.items) && payload.items.some(function (item) {
-      return item?.text === "当前境界不可开天门";
-    });
+  await waitForEventBusNotice(socket, worldDeltaAfter, function (item) {
+    return item?.text === "当前境界不可开天门";
   }, 5000);
 }
 /**

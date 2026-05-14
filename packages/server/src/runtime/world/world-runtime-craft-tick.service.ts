@@ -137,10 +137,41 @@ export class WorldRuntimeCraftTickService {
                     }
                 }
             }
+
+            // EventBus: 发射活跃 job 进度
+            this.emitActiveJobProgress(playerId, player);
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps?.queuePlayerNotice?.(playerId, message, 'warn');
           }
+        }
+    }
+
+    /** 向 EventBus 发射当前玩家所有活跃 job 的进度快照。 */
+    private emitActiveJobProgress(playerId: string, player: any): void {
+        const eventBus = this.playerRuntimeService.runtimeEventBusService;
+        if (!eventBus) return;
+
+        const jobs = [
+            { job: player.alchemyJob, type: 'alchemy' },
+            { job: player.forgingJob, type: 'forging' },
+            { job: player.enhancementJob, type: 'enhancement' },
+            { job: player.gatherJob, type: 'gather' },
+            { job: player.buildingJob, type: 'building' },
+        ];
+
+        for (const { job, type } of jobs) {
+            if (!job || Number(job.remainingTicks) <= 0) continue;
+            const total = Number(job.totalTicks || job.durationTicks || 1);
+            const remaining = Number(job.remainingTicks);
+            const progress = total > 0 ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
+            eventBus.queueActiveJobProgress(playerId, {
+                jobId: job.jobRunId || `${type}:${playerId}`,
+                jobType: type,
+                progress,
+                remainingMs: remaining * 1000,
+                label: job.label || job.recipeName || undefined,
+            });
         }
     }
 

@@ -78,6 +78,7 @@ async function main(): Promise<void> {
         durableCalls.push(input);
       },
     } as never,
+    { getMetrics: () => ({}) } as never,
   );
 
   const creditResult = await controller.creditWallet(playerId, { walletType: 'spirit_stone', amount: 4 });

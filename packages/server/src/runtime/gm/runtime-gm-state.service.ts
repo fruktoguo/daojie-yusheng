@@ -7,6 +7,7 @@ import { serialize } from 'v8';
 import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { WorldSessionService } from '../../network/world-session.service';
+import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
@@ -47,8 +48,8 @@ export class RuntimeGmStateService {
     worldRuntimeService;
     /** 当前在线连接映射，供状态推送时按玩家查 socket。 */
     worldSessionService;
-    /** 等待下次 flush 的 GM 状态推送目标。 */
-    pendingStatePushPlayerIds = new Set();
+    /** 运行时事件总线，GM 状态推送标记写入此处。 */
+    runtimeEventBusService;
     /** 网络上行事件累计桶。 */
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
@@ -67,11 +68,13 @@ export class RuntimeGmStateService {
         playerRuntimeService: PlayerRuntimeService,
         worldRuntimeService: WorldRuntimeService,
         worldSessionService: WorldSessionService,
+        runtimeEventBusService: RuntimeEventBusService,
     ) {
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
         this.worldSessionService = worldSessionService;
+        this.runtimeEventBusService = runtimeEventBusService;
     }
     /** 立即向单个客户端下发 GM 状态快照。 */
     emitState(client) {
@@ -81,33 +84,15 @@ export class RuntimeGmStateService {
     }
     /** 标记某个玩家下次需要收到 GM 面板刷新。 */
     queueStatePush(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId) {
             return;
         }
-        this.pendingStatePushPlayerIds.add(normalizedPlayerId);
+        this.runtimeEventBusService?.queueGmStatePush(normalizedPlayerId);
     }
-    /** 批量把待推送的 GM 面板状态发给在线客户端。 */
+    /** 批量把待推送的 GM 面板状态发给在线客户端（由 WorldSyncService 在 drain 时调用）。 */
     flushQueuedStatePushes() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (this.pendingStatePushPlayerIds.size === 0) {
-            return;
-        }
-
-        const targets = Array.from(this.pendingStatePushPlayerIds);
-        this.pendingStatePushPlayerIds.clear();
-
-        const payload = this.buildState();
-        for (const playerId of targets) {
-            const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-            if (!socket) {
-                continue;
-            }
-            socket.emit(this.getGmStateEvent(socket), payload);
-        }
+        // No-op: GM 状态推送已迁移到 EventBus，由 WorldSyncService 在 drainPlayer 时处理 gmStatePush 标记。
     }
     /** 把 GM 的玩家变更请求转交给 world runtime 统一处理。 */
     enqueueUpdatePlayer(requesterPlayerId, payload) {
@@ -188,9 +173,7 @@ export class RuntimeGmStateService {
         const runtimePlayers = this.playerRuntimeService?.players instanceof Map
             ? this.playerRuntimeService.players
             : null;
-        const pendingCombatEffectsByPlayerId = this.playerRuntimeService?.pendingCombatEffectsByPlayerId instanceof Map
-            ? this.playerRuntimeService.pendingCombatEffectsByPlayerId
-            : null;
+        const pendingCombatEffectsByPlayerId = null;
         const playerLocations = this.worldRuntimeService?.worldRuntimePlayerLocationService?.playerLocations instanceof Map
             ? this.worldRuntimeService.worldRuntimePlayerLocationService.playerLocations
             : null;

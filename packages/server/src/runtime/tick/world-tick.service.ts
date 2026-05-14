@@ -1,20 +1,20 @@
 /**
  * 世界 Tick 调度服务。
- * 按固定间隔驱动世界运行时推进帧、同步玩家状态和刷新 GM 推送。
+ * 按固定间隔驱动世界运行时推进帧、同步玩家状态和事件总线收尾。
  * 保证同一时刻只有一个 tick 在执行，关闭时等待当前 tick 完成。
  */
 import { Inject, Injectable, Logger, type BeforeApplicationShutdown, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
 import { WorldSyncService } from '../../network/world-sync.service';
-import { RuntimeGmStateService } from '../gm/runtime-gm-state.service';
+import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
 import { RuntimeMaintenanceService } from '../world/runtime-maintenance.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 
-/** GM 运行时状态端口：刷新排队中的 GM 状态推送。 */
-interface RuntimeGmStatePort {
-  flushQueuedStatePushes(): void;
+/** 运行时事件总线端口：tick 末尾 flush 收集的事件。 */
+interface RuntimeEventBusPort {
+  flushTick(): unknown;
 }
 
 /** 维护模式端口：判断是否处于维护状态以跳过 tick。 */
@@ -38,7 +38,7 @@ interface WorldSyncPort {
   flushConnectedPlayers(): void;
 }
 
-/** 世界 Tick 调度器：以固定间隔循环驱动世界帧推进、同步和 GM 推送。 */
+/** 世界 Tick 调度器：以固定间隔循环驱动世界帧推进、同步和事件总线 flush。 */
 @Injectable()
 export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
   private readonly logger = new Logger(WorldTickService.name);
@@ -47,8 +47,8 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
   private shuttingDown = false;
 
   constructor(
-    @Inject(RuntimeGmStateService)
-    private readonly runtimeGmStateService: RuntimeGmStatePort,
+    @Inject(RuntimeEventBusService)
+    private readonly runtimeEventBusService: RuntimeEventBusPort,
     @Inject(RuntimeMaintenanceService)
     private readonly runtimeMaintenanceService: RuntimeMaintenancePort,
     @Inject(RuntimeMapConfigService)
@@ -63,7 +63,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
     return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
   }
 
-  /** 执行一次完整 tick：推进世界帧 → 同步玩家 → 刷新 GM 推送。 */
+  /** 执行一次完整 tick：推进世界帧 → 同步玩家 → 事件总线 flush 收尾。 */
   private async runTickOnce(): Promise<void> {
     if (this.shuttingDown) {
       return;
@@ -87,7 +87,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
       const syncStartedAt = performance.now();
       this.worldSyncService.flushConnectedPlayers();
       this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
-      this.runtimeGmStateService.flushQueuedStatePushes();
+      this.runtimeEventBusService.flushTick();
     } catch (error: unknown) {
       this.logger.error(
         '世界 Tick 执行失败',

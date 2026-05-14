@@ -24,6 +24,7 @@ async function main(): Promise<void> {
     {} as never,
     {} as never,
     {} as never,
+    { getMetrics: () => ({}) } as never,
   );
 
   const result = controller.removePlayer('player:controller-route');

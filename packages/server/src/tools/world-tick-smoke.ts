@@ -1,117 +1,124 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require('node:assert/strict');
+import { gameplayConstants } from '@mud/shared';
 
-const { gameplayConstants } = require('@mud/shared');
-const { WorldTickService } = require('../runtime/tick/world-tick.service');
+import { WorldTickService } from '../runtime/tick/world-tick.service';
 
-async function testAwaitsAdvanceFrameBeforeSyncFlush() {
-  const log = [];
-  let resolveFrame = () => {};
+type TickLogEntry = string | [string, number | string];
+function runTickOnce(service: WorldTickService): Promise<void> {
+  return (service as unknown as { runTickOnce(): Promise<void> }).runTickOnce();
+}
+
+function createEventBus(log: TickLogEntry[]) {
+  return {
+    flushTick(): void {
+      log.push('flushEventBus');
+    },
+  };
+}
+
+async function testAwaitsAdvanceFrameBeforeSyncFlush(): Promise<void> {
+  const log: TickLogEntry[] = [];
+  let resolveFrame = (): void => {};
 
   const service = new WorldTickService(
+    createEventBus(log),
     {
-      flushQueuedStatePushes() {
-        log.push('flushQueuedStatePushes');
-      },
-    },
-    {
-      isRuntimeMaintenanceActive() {
+      isRuntimeMaintenanceActive(): boolean {
         return false;
       },
     },
     {
-      getMapTickSpeed(mapId) {
+      getMapTickSpeed(mapId: string): number {
         log.push(['getMapTickSpeed', mapId]);
         return 1;
       },
     },
     {
-      advanceFrame(frameDurationMs, getMapTickSpeed) {
-        log.push(['advanceFrame:start', frameDurationMs, getMapTickSpeed('instance:1')]);
+      advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): Promise<void> {
+        log.push(['advanceFrame:start', frameDurationMs]);
+        log.push(['tickSpeed', getMapTickSpeed('instance:1')]);
         return new Promise((resolve) => {
           resolveFrame = () => {
             log.push('advanceFrame:resolved');
-            resolve(undefined);
+            resolve();
           };
         });
       },
-      recordSyncFlushDuration(durationMs) {
+      recordSyncFlushDuration(durationMs: number): void {
         log.push(['recordSyncFlushDuration', typeof durationMs]);
       },
     },
     {
-      flushConnectedPlayers() {
+      flushConnectedPlayers(): void {
         log.push('flushConnectedPlayers');
       },
     },
   );
 
-  const tickPromise = service.runTickOnce();
+  const tickPromise = runTickOnce(service);
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(log, [
+    ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS],
     ['getMapTickSpeed', 'instance:1'],
-    ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS, 1],
+    ['tickSpeed', 1],
   ]);
 
   resolveFrame();
   await tickPromise;
 
   assert.deepEqual(log, [
+    ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS],
     ['getMapTickSpeed', 'instance:1'],
-    ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS, 1],
+    ['tickSpeed', 1],
     'advanceFrame:resolved',
     'flushConnectedPlayers',
     ['recordSyncFlushDuration', 'number'],
-    'flushQueuedStatePushes',
+    'flushEventBus',
   ]);
 }
 
-async function testTickInFlightPreventsReentry() {
-  const log = [];
-  let resolveFrame = () => {};
+async function testTickInFlightPreventsReentry(): Promise<void> {
+  const log: TickLogEntry[] = [];
+  let resolveFrame = (): void => {};
 
   const service = new WorldTickService(
+    createEventBus(log),
     {
-      flushQueuedStatePushes() {
-        log.push('flushQueuedStatePushes');
-      },
-    },
-    {
-      isRuntimeMaintenanceActive() {
+      isRuntimeMaintenanceActive(): boolean {
         return false;
       },
     },
     {
-      getMapTickSpeed() {
+      getMapTickSpeed(): number {
         return 1;
       },
     },
     {
-      advanceFrame() {
+      advanceFrame(): Promise<void> {
         log.push('advanceFrame:start');
         return new Promise((resolve) => {
           resolveFrame = () => {
             log.push('advanceFrame:resolved');
-            resolve(undefined);
+            resolve();
           };
         });
       },
-      recordSyncFlushDuration() {
+      recordSyncFlushDuration(): void {
         log.push('recordSyncFlushDuration');
       },
     },
     {
-      flushConnectedPlayers() {
+      flushConnectedPlayers(): void {
         log.push('flushConnectedPlayers');
       },
     },
   );
 
-  const first = service.runTickOnce();
+  const first = runTickOnce(service);
   await new Promise((resolve) => setImmediate(resolve));
-  const second = service.runTickOnce();
+  const second = runTickOnce(service);
   await second;
 
   assert.deepEqual(log, ['advanceFrame:start']);
@@ -124,92 +131,84 @@ async function testTickInFlightPreventsReentry() {
     'advanceFrame:resolved',
     'flushConnectedPlayers',
     'recordSyncFlushDuration',
-    'flushQueuedStatePushes',
+    'flushEventBus',
   ]);
 }
 
-async function testMaintenanceSkipsFrameAndSync() {
-  const log = [];
+async function testMaintenanceSkipsFrameAndSync(): Promise<void> {
+  const log: TickLogEntry[] = [];
 
   const service = new WorldTickService(
+    createEventBus(log),
     {
-      flushQueuedStatePushes() {
-        log.push('flushQueuedStatePushes');
-      },
-    },
-    {
-      isRuntimeMaintenanceActive() {
+      isRuntimeMaintenanceActive(): boolean {
         log.push('isRuntimeMaintenanceActive');
         return true;
       },
     },
     {
-      getMapTickSpeed() {
+      getMapTickSpeed(): number {
         log.push('getMapTickSpeed');
         return 1;
       },
     },
     {
-      advanceFrame() {
+      advanceFrame(): void {
         log.push('advanceFrame');
       },
-      recordSyncFlushDuration() {
+      recordSyncFlushDuration(): void {
         log.push('recordSyncFlushDuration');
       },
     },
     {
-      flushConnectedPlayers() {
+      flushConnectedPlayers(): void {
         log.push('flushConnectedPlayers');
       },
     },
   );
 
-  await service.runTickOnce();
+  await runTickOnce(service);
   assert.deepEqual(log, ['isRuntimeMaintenanceActive']);
 }
 
-async function testShutdownWaitsForInFlightTickAndBlocksNewTicks() {
-  const log = [];
-  let resolveFrame = () => {};
+async function testShutdownWaitsForInFlightTickAndBlocksNewTicks(): Promise<void> {
+  const log: TickLogEntry[] = [];
+  let resolveFrame = (): void => {};
 
   const service = new WorldTickService(
+    createEventBus(log),
     {
-      flushQueuedStatePushes() {
-        log.push('flushQueuedStatePushes');
-      },
-    },
-    {
-      isRuntimeMaintenanceActive() {
+      isRuntimeMaintenanceActive(): boolean {
         return false;
       },
     },
     {
-      getMapTickSpeed() {
+      getMapTickSpeed(): number {
         return 1;
       },
     },
     {
-      advanceFrame() {
+      advanceFrame(): Promise<void> {
         log.push('advanceFrame:start');
         return new Promise((resolve) => {
           resolveFrame = () => {
             log.push('advanceFrame:resolved');
-            resolve(undefined);
+            resolve();
           };
         });
       },
-      recordSyncFlushDuration() {
+      recordSyncFlushDuration(): void {
         log.push('recordSyncFlushDuration');
       },
     },
     {
-      flushConnectedPlayers() {
+      flushConnectedPlayers(): void {
         log.push('flushConnectedPlayers');
       },
     },
   );
 
-  const tickPromise = service.runTickOnce();
+  const tickPromise = runTickOnce(service);
   await new Promise((resolve) => setImmediate(resolve));
   const shutdownPromise = service.beforeApplicationShutdown();
   await new Promise((resolve) => setImmediate(resolve));
@@ -217,14 +216,14 @@ async function testShutdownWaitsForInFlightTickAndBlocksNewTicks() {
 
   resolveFrame();
   await Promise.all([tickPromise, shutdownPromise]);
-  await service.runTickOnce();
+  await runTickOnce(service);
 
   assert.deepEqual(log, [
     'advanceFrame:start',
     'advanceFrame:resolved',
     'flushConnectedPlayers',
     'recordSyncFlushDuration',
-    'flushQueuedStatePushes',
+    'flushEventBus',
   ]);
 }
 

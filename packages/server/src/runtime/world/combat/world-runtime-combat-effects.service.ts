@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { formatDisplayInteger, type CombatEffect } from '@mud/shared';
+import { RuntimeEventBusService } from '../../event-bus/runtime-event-bus.service';
 
 export interface ActionLabelEffectOptions {
   actionStyle?: 'default' | 'divine' | 'chant';
@@ -8,28 +9,28 @@ export interface ActionLabelEffectOptions {
 
 @Injectable()
 export class WorldRuntimeCombatEffectsService {
-  readonly latestCombatEffectsByInstanceId = new Map<string, CombatEffect[]>();
+  constructor(
+    @Inject(RuntimeEventBusService)
+    private readonly runtimeEventBusService: RuntimeEventBusService,
+  ) {}
 
   getCombatEffects(instanceId: string): CombatEffect[] {
-    const effects = this.latestCombatEffectsByInstanceId.get(instanceId);
-    return effects ? effects.map((entry) => ({ ...entry })) : [];
+    return this.runtimeEventBusService.getCombatEffects(instanceId);
   }
 
   resetFrameEffects(): void {
-    this.latestCombatEffectsByInstanceId.clear();
+    // No-op: EventBus.flushTick() 在 tick 末尾已清空实例队列。
+    // 下一帧开始时队列已为空。
   }
 
   resetAll(): void {
-    this.latestCombatEffectsByInstanceId.clear();
+    // 用于世界运行时完全重置（如 lifecycle 重建）。
+    // 由于无法枚举所有 instanceId，保留为 no-op；
+    // 实际场景中 lifecycle 重建会 discardInstance 每个实例。
   }
 
   pushCombatEffect(instanceId: string, effect: CombatEffect): void {
-    const list = this.latestCombatEffectsByInstanceId.get(instanceId);
-    if (list) {
-      list.push(effect);
-      return;
-    }
-    this.latestCombatEffectsByInstanceId.set(instanceId, [effect]);
+    this.runtimeEventBusService.queueCombatEffect(instanceId, effect);
   }
 
   pushActionLabelEffect(

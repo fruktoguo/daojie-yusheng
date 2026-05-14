@@ -5,6 +5,7 @@
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../debug/movement-debug';
+import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldProjectorService } from './world-projector.service';
@@ -34,6 +35,11 @@ export class WorldSyncEnvelopeService {
 
     worldSyncMapSnapshotService;
     /**
+ * runtimeEventBusService：运行时事件总线引用。
+ */
+
+    runtimeEventBusService;
+    /**
  * logger：日志器引用。
  */
 
@@ -52,11 +58,13 @@ export class WorldSyncEnvelopeService {
         @Inject(WorldRuntimeService) worldRuntimeService: any,
         @Inject(MapTemplateRepository) templateRepository: any,
         @Inject(WorldSyncMapSnapshotService) worldSyncMapSnapshotService: any,
+        @Inject(RuntimeEventBusService) runtimeEventBusService: any,
     ) {
         this.worldProjectorService = worldProjectorService;
         this.worldRuntimeService = worldRuntimeService;
         this.templateRepository = templateRepository;
         this.worldSyncMapSnapshotService = worldSyncMapSnapshotService;
+        this.runtimeEventBusService = runtimeEventBusService;
     }
     /**
  * createInitialEnvelope：构建并返回目标对象。
@@ -69,7 +77,13 @@ export class WorldSyncEnvelopeService {
 
     createInitialEnvelope(playerId, binding, view, player) {
         const projectedView = this.withContainerRespawnProjection(view);
-        const envelope = this.appendCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, projectedView, player), projectedView, player);
+        const envelope = this.appendEventBusPayload(
+            playerId,
+            this.worldProjectorService.createInitialEnvelope(binding, projectedView, player),
+            projectedView,
+            player,
+            { drainPlayer: false },
+        );
         this.logMovementEnvelope(playerId, 'initial', envelope);
         return envelope;
     }
@@ -83,7 +97,13 @@ export class WorldSyncEnvelopeService {
 
     createDeltaEnvelope(playerId, view, player) {
         const projectedView = this.withContainerRespawnProjection(view);
-        const envelope = this.appendCombatEffects(this.worldProjectorService.createDeltaEnvelope(projectedView, player), projectedView, player);
+        const envelope = this.appendEventBusPayload(
+            playerId,
+            this.worldProjectorService.createDeltaEnvelope(projectedView, player),
+            projectedView,
+            player,
+            { drainPlayer: true },
+        );
         this.logMovementEnvelope(playerId, 'delta', envelope);
         return envelope;
     }
@@ -130,21 +150,34 @@ export class WorldSyncEnvelopeService {
  * @returns 无返回值，直接更新appendNext战斗Effect相关状态。
  */
 
-    appendCombatEffects(envelope, view, player) {
+    appendEventBusPayload(playerId, envelope, view, player, options) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const playerDrain = options?.drainPlayer
+            ? this.runtimeEventBusService?.drainPlayerEventBusPayload?.(playerId)
+            : null;
         const effects = this.collectCombatEffects(view, player);
-        if (effects.length === 0) {
+        const aoiEffects = this.collectAoiPresentations(view, player);
+        if (!playerDrain?.payload && effects.length === 0 && aoiEffects.length === 0) {
             return envelope;
         }
         const nextEnvelope = envelope ?? {};
+        const eventBus = {
+            ...(playerDrain?.payload ?? {}),
+            ...(effects.length > 0 ? { combatEffects: effects.map((entry) => cloneCombatEffect(entry)) } : {}),
+            ...(aoiEffects.length > 0 ? { aoiEffects } : {}),
+        };
         nextEnvelope.worldDelta = {
             t: view.tick,
             wr: view.worldRevision,
             sr: view.selfRevision,
             ...(nextEnvelope.worldDelta ?? {}),
-            fx: effects.map((entry) => cloneCombatEffect(entry)),
+            ...(effects.length > 0 ? { fx: effects.map((entry) => cloneCombatEffect(entry)) } : {}),
+            eventBus,
         };
+        if (playerDrain?.gmStatePush) {
+            nextEnvelope.gmStatePush = true;
+        }
         return nextEnvelope;
     }
     /**
@@ -158,6 +191,21 @@ export class WorldSyncEnvelopeService {
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
         return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
+    }
+    /**
+ * collectAoiPresentations：按玩家 AOI 裁剪事件总线 AOI 表现事件。
+ * @param view 玩家视图。
+ * @param player 玩家状态。
+ * @returns 可见 AOI 表现事件。
+ */
+
+    collectAoiPresentations(view, player) {
+        const template = this.templateRepository.getOrThrow(view.instance.templateId);
+        const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
+        return filterAoiPresentations(
+            this.runtimeEventBusService?.getAoiPresentations?.(view.instance.instanceId) ?? [],
+            visibleTileKeys,
+        );
     }
     /**
  * logMovementEnvelope：执行logMovementEnvelope相关逻辑。
@@ -259,4 +307,13 @@ function filterCombatEffects(effects, visibleTiles) {
             return visibleTiles.has(buildCoordKey(effect.x, effect.y));
         })
         .map((entry) => cloneCombatEffect(entry));
+}
+
+function filterAoiPresentations(effects, visibleTiles) {
+    if (effects.length === 0 || visibleTiles.size === 0) {
+        return [];
+    }
+    return effects
+        .filter((effect) => visibleTiles.has(buildCoordKey(effect.x, effect.y)))
+        .map((entry) => ({ ...entry }));
 }
