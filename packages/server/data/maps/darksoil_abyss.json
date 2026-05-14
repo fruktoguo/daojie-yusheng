@@ -1,0 +1,301 @@
+{
+  "id": "darksoil_abyss",
+  "name": "玄壤深渊",
+  "mapGroupId": "darksoil_abyss",
+  "mapGroupName": "玄壤深渊",
+  "mapGroupOrder": 1030,
+  "mapGroupMemberOrder": 0,
+  "width": 55,
+  "height": 55,
+  "routeDomain": "system",
+  "mapLv": 39,
+  "spaceVisionMode": "isolated",
+  "description": "焚木荒台塌陷深坑下的地脉洞穴网络。多座大小不一的洞厅由窄通道相连，地面松软，五行灵脉交错纵横。土行灵力浓郁得几乎凝为实质，玄壤地龙与五行噬脉兽各自盘踞封印两端，是筑基期最深处的试炼场。",
+  "tiles": [
+    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "oooooooooooo.oooooooooooooooooooooooooooooo;ooooooooooo",
+    "oooooooo;.......;oooooooooooooooooooooo;;;;;;;;;ooooooo",
+    "oooooo.;..;梯......;ooooooooooooooooooo;;;;;;;;;;;oooooo",
+    "ooooo.;.......梯..;..oooooooooPooooooo;;;;;;;;;;;;;ooooo",
+    "ooooo;.........;;...oooooooooooooooo;;;;;;%;;;%;;;;oooo",
+    "oooo;....;.....;.....ooooooooooooooo;;;;;;;;;;;;;;;oooo",
+    "ooooo.........;..:::ooooooooooooooo;;;;;;;;;;;;;;;;;ooo",
+    "ooooo........;;..:::::oooooooooooooo;;;%;;;;;;;;;;;oooo",
+    "oooooo..;...;....:::::::oooooooooooo;:::;;;;%;;;;;;oooo",
+    "oooooooo...;.:::.o::::::::oooooooooo::::;;;;;;;;%;ooooo",
+    "oooooooooooo.:::oooo::::::::ooooooo:::::;;;;;;;;;oooooo",
+    "oooooooooooo::::oooooo:::::::oooooo::::;;;;;;;;;ooooooo",
+    "oooooooooooo::::oooooooo::::::oooo::::ooooo;ooooooooooo",
+    "oooooooooooo:::ooooooooooo::::ooo:::::ooooooooooooooooo",
+    "ooooooooooo::::oooooooooooo::::oo::::oooooooooooooooooo",
+    "ooooooooooo::::oooooooooooo:::::::::ooooooooooooooooooo",
+    "ooooooo铁oo::::oooooooooo..;.::::::::ooooooooooooooooooo",
+    "oooooo...:::::铁ooooooo;..;...::::::oooooooooooooooooooo",
+    "ooooo....::::;..ooooo...;....::::::;ooooooooooooooooooo",
+    "oooo.....:::;....ooo...o...;..::::;..oooooooooooooooooo",
+    "ooo.;......;.L....o..;;..........o....ooooooooooooooooo",
+    "ooo.铁.....;....;..o..;.....^^^..;.....ooooooooooooooooo",
+    "ooo......;........o.:::...;^^^.;......ooooooooooooooooo",
+    "oo.;....;........L:::::.....^.;......;.oooooooooooooooo",
+    "ooo....;......;...:::::......;.;......ooooooooooooooooo",
+    "ooo.铁.;.;........;::::...;..;..^......ooooooooooooooooo",
+    "ooo..;..........;.o;....^..;.......;;;ooooooooooooooooo",
+    "oooo;........;.;铁ooo.o....;...;....;;;;oooooooooooooooo",
+    "ooooo..;......;.ooooo...;;.:::.....o;;;;ooooooooooooooo",
+    "ooooo铁.......;.ooooooo..;..:::.....o;;;;;oooooooooooooo",
+    "oooooooooo.oooooooooooo:::.::::::oooo;;;;;ooooooooooooo",
+    "ooooooooooooooooooooo:::::o::::::ooooo;;;;;oooooooooooo",
+    "oooooooooooo;ooooooo::::::o::::::oooooo##############oo",
+    "ooooooooo;;;;;;;oo:::::::oo::::::oooooo#;;;;;;......#oo",
+    "ooooooo;;;;;;;;;:::::::oooo:::o::oooooo#............#oo",
+    "oooooo;;;;;;;;::::::::ooooo::::::oooooo#;..........;#oo",
+    "oooooo;;;;;;;;::::::ooooooo::::::oooooo#....^..^....#oo",
+    "ooooo;;;;;;~~~::::;;ooooooo::::::oooooo#............#oo",
+    "ooooo;;;;~~~~~~~;;;;ooooooo::::::oooooo+;...........#oo",
+    "ooooo;;;;~~^^^~~;;;;ooooooo::::::oooooo#............#oo",
+    "oooo;;;;~~~^^^~~~;;;;oooooo:::::ooooooo#............#oo",
+    "ooooo;;;;~~^^^~~;;;;ooooooo:::::ooooooo#....^.......#oo",
+    "ooooo;;;;~~~~~~~;;o;ooooooo::::oooooooo#........^...#oo",
+    "ooooo;;;;;;~~~;;;;;;ooooo..:::..ooooooo#............#oo",
+    "oooooo;;;;;;;;;;;;;ooooo...:::;;.oooooo#..;....;....#oo",
+    "oooooo;;;;;;;;;;;;;ooooo;.....;..oooooo##############oo",
+    "ooooooo;;;;;;;;;;;ooooo......;....ooooooooooooooooooooo",
+    "ooooooooo;;;;;;;oooooooo...###...oooooooooooooooooooooo",
+    "oooooooooooo;ooooooooooo...;P....oooooooooooooooooooooo",
+    "ooooooooooooooooooooooooo.;.....ooooooooooooooooooooooo",
+    "oooooooooooooooooooooooooooo;oooooooooooooooooooooooooo",
+    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+  ],
+  "portals": [
+    {
+      "id": "darksoil_abyss:29,5",
+      "targetPortalId": "blazewood_waste:60,22",
+      "direction": "two_way",
+      "x": 29,
+      "y": 5,
+      "targetMapId": "blazewood_waste",
+      "targetX": 60,
+      "targetY": 22,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "observeTitle": "焚木荒台通道",
+      "observeDesc": "向上攀援的土壁阶梯通往焚木荒台焚心台东壁的塌陷裂缝。"
+    }
+  ],
+  "spawnPoint": {
+    "x": 14,
+    "y": 6
+  },
+  "time": {
+    "offsetTicks": 100,
+    "scale": 1,
+    "light": {
+      "base": 18,
+      "timeInfluence": 8
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#d8c8a0",
+        "alpha": 0.04
+      },
+      "dusk": {
+        "tint": "#4a3820",
+        "alpha": 0.1
+      },
+      "night": {
+        "tint": "#0a0804",
+        "alpha": 0.3
+      }
+    }
+  },
+  "auras": [],
+  "resources": [],
+  "safeZones": [],
+  "tileEffects": [],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.darksoil_vein_stone",
+      "idPrefix": "lm_vein_stone",
+      "name": "玄壤精土",
+      "placements": [
+        {
+          "x": 4,
+          "y": 22
+        },
+        {
+          "x": 14,
+          "y": 22
+        },
+        {
+          "x": 16,
+          "y": 25
+        },
+        {
+          "x": 12,
+          "y": 43
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.darksoil_mixed_crystal",
+      "idPrefix": "lm_mixed_crystal",
+      "name": "混元脉石",
+      "placements": [
+        {
+          "x": 28,
+          "y": 25
+        },
+        {
+          "x": 15,
+          "y": 39
+        },
+        {
+          "x": 48,
+          "y": 44
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.darksoil_abyss_mud",
+      "idPrefix": "lm_abyss_mud",
+      "name": "深渊灵泥",
+      "placements": [
+        {
+          "x": 42,
+          "y": 6
+        },
+        {
+          "x": 47,
+          "y": 11
+        }
+      ]
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "lm_darksoil_entry",
+      "name": "落入洞厅",
+      "x": 14,
+      "y": 6,
+      "desc": "从焚木荒台塌陷处坠入后的第一座洞厅。北侧残阶嵌在岩壁里，洞顶有微光透下，土行灵压沉重得让人呼吸困难。"
+    },
+    {
+      "id": "lm_darksoil_vein_hall",
+      "name": "矿脉厅",
+      "x": 10,
+      "y": 25,
+      "desc": "西侧主洞厅，四壁嵌满玄铁矿脉与零星灵石。穿山甲兽借矿脉走势挖出条条暗道，是补给土行材料的核心区域。"
+    },
+    {
+      "id": "lm_darksoil_mushroom_cave",
+      "name": "蘑菇洞",
+      "x": 44,
+      "y": 8,
+      "desc": "东北潮湿支洞，地面尽是松软泥潭与浅水沼泽，木腐与土腥气混杂。毒菇蟾卧于泥心，吞吐着微弱的木土双行灵气。"
+    },
+    {
+      "id": "lm_darksoil_central_hall",
+      "name": "中央大厅",
+      "x": 28,
+      "y": 25,
+      "desc": "深渊网络的交通枢纽，多条通道在此汇合。中央隆起的土丘平台是岩脊蜈蚣的猎食高地，从这里可分赴地脉泉、深渊底与封印石室。"
+    },
+    {
+      "id": "lm_darksoil_dragon_lair",
+      "name": "地脉泉",
+      "x": 12,
+      "y": 42,
+      "desc": "西南底层的环形泉水洞窟，中央高台被深泉环绕，泉水呈玄黑色翻涌不息。玄壤地龙盘踞高台，借泉脉吞吐土行灵气。"
+    },
+    {
+      "id": "lm_darksoil_seal_chamber",
+      "name": "封印石室",
+      "x": 47,
+      "y": 40,
+      "desc": "东南方一座由远古修士手工凿就的方形石室，四壁刻满模糊的封印阵纹。五行噬脉兽被困于其中，灵气在阵纹间被反复抽离再注回。"
+    },
+    {
+      "id": "lm_darksoil_abyss_floor",
+      "name": "深渊裂缝",
+      "x": 28,
+      "y": 50,
+      "desc": "整张地图最深处的小空间，地面有一道被封缄的裂缝向下延伸。隐约可见更深层的封印痕迹。（金丹期入口预留，当前仅作描述。）"
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_darksoil_veteran",
+      "name": "老猎手·土行孙",
+      "x": 13,
+      "y": 7,
+      "char": "猎",
+      "color": "#9a8060",
+      "dialogue": "这里是筑基期的尽头了。入口厅往西南能绕进矿脉厅，往东北是泥沼蘑菇洞，两边最后都汇到中央大厅。再往下，西南是地脉泉那条地龙的窝，东南是封印石室，正南还有一道被封死的深裂口。根基不够硬就别硬碰 Boss，强行突破只会走火入魔。",
+      "role": "warning",
+      "shopItems": [],
+      "quests": []
+    }
+  ],
+  "monsterSpawns": [
+    {
+      "id": "m_darksoil_beetle",
+      "x": 7,
+      "y": 22
+    },
+    {
+      "id": "m_darksoil_beetle",
+      "x": 11,
+      "y": 27
+    },
+    {
+      "id": "m_darksoil_beetle",
+      "x": 15,
+      "y": 29
+    },
+    {
+      "id": "m_darksoil_beetle",
+      "x": 25,
+      "y": 22
+    },
+    {
+      "id": "m_darksoil_beetle",
+      "x": 32,
+      "y": 29
+    },
+    {
+      "id": "m_mixed_stone_toad",
+      "x": 42,
+      "y": 7
+    },
+    {
+      "id": "m_mixed_stone_toad",
+      "x": 47,
+      "y": 10
+    },
+    {
+      "id": "m_earthsplit_centipede",
+      "x": 28,
+      "y": 28
+    },
+    {
+      "id": "m_earthsplit_centipede",
+      "x": 42,
+      "y": 38
+    },
+    {
+      "id": "m_darksoil_dragon",
+      "x": 12,
+      "y": 42
+    },
+    {
+      "id": "m_fivephase_devourer",
+      "x": 47,
+      "y": 40
+    }
+  ]
+}

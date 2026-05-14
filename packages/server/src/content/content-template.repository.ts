@@ -193,7 +193,10 @@ export class ContentTemplateRepository {
         return {
             ...template,
             ...item,
+            equipSlot: template.equipSlot ?? item.equipSlot,
+            equipSpecialStats: template.equipSpecialStats ?? item.equipSpecialStats,
             count: Math.max(1, Math.trunc(item.count)),
+            enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
         };
     }
     

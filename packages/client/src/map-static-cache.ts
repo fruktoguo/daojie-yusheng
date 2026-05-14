@@ -7,7 +7,7 @@ import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinim
 /** 地图元信息的持久化字段集合。 */
 type CachedMapMeta = Pick<
   MapMeta,
-  'id' | 'name' | 'width' | 'height' | 'dangerLevel' | 'recommendedRealm' | 'floorLevel' | 'floorName' | 'description' | 'playerOverlapPoints'
+  'id' | 'name' | 'width' | 'height' | 'mapLv' | 'floorLevel' | 'floorName' | 'description' | 'playerOverlapPoints'
 >;
 
 /** 地图静态缓存按 ID 维护的一条记录。 */
@@ -169,8 +169,7 @@ function toCachedMeta(meta: MapMeta): CachedMapMeta {
     width: meta.width,
     height: meta.height,
     playerOverlapPoints: meta.playerOverlapPoints,
-    dangerLevel: meta.dangerLevel,
-    recommendedRealm: meta.recommendedRealm,
+    mapLv: meta.mapLv,
     floorLevel: meta.floorLevel,
     floorName: meta.floorName,
     description: meta.description,
@@ -462,4 +461,3 @@ export function listCachedUnlockedMapSummaries(): Array<{
   });
   return result;
 }
-

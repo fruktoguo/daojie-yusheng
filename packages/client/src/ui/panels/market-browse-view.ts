@@ -1,5 +1,5 @@
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, S2C_MarketUpdate } from '@mud/shared';
-import { EQUIP_SLOTS, ITEM_TYPES, MAX_ENHANCE_LEVEL, createItemStackSignature } from '@mud/shared';
+import { EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, createItemStackSignature } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
@@ -349,11 +349,11 @@ export class MarketBrowseView {
         const variantsByLevel = new Map<number, MarketListedItemView>();
         for (const entry of group.variants) {
           const level = p.getMarketEnhanceLevel(entry.item);
-          if (level < 0 || level > MAX_ENHANCE_LEVEL) continue;
+          if (level < 0 || level > MARKET_MAX_ENHANCE_LEVEL) continue;
           variantsByLevel.set(level, entry);
         }
         const filledVariants: MarketListedItemView[] = [];
-        for (let level = 0; level <= MAX_ENHANCE_LEVEL; level += 1) {
+        for (let level = 0; level <= MARKET_MAX_ENHANCE_LEVEL; level += 1) {
           const existing = variantsByLevel.get(level);
           if (existing) { filledVariants.push(existing); continue; }
           const item = p.buildLocalMarketItem(group.itemId, 1, level);

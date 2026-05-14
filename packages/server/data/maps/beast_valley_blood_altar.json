@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "谷底裂隙旁还有一座更古老的血祭坛，污血与兽骨被潮气反复浸透，像一口从不真正熄灭的旧祭火。",
-  "dangerLevel": 6,
-  "recommendedRealm": "天枢",
   "tiles": [
     "##################",
     "#崖崖....;;;;....崖崖#",
@@ -77,5 +75,5 @@
       "y": 5
     }
   ],
-  "terrainRealmLv": 14
+  "mapLv": 14
 }

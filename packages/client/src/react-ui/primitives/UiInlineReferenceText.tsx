@@ -5,6 +5,7 @@ import { getLocalItemTemplate } from '../../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../../content/monster-locations';
 import { getItemTypeLabel } from '../../domain-labels';
 import { t } from '../../ui/i18n';
+import { formatMapRecommendedRealmLabel } from '../../utils/map-level-display';
 import { hideTooltip, moveTooltip, showTooltip } from '../overlays/overlay-store';
 /**
  * UiInlineReferenceTone：统一结构类型，保证协议与运行时一致性。
@@ -114,7 +115,7 @@ async function loadMonsterTooltipPayload(monsterId: string, fallbackLabel: strin
     title: location.monsterName || fallbackLabel,
     lines: [
       t('react.reference.monster.location', { mapName: location.mapName }),
-      ...(typeof location.dangerLevel === 'number' ? [t('react.reference.monster.danger', { dangerLevel: location.dangerLevel })] : []),
+      ...(typeof location.mapLv === 'number' ? [t('react.reference.monster.map-lv', { mapLv: formatMapRecommendedRealmLabel(location.mapLv) })] : []),
       ...(location.totalMaps > 1 ? [t('react.reference.monster.lower-map', undefined)] : []),
     ],
   };

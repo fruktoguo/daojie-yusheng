@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "扩展为 48x48 的南门荒野：南段粮路直通云来镇，西侧荒猎坡先给野彘让出活路，东侧匪营卡在去青竹林的必经道上，阴沼毒潭和东北岩棚则把药材线与野修客支线拆进更深处。",
-  "dangerLevel": 2,
-  "recommendedRealm": "凡胎-锻骨",
   "tiles": [
     "################################################",
     "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
@@ -262,7 +260,7 @@
       "y": 14
     }
   ],
-  "terrainRealmLv": 1,
+  "mapLv": 1,
   "resourceNodeGroups": [
     {
       "resourceNodeId": "landmark.herb.red_flame_leaf",

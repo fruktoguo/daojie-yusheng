@@ -22,15 +22,21 @@ import {
   QUEST_LINE_LABELS,
   QUEST_OBJECTIVE_TYPE_LABELS,
   GmUpdateMapReq,
+  InteractableKind,
   TECHNIQUE_GRADE_LABELS,
+  StructureType,
+  SurfaceType,
+  TerrainType,
   Tile,
   TileType,
   TILE_TYPE_LABELS,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
+  composeTileTypeFromLayers,
   getMapCharFromTileType,
   getTileTypeFromMapChar,
+  resolveTileLayerSeedFromTileType,
   getAuraLevel,
   isOffsetInRange,
   isTileTypeWalkable,
@@ -47,9 +53,14 @@ import {
   INSPECTOR_TABS,
   TOOL_OPTIONS,
   PAINT_TILE_TYPES,
+  PAINT_TERRAIN_TYPES,
+  PAINT_SURFACE_TYPES,
+  PAINT_STRUCTURE_TYPES,
+  PAINT_INTERACTABLE_KINDS,
   PAINT_LAYER_OPTIONS,
 } from './constants/editor/map-editor';
 import { buildCanvasFont } from './constants/ui/text';
+import { formatMapRecommendedRealmLabel } from './utils/map-level-display';
 import {
   clone,
   createDefaultContainerLootPool,
@@ -231,7 +242,7 @@ type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZ
 /** MapTool：地图编辑器当前激活的工具模式。 */
 type MapTool = 'select' | 'paint' | 'pan';
 /** PaintLayer：刷点时正在编辑的图层类型。 */
-type PaintLayer = 'tile' | 'aura' | 'resource';
+type PaintLayer = 'tile' | 'terrain' | 'surface' | 'structure' | 'interactable' | 'aura' | 'resource';
 /** InspectorTabId：属性面板中可切换的编辑标签页。 */
 type InspectorTabId = 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
 /** GridPoint：地图网格坐标。 */
@@ -285,6 +296,66 @@ type MapComposePiece = {
 
 /** DEFAULT_RESOURCE_KEY：资源KEY默认值。 */
 const DEFAULT_RESOURCE_KEY = 'aura.refined.metal';
+const TERRAIN_TYPE_LABELS: Record<TerrainType, string> = {
+  [TerrainType.Floor]: '地面',
+  [TerrainType.Grass]: '草地',
+  [TerrainType.Hill]: '丘陵',
+  [TerrainType.Cliff]: '峭壁',
+  [TerrainType.Mud]: '泥地',
+  [TerrainType.Swamp]: '沼泽',
+  [TerrainType.ColdBog]: '寒沼',
+  [TerrainType.MoltenPool]: '熔池',
+  [TerrainType.Water]: '水域',
+  [TerrainType.Cloud]: '云障',
+  [TerrainType.CloudFloor]: '云地',
+  [TerrainType.Void]: '虚空',
+  [TerrainType.StoneGround]: '石地',
+};
+const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
+  [SurfaceType.Floor]: '地板',
+  [SurfaceType.Road]: '道路',
+  [SurfaceType.Trail]: '小径',
+  [SurfaceType.Veranda]: '回廊',
+  [SurfaceType.StoneStairs]: '石阶',
+};
+const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
+  [StructureType.Wall]: '墙',
+  [StructureType.Door]: '门',
+  [StructureType.Window]: '窗',
+  [StructureType.BrokenWindow]: '破窗',
+  [StructureType.HouseEave]: '屋檐',
+  [StructureType.HouseCorner]: '转角',
+  [StructureType.ScreenWall]: '影壁',
+  [StructureType.Tree]: '树',
+  [StructureType.Bamboo]: '竹',
+  [StructureType.Stone]: '石头',
+  [StructureType.SpiritOre]: '灵矿',
+  [StructureType.BlackIronOre]: '玄铁矿',
+  [StructureType.BrokenSwordHeap]: '断剑堆',
+};
+const INTERACTABLE_KIND_LABELS: Record<InteractableKind, string> = {
+  [InteractableKind.Portal]: '传送点',
+  [InteractableKind.Stairs]: '楼梯',
+  [InteractableKind.Container]: '容器',
+  [InteractableKind.Formation]: '阵法',
+  [InteractableKind.Mechanism]: '机关',
+};
+const TERRAIN_SELECT_OPTIONS = PAINT_TERRAIN_TYPES.map((value) => ({
+  value,
+  label: TERRAIN_TYPE_LABELS[value] ?? value,
+}));
+const SURFACE_SELECT_OPTIONS = PAINT_SURFACE_TYPES.map((value) => ({
+  value: value ?? '',
+  label: value ? SURFACE_TYPE_LABELS[value] ?? value : '无',
+}));
+const STRUCTURE_SELECT_OPTIONS = PAINT_STRUCTURE_TYPES.map((value) => ({
+  value: value ?? '',
+  label: value ? STRUCTURE_TYPE_LABELS[value] ?? value : '无',
+}));
+const INTERACTABLE_SELECT_OPTIONS = PAINT_INTERACTABLE_KINDS.map((value) => ({
+  value: value ?? '',
+  label: value ? INTERACTABLE_KIND_LABELS[value] ?? value : '无',
+}));
 
 /** EditorUndoEntry：撤销栈里保存的整份编辑草稿快照。 */
 type EditorUndoEntry = {
@@ -345,6 +416,70 @@ function createFragmentFromHtml(html: string): DocumentFragment {
   const template = document.createElement('template');
   template.innerHTML = html;
   return template.content;
+}
+
+function areStringListsEqual(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function setAuraPointValue(draft: GmMapDocument, x: number, y: number, value: number): void {
+  const nextValue = Math.max(0, Math.floor(Number(value) || 0));
+  const auras = Array.isArray(draft.auras) ? [...draft.auras] : [];
+  const index = auras.findIndex((point) => point.x === x && point.y === y);
+  if (nextValue <= 0) {
+    if (index >= 0) {
+      auras.splice(index, 1);
+    }
+    draft.auras = auras;
+    return;
+  }
+  if (index >= 0) {
+    auras[index] = { ...auras[index]!, value: nextValue };
+  } else {
+    auras.push({ x, y, value: nextValue });
+  }
+  draft.auras = auras.sort((left, right) => left.y - right.y || left.x - right.x);
+}
+
+function normalizeSingleInteractableRows(draft: GmMapDocument): void {
+  if (!Array.isArray(draft.interactableRows)) {
+    return;
+  }
+  draft.interactableRows = draft.interactableRows.map((row) => row.map((cell) => {
+    const first = Array.isArray(cell) && typeof cell[0] === 'string' && cell[0].trim()
+      ? cell[0] as InteractableKind
+      : null;
+    return first ? [first] : [];
+  }));
+}
+
+function syncAllLegacyTilesFromLayers(draft: GmMapDocument): void {
+  if (!Array.isArray(draft.terrainRows)
+    && !Array.isArray(draft.surfaceRows)
+    && !Array.isArray(draft.structureRows)
+    && !Array.isArray(draft.interactableRows)) {
+    return;
+  }
+  const rows: string[] = [];
+  const width = Math.max(0, Math.trunc(Number(draft.width) || 0));
+  const height = Math.max(0, Math.trunc(Number(draft.height) || 0));
+  for (let y = 0; y < height; y += 1) {
+    let row = '';
+    for (let x = 0; x < width; x += 1) {
+      row += getMapCharFromTileType(composeTileTypeFromLayers(
+        draft.terrainRows?.[y]?.[x],
+        draft.surfaceRows?.[y]?.[x] ?? null,
+        draft.structureRows?.[y]?.[x] ?? null,
+        draft.interactableRows?.[y]?.[x] ?? [],
+      ));
+    }
+    rows.push(row);
+  }
+  draft.tiles = rows;
 }
 
 /** GM 地图可视化编辑器，支持地块绘制、对象增删、撤销和 JSON 导入导出 */
@@ -418,6 +553,10 @@ export class GmMapEditor {
   private forcedTool: MapTool | null = null;
   /** paintTileType：paint地块类型。 */
   private paintTileType: TileType = TileType.Grass;
+  private paintTerrainType: TerrainType = TerrainType.Grass;
+  private paintSurfaceType: SurfaceType | null = SurfaceType.Floor;
+  private paintStructureType: StructureType | null = StructureType.Wall;
+  private paintInteractableKind: InteractableKind | null = null;
   /** paintLayer：paint层。 */
   private paintLayer: PaintLayer = 'tile';
   /** auraPaintValue：灵气Paint值。 */
@@ -681,6 +820,33 @@ export class GmMapEditor {
         this.renderInspector();
         return;
       }
+      if (button.dataset.terrainType !== undefined) {
+        this.paintTerrainType = button.dataset.terrainType as TerrainType;
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
+      if (button.dataset.surfaceType !== undefined) {
+        const value = button.dataset.surfaceType;
+        this.paintSurfaceType = value ? value as SurfaceType : null;
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
+      if (button.dataset.structureType !== undefined) {
+        const value = button.dataset.structureType;
+        this.paintStructureType = value ? value as StructureType : null;
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
+      if (button.dataset.interactableKind !== undefined) {
+        const value = button.dataset.interactableKind;
+        this.paintInteractableKind = value ? value as InteractableKind : null;
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
       const auraValue = Number(button.dataset.auraValue ?? Number.NaN);
       if (!Number.isFinite(auraValue)) return;
       if (this.paintLayer === 'aura') {
@@ -797,7 +963,7 @@ export class GmMapEditor {
       button.type = 'button';
       button.dataset.tool = tool.value;
       button.className = `map-tool-btn ${currentTool === tool.value ? 'active' : ''}`;
-      button.textContent = `${tool.label} · ${tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : tool.note}`;
+      button.textContent = `${tool.label} · ${tool.value === 'paint' ? `左键拖拽刷${this.getPaintLayerLabel()}` : tool.note}`;
       toolFragment.append(button);
     }
     this.toolButtonsEl.replaceChildren(toolFragment);
@@ -840,6 +1006,45 @@ export class GmMapEditor {
         button.textContent = TILE_TYPE_LABELS[tileType];
         paletteFragment.append(button);
       }
+    } else if (this.paintLayer === 'terrain') {
+      for (const terrainType of PAINT_TERRAIN_TYPES) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.terrainType = terrainType;
+        button.className = `map-tile-btn ${this.paintTerrainType === terrainType ? 'active' : ''}`;
+        button.textContent = TERRAIN_TYPE_LABELS[terrainType] ?? terrainType;
+        paletteFragment.append(button);
+      }
+    } else if (this.paintLayer === 'surface') {
+      for (const surfaceType of PAINT_SURFACE_TYPES) {
+        const key = surfaceType ?? '';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.surfaceType = key;
+        button.className = `map-tile-btn ${this.paintSurfaceType === surfaceType ? 'active' : ''}`;
+        button.textContent = surfaceType ? SURFACE_TYPE_LABELS[surfaceType] ?? surfaceType : '清除地表';
+        paletteFragment.append(button);
+      }
+    } else if (this.paintLayer === 'structure') {
+      for (const structureType of PAINT_STRUCTURE_TYPES) {
+        const key = structureType ?? '';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.structureType = key;
+        button.className = `map-tile-btn ${this.paintStructureType === structureType ? 'active' : ''}`;
+        button.textContent = structureType ? STRUCTURE_TYPE_LABELS[structureType] ?? structureType : '清除结构';
+        paletteFragment.append(button);
+      }
+    } else if (this.paintLayer === 'interactable') {
+      for (const interactableKind of PAINT_INTERACTABLE_KINDS) {
+        const key = interactableKind ?? '';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.interactableKind = key;
+        button.className = `map-tile-btn ${this.paintInteractableKind === interactableKind ? 'active' : ''}`;
+        button.textContent = interactableKind ? INTERACTABLE_KIND_LABELS[interactableKind] ?? interactableKind : '清除交互';
+        paletteFragment.append(button);
+      }
     } else {
       const existingPaletteButtons = new Map<string, HTMLButtonElement>();
       this.tilePaletteEl.querySelectorAll<HTMLButtonElement>('[data-aura-value]').forEach((button) => {
@@ -860,6 +1065,10 @@ export class GmMapEditor {
       }
     }
     this.tilePaletteEl.replaceChildren(paletteFragment);
+  }
+
+  private getPaintLayerLabel(): string {
+    return PAINT_LAYER_OPTIONS.find((option) => option.value === this.paintLayer)?.label ?? '地块';
   }
 
   /** loadMapList：加载地图列表。 */
@@ -890,7 +1099,7 @@ export class GmMapEditor {
     const keyword = this.searchInput.value.trim().toLowerCase();
     const filtered = this.mapList.filter((map) => {
       if (!keyword) return true;
-      return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '']
+      return [map.id, map.name, map.description ?? '']
         .some((value) => value.toLowerCase().includes(keyword));
     });
     if (filtered.length === 0) {
@@ -912,7 +1121,7 @@ export class GmMapEditor {
       button.className = `map-row ${map.id === this.selectedMapId ? 'active' : ''}`;
       button.replaceChildren(createFragmentFromHtml(`
         <div class="map-row-title">${escapeHtml(map.name)}</div>
-        <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 危险度 ${map.dangerLevel ?? '-'}</div>
+        <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 推荐境界 ${escapeHtml(formatMapRecommendedRealmLabel(map.mapLv))}</div>
         <div class="map-row-meta">传送点 ${map.portalCount} · 场景人物 ${map.npcCount} · 怪物刷新点 ${map.monsterSpawnCount}</div>
       `));
       fragment.append(button);
@@ -939,6 +1148,7 @@ export class GmMapEditor {
     const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(mapId)}`);
     this.selectedMapId = mapId;
     this.draft = clone(data.map);
+    this.ensureLayerRows();
     this.dirty = false;
     this.selectedCell = { x: data.map.spawnPoint.x, y: data.map.spawnPoint.y };
     this.hoveredCell = null;
@@ -1142,12 +1352,13 @@ export class GmMapEditor {
     const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
     const selectedResources = selectedCell ? this.getResourcesAt(selectedCell.x, selectedCell.y) : [];
     const resourceSummary = formatResourceSummary(selectedResources);
+    const selectedLayers = selectedCell ? this.getLayerStateAt(selectedCell.x, selectedCell.y) : null;
     return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
             <div class="editor-section-title">当前选区</div>
-            <div class="editor-section-note">切到检视或 JSON 时会强制进入选取模式，回到工具面板再恢复你原本的工具。</div>
+            <div class="editor-section-note">直接编辑当前坐标的分层数据；保存时仍会同步输出兼容 tiles。</div>
           </div>
         </div>
         <div class="map-form-grid compact">
@@ -1156,9 +1367,19 @@ export class GmMapEditor {
           ${readonlyField('地块', selectedTileType ? TILE_TYPE_LABELS[selectedTileType] : '无')}
           ${readonlyField('无属性灵气', selectedAura ? formatAuraPointLabel(selectedAura.value) : '无')}
           ${readonlyField('气机', resourceSummary)}
-          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
+          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.getPaintLayerLabel()}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
           ${readonlyField('选中对象', this.describeSelectedEntity())}
         </div>
+        ${selectedCell && selectedLayers ? `
+          <div class="map-form-grid compact map-cell-layer-editor" style="margin-top: 10px;">
+            ${selectField('地形', `terrainRows.${selectedCell.y}.${selectedCell.x}`, selectedLayers.terrain, TERRAIN_SELECT_OPTIONS)}
+            ${nullableSelectField('地表', `surfaceRows.${selectedCell.y}.${selectedCell.x}`, selectedLayers.surface ?? undefined, SURFACE_SELECT_OPTIONS)}
+            ${nullableSelectField('结构', `structureRows.${selectedCell.y}.${selectedCell.x}`, selectedLayers.structure ?? undefined, STRUCTURE_SELECT_OPTIONS)}
+            ${selectField('交互', `interactableRows.${selectedCell.y}.${selectedCell.x}.0`, selectedLayers.interactableKinds[0] ?? '', INTERACTABLE_SELECT_OPTIONS)}
+            ${numberField('无属性灵气', `__cellAura.${selectedCell.x}.${selectedCell.y}`, selectedAura?.value ?? 0)}
+            ${readonlyField('气机', resourceSummary)}
+          </div>
+        ` : ''}
         <div class="button-row" style="margin-top: 10px;">
           <button class="small-btn" type="button" data-map-action="pick-tile">用当前地块作画笔</button>
           <button class="small-btn" type="button" data-map-action="set-spawn">把当前格设为出生点</button>
@@ -1184,9 +1405,7 @@ export class GmMapEditor {
         <div class="map-form-grid">
           ${textField('地图名称', 'name', this.draft.name)}
           ${selectField('路网域', 'routeDomain', this.draft.routeDomain ?? 'system', MAP_ROUTE_DOMAIN_OPTIONS)}
-          ${textField('推荐境界', 'recommendedRealm', this.draft.recommendedRealm)}
-          ${numberField('危险度', 'dangerLevel', this.draft.dangerLevel)}
-          ${numberField('地块境界等级', 'terrainRealmLv', this.draft.terrainRealmLv)}
+          ${numberField('推荐境界 Lv', 'mapLv', this.draft.mapLv)}
           ${readonlyField('地图 ID', this.draft.id)}
           ${numberField('出生点 X', 'spawnPoint.x', this.draft.spawnPoint.x)}
           ${numberField('出生点 Y', 'spawnPoint.y', this.draft.spawnPoint.y)}
@@ -2145,8 +2364,20 @@ export class GmMapEditor {
       } else {
         value = field.value;
       }
+      if (path.startsWith('__cellAura.')) {
+        const segments = path.split('.');
+        const x = Number(segments[1]);
+        const y = Number(segments[2]);
+        if (!Number.isInteger(x) || !Number.isInteger(y)) {
+          return { ok: false, message: '当前格灵气坐标非法' };
+        }
+        setAuraPointValue(next, x, y, Number(value));
+        continue;
+      }
       setValueByPath(next, path, value);
     }
+    normalizeSingleInteractableRows(next);
+    syncAllLegacyTilesFromLayers(next);
     const nextJson = formatJson(next);
     if (nextJson === previousJson) {
       return { ok: true };
@@ -2502,7 +2733,7 @@ export class GmMapEditor {
 
   private forEachComposePieceTile(
     piece: MapComposePiece,
-    visitor: (targetX: number, targetY: number, sourceChar: string) => void,
+    visitor: (targetX: number, targetY: number, sourceX: number, sourceY: number, sourceChar: string) => void,
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -2533,7 +2764,7 @@ export class GmMapEditor {
           default:
             break;
         }
-        visitor(piece.x + targetOffsetX, piece.y + targetOffsetY, row[sourceX]!);
+        visitor(piece.x + targetOffsetX, piece.y + targetOffsetY, sourceX, sourceY, row[sourceX]!);
       }
     }
   }
@@ -2543,9 +2774,11 @@ export class GmMapEditor {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.draft) return 0;
+    const source = this.composeSourceCache.get(piece.sourceMapId);
+    this.ensureLayerRows();
     const changed = new Map<number, string[]>();
     let changedCount = 0;
-    this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
+    this.forEachComposePieceTile(piece, (targetX, targetY, sourceX, sourceY, sourceChar) => {
       if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
         return;
       }
@@ -2555,6 +2788,11 @@ export class GmMapEditor {
         return;
       }
       row[targetX] = sourceChar;
+      const seed = resolveTileLayerSeedFromTileType(getTileTypeFromMapChar(sourceChar));
+      this.draft!.terrainRows![targetY]![targetX] = source?.terrainRows?.[sourceY]?.[sourceX] ?? seed.terrain;
+      this.draft!.surfaceRows![targetY]![targetX] = source?.surfaceRows?.[sourceY]?.[sourceX] ?? seed.surface;
+      this.draft!.structureRows![targetY]![targetX] = source?.structureRows?.[sourceY]?.[sourceX] ?? seed.structure;
+      this.draft!.interactableRows![targetY]![targetX] = [...(source?.interactableRows?.[sourceY]?.[sourceX] ?? seed.interactables)];
       changed.set(targetY, row);
       changedCount += 1;
     });
@@ -3014,17 +3252,39 @@ export class GmMapEditor {
     const height = Math.max(1, this.resizeHeight);
     const fillChar = getMapCharFromTileType(this.resizeFillTileType);
     const nextTiles: string[] = [];
+    this.ensureLayerRows();
+    const fillSeed = resolveTileLayerSeedFromTileType(this.resizeFillTileType);
+    const nextTerrainRows: TerrainType[][] = [];
+    const nextSurfaceRows: (SurfaceType | null)[][] = [];
+    const nextStructureRows: (StructureType | null)[][] = [];
+    const nextInteractableRows: InteractableKind[][][] = [];
     for (let y = 0; y < height; y += 1) {
       const chars: string[] = [];
       const oldRow = this.draft.tiles[y] ?? '';
+      const terrainRow: TerrainType[] = [];
+      const surfaceRow: (SurfaceType | null)[] = [];
+      const structureRow: (StructureType | null)[] = [];
+      const interactableRow: InteractableKind[][] = [];
       for (let x = 0; x < width; x += 1) {
         chars.push(oldRow[x] ?? fillChar);
+        terrainRow.push(this.draft.terrainRows?.[y]?.[x] ?? fillSeed.terrain);
+        surfaceRow.push(this.draft.surfaceRows?.[y]?.[x] ?? fillSeed.surface);
+        structureRow.push(this.draft.structureRows?.[y]?.[x] ?? fillSeed.structure);
+        interactableRow.push([...(this.draft.interactableRows?.[y]?.[x] ?? fillSeed.interactables)]);
       }
       nextTiles.push(chars.join(''));
+      nextTerrainRows.push(terrainRow);
+      nextSurfaceRows.push(surfaceRow);
+      nextStructureRows.push(structureRow);
+      nextInteractableRows.push(interactableRow);
     }
     this.draft.width = width;
     this.draft.height = height;
     this.draft.tiles = nextTiles;
+    this.draft.terrainRows = nextTerrainRows;
+    this.draft.surfaceRows = nextSurfaceRows;
+    this.draft.structureRows = nextStructureRows;
+    this.draft.interactableRows = nextInteractableRows;
     this.draft.portals = this.draft.portals.filter((portal) => portal.x < width && portal.y < height && portal.x >= 0 && portal.y >= 0);
     this.draft.npcs = this.draft.npcs.filter((npc) => npc.x < width && npc.y < height && npc.x >= 0 && npc.y >= 0);
     this.draft.monsterSpawns = this.draft.monsterSpawns.filter((spawn) => spawn.x < width && spawn.y < height && spawn.x >= 0 && spawn.y >= 0);
@@ -3131,6 +3391,7 @@ export class GmMapEditor {
         this.captureUndoState();
       }
       this.draft = next;
+      this.ensureLayerRows();
       this.selectedMapId = next.id;
       this.resizeWidth = next.width;
       this.resizeHeight = next.height;
@@ -3163,6 +3424,7 @@ export class GmMapEditor {
       this.setStatus(synced.message, true);
       return;
     }
+    this.ensureLayerRows();
     this.saveBtn.disabled = true;
     try {
       await this.request<{      
@@ -3326,7 +3588,7 @@ export class GmMapEditor {
       const bounds = this.getComposePieceBounds(piece);
       if (!bounds) continue;
       const isSelected = piece.id === this.selectedComposePieceId;
-      this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
+      this.forEachComposePieceTile(piece, (targetX, targetY, _sourceX, _sourceY, sourceChar) => {
         if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
           return;
         }
@@ -3806,11 +4068,7 @@ export class GmMapEditor {
       this.paintSessionHasUndoSnapshot = false;
       this.canvas.setPointerCapture(event.pointerId);
       this.paintActive = true;
-      const changed = this.paintLayer === 'tile'
-        ? this.paintTileAt(point.x, point.y, true)
-        : this.paintLayer === 'aura'
-          ? this.paintAuraAt(point.x, point.y, true)
-          : this.paintResourceAt(point.x, point.y, true);
+      const changed = this.paintAt(point.x, point.y, true);
       this.paintSessionHasUndoSnapshot = changed;
       this.renderCanvas();
       return;
@@ -3909,11 +4167,7 @@ export class GmMapEditor {
       }
     }
     if (this.paintActive && point) {
-      const changed = this.paintLayer === 'tile'
-        ? this.paintTileAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
-        : this.paintLayer === 'aura'
-          ? this.paintAuraAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
-          : this.paintResourceAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
+      const changed = this.paintAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
       this.paintSessionHasUndoSnapshot = this.paintSessionHasUndoSnapshot || changed;
       this.renderCanvas();
       return;
@@ -3971,6 +4225,16 @@ export class GmMapEditor {
   }
 
   /** paintTileAt：处理paint地块At。 */
+  private paintAt(x: number, y: number, recordUndo = false): boolean {
+    if (this.paintLayer === 'tile') return this.paintTileAt(x, y, recordUndo);
+    if (this.paintLayer === 'terrain' || this.paintLayer === 'surface' || this.paintLayer === 'structure' || this.paintLayer === 'interactable') {
+      return this.paintLayerAt(x, y, recordUndo);
+    }
+    return this.paintLayer === 'aura'
+      ? this.paintAuraAt(x, y, recordUndo)
+      : this.paintResourceAt(x, y, recordUndo);
+  }
+
   private paintTileAt(x: number, y: number, recordUndo = false): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -3979,6 +4243,14 @@ export class GmMapEditor {
     if (this.lastPaintKey === key) return false;
     this.lastPaintKey = key;
     return this.applyTilePaint([{ x, y }], recordUndo) > 0;
+  }
+
+  private paintLayerAt(x: number, y: number, recordUndo = false): boolean {
+    if (!this.draft) return false;
+    const key = `${x},${y},${this.paintLayer}:${this.paintTerrainType}:${this.paintSurfaceType ?? ''}:${this.paintStructureType ?? ''}:${this.paintInteractableKind ?? ''}`;
+    if (this.lastPaintKey === key) return false;
+    this.lastPaintKey = key;
+    return this.applyLayerPaint(this.paintLayer, [{ x, y }], recordUndo) > 0;
   }
 
   /** paintAuraAt：处理paint灵气At。 */
@@ -4007,13 +4279,16 @@ export class GmMapEditor {
   private applyLinePaint(start: GridPoint, end: GridPoint): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const points = this.getLinePoints(start, end);
     const changed = this.paintLayer === 'tile'
-      ? this.applyTilePaint(this.getLinePoints(start, end), true)
-      : this.paintLayer === 'aura'
-        ? this.applyAuraPaint(this.getLinePoints(start, end), true)
-        : this.applyResourcePaint(this.getLinePoints(start, end), true);
+      ? this.applyTilePaint(points, true)
+      : this.paintLayer === 'terrain' || this.paintLayer === 'surface' || this.paintLayer === 'structure' || this.paintLayer === 'interactable'
+        ? this.applyLayerPaint(this.paintLayer, points, true)
+        : this.paintLayer === 'aura'
+          ? this.applyAuraPaint(points, true)
+          : this.applyResourcePaint(points, true);
     if (changed > 0) {
-      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : this.paintLayer === 'aura' ? '无属性灵气点' : '气机点'}`);
+      this.setStatus(`已沿直线填充 ${changed} 个${this.getPaintLayerLabel()}点`);
     }
   }
 
@@ -4031,7 +4306,13 @@ export class GmMapEditor {
       if (visited.has(key)) continue;
       visited.add(key);
       const currentType = this.getTileTypeAt(point.x, point.y);
-      if (currentType === nextType) continue;
+      const currentSeed = resolveTileLayerSeedFromTileType(currentType);
+      const nextSeed = resolveTileLayerSeedFromTileType(nextType);
+      if (currentType === nextType
+        && this.draft.terrainRows?.[point.y]?.[point.x] === nextSeed.terrain
+        && (this.draft.surfaceRows?.[point.y]?.[point.x] ?? null) === nextSeed.surface
+        && (this.draft.structureRows?.[point.y]?.[point.x] ?? null) === nextSeed.structure
+        && areStringListsEqual(this.draft.interactableRows?.[point.y]?.[point.x] ?? currentSeed.interactables, nextSeed.interactables)) continue;
       if (!isTileTypeWalkable(nextType) && this.hasBlockingMapObjectAt(point.x, point.y)) {
         this.setStatus('线刷路径上存在出生点或可交互对象，不能改成不可通行地块', true);
         return 0;
@@ -4046,6 +4327,11 @@ export class GmMapEditor {
     }
     const rows = new Map<number, string[]>();
     for (const point of changedPoints) {
+      const seed = resolveTileLayerSeedFromTileType(nextType);
+      this.draft.terrainRows![point.y]![point.x] = seed.terrain;
+      this.draft.surfaceRows![point.y]![point.x] = seed.surface;
+      this.draft.structureRows![point.y]![point.x] = seed.structure;
+      this.draft.interactableRows![point.y]![point.x] = [...seed.interactables];
       const row = rows.get(point.y) ?? [...(this.draft.tiles[point.y] ?? '')];
       row[point.x] = nextChar;
       rows.set(point.y, row);
@@ -4055,6 +4341,127 @@ export class GmMapEditor {
     }
     this.markDirty(false);
     return changedPoints.length;
+  }
+
+  private applyLayerPaint(layer: PaintLayer, points: GridPoint[], recordUndo: boolean): number {
+    if (!this.draft) return 0;
+    this.ensureLayerRows();
+    const changedPoints: GridPoint[] = [];
+    const visited = new Set<string>();
+    for (const point of points) {
+      const key = `${point.x},${point.y}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const currentType = this.getTileTypeAt(point.x, point.y);
+      const nextType = this.previewLayerPaintTileType(layer, point.x, point.y);
+      if (currentType === nextType && this.isLayerPaintNoop(layer, point.x, point.y)) continue;
+      if (!isTileTypeWalkable(nextType) && isTileTypeWalkable(currentType) && this.hasBlockingMapObjectAt(point.x, point.y)) {
+        this.setStatus('线刷路径上存在出生点或可交互对象，不能改成不可通行地块', true);
+        return 0;
+      }
+      if (layer === 'interactable' && this.paintInteractableKind && this.hasBlockingMapObjectAt(point.x, point.y)) {
+        this.setStatus('线刷路径上存在出生点或对象，不能直接覆盖交互层', true);
+        return 0;
+      }
+      changedPoints.push(point);
+    }
+    if (changedPoints.length === 0) return 0;
+    if (recordUndo) this.captureUndoState();
+    for (const point of changedPoints) {
+      if (layer === 'terrain') {
+        this.draft.terrainRows![point.y]![point.x] = this.paintTerrainType;
+      } else if (layer === 'surface') {
+        this.draft.surfaceRows![point.y]![point.x] = this.paintSurfaceType;
+      } else if (layer === 'structure') {
+        this.draft.structureRows![point.y]![point.x] = this.paintStructureType;
+      } else if (layer === 'interactable') {
+        this.draft.interactableRows![point.y]![point.x] = this.paintInteractableKind ? [this.paintInteractableKind] : [];
+      }
+      this.syncLegacyTileFromLayers(point.x, point.y);
+    }
+    this.markDirty(false);
+    return changedPoints.length;
+  }
+
+  private ensureLayerRows(): void {
+    if (!this.draft) return;
+    const width = Math.max(0, this.draft.width);
+    const height = Math.max(0, this.draft.height);
+    this.draft.terrainRows = this.draft.terrainRows ?? [];
+    this.draft.surfaceRows = this.draft.surfaceRows ?? [];
+    this.draft.structureRows = this.draft.structureRows ?? [];
+    this.draft.interactableRows = this.draft.interactableRows ?? [];
+    for (let y = 0; y < height; y += 1) {
+      this.draft.terrainRows[y] = this.draft.terrainRows[y] ?? [];
+      this.draft.surfaceRows[y] = this.draft.surfaceRows[y] ?? [];
+      this.draft.structureRows[y] = this.draft.structureRows[y] ?? [];
+      this.draft.interactableRows[y] = this.draft.interactableRows[y] ?? [];
+      for (let x = 0; x < width; x += 1) {
+        const seed = resolveTileLayerSeedFromTileType(getTileTypeFromMapChar(this.draft.tiles[y]?.[x] ?? '.'));
+        this.draft.terrainRows[y]![x] ??= seed.terrain;
+        this.draft.surfaceRows[y]![x] = this.draft.surfaceRows[y]![x] ?? seed.surface;
+        this.draft.structureRows[y]![x] = this.draft.structureRows[y]![x] ?? seed.structure;
+        this.draft.interactableRows[y]![x] ??= [...seed.interactables];
+      }
+      this.draft.terrainRows[y] = this.draft.terrainRows[y]!.slice(0, width);
+      this.draft.surfaceRows[y] = this.draft.surfaceRows[y]!.slice(0, width);
+      this.draft.structureRows[y] = this.draft.structureRows[y]!.slice(0, width);
+      this.draft.interactableRows[y] = this.draft.interactableRows[y]!.slice(0, width);
+    }
+    this.draft.terrainRows = this.draft.terrainRows.slice(0, height);
+    this.draft.surfaceRows = this.draft.surfaceRows.slice(0, height);
+    this.draft.structureRows = this.draft.structureRows.slice(0, height);
+    this.draft.interactableRows = this.draft.interactableRows.slice(0, height);
+  }
+
+  private previewLayerPaintTileType(layer: PaintLayer, x: number, y: number): TileType {
+    if (!this.draft) return TileType.Floor;
+    return composeTileTypeFromLayers(
+      layer === 'terrain' ? this.paintTerrainType : this.draft.terrainRows?.[y]?.[x],
+      layer === 'surface' ? this.paintSurfaceType : this.draft.surfaceRows?.[y]?.[x] ?? null,
+      layer === 'structure' ? this.paintStructureType : this.draft.structureRows?.[y]?.[x] ?? null,
+      layer === 'interactable'
+        ? (this.paintInteractableKind ? [this.paintInteractableKind] : [])
+        : this.draft.interactableRows?.[y]?.[x] ?? [],
+    );
+  }
+
+  private isLayerPaintNoop(layer: PaintLayer, x: number, y: number): boolean {
+    if (!this.draft) return true;
+    if (layer === 'terrain') return this.draft.terrainRows?.[y]?.[x] === this.paintTerrainType;
+    if (layer === 'surface') return (this.draft.surfaceRows?.[y]?.[x] ?? null) === this.paintSurfaceType;
+    if (layer === 'structure') return (this.draft.structureRows?.[y]?.[x] ?? null) === this.paintStructureType;
+    const current = this.draft.interactableRows?.[y]?.[x] ?? [];
+    return this.paintInteractableKind ? current.length === 1 && current[0] === this.paintInteractableKind : current.length === 0;
+  }
+
+  private getLayerStateAt(x: number, y: number): {
+    terrain: TerrainType;
+    surface: SurfaceType | null;
+    structure: StructureType | null;
+    interactableKinds: InteractableKind[];
+  } {
+    this.ensureLayerRows();
+    const fallback = resolveTileLayerSeedFromTileType(getTileTypeFromMapChar(this.draft?.tiles[y]?.[x] ?? '.'));
+    return {
+      terrain: this.draft?.terrainRows?.[y]?.[x] ?? fallback.terrain,
+      surface: this.draft?.surfaceRows?.[y]?.[x] ?? fallback.surface,
+      structure: this.draft?.structureRows?.[y]?.[x] ?? fallback.structure,
+      interactableKinds: [...(this.draft?.interactableRows?.[y]?.[x] ?? fallback.interactables)],
+    };
+  }
+
+  private syncLegacyTileFromLayers(x: number, y: number): void {
+    if (!this.draft) return;
+    const nextChar = getMapCharFromTileType(composeTileTypeFromLayers(
+      this.draft.terrainRows?.[y]?.[x],
+      this.draft.surfaceRows?.[y]?.[x] ?? null,
+      this.draft.structureRows?.[y]?.[x] ?? null,
+      this.draft.interactableRows?.[y]?.[x] ?? [],
+    ));
+    const row = [...(this.draft.tiles[y] ?? '')];
+    row[x] = nextChar;
+    this.draft.tiles[y] = row.join('');
   }
 
   /** applyAuraPaint：应用灵气Paint。 */
@@ -4292,6 +4699,14 @@ export class GmMapEditor {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.draft) return TileType.Floor;
+    if (this.draft.terrainRows || this.draft.surfaceRows || this.draft.structureRows || this.draft.interactableRows) {
+      return composeTileTypeFromLayers(
+        this.draft.terrainRows?.[y]?.[x],
+        this.draft.surfaceRows?.[y]?.[x] ?? null,
+        this.draft.structureRows?.[y]?.[x] ?? null,
+        this.draft.interactableRows?.[y]?.[x] ?? [],
+      );
+    }
     return getTileTypeFromMapChar(this.draft.tiles[y]?.[x] ?? '.');
   }
 

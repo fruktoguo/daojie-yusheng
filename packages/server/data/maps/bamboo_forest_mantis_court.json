@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "竹潭后方的闭合巢庭，折断的竹节与旧运材痕在这里被重新编成螂巢，像一座天然刑场。",
-  "dangerLevel": 3,
-  "recommendedRealm": "洗髓",
   "tiles": [
     "##################",
     "#竹竹竹竹....竹竹竹竹....#",
@@ -69,5 +67,5 @@
       "y": 2
     }
   ],
-  "terrainRealmLv": 5
+  "mapLv": 5
 }

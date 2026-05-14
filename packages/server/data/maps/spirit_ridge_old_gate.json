@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "关门正后方还藏着一截悬在断崖边的旧关道，左侧尚能绕行，右侧却已经整面塌成绝壁。",
-  "dangerLevel": 5,
-  "recommendedRealm": "大宗师",
   "tiles": [
     "##################",
     "#....,,,,崖崖崖崖崖崖崖崖#",
@@ -77,5 +75,5 @@
       "y": 4
     }
   ],
-  "terrainRealmLv": 16
+  "mapLv": 16
 }

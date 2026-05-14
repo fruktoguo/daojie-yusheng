@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "青萝谷第三段子图。噬灵妖圃不是一整片平圃，而是被藤墙、泥水边和妖化药畦切成一块块小圃，路能走，但走到哪都像踩进别人家的地盘，资源区和危险区几乎贴在一起。",
-  "dangerLevel": 4,
-  "recommendedRealm": "25-27级",
   "tiles": [
     "################################",
     "#,,,,,,,,TTTTTT,,,,TTTTTT,,,,,,#",
@@ -190,5 +188,5 @@
       ]
     }
   ],
-  "terrainRealmLv": 25
+  "mapLv": 25
 }

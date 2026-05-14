@@ -11,6 +11,7 @@ import {
   getQiResourceDefaultLevel,
   getQiResourceDisplayLabel,
   getFirstGrapheme,
+  composeTileTypeFromLayers,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
   doesTileTypeBlockSight,
@@ -339,7 +340,7 @@ export class WorldSyncMapSnapshotService {
 
     const destroyed = state.combat?.destroyed === true;
     const defaultLayerFallback = resolveDefaultTileLayerFallback({ templateId: template?.id ?? null, instanceId, x, y });
-    const tileType = state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : defaultLayerFallback.legacyTileType);
+    const tileType = state.tileType ?? (isInTemplateBounds(template, x, y) ? resolveTemplateLayerSeed(template, x, y).legacyTileType : defaultLayerFallback.legacyTileType);
     const resources = Array.isArray(state.resources)
       ? state.resources
         .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
@@ -461,12 +462,8 @@ function buildStaticTileSyncState(template, x, y) {
   if (!isInTemplateBounds(template, x, y)) {
     return null;
   }
-  const type = getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? '#');
-  const layerSeed = resolveTileLayerSeedFromTemplateContext(type, x, y, (lookupX, lookupY) => (
-    isInTemplateBounds(template, lookupX, lookupY)
-      ? getTileTypeFromMapChar(template.terrainRows?.[lookupY]?.[lookupX] ?? '#')
-      : null
-  ));
+  const layerSeed = resolveTemplateLayerSeed(template, x, y);
+  const type = layerSeed.legacyTileType;
   const tile = {
     type,
     terrainType: layerSeed.terrain,
@@ -476,6 +473,37 @@ function buildStaticTileSyncState(template, x, y) {
   };
   applyTileEffectProjection(tile, template, x, y, type);
   return tile;
+}
+
+function resolveTemplateLayerSeed(template, x, y) {
+  if (hasTemplateLayerRows(template)
+    || Array.isArray(template?.surfaceRows)
+    || Array.isArray(template?.structureRows)
+    || Array.isArray(template?.interactableRows)) {
+    const legacyTileType = composeTileTypeFromLayers(
+      template.terrainRows?.[y]?.[x],
+      template.surfaceRows?.[y]?.[x] ?? null,
+      template.structureRows?.[y]?.[x] ?? null,
+      template.interactableRows?.[y]?.[x] ?? [],
+    );
+    return {
+      terrain: template.terrainRows?.[y]?.[x],
+      surface: template.surfaceRows?.[y]?.[x] ?? null,
+      structure: template.structureRows?.[y]?.[x] ?? null,
+      interactables: Array.isArray(template.interactableRows?.[y]?.[x]) ? template.interactableRows[y][x] : [],
+      legacyTileType,
+    };
+  }
+  const type = getTileTypeFromMapChar(template.legacyTileRows?.[y]?.[x] ?? template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
+  return resolveTileLayerSeedFromTemplateContext(type, x, y, (lookupX, lookupY) => (
+    isInTemplateBounds(template, lookupX, lookupY)
+      ? getTileTypeFromMapChar(template.legacyTileRows?.[lookupY]?.[lookupX] ?? template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#')
+      : null
+  ));
+}
+
+function hasTemplateLayerRows(template) {
+  return Array.isArray(template?.terrainRows?.[0]);
 }
 
 function applyTileEffectProjection(tile, template, x, y, tileType) {
@@ -651,8 +679,7 @@ function buildMapMetaSync(template) {
     floorLevel: template.source.floorLevel,
     floorName: template.source.floorName,
     spaceVisionMode: template.source.spaceVisionMode,
-    dangerLevel: template.source.dangerLevel,
-    recommendedRealm: template.source.recommendedRealm,
+    mapLv: template.source.mapLv,
     description: template.source.description,
   };
 }

@@ -4,18 +4,8 @@
  * 不修改玩家运行态，仅做只读投影。
  */
 import { Injectable } from '@nestjs/common';
-import { EQUIP_SLOTS, applyAsymptoticSuccessModifier, applyEquipmentAttributeEffectivenessToItemStack, computeAdjustedCraftTicks, computeEnhancementAdjustedSuccessRate as computeSharedEnhancementAdjustedSuccessRate } from '@mud/shared';
+import { EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-
-const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
-const MAX_ENHANCE_LEVEL = 20;
-const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.002;
-const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
-const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
-const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
-    0.5, 0.45, 0.45, 0.4, 0.4, 0.4, 0.35, 0.35, 0.35, 0.35,
-    0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,
-];
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 @Injectable()
@@ -376,7 +366,7 @@ function countInventoryItem(player, itemId) {
  */
 
 function normalizeEnhanceLevel(level) {
-    return Math.min(MAX_ENHANCE_LEVEL, Math.max(0, Math.floor(Number(level) || 0)));
+    return Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(level) || 0)));
 }
 /**
  * getEnhancementSpiritStoneCost：读取强化SpiritStone消耗。
@@ -388,71 +378,4 @@ function normalizeEnhanceLevel(level) {
 function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
     const level = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
     return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
-}
-/**
- * computeEnhancementToolSpeedRate：执行强化ToolSpeedRate相关逻辑。
- * @param toolBaseSpeedRate 参数说明。
- * @param roleEnhancementLevel 参数说明。
- * @param targetItemLevel 参数说明。
- * @returns 无返回值，直接更新强化ToolSpeedRate相关状态。
- */
-
-function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel, targetItemLevel) {
-    const baseSpeedRate = Number.isFinite(toolBaseSpeedRate) ? Number(toolBaseSpeedRate) : 0;
-    const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
-    const levelBonus = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel) * ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL;
-    return baseSpeedRate + levelBonus;
-}
-/**
- * computeEnhancementAdjustedSuccessRate：执行强化AdjustedSuccessRate相关逻辑。
- * @param targetEnhanceLevel 参数说明。
- * @param roleEnhancementLevel 参数说明。
- * @param targetItemLevel 参数说明。
- * @param toolSuccessRateModifier 参数说明。
- * @returns 无返回值，直接更新强化AdjustedSuccessRate相关状态。
- */
-
-function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {
-    return computeSharedEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier);
-}
-/**
- * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
- * @param itemLevel 参数说明。
- * @param totalSpeedRate 参数说明。
- * @returns 无返回值，直接更新强化Jobtick相关状态。
- */
-
-function computeEnhancementJobTicks(itemLevel, totalSpeedRate) {
-    return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
-}
-/**
- * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
- * @param targetEnhanceLevel 参数说明。
- * @returns 无返回值，完成强化目标SuccessRate的读取/组装。
- */
-
-function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
-    const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
-    return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
-}
-/**
- * computeEnhancementJobBaseTicks：执行强化JobBasetick相关逻辑。
- * @param itemLevel 参数说明。
- * @returns 无返回值，直接更新强化JobBasetick相关状态。
- */
-
-function computeEnhancementJobBaseTicks(itemLevel) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
-    return 5 + Math.max(0, normalizedLevel - 1) * 1;
-}
-/**
- * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。
- * @param baseRate 参数说明。
- * @param modifier 参数说明。
- * @returns 无返回值，直接更新强化SuccessModifier相关状态。
- */
-
-function applyEnhancementSuccessModifier(baseRate, modifier) {
-    return applyAsymptoticSuccessModifier(baseRate, modifier);
 }

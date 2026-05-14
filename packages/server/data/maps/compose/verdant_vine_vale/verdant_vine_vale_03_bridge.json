@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "青萝谷第二段子图。双桥岔谷把路线第一次真正拆成上下两股，上桥窄而直，下桥缓而绕，桥下湿地和枯桩一直在提醒人你看得见另一条路，却不是哪里都能直接跳过去。",
-  "dangerLevel": 3,
-  "recommendedRealm": "22-24级",
   "tiles": [
     "################################",
     "#,,,,,,,,TTTT,,,,,,,,TTTT,,,,,,#",
@@ -186,5 +184,5 @@
       ]
     }
   ],
-  "terrainRealmLv": 22
+  "mapLv": 22
 }

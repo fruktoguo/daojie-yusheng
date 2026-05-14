@@ -15,7 +15,6 @@ import {
   ITEM_TYPES,
   ItemStack,
   ItemType,
-  MAX_ENHANCE_LEVEL,
   MARKET_MAX_UNIT_PRICE,
   MARKET_PRICE_PRESET_VALUES,
   MarketListedItemView,

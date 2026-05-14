@@ -6,7 +6,10 @@
 export const DEFAULT_ENHANCE_LEVEL = 0;
 
 /** 最大强化等级 */
-export const MAX_ENHANCE_LEVEL = 20;
+export const MAX_ENHANCE_LEVEL = 999;
+
+/** 普通坊市可交易的最大强化等级；更高强化等级只允许私下交易或拍卖行。 */
+export const MARKET_MAX_ENHANCE_LEVEL = 20;
 
 /** 每级强化属性增幅比率 */
 export const ENHANCEMENT_RATE_PER_LEVEL = 0.1;

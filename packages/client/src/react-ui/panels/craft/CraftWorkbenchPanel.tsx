@@ -27,35 +27,69 @@ export function setCraftWorkbenchAfterContentRender(callback: (() => void) | nul
   afterContentRender = callback;
 }
 
+const CraftWorkbenchTabs = memo(function CraftWorkbenchTabs({
+  tabsKey,
+  tabsHtml,
+}: {
+  tabsKey: string;
+  tabsHtml: string;
+}) {
+  return (
+    <nav
+      className="craft-workbench-tabs"
+      data-craft-workbench-tabs="true"
+      data-craft-tabs-key={tabsKey}
+      dangerouslySetInnerHTML={{ __html: tabsHtml }}
+    />
+  );
+});
+
+const CraftWorkbenchHeader = memo(function CraftWorkbenchHeader({
+  headerKey,
+  headerHtml,
+}: {
+  headerKey: string;
+  headerHtml: string;
+}) {
+  return (
+    <div
+      className="craft-workbench-header"
+      data-craft-workbench-header="true"
+      data-craft-header-key={headerKey}
+      dangerouslySetInnerHTML={{ __html: headerHtml }}
+    />
+  );
+});
+
+const CraftWorkbenchContent = memo(function CraftWorkbenchContent({
+  contentHtml,
+}: {
+  contentHtml: string;
+}) {
+  return (
+    <div
+      className="craft-workbench-content"
+      data-craft-workbench-content="true"
+      dangerouslySetInnerHTML={{ __html: contentHtml }}
+    />
+  );
+});
+
 export const CraftWorkbenchPanel = memo(function CraftWorkbenchPanel() {
   const state = useCraftWorkbenchStore();
 
   useLayoutEffect(() => {
     afterContentRender?.();
-  }, [state.contentKey]);
+  }, [state.contentHtml]);
 
   return (
     <div className="craft-workbench-shell" data-craft-workbench-shell="true" data-react-craft-mode={state.activeMode ?? 'none'}>
       <aside className="craft-workbench-sidebar">
-        <nav
-          className="craft-workbench-tabs"
-          data-craft-workbench-tabs="true"
-          data-craft-tabs-key={state.tabsKey}
-          dangerouslySetInnerHTML={{ __html: state.tabsHtml }}
-        />
+        <CraftWorkbenchTabs tabsKey={state.tabsKey} tabsHtml={state.tabsHtml} />
       </aside>
       <section className="craft-workbench-main" data-craft-workbench-main="true">
-        <div
-          className="craft-workbench-header"
-          data-craft-workbench-header="true"
-          data-craft-header-key={state.headerKey}
-          dangerouslySetInnerHTML={{ __html: state.headerHtml }}
-        />
-        <div
-          className="craft-workbench-content"
-          data-craft-workbench-content="true"
-          dangerouslySetInnerHTML={{ __html: state.contentHtml }}
-        />
+        <CraftWorkbenchHeader headerKey={state.headerKey} headerHtml={state.headerHtml} />
+        <CraftWorkbenchContent contentHtml={state.contentHtml} />
       </section>
     </div>
   );

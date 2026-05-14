@@ -4,11 +4,9 @@
   "width": 64,
   "height": 64,
   "routeDomain": "system",
-  "terrainRealmLv": 1,
+  "mapLv": 1,
   "spaceVisionMode": "isolated",
   "description": "压缩为 64x64 的云来镇新布局：保留主路、客店、药铺、旧祠与南门，删去多余院落，并把围墙做出多处坍塌缺口，整体偏破败荒凉。",
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "tiles": [
     "################################################################",
     "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",

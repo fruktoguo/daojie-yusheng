@@ -68,6 +68,24 @@ function main() {
   assert.equal(contextual.getTerrain(contextualWall), TerrainType.Grass);
   assert.equal(contextual.getStructure(contextualWall), StructureType.Wall);
 
+  const authoredLayers = RuntimeTilePlane.fromTemplate({
+    width: 2,
+    height: 1,
+    legacyTileRows: ['..'],
+    terrainRows: [[TerrainType.Mud, TerrainType.Grass]],
+    surfaceRows: [[SurfaceType.Road, null]],
+    structureRows: [[null, StructureType.Wall]],
+    interactableRows: [[[], []]],
+  });
+  const authoredRoad = authoredLayers.getCellIndex(0, 0);
+  const authoredWall = authoredLayers.getCellIndex(1, 0);
+  assert.equal(authoredLayers.getTileType(authoredRoad), TileType.Road);
+  assert.equal(authoredLayers.getTerrain(authoredRoad), TerrainType.Mud);
+  assert.equal(authoredLayers.getSurface(authoredRoad), SurfaceType.Road);
+  assert.equal(authoredLayers.getTileType(authoredWall), TileType.Wall);
+  assert.equal(authoredLayers.getTerrain(authoredWall), TerrainType.Grass);
+  assert.equal(authoredLayers.getStructure(authoredWall), StructureType.Wall);
+
   for (let i = 0; i < 128; i += 1) {
     plane.activateCell(i * 3 - 200, i * 5 + 100, i % 2 === 0 ? TileType.Floor : TileType.Wall);
   }

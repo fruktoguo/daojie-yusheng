@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "中庭背后的主殿早被裂纹贯穿，残碑、断门和旧司命台依旧保留着某种勉强不散的秩序。",
-  "dangerLevel": 4,
-  "recommendedRealm": "天权",
   "tiles": [
     "##################",
     "#....####....oooo#",
@@ -77,5 +75,5 @@
       "y": 5
     }
   ],
-  "terrainRealmLv": 11
+  "mapLv": 11
 }

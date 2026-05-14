@@ -1273,15 +1273,7 @@ export class CraftAlchemyView {
             : t('craft.workbench.alchemy.confirm.recipe-label.simple.alchemy')),
       }),
       bodyHtml: this.renderAlchemyConfirmBody(recipe, request.mode, state),
-      confirmLabel: t('craft.workbench.alchemy.confirm.start', {
-        modeLabel: isForging
-          ? t('craft.workbench.alchemy.confirm.mode.forging')
-          : t('craft.workbench.alchemy.confirm.mode.alchemy'),
-      }),
-      confirmDisabled: state.startDisabled,
-      onConfirm: () => {
-        this.submitAlchemyConfirm('replace');
-      },
+      hideActions: true,
       onClose: () => {
         this.parent.confirmStartRequest = null;
       },

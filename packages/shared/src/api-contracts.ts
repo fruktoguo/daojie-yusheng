@@ -23,6 +23,7 @@ import type { PlayerState } from './player-runtime-types';
 import type { SkillDef, TemporaryBuffState } from './skill-types';
 import type { GameTimeState, MapRouteDomain, MapTimeConfig, MonsterAggroMode, MonsterTier, PortalRouteDomain, VisibleTile } from './world-core-types';
 import type { GmPerformanceSnapshot } from './gm-runtime-types';
+import type { InteractableKind, StructureType, SurfaceType, TerrainType } from './map-layer-types';
 
 /** 注册请求 */
 export interface AuthRegisterReq {
@@ -1640,6 +1641,11 @@ export interface GmEditorItemOption {
 
   equipValueStats?: ItemStack['equipValueStats'];
   /**
+ * equipSpecialStats：装备提供的悟性、幸运等特殊属性。
+ */
+
+  equipSpecialStats?: ItemStack['equipSpecialStats'];
+  /**
  * tags：tag相关字段。
  */
 
@@ -2753,6 +2759,20 @@ export interface GmMapMonsterSpawnRecord {
   drops?: GmMapDropRecord[];
 }
 
+/** GM 编辑器里的 4 层地块真源单元。
+ * - terrain：底层地形（floor/grass/...），缺省按 floor 处理。
+ * - surface：地表铺装（road/trail/...），null 表示无铺装。
+ * - structure：地上结构（wall/door/tree/...），null 表示无结构。
+ * - interactables：交互对象（portal/stairs/...），缺省空数组。
+ * 所有字段都是可选的，缺省时由运行时按多层默认补齐。
+ */
+export interface GmMapLayeredCellRecord {
+  terrain?: TerrainType;
+  surface?: SurfaceType | null;
+  structure?: StructureType | null;
+  interactables?: InteractableKind[];
+}
+
 /** GM 编辑器里的完整地图文档。 */
 export interface GmMapDocument {
 /**
@@ -2785,10 +2805,10 @@ export interface GmMapDocument {
 
   routeDomain?: MapRouteDomain;
   /**
- * terrainRealmLv：terrainRealmLv相关字段。
+ * mapLv：mapLv相关字段。
  */
 
-  terrainRealmLv?: number;
+  mapLv?: number;
   /**
  * parentMapId：parent地图ID标识。
  */
@@ -2825,20 +2845,31 @@ export interface GmMapDocument {
 
   description?: string;
   /**
- * dangerLevel：danger等级数值。
- */
-
-  dangerLevel?: number;
-  /**
- * recommendedRealm：recommendedRealm相关字段。
- */
-
-  recommendedRealm?: string;
-  /**
  * tiles：tile相关字段。
  */
 
   tiles: string[];
+  /**
+ * terrainRows：可选底层地形真源（[y][x]）。缺省时由 tiles 字符推断。
+ */
+  terrainRows?: TerrainType[][];
+  /**
+ * surfaceRows：可选地表铺装真源（[y][x]）。null 表示该格没有铺装。
+ */
+  surfaceRows?: (SurfaceType | null)[][];
+  /**
+ * structureRows：可选地上结构真源（[y][x]）。null 表示该格没有结构。
+ */
+  structureRows?: (StructureType | null)[][];
+  /**
+ * interactableRows：可选交互层真源（[y][x][]）。空数组表示该格没有交互层标记。
+ */
+  interactableRows?: InteractableKind[][][];
+  /**
+ * layeredCells：可选的 4 层地块真源（[y][x]）。提供时优先于 tiles，由运行时直接读取；
+ * 缺省时由服务端从 tiles 字符推断（保持与旧地图完全兼容）。
+ */
+  layeredCells?: (GmMapLayeredCellRecord | null)[][];
   /**
  * portals：portal相关字段。
  */
@@ -2944,20 +2975,10 @@ export interface GmMapSummary {
 
   description?: string;
   /**
- * terrainRealmLv：terrainRealmLv相关字段。
+ * mapLv：mapLv相关字段。
  */
 
-  terrainRealmLv?: number;
-  /**
- * dangerLevel：danger等级数值。
- */
-
-  dangerLevel?: number;
-  /**
- * recommendedRealm：recommendedRealm相关字段。
- */
-
-  recommendedRealm?: string;
+  mapLv?: number;
   /**
  * portalCount：数量或计量字段。
  */

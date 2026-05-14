@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "青萝谷入口子图。回渡药圃先用畦道、藤棚和晒叶台把节奏压慢，人在这里不会马上被木行压力逼死，但一离开药圃主路，藤墙、水沟和湿地就会开始把脚步一点点拽进谷里。",
-  "dangerLevel": 3,
-  "recommendedRealm": "19-21级",
   "tiles": [
     "##############################",
     "#,,,,,,,,,TTTTTT,,,,,,,,,,,,,#",
@@ -188,5 +186,5 @@
       ]
     }
   ],
-  "terrainRealmLv": 19
+  "mapLv": 19
 }

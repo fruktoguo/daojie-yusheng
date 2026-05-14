@@ -3,11 +3,10 @@
   "name": "监牢",
   "width": 20,
   "height": 20,
+  "mapLv": 1,
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "四面空空，只余一片无遮无拦的囚场。",
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "tiles": [
     "....................",
     "....................",

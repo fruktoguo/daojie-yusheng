@@ -1,10 +1,8 @@
 {
   "id": "heaven_ladder",
   "name": "天梯",
-  "terrainRealmLv": 30,
+  "mapLv": 30,
   "description": "从归藏脉窟道基古阵旁接出的半步筑基关口。天梯本体没有阵眼，石阶却像被一座无形大阵压住：越往上走，脚下移动消耗越重，周身灵力也被更快抽走。尽头是一片可自由活动的平顶石台，通往筑基期主城方向。",
-  "recommendedRealm": "半步筑基",
-  "dangerLevel": 5,
   "width": 61,
   "height": 7,
   "routeDomain": "system",
@@ -39,8 +37,8 @@
       "x": 57,
       "y": 3,
       "targetMapId": "yunxu_terrace",
-      "targetX": 29,
-      "targetY": 6,
+      "targetX": 16,
+      "targetY": 4,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -48,7 +46,7 @@
       "hidden": false,
       "id": "heaven_ladder:57,3",
       "direction": "two_way",
-      "targetPortalId": "yunxu_terrace:29,6",
+      "targetPortalId": "yunxu_terrace:16,4",
       "observeTitle": "云墟台",
       "observeDesc": "走过最后一阶，道压散尽。前方云雾中一座石台浮现，筑基修士的聚集地已在眼前。"
     }

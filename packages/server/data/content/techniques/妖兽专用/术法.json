@@ -1,0 +1,1780 @@
+[
+  {
+    "id": "monster_blazewood_arts",
+    "name": "焚木妖术",
+    "desc": "焚木荒台妖兽的木火合炁术式。",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 35,
+    "maxLayer": 10,
+    "expDifficulty": 1,
+    "skills": [
+      {
+        "id": "skill.flame_pounce",
+        "name": "焰扑",
+        "desc": "焰尾狐裹火扑击，命中后灼入经络。",
+        "cooldown": 14,
+        "costMultiplier": 3,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 3.8 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 2
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.fire_tail_sweep",
+        "name": "火尾横扫",
+        "desc": "焰尾拖出扇形火线，扫开近身敌人。",
+        "cooldown": 18,
+        "costMultiplier": 4,
+        "range": 1,
+        "targeting": {
+          "shape": "orientedBox",
+          "width": 3,
+          "height": 1,
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 3.5 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.fire_burn_mark.stacks", "scale": 0.04 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 1
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.root_bind",
+        "name": "焦根缠足",
+        "desc": "焦黑树根从地缝里钻出，缠住敌人的脚步。",
+        "cooldown": 20,
+        "costMultiplier": 3,
+        "range": 4,
+        "targeting": {
+          "shape": "single",
+          "maxTargets": 1
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 3.2 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_charwood_root_bind",
+            "name": "焦根缠足",
+            "desc": "焦根缠住足踝，移动与闪避下降。",
+            "shortMark": "根",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8b6a3a",
+            "duration": 18,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -18,
+              "dodge": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.charwood_slam",
+        "name": "焦木重砸",
+        "desc": "枯木行者抡起焦木臂，凭厚重身躯砸碎防线。",
+        "cooldown": 18,
+        "costMultiplier": 4,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.2 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_charwood_root_bind.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.earth.self_fortify"
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.flame_breath",
+        "name": "烈焰吐息",
+        "desc": "烈焰蜥喷出一道高温火流，持续灼烧前方敌人。",
+        "cooldown": 22,
+        "costMultiplier": 5,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "width": 1,
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.3 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.1 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 3
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.molten_charge",
+        "name": "熔鳞冲撞",
+        "desc": "烈焰蜥以熔鳞护身冲锋，撞碎被火势逼退的目标。",
+        "cooldown": 24,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "width": 1,
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.5 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.fire_burn_mark.stacks", "scale": 0.05 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_molten_scales",
+            "name": "熔鳞",
+            "desc": "熔鳞覆体，短时提高防御与破势。",
+            "shortMark": "熔",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d56b3a",
+            "duration": 20,
+            "maxStacks": 4,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 15,
+              "spellDef": 10,
+              "breakPower": 10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.fire_regeneration",
+        "name": "浴火再生",
+        "desc": "烈焰蜥借火势回补气血，并让熔鳞重新发亮。",
+        "cooldown": 32,
+        "costMultiplier": 3,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "heal",
+            "target": "self",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.maxHp", "scale": 0.12 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_molten_scales.stacks", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_molten_scales",
+            "name": "熔鳞",
+            "desc": "熔鳞覆体，短时提高防御与破势。",
+            "shortMark": "熔",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d56b3a",
+            "duration": 20,
+            "maxStacks": 4,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 15,
+              "spellDef": 10,
+              "breakPower": 10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.vine_constrict",
+        "name": "藤焰绞缠",
+        "desc": "藤焰蟒以燃藤勒住目标，限制行动。",
+        "cooldown": 20,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 3.8 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.wood.vine_mark"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_vine_constrict",
+            "name": "藤绞",
+            "desc": "藤焰缠身，命中与移动下降。",
+            "shortMark": "绞",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#88a64c",
+            "duration": 18,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -10,
+              "moveSpeed": -15
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.flame_venom",
+        "name": "焰毒入脉",
+        "desc": "藤焰蟒喷出带火的毒涎，灼伤并削弱敌身。",
+        "cooldown": 24,
+        "costMultiplier": 5,
+        "range": 4,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.1 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_vine_constrict.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 2
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_flame_venom",
+            "name": "焰毒",
+            "desc": "火毒入脉，双防持续下滑。",
+            "shortMark": "毒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#b46a38",
+            "duration": 20,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -8,
+              "spellDef": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.wood_fire_burst",
+        "name": "木火爆燃",
+        "desc": "木火相激，在目标身侧爆燃成一片。",
+        "cooldown": 28,
+        "costMultiplier": 6,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#ef6b3b"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.8 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.fire_burn_mark.stacks", "scale": 0.03 },
+                    { "var": "target.buff.buff.wood_vine_mark.stacks", "scale": 0.18 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 3
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.inferno_roar",
+        "name": "焚王怒吼",
+        "desc": "焚木妖王怒吼引燃四周，震散敌胆。",
+        "cooldown": 28,
+        "costMultiplier": 5,
+        "range": 0,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "requiresTarget": false,
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#ff7a32"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 3.8 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 2
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_inferno_fear",
+            "name": "焚惧",
+            "desc": "焚王威压迫心，命中与输出下降。",
+            "shortMark": "惧",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#d45d38",
+            "duration": 18,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -10,
+              "physAtk": -8,
+              "spellAtk": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.root_prison",
+        "name": "焚根囚牢",
+        "desc": "焚木妖王催生焦根，围成囚牢锁住敌人。",
+        "cooldown": 32,
+        "costMultiplier": 5,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#8fb45a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.2 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.1 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.wood.vine_mark"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_root_prison",
+            "name": "根牢",
+            "desc": "焦根成牢，移动大幅下降。",
+            "shortMark": "牢",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#7a6b3f",
+            "duration": 16,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -55,
+              "dodge": -25
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.wood_fire_storm",
+        "name": "木火妖岚",
+        "desc": "木火同燃，妖岚席卷大片区域。",
+        "cooldown": 38,
+        "costMultiplier": 7,
+        "range": 6,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "monsterCast": {
+          "windupTicks": 3,
+          "warningColor": "#ff8b3d"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 5.2 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.fire_burn_mark.stacks", "scale": 0.03 },
+                    { "var": "target.buff.buff.monster_root_prison.stacks", "scale": 0.25 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 4
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.phoenix_rebirth",
+        "name": "余烬返生",
+        "desc": "焚木妖王以余烬护住心木，回补气血并抬升防御。",
+        "cooldown": 60,
+        "costMultiplier": 5,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "heal",
+            "target": "self",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.maxHp", "scale": 0.18 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_phoenix_ember.stacks", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_phoenix_ember",
+            "name": "余烬护心",
+            "desc": "余烬护住心木，防御与回复能力提升。",
+            "shortMark": "烬",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#ff9c4a",
+            "duration": 30,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 12,
+              "spellDef": 12,
+              "hpRegenRate": 80
+            }
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  },
+  {
+    "id": "monster_frostblade_abyss_arts",
+    "name": "霜刃妖术",
+    "desc": "霜刃渊妖兽的寒冰与铁甲术式。",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 31,
+    "maxLayer": 10,
+    "expDifficulty": 1,
+    "skills": [
+      {
+        "id": "skill.frost_fang",
+        "name": "霜牙",
+        "desc": "霜鳞蛇咬入寒气，令敌身迟滞。",
+        "cooldown": 14,
+        "costMultiplier": 3,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 3.7 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.mystic.frost_mark"
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.coiling_strike",
+        "name": "盘鳞绞击",
+        "desc": "霜鳞蛇盘身绞杀，借冰霜迟滞放大伤势。",
+        "cooldown": 18,
+        "costMultiplier": 4,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.1 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.frost_mark.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.iron_tail_sting",
+        "name": "寒铁尾针",
+        "desc": "寒铁蝎以尾针刺入寒毒。",
+        "cooldown": 18,
+        "costMultiplier": 4,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.0 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_cold_iron_venom",
+            "name": "寒铁毒",
+            "desc": "寒毒入体，命中与输出被削弱。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#86a6bd",
+            "duration": 22,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -8,
+              "physAtk": -6,
+              "spellAtk": -6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.frost_armor",
+        "name": "霜甲",
+        "desc": "寒铁蝎凝霜覆甲，抵住后续攻势。",
+        "cooldown": 24,
+        "costMultiplier": 2,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_frost_armor",
+            "name": "霜甲",
+            "desc": "霜甲覆身，双防提高并削弱近身破势。",
+            "shortMark": "甲",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#a7d5e7",
+            "duration": 24,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 18,
+              "spellDef": 18,
+              "resolvePower": 8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.ice_web",
+        "name": "冰晶蛛网",
+        "desc": "冰晶蜘蛛吐出结霜蛛网，封住敌人步法。",
+        "cooldown": 22,
+        "costMultiplier": 4,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 3.5 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.mystic.frost_mark"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_ice_web",
+            "name": "冰网",
+            "desc": "冰网缚身，移动大幅下降。",
+            "shortMark": "网",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#b7dff0",
+            "duration": 16,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -45
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.crystal_burst",
+        "name": "冰晶爆裂",
+        "desc": "蛛网中的冰晶猛然炸开，寒芒割裂周身。",
+        "cooldown": 28,
+        "costMultiplier": 5,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#9fd4ee"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.7 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_ice_web.stacks", "scale": 0.25 },
+                    { "var": "target.buff.buff.frost_mark.stacks", "scale": 0.06 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.mystic.frost_mark"
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.iron_shell_guard",
+        "name": "玄龟铁壳",
+        "desc": "铁甲玄龟缩壳固守，短时极难撼动。",
+        "cooldown": 30,
+        "costMultiplier": 3,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_iron_shell_guard",
+            "name": "铁壳",
+            "desc": "铁壳固守，防御大幅提升但速度下降。",
+            "shortMark": "壳",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7890a0",
+            "duration": 24,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 35,
+              "spellDef": 25,
+              "moveSpeed": -20
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.frost_breath",
+        "name": "玄龟寒息",
+        "desc": "铁甲玄龟吐出寒息，压低敌人的攻势。",
+        "cooldown": 24,
+        "costMultiplier": 5,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "width": 2,
+          "maxTargets": 6
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.2 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_iron_shell_guard.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.water.frost_mark"
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.tidal_slam",
+        "name": "寒潮重踏",
+        "desc": "铁甲玄龟重踏地面，寒潮沿地面爆开。",
+        "cooldown": 32,
+        "costMultiplier": 6,
+        "range": 0,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "requiresTarget": false,
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#8fc9e0"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.6 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_iron_shell_guard.stacks", "scale": 0.15 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.mystic.frost_mark"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  },
+  {
+    "id": "monster_darksoil_abyss_arts",
+    "name": "玄壤妖术",
+    "desc": "玄壤深渊妖兽的厚土、地脉与五行混元术式。",
+    "grade": "heaven",
+    "category": "arts",
+    "realmLv": 39,
+    "maxLayer": 10,
+    "expDifficulty": 1,
+    "skills": [
+      {
+        "id": "skill.earth_shell",
+        "name": "玄土甲壳",
+        "desc": "玄土甲虫收束厚土之力，甲壳愈发坚硬。",
+        "cooldown": 24,
+        "costMultiplier": 2,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "lianqi.earth.self_fortify"
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_darksoil_shell",
+            "name": "玄土甲",
+            "desc": "玄土覆甲，防御与化解提高。",
+            "shortMark": "甲",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#8a7050",
+            "duration": 24,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 15,
+              "spellDef": 10,
+              "resolvePower": 8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.burrowing_charge",
+        "name": "潜地冲",
+        "desc": "玄土甲虫潜入地层后破土冲出。",
+        "cooldown": 22,
+        "costMultiplier": 4,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "width": 1,
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.1 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_darksoil_shell.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.earth_rend",
+        "name": "裂地",
+        "desc": "裂地蜈蚣撕开地脉，令前方敌人立足不稳。",
+        "cooldown": 24,
+        "costMultiplier": 5,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "width": 2,
+          "maxTargets": 8
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.4 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.1 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_earth_rend",
+            "name": "裂地失衡",
+            "desc": "地脉震裂，闪避与防御下降。",
+            "shortMark": "裂",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#9a6d4a",
+            "duration": 20,
+            "maxStacks": 4,
+            "statMode": "percent",
+            "valueStats": {
+              "dodge": -10,
+              "physDef": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.venom_mandible",
+        "name": "毒颚",
+        "desc": "裂地蜈蚣以毒颚撕咬，伤口难以闭合。",
+        "cooldown": 18,
+        "costMultiplier": 4,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.0 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_earth_rend.stacks", "scale": 0.1 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_deep_earth_venom",
+            "name": "地蜈毒",
+            "desc": "地脉蜈毒入体，回复与输出下降。",
+            "shortMark": "蜈",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#6f8d4e",
+            "duration": 22,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "hpRegenRate": -60,
+              "physAtk": -6,
+              "spellAtk": -6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.burrow_ambush",
+        "name": "潜伏伏击",
+        "desc": "裂地蜈蚣钻入地缝，再从目标脚下爆起。",
+        "cooldown": 28,
+        "costMultiplier": 6,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#9d6f45"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.8 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_deep_earth_venom.stacks", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.mixed_element_spit",
+        "name": "混元吐息",
+        "desc": "混元石蟾吐出五行浊浆，侵蚀敌人的术防。",
+        "cooldown": 24,
+        "costMultiplier": 5,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "width": 2,
+          "maxTargets": 8
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 4.3 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.1 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_mixed_element_mire",
+            "name": "混元泥浆",
+            "desc": "五行浊浆封住灵机，法防和输出下降。",
+            "shortMark": "浊",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#7a8d62",
+            "duration": 22,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "spellDef": -10,
+              "spellAtk": -6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.stone_skin",
+        "name": "石蟾硬皮",
+        "desc": "混元石蟾鼓起石皮，硬吃正面攻势。",
+        "cooldown": 26,
+        "costMultiplier": 2,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_stone_skin",
+            "name": "石皮",
+            "desc": "石皮覆体，双防与化解提升。",
+            "shortMark": "石",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#78906a",
+            "duration": 24,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 20,
+              "spellDef": 20,
+              "resolvePower": 10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.earth_quake_stomp",
+        "name": "地震踏",
+        "desc": "混元石蟾重踏地面，震开周围敌人。",
+        "cooldown": 30,
+        "costMultiplier": 6,
+        "range": 0,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "requiresTarget": false,
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#9a7a55"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 4.5 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_stone_skin.stacks", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_earth_quake",
+            "name": "震荡",
+            "desc": "地震余波震荡经脉，命中与闪避下降。",
+            "shortMark": "震",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#9d7b55",
+            "duration": 18,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -10,
+              "dodge": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.earth_dragon_dive",
+        "name": "地龙潜跃",
+        "desc": "玄壤地龙潜入地脉，再破土撕咬。",
+        "cooldown": 28,
+        "costMultiplier": 6,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 2,
+          "warningColor": "#8a6040"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 5.0 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.12 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_dragon_earthbind",
+            "name": "地龙缠身",
+            "desc": "地龙气息缠身，移动与防御下降。",
+            "shortMark": "龙",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#7b5235",
+            "duration": 20,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -20,
+              "physDef": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.tectonic_slam",
+        "name": "地脉重压",
+        "desc": "玄壤地龙引动地脉，向周围重压而下。",
+        "cooldown": 34,
+        "costMultiplier": 7,
+        "range": 0,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "requiresTarget": false,
+        "monsterCast": {
+          "windupTicks": 3,
+          "warningColor": "#8d6a4a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 5.3 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_dragon_earthbind.stacks", "scale": 0.18 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_tectonic_pressure",
+            "name": "地脉重压",
+            "desc": "地脉重压覆身，行动和输出受阻。",
+            "shortMark": "压",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8d6a4a",
+            "duration": 18,
+            "maxStacks": 3,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -18,
+              "physAtk": -8,
+              "spellAtk": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.dragon_spine_sweep",
+        "name": "龙脊横扫",
+        "desc": "玄壤地龙以脊骨横扫前方，摧折防线。",
+        "cooldown": 24,
+        "costMultiplier": 6,
+        "range": 1,
+        "targeting": {
+          "shape": "orientedBox",
+          "width": 5,
+          "height": 1,
+          "maxTargets": 5
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.physAtk", "scale": 5.0 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.buff.buff.monster_tectonic_pressure.stacks", "scale": 0.15 }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.earth_armor_fortify",
+        "name": "地甲固化",
+        "desc": "玄壤地龙让厚土地甲彻底固化。",
+        "cooldown": 40,
+        "costMultiplier": 3,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "lianqi.earth.self_fortify",
+            "stacks": 2
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_earth_armor_fortify",
+            "name": "地甲",
+            "desc": "厚土地甲固化，防御与化解大幅提升。",
+            "shortMark": "地",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#8c6a4b",
+            "duration": 28,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 18,
+              "spellDef": 18,
+              "resolvePower": 12
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.fivephase_devour",
+        "name": "五行吞脉",
+        "desc": "五行噬脉兽咬住灵脉，吞噬目标气机。",
+        "cooldown": 28,
+        "costMultiplier": 7,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 5.0 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "target.debuffCount", "scale": 0.06 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_fivephase_devour",
+            "name": "噬脉",
+            "desc": "灵脉被噬，最大灵力输出与双攻下降。",
+            "shortMark": "噬",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8060a0",
+            "duration": 24,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "maxQiOutputPerTick": -8,
+              "physAtk": -6,
+              "spellAtk": -6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.element_shift",
+        "name": "五行转相",
+        "desc": "五行噬脉兽转动体内五行，短时补齐弱处。",
+        "cooldown": 30,
+        "costMultiplier": 3,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_element_shift",
+            "name": "转相",
+            "desc": "五行轮转，攻防与输出上限提高。",
+            "shortMark": "相",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#9a79bf",
+            "duration": 24,
+            "maxStacks": 5,
+            "statMode": "percent",
+            "valueStats": {
+              "physAtk": 8,
+              "spellAtk": 8,
+              "physDef": 8,
+              "spellDef": 8,
+              "maxQiOutputPerTick": 10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.mixed_element_storm",
+        "name": "混元五行暴",
+        "desc": "五行噬脉兽搅动五行浊流，覆盖大片区域。",
+        "cooldown": 40,
+        "costMultiplier": 8,
+        "range": 6,
+        "targeting": {
+          "shape": "box",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 25
+        },
+        "monsterCast": {
+          "windupTicks": 3,
+          "warningColor": "#9a79bf"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.stat.spellAtk", "scale": 5.6 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_element_shift.stacks", "scale": 0.12 },
+                    { "var": "target.debuffCount", "scale": 0.04 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_mixed_element_storm",
+            "name": "混元乱流",
+            "desc": "五行乱流缠身，命中、闪避与防御下降。",
+            "shortMark": "乱",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#9a79bf",
+            "duration": 20,
+            "maxStacks": 4,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -8,
+              "dodge": -8,
+              "physDef": -6,
+              "spellDef": -6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.vein_drain",
+        "name": "汲脉回元",
+        "desc": "五行噬脉兽抽回散逸气机，修补自身。",
+        "cooldown": 48,
+        "costMultiplier": 5,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "heal",
+            "target": "self",
+            "formula": {
+              "op": "mul",
+              "args": [
+                { "var": "caster.maxHp", "scale": 0.15 },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "caster.buff.buff.monster_element_shift.stacks", "scale": 0.08 }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_vein_drain",
+            "name": "回元",
+            "desc": "汲脉回元，回复与法防提升。",
+            "shortMark": "元",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#8fbf9a",
+            "duration": 24,
+            "maxStacks": 4,
+            "statMode": "percent",
+            "valueStats": {
+              "hpRegenRate": 100,
+              "spellDef": 12
+            }
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  }
+]

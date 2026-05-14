@@ -9,6 +9,7 @@ type ConfirmModalOptions = {
   cancelLabel?: string;
   confirmDisabled?: boolean;
   confirmButtonClass?: string;
+  hideActions?: boolean;
   onConfirm?: () => void;
   onClose?: () => void;
 };
@@ -25,6 +26,7 @@ class ConfirmModalHost {
   private title: HTMLElement | null = null;
   private subtitle: HTMLElement | null = null;
   private body: HTMLElement | null = null;
+  private actions: HTMLElement | null = null;
   private cancelButton: HTMLButtonElement | null = null;
   private confirmButton: HTMLButtonElement | null = null;
   private ownerId: string | null = null;
@@ -34,7 +36,7 @@ class ConfirmModalHost {
 
   open(options: ConfirmModalOptions): void {
     this.ensureInitialized();
-    if (!this.modal || !this.card || !this.title || !this.subtitle || !this.body || !this.cancelButton || !this.confirmButton) {
+    if (!this.modal || !this.card || !this.title || !this.subtitle || !this.body || !this.actions || !this.cancelButton || !this.confirmButton) {
       return;
     }
 
@@ -49,6 +51,7 @@ class ConfirmModalHost {
     this.confirmButton.textContent = options.confirmLabel ?? t('modal.confirm.ok', undefined);
     this.confirmButton.disabled = options.confirmDisabled === true;
     this.confirmButton.className = `small-btn ${options.confirmButtonClass ?? ''}`.trim();
+    this.actions.classList.toggle('hidden', options.hideActions === true);
     this.modal.classList.remove('hidden');
     this.modal.setAttribute('aria-hidden', 'false');
   }
@@ -96,6 +99,7 @@ class ConfirmModalHost {
     this.title = modal.querySelector<HTMLElement>('.confirm-modal-title');
     this.subtitle = modal.querySelector<HTMLElement>('.confirm-modal-subtitle');
     this.body = modal.querySelector<HTMLElement>('.confirm-modal-body');
+    this.actions = modal.querySelector<HTMLElement>('.confirm-modal-actions');
     this.cancelButton = modal.querySelector<HTMLButtonElement>('[data-confirm-modal-cancel="true"]');
     this.confirmButton = modal.querySelector<HTMLButtonElement>('[data-confirm-modal-confirm="true"]');
 

@@ -1,0 +1,286 @@
+[
+  {
+    "id": "m_frost_scale_serpent",
+    "name": "霜鳞蛇",
+    "char": "蛇",
+    "color": "#a8d4e6",
+    "grade": "mystic",
+    "tier": "demon_soldier",
+    "level": 31,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 6,
+    "aggroRange": 6,
+    "respawnSec": 18,
+    "skills": [
+      "skill.frost_fang",
+      "skill.coiling_strike"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.frost_scale",
+        "name": "霜鳞片",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.cold_serpent_gall",
+        "name": "寒蛇胆",
+        "type": "material",
+        "count": 1,
+        "chance": 0.3
+      }
+    ],
+    "attrTendency": {
+      "constitution": 95,
+      "spirit": 88,
+      "perception": 115,
+      "talent": 92,
+      "strength": 100,
+      "meridians": 110
+    },
+    "statTendency": {
+      "maxQi": 100,
+      "physAtk": 108,
+      "spellAtk": 95,
+      "physDef": 92,
+      "spellDef": 100,
+      "hit": 112,
+      "dodge": 118,
+      "crit": 105,
+      "breakPower": 98,
+      "resolvePower": 90,
+      "maxQiOutputPerTick": 105,
+      "moveSpeed": 130
+    }
+  },
+  {
+    "id": "m_cold_iron_scorpion",
+    "name": "寒铁蝎",
+    "char": "蝎",
+    "color": "#7a8fa6",
+    "grade": "mystic",
+    "tier": "demon_soldier",
+    "level": 32,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 5,
+    "aggroRange": 5,
+    "respawnSec": 18,
+    "skills": [
+      "skill.iron_tail_sting",
+      "skill.frost_armor"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.cold_iron_carapace",
+        "name": "寒铁甲壳",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.scorpion_venom_sac",
+        "name": "蝎毒囊",
+        "type": "material",
+        "count": 1,
+        "chance": 0.25
+      }
+    ],
+    "attrTendency": {
+      "constitution": 115,
+      "spirit": 85,
+      "perception": 100,
+      "talent": 88,
+      "strength": 118,
+      "meridians": 94
+    },
+    "statTendency": {
+      "maxQi": 105,
+      "physAtk": 115,
+      "spellAtk": 80,
+      "physDef": 120,
+      "spellDef": 95,
+      "hit": 105,
+      "dodge": 90,
+      "crit": 110,
+      "breakPower": 112,
+      "resolvePower": 100,
+      "maxQiOutputPerTick": 95,
+      "moveSpeed": 100
+    }
+  },
+  {
+    "id": "m_ice_crystal_spider",
+    "name": "冰晶蜘蛛",
+    "char": "蛛",
+    "color": "#c8e0f0",
+    "grade": "mystic",
+    "tier": "demon_soldier",
+    "level": 33,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 6,
+    "respawnSec": 20,
+    "skills": [
+      "skill.ice_web",
+      "skill.crystal_burst"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.ice_crystal_silk",
+        "name": "冰晶丝",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.frozen_spider_core",
+        "name": "冰蛛内核",
+        "type": "material",
+        "count": 1,
+        "chance": 0.2
+      }
+    ],
+    "attrTendency": {
+      "constitution": 90,
+      "spirit": 110,
+      "perception": 108,
+      "talent": 105,
+      "strength": 88,
+      "meridians": 99
+    },
+    "statTendency": {
+      "maxQi": 110,
+      "physAtk": 90,
+      "spellAtk": 115,
+      "physDef": 88,
+      "spellDef": 112,
+      "hit": 108,
+      "dodge": 105,
+      "crit": 100,
+      "breakPower": 95,
+      "resolvePower": 108,
+      "maxQiOutputPerTick": 112,
+      "moveSpeed": 110
+    }
+  },
+  {
+    "id": "m_ironshell_turtle",
+    "name": "铁甲玄龟",
+    "char": "龟",
+    "color": "#5a7080",
+    "grade": "earth",
+    "tier": "demon_general",
+    "level": 34,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 7,
+    "respawnSec": 35,
+    "skills": [
+      "skill.iron_shell_guard",
+      "skill.frost_breath",
+      "skill.tidal_slam"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.ironshell_fragment",
+        "name": "铁甲碎片",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "name": "玄龟寒髓",
+        "type": "material",
+        "count": 1,
+        "chance": 0.4
+      },
+      {
+        "itemId": "mat.deep_iron_essence",
+        "name": "深渊铁精",
+        "type": "material",
+        "count": 1,
+        "chance": 0.15
+      }
+    ],
+    "attrTendency": {
+      "constitution": 130,
+      "spirit": 95,
+      "perception": 85,
+      "talent": 90,
+      "strength": 120,
+      "meridians": 80
+    },
+    "statTendency": {
+      "maxQi": 120,
+      "physAtk": 110,
+      "spellAtk": 85,
+      "physDef": 135,
+      "spellDef": 115,
+      "hit": 100,
+      "dodge": 70,
+      "crit": 90,
+      "breakPower": 105,
+      "resolvePower": 120,
+      "maxQiOutputPerTick": 90,
+      "moveSpeed": 75
+    }
+  }
+]

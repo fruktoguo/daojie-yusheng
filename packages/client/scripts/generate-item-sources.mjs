@@ -390,7 +390,7 @@ function buildMonsterMapRefs(maps) {/**
       refs.set(map.id, {
         mapId: map.id,
         mapName: map.name,
-        dangerLevel: escapeNonFiniteInteger(map.dangerLevel),
+        mapLv: escapeNonFiniteInteger(map.mapLv),
       });
       mapRefsByMonsterId.set(monsterId, refs);
     }
@@ -399,10 +399,10 @@ function buildMonsterMapRefs(maps) {/**
 }
 
 /**
- * 获取comparable危险度等级。
+ * 获取comparable地图等级。
  */
-function getComparableDangerLevel(mapRef) {
-  return typeof mapRef.dangerLevel === 'number' ? mapRef.dangerLevel : Number.POSITIVE_INFINITY;
+function getComparableMapLv(mapRef) {
+  return typeof mapRef.mapLv === 'number' ? mapRef.mapLv : Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -423,11 +423,11 @@ function buildMonsterLocationCatalog(monsters, mapRefsByMonsterId) {
         const mapRefs = [...(mapRefsByMonsterId.get(monster.id)?.values() ?? [])]
           .sort((left, right) => {
 /**
- * 记录危险度delta。
+ * 记录地图等级delta。
  */
-            const dangerDelta = getComparableDangerLevel(left) - getComparableDangerLevel(right);
-            if (dangerDelta !== 0) {
-              return dangerDelta;
+            const mapLvDelta = getComparableMapLv(left) - getComparableMapLv(right);
+            if (mapLvDelta !== 0) {
+              return mapLvDelta;
             }
             return left.mapId.localeCompare(right.mapId, 'zh-CN');
           });
@@ -443,7 +443,7 @@ function buildMonsterLocationCatalog(monsters, mapRefsByMonsterId) {
           monsterName: monster.name,
           mapId: preferredMap.mapId,
           mapName: preferredMap.mapName,
-          dangerLevel: preferredMap.dangerLevel,
+          mapLv: preferredMap.mapLv,
           totalMaps: mapRefs.length,
         }]];
       }),

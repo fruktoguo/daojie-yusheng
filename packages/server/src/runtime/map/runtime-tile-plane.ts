@@ -82,22 +82,15 @@ class RuntimeTilePlane {
         this.slotMask = indexCapacity - 1;
     }
 
-    /** 从地图模板创建地块平面，解析 terrainRows 初始化所有地块 */
+    /** 从地图模板创建地块平面，优先读取分层真源，缺省时从 tiles 字符推断。 */
     static fromTemplate(template) {
         const width = Math.max(0, Math.trunc(Number(template?.width) || 0));
         const height = Math.max(0, Math.trunc(Number(template?.height) || 0));
         const plane = new RuntimeTilePlane(Math.max(1, width * height), Math.max(DEFAULT_COORD_INDEX_CAPACITY, width * height * 2));
         for (let y = 0; y < height; y += 1) {
-            const row = template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
             for (let x = 0; x < width; x += 1) {
-                const tileType = getTileTypeFromMapChar(row[x] ?? '#');
-                const seed = resolveTileLayerSeedFromTemplateContext(tileType, x, y, (lookupX, lookupY) => {
-                    if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
-                        return null;
-                    }
-                    const lookupRow = template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
-                    return getTileTypeFromMapChar(lookupRow[lookupX] ?? '#');
-                });
+                const seed = resolveTemplateLayerSeed(template, width, height, x, y);
+                const tileType = seed.legacyTileType;
                 const cellIndex = plane.activateCell(x, y, tileType, buildDefaultTileFlags(tileType));
                 plane.applyLayerSeed(cellIndex, seed);
             }
@@ -451,6 +444,43 @@ function buildDefaultTileFlags(tileType) {
     const normalized = normalizeTileType(tileType);
     const seed = resolveTileLayerSeedFromTileType(normalized);
     return buildLayerTileFlags(seed.terrain, seed.surface, seed.structure, buildInteractableFlags(seed.interactables), 0);
+}
+
+function resolveTemplateLayerSeed(template, width, height, x, y) {
+    const hasLayerRows = hasTemplateLayerRows(template)
+        || Array.isArray(template?.surfaceRows)
+        || Array.isArray(template?.structureRows)
+        || Array.isArray(template?.interactableRows);
+    if (hasLayerRows) {
+        const legacyType = composeTileTypeFromLayers(
+            template?.terrainRows?.[y]?.[x],
+            template?.surfaceRows?.[y]?.[x] ?? null,
+            template?.structureRows?.[y]?.[x] ?? null,
+            template?.interactableRows?.[y]?.[x] ?? [],
+        );
+        return {
+            terrain: normalizeTerrainType(template?.terrainRows?.[y]?.[x]),
+            surface: normalizeSurfaceType(template?.surfaceRows?.[y]?.[x] ?? null),
+            structure: normalizeStructureType(template?.structureRows?.[y]?.[x] ?? null),
+            interactables: Array.isArray(template?.interactableRows?.[y]?.[x])
+                ? template.interactableRows[y][x]
+                : [],
+            legacyTileType: legacyType,
+        };
+    }
+    const row = template?.legacyTileRows?.[y] ?? template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
+    const tileType = getTileTypeFromMapChar(row[x] ?? '#');
+    return resolveTileLayerSeedFromTemplateContext(tileType, x, y, (lookupX, lookupY) => {
+        if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
+            return null;
+        }
+        const lookupRow = template?.legacyTileRows?.[lookupY] ?? template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
+        return getTileTypeFromMapChar(lookupRow[lookupX] ?? '#');
+    });
+}
+
+function hasTemplateLayerRows(template) {
+    return Array.isArray(template?.terrainRows?.[0]);
 }
 
 function buildLayerTileFlags(terrainType, surfaceType, structureType, interactableFlags, preservedFlags = 0) {

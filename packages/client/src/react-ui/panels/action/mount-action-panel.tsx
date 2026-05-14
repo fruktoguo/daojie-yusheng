@@ -17,6 +17,12 @@ export function shouldUseReactActionPanel(): boolean {
 }
 
 export function syncReactActionPanelState(state: ReactActionPanelState): void {
+  if (host?.isConnected) {
+    flushSync(() => {
+      actionPanelStore.setState(state);
+    });
+    return;
+  }
   actionPanelStore.setState(state);
 }
 

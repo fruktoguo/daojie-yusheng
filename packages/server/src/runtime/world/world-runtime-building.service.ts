@@ -253,14 +253,18 @@ export function buildCurrentRoomSummaryPatch(runtime, playerId) {
 
 export function buildFengShuiObserveView(runtime, playerId, payload) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
+    const visibleTiles = buildPlayerVisibleTileLookup(runtime, playerId, context.instance);
     const roomId = typeof payload?.roomId === 'string' && payload.roomId.trim() ? payload.roomId.trim() : '';
     const hasExplicitPoint = Number.isFinite(Number(payload?.x)) || Number.isFinite(Number(payload?.y));
     const shouldBuildDetail = Boolean(roomId || hasExplicitPoint || payload?.overlay !== true);
     const x = shouldBuildDetail && Number.isFinite(Number(payload?.x)) ? Math.trunc(Number(payload.x)) : context.instance.playersById.get(playerId)?.x;
     const y = shouldBuildDetail && Number.isFinite(Number(payload?.y)) ? Math.trunc(Number(payload.y)) : context.instance.playersById.get(playerId)?.y;
-    const snapshot = shouldBuildDetail && roomId
+    const canReadDetail = shouldBuildDetail && (roomId
+        ? isRoomVisibleToPlayer(context.instance, roomId, visibleTiles)
+        : isTileVisibleToPlayer(context.instance, x, y, visibleTiles));
+    const snapshot = canReadDetail && roomId
         ? context.instance.getFengShuiSnapshot?.(roomId)
-        : shouldBuildDetail
+        : canReadDetail
             ? context.instance.getFengShuiSnapshotAt?.(x, y)
             : null;
     const room = snapshot?.roomId ? context.instance.roomsById?.get?.(snapshot.roomId) : null;
@@ -268,7 +272,7 @@ export function buildFengShuiObserveView(runtime, playerId, payload) {
         detail: room && snapshot
             ? { room: toRoomSummaryView(room), fengShui: snapshot }
             : null,
-        overlay: payload?.overlay === true ? buildFengShuiOverlayPatch(context.instance, playerId) : null,
+        overlay: payload?.overlay === true ? buildFengShuiOverlayPatch(context.instance, playerId, visibleTiles) : null,
     };
 }
 
@@ -577,7 +581,7 @@ function toRoomSummaryView(room) {
         revision: Math.max(1, Math.trunc(Number(room.topologyRevision || room.revision || 1))),
     };
 }
-function buildFengShuiOverlayPatch(instance, playerId) {
+function buildFengShuiOverlayPatch(instance, playerId, visibleTiles = null) {
     const player = instance.playersById?.get?.(playerId);
     const centerX = Number.isFinite(Number(player?.x)) ? Math.trunc(Number(player.x)) : 0;
     const centerY = Number.isFinite(Number(player?.y)) ? Math.trunc(Number(player.y)) : 0;
@@ -588,6 +592,9 @@ function buildFengShuiOverlayPatch(instance, playerId) {
         const x = instance.tilePlane.getX(cellIndex);
         const y = instance.tilePlane.getY(cellIndex);
         if (Math.max(Math.abs(x - centerX), Math.abs(y - centerY)) > radius) {
+            continue;
+        }
+        if (!isTileVisibleToPlayer(instance, x, y, visibleTiles)) {
             continue;
         }
         const roomId = instance.roomIdsByHandle?.[instance.roomIdByCell?.[cellIndex]];
@@ -612,4 +619,81 @@ function buildFengShuiOverlayPatch(instance, playerId) {
         revision: instance.getPersistenceRevision?.() ?? 0,
         cells,
     };
+}
+
+function buildPlayerVisibleTileLookup(runtime, playerId, instance) {
+    let view = null;
+    if (typeof runtime?.getPlayerView === 'function') {
+        try {
+            view = runtime.getPlayerView(playerId);
+        }
+        catch (_error) {
+            view = null;
+        }
+    }
+    if (!view && typeof instance?.buildPlayerView === 'function') {
+        view = instance.buildPlayerView(playerId);
+    }
+    const indices = new Set();
+    const keys = new Set();
+    for (const rawIndex of Array.isArray(view?.visibleTileIndices) ? view.visibleTileIndices : []) {
+        const index = Math.trunc(Number(rawIndex));
+        if (Number.isFinite(index) && index >= 0) {
+            indices.add(index);
+        }
+    }
+    for (const key of Array.isArray(view?.visibleTileKeys) ? view.visibleTileKeys : []) {
+        if (typeof key === 'string') {
+            keys.add(key);
+        }
+    }
+    return { indices, keys };
+}
+
+function isTileVisibleToPlayer(instance, x, y, visibleTiles) {
+    const tileX = Math.trunc(Number(x));
+    const tileY = Math.trunc(Number(y));
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+        return false;
+    }
+    if (visibleTiles?.keys?.has?.(`${tileX},${tileY}`)) {
+        return true;
+    }
+    if (typeof instance?.isInBounds === 'function' && instance.isInBounds(tileX, tileY) !== true) {
+        return false;
+    }
+    const tileIndex = typeof instance?.toTileIndex === 'function'
+        ? instance.toTileIndex(tileX, tileY)
+        : Math.trunc(Number(instance?.tilePlane?.getIndex?.(tileX, tileY)));
+    return Number.isFinite(tileIndex) && visibleTiles?.indices?.has?.(tileIndex) === true;
+}
+
+function isRoomVisibleToPlayer(instance, roomId, visibleTiles) {
+    if (!roomId || !visibleTiles) {
+        return false;
+    }
+    for (const tileIndex of visibleTiles.indices ?? []) {
+        if (instance.roomIdsByHandle?.[instance.roomIdByCell?.[tileIndex]] === roomId) {
+            return true;
+        }
+    }
+    if ((visibleTiles.indices?.size ?? 0) > 0 || typeof instance?.toTileIndex !== 'function') {
+        return false;
+    }
+    for (const key of visibleTiles.keys ?? []) {
+        const separatorIndex = typeof key === 'string' ? key.indexOf(',') : -1;
+        if (separatorIndex < 0) {
+            continue;
+        }
+        const x = Number(key.slice(0, separatorIndex));
+        const y = Number(key.slice(separatorIndex + 1));
+        if (!Number.isInteger(x) || !Number.isInteger(y) || instance.isInBounds?.(x, y) !== true) {
+            continue;
+        }
+        const tileIndex = instance.toTileIndex(x, y);
+        if (instance.roomIdsByHandle?.[instance.roomIdByCell?.[tileIndex]] === roomId) {
+            return true;
+        }
+    }
+    return false;
 }

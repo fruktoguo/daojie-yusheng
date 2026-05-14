@@ -25,6 +25,7 @@ type MainBuildingFengShuiStateSourceOptions = {
   setFengShuiOverlay: (overlay: MapFengShuiOverlayState | null) => void;
   setBuildPreviewOverlay: (overlay: MapBuildPreviewOverlayState | null) => void;
   getPlayer: () => PlayerState | null;
+  getVisibleTileAt?: (x: number, y: number) => unknown;
   showToast: (message: string, kind?: 'system' | 'success' | 'warn') => void;
   beginTargeting: (actionId: string, actionName: string, targetMode?: string, range?: number) => void;
   cancelTargeting: () => void;
@@ -468,12 +469,15 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
   let pendingPlacementHover: { x: number; y: number } | null = null;
 
   function applyOverlay(data: ServerToClientEventPayload<typeof S2C.FengShuiOverlayPatch>): void {
+    const visibleCells = typeof options.getVisibleTileAt === 'function'
+      ? data.cells.filter((cell) => Boolean(options.getVisibleTileAt?.(cell.x, cell.y)))
+      : data.cells;
     latestOverlay = data;
-    latestOverlayCellByKey = new Map(data.cells.map((cell) => [`${cell.x},${cell.y}`, cell]));
+    latestOverlayCellByKey = new Map(visibleCells.map((cell) => [`${cell.x},${cell.y}`, cell]));
     options.setFengShuiOverlay({
       instanceId: data.instanceId,
       revision: data.revision,
-      cells: data.cells.map((cell) => ({
+      cells: visibleCells.map((cell) => ({
         x: cell.x,
         y: cell.y,
         roomId: cell.roomId,

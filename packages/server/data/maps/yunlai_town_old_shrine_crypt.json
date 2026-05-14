@@ -11,8 +11,6 @@
   "floorName": "暗室",
   "spaceVisionMode": "parent_overlay",
   "description": "旧祠供桌下还压着一间暗室，潮气重，香灰和纸钱味一直散不干净。",
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "tiles": [
     "################",
     "#......oo......#",
@@ -254,5 +252,5 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainRealmLv": 1
+  "mapLv": 1
 }

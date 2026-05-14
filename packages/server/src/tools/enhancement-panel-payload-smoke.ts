@@ -6,7 +6,10 @@ const {
   computeAlchemyAdjustedSuccessRate,
   computeCraftAdjustedSuccessRate,
   computeEnhancementAdjustedSuccessRate,
+  computeEnhancementJobTicks,
+  computeEnhancementToolSpeedRate,
   getEnhancementTargetSuccessRate,
+  MAX_ENHANCE_LEVEL,
 } = require("@mud/shared");
 const { CraftPanelRuntimeService } = require("../runtime/craft/craft-panel-runtime.service");
 const { CraftPanelEnhancementQueryService } = require("../runtime/craft/craft-panel-enhancement-query.service");
@@ -114,11 +117,29 @@ function main() {
   const highLevelPayload = service.buildEnhancementPanelPayload(player, new Map());
   const highLevelCandidate = highLevelPayload.state.candidates.find((entry) => entry.item.itemId === "equip.high_level_blade");
   const expectedHighLevelRate = computeEnhancementAdjustedSuccessRate(1, 30, 30, 0);
+  const expectedHighLevelSpeedRate = computeEnhancementToolSpeedRate(undefined, 30, 30);
+  const expectedHighLevelDurationTicks = computeEnhancementJobTicks(30, expectedHighLevelSpeedRate);
   assert.equal(highLevelCandidate?.successRate, expectedHighLevelRate, "query success rate must follow main shared formula without capping role enhancement level at 20");
+  assert.equal(highLevelCandidate?.durationTicks, expectedHighLevelDurationTicks, "query duration must follow shared enhancement speed and duration formula");
 
   const runtimeService = new CraftPanelRuntimeService(repository, null, null, null, service);
   const runtimeCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", slotIndex: 0 }, highLevelTarget);
   assert.equal(runtimeCandidate?.successRate, expectedHighLevelRate, "runtime success rate must follow main shared formula without capping role enhancement level at 20");
+  assert.equal(runtimeCandidate?.durationTicks, expectedHighLevelDurationTicks, "runtime duration must follow shared enhancement speed and duration formula");
+
+  const nearMaxTarget = createEquipment("equip.near_max_blade", 1, { enhanceLevel: MAX_ENHANCE_LEVEL - 1 });
+  const maxedTarget = createEquipment("equip.maxed_blade", 1, { enhanceLevel: MAX_ENHANCE_LEVEL });
+  player.inventory.items = [nearMaxTarget, maxedTarget];
+  const maxLevelPayload = service.buildEnhancementPanelPayload(player, new Map());
+  assert.ok(
+    maxLevelPayload.state.candidates.some((entry) => entry.item.itemId === "equip.near_max_blade" && entry.nextLevel === MAX_ENHANCE_LEVEL),
+    "enhancement should allow targets up to MAX_ENHANCE_LEVEL",
+  );
+  assert.equal(
+    maxLevelPayload.state.candidates.some((entry) => entry.item.itemId === "equip.maxed_blade"),
+    false,
+    "enhancement should hide candidates already at MAX_ENHANCE_LEVEL",
+  );
 
   player.enhancementSkill.level = 8;
   player.enhancementSkillLevel = 8;

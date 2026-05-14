@@ -728,19 +728,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
-        const slotMap = new Map(Array.isArray(slots)
-            ? slots.filter((entry) => typeof entry?.slot === 'string' && entry.slot.trim()).map((entry) => [
-                entry.slot.trim(),
-                entry,
-            ])
-            : []);
-        player.equipment.slots = EQUIP_SLOTS.map((slot) => {
-            const entry = slotMap.get(slot) ?? null;
-            return {
-                slot,
-                item: entry?.item ? this.contentTemplateRepository.normalizeItem(entry.item) : null,
-            };
-        });
+        player.equipment.slots = normalizeEquipmentSlotsWithTemplates(slots, this.contentTemplateRepository);
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['equipment', 'attr']);
@@ -1876,11 +1864,12 @@ export class PlayerRuntimeService {
         if (!item) {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
-        if (!item.equipSlot) {
-            throw new NotFoundException(`物品 ${item.itemId} 不能装备`);
+        const normalizedItem = this.contentTemplateRepository.normalizeItem(item);
+        if (!normalizedItem.equipSlot) {
+            throw new NotFoundException(`物品 ${normalizedItem.itemId} 不能装备`);
         }
 
-        const slot = item.equipSlot;
+        const slot = normalizedItem.equipSlot;
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry) {
@@ -1893,7 +1882,7 @@ export class PlayerRuntimeService {
         }
 
         const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
-        equipmentEntry.item = { ...equippedItem };
+        equipmentEntry.item = this.contentTemplateRepository.normalizeItem(equippedItem);
         if (previousEquipped) {
             const previousSignature = createItemStackSignature(previousEquipped);
             const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === previousSignature);
@@ -3402,10 +3391,7 @@ export class PlayerRuntimeService {
             equipment: {
                 revision: Math.max(1, snapshot.equipment.revision),
                 slots: snapshot.equipment.slots.length > 0
-                    ? snapshot.equipment.slots.map((entry) => ({
-                        slot: entry.slot,
-                        item: entry.item ? this.contentTemplateRepository.normalizeItem(entry.item) : null,
-                    }))
+                    ? normalizeEquipmentSlotsWithTemplates(snapshot.equipment.slots, this.contentTemplateRepository)
                     : defaultEquipment,
             },
             techniques: {
@@ -6993,4 +6979,34 @@ function canonicalizeRuntimeBonusSource(source) {
         return `equipment:${normalized.slice('equip:'.length)}`;
     }
     return normalized;
+}
+
+function normalizeEquipmentSlotsWithTemplates(slots, contentTemplateRepository) {
+    const slotItems = new Map(EQUIP_SLOTS.map((slot) => [slot, null]));
+    if (Array.isArray(slots)) {
+        for (const entry of slots) {
+            const sourceSlot = typeof entry?.slot === 'string' ? entry.slot.trim() : '';
+            if (!EQUIP_SLOTS.includes(sourceSlot)) {
+                continue;
+            }
+            if (!entry?.item) {
+                continue;
+            }
+            const item = contentTemplateRepository.normalizeItem(entry.item);
+            const targetSlot = typeof item?.equipSlot === 'string' && EQUIP_SLOTS.includes(item.equipSlot)
+                ? item.equipSlot
+                : sourceSlot;
+            if (!slotItems.get(targetSlot)) {
+                slotItems.set(targetSlot, item);
+                continue;
+            }
+            if (!slotItems.get(sourceSlot)) {
+                slotItems.set(sourceSlot, item);
+            }
+        }
+    }
+    return EQUIP_SLOTS.map((slot) => ({
+        slot,
+        item: slotItems.get(slot) ?? null,
+    }));
 }

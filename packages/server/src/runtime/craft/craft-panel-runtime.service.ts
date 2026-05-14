@@ -6,7 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, applyAsymptoticSuccessModifier, applyEquipmentAttributeEffectivenessToItemStack, computeAdjustedCraftTicks, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
@@ -23,59 +23,14 @@ import { EnhancementStrategy } from './pipeline/strategies/enhancement.strategy'
 import { GatherStrategy } from './pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 
-/** 强化锤能力判定使用的物品标签。 */
-const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
-
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
-const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
 
 /** 炼丹任务开始后先经历的准备息数。 */
 const ALCHEMY_PREPARATION_TICKS = 10;
 
 /** 炼丹被打断后进入的暂停息数。 */
 const ALCHEMY_INTERRUPT_PAUSE_TICKS = 10;
-
-/** 强化等级上限。 */
-const MAX_ENHANCE_LEVEL = 20;
-
-/** 强化基础任务息数。 */
-const ENHANCEMENT_BASE_JOB_TICKS = 5;
-
-/** 每提升 1 级物品强化等级，额外增加的任务息数。 */
-const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
-
-/** 同级及以下装备强化时的额外成功率惩罚。 */
-const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
-
-/** 每提升 1 级装备带来的额外成功率修正。 */
-const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.002;
-
-/** 每提升 1 级装备带来的额外速度修正。 */
-const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
-
-const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
-    0.5,
-    0.45,
-    0.45,
-    0.4,
-    0.4,
-    0.4,
-    0.35,
-    0.35,
-    0.35,
-    0.35,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-    0.3,
-];
 
 /** 强化被打断后进入的暂停息数。 */
 const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
@@ -2976,17 +2931,6 @@ function normalizeEnhanceLevel(level) {
     return Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(level) || 0)));
 }
 /**
- * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
- * @param targetEnhanceLevel 参数说明。
- * @returns 无返回值，完成强化目标SuccessRate的读取/组装。
- */
-
-function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
-    const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
-    return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
-}
-/**
  * getEnhancementSpiritStoneCost：读取强化SpiritStone消耗。
  * @param itemLevel 参数说明。
  * @param hasMaterialCost 参数说明。
@@ -2997,55 +2941,3 @@ function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
     const level = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
     return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
 }
-/**
- * computeEnhancementToolSpeedRate：执行强化ToolSpeedRate相关逻辑。
- * @param toolBaseSpeedRate 参数说明。
- * @param roleEnhancementLevel 参数说明。
- * @param targetItemLevel 参数说明。
- * @returns 无返回值，直接更新强化ToolSpeedRate相关状态。
- */
-
-function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel, targetItemLevel) {
-    const baseSpeedRate = Number.isFinite(toolBaseSpeedRate) ? Number(toolBaseSpeedRate) : 0;
-    const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
-    const levelBonus = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel) * ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL;
-    return baseSpeedRate + levelBonus;
-}
-/**
- * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
- * @param itemLevel 参数说明。
- * @param speedRate 参数说明。
- * @returns 无返回值，直接更新强化Jobtick相关状态。
- */
-
-function computeEnhancementJobTicks(itemLevel, speedRate) {
-    return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
-}
-/**
- * computeEnhancementJobBaseTicks：执行强化JobBasetick相关逻辑。
- * @param itemLevel 参数说明。
- * @returns 无返回值，直接更新强化JobBasetick相关状态。
- */
-
-function computeEnhancementJobBaseTicks(itemLevel) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
-    return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
-}
-/**
- * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。
- * @param baseRate 参数说明。
- * @param modifier 参数说明。
- * @returns 无返回值，直接更新强化SuccessModifier相关状态。
- */
-
-function applyEnhancementSuccessModifier(baseRate, modifier) {
-    return applyAsymptoticSuccessModifier(baseRate, modifier);
-}
-/**
- * computeEnhancementAdjustedSuccessRate：执行强化AdjustedSuccessRate相关逻辑。
- * @param targetEnhanceLevel 参数说明。
- * @param roleEnhancementLevel 参数说明。
- * @param targetItemLevel 参数说明。
- * @param toolSuccessRateModifier 参数说明。
- * @returns 无返回值，直接更新强化AdjustedSuccessRate相关状态。
- */

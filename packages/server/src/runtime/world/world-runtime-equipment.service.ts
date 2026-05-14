@@ -40,9 +40,12 @@ export class WorldRuntimeEquipmentService {
         if (!item) {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
+        const normalizedItem = deps.contentTemplateRepository?.normalizeItem
+            ? deps.contentTemplateRepository.normalizeItem(item)
+            : item;
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const lockReason = item.equipSlot
-            ? deps.craftPanelRuntimeService.getLockedSlotReason(player, item.equipSlot)
+        const lockReason = normalizedItem.equipSlot
+            ? deps.craftPanelRuntimeService.getLockedSlotReason(player, normalizedItem.equipSlot)
             : null;
         if (lockReason) {
             throw new BadRequestException(lockReason);

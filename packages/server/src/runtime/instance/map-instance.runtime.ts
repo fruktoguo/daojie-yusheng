@@ -3,7 +3,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -3969,13 +3969,8 @@ class MapInstanceRuntime {
                 : null;
             const inTemplateBounds = x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
             if (inTemplateBounds) {
-                const staticType = getTileTypeFromMapChar(this.template.terrainRows[y]?.[x] ?? '#');
-                const staticSeed = resolveTileLayerSeedFromTemplateContext(staticType, x, y, (lookupX, lookupY) => {
-                    if (lookupX < 0 || lookupY < 0 || lookupX >= this.template.width || lookupY >= this.template.height) {
-                        return null;
-                    }
-                    return getTileTypeFromMapChar(this.template.terrainRows[lookupY]?.[lookupX] ?? '#');
-                });
+                const staticSeed = resolveTemplateLayerSeed(this.template, x, y);
+                const staticType = staticSeed.legacyTileType;
                 if (tileType === staticType
                     && layerState?.terrain === staticSeed.terrain
                     && (layerState?.surface ?? null) === staticSeed.surface
@@ -5774,10 +5769,10 @@ function resolveTileDurability(template, tileType, x = null, y = null, layerStat
         return Math.max(1, Math.trunc(100000 * Math.pow(2, Math.max(0, ring - 1))));
     }
 
-    const terrainRealmLv = Number.isFinite(template.source?.terrainRealmLv)
-        ? Math.max(1, Math.floor(Number(template.source.terrainRealmLv)))
+    const mapLv = Number.isFinite(template.source?.mapLv)
+        ? Math.max(1, Math.floor(Number(template.source.mapLv)))
         : 1;
-    return calculateTerrainDurability(terrainRealmLv, profile.multiplier);
+    return calculateTerrainDurability(mapLv, profile.multiplier);
 }
 /** clampCoordinate：把坐标夹到地图边界内。 */
 function clampCoordinate(value, size) {
@@ -7127,6 +7122,38 @@ function areInteractableKindListsEqual(left, right) {
         }
     }
     return true;
+}
+
+function resolveTemplateLayerSeed(template, x, y) {
+    if (hasTemplateLayerRows(template)
+        || Array.isArray(template?.surfaceRows)
+        || Array.isArray(template?.structureRows)
+        || Array.isArray(template?.interactableRows)) {
+        const legacyTileType = composeTileTypeFromLayers(
+            template.terrainRows?.[y]?.[x],
+            template.surfaceRows?.[y]?.[x] ?? null,
+            template.structureRows?.[y]?.[x] ?? null,
+            template.interactableRows?.[y]?.[x] ?? [],
+        );
+        return {
+            terrain: normalizeTerrainType(template.terrainRows?.[y]?.[x]),
+            surface: normalizeSurfaceType(template.surfaceRows?.[y]?.[x] ?? null),
+            structure: normalizeStructureType(template.structureRows?.[y]?.[x] ?? null),
+            interactables: Array.isArray(template.interactableRows?.[y]?.[x]) ? template.interactableRows[y][x] : [],
+            legacyTileType,
+        };
+    }
+    const staticType = getTileTypeFromMapChar(template.legacyTileRows?.[y]?.[x] ?? template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
+    return resolveTileLayerSeedFromTemplateContext(staticType, x, y, (lookupX, lookupY) => {
+        if (lookupX < 0 || lookupY < 0 || lookupX >= template.width || lookupY >= template.height) {
+            return null;
+        }
+        return getTileTypeFromMapChar(template.legacyTileRows?.[lookupY]?.[lookupX] ?? template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#');
+    });
+}
+
+function hasTemplateLayerRows(template) {
+    return Array.isArray(template?.terrainRows?.[0]);
 }
 function isIndoorSubspaceTemplate(template) {
     const source = template?.source ?? template ?? {};

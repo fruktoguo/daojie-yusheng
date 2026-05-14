@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "旧锻炉下方还压着一口没完全冷透的熔心矿锅，裸露的玄铁与灵矿碎光把整座矿腔都照得发暗。",
-  "dangerLevel": 4,
-  "recommendedRealm": "玉衡",
   "tiles": [
     "##################",
     "#oooo....铁铁....oo#",
@@ -77,5 +75,5 @@
       "y": 5
     }
   ],
-  "terrainRealmLv": 10
+  "mapLv": 10
 }

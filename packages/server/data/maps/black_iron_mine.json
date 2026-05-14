@@ -4,11 +4,9 @@
   "width": 48,
   "height": 48,
   "routeDomain": "system",
-  "terrainRealmLv": 6,
+  "mapLv": 6,
   "spaceVisionMode": "isolated",
   "description": "扩展为 48x48 的断矿旧道：西侧残轨仍接青竹林，中段旧锻炉台成了唯一能喘口气的避风点，怪物堵在通往各矿带的岔口上，矿区内部只留下零星灵石矿点与多段裸露玄铁矿层，方便沿矿带持续开采。",
-  "dangerLevel": 3,
-  "recommendedRealm": "养气-玉衡",
   "tiles": [
     "################################################",
     "######L###############################L#########",

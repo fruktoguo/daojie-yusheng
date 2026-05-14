@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "核心井内壁并未完全塌穿，残存云台与星纹环廊仍围着井心缓慢转动，像一座还在下坠的旧天门。",
-  "dangerLevel": 6,
-  "recommendedRealm": "叩仙门",
   "tiles": [
     "##################",
     "#空空空空霞霞霞霞空空空空云云云云#",
@@ -92,5 +90,5 @@
       "y": 5
     }
   ],
-  "terrainRealmLv": 18
+  "mapLv": 18
 }

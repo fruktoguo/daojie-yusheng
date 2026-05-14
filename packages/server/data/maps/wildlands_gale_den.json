@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "残碑背后的风蚀裂穴，骨堆与毒丝一层套一层，主路上被赶散的荒物最终都被逼进了这里。",
-  "dangerLevel": 3,
-  "recommendedRealm": "易筋",
   "tiles": [
     "##################",
     "#....,,,,崖崖..oo..#",
@@ -69,5 +67,5 @@
       "y": 2
     }
   ],
-  "terrainRealmLv": 4
+  "mapLv": 4
 }

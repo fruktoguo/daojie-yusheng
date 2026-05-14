@@ -68,8 +68,7 @@ function createService(
           floorLevel: null,
           floorName: null,
           spaceVisionMode: null,
-          dangerLevel: null,
-          recommendedRealm: null,
+          mapLv: 1,
           description: null,
         };
       },

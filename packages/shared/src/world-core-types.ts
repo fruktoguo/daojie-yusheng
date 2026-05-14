@@ -329,6 +329,11 @@ export interface MapMeta {
 
   playerOverlapPoints?: GridPoint[];
   /**
+ * mapLv：地图等级。
+ */
+
+  mapLv?: number;
+  /**
  * routeDomain：路线Domain相关字段。
  */
 
@@ -363,16 +368,6 @@ export interface MapMeta {
  */
 
   spaceVisionMode?: MapSpaceVisionMode;
-  /**
- * dangerLevel：danger等级数值。
- */
-
-  dangerLevel?: number;
-  /**
- * recommendedRealm：recommendedRealm相关字段。
- */
-
-  recommendedRealm?: string;
   /**
  * description：description相关字段。
  */

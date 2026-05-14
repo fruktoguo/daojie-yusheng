@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { composeTileTypeFromLayers, getMapCharFromTileType } from '@mud/shared';
 
 /** minimap 冷路径同步服务：负责 marker cache、构造、过滤与 diff。 */
 @Injectable()
@@ -15,7 +16,7 @@ export class WorldSyncMinimapService {
         return {
             width: template.width,
             height: template.height,
-            terrainRows: template.terrainRows.slice(),
+            terrainRows: buildLegacyTileRows(template),
             markers: this.buildMinimapMarkers(template),
         };
     }
@@ -40,6 +41,35 @@ export class WorldSyncMinimapService {
         return diffVisibleMinimapMarkers(previous, current);
     }
 };
+
+function buildLegacyTileRows(template) {
+    if (!hasTemplateLayerRows(template)
+        && !Array.isArray(template?.surfaceRows)
+        && !Array.isArray(template?.structureRows)
+        && !Array.isArray(template?.interactableRows)) {
+        return Array.isArray(template?.legacyTileRows) ? template.legacyTileRows.slice() : Array.isArray(template?.terrainRows) ? template.terrainRows.slice() : [];
+    }
+    const rows = [];
+    const width = Math.max(0, Math.trunc(Number(template.width) || 0));
+    const height = Math.max(0, Math.trunc(Number(template.height) || 0));
+    for (let y = 0; y < height; y += 1) {
+        let row = '';
+        for (let x = 0; x < width; x += 1) {
+            row += getMapCharFromTileType(composeTileTypeFromLayers(
+                template.terrainRows?.[y]?.[x],
+                template.surfaceRows?.[y]?.[x] ?? null,
+                template.structureRows?.[y]?.[x] ?? null,
+                template.interactableRows?.[y]?.[x] ?? [],
+            ));
+        }
+        rows.push(row);
+    }
+    return rows;
+}
+
+function hasTemplateLayerRows(template) {
+    return Array.isArray(template?.terrainRows?.[0]);
+}
 /**
  * buildMinimapMarkers：构建并返回目标对象。
  * @param template 参数说明。

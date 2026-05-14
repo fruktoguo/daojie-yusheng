@@ -6,8 +6,6 @@
   "routeDomain": "system",
   "spaceVisionMode": "isolated",
   "description": "青萝谷第四段子图。盘根内坳表面还给人留着外宽的空间，真往里走，盘根墙、木瘤地包和老藤拱门会把主路一口口收成喉道，越靠近深处越像被整片根系往心口挤。",
-  "dangerLevel": 4,
-  "recommendedRealm": "27-29级",
   "tiles": [
     "################################",
     "#,,,,,,,,TTTTTTTTTT,,,,,,,,,,,,#",
@@ -183,5 +181,5 @@
       ]
     }
   ],
-  "terrainRealmLv": 27
+  "mapLv": 27
 }

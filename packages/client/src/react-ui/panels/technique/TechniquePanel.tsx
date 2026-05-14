@@ -84,7 +84,7 @@ function getProgressRatio(tech: TechniqueState): number {
 
 function formatProgressText(tech: TechniqueState): string {
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
-  if (tech.level >= maxLevel) return t('technique.progress.max', undefined);
+  if (tech.level >= maxLevel) return t('technique.progress.max-level', undefined);
   return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
 }
 
@@ -169,12 +169,22 @@ export const TechniquePanel = memo(function TechniquePanel() {
                 previewPlayer={previewPlayer}
               />
             ))
-            : <div className="empty-hint">{t('technique.empty.filtered', undefined)}</div>}
+            : <div className="empty-hint">{resolveFilteredEmptyHint(statusFilter)}</div>}
         </div>
       </div>
     </div>
   );
 });
+
+function resolveFilteredEmptyHint(statusFilter: TechniqueStatusFilter): string {
+  if (statusFilter === 'in_progress') {
+    return t('technique.empty.no-in-progress', undefined);
+  }
+  if (statusFilter === 'completed') {
+    return t('technique.empty.no-completed', undefined);
+  }
+  return t('technique.empty.no-filtered', undefined);
+}
 
 // ─── Technique Card ──────────────────────────────────────────────────────────
 

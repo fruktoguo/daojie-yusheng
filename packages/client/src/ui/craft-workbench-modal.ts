@@ -21,6 +21,7 @@ import type {
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
   ALCHEMY_PREPARATION_TICKS,
+  EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
   applyEnhancementToItemStack,
   buildAlchemyIngredientCountMap,
@@ -390,6 +391,8 @@ export class CraftWorkbenchModal {
   private activeEnhancementHistorySessionKey: string | null = null;
   private enhancementHistoryExpanded = false;
   private enhancementProtectionExpanded = false;
+  private lastEnhancementRenderKey: string | null = null;
+  private lastEnhancementCandidateSourceKey: string | null = null;
   private readonly enhancementFormulaTooltip = new FloatingTooltip();
 
   /** @internal Sub-view delegates */
@@ -445,18 +448,20 @@ export class CraftWorkbenchModal {
   }
 
   syncInventory(inventory?: PlayerState['inventory']): void {
+    const previousCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
     if (inventory) {
       this.inventory = inventory;
     }
-    this.requestCurrentPanel();
+    this.requestCurrentPanelForExternalStateSync(previousCandidateSourceKey);
     this.syncAlchemyConfirmModal();
   }
 
   syncEquipment(equipment?: EquipmentSlots): void {
+    const previousCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
     if (equipment) {
       this.equipment = equipment;
     }
-    this.requestCurrentPanel();
+    this.requestCurrentPanelForExternalStateSync(previousCandidateSourceKey);
     this.syncAlchemyConfirmModal();
   }
 
@@ -490,6 +495,8 @@ export class CraftWorkbenchModal {
     this.enhancementResponseError = null;
     this.enhancementHistoryExpanded = false;
     this.enhancementProtectionExpanded = false;
+    this.lastEnhancementRenderKey = null;
+    this.lastEnhancementCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
     this.render();
     this.callbacks?.onRequestEnhancement();
   }
@@ -584,6 +591,7 @@ export class CraftWorkbenchModal {
       this.mergeServerEnhancementSessionRecord(data.state?.records ?? data.statePatch?.records ?? []);
     }
     this.enhancementPanel = this.mergeEnhancementPanel(data);
+    this.lastEnhancementCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
     if (typeof this.enhancementPanel.state?.enhancementSkillLevel === 'number') {
       this.enhancementSkillLevel = Math.max(1, Math.floor(this.enhancementPanel.state.enhancementSkillLevel));
     }
@@ -591,7 +599,7 @@ export class CraftWorkbenchModal {
     this.refreshOpenEnhancementHistoryModal();
     if (this.activeMode === 'enhancement') {
       this.loading = false;
-      if (data.statePatch) {
+      if (data.statePatch || this.shouldPatchEnhancementPanelRefresh()) {
         this.patchOpenCraftShell();
       } else {
         this.render();
@@ -664,6 +672,8 @@ export class CraftWorkbenchModal {
     this.activeEnhancementHistorySessionKey = null;
     this.enhancementHistoryExpanded = false;
     this.enhancementProtectionExpanded = false;
+    this.lastEnhancementRenderKey = null;
+    this.lastEnhancementCandidateSourceKey = null;
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
@@ -685,6 +695,52 @@ export class CraftWorkbenchModal {
     } else if (this.activeMode === 'enhancement') {
       this.callbacks?.onRequestEnhancement();
     }
+  }
+
+  private requestCurrentPanelForExternalStateSync(previousEnhancementCandidateSourceKey: string | null): void {
+    if (this.activeMode === 'enhancement' && this.enhancementPanel?.state) {
+      const nextCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
+      if (
+        previousEnhancementCandidateSourceKey !== null
+        && previousEnhancementCandidateSourceKey !== nextCandidateSourceKey
+        && this.lastEnhancementCandidateSourceKey !== nextCandidateSourceKey
+      ) {
+        this.lastEnhancementCandidateSourceKey = nextCandidateSourceKey;
+        this.callbacks?.onRequestEnhancement();
+        return;
+      }
+      if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+        this.patchOpenCraftShell();
+      }
+      return;
+    }
+    this.requestCurrentPanel();
+  }
+
+  private buildEnhancementCandidateSourceKey(): string {
+    const inventoryKey = this.inventory.items
+      .map((item, slotIndex) => this.buildEnhancementCandidateItemSourceKey(`inventory:${slotIndex}`, item))
+      .filter(Boolean)
+      .join('|');
+    const equipmentKey = EQUIP_SLOTS
+      .map((slot) => this.buildEnhancementCandidateItemSourceKey(`equipment:${slot}`, this.equipment[slot]))
+      .filter(Boolean)
+      .join('|');
+    return `${inventoryKey}::${equipmentKey}`;
+  }
+
+  private buildEnhancementCandidateItemSourceKey(sourceKey: string, item: ItemStack | null | undefined): string {
+    if (!item || item.type !== 'equipment') {
+      return '';
+    }
+    return [
+      sourceKey,
+      item.itemId,
+      Math.max(1, Math.floor(Number(item.count) || 1)),
+      normalizeEnhanceLevel(item.enhanceLevel),
+      Number(item.level) || 1,
+      item.equipSlot ?? '',
+    ].join('/');
   }
 
   private ensureAlchemySelection(): void {
@@ -772,6 +828,9 @@ export class CraftWorkbenchModal {
     if (!definition) {
       return;
     }
+    if (this.activeMode === 'enhancement') {
+      this.lastEnhancementRenderKey = this.buildEnhancementPanelRenderKey();
+    }
     if (this.useReactPanel()) {
       this.renderReact(definition);
       return;
@@ -850,28 +909,40 @@ export class CraftWorkbenchModal {
   }
 
   private tryPatchReactModal(
-    _body: HTMLElement,
+    body: HTMLElement,
     definition: { title: string; subtitle: string; variantClass: string; body: string },
     includeContent: boolean,
   ): boolean {
-    return detailModalHost.patch({
+    const reactHost = body.querySelector<HTMLElement>('[data-react-panel="craft"]');
+    if (includeContent && !reactHost) {
+      return detailModalHost.patch({
+        ownerId: CraftWorkbenchModal.MODAL_OWNER,
+        variantClass: definition.variantClass,
+        title: definition.title,
+        subtitle: definition.subtitle,
+        hint: t('craft.workbench.modal.close-hint'),
+        renderBody: (nextBody) => {
+          this.syncReactShell(definition, true);
+          mountReactCraftWorkbenchPanel(nextBody);
+        },
+        onAfterRender: (nextBody, signal) => {
+          this.bindReactCraftBody(nextBody, signal);
+        },
+      });
+    }
+    if (!detailModalHost.patch({
       ownerId: CraftWorkbenchModal.MODAL_OWNER,
       variantClass: definition.variantClass,
       title: definition.title,
       subtitle: definition.subtitle,
       hint: t('craft.workbench.modal.close-hint'),
-      renderBody: includeContent
-        ? (nextBody) => {
-          this.syncReactShell(definition, true);
-          mountReactCraftWorkbenchPanel(nextBody);
-        }
-        : undefined,
-      onAfterRender: includeContent
-        ? (nextBody, signal) => {
-          this.bindReactCraftBody(nextBody, signal);
-        }
-        : undefined,
-    });
+    })) {
+      return false;
+    }
+    if (includeContent) {
+      this.syncReactShell(definition, true);
+    }
+    return true;
   }
 
   private syncReactShell(
@@ -909,6 +980,36 @@ export class CraftWorkbenchModal {
       this.enhancementHistoryExpanded ? 'history' : '',
       this.enhancementProtectionExpanded ? 'protect' : '',
     ].join(':');
+  }
+
+  private shouldPatchEnhancementPanelRefresh(): boolean {
+    if (this.activeMode !== 'enhancement') {
+      return false;
+    }
+    const nextKey = this.buildEnhancementPanelRenderKey();
+    const previousKey = this.lastEnhancementRenderKey;
+    this.lastEnhancementRenderKey = nextKey;
+    return previousKey !== null && previousKey === nextKey;
+  }
+
+  private buildEnhancementPanelRenderKey(): string {
+    const state = this.enhancementPanel?.state ?? null;
+    const job = state?.job ?? null;
+    const candidateKeys = new Set(
+      (state?.candidates ?? []).map((entry) => buildEnhancementTargetKey(entry.ref)),
+    );
+    return [
+      this.loading ? 'loading' : 'ready',
+      this.enhancementResponseError ?? '',
+      job ? this.getEnhancementJobPatchKey(job) : 'idle',
+      [...candidateKeys].sort().join('|'),
+      this.selectedEnhancementTargetKey ?? '',
+      this.selectedEnhancementTargetLevel ?? '',
+      this.selectedEnhancementProtectionKey ?? '',
+      this.selectedEnhancementProtectionStartLevel ?? '',
+      this.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
+      this.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
+    ].join('::');
   }
 
   private bindReactCraftBody(body: HTMLElement, signal: AbortSignal): void {
@@ -1452,7 +1553,7 @@ export class CraftWorkbenchModal {
       return;
     }
     const min = Number(input.min || '0');
-    const max = Number(input.max || '999');
+    const max = input.max ? Number(input.max) : Number.POSITIVE_INFINITY;
     const current = Number(input.value || '0');
     const next = Math.max(min, Math.min(max, Math.floor((Number.isFinite(current) ? current : min) + delta)));
     input.value = String(next);
@@ -1467,7 +1568,7 @@ export class CraftWorkbenchModal {
     const targetLevelInput = body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input]');
     const targetLevel = Number(targetLevelInput?.value ?? String(candidate.nextLevel));
     if (Number.isFinite(targetLevel)) {
-      payload.targetLevel = Math.max(candidate.nextLevel, Math.min(20, Math.floor(targetLevel)));
+      payload.targetLevel = Math.max(candidate.nextLevel, Math.min(MAX_ENHANCE_LEVEL, Math.floor(targetLevel)));
     }
     if (!useProtection) {
       return payload;
@@ -1495,7 +1596,7 @@ export class CraftWorkbenchModal {
     const protectionStartInput = body.querySelector<HTMLInputElement>('[data-enhancement-protection-start-input]');
     const protectionStartLevel = Number(protectionStartInput?.value ?? '2');
     if (Number.isFinite(protectionStartLevel)) {
-      payload.protectionStartLevel = Math.max(2, Math.min(20, Math.floor(protectionStartLevel)));
+      payload.protectionStartLevel = Math.max(2, Math.min(MAX_ENHANCE_LEVEL, Math.floor(protectionStartLevel)));
     }
     return payload;
   }
@@ -2951,17 +3052,16 @@ export class CraftWorkbenchModal {
   private getEnhancementSessionHistoryDisplayRange(record: PlayerEnhancementRecord, currentTargetLevel?: number): { minLevel: number; maxLevel: number } {
     const startLevel = normalizeEnhanceLevel(record.startLevel);
     const initialTargetLevel = Math.max(startLevel + 1, Math.floor(Number(record.initialTargetLevel) || (startLevel + 1)));
-    const desiredTargetLevel = Math.max(initialTargetLevel, Math.floor(Number(record.desiredTargetLevel) || initialTargetLevel));
     const attemptedLevels = (record.levels ?? [])
       .map((entry) => Math.max(1, Math.floor(Number(entry.targetLevel) || 1)))
       .filter((entry) => Number.isFinite(entry) && entry > 0);
-    const minLevel = attemptedLevels.length > 0 ? Math.min(initialTargetLevel, ...attemptedLevels) : initialTargetLevel;
-    const maxLevel = Math.max(
-      minLevel,
-      desiredTargetLevel,
-      Math.max(0, Math.floor(Number(currentTargetLevel) || 0)),
-      ...attemptedLevels,
-    );
+    if (attemptedLevels.length === 0) {
+      const currentLevel = Math.max(0, Math.floor(Number(currentTargetLevel) || 0));
+      const displayLevel = currentLevel > 0 ? currentLevel : initialTargetLevel;
+      return { minLevel: displayLevel, maxLevel: displayLevel };
+    }
+    const minLevel = Math.min(...attemptedLevels);
+    const maxLevel = Math.max(...attemptedLevels);
     return { minLevel, maxLevel };
   }
 
@@ -3825,15 +3925,7 @@ export class CraftWorkbenchModal {
             : t('craft.workbench.alchemy.confirm.recipe-label.simple.alchemy')),
       }),
       bodyHtml: this.renderAlchemyConfirmBody(recipe, request.mode, state),
-      confirmLabel: t('craft.workbench.alchemy.confirm.start', {
-        modeLabel: isForging
-          ? t('craft.workbench.alchemy.confirm.mode.forging')
-          : t('craft.workbench.alchemy.confirm.mode.alchemy'),
-      }),
-      confirmDisabled: state.startDisabled,
-      onConfirm: () => {
-        this.submitAlchemyConfirm('replace');
-      },
+      hideActions: true,
       onClose: () => {
         this.confirmStartRequest = null;
       },

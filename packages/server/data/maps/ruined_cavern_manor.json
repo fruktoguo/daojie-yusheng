@@ -4,11 +4,9 @@
   "width": 18,
   "height": 12,
   "routeDomain": "system",
-  "terrainRealmLv": 43,
+  "mapLv": 43,
   "spaceVisionMode": "isolated",
   "description": "归藏阵核旁裂开的暗缝后面，藏着一座早就塌空的旧洞府。洞里没有陈设，只剩几块被压裂的残石和一口还未完全散尽的金丹余威。",
-  "dangerLevel": 6,
-  "recommendedRealm": "金丹一层",
   "tiles": [
     "##################",
     "#................#",

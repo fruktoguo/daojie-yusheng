@@ -2,6 +2,7 @@ import type { ItemStack } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../content/monster-locations';
+import { formatMapRecommendedRealmLabel } from '../utils/map-level-display';
 import { buildItemTooltipPayload } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
@@ -143,10 +144,10 @@ async function resolveTooltipPayload(node: HTMLElement) {
     };
   }
   return {
-    title: location.monsterName || fallbackName,
-    lines: [
-      `出没地图：${location.mapName}`,
-      ...(typeof location.dangerLevel === 'number' ? [`地图等级：${location.dangerLevel}`] : []),
+      title: location.monsterName || fallbackName,
+      lines: [
+        `出没地图：${location.mapName}`,
+      ...(typeof location.mapLv === 'number' ? [`推荐境界：${formatMapRecommendedRealmLabel(location.mapLv)}`] : []),
     ],
     asideCards: [],
     allowHtml: false,

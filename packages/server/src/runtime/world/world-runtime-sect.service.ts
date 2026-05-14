@@ -1681,7 +1681,7 @@ function buildSectMapDocument(sect) {
         height,
         routeDomain: `sect:${sect.sectId}`,
         terrainProfileId: 'sect_stone_domain',
-        terrainRealmLv: 1,
+        mapLv: 1,
         sectMap: true,
         sectId: sect.sectId,
         sectMark: normalizeOptionalString(sect.mark) || SECT_CORE_CHAR,

@@ -4,11 +4,9 @@
   "width": 48,
   "height": 48,
   "routeDomain": "system",
-  "terrainRealmLv": 4,
+  "mapLv": 4,
   "spaceVisionMode": "isolated",
   "description": "扩展为 48x48 的东门运材林路：西侧林口仍通云来镇，中段主路被狼群与翻倒运材车截断，南部竹潭蛇道和东南隐居地把第二章的调查、采胆与问路动线拆开。",
-  "dangerLevel": 2,
-  "recommendedRealm": "易筋-养气",
   "tiles": [
     "################################################",
     "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",

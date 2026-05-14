@@ -8,6 +8,7 @@ import {
   GmMapDocument,
   GmMapDropRecord,
   GmMapLandmarkRecord,
+  GmMapLayeredCellRecord,
   GmMapListRes,
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
@@ -25,6 +26,14 @@ import { parseQiResourceKey } from './qi';
 import { resolveMapGroupInfo } from './map-groups';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
 import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
+import {
+  InteractableKind,
+  StructureType,
+  SurfaceType,
+  TerrainType,
+  composeTileTypeFromLayers,
+  resolveTileLayerSeedFromTemplateContext,
+} from './map-layer-types';
 import {
   MapSpaceVisionMode,
   MapRouteDomain,
@@ -433,25 +442,36 @@ function syncPortalTiles(document: GmMapDocument): GmMapDocument {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
+  const interactableRows: InteractableKind[][][] | undefined = document.interactableRows?.map((row) => row.map((cell): InteractableKind[] => (
+    Array.isArray(cell)
+      ? cell.filter((kind) => kind !== InteractableKind.Portal && kind !== InteractableKind.Stairs)
+      : []
+  )));
   for (const portal of document.portals) {
     if (portal.hidden) continue;
     if (!rows[portal.y]?.[portal.x]) continue;
     rows[portal.y]![portal.x] = portal.kind === 'stairs' ? 'S' : 'P';
+    const interactableKind = portal.kind === 'stairs' ? InteractableKind.Stairs : InteractableKind.Portal;
+    const cell = interactableRows?.[portal.y]?.[portal.x];
+    if (cell && !cell.includes(interactableKind)) {
+      cell.push(interactableKind);
+    }
   }
   return {
     ...document,
     tiles: rows.map((row) => row.join('')),
+    interactableRows,
   };
 }
 
 /** 在出生点落在不可通行格时，向外搜索最近可走坐标作为兜底。 */
 function resolveNearestWalkablePointInDocument(
   document: GmMapDocument,
-  origin: {  
+  origin: {
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
@@ -476,11 +496,11 @@ function resolveNearestWalkablePointInDocument(
     y: Math.min(document.height - 1, Math.max(0, Math.floor(origin.y))),
   };
 
-  let portalFallback: {  
+  let portalFallback: {
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
@@ -492,7 +512,7 @@ function resolveNearestWalkablePointInDocument(
         const x = clamped.x + dx;
         const y = clamped.y + dy;
         if (x < 0 || x >= document.width || y < 0 || y >= document.height) continue;
-        const type = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
+        const type = getComposedTileTypeAt(document, x, y);
         if (type === TileType.Portal || type === TileType.Stairs) {
           portalFallback ??= { x, y };
           continue;
@@ -515,6 +535,198 @@ function repairEditableMapDocument(document: GmMapDocument): GmMapDocument {
   };
 }
 
+const TERRAIN_TYPE_SET = new Set(Object.values(TerrainType)) as ReadonlySet<TerrainType>;
+const SURFACE_TYPE_SET = new Set(Object.values(SurfaceType)) as ReadonlySet<SurfaceType>;
+const STRUCTURE_TYPE_SET = new Set(Object.values(StructureType)) as ReadonlySet<StructureType>;
+const INTERACTABLE_KIND_SET = new Set(Object.values(InteractableKind)) as ReadonlySet<InteractableKind>;
+
+function normalizeTerrainRowCell(value: unknown): TerrainType | null {
+  return typeof value === 'string' && TERRAIN_TYPE_SET.has(value as TerrainType)
+    ? value as TerrainType
+    : null;
+}
+
+function normalizeSurfaceRowCell(value: unknown): SurfaceType | null {
+  return typeof value === 'string' && SURFACE_TYPE_SET.has(value as SurfaceType)
+    ? value as SurfaceType
+    : null;
+}
+
+function normalizeStructureRowCell(value: unknown): StructureType | null {
+  return typeof value === 'string' && STRUCTURE_TYPE_SET.has(value as StructureType)
+    ? value as StructureType
+    : null;
+}
+
+function normalizeInteractableRowCell(value: unknown): InteractableKind[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const result: InteractableKind[] = [];
+  for (const entry of value) {
+    if (typeof entry === 'string' && INTERACTABLE_KIND_SET.has(entry as InteractableKind) && !result.includes(entry as InteractableKind)) {
+      result.push(entry as InteractableKind);
+    }
+  }
+  return result;
+}
+
+function normalizeTerrainRows(raw: unknown): TerrainType[][] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw.map((row) => Array.isArray(row) ? row.map((cell) => normalizeTerrainRowCell(cell) ?? TerrainType.Floor) : []);
+}
+
+function normalizeSurfaceRows(raw: unknown): (SurfaceType | null)[][] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw.map((row) => Array.isArray(row) ? row.map((cell) => normalizeSurfaceRowCell(cell)) : []);
+}
+
+function normalizeStructureRows(raw: unknown): (StructureType | null)[][] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw.map((row) => Array.isArray(row) ? row.map((cell) => normalizeStructureRowCell(cell)) : []);
+}
+
+function normalizeInteractableRows(raw: unknown): InteractableKind[][][] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw.map((row) => Array.isArray(row) ? row.map((cell) => normalizeInteractableRowCell(cell)) : []);
+}
+
+function buildLayeredRowsFromLegacyTiles(tiles: readonly string[], width: number, height: number): Pick<
+  GmMapDocument,
+  'terrainRows' | 'surfaceRows' | 'structureRows' | 'interactableRows'
+> {
+  const terrainRows: TerrainType[][] = [];
+  const surfaceRows: (SurfaceType | null)[][] = [];
+  const structureRows: (StructureType | null)[][] = [];
+  const interactableRows: InteractableKind[][][] = [];
+  for (let y = 0; y < height; y += 1) {
+    const terrainRow: TerrainType[] = [];
+    const surfaceRow: (SurfaceType | null)[] = [];
+    const structureRow: (StructureType | null)[] = [];
+    const interactableRow: InteractableKind[][] = [];
+    for (let x = 0; x < width; x += 1) {
+      const tileType = getTileTypeFromMapChar(tiles[y]?.[x] ?? '#');
+      const seed = resolveTileLayerSeedFromTemplateContext(tileType, x, y, (lookupX, lookupY) => {
+        if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
+          return null;
+        }
+        return getTileTypeFromMapChar(tiles[lookupY]?.[lookupX] ?? '#');
+      });
+      terrainRow.push(seed.terrain);
+      surfaceRow.push(seed.surface);
+      structureRow.push(seed.structure);
+      interactableRow.push([...seed.interactables]);
+    }
+    terrainRows.push(terrainRow);
+    surfaceRows.push(surfaceRow);
+    structureRows.push(structureRow);
+    interactableRows.push(interactableRow);
+  }
+  return { terrainRows, surfaceRows, structureRows, interactableRows };
+}
+
+function buildLayeredRowsFromDocument(source: Partial<GmMapDocument>, tiles: readonly string[], width: number, height: number): Pick<
+  GmMapDocument,
+  'terrainRows' | 'surfaceRows' | 'structureRows' | 'interactableRows'
+> {
+  const legacyRows = buildLayeredRowsFromLegacyTiles(tiles, width, height);
+  const layeredCells = normalizeEditableLayeredCells(source.layeredCells);
+  const sourceTerrainRows = normalizeTerrainRows(source.terrainRows);
+  const sourceSurfaceRows = normalizeSurfaceRows(source.surfaceRows);
+  const sourceStructureRows = normalizeStructureRows(source.structureRows);
+  const sourceInteractableRows = normalizeInteractableRows(source.interactableRows);
+  const terrainRows = legacyRows.terrainRows!.map((row) => row.slice());
+  const surfaceRows = legacyRows.surfaceRows!.map((row) => row.slice());
+  const structureRows = legacyRows.structureRows!.map((row) => row.slice());
+  const interactableRows = legacyRows.interactableRows!.map((row) => row.map((cell) => cell.slice()));
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (sourceTerrainRows?.[y]?.[x] !== undefined) terrainRows[y]![x] = sourceTerrainRows[y]![x]!;
+      if (sourceSurfaceRows?.[y]?.[x] !== undefined) surfaceRows[y]![x] = sourceSurfaceRows[y]![x]!;
+      if (sourceStructureRows?.[y]?.[x] !== undefined) structureRows[y]![x] = sourceStructureRows[y]![x]!;
+      if (sourceInteractableRows?.[y]?.[x] !== undefined) interactableRows[y]![x] = sourceInteractableRows[y]![x]!;
+      const cell = layeredCells?.[y]?.[x];
+      if (!cell) {
+        continue;
+      }
+      if (cell.terrain !== undefined) terrainRows[y]![x] = cell.terrain;
+      if (cell.surface !== undefined) surfaceRows[y]![x] = cell.surface;
+      if (cell.structure !== undefined) structureRows[y]![x] = cell.structure;
+      if (cell.interactables !== undefined) interactableRows[y]![x] = [...cell.interactables];
+    }
+  }
+  return { terrainRows, surfaceRows, structureRows, interactableRows };
+}
+
+function getComposedTileTypeAt(document: GmMapDocument, x: number, y: number): TileType {
+  return composeTileTypeFromLayers(
+    document.terrainRows?.[y]?.[x],
+    document.surfaceRows?.[y]?.[x] ?? null,
+    document.structureRows?.[y]?.[x] ?? null,
+    document.interactableRows?.[y]?.[x] ?? [],
+  );
+}
+
+/** 校验并清洗单个分层 cell。空对象/非法字段会被丢弃，缺省字段保持 undefined。 */
+function normalizeLayeredCell(raw: unknown): GmMapLayeredCellRecord | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+  const source = raw as Partial<GmMapLayeredCellRecord> & { interactables?: unknown };
+  const result: GmMapLayeredCellRecord = {};
+  if (typeof source.terrain === 'string' && TERRAIN_TYPE_SET.has(source.terrain as TerrainType)) {
+    result.terrain = source.terrain as TerrainType;
+  }
+  if (source.surface === null) {
+    result.surface = null;
+  } else if (typeof source.surface === 'string' && SURFACE_TYPE_SET.has(source.surface as SurfaceType)) {
+    result.surface = source.surface as SurfaceType;
+  }
+  if (source.structure === null) {
+    result.structure = null;
+  } else if (typeof source.structure === 'string' && STRUCTURE_TYPE_SET.has(source.structure as StructureType)) {
+    result.structure = source.structure as StructureType;
+  }
+  if (Array.isArray(source.interactables)) {
+    const interactables = source.interactables.filter(
+      (entry): entry is InteractableKind => typeof entry === 'string' && INTERACTABLE_KIND_SET.has(entry as InteractableKind),
+    );
+    if (interactables.length > 0) {
+      result.interactables = interactables;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+/** 校验并清洗 layeredCells 二维结构。非法行/cell 会被剔除，缺省时返回 undefined。 */
+export function normalizeEditableLayeredCells(raw: unknown): (GmMapLayeredCellRecord | null)[][] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  let hasAny = false;
+  const rows: (GmMapLayeredCellRecord | null)[][] = raw.map((row) => {
+    if (!Array.isArray(row)) {
+      return [] as (GmMapLayeredCellRecord | null)[];
+    }
+    return row.map((cell) => {
+      const normalized = normalizeLayeredCell(cell);
+      if (normalized) {
+        hasAny = true;
+      }
+      return normalized;
+    });
+  });
+  return hasAny ? rows : undefined;
+}
+
 /** 返回地图文档的深拷贝，避免编辑时直接改写原对象。 */
 export function cloneMapDocument(document: GmMapDocument): GmMapDocument {
   return clone(document);
@@ -527,24 +739,27 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const tiles = Array.isArray(source.tiles)
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
     : [];
+  const width = Number.isInteger(source.width) ? Number(source.width) : 0;
+  const height = Number.isInteger(source.height) ? Number(source.height) : 0;
+  const layeredRows = buildLayeredRowsFromDocument(source, tiles, width, height);
   const auras = Array.isArray(source.auras) ? source.auras : [];
-  const resources = Array.isArray((source as {  
+  const resources = Array.isArray((source as {
   /**
  * resources：resource相关字段。
  */
  resources?: unknown[] }).resources)
-    ? (source as {    
+    ? (source as {
     /**
  * resources：resource相关字段。
  */
  resources: unknown[] }).resources
     : [];
-  const safeZones = Array.isArray((source as {  
+  const safeZones = Array.isArray((source as {
   /**
  * safeZones：safeZone相关字段。
  */
  safeZones?: unknown[] }).safeZones)
-    ? (source as {    
+    ? (source as {
     /**
  * safeZones：safeZone相关字段。
  */
@@ -570,12 +785,12 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       resourceNodeGroups: unknown[];
     }).resourceNodeGroups
     : [];
-  const landmarks = Array.isArray((source as {  
+  const landmarks = Array.isArray((source as {
   /**
  * landmarks：landmark相关字段。
  */
  landmarks?: unknown[] }).landmarks)
-    ? (source as {    
+    ? (source as {
     /**
  * landmarks：landmark相关字段。
  */
@@ -602,23 +817,23 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     mapGroupName: mapGroup.mapGroupName,
     mapGroupOrder: mapGroup.mapGroupOrder,
     mapGroupMemberOrder: mapGroup.mapGroupMemberOrder,
-    width: Number.isInteger(source.width) ? Number(source.width) : 0,
-    height: Number.isInteger(source.height) ? Number(source.height) : 0,
-    routeDomain: normalizeMapRouteDomain((source as {    
+    width,
+    height,
+    routeDomain: normalizeMapRouteDomain((source as {
     /**
  * routeDomain：路线Domain相关字段。
  */
  routeDomain?: unknown }).routeDomain) ?? 'system',
-    terrainRealmLv: Number.isFinite((source as {    
+    mapLv: Number.isFinite((source as {
     /**
- * terrainRealmLv：terrainRealmLv相关字段。
+ * mapLv：mapLv相关字段。
  */
- terrainRealmLv?: unknown }).terrainRealmLv)
-      ? Math.max(1, Math.floor(Number((source as {      
+ mapLv?: unknown }).mapLv)
+      ? Math.max(1, Math.floor(Number((source as {
       /**
- * terrainRealmLv：terrainRealmLv相关字段。
+ * mapLv：mapLv相关字段。
  */
- terrainRealmLv?: number }).terrainRealmLv)))
+ mapLv?: number }).mapLv)))
       : undefined,
     parentMapId: typeof source.parentMapId === 'string' ? source.parentMapId : undefined,
     parentOriginX: Number.isInteger(source.parentOriginX) ? Number(source.parentOriginX) : undefined,
@@ -627,9 +842,11 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     floorName: typeof source.floorName === 'string' ? source.floorName : undefined,
     spaceVisionMode: normalizeMapSpaceVisionMode(source.spaceVisionMode, source.parentMapId),
     description: typeof source.description === 'string' ? source.description : undefined,
-    dangerLevel: Number.isFinite(source.dangerLevel) ? Number(source.dangerLevel) : undefined,
-    recommendedRealm: typeof source.recommendedRealm === 'string' ? source.recommendedRealm : undefined,
     tiles,
+    terrainRows: layeredRows.terrainRows?.map((row) => row.slice()),
+    surfaceRows: layeredRows.surfaceRows?.map((row) => row.slice()),
+    structureRows: layeredRows.structureRows?.map((row) => row.slice()),
+    interactableRows: layeredRows.interactableRows?.map((row) => row.map((cell) => cell.slice())),
     portals: portals.map((portal) => {
       const record = portal as GmMapPortalRecord;
       const x = Number(record.x ?? 0);
@@ -657,18 +874,18 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       };
     }),
     spawnPoint: {
-      x: Number((source.spawnPoint as {      
+      x: Number((source.spawnPoint as {
       /**
  * x：x相关字段。
  */
  x?: number } | undefined)?.x ?? 0),
-      y: Number((source.spawnPoint as {      
+      y: Number((source.spawnPoint as {
       /**
  * y：y相关字段。
  */
  y?: number } | undefined)?.y ?? 0),
     },
-    time: normalizeMapTimeConfig((source as {    
+    time: normalizeMapTimeConfig((source as {
     /**
  * time：时间相关字段。
  */
@@ -858,6 +1075,26 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     }
   }
 
+  const rowSets: Array<{ label: string; rows: readonly unknown[][] | undefined }> = [
+    { label: 'terrainRows', rows: document.terrainRows },
+    { label: 'surfaceRows', rows: document.surfaceRows },
+    { label: 'structureRows', rows: document.structureRows },
+    { label: 'interactableRows', rows: document.interactableRows },
+  ];
+  for (const rowSet of rowSets) {
+    if (!rowSet.rows) {
+      continue;
+    }
+    if (rowSet.rows.length !== document.height) {
+      return `${rowSet.label} 行数必须与高度一致`;
+    }
+    for (let y = 0; y < rowSet.rows.length; y += 1) {
+      if (!Array.isArray(rowSet.rows[y]) || rowSet.rows[y]!.length !== document.width) {
+        return `${rowSet.label} 第 ${y + 1} 行长度与地图宽度不一致`;
+      }
+    }
+  }
+
   const ensurePointInBounds = (x: number, y: number, label: string): string | null => {
     if (!Number.isInteger(x) || !Number.isInteger(y)) return `${label} 坐标必须为整数`;
     if (x < 0 || x >= document.width || y < 0 || y >= document.height) {
@@ -869,7 +1106,7 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
   const ensureWalkablePoint = (x: number, y: number, label: string): string | null => {
     const boundsError = ensurePointInBounds(x, y, label);
     if (boundsError) return boundsError;
-    const type = getTileTypeFromMapChar(document.tiles[y]![x]!);
+    const type = getComposedTileTypeAt(document, x, y);
     if (!isTileTypeWalkable(type)) {
       return `${label} 必须位于可通行地块`;
     }
@@ -1325,9 +1562,7 @@ export function buildEditableMapSummary(document: GmMapDocument): GmMapSummary {
     width: document.width,
     height: document.height,
     description: document.description,
-    terrainRealmLv: document.terrainRealmLv,
-    dangerLevel: document.dangerLevel,
-    recommendedRealm: document.recommendedRealm,
+    mapLv: document.mapLv,
     portalCount: document.portals.length,
     npcCount: document.npcs.length,
     monsterSpawnCount: document.monsterSpawns.length,

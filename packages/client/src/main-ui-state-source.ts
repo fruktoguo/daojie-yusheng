@@ -3,10 +3,9 @@ import { TechniqueRealm, VIEW_RADIUS } from '@mud/shared';
 import { getHeavenGateHudAction } from './ui/heaven-gate-modal';
 import type { HUD } from './ui/hud';
 import type { WorldPanel } from './ui/panels/world-panel';
-import { assessMapDanger } from './utils/map-danger';
 import { getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { formatZoom, refreshZoomChrome as syncZoomChrome } from './main-ui-helpers';
-import { MAP_FALLBACK } from './constants/world/world-panel';
+import { formatMapRecommendedRealmText } from './utils/map-level-display';
 /**
  * MainUiStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -17,66 +16,66 @@ type MainUiStateSourceOptions = {
  * hud：hud相关字段。
  */
 
-  hud: Pick<HUD, 'update'>;  
+  hud: Pick<HUD, 'update'>;
   /**
  * worldPanel：世界面板相关字段。
  */
 
-  worldPanel: Pick<WorldPanel, 'update' | 'clear'>;  
+  worldPanel: Pick<WorldPanel, 'update' | 'clear'>;
   /**
  * mapRuntime：地图运行态引用。
  */
 
-  mapRuntime: {  
+  mapRuntime: {
   /**
  * getMapMeta：地图Meta相关字段。
  */
 
-    getMapMeta: () => {    
+    getMapMeta: () => {
     /**
  * name：名称名称或显示文本。
  */
- name?: string;    
+ name?: string;
  /**
- * recommendedRealm：recommendedRealm相关字段。
+ * mapLv：地图等级。
  */
- recommendedRealm?: string } | null;    
+ mapLv?: number } | null;
  /**
  * setZoom：Zoom相关字段。
  */
 
     setZoom: (zoom: number) => void;
-  };  
+  };
   /**
  * zoomSlider：zoomSlider相关字段。
  */
 
-  zoomSlider: HTMLInputElement | null;  
+  zoomSlider: HTMLInputElement | null;
   /**
  * zoomLevelEl：zoom等级El相关字段。
  */
 
-  zoomLevelEl: HTMLElement | null;  
+  zoomLevelEl: HTMLElement | null;
   /**
  * resizeCanvas：resizeCanva相关字段。
  */
 
-  resizeCanvas: () => void;  
+  resizeCanvas: () => void;
   /**
  * documentRef：documentRef相关字段。
  */
 
-  documentRef: Document;  
+  documentRef: Document;
   /**
  * showToastEl：showToastEl相关字段。
  */
 
-  showToastEl: HTMLElement | null;  
+  showToastEl: HTMLElement | null;
   /**
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => PlayerState | null;  
+  getPlayer: () => PlayerState | null;
 };
 /**
  * MainUiStateSource：统一结构类型，保证协议与运行时一致性。
@@ -92,7 +91,7 @@ export type MainUiStateSource = ReturnType<typeof createMainUiStateSource>;
 
 
 export function createMainUiStateSource(options: MainUiStateSourceOptions) {
-  let pendingLayoutViewportSync = false;  
+  let pendingLayoutViewportSync = false;
   let toastHideTimer: ReturnType<typeof window.setTimeout> | null = null;
   function getTopTechniqueByRealm(player: PlayerState): PlayerState['techniques'][number] | undefined {
     let top = player.techniques[0];
@@ -137,7 +136,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       [TechniqueRealm.Perfection]: '半步修真',
     };
     return labels[top.realm] ?? '修行中';
-  }  
+  }
   /**
  * resolveTitleLabel：规范化或转换TitleLabel。
  * @param player PlayerState 玩家对象。
@@ -157,7 +156,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     if (top.realm >= TechniqueRealm.Major) return '先天气成';
     if (top.realm >= TechniqueRealm.Minor) return '游历武者';
     return '见习弟子';
-  }  
+  }
   /**
  * hasSelectionWithin：判断SelectionWithin是否满足条件。
  * @param root HTMLElement | null 参数说明。
@@ -174,7 +173,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     const anchor = selection.anchorNode;
     const focus = selection.focusNode;
     return !!anchor && !!focus && root.contains(anchor) && root.contains(focus);
-  }  
+  }
   /**
  * shouldPauseWorldPanelRefresh：判断Pause世界面板Refresh是否满足条件。
  * @returns 返回是否满足Pause世界面板Refresh条件。
@@ -185,7 +184,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     return hasSelectionWithin(options.documentRef.getElementById('layout-center'));
   }
 
-  return {  
+  return {
   /**
  * showToast：执行showToast相关逻辑。
  * @param message string 参数说明。
@@ -219,7 +218,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
         el.classList.add('hidden');
         toastHideTimer = null;
       }, durationMs);
-    },    
+    },
     /**
  * refreshZoomChrome：执行refreshZoomChrome相关逻辑。
  * @param zoom 参数说明。
@@ -229,7 +228,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
 
     refreshZoomChrome(zoom = getZoom()): void {
       syncZoomChrome(zoom, options.zoomSlider, options.zoomLevelEl);
-    },    
+    },
     /**
  * refreshZoomViewport：执行refreshZoomViewport相关逻辑。
  * @returns 无返回值，直接更新refreshZoomViewport相关状态。
@@ -239,7 +238,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     refreshZoomViewport(): void {
       options.resizeCanvas();
       options.mapRuntime.setZoom(getZoom());
-    },    
+    },
     /**
  * applyZoomChange：处理ZoomChange并更新相关状态。
  * @param nextZoom number 参数说明。
@@ -258,7 +257,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
         options.mapRuntime.setZoom(getZoom());
       }
       return zoom;
-    },    
+    },
     /**
  * resolveMapDanger：规范化或转换地图Danger。
  * @returns 返回地图Danger。
@@ -268,13 +267,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     resolveMapDanger(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      const player = options.getPlayer();
-      const fallback = player ? MAP_FALLBACK[player.mapId] : undefined;
-      if (!player) {
-        return '未知';
-      }
-      return assessMapDanger(player, options.mapRuntime.getMapMeta()?.recommendedRealm, fallback?.recommendedRealm).dangerLabel;
-    },    
+      const mapLv = Number(options.mapRuntime.getMapMeta()?.mapLv);
+      return formatMapRecommendedRealmText(mapLv);
+    },
     /**
  * refreshHudChrome：执行refreshHudChrome相关逻辑。
  * @returns 无返回值，直接更新refreshHudChrome相关状态。
@@ -296,7 +291,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
         showRealmAction: heavenGateAction?.visible,
         titleLabel: resolveTitleLabel(player),
       });
-    },    
+    },
     /**
  * refreshUiChrome：执行refreshUiChrome相关逻辑。
  * @returns 无返回值，直接更新refreshUiChrome相关状态。
@@ -315,7 +310,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
         player,
         mapMeta: options.mapRuntime.getMapMeta() as never,
       });
-    },    
+    },
     /**
  * getInfoRadius：读取InfoRadiu。
  * @param currentTimeState GameTimeState | null 参数说明。
@@ -335,7 +330,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
         return Math.max(1, Math.round(currentTimeState.effectiveViewRange));
       }
       return baseViewRange;
-    },    
+    },
     /**
  * scheduleLayoutViewportSync：处理scheduleLayoutViewport同步并更新相关状态。
  * @returns 无返回值，直接更新scheduleLayoutViewportSync相关状态。

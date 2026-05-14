@@ -38,8 +38,6 @@
       "targetPortalId": "yunlai_town:16,39"
     }
   ],
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "spawnPoint": {
     "x": 9,
     "y": 9
@@ -284,5 +282,5 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainRealmLv": 1
+  "mapLv": 1
 }

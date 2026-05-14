@@ -720,6 +720,7 @@ function main() {
     overlay: true,
   });
   assert.ok(observe.overlay);
+  assertWangQiObserveRespectsPlayerView();
   const deconstructResult = WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
     buildingId: placeResult.building.id,
@@ -737,6 +738,113 @@ function main() {
   assert.equal(commandInstance.repairBuildingRoomFengShuiState().ok, true);
 
   console.log("world-runtime-building-room-fengshui-smoke passed");
+}
+
+function assertWangQiObserveRespectsPlayerView() {
+  const playerId = "player:wangqi:fov";
+  const visibleRoom = createRoomSummary("room:visible", 1, 1);
+  const hiddenRoom = createRoomSummary("room:hidden", 2, 1);
+  const visibleSnapshot = createFengShuiSnapshot("room:visible", 10);
+  const hiddenSnapshot = createFengShuiSnapshot("room:hidden", -20);
+  const instance = {
+    meta: { instanceId: "test:wangqi:fov" },
+    playersById: new Map([[playerId, { playerId, x: 1, y: 1 }]]),
+    tilePlane: {
+      getCellCount: () => 2,
+      getX: (cellIndex) => cellIndex === 0 ? 1 : 2,
+      getY: () => 1,
+    },
+    roomIdByCell: Int32Array.from([1, 2]),
+    roomIdsByHandle: [undefined, "room:visible", "room:hidden"],
+    roomsById: new Map([
+      ["room:visible", visibleRoom],
+      ["room:hidden", hiddenRoom],
+    ]),
+    fengShuiByRoomId: new Map([
+      ["room:visible", visibleSnapshot],
+      ["room:hidden", hiddenSnapshot],
+    ]),
+    getPersistenceRevision: () => 1,
+    isInBounds: (x, y) => (x === 1 || x === 2) && y === 1,
+    toTileIndex: (x, y) => (x === 1 && y === 1 ? 0 : x === 2 && y === 1 ? 1 : -1),
+    getFengShuiSnapshot: (roomId) => roomId === "room:visible" ? visibleSnapshot : roomId === "room:hidden" ? hiddenSnapshot : null,
+    getFengShuiSnapshotAt: (x, y) => x === 1 && y === 1 ? visibleSnapshot : x === 2 && y === 1 ? hiddenSnapshot : null,
+  };
+  const runtime = Object.create(WorldRuntimeService.prototype);
+  runtime.playerRuntimeService = {
+    getPlayer: (id) => id === playerId ? { playerId } : null,
+  };
+  runtime.getPlayerLocationOrThrow = () => ({ instanceId: instance.meta.instanceId });
+  runtime.getInstanceRuntimeOrThrow = () => instance;
+  runtime.getPlayerView = () => ({
+    visibleTileIndices: [0],
+    visibleTileKeys: ["1,1"],
+  });
+
+  const overlayView = WorldRuntimeService.prototype.buildFengShuiObserveView.call(runtime, playerId, {
+    x: 2,
+    y: 1,
+    overlay: true,
+  });
+  assert.deepEqual(overlayView.overlay.cells.map((cell) => `${cell.x},${cell.y}`), ["1,1"]);
+  assert.equal(overlayView.detail, null);
+
+  const hiddenRoomView = WorldRuntimeService.prototype.buildFengShuiObserveView.call(runtime, playerId, {
+    roomId: "room:hidden",
+    overlay: false,
+  });
+  assert.equal(hiddenRoomView.detail, null);
+
+  const visibleRoomView = WorldRuntimeService.prototype.buildFengShuiObserveView.call(runtime, playerId, {
+    roomId: "room:visible",
+    overlay: false,
+  });
+  assert.equal(visibleRoomView.detail?.room.id, "room:visible");
+}
+
+function createRoomSummary(id, x, y) {
+  return {
+    id,
+    instanceId: "test:wangqi:fov",
+    role: "generic",
+    enclosed: true,
+    semiOutdoor: false,
+    minX: x,
+    minY: y,
+    maxX: x,
+    maxY: y,
+    area: 1,
+    perimeter: 4,
+    doorCount: 0,
+    windowCount: 0,
+    roofCoverageRatio: 100,
+    roomHash: id,
+    topologyRevision: 1,
+    contentRevision: 1,
+    updatedAtTick: 1,
+  };
+}
+
+function createFengShuiSnapshot(roomId, score) {
+  return {
+    instanceId: "test:wangqi:fov",
+    roomId,
+    score,
+    grade: score >= 0 ? "plain" : "bad",
+    primaryElement: "earth",
+    functionElement: "earth",
+    shapeScore: 0,
+    enclosureScore: 0,
+    qiScore: 0,
+    shaScore: 0,
+    comfortScore: 0,
+    integrityScore: 0,
+    elementScore: 0,
+    formationScore: 0,
+    reasons: [],
+    revision: 1,
+    updatedAtTick: 1,
+  };
 }
 
 function createAggregate(roomId) {

@@ -4,27 +4,23 @@ export interface MonsterLocationEntry {
  * monsterId：怪物ID标识。
  */
 
-  monsterId: string;  
+  monsterId: string;
   /**
  * monsterName：怪物名称名称或显示文本。
  */
 
-  monsterName: string;  
+  monsterName: string;
   /**
  * mapId：地图ID标识。
  */
 
-  mapId: string;  
+  mapId: string;
   /**
  * mapName：地图名称名称或显示文本。
  */
 
-  mapName: string;  
-  /**
- * dangerLevel：danger等级数值。
- */
-
-  dangerLevel?: number;  
+  mapName: string;
+  mapLv?: number;
   /**
  * totalMaps：total地图相关字段。
  */

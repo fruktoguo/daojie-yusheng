@@ -487,6 +487,195 @@
           }
         ]
       }
+    },
+    {
+      "id": "landmark.herb.frostblade_frost_crystal",
+      "kind": "landmark_container",
+      "name": "霜刃晶",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 100,
+        "refreshTicksMax": 150,
+        "char": "晶",
+        "color": "#a8d4f0",
+        "drops": [
+          {
+            "itemId": "mat.frost_crystal",
+            "name": "霜刃晶",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.frostblade_cold_iron_shard",
+      "kind": "landmark_container",
+      "name": "寒铁碎",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 100,
+        "refreshTicksMax": 150,
+        "char": "铁",
+        "color": "#6a8090",
+        "drops": [
+          {
+            "itemId": "mat.cold_iron_shard",
+            "name": "寒铁碎",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.frostblade_deepwater_moss",
+      "kind": "landmark_container",
+      "name": "渊水苔",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 120,
+        "refreshTicksMax": 180,
+        "char": "苔",
+        "color": "#4a8a7a",
+        "drops": [
+          {
+            "itemId": "mat.deepwater_moss",
+            "name": "渊水苔",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.blazewood_ember_branch",
+      "kind": "landmark_container",
+      "name": "余烬枝",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 100,
+        "refreshTicksMax": 150,
+        "char": "枝",
+        "color": "#c87030",
+        "drops": [
+          {
+            "itemId": "mat.ember_branch",
+            "name": "余烬枝",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.blazewood_fire_seed",
+      "kind": "landmark_container",
+      "name": "焚灵种",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 120,
+        "refreshTicksMax": 170,
+        "char": "种",
+        "color": "#e05030",
+        "drops": [
+          {
+            "itemId": "mat.fire_seed",
+            "name": "焚灵种",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.blazewood_charwood_heart",
+      "kind": "landmark_container",
+      "name": "焦木心",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 130,
+        "refreshTicksMax": 180,
+        "char": "心",
+        "color": "#5a3820",
+        "drops": [
+          {
+            "itemId": "mat.charwood_heart",
+            "name": "焦木心",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.darksoil_vein_stone",
+      "kind": "landmark_container",
+      "name": "玄壤精土",
+      "container": {
+        "variant": "herb",
+        "grade": "heaven",
+        "refreshTicksMin": 150,
+        "refreshTicksMax": 220,
+        "char": "土",
+        "color": "#7a6040",
+        "drops": [
+          {
+            "itemId": "mat.darksoil_refined_earth",
+            "name": "玄壤精土",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.darksoil_mixed_crystal",
+      "kind": "landmark_container",
+      "name": "混元脉石",
+      "container": {
+        "variant": "herb",
+        "grade": "heaven",
+        "refreshTicksMin": 180,
+        "refreshTicksMax": 260,
+        "char": "脉",
+        "color": "#8060a0",
+        "drops": [
+          {
+            "itemId": "mat.mixed_vein_stone",
+            "name": "混元脉石",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.darksoil_abyss_mud",
+      "kind": "landmark_container",
+      "name": "深渊灵泥",
+      "container": {
+        "variant": "herb",
+        "grade": "heaven",
+        "refreshTicksMin": 200,
+        "refreshTicksMax": 300,
+        "char": "泥",
+        "color": "#4a3828",
+        "drops": [
+          {
+            "itemId": "mat.abyss_spirit_mud",
+            "name": "深渊灵泥",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
     }
   ]
 }

@@ -25,7 +25,13 @@ import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getLocalItemTemplate, getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
-import { ACTION_SHORTCUTS_CHANGED_EVENT, ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import {
+  ACTION_SHORTCUTS_CHANGED_EVENT,
+  ACTION_SHORTCUTS_KEY,
+  ACTION_SKILL_PRESETS_KEY,
+  RETURN_TO_SPAWN_ACTION_ID,
+  getStaticClientActionDef,
+} from '../../constants/ui/action';
 import { formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
 import {
@@ -1103,6 +1109,7 @@ export class ActionPanel {
     this.bindActionExecEvents(this.pane, signal);
     this.bindBindActionEvents(this.pane, signal);
     this.bindAutoBattleToggleEvents(this.pane, signal);
+    this.bindSkillEnabledToggleEvents(this.pane, signal);
     this.bindAutoBattleDragEvents(this.pane, signal);
   }
 
@@ -1197,11 +1204,17 @@ export class ActionPanel {
     if (!normalized) return;
     const actionId = [...this.shortcutBindings.entries()].find(([, binding]) => binding === normalized)?.[0];
     if (!actionId) return;
-    const action = this.currentActions.find((entry) => entry.id === actionId);
+    const action = this.resolveShortcutAction(actionId);
     if (!action || action.cooldownLeft > 0) return;
     if (action.type === 'skill' && action.skillEnabled === false) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
+  }
+
+  /** 快捷键允许命中当前动作列表，也允许命中客户端稳定静态入口。 */
+  private resolveShortcutAction(actionId: string): ActionDef | null {
+    return this.currentActions.find((entry) => entry.id === actionId)
+      ?? getStaticClientActionDef(actionId);
   }
 
   /** 在动作标题旁补一枚快捷键标记。 */
@@ -2227,7 +2240,7 @@ export class ActionPanel {
   }
 
   /** 绑定技能启用开关按钮。 */
-  private bindSkillEnabledToggleEvents(root: HTMLElement): void {
+  private bindSkillEnabledToggleEvents(root: HTMLElement, signal: AbortSignal): void {
     root.querySelectorAll<HTMLElement>('[data-skill-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -2235,7 +2248,7 @@ export class ActionPanel {
         const actionId = button.dataset.skillEnabledToggle;
         if (!actionId) return;
         this.toggleSkillEnabled(actionId);
-      });
+      }, { signal });
     });
   }
 

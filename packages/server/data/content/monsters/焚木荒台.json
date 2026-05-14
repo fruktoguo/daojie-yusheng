@@ -1,0 +1,384 @@
+[
+  {
+    "id": "m_flame_tail_fox",
+    "name": "焰尾狐",
+    "char": "狐",
+    "color": "#e8a040",
+    "grade": "mystic",
+    "tier": "demon_soldier",
+    "level": 35,
+    "count": 5,
+    "maxAlive": 5,
+    "radius": 6,
+    "aggroRange": 6,
+    "respawnSec": 17,
+    "skills": [
+      "skill.flame_pounce",
+      "skill.fire_tail_sweep"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.flame_fox_fur",
+        "name": "焰狐皮",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.fire_fox_core",
+        "name": "焰狐火核",
+        "type": "material",
+        "count": 1,
+        "chance": 0.25
+      }
+    ],
+    "attrTendency": {
+      "constitution": 90,
+      "spirit": 105,
+      "perception": 120,
+      "talent": 100,
+      "strength": 95,
+      "meridians": 90
+    },
+    "statTendency": {
+      "maxQi": 95,
+      "physAtk": 105,
+      "spellAtk": 110,
+      "physDef": 85,
+      "spellDef": 95,
+      "hit": 115,
+      "dodge": 125,
+      "crit": 115,
+      "breakPower": 100,
+      "resolvePower": 85,
+      "maxQiOutputPerTick": 110,
+      "moveSpeed": 140
+    }
+  },
+  {
+    "id": "m_charwood_walker",
+    "name": "枯木行者",
+    "char": "枯",
+    "color": "#6b5030",
+    "grade": "mystic",
+    "tier": "demon_soldier",
+    "level": 36,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 5,
+    "respawnSec": 18,
+    "skills": [
+      "skill.root_bind",
+      "skill.charwood_slam"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.charwood_bark",
+        "name": "焦木皮",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.living_charcoal",
+        "name": "活炭",
+        "type": "material",
+        "count": 1,
+        "chance": 0.3
+      }
+    ],
+    "attrTendency": {
+      "constitution": 120,
+      "spirit": 90,
+      "perception": 85,
+      "talent": 95,
+      "strength": 115,
+      "meridians": 95
+    },
+    "statTendency": {
+      "maxQi": 115,
+      "physAtk": 110,
+      "spellAtk": 85,
+      "physDef": 118,
+      "spellDef": 100,
+      "hit": 100,
+      "dodge": 75,
+      "crit": 90,
+      "breakPower": 108,
+      "resolvePower": 112,
+      "maxQiOutputPerTick": 95,
+      "moveSpeed": 85
+    }
+  },
+  {
+    "id": "m_blaze_lizard",
+    "name": "烈焰蜥",
+    "char": "蜥",
+    "color": "#d04020",
+    "grade": "earth",
+    "tier": "demon_general",
+    "level": 37,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 4,
+    "aggroRange": 7,
+    "respawnSec": 35,
+    "skills": [
+      "skill.flame_breath",
+      "skill.molten_charge",
+      "skill.fire_regeneration"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.blaze_lizard_scale",
+        "name": "烈焰蜥鳞",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.fire_lizard_blood",
+        "name": "焰蜥精血",
+        "type": "material",
+        "count": 1,
+        "chance": 0.35
+      },
+      {
+        "itemId": "mat.molten_core_shard",
+        "name": "熔核碎片",
+        "type": "material",
+        "count": 1,
+        "chance": 0.12
+      }
+    ],
+    "attrTendency": {
+      "constitution": 115,
+      "spirit": 100,
+      "perception": 95,
+      "talent": 105,
+      "strength": 118,
+      "meridians": 67
+    },
+    "statTendency": {
+      "maxQi": 115,
+      "physAtk": 120,
+      "spellAtk": 105,
+      "physDef": 110,
+      "spellDef": 100,
+      "hit": 108,
+      "dodge": 95,
+      "crit": 105,
+      "breakPower": 112,
+      "resolvePower": 105,
+      "maxQiOutputPerTick": 108,
+      "moveSpeed": 105
+    }
+  },
+  {
+    "id": "m_vine_flame_serpent",
+    "name": "藤焰蟒",
+    "char": "蟒",
+    "color": "#8b6020",
+    "grade": "earth",
+    "tier": "demon_general",
+    "level": 37,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 7,
+    "respawnSec": 38,
+    "skills": [
+      "skill.vine_constrict",
+      "skill.flame_venom",
+      "skill.wood_fire_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.vine_serpent_tendon",
+        "name": "藤蟒筋",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.flame_venom_sac",
+        "name": "焰毒囊",
+        "type": "material",
+        "count": 1,
+        "chance": 0.3
+      },
+      {
+        "itemId": "mat.wood_fire_essence",
+        "name": "木火精华",
+        "type": "material",
+        "count": 1,
+        "chance": 0.1
+      }
+    ],
+    "attrTendency": {
+      "constitution": 110,
+      "spirit": 105,
+      "perception": 100,
+      "talent": 98,
+      "strength": 108,
+      "meridians": 79
+    },
+    "statTendency": {
+      "maxQi": 112,
+      "physAtk": 108,
+      "spellAtk": 112,
+      "physDef": 105,
+      "spellDef": 108,
+      "hit": 110,
+      "dodge": 100,
+      "crit": 98,
+      "breakPower": 105,
+      "resolvePower": 110,
+      "maxQiOutputPerTick": 105,
+      "moveSpeed": 95
+    }
+  },
+  {
+    "id": "m_blazewood_king",
+    "name": "焚木妖王",
+    "char": "王",
+    "color": "#ff6020",
+    "grade": "heaven",
+    "tier": "demon_king",
+    "level": 38,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 9,
+    "respawnSec": 120,
+    "skills": [
+      "skill.inferno_roar",
+      "skill.root_prison",
+      "skill.wood_fire_storm",
+      "skill.phoenix_rebirth"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.blazewood_king_heartwood",
+        "name": "焚王心木",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.blazewood_king_ember",
+        "name": "焚王余烬",
+        "type": "material",
+        "count": 1,
+        "chance": 0.5
+      },
+      {
+        "itemId": "mat.wood_fire_dao_seed",
+        "name": "木火道种",
+        "type": "material",
+        "count": 1,
+        "chance": 0.08
+      }
+    ],
+    "attrTendency": {
+      "constitution": 125,
+      "spirit": 115,
+      "perception": 95,
+      "talent": 110,
+      "strength": 120,
+      "meridians": 35
+    },
+    "statTendency": {
+      "maxQi": 130,
+      "physAtk": 125,
+      "spellAtk": 120,
+      "physDef": 115,
+      "spellDef": 110,
+      "hit": 112,
+      "dodge": 85,
+      "crit": 105,
+      "breakPower": 118,
+      "resolvePower": 120,
+      "maxQiOutputPerTick": 115,
+      "moveSpeed": 90
+    }
+  }
+]

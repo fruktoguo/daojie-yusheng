@@ -22,7 +22,7 @@ export const ActionPanel = memo(function ActionPanel() {
 
   useLayoutEffect(() => {
     afterContentRender?.();
-  }, [state.contentKey]);
+  }, [state.contentKey, state.html]);
 
   return (
     <div

@@ -4,11 +4,9 @@
   "width": 60,
   "height": 60,
   "routeDomain": "system",
-  "terrainRealmLv": 19,
+  "mapLv": 19,
   "spaceVisionMode": "isolated",
   "description": "练气期主城栖真渡重做为三重错台与折线街巷：北侧压基坪和听脉台像被硬抬起来的接引石台，中轴大道压住渡心堂，西边百工巷靠炉棚与拆件院层层咬合，东边静气坊顺着水线半围出静院，南段行修街则用棚街和摊巷把火路收住，整体更像一座被临时秩序勉强束成形的前线渡城。",
-  "dangerLevel": 2,
-  "recommendedRealm": "练气一层-半步筑基",
   "tiles": [
     "############################################################",
     "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
@@ -166,8 +164,8 @@
       "x": 29,
       "y": 9,
       "targetMapId": "yunxu_terrace",
-      "targetX": 7,
-      "targetY": 30,
+      "targetX": 32,
+      "targetY": 4,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -175,7 +173,7 @@
       "hidden": false,
       "id": "qizhen_crossing:29,9",
       "direction": "two_way",
-      "targetPortalId": "yunxu_terrace:7,30",
+      "targetPortalId": "yunxu_terrace:32,4",
       "observeTitle": "云墟台云渡",
       "observeDesc": "一道旧阵光柱从压基坪直上云端，踏入后可抵达筑基修士聚集的云墟台。"
     }

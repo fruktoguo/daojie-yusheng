@@ -50,7 +50,7 @@ export function normalizeEnhanceLevel(value: unknown): number {
   if (!Number.isFinite(value)) {
     return DEFAULT_ENHANCE_LEVEL;
   }
-  return Math.max(DEFAULT_ENHANCE_LEVEL, Math.floor(Number(value)));
+  return Math.max(DEFAULT_ENHANCE_LEVEL, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(value))));
 }
 
 export function getEnhancementTargetSuccessRate(targetEnhanceLevel: number): number {
@@ -216,18 +216,18 @@ export function normalizePlayerEnhancementJob(value: unknown): PlayerEnhancement
   const pausedTicks = phase === 'paused'
     ? Math.max(0, Math.floor(Number(candidate.pausedTicks) || 0))
     : 0;
+  const currentLevel = normalizeEnhanceLevel(candidate.currentLevel);
+  const targetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(1, Math.floor(Number(candidate.targetLevel) || currentLevel + 1)));
+  const desiredTargetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(targetLevel, Math.floor(Number(candidate.desiredTargetLevel) || 0)));
   return {
     target,
     item,
     targetItemId,
     targetItemName,
     targetItemLevel: Math.max(1, Math.floor(Number(candidate.targetItemLevel) || item.level || 1)),
-    currentLevel: normalizeEnhanceLevel(candidate.currentLevel),
-    targetLevel: Math.min(MAX_ENHANCE_LEVEL, Math.max(1, Math.floor(Number(candidate.targetLevel) || normalizeEnhanceLevel(candidate.currentLevel) + 1))),
-    desiredTargetLevel: Math.max(
-      Math.min(MAX_ENHANCE_LEVEL, Math.max(1, Math.floor(Number(candidate.targetLevel) || normalizeEnhanceLevel(candidate.currentLevel) + 1))),
-      Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(candidate.desiredTargetLevel) || 0)),
-    ),
+    currentLevel,
+    targetLevel,
+    desiredTargetLevel,
     spiritStoneCost: Math.max(0, Math.floor(Number(candidate.spiritStoneCost) || 0)),
     materials: Array.isArray(candidate.materials)
       ? candidate.materials

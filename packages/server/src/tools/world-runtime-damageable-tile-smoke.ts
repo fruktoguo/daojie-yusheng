@@ -60,7 +60,7 @@ function createTemplate() {
   };
 }
 
-function createStoneTemplate(terrainRealmLv: number) {
+function createStoneTemplate(mapLv: number) {
   return {
     ...createTemplate(),
     terrainRows: [
@@ -79,7 +79,7 @@ function createStoneTemplate(terrainRealmLv: number) {
       0, 0, 0,
     ]),
     source: {
-      terrainRealmLv,
+      mapLv,
     },
   };
 }
@@ -424,7 +424,7 @@ function testSpecialTerrainRestoreSpeedMatchesMain() {
   assert.equal(instance.getTileCombatState(1, 0)?.respawnLeft, Math.ceil(TERRAIN_RESTORE_RETRY_DELAY_TICKS / 100));
 }
 
-function testStoneDurabilityScalesWithTerrainRealmLv() {
+function testStoneDurabilityScalesWithMapLv() {
   const lowRealmInstance = createInstance(createStoneTemplate(1));
   const highRealmInstance = createInstance(createStoneTemplate(10));
 
@@ -874,7 +874,7 @@ async function main() {
   testDestroyedTileRecoveryRespectsStabilizerAndHydrates();
   testDestroyedTileDoesNotRespawnUnderUnit();
   testSpecialTerrainRestoreSpeedMatchesMain();
-  testStoneDurabilityScalesWithTerrainRealmLv();
+  testStoneDurabilityScalesWithMapLv();
   testProjectedAuraLevelUsesEffectiveResourceValue();
   testProjectedTotalQiLevelUsesNeutralElementalAndShaResources();
   testPlainTickDoesNotDirtyPersistence();

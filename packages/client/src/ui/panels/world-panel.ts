@@ -4,8 +4,7 @@
  */
 import { MapMeta, PlayerState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
-import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
-import { assessMapDanger } from '../../utils/map-danger';
+import { TECH_REALM_LABELS, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { FloatingTooltip } from '../floating-tooltip';
 import {
   mountReactWorldPanels,
@@ -14,6 +13,7 @@ import {
   syncReactWorldPanelState,
   unmountReactWorldPanels,
 } from '../../react-ui/panels/world/mount-world-panel';
+import { formatMapRecommendedRealmLabel } from '../../utils/map-level-display';
 
 /** 世界面板汇总快照。 */
 interface WorldPanelSnapshot {
@@ -21,9 +21,7 @@ interface WorldPanelSnapshot {
   mapTypeLabel: string;
   mapMood: string;
   mapDesc: string;
-  dangerLabel: string;
-  dangerTone: number;
-  recommend: string;
+  recommendedRealmLabel: string;
   realmLabel: string;
   route: string;
   resourcesLabel: string;
@@ -68,19 +66,6 @@ function inferRealm(player: PlayerState): string {
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
 }
 
-/** resolveRecommendedRealmLabel：解析推荐境界标签。 */
-function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  if (/[^\x00-\x7F]/.test(raw)) return raw;
-  const parts = raw.split('-').map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 0) return fallback;
-  const labels = parts.map((part) => TECH_REALM_NAME_BY_KEY[part]);
-  if (labels.some((label) => !label)) {
-    return fallback;
-  }
-  return labels.join('到');
-}
-
 /** resolveMapTypeLabel：按当前实例解析地图类型。 */
 function resolveMapTypeLabel(player: PlayerState): string {
   if (isSectMap(player)) {
@@ -98,6 +83,11 @@ function isSectMap(player: PlayerState): boolean {
   const mapId = typeof player.mapId === 'string' ? player.mapId.trim() : '';
   const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
   return mapId.startsWith('sect_domain:') || instanceId.startsWith('sect:');
+}
+
+/** 生成推荐境界展示。 */
+function resolveRecommendedRealmLabel(mapMeta: MapMeta | null): string {
+  return formatMapRecommendedRealmLabel(mapMeta?.mapLv);
 }
 
 /** WorldPanel：世界面板实现。 */
@@ -174,7 +164,6 @@ export class WorldPanel {
     const sectMap = isSectMap(input.player);
     const guide = WORLD_GUIDE[input.player.mapId] ?? (sectMap ? {
       title: input.mapMeta?.name ?? '宗门',
-      recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
       route: '宗门驻地',
       mood: '宗门',
       desc: '宗门驻地。',
@@ -182,7 +171,6 @@ export class WorldPanel {
       threats: [],
     } : {
       title: input.mapMeta?.name ?? input.player.mapId,
-      recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
       route: '继续探索当前区域',
       mood: '未知地域',
       desc: '该区域暂无卷宗记载，建议稳步试探。',
@@ -190,10 +178,6 @@ export class WorldPanel {
       threats: [],
     });
 
-    const danger = assessMapDanger(input.player, input.mapMeta?.recommendedRealm, guide.recommendedRealm);
-    const recommend = danger.recommendedRealmLabel === '未知'
-      ? resolveRecommendedRealmLabel(input.mapMeta?.recommendedRealm, guide.recommendedRealm)
-      : danger.recommendedRealmLabel;
     const cultivating = input.player.cultivatingTechId
       ? input.player.techniques.find((entry) => entry.techId === input.player.cultivatingTechId)
       : null;
@@ -203,9 +187,7 @@ export class WorldPanel {
       mapTypeLabel: resolveMapTypeLabel(input.player),
       mapMood: guide.mood,
       mapDesc: guide.desc,
-      dangerLabel: danger.dangerLabel,
-      dangerTone: danger.dangerTone,
-      recommend,
+      recommendedRealmLabel: resolveRecommendedRealmLabel(input.mapMeta),
       realmLabel: inferRealm(input.player),
       route: guide.route,
       resourcesLabel: guide.resources.join('、') || '暂无',
@@ -243,9 +225,8 @@ export class WorldPanel {
           <div class="world-desc" data-world-map-desc="true">${escapeHtml(snapshot.mapDesc)}</div>
         </div>
         <div class="world-danger">
-          <div class="world-danger-label">区域危险</div>
-          <div class="world-danger-value danger-${snapshot.dangerTone}" data-world-map-danger="true">${escapeHtml(snapshot.dangerLabel)}</div>
-          <div class="world-danger-sub" data-world-map-recommend="true">推荐境界：${escapeHtml(snapshot.recommend)}</div>
+          <div class="world-danger-label">推荐境界</div>
+          <div class="world-danger-value danger-3" data-world-map-recommended-realm="true">${escapeHtml(snapshot.recommendedRealmLabel)}</div>
         </div>
       </div>
       <div class="info-list">
@@ -297,14 +278,13 @@ export class WorldPanel {
     const titleNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-title="true"]');
     const typeNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-type="true"]');
     const descNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-desc="true"]');
-    const dangerNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-danger="true"]');
-    const recommendNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-recommend="true"]');
+    const recommendedRealmNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-recommended-realm="true"]');
     const realmNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-realm="true"]');
     const routeNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-route="true"]');
     const resourcesNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-resources="true"]');
     const threatsNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-threats="true"]');
     const cultivatingNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-cultivating="true"]');
-    if (!moodNode || !titleNode || !typeNode || !descNode || !dangerNode || !recommendNode
+    if (!moodNode || !titleNode || !typeNode || !descNode || !recommendedRealmNode
       || !realmNode || !routeNode || !resourcesNode || !threatsNode || !cultivatingNode) {
       return false;
     }
@@ -313,9 +293,7 @@ export class WorldPanel {
     titleNode.textContent = snapshot.mapName;
     typeNode.textContent = snapshot.mapTypeLabel;
     descNode.textContent = snapshot.mapDesc;
-    dangerNode.textContent = snapshot.dangerLabel;
-    dangerNode.className = `world-danger-value danger-${snapshot.dangerTone}`;
-    recommendNode.textContent = `推荐境界：${snapshot.recommend}`;
+    recommendedRealmNode.textContent = snapshot.recommendedRealmLabel;
     realmNode.textContent = snapshot.realmLabel;
     routeNode.textContent = snapshot.route;
     resourcesNode.textContent = snapshot.resourcesLabel;

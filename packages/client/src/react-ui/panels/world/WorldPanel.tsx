@@ -4,8 +4,8 @@
  */
 import { useCallback, useMemo, useRef } from 'react';
 import type { MapMeta, PlayerState } from '@mud/shared';
-import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../../constants/world/world-panel';
-import { assessMapDanger } from '../../../utils/map-danger';
+import { TECH_REALM_LABELS, WORLD_GUIDE } from '../../../constants/world/world-panel';
+import { formatMapRecommendedRealmLabel } from '../../../utils/map-level-display';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { useFloatingTooltip } from '../../hooks/use-floating-tooltip';
 
@@ -51,16 +51,6 @@ function inferRealm(player: PlayerState): string {
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
 }
 
-function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  if (/[^\x00-\x7F]/.test(raw)) return raw;
-  const parts = raw.split('-').map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 0) return fallback;
-  const labels = parts.map((part) => TECH_REALM_NAME_BY_KEY[part]);
-  if (labels.some((label) => !label)) return fallback;
-  return labels.join('到');
-}
-
 function resolveMapTypeLabel(player: PlayerState): string {
   if (isSectMap(player)) return '宗门';
   const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
@@ -74,14 +64,16 @@ function isSectMap(player: PlayerState): boolean {
   return mapId.startsWith('sect_domain:') || instanceId.startsWith('sect:');
 }
 
+function resolveRecommendedRealmLabel(mapMeta: MapMeta | null): string {
+  return formatMapRecommendedRealmLabel(mapMeta?.mapLv);
+}
+
 interface WorldPanelSnapshot {
   mapName: string;
   mapTypeLabel: string;
   mapMood: string;
   mapDesc: string;
-  dangerLabel: string;
-  dangerTone: number;
-  recommend: string;
+  recommendedRealmLabel: string;
   realmLabel: string;
   route: string;
   resourcesLabel: string;
@@ -93,7 +85,6 @@ function buildSnapshot(player: PlayerState, mapMeta: MapMeta | null): WorldPanel
   const sectMap = isSectMap(player);
   const guide = WORLD_GUIDE[player.mapId] ?? (sectMap ? {
     title: mapMeta?.name ?? '宗门',
-    recommendedRealm: mapMeta?.recommendedRealm ?? '未知',
     route: '宗门驻地',
     mood: '宗门',
     desc: '宗门驻地。',
@@ -101,7 +92,6 @@ function buildSnapshot(player: PlayerState, mapMeta: MapMeta | null): WorldPanel
     threats: [],
   } : {
     title: mapMeta?.name ?? player.mapId,
-    recommendedRealm: mapMeta?.recommendedRealm ?? '未知',
     route: '继续探索当前区域',
     mood: '未知地域',
     desc: '该区域暂无卷宗记载，建议稳步试探。',
@@ -109,10 +99,6 @@ function buildSnapshot(player: PlayerState, mapMeta: MapMeta | null): WorldPanel
     threats: [],
   });
 
-  const danger = assessMapDanger(player, mapMeta?.recommendedRealm, guide.recommendedRealm);
-  const recommend = danger.recommendedRealmLabel === '未知'
-    ? resolveRecommendedRealmLabel(mapMeta?.recommendedRealm, guide.recommendedRealm)
-    : danger.recommendedRealmLabel;
   const cultivating = player.cultivatingTechId
     ? player.techniques.find((entry) => entry.techId === player.cultivatingTechId)
     : null;
@@ -122,9 +108,7 @@ function buildSnapshot(player: PlayerState, mapMeta: MapMeta | null): WorldPanel
     mapTypeLabel: resolveMapTypeLabel(player),
     mapMood: guide.mood,
     mapDesc: guide.desc,
-    dangerLabel: danger.dangerLabel,
-    dangerTone: danger.dangerTone,
-    recommend,
+    recommendedRealmLabel: resolveRecommendedRealmLabel(mapMeta),
     realmLabel: inferRealm(player),
     route: guide.route,
     resourcesLabel: guide.resources.join('、') || '暂无',
@@ -237,9 +221,8 @@ function MapIntelPane({ player, mapMeta }: { player: PlayerState; mapMeta: MapMe
           <div className="world-desc">{snapshot.mapDesc}</div>
         </div>
         <div className="world-danger">
-          <div className="world-danger-label">区域危险</div>
-          <div className={`world-danger-value danger-${snapshot.dangerTone}`}>{snapshot.dangerLabel}</div>
-          <div className="world-danger-sub">推荐境界：{snapshot.recommend}</div>
+          <div className="world-danger-label">推荐境界</div>
+          <div className="world-danger-value danger-3">{snapshot.recommendedRealmLabel}</div>
         </div>
       </div>
       <div className="info-list">

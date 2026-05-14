@@ -10,8 +10,6 @@
   "floorName": "矿窖",
   "spaceVisionMode": "parent_overlay",
   "description": "旧屋下方被人偷偷掏出一间矿窖，岩壁里夹着几条细小灵脉，也裸露出一段发黑的玄铁矿层。",
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "tiles": [
     "####################",
     "#....oooo...LLL....#",
@@ -212,5 +210,5 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainRealmLv": 1
+  "mapLv": 1
 }

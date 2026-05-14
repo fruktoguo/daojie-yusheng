@@ -1,0 +1,396 @@
+[
+  {
+    "id": "m_darksoil_beetle",
+    "name": "玄土甲虫",
+    "char": "虫",
+    "color": "#8a7050",
+    "grade": "earth",
+    "tier": "demon_soldier",
+    "level": 39,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 5,
+    "respawnSec": 18,
+    "skills": [
+      "skill.earth_shell",
+      "skill.burrowing_charge"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.darksoil_carapace",
+        "name": "玄土甲壳",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.earth_beetle_core",
+        "name": "土虫内核",
+        "type": "material",
+        "count": 1,
+        "chance": 0.25
+      }
+    ],
+    "attrTendency": {
+      "constitution": 125,
+      "spirit": 85,
+      "perception": 90,
+      "talent": 88,
+      "strength": 120,
+      "meridians": 92
+    },
+    "statTendency": {
+      "maxQi": 110,
+      "physAtk": 115,
+      "spellAtk": 80,
+      "physDef": 130,
+      "spellDef": 105,
+      "hit": 105,
+      "dodge": 80,
+      "crit": 95,
+      "breakPower": 110,
+      "resolvePower": 115,
+      "maxQiOutputPerTick": 95,
+      "moveSpeed": 90
+    }
+  },
+  {
+    "id": "m_earthsplit_centipede",
+    "name": "裂地蜈蚣",
+    "char": "蜈",
+    "color": "#6a4030",
+    "grade": "earth",
+    "tier": "demon_general",
+    "level": 40,
+    "count": 5,
+    "maxAlive": 5,
+    "radius": 4,
+    "aggroRange": 7,
+    "respawnSec": 35,
+    "skills": [
+      "skill.earth_rend",
+      "skill.venom_mandible",
+      "skill.burrow_ambush"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.centipede_fang",
+        "name": "裂地蜈牙",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.earth_centipede_segment",
+        "name": "蜈蚣节甲",
+        "type": "material",
+        "count": 1,
+        "chance": 0.35
+      },
+      {
+        "itemId": "mat.deep_earth_venom",
+        "name": "地脉蜈毒",
+        "type": "material",
+        "count": 1,
+        "chance": 0.12
+      }
+    ],
+    "attrTendency": {
+      "constitution": 115,
+      "spirit": 95,
+      "perception": 110,
+      "talent": 92,
+      "strength": 120,
+      "meridians": 68
+    },
+    "statTendency": {
+      "maxQi": 115,
+      "physAtk": 122,
+      "spellAtk": 90,
+      "physDef": 112,
+      "spellDef": 98,
+      "hit": 115,
+      "dodge": 100,
+      "crit": 108,
+      "breakPower": 118,
+      "resolvePower": 105,
+      "maxQiOutputPerTick": 105,
+      "moveSpeed": 110
+    }
+  },
+  {
+    "id": "m_mixed_stone_toad",
+    "name": "混元石蟾",
+    "char": "蟾",
+    "color": "#5a7a5a",
+    "grade": "earth",
+    "tier": "demon_general",
+    "level": 40,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 6,
+    "respawnSec": 38,
+    "skills": [
+      "skill.mixed_element_spit",
+      "skill.stone_skin",
+      "skill.earth_quake_stomp"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.mixed_toad_pearl",
+        "name": "混元蟾珠",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.stone_toad_skin",
+        "name": "石蟾皮",
+        "type": "material",
+        "count": 1,
+        "chance": 0.3
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "name": "五行蟾液",
+        "type": "material",
+        "count": 1,
+        "chance": 0.1
+      }
+    ],
+    "attrTendency": {
+      "constitution": 130,
+      "spirit": 108,
+      "perception": 88,
+      "talent": 100,
+      "strength": 105,
+      "meridians": 69
+    },
+    "statTendency": {
+      "maxQi": 125,
+      "physAtk": 100,
+      "spellAtk": 115,
+      "physDef": 125,
+      "spellDef": 120,
+      "hit": 105,
+      "dodge": 75,
+      "crit": 90,
+      "breakPower": 100,
+      "resolvePower": 125,
+      "maxQiOutputPerTick": 100,
+      "moveSpeed": 80
+    }
+  },
+  {
+    "id": "m_darksoil_dragon",
+    "name": "玄壤地龙",
+    "char": "龙",
+    "color": "#4a3020",
+    "grade": "heaven",
+    "tier": "demon_king",
+    "level": 41,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 9,
+    "respawnSec": 150,
+    "skills": [
+      "skill.earth_dragon_dive",
+      "skill.tectonic_slam",
+      "skill.dragon_spine_sweep",
+      "skill.earth_armor_fortify"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.dragon_spine_bone",
+        "name": "地龙脊骨",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.dragon_inner_core",
+        "name": "地龙内丹",
+        "type": "material",
+        "count": 1,
+        "chance": 0.2
+      },
+      {
+        "itemId": "mat.deep_earth_essence",
+        "name": "深渊土精",
+        "type": "material",
+        "count": 1,
+        "chance": 0.4
+      }
+    ],
+    "attrTendency": {
+      "constitution": 140,
+      "spirit": 100,
+      "perception": 90,
+      "talent": 95,
+      "strength": 135,
+      "meridians": 40
+    },
+    "statTendency": {
+      "maxQi": 135,
+      "physAtk": 130,
+      "spellAtk": 95,
+      "physDef": 140,
+      "spellDef": 115,
+      "hit": 110,
+      "dodge": 70,
+      "crit": 100,
+      "breakPower": 125,
+      "resolvePower": 130,
+      "maxQiOutputPerTick": 100,
+      "moveSpeed": 85
+    }
+  },
+  {
+    "id": "m_fivephase_devourer",
+    "name": "五行噬脉兽",
+    "char": "噬",
+    "color": "#8060a0",
+    "grade": "heaven",
+    "tier": "demon_king",
+    "level": 42,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 9,
+    "respawnSec": 180,
+    "skills": [
+      "skill.fivephase_devour",
+      "skill.element_shift",
+      "skill.mixed_element_storm",
+      "skill.vein_drain"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask"
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "mat.devourer_beast_core",
+        "name": "噬脉兽核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "mat.fivephase_mixed_essence",
+        "name": "五行混元精",
+        "type": "material",
+        "count": 1,
+        "chance": 0.15
+      },
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "name": "五行脉晶",
+        "type": "material",
+        "count": 1,
+        "chance": 0.08
+      }
+    ],
+    "attrTendency": {
+      "constitution": 120,
+      "spirit": 130,
+      "perception": 105,
+      "talent": 125,
+      "strength": 110,
+      "meridians": 10
+    },
+    "statTendency": {
+      "maxQi": 140,
+      "physAtk": 110,
+      "spellAtk": 135,
+      "physDef": 115,
+      "spellDef": 130,
+      "hit": 115,
+      "dodge": 90,
+      "crit": 108,
+      "breakPower": 120,
+      "resolvePower": 125,
+      "maxQiOutputPerTick": 120,
+      "moveSpeed": 100
+    }
+  }
+]

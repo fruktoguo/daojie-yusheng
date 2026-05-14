@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { doesTileTypeBlockSight, getTileTypeFromMapChar } from '@mud/shared';
+import { composeTileTypeFromLayers, doesTileTypeBlockSight, getTileTypeFromMapChar } from '@mud/shared';
 import { MapInstanceRuntime } from '../../instance/map-instance.runtime';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
@@ -171,8 +171,17 @@ function resolveOverlayParentSightBlocked(instance, x, y, deps) {
     if (parentInstance && typeof parentInstance.isTileSightBlocked === 'function') {
         return parentInstance.isTileSightBlocked(overlay.x, overlay.y);
     }
-    const row = overlay.template.terrainRows?.[overlay.y] ?? '';
-    const tileType = getTileTypeFromMapChar(row[overlay.x] ?? '#');
+    const tileType = Array.isArray(overlay.template?.terrainRows?.[0])
+        || Array.isArray(overlay.template?.surfaceRows)
+        || Array.isArray(overlay.template?.structureRows)
+        || Array.isArray(overlay.template?.interactableRows)
+        ? composeTileTypeFromLayers(
+            overlay.template.terrainRows?.[overlay.y]?.[overlay.x],
+            overlay.template.surfaceRows?.[overlay.y]?.[overlay.x] ?? null,
+            overlay.template.structureRows?.[overlay.y]?.[overlay.x] ?? null,
+            overlay.template.interactableRows?.[overlay.y]?.[overlay.x] ?? [],
+        )
+        : getTileTypeFromMapChar(overlay.template.legacyTileRows?.[overlay.y]?.[overlay.x] ?? overlay.template.terrainRows?.[overlay.y]?.[overlay.x] ?? overlay.template.source?.tiles?.[overlay.y]?.[overlay.x] ?? '#');
     return doesTileTypeBlockSight(tileType);
 }
 

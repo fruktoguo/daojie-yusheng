@@ -20,11 +20,6 @@ export interface WorldGuide {
 
   title: string;  
   /**
- * recommendedRealm：recommendedRealm相关字段。
- */
-
-  recommendedRealm: string;  
-  /**
  * route：路线相关字段。
  */
 
@@ -71,7 +66,6 @@ export const TECH_REALM_NAME_BY_KEY: Record<string, string> = {
 const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   yunlai_town: {
     title: '云来镇',
-    recommendedRealm: '凡胎-锻骨',
     route: '镇中接主线，西北入青竹林，南门出荒野，北路可转灵脊岭。',
     mood: '武道起点',
     desc: '新的主城布局更紧凑，主线、补给、炼药与打铁都围着主路展开。',
@@ -80,7 +74,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   qizhen_crossing: {
     title: '栖真渡',
-    recommendedRealm: '练气一层-半步筑基',
     route: '北台接回渡阵，西去裂锋原，东分青萝谷与寒汐泽，南下赤陨庭。',
     mood: '前线渡城',
     desc: '主城改成三重错台加折线街巷，百工、静气、行修和旧渡口不再是几块平铺方盒。',
@@ -89,7 +82,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   bamboo_forest: {
     title: '青竹林',
-    recommendedRealm: '易筋-养气',
     route: '主径推矿洞与遗迹，侧路进荒野，南下兽谷。',
     mood: '武侠过渡带',
     desc: '狼群、蛇妖与竹灵共生，是从江湖搏杀过渡到修行世界的门槛。',
@@ -98,7 +90,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   black_iron_mine: {
     title: '玄铁矿洞',
-    recommendedRealm: '养气-玉衡',
     route: '推进钟乳深区，搜集矿材与信标核心。',
     mood: '资源高压区',
     desc: '矿脉灵气紊乱，材料密集，但补给和走位压力明显上升。',
@@ -107,7 +98,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   ancient_ruins: {
     title: '断碑遗迹',
-    recommendedRealm: '瑶光-天权',
     route: '清理符阵看守，接通灵岭与天穹后段线。',
     mood: '仙道线索区',
     desc: '阵纹、碑灵与残篇并存，是正式触碰修仙叙事的区域。',
@@ -116,7 +106,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   beast_valley: {
     title: '噬魂兽谷',
-    recommendedRealm: '玉衡-天璇',
     route: '先清外围，再压谷底王级目标和灵岭入口。',
     mood: '修仙高危战区',
     desc: '兽谷裂隙已显露灵灾本相，建议高补给、高功法成熟度再推进。',
@@ -125,7 +114,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   wildlands: {
     title: '荒野',
-    recommendedRealm: '凡胎-锻骨',
     route: '刷侧线材料，补足装备后回主线。',
     mood: '侧线练级区',
     desc: '野兽、匪徒与沼泽妖物混杂，适合补材料与做支线。',
@@ -134,7 +122,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   spirit_ridge: {
     title: '灵脊岭',
-    recommendedRealm: '天玑-大宗师',
     route: '先做岭门试锋，再接天穹残宫。',
     mood: '升阶门槛区',
     desc: '这里已经不止是江湖争杀，更考验神识、心性与突破准备。',
@@ -143,7 +130,6 @@ const WORLD_GUIDE_DEFS: Record<string, WorldGuide> = {
   },
   sky_ruins: {
     title: '天穹残宫',
-    recommendedRealm: '宗师-叩仙门',
     route: '补齐天封核心，处理终局王级目标。',
     mood: '高段终局区',
     desc: '天宫已坠，但封印未绝，是当前版本最高危险层。',
@@ -157,7 +143,6 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = Object.fromEntries(
     mapId,
     {
       title: worldText(`world.guide.${worldKeySegment(mapId)}.title`, guide.title),
-      recommendedRealm: worldText(`world.guide.${worldKeySegment(mapId)}.recommended-realm`, guide.recommendedRealm),
       route: worldText(`world.guide.${worldKeySegment(mapId)}.route`, guide.route),
       mood: worldText(`world.guide.${worldKeySegment(mapId)}.mood`, guide.mood),
       desc: worldText(`world.guide.${worldKeySegment(mapId)}.desc`, guide.desc),
@@ -166,20 +151,3 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = Object.fromEntries(
     },
   ]),
 ) as Record<string, WorldGuide>;
-
-/** 主界面兜底使用的地图推荐境界。 */
-export const MAP_FALLBACK: Record<string, {
-/**
- * recommendedRealm：recommendedRealm相关字段。
- */
- recommendedRealm: string }> = {
-  yunlai_town: { recommendedRealm: worldText('world.map-fallback.yunlai-town.recommended-realm') },
-  qizhen_crossing: { recommendedRealm: worldText('world.map-fallback.qizhen-crossing.recommended-realm') },
-  bamboo_forest: { recommendedRealm: worldText('world.map-fallback.bamboo-forest.recommended-realm') },
-  wildlands: { recommendedRealm: worldText('world.map-fallback.wildlands.recommended-realm') },
-  black_iron_mine: { recommendedRealm: worldText('world.map-fallback.black-iron-mine.recommended-realm') },
-  ancient_ruins: { recommendedRealm: worldText('world.map-fallback.ancient-ruins.recommended-realm') },
-  beast_valley: { recommendedRealm: worldText('world.map-fallback.beast-valley.recommended-realm') },
-  spirit_ridge: { recommendedRealm: worldText('world.map-fallback.spirit-ridge.recommended-realm') },
-  sky_ruins: { recommendedRealm: worldText('world.map-fallback.sky-ruins.recommended-realm') },
-};

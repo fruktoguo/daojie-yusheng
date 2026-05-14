@@ -6,7 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, composeTileTypeFromLayers, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
@@ -252,7 +252,7 @@ export class MapTemplateRepository {
         for (let y = 0; y < height; y += 1) {
             const row = document.tiles[y] ?? '';
             for (let x = 0; x < width; x += 1) {
-                const tileType = getTileTypeFromMapChar(row[x] ?? '#');
+                const tileType = getComposedDocumentTileType(document, x, y);
                 const tileIndex = getTileIndex(x, y, width);
                 walkableMask[tileIndex] = isTileTypeWalkable(tileType) ? 1 : 0;
                 blocksSightMask[tileIndex] = doesTileTypeBlockSight(tileType) ? 1 : 0;
@@ -405,7 +405,11 @@ export class MapTemplateRepository {
             width,
             height,
             routeDomain: normalizeRouteDomain(document.routeDomain),
-            terrainRows: document.tiles.slice(),
+            legacyTileRows: document.tiles.slice(),
+            terrainRows: document.terrainRows?.map((row) => row.slice()) ?? [],
+            surfaceRows: document.surfaceRows?.map((row) => row.slice()) ?? [],
+            structureRows: document.structureRows?.map((row) => row.slice()) ?? [],
+            interactableRows: document.interactableRows?.map((row) => row.map((cell) => cell.slice())) ?? [],
             spawnX: clampPoint(document.spawnPoint.x, width),
             spawnY: clampPoint(document.spawnPoint.y, height),
             safeZones,
@@ -466,6 +470,21 @@ function compareMapGroupMembers(left, right) {
 
 function buildNpcQuestGiverKey(mapId, npcId) {
     return `${String(mapId).trim()}:${String(npcId).trim()}`;
+}
+
+function getComposedDocumentTileType(document, x, y) {
+    if (Array.isArray(document?.terrainRows)
+        || Array.isArray(document?.surfaceRows)
+        || Array.isArray(document?.structureRows)
+        || Array.isArray(document?.interactableRows)) {
+        return composeTileTypeFromLayers(
+            document.terrainRows?.[y]?.[x],
+            document.surfaceRows?.[y]?.[x] ?? null,
+            document.structureRows?.[y]?.[x] ?? null,
+            document.interactableRows?.[y]?.[x] ?? [],
+        );
+    }
+    return getTileTypeFromMapChar(document.tiles?.[y]?.[x] ?? '#');
 }
 
 function loadContentQuestEntriesByGiver(npcLocationById) {
@@ -904,7 +923,7 @@ function copyRuntimeMapMetadata(source, target) {
         return;
     }
     const metadataKeys = [
-        'terrainRealmLv',
+        'mapLv',
         'mapGroupId',
         'mapGroupName',
         'mapGroupOrder',

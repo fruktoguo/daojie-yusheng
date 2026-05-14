@@ -3,9 +3,14 @@
  * 多 Tab 展示：六维雷达图、灵根、灵脉、斗法数值、灵力、特殊、生活技能
  */
 import { memo, useCallback, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import type { S2C_AttrUpdate } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
-import { ATTR_TAB_LABELS, type AttrTab } from '../../../constants/ui/attr-panel';
+import {
+  ATTR_ICON_ATLAS_CELLS,
+  ATTR_TAB_LABELS,
+  type AttrTab,
+} from '../../../constants/ui/attr-panel';
 import { t } from '../../../ui/i18n';
 
 import type {
@@ -63,6 +68,31 @@ export function setAttrPanelCallbacks(cbs: Partial<AttrPanelCallbacks>): void {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const TABS = Object.keys(ATTR_TAB_LABELS) as AttrTab[];
+
+function formatRadarNodePercent(value: string): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '50%';
+  }
+  return `${((numeric / 340) * 100).toFixed(3)}%`;
+}
+
+function AttrAtlasIcon({ iconKey, className }: { iconKey: string; className: string }) {
+  const iconCell = ATTR_ICON_ATLAS_CELLS[iconKey];
+  if (!iconCell) {
+    return null;
+  }
+  return (
+    <span
+      className={className}
+      style={{
+        '--attr-icon-col': iconCell.col,
+        '--attr-icon-row': iconCell.row,
+      } as CSSProperties}
+      aria-hidden="true"
+    />
+  );
+}
 
 export const AttrPanel = memo(function AttrPanel() {
   const { panes, activeTab } = useAttrPanelStore();
@@ -124,7 +154,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
       <div className="attr-radar-shell">
         <div className="attr-radar-head">
           <div className="attr-radar-title">{pane.title}</div>
-          <div className="attr-radar-scale">{t('attr.radar.scale', { label: pane.scaleLabel })}</div>
+          <div className="attr-radar-scale" data-radar-scale="true">{t('attr.radar.scale', { label: pane.scaleLabel })}</div>
         </div>
         <div className="attr-radar-body">
           <svg className="attr-radar" viewBox="0 0 340 340" role="img" aria-label={pane.title}>
@@ -147,17 +177,49 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
               strokeWidth={2}
             />
             {pane.nodes.map((node, i) => (
-              <g key={i} className="attr-radar-node" data-radar-node={i}>
+              <g
+                key={i}
+                className="attr-radar-node"
+                data-radar-node={i}
+                data-tooltip-title={node.tooltipTitle}
+                data-tooltip-detail={node.tooltipDetail}
+              >
                 <circle className="attr-radar-dot" cx={node.dotX} cy={node.dotY} r="6" fill={node.color} stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" />
-                <text className="attr-radar-label" x={node.labelX} y={node.labelY} textAnchor="middle" dominantBaseline="middle">{node.label}</text>
-                <text className="attr-radar-value" x={node.valueX} y={node.valueY} textAnchor="middle" dominantBaseline="middle">{node.valueLabel}</text>
+                <text className="attr-radar-label attr-radar-trigger" x={node.labelX} y={node.labelY} textAnchor="middle" dominantBaseline="middle">{node.label}</text>
+                <text className="attr-radar-value attr-radar-trigger" x={node.valueX} y={node.valueY} textAnchor="middle" dominantBaseline="middle">{node.valueLabel}</text>
               </g>
             ))}
           </svg>
+          {pane.nodes.map((node, i) => (
+            <div
+              key={node.key}
+              className="attr-radar-icon-node"
+              data-radar-icon-node={i}
+              style={{ left: formatRadarNodePercent(node.labelX), top: formatRadarNodePercent(node.labelY) }}
+              data-tooltip-title={node.tooltipTitle}
+              data-tooltip-detail={node.tooltipDetail}
+            >
+              <AttrAtlasIcon iconKey={node.key} className="attr-radar-icon" />
+              <span className="attr-radar-icon-value">{node.valueLabel}</span>
+            </div>
+          ))}
+          {pane.summaryCards?.map((card) => (
+            <div
+              key={card.key}
+              className="attr-radar-floating-stat"
+              data-radar-summary-card={card.key}
+              data-tooltip-title={card.tooltipTitle}
+              data-tooltip-detail={card.tooltipDetail}
+            >
+              <AttrAtlasIcon iconKey={card.key} className="attr-radar-floating-icon" />
+              <span className="attr-radar-floating-label">{card.label}</span>
+              <span className="attr-radar-floating-value">{card.value}</span>
+            </div>
+          ))}
         </div>
       </div>
       {pane.cards && pane.cards.length > 0 && (
-        <div className="attr-grid wide">
+        <div className="attr-grid wide attr-radar-extra-grid" data-radar-extra-grid="true">
           {pane.cards.map((card) => <NumericCard key={card.key} card={card} />)}
         </div>
       )}
@@ -182,8 +244,15 @@ const NumericPane = memo(function NumericPane({ pane }: { pane: AttrNumericPaneS
 
 const NumericCard = memo(function NumericCard({ card }: { card: AttrNumericCardSnapshot }) {
   return (
-    <div className="attr-mini" data-tooltip-title={card.tooltipTitle} data-tooltip-detail={card.tooltipDetail}>
-      <div className="attr-mini-value">{card.value}</div>
+    <div
+      className={`attr-mini${ATTR_ICON_ATLAS_CELLS[card.key] ? ' attr-mini--with-icon' : ''}`}
+      data-tooltip-title={card.tooltipTitle}
+      data-tooltip-detail={card.tooltipDetail}
+    >
+      <div className="attr-mini-main">
+        <AttrAtlasIcon iconKey={card.key} className="attr-mini-icon" />
+        <div className="attr-mini-value">{card.value}</div>
+      </div>
       <div className="attr-mini-label">{card.label}</div>
       {card.sub && <span className="attr-mini-sub">{card.sub}</span>}
     </div>
@@ -202,20 +271,23 @@ const CraftPane = memo(function CraftPane({ pane }: { pane: AttrCraftPaneSnapsho
       {pane.skills.map((skill) => (
         <div key={skill.key} className="attr-craft-row" data-tooltip-title={skill.tooltipTitle} data-tooltip-detail={skill.tooltipDetail}>
           <span className="attr-craft-label">{skill.label}</span>
-          <span className="attr-craft-level">{skill.level}</span>
-          <span className="attr-craft-progress-bar">
-            <span className="attr-craft-progress-fill" style={{ width: skill.progressPercent }} />
-          </span>
-          <span className="attr-craft-progress-text">{skill.progress}</span>
+          <strong className="attr-craft-level">{skill.level}</strong>
+          <div className="attr-craft-exp">
+            <span className="attr-craft-exp-text">{skill.progress}</span>
+            <div className="attr-craft-exp-track" aria-hidden="true">
+              <span className="attr-craft-exp-fill" style={{ width: skill.progressPercent }} />
+            </div>
+          </div>
+          <span className="attr-craft-remain">{skill.remain}</span>
           {skill.openable && (
-            <button className="small-btn ghost" type="button" onClick={() => handleOpen(skill.key)}>
-              {t('attr.craft.open', undefined)}
-            </button>
-          )}
-          {skill.openable && (
-            <button className="small-btn ghost" type="button" onClick={() => callbacks.onBindCraftSkill?.(skill.key)}>
-              {skill.bindLabel}
-            </button>
+            <div className="attr-craft-actions">
+              <button className="small-btn" type="button" onClick={() => handleOpen(skill.key)}>
+                {t('attr.craft.open', undefined)}
+              </button>
+              <button className="small-btn ghost" type="button" onClick={() => callbacks.onBindCraftSkill?.(skill.key)}>
+                {skill.bindLabel}
+              </button>
+            </div>
           )}
         </div>
       ))}

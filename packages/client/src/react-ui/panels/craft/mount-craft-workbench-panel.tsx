@@ -17,6 +17,13 @@ export function shouldUseReactCraftWorkbenchPanel(): boolean {
 }
 
 export function syncReactCraftWorkbenchState(state: Partial<ReactCraftWorkbenchState>): void {
+  const current = craftWorkbenchStore.getState();
+  const hasChanged = Object.entries(state).some(([key, value]) => {
+    return !Object.is(current[key as keyof ReactCraftWorkbenchState], value);
+  });
+  if (!hasChanged) {
+    return;
+  }
   craftWorkbenchStore.patchState(state);
 }
 

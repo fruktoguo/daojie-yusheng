@@ -225,7 +225,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     setFormationRangeOverlay: (overlay) => mapRuntime.setFormationRangeOverlay(overlay),
   });
   const buildingFengShuiStateSource = createMainBuildingFengShuiStateSource({
-    socket: buildingSender, setFengShuiOverlay: (overlay) => mapRuntime.setFengShuiOverlay(overlay), setBuildPreviewOverlay: (overlay) => mapRuntime.setBuildPreviewOverlay(overlay),
+    socket: buildingSender, setFengShuiOverlay: (overlay) => mapRuntime.setFengShuiOverlay(overlay), setBuildPreviewOverlay: (overlay) => mapRuntime.setBuildPreviewOverlay(overlay), getVisibleTileAt: (x, y) => mapRuntime.getVisibleTileAt(x, y),
     getPlayer: () => rootRuntimeSource.getPlayer(),
     showToast: callbacks.showToast,
     beginTargeting: callbacks.beginTargeting,

@@ -1,7 +1,13 @@
 /**
  * GM 地图编辑器常量 —— 控制画笔、选区与视图相关选项，便于与 UI 展示分离。
  */
-import { TileType } from '@mud/shared';
+import {
+  InteractableKind,
+  StructureType,
+  SurfaceType,
+  TerrainType,
+  TileType,
+} from '@mud/shared';
 
 /** 可直接绘制的地块类型列表，保持与地图编辑器画笔一致。 */
 export const PAINT_TILE_TYPES: TileType[] = [
@@ -32,6 +38,57 @@ export const PAINT_TILE_TYPES: TileType[] = [
   TileType.BlackIronOre,
 ];
 
+export const PAINT_TERRAIN_TYPES: TerrainType[] = [
+  TerrainType.Floor,
+  TerrainType.Grass,
+  TerrainType.Hill,
+  TerrainType.Cliff,
+  TerrainType.Mud,
+  TerrainType.Swamp,
+  TerrainType.ColdBog,
+  TerrainType.MoltenPool,
+  TerrainType.Water,
+  TerrainType.Cloud,
+  TerrainType.CloudFloor,
+  TerrainType.Void,
+  TerrainType.StoneGround,
+];
+
+export const PAINT_SURFACE_TYPES: Array<SurfaceType | null> = [
+  null,
+  SurfaceType.Floor,
+  SurfaceType.Road,
+  SurfaceType.Trail,
+  SurfaceType.Veranda,
+  SurfaceType.StoneStairs,
+];
+
+export const PAINT_STRUCTURE_TYPES: Array<StructureType | null> = [
+  null,
+  StructureType.Wall,
+  StructureType.Door,
+  StructureType.Window,
+  StructureType.BrokenWindow,
+  StructureType.HouseEave,
+  StructureType.HouseCorner,
+  StructureType.ScreenWall,
+  StructureType.Tree,
+  StructureType.Bamboo,
+  StructureType.Stone,
+  StructureType.SpiritOre,
+  StructureType.BlackIronOre,
+  StructureType.BrokenSwordHeap,
+];
+
+export const PAINT_INTERACTABLE_KINDS: Array<InteractableKind | null> = [
+  null,
+  InteractableKind.Portal,
+  InteractableKind.Stairs,
+  InteractableKind.Container,
+  InteractableKind.Formation,
+  InteractableKind.Mechanism,
+];
+
 /** 左侧工具栏按钮与提示。 */
 export const TOOL_OPTIONS: Array<{
 /**
@@ -40,14 +97,14 @@ export const TOOL_OPTIONS: Array<{
 /**
  * value：值数值。
  */
- value: 'select' | 'paint' | 'pan'; 
+ value: 'select' | 'paint' | 'pan';
  /**
  * label：label名称或显示文本。
  */
 /**
  * label：label名称或显示文本。
  */
- label: string; 
+ label: string;
  /**
  * note：note相关字段。
  */
@@ -60,7 +117,7 @@ export const TOOL_OPTIONS: Array<{
   { value: 'pan', label: '平移', note: '左键拖动画布' },
 ];
 
-/** 可绘制图层配置，支持地块、无属性灵气与通用气机。 */
+/** 可绘制图层配置，保留旧地块组合，并提供四层真源画笔。 */
 export const PAINT_LAYER_OPTIONS: Array<{
 /**
  * value：值数值。
@@ -68,7 +125,7 @@ export const PAINT_LAYER_OPTIONS: Array<{
 /**
  * value：值数值。
  */
- value: 'tile' | 'aura' | 'resource'; 
+ value: 'tile' | 'terrain' | 'surface' | 'structure' | 'interactable' | 'aura' | 'resource';
  /**
  * label：label名称或显示文本。
  */
@@ -77,6 +134,10 @@ export const PAINT_LAYER_OPTIONS: Array<{
  */
  label: string }> = [
   { value: 'tile', label: '地块' },
+  { value: 'terrain', label: '地形' },
+  { value: 'surface', label: '地表' },
+  { value: 'structure', label: '结构' },
+  { value: 'interactable', label: '交互' },
   { value: 'aura', label: '无属性灵气' },
   { value: 'resource', label: '气机' },
 ];
@@ -92,7 +153,7 @@ export const INSPECTOR_TABS: Array<{
 /**
  * value：值数值。
  */
- value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; 
+ value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
  /**
  * label：label名称或显示文本。
  */
@@ -123,5 +184,4 @@ export const DEFAULT_EDITOR_ZOOM_INDEX = 3;
 
 /** 撤销栈最多保留的步数。 */
 export const MAX_UNDO_STEPS = 50;
-
 

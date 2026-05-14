@@ -657,6 +657,11 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
           options.senseQiTooltip.hide();
           return;
         }
+        const tile = options.getVisibleTileAt(hoveredMapTile.x, hoveredMapTile.y);
+        if (!tile) {
+          options.senseQiTooltip.hide();
+          return;
+        }
         const info = options.getWangQiRoomInfoAt?.(hoveredMapTile.x, hoveredMapTile.y) ?? null;
         const lines = [t('targeting.tooltip.coordinate', { x: hoveredMapTile.x, y: hoveredMapTile.y })];
         appendWangQiRoomLines(lines, info);

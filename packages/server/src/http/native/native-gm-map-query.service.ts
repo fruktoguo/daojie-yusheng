@@ -18,8 +18,7 @@ interface MapTemplateSummaryLike {
   routeDomain?: string;
   source: {
     description?: string;
-    dangerLevel?: unknown;
-    recommendedRealm?: unknown;
+    mapLv?: unknown;
     monsterSpawns?: unknown[];
   };
   portals: unknown[];
@@ -52,8 +51,7 @@ export class NativeGmMapQueryService {
           height: template.height,
           routeDomain: template.routeDomain,
           description: template.source.description,
-          dangerLevel: template.source.dangerLevel,
-          recommendedRealm: template.source.recommendedRealm,
+          mapLv: template.source.mapLv,
           portalCount: template.portals.length,
           npcCount: template.npcs.length,
           monsterSpawnCount: template.source.monsterSpawns?.length ?? 0,

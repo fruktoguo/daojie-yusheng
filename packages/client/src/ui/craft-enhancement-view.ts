@@ -314,6 +314,38 @@ export class CraftEnhancementView {
     return `${job.jobRunId ?? job.startedAt}:${job.targetItemId}:${job.currentLevel}:${job.targetLevel}:${job.desiredTargetLevel}:${job.totalTicks}`;
   }
 
+  private buildEnhancementIdleWorkbenchKey(): string {
+    const selected = this.getSelectedEnhancementCandidate();
+    const selectedTargetLevel = this.getSelectedEnhancementTargetLevel(selected);
+    const protectionCandidatesKey = (selected?.protectionCandidates ?? [])
+      .map((entry) => [
+        buildEnhancementTargetKey(entry.ref),
+        entry.item.itemId,
+        entry.item.count ?? 1,
+        normalizeEnhanceLevel(entry.item.enhanceLevel),
+      ].join('/'))
+      .join('|');
+    return [
+      'idle',
+      this.isCompactEnhancementLayout() ? 'compact' : 'wide',
+      this.parent.selectedEnhancementTargetKey ?? '',
+      selected?.item.itemId ?? '',
+      selected?.item.count ?? '',
+      selected?.currentLevel ?? '',
+      selected?.successRate ?? '',
+      selected?.spiritStoneCost ?? '',
+      selected?.durationTicks ?? '',
+      selected?.materials.map((entry) => `${entry.itemId}:${entry.count}`).join('|') ?? '',
+      this.parent.selectedEnhancementTargetLevel ?? '',
+      selectedTargetLevel ?? '',
+      this.parent.selectedEnhancementProtectionKey ?? '',
+      this.parent.selectedEnhancementProtectionStartLevel ?? '',
+      this.parent.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
+      this.parent.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
+      protectionCandidatesKey,
+    ].join('::');
+  }
+
 
   // --- Stable key and patching ---
 
@@ -367,12 +399,17 @@ export class CraftEnhancementView {
       return true;
     }
     if (activeJob) {
-      replaceElementHtml(workbench, this.renderEnhancementWorkbenchSection());
-      bindInlineItemTooltips(workbench);
-      return true;
+      return false;
     }
     if (!activeJob && !currentJobGrid) {
-      return shell.dataset.enhancementStableRenderKey === this.buildEnhancementStableRenderKey();
+      const currentIdleGrid = workbench.querySelector<HTMLElement>('[data-enhancement-idle-key]');
+      const nextIdleKey = this.buildEnhancementIdleWorkbenchKey();
+      if (!currentIdleGrid || currentIdleGrid.dataset.enhancementIdleKey !== nextIdleKey) {
+        return false;
+      }
+      this.patchEnhancementIdleWorkbench(workbench);
+      shell.dataset.enhancementStableRenderKey = this.buildEnhancementStableRenderKey();
+      return true;
     }
     return false;
   }
@@ -413,6 +450,30 @@ export class CraftEnhancementView {
     }
     if (materialOwned) {
       materialOwned.textContent = `角色强化等级 Lv.${formatDisplayInteger(job.roleEnhancementLevel)} · 总加速 ${formatEnhancementPercent(job.totalSpeedRate)}`;
+    }
+  }
+
+  private patchEnhancementIdleWorkbench(workbench: HTMLElement): void {
+    const selected = this.getSelectedEnhancementCandidate();
+    if (!selected) {
+      return;
+    }
+    const summaryRate = workbench.querySelector<HTMLElement>('.enhancement-summary-rate');
+    const materialRows = workbench.querySelectorAll<HTMLElement>('.enhancement-workbench-main .enhancement-material-row');
+    if (summaryRate) {
+      summaryRate.textContent = `首阶 ${formatEnhancementPercent(selected.successRate)}`;
+    }
+    if (materialRows.length > 0) {
+      const spiritOwned = materialRows[0]?.querySelector<HTMLElement>('.enhancement-material-owned');
+      if (spiritOwned) {
+        spiritOwned.textContent = `持有 ${formatDisplayInteger(this.getAlchemyInventoryCount('spirit_stone'))}`;
+      }
+      selected.materials.forEach((entry, index) => {
+        const owned = materialRows[index + 1]?.querySelector<HTMLElement>('.enhancement-material-owned');
+        if (owned) {
+          owned.textContent = `持有 ${formatDisplayInteger(entry.ownedCount)}`;
+        }
+      });
     }
   }
 
@@ -481,7 +542,7 @@ export class CraftEnhancementView {
     if (selected) {
       return this.renderEnhancementWorkbench(selected, selectedProtection);
     }
-    return `<div class="enhancement-workbench-grid"><div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(null, null)}</div><div class="enhancement-workbench-main"><div class="enhancement-empty-state">请选择一件装备。</div></div></div>`;
+    return `<div class="enhancement-workbench-grid" data-enhancement-idle-key="${escapeHtml(this.buildEnhancementIdleWorkbenchKey())}"><div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(null, null)}</div><div class="enhancement-workbench-main"><div class="enhancement-empty-state">请选择一件装备。</div></div></div>`;
   }
 
   private renderEnhancementFormulaPill(): string {
@@ -696,7 +757,7 @@ export class CraftEnhancementView {
       </div>
     `;
     return `
-      <div class="enhancement-workbench-grid">
+      <div class="enhancement-workbench-grid" data-enhancement-idle-key="${escapeHtml(this.buildEnhancementIdleWorkbenchKey())}">
         <div class="enhancement-workbench-side">
           ${this.renderEnhancementTargetSlot(
             null,
@@ -939,11 +1000,36 @@ export class CraftEnhancementView {
   // --- Event binding ---
 
   bindEnhancementEvents(body: HTMLElement, signal: AbortSignal): void {
+    if (body.dataset.enhancementDelegatedEventsBound !== '1') {
+      body.dataset.enhancementDelegatedEventsBound = '1';
+      signal.addEventListener('abort', () => {
+        delete body.dataset.enhancementDelegatedEventsBound;
+      }, { once: true });
+      body.addEventListener('click', (event) => {
+        this.handleEnhancementDelegatedClick(event);
+      }, { signal });
+      body.addEventListener('change', (event) => {
+        this.handleEnhancementDelegatedChange(event);
+      }, { signal });
+    }
     this.bindEnhancementFormulaTooltip(body, signal);
-    body.querySelector('[data-enhancement-open-history="1"]')?.addEventListener('click', () => {
+  }
+
+  private handleEnhancementDelegatedClick(event: Event): void {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+    if (target.closest('[data-enhancement-formula-tooltip="1"]')) {
+      return;
+    }
+    const openHistory = target.closest<HTMLElement>('[data-enhancement-open-history="1"]');
+    if (openHistory) {
       this.openEnhancementHistoryListModal();
-    }, { signal });
-    body.querySelector('[data-enhancement-open-current-history="1"]')?.addEventListener('click', () => {
+      return;
+    }
+    const openCurrentHistory = target.closest<HTMLElement>('[data-enhancement-open-current-history="1"]');
+    if (openCurrentHistory) {
       const activeJob = this.getActiveEnhancementJob();
       const selected = this.getSelectedEnhancementCandidate();
       const referenceItem = activeJob?.item ?? selected?.item ?? null;
@@ -961,74 +1047,53 @@ export class CraftEnhancementView {
         return;
       }
       this.openEnhancementHistoryDetailModal(currentSessionRecord.itemId, getEnhancementHistorySessionKey(currentSessionRecord));
-    }, { signal });
-    body.querySelector('[data-enhancement-toggle-history-inline="1"]')?.addEventListener('click', () => {
+      return;
+    }
+    const toggleHistory = target.closest<HTMLElement>('[data-enhancement-toggle-history-inline="1"]');
+    if (toggleHistory) {
       this.parent.enhancementHistoryExpanded = !this.parent.enhancementHistoryExpanded;
       this.parent.render();
-    }, { signal });
-    body.querySelector('[data-enhancement-toggle-protection-inline="1"]')?.addEventListener('click', () => {
+      return;
+    }
+    const toggleProtection = target.closest<HTMLElement>('[data-enhancement-toggle-protection-inline="1"]');
+    if (toggleProtection) {
       this.parent.enhancementProtectionExpanded = !this.parent.enhancementProtectionExpanded;
       this.parent.render();
-    }, { signal });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-open-picker="1"]').forEach((button) => {
-      button.addEventListener('click', () => {
-        if (this.getActiveEnhancementJob()) return;
-        this.openEnhancementPickerModal();
-      }, { signal });
-    });
-    body.querySelectorAll<HTMLInputElement>('input[name="enhancement-protection"]').forEach((input) => {
-      input.addEventListener('change', () => {
-        this.parent.selectedEnhancementProtectionKey = input.value || null;
-        this.parent.selectedEnhancementProtectionStartLevel = this.parent.selectedEnhancementProtectionKey ? 2 : null;
-        this.parent.render();
-      }, { signal });
-    });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-target-adjust]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const selected = this.getSelectedEnhancementCandidate();
-        if (!selected) return;
-        const delta = Math.floor(Number(button.dataset.enhancementTargetAdjust) || 0);
-        const minLevel = selected.currentLevel + 1;
-        const nextLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, (this.getSelectedEnhancementTargetLevel(selected) ?? minLevel) + delta));
-        this.parent.selectedEnhancementTargetLevel = nextLevel;
-        if (this.parent.selectedEnhancementProtectionKey) {
-          this.parent.selectedEnhancementProtectionStartLevel = Math.min(nextLevel, this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2);
-        }
-        this.parent.render();
-      }, { signal });
-    });
-    body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input="1"]')?.addEventListener('change', (event) => {
+      return;
+    }
+    const openPicker = target.closest<HTMLElement>('[data-enhancement-open-picker="1"]');
+    if (openPicker) {
+      if (this.getActiveEnhancementJob()) return;
+      this.openEnhancementPickerModal();
+      return;
+    }
+    const targetAdjust = target.closest<HTMLElement>('[data-enhancement-target-adjust]');
+    if (targetAdjust) {
       const selected = this.getSelectedEnhancementCandidate();
-      const input = event.currentTarget;
-      if (!selected || !(input instanceof HTMLInputElement)) return;
+      if (!selected) return;
+      const delta = Math.floor(Number(targetAdjust.dataset.enhancementTargetAdjust) || 0);
       const minLevel = selected.currentLevel + 1;
-      this.parent.selectedEnhancementTargetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, Math.floor(Number(input.value) || minLevel)));
+      const nextLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, (this.getSelectedEnhancementTargetLevel(selected) ?? minLevel) + delta));
+      this.parent.selectedEnhancementTargetLevel = nextLevel;
       if (this.parent.selectedEnhancementProtectionKey) {
-        this.parent.selectedEnhancementProtectionStartLevel = Math.min(this.parent.selectedEnhancementTargetLevel, this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2);
+        this.parent.selectedEnhancementProtectionStartLevel = Math.min(nextLevel, this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2);
       }
       this.parent.render();
-    }, { signal });
-    body.querySelectorAll<HTMLElement>('[data-enhancement-protection-adjust]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const selected = this.getSelectedEnhancementCandidate();
-        if (!selected || !this.parent.selectedEnhancementProtectionKey) return;
-        const minLevel = 2;
-        const maxLevel = this.getSelectedEnhancementTargetLevel(selected) ?? minLevel;
-        const delta = Math.floor(Number(button.dataset.enhancementProtectionAdjust) || 0);
-        this.parent.selectedEnhancementProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, (this.getSelectedEnhancementProtectionStartLevel(selected) ?? minLevel) + delta));
-        this.parent.render();
-      }, { signal });
-    });
-    body.querySelector<HTMLInputElement>('[data-enhancement-protection-start-input="1"]')?.addEventListener('change', (event) => {
+      return;
+    }
+    const protectionAdjust = target.closest<HTMLElement>('[data-enhancement-protection-adjust]');
+    if (protectionAdjust) {
       const selected = this.getSelectedEnhancementCandidate();
-      const input = event.currentTarget;
-      if (!selected || !(input instanceof HTMLInputElement) || !this.parent.selectedEnhancementProtectionKey) return;
+      if (!selected || !this.parent.selectedEnhancementProtectionKey) return;
       const minLevel = 2;
       const maxLevel = this.getSelectedEnhancementTargetLevel(selected) ?? minLevel;
-      this.parent.selectedEnhancementProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(input.value) || minLevel)));
+      const delta = Math.floor(Number(protectionAdjust.dataset.enhancementProtectionAdjust) || 0);
+      this.parent.selectedEnhancementProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, (this.getSelectedEnhancementProtectionStartLevel(selected) ?? minLevel) + delta));
       this.parent.render();
-    }, { signal });
-    body.querySelector('[data-enhancement-start="1"]')?.addEventListener('click', () => {
+      return;
+    }
+    const start = target.closest<HTMLElement>('[data-enhancement-start="1"]');
+    if (start) {
       const selected = this.getSelectedEnhancementCandidate();
       if (!selected || this.getActiveEnhancementJob()) return;
       const protection = this.getSelectedEnhancementProtection(selected);
@@ -1038,11 +1103,45 @@ export class CraftEnhancementView {
         targetLevel: this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel,
         protectionStartLevel: protection ? this.getSelectedEnhancementProtectionStartLevel(selected) : null,
       });
-    }, { signal });
-    body.querySelector('[data-enhancement-cancel="1"]')?.addEventListener('click', () => {
+      return;
+    }
+    const cancel = target.closest<HTMLElement>('[data-enhancement-cancel="1"]');
+    if (cancel) {
       if (!this.getActiveEnhancementJob()) return;
       this.parent.callbacks?.onCancelEnhancement?.();
-    }, { signal });
+    }
+  }
+
+  private handleEnhancementDelegatedChange(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    if (!input) {
+      return;
+    }
+    if (input.name === 'enhancement-protection') {
+      this.parent.selectedEnhancementProtectionKey = input.value || null;
+      this.parent.selectedEnhancementProtectionStartLevel = this.parent.selectedEnhancementProtectionKey ? 2 : null;
+      this.parent.render();
+      return;
+    }
+    if (input.matches('[data-enhancement-target-level-input="1"]')) {
+      const selected = this.getSelectedEnhancementCandidate();
+      if (!selected) return;
+      const minLevel = selected.currentLevel + 1;
+      this.parent.selectedEnhancementTargetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, Math.floor(Number(input.value) || minLevel)));
+      if (this.parent.selectedEnhancementProtectionKey) {
+        this.parent.selectedEnhancementProtectionStartLevel = Math.min(this.parent.selectedEnhancementTargetLevel, this.getSelectedEnhancementProtectionStartLevel(selected) ?? 2);
+      }
+      this.parent.render();
+      return;
+    }
+    if (input.matches('[data-enhancement-protection-start-input="1"]')) {
+      const selected = this.getSelectedEnhancementCandidate();
+      if (!selected || !this.parent.selectedEnhancementProtectionKey) return;
+      const minLevel = 2;
+      const maxLevel = this.getSelectedEnhancementTargetLevel(selected) ?? minLevel;
+      this.parent.selectedEnhancementProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(input.value) || minLevel)));
+      this.parent.render();
+    }
   }
 
   bindEnhancementFormulaTooltip(body: HTMLElement, signal?: AbortSignal): void {
@@ -1213,10 +1312,14 @@ export class CraftEnhancementView {
   private getEnhancementSessionHistoryDisplayRange(record: PlayerEnhancementRecord, currentTargetLevel?: number): { minLevel: number; maxLevel: number } {
     const startLevel = normalizeEnhanceLevel(record.startLevel);
     const initialTargetLevel = Math.max(startLevel + 1, Math.floor(Number(record.initialTargetLevel) || (startLevel + 1)));
-    const desiredTargetLevel = Math.max(initialTargetLevel, Math.floor(Number(record.desiredTargetLevel) || initialTargetLevel));
     const attemptedLevels = (record.levels ?? []).map((entry) => Math.max(1, Math.floor(Number(entry.targetLevel) || 1))).filter((entry) => Number.isFinite(entry) && entry > 0);
-    const minLevel = attemptedLevels.length > 0 ? Math.min(initialTargetLevel, ...attemptedLevels) : initialTargetLevel;
-    const maxLevel = Math.max(minLevel, desiredTargetLevel, Math.max(0, Math.floor(Number(currentTargetLevel) || 0)), ...attemptedLevels);
+    if (attemptedLevels.length === 0) {
+      const currentLevel = Math.max(0, Math.floor(Number(currentTargetLevel) || 0));
+      const displayLevel = currentLevel > 0 ? currentLevel : initialTargetLevel;
+      return { minLevel: displayLevel, maxLevel: displayLevel };
+    }
+    const minLevel = Math.min(...attemptedLevels);
+    const maxLevel = Math.max(...attemptedLevels);
     return { minLevel, maxLevel };
   }
 
@@ -1494,7 +1597,7 @@ export class CraftEnhancementView {
     const targetLevelInput = body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input]');
     const targetLevel = Number(targetLevelInput?.value ?? String(candidate.nextLevel));
     if (Number.isFinite(targetLevel)) {
-      payload.targetLevel = Math.max(candidate.nextLevel, Math.min(20, Math.floor(targetLevel)));
+      payload.targetLevel = Math.max(candidate.nextLevel, Math.min(MAX_ENHANCE_LEVEL, Math.floor(targetLevel)));
     }
     if (!useProtection) return payload;
     const selectedProtection = body.querySelector<HTMLInputElement>('input[name="enhancement-protection"]:checked');
@@ -1512,7 +1615,7 @@ export class CraftEnhancementView {
     const protectionStartInput = body.querySelector<HTMLInputElement>('[data-enhancement-protection-start-input]');
     const protectionStartLevel = Number(protectionStartInput?.value ?? '2');
     if (Number.isFinite(protectionStartLevel)) {
-      payload.protectionStartLevel = Math.max(2, Math.min(20, Math.floor(protectionStartLevel)));
+      payload.protectionStartLevel = Math.max(2, Math.min(MAX_ENHANCE_LEVEL, Math.floor(protectionStartLevel)));
     }
     return payload;
   }
