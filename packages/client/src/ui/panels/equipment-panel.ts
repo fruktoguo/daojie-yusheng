@@ -11,8 +11,13 @@ import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentCondi
 import { getItemDisplayMeta } from '../item-display';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
-import { patchElementHtml } from '../dom-patch';
 import { t } from '../i18n';
+import { setEquipmentPanelCallbacks, syncEquipmentPanelState } from '../../react-ui/panels/equipment/EquipmentPanel';
+import {
+  mountReactEquipmentPanel,
+  shouldUseReactEquipmentPanel,
+  unmountReactEquipmentPanel,
+} from '../../react-ui/panels/equipment/mount-equipment-panel';
 
 /** formatEffectCondition：格式化效果条件。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
@@ -161,6 +166,13 @@ export class EquipmentPanel {
 
   /** clear：清理clear。 */
   clear(): void {
+    if (this.useReactPanel()) {
+      syncEquipmentPanelState({ equipment: null, playerRealmLv: null });
+      this.lastEquipment = null;
+      this.tooltipSlot = null;
+      this.tooltip.hide(true);
+      return;
+    }
     this.lastEquipment = null;
     this.tooltipSlot = null;
     this.tooltip.hide(true);
@@ -168,7 +180,7 @@ export class EquipmentPanel {
     this.slotSignatures.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    patchElementHtml(this.pane, '');
+    this.pane.replaceChildren();
   }  
   /**
  * setCallbacks：写入Callback。
@@ -179,10 +191,21 @@ export class EquipmentPanel {
 
   setCallbacks(onUnequip: (slot: EquipSlot) => void): void {
     this.onUnequip = onUnequip;
+    setEquipmentPanelCallbacks({ onUnequip });
+    if (this.useReactPanel()) {
+      syncEquipmentPanelState({ equipment: this.lastEquipment, playerRealmLv: this.playerRealmLv });
+      this.mountReactPanel();
+    }
   }
 
   /** 更新装备数据并重新渲染 */
   update(equipment: EquipmentSlots): void {
+    if (this.useReactPanel()) {
+      this.lastEquipment = equipment;
+      syncEquipmentPanelState({ equipment, playerRealmLv: this.playerRealmLv });
+      this.mountReactPanel();
+      return;
+    }
     this.lastEquipment = equipment;
     this.render(equipment);
   }
@@ -196,6 +219,11 @@ export class EquipmentPanel {
       return;
     }
     this.playerRealmLv = nextRealmLv;
+    if (this.useReactPanel()) {
+      syncEquipmentPanelState({ equipment: this.lastEquipment, playerRealmLv: this.playerRealmLv });
+      this.mountReactPanel();
+      return;
+    }
     this.slotSignatures.clear();
     if (this.lastEquipment) {
       this.render(this.lastEquipment);
@@ -208,7 +236,22 @@ export class EquipmentPanel {
       ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
       : null;
     this.lastEquipment = player.equipment;
+    if (this.useReactPanel()) {
+      syncEquipmentPanelState({ equipment: player.equipment, player });
+      this.mountReactPanel();
+      return;
+    }
     this.render(player.equipment);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactEquipmentPanel();
+  }
+
+  private mountReactPanel(): void {
+    if (!mountReactEquipmentPanel()) {
+      unmountReactEquipmentPanel();
+    }
   }
 
   /** render：渲染渲染。 */
@@ -266,7 +309,7 @@ export class EquipmentPanel {
     }
 
     preserveSelection(this.pane, () => {
-      patchElementHtml(this.pane, '');
+      this.pane.replaceChildren();
       this.slotViews.clear();
       this.slotSignatures.clear();
 

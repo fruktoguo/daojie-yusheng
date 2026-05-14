@@ -25,7 +25,6 @@ import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLab
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint } from '../ui-primitives';
@@ -38,6 +37,13 @@ import {
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
+import {
+  mountReactTechniquePanel,
+  setReactTechniquePanelCallbacks,
+  shouldUseReactTechniquePanel,
+  syncReactTechniquePanelState,
+  unmountReactTechniquePanel,
+} from '../../react-ui/panels/technique/mount-technique-panel';
 
 /** TechniquePanelState：功法面板当前使用的数据状态。 */
 type TechniquePanelState = {
@@ -106,6 +112,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** subtractAttrMap：处理subtract属性地图。 */
@@ -404,6 +416,11 @@ export class TechniquePanel {
 
 
   constructor() {
+    setReactTechniquePanelCallbacks({
+      onCultivate: (techId) => this.handleCultivate(techId),
+      onToggleSkills: (techId, enabled) => this.handleToggleTechniqueSkills(techId, enabled),
+      onOpenDetail: (techId) => this.openTechniqueDetail(techId),
+    });
     this.bindPaneEvents();
   }
 
@@ -411,9 +428,16 @@ export class TechniquePanel {
   clear(): void {
     this.lastVisibleTechniqueIds = null;
     this.shellRefs = null;
+    if (this.useReactPanel()) {
+      syncReactTechniquePanelState({ techniques: [] });
+      mountReactTechniquePanel();
+      this.tooltip.hide(true);
+      this.closeModal();
+      return;
+    }
     const empty = createEmptyHint(t('technique.empty.none-learned', undefined));
     empty.dataset.techEmpty = 'true';
-    patchElementChildren(this.pane, empty);
+    this.pane.replaceChildren(empty);
     this.tooltip.hide(true);
     this.closeModal();
   }  
@@ -436,6 +460,12 @@ export class TechniquePanel {
   /** 更新功法列表与主修状态 */
   update(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
+    this.syncReactState();
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      this.renderModal();
+      return;
+    }
     this.renderList();
     this.renderModal();
   }
@@ -445,6 +475,14 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
+    this.syncReactState();
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      if (!this.patchModal()) {
+        this.renderModal();
+      }
+      return;
+    }
     if (!this.patchList()) {
       this.renderList();
     }
@@ -456,6 +494,67 @@ export class TechniquePanel {
   /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
     this.update(player.techniques, player.cultivatingTechId, player);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactTechniquePanel();
+  }
+
+  private syncReactState(): void {
+    syncReactTechniquePanelState({
+      techniques: resolvePreviewTechniques(this.lastState.techniques),
+      cultivatingTechId: this.lastState.cultivatingTechId,
+      previewPlayer: this.lastState.previewPlayer,
+    });
+  }
+
+  private handleCultivate(techId: string | null): void {
+    this.lastState.cultivatingTechId = techId ?? undefined;
+    if (this.lastState.previewPlayer) {
+      this.lastState.previewPlayer.cultivatingTechId = techId ?? undefined;
+    }
+    this.onCultivate?.(techId);
+    this.syncReactState();
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      this.patchModal();
+      return;
+    }
+    this.renderList();
+    this.patchModal();
+  }
+
+  private handleToggleTechniqueSkills(techId: string, enabled: boolean): void {
+    const targetTechnique = this.lastState.techniques.find((entry) => entry.techId === techId);
+    if (targetTechnique) {
+      targetTechnique.skillsEnabled = enabled;
+    }
+    if (targetTechnique && this.lastState.previewPlayer) {
+      const unlockedSkillIds = targetTechnique.skills
+        .filter((skill) => (targetTechnique.level ?? 1) >= resolveSkillUnlockLevel(skill))
+        .map((skill) => skill.id);
+      for (const action of this.lastState.previewPlayer.actions ?? []) {
+        if (unlockedSkillIds.includes(action.id)) {
+          action.skillEnabled = enabled;
+        }
+      }
+    }
+    this.onToggleTechniqueSkills?.(techId, enabled);
+    this.syncReactState();
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      this.patchModal();
+      return;
+    }
+    this.renderList();
+    this.patchModal();
+  }
+
+  private openTechniqueDetail(techId: string): void {
+    this.openTechId = techId;
+    const openedTech = this.findPreviewTechnique(techId);
+    this.openLayerLevel = openedTech?.level ?? null;
+    this.renderModal();
   }
 
   /** renderList：渲染列表。 */
@@ -1019,17 +1118,7 @@ export class TechniquePanel {
         if (!techId) {
           return;
         }
-        if (cultivateButton.dataset.cultivateStop) {
-          this.lastState.cultivatingTechId = undefined;
-          if (this.lastState.previewPlayer) this.lastState.previewPlayer.cultivatingTechId = undefined;
-          this.onCultivate?.(null);
-        } else {
-          this.lastState.cultivatingTechId = techId;
-          if (this.lastState.previewPlayer) this.lastState.previewPlayer.cultivatingTechId = techId;
-          this.onCultivate?.(techId);
-        }
-        this.renderList();
-        this.patchModal();
+        this.handleCultivate(cultivateButton.dataset.cultivateStop ? null : techId);
         return;
       }
 
@@ -1041,23 +1130,7 @@ export class TechniquePanel {
           return;
         }
         const nextEnabled = skillToggleButton.dataset.techSkillsEnabled !== '1';
-        const targetTechnique = this.lastState.techniques.find((entry) => entry.techId === techId);
-        if (targetTechnique) {
-          targetTechnique.skillsEnabled = nextEnabled;
-        }
-        if (targetTechnique && this.lastState.previewPlayer) {
-          const unlockedSkillIds = targetTechnique.skills
-            .filter((skill) => (targetTechnique.level ?? 1) >= resolveSkillUnlockLevel(skill))
-            .map((skill) => skill.id);
-          for (const action of this.lastState.previewPlayer.actions ?? []) {
-            if (unlockedSkillIds.includes(action.id)) {
-              action.skillEnabled = nextEnabled;
-            }
-          }
-        }
-        this.onToggleTechniqueSkills?.(techId, nextEnabled);
-        this.renderList();
-        this.patchModal();
+        this.handleToggleTechniqueSkills(techId, nextEnabled);
         return;
       }
 
@@ -1069,10 +1142,7 @@ export class TechniquePanel {
       if (!techId) {
         return;
       }
-      this.openTechId = techId;
-      const openedTech = this.findPreviewTechnique(techId);
-      this.openLayerLevel = openedTech?.level ?? null;
-      this.renderModal();
+      this.openTechniqueDetail(techId);
     });
   }  
   /**
@@ -1461,7 +1531,7 @@ export class TechniquePanel {
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats);
 
     if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
-      patchElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));
+      replaceElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));
     } else {
       this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
     }
@@ -1469,7 +1539,7 @@ export class TechniquePanel {
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
     if (constellationShell.dataset.techModalConstellationSignature !== constellationSignature) {
       constellationShell.dataset.techModalConstellationSignature = constellationSignature;
-      patchElementHtml(constellationShell, this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones));
+      replaceElementHtml(constellationShell, this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones));
       this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
     }
 
@@ -1638,12 +1708,11 @@ export class TechniquePanel {
       const empty = document.createElement('span');
       empty.className = 'tech-layer-empty';
       empty.textContent = t('technique.layer.no-skill', undefined);
-      patchElementChildren(skillsNode, empty);
+      skillsNode.replaceChildren(empty);
       return;
     }
-    patchElementChildren(
-      skillsNode,
-      skills.map((skill) => {
+    skillsNode.replaceChildren(
+      ...skills.map((skill) => {
         const node = document.createElement('span');
         node.className = 'tech-skill-tag';
         node.dataset.skillTooltipTitle = skill.name;

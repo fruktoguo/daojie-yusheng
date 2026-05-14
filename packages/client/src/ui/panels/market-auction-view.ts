@@ -3,7 +3,6 @@ import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
-import { patchElementHtml } from '../dom-patch';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
 import { renderTradePriceStepControl, renderTradeQuantityControl } from '../trade-control-renderers';
@@ -20,6 +19,12 @@ function escapeHtml(value: unknown): string {
 }
 function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** 拍卖行每页最多显示的拍品数量。 */
@@ -58,7 +63,7 @@ export class MarketAuctionView {
       title: t('auction.title', undefined),
       subtitle: t('auction.subtitle', undefined),
       renderBody: (body: HTMLElement) => {
-        patchElementHtml(
+        replaceElementHtml(
           body,
           marketUpdate
             ? this.renderAuctionModalBody(marketUpdate)
@@ -390,7 +395,7 @@ export class MarketAuctionView {
       title: t('market.auction.consign.title', undefined),
       subtitle: t('market.auction.consign.subtitle', undefined),
       renderBody: (body: HTMLElement) => {
-        patchElementHtml(
+        replaceElementHtml(
           body,
           update
             ? `<div class="auction-consign-modal-shell">${this.renderAuctionConsignPanel(update)}</div>`
@@ -812,7 +817,7 @@ export class MarketAuctionView {
       buyoutPrice,
     };
     if (preview) {
-      patchElementHtml(preview, this.renderAuctionConsignPreview(item, totalPrice, buyoutPrice, price, update.currencyItemName, this.panel.findInventoryItemCountByItemId(update.currencyItemId)));
+      replaceElementHtml(preview, this.renderAuctionConsignPreview(item, totalPrice, buyoutPrice, price, update.currencyItemName, this.panel.findInventoryItemCountByItemId(update.currencyItemId)));
     }
     if (submit) {
       const listingFee = price.actualTotal === null ? null : this.getAuctionListingFee(price.actualTotal);
@@ -834,7 +839,7 @@ export class MarketAuctionView {
     if (!body || !update) return;
     const list = body.querySelector<HTMLElement>('[data-auction-consign-items]');
     if (!list) return;
-    patchElementHtml(list, this.renderAuctionConsignItems(update));
+    replaceElementHtml(list, this.renderAuctionConsignItems(update));
     const count = body.querySelector<HTMLElement>('[data-auction-consign-count]');
     if (count) {
       count.textContent = this.renderAuctionConsignCount(update);
@@ -871,7 +876,7 @@ export class MarketAuctionView {
     const control = body.querySelector<HTMLElement>('[data-auction-consign-quantity-control]');
     const input = body.querySelector<HTMLInputElement>('[data-auction-consign-quantity]');
     if (control) {
-      patchElementHtml(control, this.renderAuctionConsignQuantityControl(item, quantity, quantityMax));
+      replaceElementHtml(control, this.renderAuctionConsignQuantityControl(item, quantity, quantityMax));
       return;
     }
     if (input && document.activeElement !== input) {
@@ -912,7 +917,7 @@ export class MarketAuctionView {
   patchAuctionConsignPriceDisplay(body: HTMLElement, currencyName: string, field: AuctionConsignPriceField, price: number): void {
     const display = body.querySelector<HTMLElement>(`[data-auction-consign-${field}-price-display]`);
     if (!display) return;
-    patchElementHtml(display, `
+    replaceElementHtml(display, `
       <strong>${escapeHtml(price <= 0 ? '0' : this.panel.formatMarketUnitPrice(price))}</strong>
       <span>${escapeHtml(currencyName)}</span>
     `);
@@ -999,7 +1004,7 @@ export class MarketAuctionView {
     const detail = body.querySelector<HTMLElement>('[data-auction-detail-panel]');
     if (!detail) return;
     const lot = this.resolveAuctionLotByKey(this.panel.selectedAuctionItemKey, update, this.panel.auctionTab);
-    patchElementHtml(detail, this.renderAuctionDetailPanel(lot, update, this.panel.auctionTab));
+    replaceElementHtml(detail, this.renderAuctionDetailPanel(lot, update, this.panel.auctionTab));
   }
 
   syncAuctionSelection(): void {

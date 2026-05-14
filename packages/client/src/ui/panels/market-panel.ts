@@ -41,7 +41,6 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
-import { patchElementHtml } from '../dom-patch';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
 import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
@@ -51,6 +50,13 @@ import { MarketAuctionView } from './market-auction-view';
 import { MarketTradeDialog } from './market-trade-dialog';
 import { MarketBrowseView } from './market-browse-view';
 import type { MarketPanelInternals } from './market-panel-types';
+import {
+  mountReactMarketPanel,
+  setReactMarketPanelCallbacks,
+  shouldUseReactMarketPanel,
+  syncReactMarketPanelState,
+  unmountReactMarketPanel,
+} from '../../react-ui/panels/market/mount-market-panel';
 
 /** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: unknown): string {
@@ -60,6 +66,12 @@ function escapeHtml(value: unknown): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** 复用同一套转义逻辑，避免属性值注入。 */
@@ -404,6 +416,16 @@ export class MarketPanel {
   readonly browseView = new MarketBrowseView(this as unknown as MarketPanelInternals);
 
   constructor() {
+    setReactMarketPanelCallbacks({
+      onRequestMarket: () => {
+        if (!this.requestMarketBootstrap()) {
+          this.callbacks?.onRequestMarket();
+        }
+      },
+      onOpenModal: () => this.openMarketFromPane(),
+      onOpenAuction: (tab) => this.openAuctionFromPane(tab),
+      onOpenAuctionConsign: () => this.openAuctionConsignFromPane(),
+    });
     this.bindPaneEvents();
     this.renderPane();
   }
@@ -652,6 +674,10 @@ export class MarketPanel {
     this.tooltip.hide(true);
     this.stopAuctionCountdownTicker();
     this.syncTradeDialogOverlay();
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      mountReactMarketPanel();
+    }
     this.renderPane();
     confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
     detailModalHost.close(MarketPanel.MODAL_OWNER);
@@ -661,12 +687,17 @@ export class MarketPanel {
 
   /** 渲染面板首屏摘要，只保留打开坊市的入口。 */
   private renderPane(): void {
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      mountReactMarketPanel();
+      return;
+    }
     const listedCount = this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0;
     const orderCount = this.marketUpdate?.myOrders.length ?? 0;
     const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
     const auctionStats = this.getAuctionPaneStats(this.marketUpdate);
     preserveSelection(this.pane, () => {
-      patchElementHtml(this.pane, `
+      replaceElementHtml(this.pane, `
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">${escapeHtml(t('market.pane.title', undefined))}</div>
           <div class="market-pane-copy ui-form-copy">${escapeHtml(MARKET_PANE_HINT)}</div>
@@ -716,28 +747,56 @@ export class MarketPanel {
         return;
       }
       if (target.closest('[data-market-open]')) {
-        if (!this.requestMarketBootstrap()) {
-          this.callbacks?.onRequestMarket();
-        }
-        this.openModal();
+        this.openMarketFromPane();
         return;
       }
       const auctionOpen = target.closest<HTMLElement>('[data-auction-open]');
       if (auctionOpen) {
         const tab = auctionOpen.dataset.auctionOpen === 'mine' ? 'mine' : 'participate';
-        if (!this.requestMarketBootstrap()) {
-          this.callbacks?.onRequestMarket();
-        }
-        this.openAuctionModal(tab);
+        this.openAuctionFromPane(tab);
         return;
       }
       if (target.closest('[data-auction-consign-open]')) {
-        if (!this.requestMarketBootstrap()) {
-          this.callbacks?.onRequestMarket();
-        }
-        this.openAuctionConsignModal();
+        this.openAuctionConsignFromPane();
       }
     });
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactMarketPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactMarketPanelState({
+      marketUpdate: this.marketUpdate,
+      inventory: this.inventory,
+      player: this.player,
+      auctionStats: this.getAuctionPaneStats(this.marketUpdate),
+      totalListings: this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0,
+      currentPage: this.currentPage,
+      totalPages: this.getMarketTotalPagesForSummary(),
+    });
+  }
+
+  private openMarketFromPane(): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
+    this.openModal();
+  }
+
+  private openAuctionFromPane(tab: AuctionHouseTab): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
+    this.openAuctionModal(tab);
+  }
+
+  private openAuctionConsignFromPane(): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
+    this.openAuctionConsignModal();
   }
 
   /** 预取坊市摘要，避免侧边面板首次进入始终显示本地空态。 */
@@ -748,6 +807,12 @@ export class MarketPanel {
     this.hasRequestedMarketBootstrap = true;
     this.callbacks?.onRequestMarket();
     return true;
+  }
+
+  private getMarketTotalPagesForSummary(): number {
+    const totalItems = this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0;
+    const pageSize = this.marketListings?.pageSize ?? this.getMarketPageSize();
+    return Math.max(1, Math.ceil(totalItems / Math.max(1, pageSize)));
   }
 
   /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
@@ -775,7 +840,7 @@ export class MarketPanel {
       title: t('market.title', undefined),
       subtitle: t('market.subtitle', undefined),
       renderBody: (body: HTMLElement) => {
-        patchElementHtml(
+        replaceElementHtml(
           body,
           marketUpdate
             ? this.renderModalBody(marketUpdate)
@@ -1541,7 +1606,7 @@ export class MarketPanel {
       return;
     }
     const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
-    patchElementHtml(bookPanel, this.renderBookPanel(selected, orderBook, update.currencyItemName));
+    replaceElementHtml(bookPanel, this.renderBookPanel(selected, orderBook, update.currencyItemName));
   }
 
   /** 局部更新列表选中态，不重建当前 hover 的列表节点。 */

@@ -11,6 +11,11 @@ import { t } from './ui/i18n';
 
 type MainStartupBindingsOptions = {
 /**
+ * documentRef：documentRef相关字段。
+ */
+
+  documentRef: Document;
+  /**
  * initializeUiStyleConfig：initializeUiStyle配置状态或数据块。
  */
 
@@ -255,11 +260,6 @@ type MainStartupBindingsOptions = {
 
   showToast: (message: string) => void;
   /**
- * joinQqGroupBtns：joinQqGroupBtn相关字段。
- */
-
-  joinQqGroupBtns: Iterable<HTMLAnchorElement>;
-  /**
  * qqGroupNumber：qqGroupNumber相关字段。
  */
 
@@ -374,6 +374,10 @@ function resolveQqGroupLink(mobile: string, desktop: string): string {
   const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
   return isMobile ? mobile : desktop;
 }
+
+function resolveQqGroupButton(target: EventTarget | null): HTMLAnchorElement | null {
+  return target instanceof Element ? target.closest<HTMLAnchorElement>('[data-qq-group-link="true"]') : null;
+}
 /**
  * bindMainStartup：执行bindMainStartup相关逻辑。
  * @param options MainStartupBindingsOptions 选项参数。
@@ -463,25 +467,27 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     showToast: options.showToast,
   });
 
-  for (const button of options.joinQqGroupBtns) {
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      void (async () => {
-        const copied = await copyTextToClipboard(options.qqGroupNumber);
-        window.location.href = resolveQqGroupLink(options.qqGroupMobileDeepLink, options.qqGroupDesktopDeepLink);
-        window.setTimeout(() => {
-          if (document.visibilityState !== 'visible') {
-            return;
-          }
-          options.showToast(
-            copied
-              ? `已尝试唤起 QQ，加群失败时可直接粘贴群号 ${options.qqGroupNumber}`
-              : `已尝试唤起 QQ，如未打开请手动搜索群号 ${options.qqGroupNumber}`,
-          );
-        }, 600);
-      })();
-    });
-  }
+  options.documentRef.addEventListener('click', (event) => {
+    const button = resolveQqGroupButton(event.target);
+    if (!button) {
+      return;
+    }
+    event.preventDefault();
+    void (async () => {
+      const copied = await copyTextToClipboard(options.qqGroupNumber);
+      window.location.href = resolveQqGroupLink(options.qqGroupMobileDeepLink, options.qqGroupDesktopDeepLink);
+      window.setTimeout(() => {
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+        options.showToast(
+          copied
+            ? `已尝试唤起 QQ，加群失败时可直接粘贴群号 ${options.qqGroupNumber}`
+            : `已尝试唤起 QQ，如未打开请手动搜索群号 ${options.qqGroupNumber}`,
+        );
+      }, 600);
+    })();
+  });
 
   options.registerAutoBattleButtons();
 }

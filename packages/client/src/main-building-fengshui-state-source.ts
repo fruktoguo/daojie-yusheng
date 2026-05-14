@@ -15,7 +15,6 @@ import { getElementKeyLabel } from './domain-labels';
 import type { MapBuildPreviewOverlayState, MapFengShuiOverlayState } from './game-map/types';
 import type { SocketBuildingSender } from './network/socket-send-building';
 import { getLocalItemTemplate } from './content/local-templates';
-import { patchElementChildren } from './ui/dom-patch';
 import { detailModalHost } from './ui/detail-modal-host';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { t } from './ui/i18n';
@@ -1136,7 +1135,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   content.replaceChildren(materialPanel, strengthPanel, stage);
   shell.replaceChildren(content, footer);
   fragment.appendChild(shell);
-  patchElementChildren(options.host, fragment);
+  options.host.replaceChildren(fragment);
   options.host.classList.remove('hidden');
   options.host.setAttribute('aria-hidden', 'false');
 

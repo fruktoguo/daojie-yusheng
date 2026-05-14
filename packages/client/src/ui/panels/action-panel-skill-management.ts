@@ -12,7 +12,6 @@ import type {
   SkillDef,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementHtml } from '../dom-patch';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { t } from '../i18n';
 import { formatDisplayNumber } from '../../utils/number';

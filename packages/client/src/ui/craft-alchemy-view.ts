@@ -22,7 +22,6 @@ import {
 } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 
@@ -48,6 +47,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 function formatTicks(ticks: number | undefined): string {
@@ -444,17 +449,17 @@ export class CraftAlchemyView {
     const stableKey = this.buildAlchemyStableRenderKey();
 
     this.patchAlchemyJobHost(jobHost);
-    patchElementHtml(topbar, this.renderAlchemyTopbar());
+    replaceElementHtml(topbar, this.renderAlchemyTopbar());
     if (shell.dataset.alchemyStableRenderKey === stableKey && preserveDetail) {
       this.restoreAlchemyViewState(body, viewState, true);
       return true;
     }
-    patchElementHtml(categoryTabs, this.renderAlchemyCategoryTabs());
-    patchElementHtml(realmTabs, this.renderAlchemyRealmTabs());
-    patchElementHtml(tabHost, this.renderAlchemyTabButtons());
-    patchElementHtml(recipeList, this.renderAlchemyRecipeList());
+    replaceElementHtml(categoryTabs, this.renderAlchemyCategoryTabs());
+    replaceElementHtml(realmTabs, this.renderAlchemyRealmTabs());
+    replaceElementHtml(tabHost, this.renderAlchemyTabButtons());
+    replaceElementHtml(recipeList, this.renderAlchemyRecipeList());
     detailPanel.dataset.detailKey = nextDetailKey;
-    patchElementHtml(detailPanel, this.renderAlchemyDetailPanel());
+    replaceElementHtml(detailPanel, this.renderAlchemyDetailPanel());
     shell.dataset.alchemyStableRenderKey = stableKey;
     bindInlineItemTooltips(body);
     this.restoreAlchemyViewState(body, viewState, preserveDetail);
@@ -468,7 +473,7 @@ export class CraftAlchemyView {
     const nextJobKey = this.getAlchemyJobPatchKey(job);
     const card = jobHost.querySelector<HTMLElement>('[data-alchemy-job-card="true"]');
     if (!card || card.dataset.alchemyJobKey !== nextJobKey) {
-      patchElementHtml(jobHost, this.renderAlchemyJobCard(job));
+      replaceElementHtml(jobHost, this.renderAlchemyJobCard(job));
       return;
     }
     if (!job) {

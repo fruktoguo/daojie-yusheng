@@ -5,7 +5,6 @@ import {
   getMarketPriceStep,
 } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
-import { patchElementHtml } from '../dom-patch';
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { t } from '../i18n';
@@ -27,6 +26,12 @@ function escapeHtml(value: unknown): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
@@ -256,7 +261,7 @@ export class MarketTradeDialog {
     const marketModalOpen = p.modalTab === 'market' && detailModalHost.isOpenFor('market-panel');
     const auctionModalOpen = detailModalHost.isOpenFor('auction-house-panel');
     if (!p.tradeDialog || (!marketModalOpen && !auctionModalOpen) || !update || !selected) {
-      patchElementHtml(root, '');
+      root.replaceChildren();
       root.classList.add('hidden');
       delete root.dataset.marketDialogItemKey;
       delete root.dataset.marketDialogKind;
@@ -267,7 +272,7 @@ export class MarketTradeDialog {
     }
     root.classList.remove('hidden');
     if (this.patchTradeDialogOverlay(root, selected, update)) return;
-    patchElementHtml(root, this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName));
+    replaceElementHtml(root, this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName));
     root.dataset.marketDialogItemKey = selected.itemKey;
     root.dataset.marketDialogKind = p.tradeDialog.kind;
     root.dataset.marketDialogSource = p.tradeDialog.source ?? 'market';
@@ -299,7 +304,7 @@ export class MarketTradeDialog {
     dialogNode.classList.toggle('market-trade-dialog--buy', state.dialog.kind === 'buy');
     dialogNode.classList.toggle('market-trade-dialog--sell', state.dialog.kind === 'sell');
     dialogNode.classList.toggle('market-trade-dialog--auction-bid', state.source === 'auction-bid');
-    patchElementHtml(priceDisplay, `
+    replaceElementHtml(priceDisplay, `
       <strong>${escapeHtml(p.formatMarketUnitPrice(state.dialog.unitPrice))}</strong>
       <span>${escapeHtml(update.currencyItemName)}</span>
     `);
@@ -324,7 +329,7 @@ export class MarketTradeDialog {
     totalNode.classList.toggle('error', state.insufficientCurrency);
     totalLabel.textContent = state.totalLabel;
     totalValue.textContent = state.totalText;
-    patchElementHtml(hintsNode, state.hintsHtml);
+    replaceElementHtml(hintsNode, state.hintsHtml);
     submitButton.disabled = state.disabled;
     submitButton.textContent = state.actionLabel;
     return true;

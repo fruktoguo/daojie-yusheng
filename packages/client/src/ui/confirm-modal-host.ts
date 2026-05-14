@@ -1,4 +1,3 @@
-import { patchElementHtml } from './dom-patch';
 import { t } from './i18n';
 
 type ConfirmModalOptions = {
@@ -13,6 +12,12 @@ type ConfirmModalOptions = {
   onConfirm?: () => void;
   onClose?: () => void;
 };
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
+}
 
 class ConfirmModalHost {
   private modal: HTMLElement | null = null;
@@ -39,7 +44,7 @@ class ConfirmModalHost {
     this.title.textContent = options.title;
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
-    patchElementHtml(this.body, options.bodyHtml);
+    replaceElementHtml(this.body, options.bodyHtml);
     this.cancelButton.textContent = options.cancelLabel ?? t('modal.confirm.cancel', undefined);
     this.confirmButton.textContent = options.confirmLabel ?? t('modal.confirm.ok', undefined);
     this.confirmButton.disabled = options.confirmDisabled === true;
@@ -129,7 +134,7 @@ class ConfirmModalHost {
     this.ownerId = null;
     this.onConfirm = null;
     this.onClose = null;
-    this.body && patchElementHtml(this.body, '');
+    this.body?.replaceChildren();
     this.modal.classList.add('hidden');
     this.modal.setAttribute('aria-hidden', 'true');
     if (notify) {

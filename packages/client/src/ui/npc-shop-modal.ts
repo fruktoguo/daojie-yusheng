@@ -5,7 +5,6 @@ import { getItemTypeLabel } from '../domain-labels';
 import { getPlayerOwnedItemCount } from '../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { confirmModalHost } from './confirm-modal-host';
 import { resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { t } from './i18n';
@@ -24,6 +23,12 @@ function escapeHtml(value: string): string {
 /** escapeHtmlAttr：处理escape Html属性。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** NpcShopModalCallbacks：商店弹窗回调集。 */
@@ -332,18 +337,18 @@ export class NpcShopModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.shopState) {
-      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.loading', undefined)));
+      body.replaceChildren(this.createEmptyState(t('npc-shop.empty.loading', undefined)));
       return;
     }
 
     const response = this.shopState;
     const shop = response?.shop ?? null;
     if (!shop) {
-      patchElementChildren(body, this.createEmptyState(response?.error ?? t('npc-shop.empty.unavailable', undefined)));
+      body.replaceChildren(this.createEmptyState(response?.error ?? t('npc-shop.empty.unavailable', undefined)));
       return;
     }
     if (shop.items.length === 0) {
-      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.no-stock', undefined)));
+      body.replaceChildren(this.createEmptyState(t('npc-shop.empty.no-stock', undefined)));
       return;
     }
 
@@ -353,13 +358,13 @@ export class NpcShopModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
     if (!toolbarMeta || !listRoot || !detailRoot) {
-      patchElementChildren(body, this.createEmptyState(t('npc-shop.empty.unavailable', undefined)));
+      body.replaceChildren(this.createEmptyState(t('npc-shop.empty.unavailable', undefined)));
       return;
     }
     this.syncToolbarMeta(toolbarMeta, shop);
     this.syncShopList(listRoot, shop, selectedItem);
     this.syncDetailPanel(detailRoot, shop, selectedItem);
-    patchElementChildren(body, shell);
+    body.replaceChildren(shell);
   }
 
   /** createEmptyState：创建空态节点。 */
@@ -483,7 +488,7 @@ export class NpcShopModal {
     nameText.dataset.npcShopItemTooltip = item.itemId;
     ownedNode.textContent = ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : '';
     ownedNode.classList.toggle('hidden', ownedCount <= 0);
-    patchElementHtml(ribbonNode, status ? `<span>${escapeHtml(status.label)}</span>` : '');
+    replaceElementHtml(ribbonNode, status ? `<span>${escapeHtml(status.label)}</span>` : '');
     ribbonNode.classList.toggle('hidden', status === null);
     priceNode.textContent = t('npc-shop.price.sale', {
       price: formatDisplayInteger(item.unitPrice),
@@ -545,7 +550,7 @@ export class NpcShopModal {
 
   /** syncDetailPanel：刷新右侧详情区。 */
   private syncDetailPanel(detailRoot: HTMLElement, shop: NpcShopState, selectedItem: NpcShopItemState): void {
-    patchElementHtml(detailRoot, this.renderDetailPanel(shop, selectedItem));
+    replaceElementHtml(detailRoot, this.renderDetailPanel(shop, selectedItem));
   }
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */

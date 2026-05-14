@@ -7,7 +7,13 @@ import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { assessMapDanger } from '../../utils/map-danger';
 import { FloatingTooltip } from '../floating-tooltip';
-import { patchElementHtml } from '../dom-patch';
+import {
+  mountReactWorldPanels,
+  setReactWorldPanelCallbacks,
+  shouldUseReactWorldPanel,
+  syncReactWorldPanelState,
+  unmountReactWorldPanels,
+} from '../../react-ui/panels/world/mount-world-panel';
 
 /** 世界面板汇总快照。 */
 interface WorldPanelSnapshot {
@@ -39,6 +45,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 function inferRealm(player: PlayerState): string {
@@ -109,6 +121,10 @@ export class WorldPanel {
   /** setCallbacks：设置面板回调。 */
   setCallbacks(callbacks: WorldPanelCallbacks): void {
     this.callbacks = callbacks;
+    setReactWorldPanelCallbacks(callbacks);
+    if (this.useReactPanel()) {
+      this.mountReactPanels();
+    }
   }
 
   /** update：根据当前玩家与地图元数据刷新面板。 */
@@ -116,6 +132,11 @@ export class WorldPanel {
     player: PlayerState;
     mapMeta: MapMeta | null;
   }): void {
+    if (this.useReactPanel()) {
+      syncReactWorldPanelState(input);
+      this.mountReactPanels();
+      return;
+    }
     const snapshot = this.buildSnapshot(input);
     this.syncMapPane(snapshot);
     this.syncTianjiPane();
@@ -123,9 +144,26 @@ export class WorldPanel {
 
   /** clear：清空当前世界面板。 */
   clear(): void {
+    if (this.useReactPanel()) {
+      syncReactWorldPanelState({ player: null, mapMeta: null });
+      this.mountReactPanels();
+      return;
+    }
     this.hideMapTypeTooltip();
-    patchElementHtml(this.mapPane, '<div class="empty-hint">尚未进入世界</div>');
-    patchElementHtml(this.tianjiPane, '<div class="empty-hint">尚未进入世界</div>');
+    replaceElementHtml(this.mapPane, '<div class="empty-hint">尚未进入世界</div>');
+    replaceElementHtml(this.tianjiPane, '<div class="empty-hint">尚未进入世界</div>');
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactWorldPanel();
+  }
+
+  private mountReactPanels(): void {
+    if (this.useReactPanel()) {
+      mountReactWorldPanels();
+      return;
+    }
+    unmountReactWorldPanels();
   }
 
   /** buildSnapshot：构建地图信息快照。 */
@@ -220,7 +258,7 @@ export class WorldPanel {
     `;
     this.hideMapTypeTooltip();
     preserveSelection(this.mapPane, () => {
-      patchElementHtml(this.mapPane, html);
+      replaceElementHtml(this.mapPane, html);
     });
   }
 
@@ -249,7 +287,7 @@ export class WorldPanel {
       </div>
     `;
     preserveSelection(this.tianjiPane, () => {
-      patchElementHtml(this.tianjiPane, html);
+      replaceElementHtml(this.tianjiPane, html);
     });
   }
 

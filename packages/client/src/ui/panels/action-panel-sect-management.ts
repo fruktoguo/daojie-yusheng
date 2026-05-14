@@ -5,7 +5,6 @@
  */
 import type { ActionDef, PlayerState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementHtml } from '../dom-patch';
 import { t } from '../i18n';
 import { getLocalRealmLevelEntry } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
@@ -45,6 +44,12 @@ const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
 
 function stripSectManagementData(desc: string | undefined): string {
   return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 function formatSectTimestamp(timestamp: number): string {
@@ -248,7 +253,7 @@ export class SectManagementSubpanel {
       title: t('action.sect.manage.title', undefined),
       subtitle: t('action.sect.manage.subtitle', { name: summary.name, mark: summary.mark }),
       renderBody: (body) => {
-        patchElementHtml(body, `
+        replaceElementHtml(body, `
           <div class="sect-manage-shell">
             <aside class="sect-manage-sidebar" aria-label="${t('action.sect.manage.sidebar.aria', undefined)}">
               <div class="sect-manage-sidebar-title">${t('action.sect.manage.sidebar.title', undefined)}</div>

@@ -7,7 +7,6 @@ import {
   type PlayerState,
 } from '@mud/shared';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spiritual-roots';
@@ -119,6 +118,12 @@ function escapeHtml(input: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** cloneRoots：克隆Roots。 */
@@ -528,7 +533,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     subtitle: `${player.realm?.displayName ?? t('heaven-gate.action.open', undefined)}`,
     hint: t('heaven-gate.modal.close-hint', undefined),
     renderBody: (body) => {
-      patchElementHtml(body, renderHeavenGateShell(session, judgement));
+      replaceElementHtml(body, renderHeavenGateShell(session, judgement));
     },
     onClose: () => {
       clearPendingAction();
@@ -619,12 +624,12 @@ function patchHeavenGateModalBody(
     return false;
   }
   judgementSection.classList.toggle('hidden', !session.roots);
-  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-name'), escapeHtml(judgement?.name ?? ''));
-  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-meta'), escapeHtml(judgement?.meta ?? ''));
-  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-desc'), escapeHtml(judgement?.desc ?? ''));
-  patchElementHtml(boardShell, renderBoard(session));
-  patchElementHtml(actionsShell, renderBoardActions(session));
-  patchElementHtml(popupShell, renderPendingPopup(session));
+  setText(judgementSection.querySelector('.heaven-gate-judgement-name'), judgement?.name ?? '');
+  setText(judgementSection.querySelector('.heaven-gate-judgement-meta'), judgement?.meta ?? '');
+  setText(judgementSection.querySelector('.heaven-gate-judgement-desc'), judgement?.desc ?? '');
+  replaceElementHtml(boardShell, renderBoard(session));
+  replaceElementHtml(actionsShell, renderBoardActions(session));
+  replaceElementHtml(popupShell, renderPendingPopup(session));
   return true;
 }
 /**
@@ -728,9 +733,9 @@ function bindHeavenGateEvents(
  */
 
 
-function setInnerHtml(node: Element | null, value: string): void {
+function setText(node: Element | null, value: string): void {
   if (node instanceof HTMLElement) {
-    patchElementHtml(node, value);
+    node.textContent = value;
   }
 }
 

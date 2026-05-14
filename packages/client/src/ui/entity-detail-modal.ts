@@ -12,7 +12,6 @@ import {
 } from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { describePreviewBonuses } from './stat-preview';
@@ -31,6 +30,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('\"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** formatPortalTrigger：格式化传送点Trigger。 */
@@ -177,7 +182,7 @@ export class EntityDetailModal {
       title,
       subtitle,
       renderBody: (body) => {
-        patchElementHtml(body, `<div data-entity-detail-body="true">${this.renderBody()}</div>`);
+        replaceElementHtml(body, `<div data-entity-detail-body="true">${this.renderBody()}</div>`);
       },
       onClose: () => {
         this.buffTooltip.hide(true);
@@ -204,7 +209,7 @@ export class EntityDetailModal {
     }
     titleNode.textContent = title;
     subtitleNode.textContent = subtitle;
-    patchElementHtml(shell, this.renderBody());
+    replaceElementHtml(shell, this.renderBody());
     bindInlineItemTooltips(body);
     return true;
   }

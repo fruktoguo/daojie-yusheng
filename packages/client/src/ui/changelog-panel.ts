@@ -1,7 +1,11 @@
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren } from './dom-patch';
 import { t } from './i18n';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
+import {
+  mountReactChangelogPanel,
+  shouldUseReactChangelogPanel,
+  unmountReactChangelogPanel,
+} from '../react-ui/panels/changelog/mount-changelog-panel';
 
 /** ChangelogPanel：Changelog面板实现。 */
 export class ChangelogPanel {
@@ -19,14 +23,23 @@ export class ChangelogPanel {
 
   /** open：打开open。 */
   open(): void {
+    const useReactPanel = shouldUseReactChangelogPanel();
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
       title: t('changelog.panel.title', undefined),
       subtitle: this.buildSubtitle(),
       hint: t('changelog.panel.close-hint', undefined),
       renderBody: (body) => {
+        if (useReactPanel) {
+          body.replaceChildren();
+          return;
+        }
         this.renderBody(body);
       },
+      onAfterRender: useReactPanel
+        ? (body, signal) => mountReactChangelogPanel(body, signal)
+        : undefined,
+      onClose: useReactPanel ? unmountReactChangelogPanel : undefined,
     });
   }
 
@@ -51,7 +64,7 @@ export class ChangelogPanel {
     }
     historySection.append(sectionTitle, entryList);
     shell.append(historySection);
-    patchElementChildren(body, shell);
+    body.replaceChildren(shell);
   }
 
   /** renderEntry：渲染条目。 */

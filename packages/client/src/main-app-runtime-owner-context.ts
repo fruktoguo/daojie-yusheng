@@ -13,6 +13,7 @@ import { createMainPanelDeltaStateSource } from './main-panel-delta-state-source
 import { createMainResetStateSource } from './main-reset-state-source';
 import { createMainRuntimeDeltaStateSource } from './main-runtime-delta-state-source';
 import { createMainRuntimeStateSource } from './main-runtime-state-source';
+import { createMainRuntimeOwnerPatchHandlers } from './main-runtime-owner-patch-handlers';
 import { createMainTargetingStateSource } from './main-targeting-state-source';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
@@ -332,9 +333,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     showSidePanel: () => panelContext.panelDeps.sidePanel.show(),
     setChatPersistenceScope: (scope) => panelContext.panelDeps.chatUI.setPersistenceScope(scope),
     showChat: () => panelContext.panelDeps.chatUI.show(),
-    showHud: () => {
-      documentRef.getElementById('hud')?.classList.remove('hidden');
-    },
+    showHud: () => { documentRef.getElementById('hud')?.classList.remove('hidden'); },
     resizeCanvas,
     refreshZoomChrome: () => panelContext.uiStateSource.refreshZoomChrome(),
     setPanelRuntime: (state) => panelContext.panelRuntimeSource.setRuntime(state as Record<string, unknown>),
@@ -354,6 +353,12 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     applyWorldDelta: (data, mapIdHint, instanceIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint, instanceIdHint),
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
     applyPanelDelta: (data) => runtimeDeltaStateSource.handlePanelDelta(data),
+    appendNotices: (items) => panelContext.noticeStateSource.handleNotice({ items }),
+    ...createMainRuntimeOwnerPatchHandlers({
+      getPlayer: () => rootRuntimeSource.getPlayer(),
+      setPlayer: (player) => rootRuntimeSource.setPlayer(player),
+      syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
+    }),
     inventorySyncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),
     equipmentSyncPlayerContext: (player) => equipmentPanel.syncPlayerContext(player),
     refreshHeavenGateModal: (player) => refreshHeavenGateModal(player, {
@@ -425,9 +430,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     },
     resetPanelRuntime: () => panelContext.panelRuntimeSource.resetRuntime(),
     resizeCanvas,
-    hideHud: () => {
-      documentRef.getElementById('hud')?.classList.add('hidden');
-    },
+    hideHud: () => { documentRef.getElementById('hud')?.classList.add('hidden'); },
   });
 
   return {

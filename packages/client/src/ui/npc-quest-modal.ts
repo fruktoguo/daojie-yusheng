@@ -2,7 +2,6 @@ import { Inventory, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 import { t } from './i18n';
 
@@ -14,6 +13,16 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('\"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
+}
+
+function replaceWithSingleChild(root: HTMLElement, child: HTMLElement): void {
+  root.replaceChildren(child);
 }
 
 /** NpcQuestModalCallbacks：任务弹窗回调集。 */
@@ -240,15 +249,15 @@ export class NpcQuestModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.state) {
-      patchElementChildren(body, this.createEmptyState(t('npc-quest.empty.talking', undefined)));
+      replaceWithSingleChild(body, this.createEmptyState(t('npc-quest.empty.talking', undefined)));
       return;
     }
     if (!this.state) {
-      patchElementChildren(body, this.createEmptyState(t('npc-quest.empty.unavailable', undefined)));
+      replaceWithSingleChild(body, this.createEmptyState(t('npc-quest.empty.unavailable', undefined)));
       return;
     }
     if (this.state.quests.length === 0) {
-      patchElementChildren(body, this.createEmptyState(t('npc-quest.empty.no-new', {
+      replaceWithSingleChild(body, this.createEmptyState(t('npc-quest.empty.no-new', {
         npcName: this.state.npcName,
       })));
       return;
@@ -256,7 +265,7 @@ export class NpcQuestModal {
 
     const selected = this.resolveSelectedQuest();
     if (!selected) {
-      patchElementChildren(body, this.createEmptyState(t('npc-quest.empty.no-detail', undefined)));
+      replaceWithSingleChild(body, this.createEmptyState(t('npc-quest.empty.no-detail', undefined)));
       return;
     }
 
@@ -264,12 +273,12 @@ export class NpcQuestModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (!listRoot || !detailRoot) {
-      patchElementChildren(body, this.createEmptyState(t('npc-quest.empty.no-detail', undefined)));
+      replaceWithSingleChild(body, this.createEmptyState(t('npc-quest.empty.no-detail', undefined)));
       return;
     }
     this.syncQuestList(listRoot, selected);
     this.syncQuestDetail(detailRoot, selected);
-    patchElementChildren(body, shell);
+    replaceWithSingleChild(body, shell);
   }
 
   /** createEmptyState：创建空态节点。 */
@@ -345,7 +354,7 @@ export class NpcQuestModal {
     titleNode.textContent = quest.title;
     statusNode.textContent = getQuestStatusLabel(quest.status);
     lineNode.textContent = getQuestLineLabel(quest.line);
-    patchElementHtml(descNode, this.renderQuestText(quest.desc, quest));
+    replaceElementHtml(descNode, this.renderQuestText(quest.desc, quest));
     return true;
   }
 
@@ -373,7 +382,7 @@ export class NpcQuestModal {
 
   /** syncQuestDetail：刷新详情区内容。 */
   private syncQuestDetail(detailRoot: HTMLElement, selected: QuestState): void {
-    patchElementHtml(detailRoot, this.renderQuestDetail(selected));
+    replaceElementHtml(detailRoot, this.renderQuestDetail(selected));
   }
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */

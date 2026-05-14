@@ -17,7 +17,6 @@ import { getLocalItemTemplate } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
@@ -59,6 +58,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 function formatTicks(ticks: number | undefined): string {
@@ -362,7 +367,7 @@ export class CraftEnhancementView {
       return true;
     }
     if (activeJob) {
-      patchElementHtml(workbench, this.renderEnhancementWorkbenchSection());
+      replaceElementHtml(workbench, this.renderEnhancementWorkbenchSection());
       bindInlineItemTooltips(workbench);
       return true;
     }
@@ -379,7 +384,7 @@ export class CraftEnhancementView {
       note.textContent = nextText;
       return;
     }
-    patchElementHtml(toolbar, this.renderEnhancementToolbar());
+    replaceElementHtml(toolbar, this.renderEnhancementToolbar());
   }
 
   private patchEnhancementActiveJob(workbench: HTMLElement, job: EnhancementJobView): void {

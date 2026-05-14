@@ -7,7 +7,6 @@ import { deleteAllRememberedMaps, deleteRememberedMap, getRememberedMarkers, get
 import { getCachedMapMeta, getCachedUnlockedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { getViewportRoot } from './responsive-viewport';
 import {
   EMPTY_GROUND_PILES,
@@ -1089,7 +1088,7 @@ export class Minimap {
     const modalCtx = this.modalCanvas?.getContext('2d');
     modalCtx?.clearRect(0, 0, this.modalCanvas?.width ?? 0, this.modalCanvas?.height ?? 0);
     if (this.modalList) {
-      patchElementHtml(this.modalList, '');
+      this.modalList.replaceChildren();
     }
     this.catalogEntryNodes.clear();
     this.modalDisplayMode = 'unlock';
@@ -1328,7 +1327,7 @@ export class Minimap {
 
     if (filteredEntries.length === 0) {
       this.removeAllCatalogNodes();
-      patchElementChildren(catalogContainer, this.getCatalogEmptyNode());
+      catalogContainer.replaceChildren(this.getCatalogEmptyNode());
       return;
     }
 
@@ -1432,7 +1431,7 @@ export class Minimap {
       if (entry.hasUnlock) {
         badges.push(this.buildCatalogBadge('unlock', t('minimap.catalog.badge.unlock', undefined)));
       }
-      patchElementChildren(badgesNode, badges);
+      badgesNode.replaceChildren(...badges);
     }
 
     node.dataset.mapId = entry.mapId;
@@ -1842,10 +1841,10 @@ export class Minimap {
       subtitle: t('minimap.coordinate.with-map', { mapName: mapMeta.name, x, y }),
       hint: t('minimap.modal.hint.cancel-outside', undefined),
       renderBody: (body) => {
-        patchElementChildren(body, [
+        body.replaceChildren(
           this.createConfirmMessage(t('minimap.move-confirm.message', undefined)),
           this.createMoveConfirmActions(x, y),
-        ]);
+        );
       },
       onAfterRender: (body, signal) => {
         this.bindMoveConfirmActions(body, signal, x, y);
@@ -1891,10 +1890,10 @@ export class Minimap {
       subtitle: mapName,
       hint: t('minimap.modal.hint.cancel-outside', undefined),
       renderBody: (body) => {
-        patchElementChildren(body, [
+        body.replaceChildren(
           this.createConfirmMessage(message),
           this.createDeleteMemoryActions(scope),
-        ]);
+        );
       },
       onAfterRender: (body, signal) => {
         this.bindDeleteMemoryActions(body, signal, scope, selectedMapId);

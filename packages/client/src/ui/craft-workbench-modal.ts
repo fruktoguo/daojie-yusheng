@@ -41,7 +41,6 @@ import { getEquipSlotLabel, getItemTypeLabel, getTechniqueGradeLabel } from '../
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
@@ -51,6 +50,13 @@ import { CraftAlchemyView } from './craft-alchemy-view';
 import { CraftEnhancementView } from './craft-enhancement-view';
 import { CraftQueueView } from './craft-queue-view';
 import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
+import {
+  mountReactCraftWorkbenchPanel,
+  setReactCraftWorkbenchAfterContentRender,
+  shouldUseReactCraftWorkbenchPanel,
+  syncReactCraftWorkbenchState,
+  unmountReactCraftWorkbenchPanel,
+} from '../react-ui/panels/craft/mount-craft-workbench-panel';
 
 type CraftWorkbenchCallbacks = {
   onRequestAlchemy: (knownCatalogVersion?: number) => void;
@@ -117,6 +123,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 function escapeHtmlAttr(value: string): string {
@@ -658,6 +670,7 @@ export class CraftWorkbenchModal {
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-detail`);
     this.enhancementFormulaTooltip.hide(true);
+    unmountReactCraftWorkbenchPanel();
     detailModalHost.close(CraftWorkbenchModal.MODAL_OWNER);
   }
 
@@ -759,6 +772,10 @@ export class CraftWorkbenchModal {
     if (!definition) {
       return;
     }
+    if (this.useReactPanel()) {
+      this.renderReact(definition);
+      return;
+    }
     const body = detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
@@ -772,7 +789,7 @@ export class CraftWorkbenchModal {
       subtitle: definition.subtitle,
       hint: t('craft.workbench.modal.close-hint'),
       renderBody: (body) => {
-        patchElementHtml(body, definition.body);
+        replaceElementHtml(body, definition.body);
       },
       onAfterRender: (body, signal) => {
         bindInlineItemTooltips(body, signal);
@@ -794,10 +811,137 @@ export class CraftWorkbenchModal {
     });
   }
 
+  private useReactPanel(): boolean {
+    return shouldUseReactCraftWorkbenchPanel();
+  }
+
+  private renderReact(definition: { title: string; subtitle: string; variantClass: string; body: string }): void {
+    const body = detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (body instanceof HTMLElement && this.tryPatchReactModal(body, definition, true)) {
+      return;
+    }
+    detailModalHost.open({
+      ownerId: CraftWorkbenchModal.MODAL_OWNER,
+      variantClass: definition.variantClass,
+      title: definition.title,
+      subtitle: definition.subtitle,
+      hint: t('craft.workbench.modal.close-hint'),
+      renderBody: (body) => {
+        this.syncReactShell(definition, true);
+        mountReactCraftWorkbenchPanel(body);
+      },
+      onAfterRender: (body, signal) => {
+        this.bindReactCraftBody(body, signal);
+      },
+      onClose: () => {
+        confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+        confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
+        confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
+        confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
+        confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-detail`);
+        this.enhancementFormulaTooltip.hide(true);
+        unmountReactCraftWorkbenchPanel();
+        this.activeMode = null;
+        this.loading = false;
+      },
+    });
+  }
+
+  private tryPatchReactModal(
+    _body: HTMLElement,
+    definition: { title: string; subtitle: string; variantClass: string; body: string },
+    includeContent: boolean,
+  ): boolean {
+    return detailModalHost.patch({
+      ownerId: CraftWorkbenchModal.MODAL_OWNER,
+      variantClass: definition.variantClass,
+      title: definition.title,
+      subtitle: definition.subtitle,
+      hint: t('craft.workbench.modal.close-hint'),
+      renderBody: includeContent
+        ? (nextBody) => {
+          this.syncReactShell(definition, true);
+          mountReactCraftWorkbenchPanel(nextBody);
+        }
+        : undefined,
+      onAfterRender: includeContent
+        ? (nextBody, signal) => {
+          this.bindReactCraftBody(nextBody, signal);
+        }
+        : undefined,
+    });
+  }
+
+  private syncReactShell(
+    _definition: { title: string; subtitle: string; variantClass: string; body: string },
+    includeContent: boolean,
+  ): void {
+    syncReactCraftWorkbenchState({
+      activeMode: this.activeMode,
+      tabsKey: this.buildCraftTabsKey(),
+      tabsHtml: this.renderCraftModeTabs(),
+      headerKey: this.buildCraftHeaderKey(),
+      headerHtml: this.renderCraftHeader(),
+      ...(includeContent
+        ? {
+          contentKey: this.buildCraftContentKey(),
+          contentHtml: this.renderCraftActiveBody(),
+        }
+        : {}),
+    });
+  }
+
+  private buildCraftContentKey(): string {
+    return [
+      this.activeMode ?? 'none',
+      this.loading ? 'loading' : 'ready',
+      this.activeAlchemyCategory,
+      this.activeAlchemyRealm,
+      this.activeAlchemyTab,
+      this.selectedAlchemyRecipeId ?? '',
+      this.selectedAlchemyPresetId ?? '',
+      this.selectedEnhancementTargetKey ?? '',
+      this.selectedEnhancementTargetLevel ?? '',
+      this.selectedEnhancementProtectionKey ?? '',
+      this.selectedEnhancementProtectionStartLevel ?? '',
+      this.enhancementHistoryExpanded ? 'history' : '',
+      this.enhancementProtectionExpanded ? 'protect' : '',
+    ].join(':');
+  }
+
+  private bindReactCraftBody(body: HTMLElement, signal: AbortSignal): void {
+    setReactCraftWorkbenchAfterContentRender(() => {
+      if (this.activeMode === 'enhancement') {
+        this.bindEnhancementEvents(body, signal);
+      }
+      if (this.activeMode === 'alchemy') {
+        this.syncAlchemyConfirmModal();
+      }
+    });
+    if (body.dataset.reactCraftRootBound !== '1') {
+      body.dataset.reactCraftRootBound = '1';
+      signal.addEventListener('abort', () => {
+        delete body.dataset.reactCraftRootBound;
+      }, { once: true });
+      bindInlineItemTooltips(body, signal);
+      this.bindActions(body, signal);
+    } else if (this.activeMode === 'enhancement') {
+      this.bindEnhancementEvents(body, signal);
+    }
+    if (this.activeMode === 'alchemy') {
+      this.syncAlchemyConfirmModal();
+    }
+  }
+
   private tryPatchModal(
     body: HTMLElement,
     definition: { title: string; subtitle: string; variantClass: string; body: string },
   ): boolean {
+    if (this.useReactPanel()) {
+      return this.tryPatchReactModal(body, definition, true);
+    }
     if (!detailModalHost.patch({
       ownerId: CraftWorkbenchModal.MODAL_OWNER,
       variantClass: definition.variantClass,
@@ -817,7 +961,7 @@ export class CraftWorkbenchModal {
     detailModalHost.patch({
       ownerId: CraftWorkbenchModal.MODAL_OWNER,
       renderBody: (nextBody) => {
-        patchElementHtml(nextBody, definition.body);
+        replaceElementHtml(nextBody, definition.body);
       },
       onAfterRender: (nextBody, signal) => {
         bindInlineItemTooltips(nextBody, signal);
@@ -837,6 +981,26 @@ export class CraftWorkbenchModal {
     const definition = this.getCurrentModalDefinition();
     const body = document.getElementById('detail-modal-body');
     if (!definition || !(body instanceof HTMLElement)) {
+      return;
+    }
+    if (this.useReactPanel()) {
+      if (!detailModalHost.patch({
+        ownerId: CraftWorkbenchModal.MODAL_OWNER,
+        variantClass: definition.variantClass,
+        title: definition.title,
+        subtitle: definition.subtitle,
+        hint: t('craft.workbench.modal.close-hint'),
+      })) {
+        return;
+      }
+      this.syncReactShell(definition, false);
+      mountReactCraftWorkbenchPanel(body);
+      if ((this.activeMode === 'alchemy' || this.activeMode === 'forging') && this.tryPatchAlchemyBody(body)) {
+        return;
+      }
+      if (this.activeMode === 'enhancement') {
+        this.tryPatchEnhancementBody(body);
+      }
       return;
     }
     if (!detailModalHost.patch({
@@ -863,7 +1027,7 @@ export class CraftWorkbenchModal {
     if (craftHeader) {
       const headerKey = this.buildCraftHeaderKey();
       if (craftHeader.dataset.craftHeaderKey !== headerKey) {
-        patchElementHtml(craftHeader, this.renderCraftHeader());
+        replaceElementHtml(craftHeader, this.renderCraftHeader());
         craftHeader.dataset.craftHeaderKey = headerKey;
       }
       this.patchCraftQueueProgress(craftHeader);
@@ -871,7 +1035,7 @@ export class CraftWorkbenchModal {
     if (craftTabs) {
       const tabsKey = this.buildCraftTabsKey();
       if (craftTabs.dataset.craftTabsKey !== tabsKey) {
-        patchElementHtml(craftTabs, this.renderCraftModeTabs());
+        replaceElementHtml(craftTabs, this.renderCraftModeTabs());
         craftTabs.dataset.craftTabsKey = tabsKey;
       }
     }
@@ -1482,7 +1646,7 @@ export class CraftWorkbenchModal {
     const nextJobKey = this.getAlchemyJobPatchKey(job);
     const card = jobHost.querySelector<HTMLElement>('[data-alchemy-job-card="true"]');
     if (!card || card.dataset.alchemyJobKey !== nextJobKey) {
-      patchElementHtml(jobHost, this.renderAlchemyJobCard(job));
+      replaceElementHtml(jobHost, this.renderAlchemyJobCard(job));
       return;
     }
     if (!job) {
@@ -1665,7 +1829,7 @@ export class CraftWorkbenchModal {
       note.textContent = nextText;
       return;
     }
-    patchElementHtml(toolbar, this.renderEnhancementToolbar());
+    replaceElementHtml(toolbar, this.renderEnhancementToolbar());
   }
 
   private getEnhancementToolbarNoteText(): string {

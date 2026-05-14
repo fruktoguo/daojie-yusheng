@@ -558,6 +558,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   });
 
   bindMainStartup({
+    documentRef: options.documentRef,
     initializeUiStyleConfig,
     mountReactUi: () => mountReactUi(options.windowRef),
     startClientVersionReload,
@@ -589,7 +590,6 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       applyZoomChange: (nextZoom) => options.uiStateSource.applyZoomChange(nextZoom),
     },
     showToast: (message) => options.showToast(message),
-    joinQqGroupBtns: options.joinQqGroupBtns,
     qqGroupNumber: options.qqGroupNumber,
     qqGroupMobileDeepLink: options.qqGroupMobileDeepLink,
     qqGroupDesktopDeepLink: options.qqGroupDesktopDeepLink,

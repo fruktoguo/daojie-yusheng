@@ -6,9 +6,14 @@ import {
   type TutorialTopic,
 } from '../constants/ui/tutorial';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementHtml } from './dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
+import {
+  mountReactTutorialPanel,
+  resolveReactTutorialModalMeta,
+  shouldUseReactTutorialPanel,
+  unmountReactTutorialPanel,
+} from '../react-ui/panels/tutorial/mount-tutorial-panel';
 
 /** TutorialOperationHint：教程操作提示。 */
 interface TutorialOperationHint {
@@ -182,6 +187,25 @@ export class TutorialPanel {
 
   /** open：打开open。 */
   open(): void {
+    if (shouldUseReactTutorialPanel()) {
+      const meta = resolveReactTutorialModalMeta();
+      detailModalHost.open({
+        ownerId: TutorialPanel.MODAL_OWNER,
+        size: meta.size,
+        variantClass: meta.variantClass,
+        title: meta.title,
+        subtitle: meta.subtitle,
+        hint: meta.hint,
+        renderBody: (body) => {
+          body.replaceChildren();
+        },
+        onClose: unmountReactTutorialPanel,
+        onAfterRender: (body, signal) => {
+          mountReactTutorialPanel(body, signal);
+        },
+      });
+      return;
+    }
     detailModalHost.open({
       ownerId: TutorialPanel.MODAL_OWNER,
       size: 'wide',
@@ -204,7 +228,7 @@ export class TutorialPanel {
 
   /** renderBody：渲染身体。 */
   private renderBody(body: HTMLElement): void {
-    patchElementHtml(body, `
+    body.innerHTML = `
       <div class="tutorial-modal-body">
         <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="${escapeHtml(t('tutorial.panel.main-tabs.aria', undefined))}">
           ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
@@ -246,7 +270,7 @@ export class TutorialPanel {
           </section>
         </div>
       </div>
-    `);
+    `;
   }
 
   /** renderTopicShell：渲染教程专题外壳，支持内容留空。 */

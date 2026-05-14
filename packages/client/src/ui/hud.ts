@@ -6,6 +6,14 @@
 import { PlayerState, resolveCharacterAge } from '@mud/shared';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 import { t } from './i18n';
+import {
+  mountReactHudCornerActions,
+  mountReactHudLinkActions,
+  mountReactHudStatus,
+  setReactHudBreakthroughHandler,
+  syncReactHudStatus,
+  type ReactHudStatusState,
+} from '../react-ui/shell/HudStatus';
 
 /** HUDMeta：HUD 附加显示元数据。 */
 interface HUDMeta {
@@ -105,6 +113,8 @@ export class HUD {
   private cultivateBar = document.getElementById('hud-cultivate-bar')!;
   /** onBreakthrough：on Breakthrough。 */
   private onBreakthrough: (() => void) | null = null;
+  /** useReactHud：是否由 React 接管 HUD 状态展示。 */
+  private readonly useReactHud: boolean;
 
   /** HUD 最近一次写入的显示签名，做短路避免无意义的 DOM 写入。 */
   private lastSignatures: Record<string, string> = Object.create(null);  
@@ -115,6 +125,10 @@ export class HUD {
 
 
   constructor() {
+    const hudRoot = document.getElementById('hud')!;
+    this.useReactHud = mountReactHudStatus(hudRoot);
+    mountReactHudLinkActions(hudRoot);
+    mountReactHudCornerActions(hudRoot);
     this.breakthroughButton?.addEventListener('click', () => {
       this.onBreakthrough?.();
     });
@@ -128,11 +142,18 @@ export class HUD {
 
   setCallbacks(onBreakthrough: () => void): void {
     this.onBreakthrough = onBreakthrough;
+    setReactHudBreakthroughHandler(onBreakthrough);
   }
 
   /** 根据玩家状态刷新所有 HUD 元素 */
   update(player: PlayerState, meta?: HUDMeta) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const state = this.buildReactHudStatus(player, meta);
+    if (this.useReactHud) {
+      syncReactHudStatus(state);
+      return;
+    }
 
     this.setText(this.nameDiv, 'name', player.displayName ?? player.name);
     this.setText(this.titleDiv, 'title', meta?.titleLabel ?? t('hud.title.default', undefined));
@@ -198,6 +219,72 @@ export class HUD {
       }
       this.setText(this.cultivateText, 'cultivate-text', t('hud.cultivate.complete', undefined));
     }
+  }
+
+  private buildReactHudStatus(player: PlayerState, meta?: HUDMeta): ReactHudStatusState {
+    const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
+    const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
+    const breakthroughPreview = player.realm?.breakthrough;
+    const canBreakthrough = player.realm?.breakthroughReady === true && breakthroughPreview?.canBreakthrough === true;
+    const hasSpecialRealmAction = meta?.showRealmAction === true && Boolean(meta.realmActionLabel);
+    const realmActionAvailable = hasSpecialRealmAction || Boolean(canBreakthrough);
+    const showRealmAction = meta?.showRealmAction ?? true;
+    const realmActionLabel = meta?.realmActionLabel ?? (
+      breakthroughPreview
+        ? t('hud.action.breakthrough-target', { target: breakthroughPreview.targetDisplayName })
+        : t('hud.action.breakthrough', undefined)
+    );
+    const hp = this.buildResource(player.hp, player.maxHp);
+    const qiMax = Math.max(0, Math.round(player.numericStats?.maxQi ?? 0));
+    const qiCurrent = Math.max(0, Math.round(player.qi));
+    const qi = this.buildResource(qiCurrent, qiMax);
+    const cultivate = this.buildCultivate(player);
+
+    return {
+      name: player.displayName ?? player.name,
+      title: meta?.titleLabel ?? t('hud.title.default', undefined),
+      position: `(${player.x}, ${player.y})`,
+      map: meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId),
+      objective: meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player),
+      threat: meta?.lifespanLabel ?? this.buildLifespanLabel(player),
+      realmLabel,
+      realmReviewLabel,
+      realmActionLabel,
+      showRealmAction,
+      realmActionAvailable,
+      hpText: hp.text,
+      hpWidth: hp.width,
+      qiText: qi.text,
+      qiWidth: qi.width,
+      cultivateText: cultivate.text,
+      cultivateWidth: cultivate.width,
+    };
+  }
+
+  private buildResource(value: number, max: number): { text: string; width: string } {
+    const roundedValue = Math.max(0, Math.round(value));
+    const roundedMax = Math.max(0, Math.round(max));
+    const ratio = roundedMax <= 0 ? 0 : Math.max(0, Math.min(1, roundedValue / roundedMax));
+    return {
+      text: formatDisplayCurrentMax(roundedValue, roundedMax),
+      width: `${Math.round(ratio * 100)}%`,
+    };
+  }
+
+  private buildCultivate(player: PlayerState): { text: string; width: string } {
+    if (player.realm && player.realm.progressToNext > 0) {
+      const ratio = Math.min(1, player.realm.progress / player.realm.progressToNext);
+      const current = formatDisplayInteger(player.realm.progress);
+      const next = formatDisplayInteger(player.realm.progressToNext);
+      return {
+        text: t('hud.cultivate.progress', { current, next }),
+        width: `${Math.round(ratio * 100)}%`,
+      };
+    }
+    return {
+      text: t('hud.cultivate.complete', undefined),
+      width: '0%',
+    };
   }
 
   /** setResource：处理set资源。 */

@@ -9,7 +9,6 @@ import {
   getViewportRoot,
   RESPONSIVE_VIEWPORT_CHANGE_EVENT,
 } from './responsive-viewport';
-import { patchElementHtml } from './dom-patch';
 
 const FLOATING_TOOLTIP_ROOT_ID = 'floating-tooltip-root';
 const FLOATING_TOOLTIP_ROOT_Z_INDEX = '4000';
@@ -83,6 +82,12 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** 浮动提示的展示参数，控制 HTML 渲染和右侧辅助卡片。 */
@@ -223,7 +228,7 @@ export class FloatingTooltip {
         </div>`;
       }).join('')}</div>`
       : '';
-    patchElementHtml(this.el, `<div class="floating-tooltip-shell"><div class="floating-tooltip-body"><strong>${escapeHtml(title)}</strong>${content.length > 0 ? `<div class="floating-tooltip-detail">${renderedContent}</div>` : ''}</div>${renderedAside}</div>`);
+    replaceElementHtml(this.el, `<div class="floating-tooltip-shell"><div class="floating-tooltip-body"><strong>${escapeHtml(title)}</strong>${content.length > 0 ? `<div class="floating-tooltip-detail">${renderedContent}</div>` : ''}</div>${renderedAside}</div>`);
     this.el.classList.add('visible');
     this.move(clientX, clientY);
   }

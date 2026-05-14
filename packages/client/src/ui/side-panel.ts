@@ -1,7 +1,16 @@
 /** 页面布局与多组标签页控制器 */
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
-import { getViewportScale, shouldUseMobileUi } from './responsive-viewport';
+import { shouldUseMobileUi } from './responsive-viewport';
 import { t } from './i18n';
+import {
+  mountReactSidePanelTabGroup,
+  mountReactSidePanelToggle,
+  syncReactSidePanelLayoutState,
+  syncReactSidePanelMobileLayout,
+  type ReactSidePanelLayoutTarget,
+  type ReactSidePanelMobileSection,
+  type ReactSidePanelTabButton,
+} from '../react-ui/shell/SidePanelControls';
 
 /** 移动端挂载位标识。 */
 type MobilePaneId =
@@ -90,52 +99,6 @@ export class SidePanel {
   /** onTabChange：on Tab变更。 */
   private onTabChange: ((tabName: string) => void) | null = null;  
   /**
- * dragState：drag状态状态或数据块。
- */
-
-  private dragState: {  
-  /**
- * target：目标相关字段。
- */
-
-    target: 'left' | 'right' | 'bottom';    
-    /**
- * pointerId：pointerID标识。
- */
-
-    pointerId: number;    
-    /**
- * startX：startX相关字段。
- */
-
-    startX: number;    
-    /**
- * startY：startY相关字段。
- */
-
-    startY: number;    
-    /**
- * startSize：数量或计量字段。
- */
-
-    startSize: number;    
-    /**
- * shellWidth：shellWidth相关字段。
- */
-
-    shellWidth: number;    
-    /**
- * shellHeight：shellHeight相关字段。
- */
-
-    shellHeight: number;    
-    /**
- * dragged：dragged相关字段。
- */
-
-    dragged: boolean;
-  } | null = null;  
-  /**
  * layoutState：layout状态状态或数据块。
  */
 
@@ -143,7 +106,8 @@ export class SidePanel {
     leftCollapsed: false,
     rightCollapsed: false,
     bottomCollapsed: false,
-  };  
+  };
+  private buildingModeActive = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -164,6 +128,7 @@ export class SidePanel {
     this.syncLayoutState();
     this.restorePersistedTabs();
     this.syncResponsiveLayout();
+    this.mountReactTabGroups();
   }
 
   /** show：处理显示。 */
@@ -231,7 +196,8 @@ export class SidePanel {
   }
 
   setBuildingModeActive(active: boolean): void {
-    this.panel.dataset.buildingMode = active ? 'true' : 'false';
+    this.buildingModeActive = active;
+    this.syncReactLayoutState();
     this.onLayoutChange?.();
   }
 
@@ -297,115 +263,7 @@ export class SidePanel {
   }
 
   /** bindLayoutToggles：绑定布局Toggles。 */
-  private bindLayoutToggles(): void {
-    this.panel.querySelectorAll<HTMLButtonElement>('[data-layout-toggle]').forEach((button) => {
-      button.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0) {
-          return;
-        }
-        const target = button.dataset.layoutToggle;
-        if (target !== 'left' && target !== 'right' && target !== 'bottom') {
-          return;
-        }
-        this.dragState = {
-          target,
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          startSize: this.getLayoutSize(target),
-          shellWidth: this.panel.clientWidth,
-          shellHeight: this.panel.clientHeight,
-          dragged: false,
-        };
-        document.body.classList.add('layout-resizing');
-        button.setPointerCapture(event.pointerId);
-        event.preventDefault();
-      });
-
-      button.addEventListener('pointermove', (event) => {
-        if (!this.dragState || this.dragState.pointerId !== event.pointerId) {
-          return;
-        }
-        if (this.isCollapsed(this.dragState.target)) {
-          return;
-        }
-
-        const viewportScale = getViewportScale(window);
-        const deltaX = (event.clientX - this.dragState.startX) / viewportScale;
-        const deltaY = (event.clientY - this.dragState.startY) / viewportScale;
-        const primaryDelta = this.dragState.target === 'bottom' ? Math.abs(deltaY) : Math.abs(deltaX);
-        if (!this.dragState.dragged && primaryDelta < SidePanel.DRAG_START_THRESHOLD_PX) {
-          return;
-        }
-
-        this.dragState.dragged = true;
-        if (this.dragState.target === 'left') {
-          const next = this.clamp(
-            this.dragState.startSize + deltaX,
-            DESKTOP_LAYOUT_DRAG_LIMITS.leftMin,
-            Math.min(
-              DESKTOP_LAYOUT_DRAG_LIMITS.leftMax,
-              this.dragState.shellWidth * DESKTOP_LAYOUT_DRAG_LIMITS.leftMaxViewportRatio,
-            ),
-          );
-          this.panel.style.setProperty('--layout-left-size', `${next}px`);
-        } else if (this.dragState.target === 'right') {
-          const next = this.clamp(
-            this.dragState.startSize - deltaX,
-            DESKTOP_LAYOUT_DRAG_LIMITS.rightMin,
-            Math.min(
-              DESKTOP_LAYOUT_DRAG_LIMITS.rightMax,
-              this.dragState.shellWidth * DESKTOP_LAYOUT_DRAG_LIMITS.rightMaxViewportRatio,
-            ),
-          );
-          this.panel.style.setProperty('--layout-right-size', `${next}px`);
-        } else {
-          const next = this.clamp(
-            this.dragState.startSize - deltaY,
-            DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin,
-            Math.min(
-              DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax,
-              this.dragState.shellHeight * DESKTOP_LAYOUT_DRAG_LIMITS.bottomMaxViewportRatio,
-            ),
-          );
-          this.panel.style.setProperty('--layout-bottom-size', `${next}px`);
-        }
-        this.onLayoutChange?.();
-      });
-
-      /** finishPointer：完成Pointer。 */
-      const finishPointer = (event: PointerEvent) => {
-        if (!this.dragState || this.dragState.pointerId !== event.pointerId) {
-          return;
-        }
-        const { target, dragged } = this.dragState;
-        this.dragState = null;
-        document.body.classList.remove('layout-resizing');
-        if (button.hasPointerCapture(event.pointerId)) {
-          button.releasePointerCapture(event.pointerId);
-        }
-        if (dragged) {
-          this.persistCurrentLayoutSizes();
-          this.onLayoutChange?.();
-          return;
-        }
-        this.toggleLayout(target);
-        event.preventDefault();
-      };
-
-      button.addEventListener('pointerup', finishPointer);
-      button.addEventListener('pointercancel', (event) => {
-        if (!this.dragState || this.dragState.pointerId !== event.pointerId) {
-          return;
-        }
-        this.dragState = null;
-        document.body.classList.remove('layout-resizing');
-        if (button.hasPointerCapture(event.pointerId)) {
-          button.releasePointerCapture(event.pointerId);
-        }
-      });
-    });
-  }
+  private bindLayoutToggles(): void {}
 
   /** bindResponsiveLayout：绑定Responsive布局。 */
   private bindResponsiveLayout(): void {
@@ -484,42 +342,9 @@ export class SidePanel {
       return;
     }
     this.mobileLayoutActive = nextMobileLayoutActive;
-    this.panel.dataset.mobileLayout = nextMobileLayoutActive ? 'true' : 'false';
-    if (nextMobileLayoutActive) {
-      this.mountMobileSections();
-    } else {
-      this.restoreDesktopSections();
-    }
+    this.syncReactLayoutState();
+    this.syncReactMobileLayout();
     this.onLayoutChange?.();
-  }
-
-  /** mountMobileSections：处理mount Mobile Sections。 */
-  private mountMobileSections(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.mobileShell) {
-      return;
-    }
-    this.mobileSections.forEach((entry) => {
-      const pane = this.mobileShell?.querySelector<HTMLElement>(`[data-pane="${entry.paneId}"]`);
-      if (!pane || entry.element.parentElement === pane) {
-        return;
-      }
-      pane.appendChild(entry.element);
-    });
-  }
-
-  /** restoreDesktopSections：处理restore Desktop Sections。 */
-  private restoreDesktopSections(): void {
-    this.mobileSections.forEach((entry) => {
-      if (entry.element.parentElement === entry.originalParent) {
-        return;
-      }
-      const referenceNode = entry.originalNextSibling?.parentNode === entry.originalParent
-        ? entry.originalNextSibling
-        : null;
-      entry.originalParent.insertBefore(entry.element, referenceNode);
-    });
   }
 
   /** toggleLayout：处理toggle布局。 */
@@ -539,9 +364,7 @@ export class SidePanel {
 
   /** syncLayoutState：同步布局状态。 */
   private syncLayoutState(options: { persist?: boolean } = {}): void {
-    this.panel.dataset.leftCollapsed = this.layoutState.leftCollapsed ? 'true' : 'false';
-    this.panel.dataset.rightCollapsed = this.layoutState.rightCollapsed ? 'true' : 'false';
-    this.panel.dataset.bottomCollapsed = this.layoutState.bottomCollapsed ? 'true' : 'false';
+    this.syncReactLayoutState();
 
     this.syncToggleButton('left', this.layoutState.leftCollapsed
       ? { text: '>', title: t('side-panel.toggle.left.expand') }
@@ -573,16 +396,50 @@ export class SidePanel {
     if (!button) {
       return;
     }
-    button.textContent = state.text;
-    button.title = state.title;
-    button.setAttribute('aria-label', state.title);
-    button.setAttribute('aria-expanded', (
-      target === 'left'
-        ? (!this.layoutState.leftCollapsed)
-        : target === 'right'
-          ? (!this.layoutState.rightCollapsed)
-          : (!this.layoutState.bottomCollapsed)
-    ) ? 'true' : 'false');
+    const expanded = target === 'left'
+      ? (!this.layoutState.leftCollapsed)
+      : target === 'right'
+        ? (!this.layoutState.rightCollapsed)
+        : (!this.layoutState.bottomCollapsed);
+    mountReactSidePanelToggle(button, {
+      label: state.text,
+      title: state.title,
+      expanded,
+      target,
+      getLayoutSize: (targetName) => this.getLayoutSize(targetName),
+      getShellSize: () => ({
+        width: this.panel.clientWidth,
+        height: this.panel.clientHeight,
+      }),
+      isCollapsed: (targetName) => this.isCollapsed(targetName),
+      setLayoutSize: (targetName, size) => this.setLayoutSize(targetName, size),
+      onToggle: (targetName) => this.toggleLayout(targetName),
+      onDragCommit: () => this.persistCurrentLayoutSizes(),
+      onLayoutChange: () => this.onLayoutChange?.(),
+    });
+  }
+
+  private syncReactLayoutState(): void {
+    syncReactSidePanelLayoutState(this.panel, {
+      leftCollapsed: this.layoutState.leftCollapsed,
+      rightCollapsed: this.layoutState.rightCollapsed,
+      bottomCollapsed: this.layoutState.bottomCollapsed,
+      mobileLayoutActive: this.mobileLayoutActive,
+      buildingModeActive: this.buildingModeActive,
+    });
+  }
+
+  private syncReactMobileLayout(): void {
+    syncReactSidePanelMobileLayout(this.panel, {
+      mobileShell: this.mobileShell,
+      active: this.mobileLayoutActive,
+      sections: this.mobileSections.map((entry): ReactSidePanelMobileSection => ({
+        element: entry.element,
+        paneId: entry.paneId,
+        originalParent: entry.originalParent,
+        originalNextSibling: entry.originalNextSibling,
+      })),
+    });
   }
 
   /** isCollapsed：判断是否Collapsed。 */
@@ -615,16 +472,98 @@ export class SidePanel {
     return target === 'bottom' ? element.offsetHeight : element.offsetWidth;
   }
 
+  private setLayoutSize(target: ReactSidePanelLayoutTarget, size: number): void {
+    const property = target === 'left'
+      ? '--layout-left-size'
+      : target === 'right'
+        ? '--layout-right-size'
+        : '--layout-bottom-size';
+    this.panel.style.setProperty(property, `${size}px`);
+  }
+
   /** switchGroupTab：处理switch分组Tab。 */
   private switchGroupTab(group: HTMLElement, tabName: string): void {
-    this.getGroupTabs(group).forEach(button => {
+    this.applyGroupTabState(group, tabName);
+    this.persistGroupActiveTab(group, tabName);
+    this.syncReactTabGroup(group);
+    this.onTabChange?.(tabName);
+  }
+
+  private applyGroupTabState(group: HTMLElement, tabName: string): void {
+    this.getGroupTabs(group).forEach((button) => {
       button.classList.toggle('active', button.dataset.tab === tabName);
     });
-    this.getGroupPanes(group).forEach(pane => {
+    this.getGroupPanes(group).forEach((pane) => {
       pane.classList.toggle('active', pane.dataset.pane === tabName);
     });
-    this.persistGroupActiveTab(group, tabName);
-    this.onTabChange?.(tabName);
+  }
+
+  private mountReactTabGroups(): void {
+    this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
+      this.syncReactTabGroup(group);
+    });
+  }
+
+  private syncReactTabGroup(group: HTMLElement): void {
+    const groupId = group.dataset.tabGroup;
+    if (!groupId) {
+      return;
+    }
+    const tabs = this.getGroupTabs(group);
+    if (tabs.length === 0) {
+      return;
+    }
+    const container = this.resolveReactTabContainer(tabs[0]);
+    if (!container || !tabs.every((tab) => this.resolveReactTabContainer(tab) === container)) {
+      return;
+    }
+    const state = {
+      groupId,
+      activeTabName: this.resolveActiveTabName(group, tabs),
+      tabs: tabs.map((tab): ReactSidePanelTabButton => ({
+        tabName: tab.dataset.tab ?? '',
+        label: tab.textContent?.trim() || tab.dataset.tab || '',
+        className: tab.className.replace(/\bactive\b/g, '').replace(/\s+/g, ' ').trim(),
+        active: tab.classList.contains('active'),
+        i18nKey: tab.dataset.i18n,
+      })).filter((tab) => tab.tabName.length > 0),
+      panes: this.getGroupPanes(group)
+        .map((pane) => ({
+          tabName: pane.dataset.pane ?? '',
+          element: pane,
+        }))
+        .filter((pane) => pane.tabName.length > 0),
+    };
+    if (state.tabs.length === 0) {
+      return;
+    }
+    mountReactSidePanelTabGroup(container, state, (targetGroupId, tabName) => {
+      if (targetGroupId !== groupId) {
+        return;
+      }
+      this.applyGroupTabState(group, tabName);
+      this.persistGroupActiveTab(group, tabName);
+      this.onTabChange?.(tabName);
+    });
+  }
+
+  private resolveActiveTabName(group: HTMLElement, tabs: HTMLElement[]): string {
+    const activeTabName = tabs.find((tab) => tab.classList.contains('active'))?.dataset.tab;
+    if (activeTabName) {
+      return activeTabName;
+    }
+    const activePaneName = this.getGroupPanes(group)
+      .find((pane) => pane.classList.contains('active'))
+      ?.dataset.pane;
+    return activePaneName ?? tabs[0]?.dataset.tab ?? '';
+  }
+
+  private resolveReactTabContainer(tab: HTMLElement | undefined): HTMLElement | null {
+    let container = tab?.parentElement ?? null;
+    while (container?.classList.contains('react-side-panel-tab-host')) {
+      container = container.parentElement;
+    }
+    return container;
   }
 
   /** getGroupTabs：读取分组标签页。 */

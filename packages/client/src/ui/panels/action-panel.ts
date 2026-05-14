@@ -19,7 +19,6 @@ import {
   type SkillDamageKind,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
@@ -43,10 +42,23 @@ import {
 import { SkillManagementSubpanel } from './action-panel-skill-management';
 import { CombatSettingsSubpanel } from './action-panel-combat-settings';
 import { SectManagementSubpanel } from './action-panel-sect-management';
+import {
+  mountReactActionPanel,
+  setReactActionPanelAfterContentRender,
+  shouldUseReactActionPanel,
+  syncReactActionPanelState,
+  unmountReactActionPanel,
+} from '../../react-ui/panels/action/mount-action-panel';
 
 type SkillEnabledEntry = {
   skillEnabled?: boolean;
 };
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
+}
 
 function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
   const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
@@ -744,7 +756,12 @@ export class ActionPanel {
     detailModalHost.close(this.SKILL_PRESET_MODAL_OWNER);
     detailModalHost.close(this.TARGETING_PLAN_MODAL_OWNER);
     detailModalHost.close(this.SECT_MANAGEMENT_MODAL_OWNER);
-    patchElementHtml(this.pane, `<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`);
+    if (this.useReactPanel()) {
+      this.renderReactPanel(`<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`, 'empty');
+    } else {
+      unmountReactActionPanel();
+      replaceElementHtml(this.pane, `<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`);
+    }
   }  
   /**
  * setCallbacks：写入Callback。
@@ -871,21 +888,68 @@ export class ActionPanel {
       return;
     }
 
-    const tabGroups: Array<{    
-    /**
- * id：ID标识。
- */
+    const html = this.buildActionPanelHtml(actions);
+    if (this.useReactPanel()) {
+      this.renderReactPanel(html, this.buildActionPanelContentKey(actions));
+      return;
+    }
 
-      id: ActionMainTab;      
-      /**
- * label：label名称或显示文本。
- */
+    preserveSelection(this.pane, () => {
+      this.paneRenderEvents?.abort();
+      replaceElementHtml(this.pane, html);
+      this.paneRenderEvents = new AbortController();
+      const eventSignal = this.paneRenderEvents.signal;
+      this.captureActionRowRefs();
+      this.bindEvents(actions, eventSignal);
+      this.bindTooltips(this.pane, eventSignal);
+    });
+  }
 
-      label: string;      
-      /**
- * types：type相关字段。
- */
+  private useReactPanel(): boolean {
+    return shouldUseReactActionPanel();
+  }
 
+  private renderReactPanel(html: string, contentKey: string): void {
+    this.paneRenderEvents?.abort();
+    this.paneRenderEvents = new AbortController();
+    const eventSignal = this.paneRenderEvents.signal;
+    setReactActionPanelAfterContentRender(() => {
+      this.captureActionRowRefs();
+      this.bindEvents(this.currentActions, eventSignal);
+      this.bindTooltips(this.pane, eventSignal);
+    });
+    syncReactActionPanelState({ html, contentKey });
+    mountReactActionPanel();
+  }
+
+  private buildActionPanelContentKey(actions: ActionDef[]): string {
+    return [
+      this.activeTab,
+      this.activeSkillTab,
+      this.bindingActionId ?? '',
+      this.autoBattle ? 'auto' : '',
+      this.autoRetaliate ? 'retaliate' : '',
+      this.autoBattleStationary ? 'stationary' : '',
+      this.allowAoePlayerHit ? 'aoe' : '',
+      this.autoIdleCultivation ? 'idle' : '',
+      this.autoSwitchCultivation ? 'switch' : '',
+      this.cultivationActive ? 'cultivation' : '',
+      actions.map((action) => [
+        action.id,
+        action.type,
+        action.cooldownLeft ?? 0,
+        action.autoBattleEnabled === false ? 'manual' : 'auto',
+        action.autoBattleOrder ?? '',
+        action.skillEnabled === false ? 'disabled' : 'enabled',
+        this.shortcutBindings.get(action.id) ?? '',
+      ].join('/')).join('|'),
+    ].join('::');
+  }
+
+  private buildActionPanelHtml(actions: ActionDef[]): string {
+    const tabGroups: Array<{
+      id: ActionMainTab;
+      label: string;
       types: string[];
     }> = [
       { id: 'dialogue', label: t('action.tab.dialogue', undefined), types: ['quest', 'interact', 'travel', 'craft'] },
@@ -970,16 +1034,7 @@ export class ActionPanel {
       }
       html += '</div>';
     }
-
-    preserveSelection(this.pane, () => {
-      this.paneRenderEvents?.abort();
-      patchElementHtml(this.pane, html);
-      this.paneRenderEvents = new AbortController();
-      const eventSignal = this.paneRenderEvents.signal;
-      this.captureActionRowRefs();
-      this.bindEvents(actions, eventSignal);
-      this.bindTooltips(this.pane, eventSignal);
-    });
+    return html;
   }
 
   /** 缓存动作行里后续 patch 会直接改到的节点引用。 */
@@ -3013,7 +3068,7 @@ export class ActionPanel {
       title: t('action.sect.manage.title', undefined),
       subtitle: t('action.sect.manage.subtitle', { name: summary.name, mark: summary.mark }),
       renderBody: (body) => {
-        patchElementHtml(body, `
+        replaceElementHtml(body, `
           <div class="sect-manage-shell">
             <aside class="sect-manage-sidebar" aria-label="${t('action.sect.manage.sidebar.aria', undefined)}">
               <div class="sect-manage-sidebar-title">${t('action.sect.manage.sidebar.title', undefined)}</div>
@@ -4177,7 +4232,7 @@ export class ActionPanel {
       title: t('action.skill-preset.title', undefined),
       subtitle: t('action.skill-preset.subtitle', { presetCount: this.skillPresets.length, skillCount: currentSkills.length }),
       renderBody: (body) => {
-        patchElementHtml(body, `
+        replaceElementHtml(body, `
         <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
             <div class="skill-preset-card">
@@ -4887,7 +4942,7 @@ export class ActionPanel {
         filteredCount: filteredEntries.length,
       }),
       renderBody: (body) => {
-        patchElementHtml(body, `
+        replaceElementHtml(body, `
         <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
             <div class="action-skill-subtabs skill-manage-subtabs">

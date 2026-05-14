@@ -1,5 +1,4 @@
 import { FloatingTooltip } from './ui/floating-tooltip';
-import { patchElementHtml } from './ui/dom-patch';
 import { t } from './ui/i18n';
 /**
  * ObserveAsideCard：统一结构类型，保证协议与运行时一致性。
@@ -28,6 +27,10 @@ export type ObserveAsideCard = {
 
   tone?: 'buff' | 'debuff';
 };
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  root.innerHTML = html;
+}
 
 /** createObserveModalController：创建观察弹层控制器。 */
 export function createObserveModalController(options: {
@@ -86,7 +89,7 @@ export function createObserveModalController(options: {
       observeModalAsideEl?.classList.add('hidden');
       observeModalAsideEl?.setAttribute('aria-hidden', 'true');
       if (observeModalAsideEl) {
-        patchElementHtml(observeModalAsideEl, '');
+        observeModalAsideEl.replaceChildren();
       }
     },    
     /**
@@ -113,7 +116,7 @@ export function createObserveModalController(options: {
       if (!observeModalBodyEl) {
         return;
       }
-      patchElementHtml(observeModalBodyEl, html);
+      replaceElementHtml(observeModalBodyEl, html);
     },    
     /**
  * renderAsideCards：执行AsideCard相关逻辑。
@@ -128,12 +131,12 @@ export function createObserveModalController(options: {
         return;
       }
       if (cards.length === 0) {
-        patchElementHtml(observeModalAsideEl, '');
+        observeModalAsideEl.replaceChildren();
         observeModalAsideEl.classList.add('hidden');
         observeModalAsideEl.setAttribute('aria-hidden', 'true');
         return;
       }
-      patchElementHtml(observeModalAsideEl, cards.map((card) => {
+      replaceElementHtml(observeModalAsideEl, cards.map((card) => {
         const detail = card.lines
           .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
           .join('');
@@ -177,7 +180,7 @@ export function refreshZoomChrome(
     zoomSlider.value = zoom.toFixed(2);
   }
   if (zoomLevelEl) {
-    patchElementHtml(zoomLevelEl, `<span>x</span><span>${formatZoom(zoom)}</span>`);
+    replaceElementHtml(zoomLevelEl, `<span>x</span><span>${formatZoom(zoom)}</span>`);
   }
 }
 

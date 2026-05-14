@@ -4,7 +4,13 @@
  * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
 import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
-import { patchElementChildren, patchElementHtml } from '../dom-patch';
+import {
+  mountReactGmPanel,
+  setReactGmPanelCallbacks,
+  shouldUseReactGmPanel,
+  syncReactGmPanelState,
+  unmountReactGmPanel,
+} from '../../react-ui/panels/gm/mount-gm-panel';
 
 /** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
@@ -152,6 +158,10 @@ function createEmptyGmState(): S2C_GmState {
   };
 }
 
+function replaceWithSingleChild(container: HTMLElement, child: HTMLElement): void {
+  container.replaceChildren(child);
+}
+
 /** GM 面板实现，负责展示服务器概况、玩家列表和意见处理。 */
 export class GmPanel {
   /** 面板根节点。 */
@@ -212,6 +222,7 @@ export class GmPanel {
   /** 注册 GM 面板对外回调。 */
   setCallbacks(callbacks: GmCallbacks): void {
     this.callbacks = callbacks;
+    setReactGmPanelCallbacks(callbacks);
   }
 
   /** 接收服务端 GM 状态并刷新所有子区域。 */
@@ -219,6 +230,14 @@ export class GmPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.state = state;
+    if (this.useReactPanel()) {
+      if (!this.selectedPlayerId || !state.players.some((player) => player.id === this.selectedPlayerId)) {
+        this.selectedPlayerId = state.players[0]?.id ?? null;
+      }
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.ensureLayout();
     if (!this.selectedPlayerId || !state.players.some((player) => player.id === this.selectedPlayerId)) {
       this.selectedPlayerId = state.players[0]?.id ?? null;
@@ -233,6 +252,11 @@ export class GmPanel {
   /** 更新意见列表数据并重绘意见区域。 */
   updateSuggestionsData(suggestions: Suggestion[]) {
     this.suggestions = suggestions;
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.updateSuggestions();
   }
 
@@ -248,7 +272,7 @@ export class GmPanel {
       empty.dataset.gmEmptyState = 'suggestions';
       empty.className = 'empty-hint ui-empty-hint';
       empty.textContent = '暂无意见收集';
-      patchElementChildren(this.suggestionListEl, empty);
+      replaceWithSingleChild(this.suggestionListEl, empty);
       return;
     }
 
@@ -300,7 +324,32 @@ export class GmPanel {
     this.resetHeavenGateBtn = null;
     this.removeBtn = null;
     this.botCountInput = null;
-    patchElementHtml(this.pane, '<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>');
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint ui-empty-hint';
+    empty.textContent = '暂无 GM 数据';
+    this.pane.replaceChildren(empty);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactGmPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactGmPanelState({
+      gmState: this.initialized || this.state.players.length > 0 || this.state.mapIds.length > 0 ? this.state : null,
+      suggestions: this.suggestions,
+    });
+  }
+
+  private mountReactPanel(): void {
+    if (!mountReactGmPanel()) {
+      unmountReactGmPanel();
+    }
   }
 
   /** 确保面板布局只初始化一次。 */
@@ -309,7 +358,7 @@ export class GmPanel {
 
     if (this.initialized) return;
     this.initialized = true;
-    patchElementHtml(this.pane, `
+    this.pane.innerHTML = `
       <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">服务端性能</div>
         <div class="panel-row"><span class="panel-label">CPU 压力</span><span class="panel-value" data-gm-perf-cpu>0%</span></div>
@@ -381,7 +430,7 @@ export class GmPanel {
         <div id="gm-suggestion-list" class="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
         </div>
       </div>
-    `);
+    `;
 
     this.perfCpuEl = this.pane.querySelector('[data-gm-perf-cpu]');
     this.perfMemoryEl = this.pane.querySelector('[data-gm-perf-memory]');
@@ -498,7 +547,7 @@ export class GmPanel {
       empty.className = 'empty-hint ui-empty-hint';
       empty.dataset.gmEmptyState = 'players';
       empty.textContent = '当前没有在线玩家';
-      patchElementChildren(this.playerListEl, empty);
+      replaceWithSingleChild(this.playerListEl, empty);
       return;
     }
     const existingRows = new Map<string, HTMLButtonElement>();
@@ -540,24 +589,21 @@ export class GmPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.mapSelect && !this.isActiveElement(this.mapSelect)) {
-      const fragment = document.createDocumentFragment();
-      const seen = new Set<string>();
+      const options: HTMLOptionElement[] = [];
       for (const mapId of this.state.mapIds) {
         const option = document.createElement('option');
         option.value = mapId;
         option.textContent = mapId;
-        fragment.appendChild(option);
-        seen.add(mapId);
+        options.push(option);
       }
       const includesSelected = this.state.mapIds.includes(selected.mapId);
       if (!includesSelected) {
         const option = document.createElement('option');
         option.value = selected.mapId;
         option.textContent = selected.mapId;
-        fragment.appendChild(option);
-        seen.add(selected.mapId);
+        options.push(option);
       }
-      patchElementChildren(this.mapSelect, Array.from(fragment.childNodes));
+      this.mapSelect.replaceChildren(...options);
       this.mapSelect.value = selected.mapId;
     }
 

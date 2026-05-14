@@ -7,11 +7,17 @@ import {
 } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementHtml } from '../dom-patch';
 import { preserveSelection } from '../selection-preserver';
 import { createSmallBtn } from '../ui-primitives';
 import { formatDisplayInteger } from '../../utils/number';
 import { t } from '../i18n';
+import {
+  mountReactBodyTrainingPanel,
+  setReactBodyTrainingCallbacks,
+  shouldUseReactBodyTrainingPanel,
+  syncReactBodyTrainingPanelState,
+  unmountReactBodyTrainingPanel,
+} from '../../react-ui/panels/body-training/mount-body-training-panel';
 
 /** BodyTrainingPlayerSnapshot：玩家炼体与底蕴的读取快照。 */
 type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation'>;
@@ -228,6 +234,15 @@ export class BodyTrainingPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.onInfuse = handler;
+    setReactBodyTrainingCallbacks({ onInfuse: handler });
+    if (this.useReactPanel()) {
+      if (!this.onInfuse) {
+        this.closeInfusionModal();
+      }
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     if (!this.onInfuse) {
       this.closeInfusionModal();
     }
@@ -241,6 +256,12 @@ export class BodyTrainingPanel {
     this.displayState = this.baseState;
     this.baseFoundation = 0;
     this.displayFoundation = 0;
+    if (this.useReactPanel()) {
+      this.closeInfusionModal();
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.patchOrRender();
   }
 
@@ -249,6 +270,11 @@ export class BodyTrainingPanel {
     this.baseState = normalizeBodyTrainingState(player.bodyTraining);
     this.baseFoundation = normalizeFoundation(player.foundation);
     this.syncDisplayState();
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.render(this.displayState, this.displayFoundation);
   }
 
@@ -256,6 +282,11 @@ export class BodyTrainingPanel {
   syncFoundation(foundation?: number | null): void {
     this.baseFoundation = normalizeFoundation(foundation);
     this.syncDisplayState();
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.patchOrRender();
     this.refreshInfusionModal();
   }
@@ -265,6 +296,11 @@ export class BodyTrainingPanel {
     this.baseState = normalizeBodyTrainingState(bodyTraining);
     this.baseFoundation = normalizeFoundation(foundation);
     this.syncDisplayState();
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.render(this.displayState, this.displayFoundation);
     this.refreshInfusionModal();
   }
@@ -274,8 +310,30 @@ export class BodyTrainingPanel {
     this.baseState = normalizeBodyTrainingState(bodyTraining);
     this.baseFoundation = normalizeFoundation(foundation);
     this.syncDisplayState();
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      return;
+    }
     this.patchOrRender();
     this.refreshInfusionModal();
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactBodyTrainingPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactBodyTrainingPanelState({
+      bodyTraining: this.displayState,
+      foundation: this.displayFoundation,
+    });
+  }
+
+  private mountReactPanel(): void {
+    if (!mountReactBodyTrainingPanel()) {
+      unmountReactBodyTrainingPanel();
+    }
   }
 
   /** syncDisplayState：同步显示状态。 */
@@ -551,7 +609,7 @@ export class BodyTrainingPanel {
       subtitle: t('body-training.infuse.subtitle.current-level', { level: formatDisplayInteger(this.baseState.level) }),
       hint: t('common.modal.click-blank-close', undefined),
       renderBody: (body) => {
-        patchElementHtml(body, this.renderInfusionModalBody(plan, maxLevelGain));
+        body.innerHTML = this.renderInfusionModalBody(plan, maxLevelGain);
       },
       onClose: () => {
         this.infusionModalOpen = false;

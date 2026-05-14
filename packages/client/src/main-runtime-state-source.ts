@@ -11,8 +11,10 @@ import {
   TechniqueState,
   ActionDef,
 } from '@mud/shared';
+import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
+import { handleTickEventBusPayload } from './network/event-bus-consumer';
 /**
  * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -271,6 +273,11 @@ type MainRuntimeStateSourceOptions = {
  */
 
   applyPanelDelta: (data: S2C_PanelDelta) => void;
+  applyPanelPatch?: (patches: Record<PanelKind, PanelPatch>) => void;
+  applyStateDelta?: (delta: PlayerStateDelta) => void;
+  applyPlayerFeedback?: (items: PlayerFeedback[]) => void;
+  applyJobProgress?: (jobs: ActiveJobProgress[]) => void;
+  appendNotices?: (items: NonNullable<NonNullable<S2C_WorldDelta['eventBus']>['notices']>) => void;
   /**
  * inventorySyncPlayerContext：背包Sync玩家上下文状态或数据块。
  */
@@ -407,6 +414,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       pendingWorldDelta = null;
       const hints = resolveMapEnterHints(options.getPlayer());
       options.applyWorldDelta(pending, hints.mapIdHint, hints.instanceIdHint);
+      applyEventBusPayload(pending);
     }
     if (pendingSelfDelta) {
       const pending = pendingSelfDelta;
@@ -419,6 +427,20 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.applyPanelDelta(pending);
     }
     flushPendingMapStaticForCurrentMap();
+  };
+
+  const applyEventBusPayload = (data: S2C_WorldDelta): void => {
+    if (!data.eventBus) {
+      return;
+    }
+    handleTickEventBusPayload(data.eventBus, {
+      appendNotices: (items) => options.appendNotices?.(items),
+      applyPanelPatches: (patches) => options.applyPanelPatch?.(patches),
+      updateJobProgress: (jobs) => options.applyJobProgress?.(jobs),
+      markTechniqueDirty: () => undefined,
+      applyStateDelta: (delta) => options.applyStateDelta?.(delta),
+      showFeedback: (items) => options.applyPlayerFeedback?.(items),
+    });
   };
 
   return {  
@@ -472,6 +494,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       const player = options.getPlayer();
       const hints = resolveMapEnterHints(player);
       options.applyWorldDelta(data, hints.mapIdHint, hints.instanceIdHint);
+      applyEventBusPayload(data);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。

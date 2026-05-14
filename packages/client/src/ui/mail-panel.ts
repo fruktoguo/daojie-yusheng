@@ -10,8 +10,14 @@ import {
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren } from './dom-patch';
 import { t } from './i18n';
+import {
+  mountReactMailPanel,
+  setReactMailPanelCallbacks,
+  shouldUseReactMailPanel,
+  syncReactMailPanelState,
+  unmountReactMailPanel,
+} from '../react-ui/panels/mail/mount-mail-panel';
 
 /** 转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -250,6 +256,17 @@ export class MailPanel {
       recoverSession?: () => Promise<boolean>;
     } = {},
   ) {
+    setReactMailPanelCallbacks({
+      onRequestPage: (filter, page) => this.requestPage(filter, page),
+      onSelectMail: (mailId) => this.selectMail(mailId),
+      onToggleCheck: (mailId) => this.toggleSelectedMail(mailId),
+      onSelectPage: () => this.selectCurrentPage(),
+      onClearSelection: () => this.clearSelection(),
+      onSetAttachmentPage: (page) => this.setAttachmentPage(page),
+      onMarkRead: (mailIds) => this.dispatchMailOperation('markRead', mailIds),
+      onClaim: (mailIds) => this.dispatchMailOperation('claim', mailIds),
+      onDelete: (mailIds) => this.dispatchMailOperation('delete', mailIds),
+    });
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
 
@@ -274,6 +291,8 @@ export class MailPanel {
     this.statusMessage = '';
     this.pendingOperation = null;
     this.updateHudUnreadState();
+    this.syncReactState();
+    unmountReactMailPanel();
     detailModalHost.close(MailPanel.MODAL_OWNER);
   }
 
@@ -307,6 +326,7 @@ export class MailPanel {
   updateSummary(summary: MailSummaryView): void {
     this.summary = summary;
     this.updateHudUnreadState();
+    this.syncReactState();
     this.render();
   }
 
@@ -334,6 +354,7 @@ export class MailPanel {
       this.requestDetail(this.selectedMailId);
       this.markReadIfNeeded(this.selectedMailId);
     }
+    this.syncReactState();
     this.render();
   }
 
@@ -346,6 +367,7 @@ export class MailPanel {
       if (error) {
         this.statusMessage = error;
       }
+      this.syncReactState();
       this.render();
       return;
     }
@@ -371,6 +393,7 @@ export class MailPanel {
         }
         : item),
     };
+    this.syncReactState();
     this.render();
   }
 
@@ -401,6 +424,7 @@ export class MailPanel {
       } else if (this.pendingOperation?.operation === result.operation) {
         this.pendingOperation = null;
       }
+      this.syncReactState();
       this.render();
       return;
     }
@@ -463,6 +487,7 @@ export class MailPanel {
         this.requestDetail(this.selectedMailId);
       }
     }
+    this.syncReactState();
     this.render();
   }
 
@@ -470,7 +495,20 @@ export class MailPanel {
   open(): void {
     this.socket.sendRequestMailSummary();
     this.requestCurrentPage();
+    this.syncReactState();
     const meta = this.buildModalMeta();
+    if (this.useReactPanel()) {
+      detailModalHost.open({
+        ownerId: MailPanel.MODAL_OWNER,
+        variantClass: 'detail-modal--mail',
+        title: t('mail.modal.title', undefined),
+        subtitle: meta.subtitle,
+        hint: meta.hint,
+        onAfterRender: (body, signal) => mountReactMailPanel(body, signal),
+        onClose: unmountReactMailPanel,
+      });
+      return;
+    }
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
       variantClass: 'detail-modal--mail',
@@ -485,6 +523,23 @@ export class MailPanel {
   /** 请求当前分页数据。 */
   private requestCurrentPage(): void {
     this.socket.sendRequestMailPage(this.pageData.page || 1, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
+  }
+
+  /** 请求指定筛选和页码的分页数据。 */
+  private requestPage(filter: MailFilter, page: number): void {
+    this.activeFilter = filter;
+    this.pageData = {
+      ...this.pageData,
+      filter,
+      page: Math.max(1, page),
+    };
+    this.selectedMailId = null;
+    this.selectedMailIds.clear();
+    this.detail = null;
+    this.attachmentPage = 1;
+    this.syncReactState();
+    this.socket.sendRequestMailPage(this.pageData.page, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
+    this.render();
   }
 
   /** 请求指定邮件的详情。 */
@@ -596,11 +651,67 @@ export class MailPanel {
     this.dispatchMailOperation('markRead', [mailId]);
   }
 
+  /** 选择一封邮件并请求详情。 */
+  private selectMail(mailId: string): void {
+    this.selectedMailId = mailId;
+    this.detail = null;
+    this.attachmentPage = 1;
+    this.requestDetail(mailId);
+    this.markReadIfNeeded(mailId);
+    this.syncReactState();
+    this.render();
+  }
+
+  /** 切换列表勾选状态。 */
+  private toggleSelectedMail(mailId: string): void {
+    if (this.selectedMailIds.has(mailId)) {
+      this.selectedMailIds.delete(mailId);
+    } else {
+      this.selectedMailIds.add(mailId);
+    }
+    this.syncReactState();
+    this.render();
+  }
+
+  /** 勾选当前页全部邮件。 */
+  private selectCurrentPage(): void {
+    this.selectedMailIds = new Set(this.pageData.items.map((item) => item.mailId));
+    this.syncReactState();
+    this.render();
+  }
+
+  /** 清空当前勾选。 */
+  private clearSelection(): void {
+    this.selectedMailIds.clear();
+    this.syncReactState();
+    this.render();
+  }
+
+  /** 设置详情附件分页。 */
+  private setAttachmentPage(page: number): void {
+    this.attachmentPage = Math.max(1, page);
+    this.syncReactState();
+    this.render();
+  }
+
   /** 刷新邮件详情弹窗。 */
   private render(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!detailModalHost.isOpenFor(MailPanel.MODAL_OWNER)) {
+      return;
+    }
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      const meta = this.buildModalMeta();
+      detailModalHost.patch({
+        ownerId: MailPanel.MODAL_OWNER,
+        variantClass: 'detail-modal--mail',
+        title: t('mail.modal.title'),
+        subtitle: meta.subtitle,
+        hint: meta.hint,
+        onClose: unmountReactMailPanel,
+      });
       return;
     }
     const body = document.getElementById('detail-modal-body');
@@ -774,20 +885,17 @@ export class MailPanel {
     title.textContent = item.title;
     unreadDot.hidden = item.read;
     time.textContent = new Date(item.createdAt).toLocaleString();
-    patchElementChildren(
-      meta,
-      [
-        item.senderLabel,
-        ...stateChips,
-        ...(item.expireAt ? [t('mail.expire.until', {
-          time: new Date(item.expireAt).toLocaleString(),
-        })] : []),
-      ].map((text) => {
-        const span = document.createElement('span');
-        span.textContent = text;
-        return span;
-      }),
-    );
+    meta.replaceChildren(...[
+      item.senderLabel,
+      ...stateChips,
+      ...(item.expireAt ? [t('mail.expire.until', {
+        time: new Date(item.expireAt).toLocaleString(),
+      })] : []),
+    ].map((text) => {
+      const span = document.createElement('span');
+      span.textContent = text;
+      return span;
+    }));
     summary.textContent = item.summary || t('mail.summary.empty', undefined);
     return true;
   }
@@ -886,7 +994,7 @@ export class MailPanel {
 
     if (!detail) {
       this.detailRefs = null;
-      patchElementChildren(detailRoot, createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
+      detailRoot.replaceChildren(createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
       return true;
     }
 
@@ -914,7 +1022,7 @@ export class MailPanel {
     refs.markReadButton.disabled = detail.read;
     refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
     refs.deleteButton.disabled = !detail.deletable;
-    patchElementChildren(refs.bodyNode, (body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
+    refs.bodyNode.replaceChildren(...(body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
       const nodes: Node[] = [document.createTextNode(line)];
       if (index < arr.length - 1) {
         nodes.push(document.createElement('br'));
@@ -931,7 +1039,7 @@ export class MailPanel {
     refs.attachmentNextButton.disabled = attachmentPage >= totalAttachmentPages;
     refs.attachmentEmpty.hidden = detail.attachments.length > 0;
     refs.attachmentList.hidden = detail.attachments.length === 0;
-    patchElementChildren(refs.attachmentList, visibleAttachments.map((attachment) => {
+    refs.attachmentList.replaceChildren(...visibleAttachments.map((attachment) => {
       const item = document.createElement('div');
       item.className = 'mail-attachment-item';
       const name = document.createElement('span');
@@ -959,7 +1067,7 @@ export class MailPanel {
     if (this.pageData.items.length === 0) {
       const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createMailEmptyHint(MAIL_LIST_EMPTY_TEXT);
       emptyNode.textContent = MAIL_LIST_EMPTY_TEXT;
-      patchElementChildren(listRoot, emptyNode);
+      listRoot.replaceChildren(emptyNode);
       return true;
     }
     const orderedNodes = this.pageData.items.map((item) => {
@@ -971,7 +1079,7 @@ export class MailPanel {
       return node;
     });
     existing.forEach((node) => node.remove());
-    patchElementChildren(listRoot, orderedNodes);
+    listRoot.replaceChildren(...orderedNodes);
     return true;
   }
 
@@ -1071,6 +1179,22 @@ export class MailPanel {
 
     root.addEventListener('click', (event) => this.handleRootClick(event), { signal });
     root.addEventListener('change', (event) => this.handleRootChange(event), { signal });
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactMailPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactMailPanelState({
+      summary: this.summary,
+      pageData: this.pageData,
+      detail: this.detail,
+      statusMessage: this.statusMessage,
+      selectedMailId: this.selectedMailId,
+      selectedMailIds: [...this.selectedMailIds],
+      attachmentPage: this.attachmentPage,
+    });
   }
 
   /** 处理弹窗根节点的点击事件。 */

@@ -3,7 +3,6 @@
  * 所有"点击展开详情"类交互共用此弹层，通过 ownerId 区分归属
  */
 import { preserveSelection } from './selection-preserver';
-import { patchElementChildren, patchElementHtml } from './dom-patch';
 import { t } from './i18n';
 import {
   applyModalFrameClasses,
@@ -130,6 +129,16 @@ type DetailModalPatchOptions = {
   onAfterRender?: (body: HTMLElement, signal: AbortSignal) => void;
 };
 
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  root.replaceChildren(createFragmentFromHtml(html));
+}
+
 /** DetailModalHost：详情弹窗宿主实现。 */
 class DetailModalHost {
   /** modal：弹窗。 */
@@ -182,7 +191,7 @@ class DetailModalHost {
         this.patchBodyFromRenderer(options.renderBody);
         return;
       }
-      patchElementHtml(this.body, options.bodyHtml ?? '');
+      replaceElementHtml(this.body, options.bodyHtml ?? '');
     });
     this.modal.classList.remove('hidden');
     this.modal.setAttribute('aria-hidden', 'false');
@@ -235,7 +244,7 @@ class DetailModalHost {
           this.patchBodyFromRenderer(options.renderBody);
           return;
         }
-        patchElementHtml(this.body, options.bodyHtml ?? '');
+        replaceElementHtml(this.body, options.bodyHtml ?? '');
       });
       options.onAfterRender?.(this.body, renderSignal);
     }
@@ -276,7 +285,7 @@ class DetailModalHost {
     this.bodyRenderEvents?.abort();
     this.bodyRenderEvents = null;
     this.setFrameClasses('', undefined);
-    patchElementHtml(this.body, '');
+    this.body.replaceChildren();
     this.modal.classList.add('hidden');
     this.modal.setAttribute('aria-hidden', 'true');
     if (notify) {
@@ -308,7 +317,7 @@ class DetailModalHost {
   private patchBodyFromRenderer(renderBody: (body: HTMLElement) => void): void {
     const scratch = document.createElement('div');
     renderBody(scratch);
-    patchElementChildren(this.body, Array.from(scratch.childNodes));
+    this.body.replaceChildren(...Array.from(scratch.childNodes));
   }
 }
 

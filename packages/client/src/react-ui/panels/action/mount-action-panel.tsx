@@ -1,0 +1,60 @@
+import { StrictMode } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot, type Root } from 'react-dom/client';
+import { isReactPanelEnabled } from '../../bridge/panel-flags';
+import {
+  ActionPanel,
+  actionPanelStore,
+  setActionPanelAfterContentRender,
+  type ReactActionPanelState,
+} from './ActionPanel';
+
+let root: Root | null = null;
+let host: HTMLDivElement | null = null;
+
+export function shouldUseReactActionPanel(): boolean {
+  return isReactPanelEnabled('action');
+}
+
+export function syncReactActionPanelState(state: ReactActionPanelState): void {
+  actionPanelStore.setState(state);
+}
+
+export function setReactActionPanelAfterContentRender(callback: (() => void) | null): void {
+  setActionPanelAfterContentRender(callback);
+}
+
+export function mountReactActionPanel(): boolean {
+  if (!shouldUseReactActionPanel()) {
+    return false;
+  }
+  const pane = document.getElementById('pane-action');
+  if (!pane) {
+    return false;
+  }
+  if (host?.isConnected) {
+    return true;
+  }
+  unmountReactActionPanel();
+  host = document.createElement('div');
+  host.className = 'react-panel-host';
+  host.dataset.reactPanel = 'action';
+  pane.replaceChildren(host);
+  root = createRoot(host);
+  flushSync(() => {
+    root?.render(
+      <StrictMode>
+        <ActionPanel />
+      </StrictMode>,
+    );
+  });
+  return true;
+}
+
+export function unmountReactActionPanel(): void {
+  root?.unmount();
+  root = null;
+  host?.remove();
+  host = null;
+  setReactActionPanelAfterContentRender(null);
+}

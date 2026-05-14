@@ -19,7 +19,6 @@ import {
   type ChatStoredMessage,
 } from '../constants/ui/chat';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
-import { patchElementChildren, patchElementHtml } from './dom-patch';
 import {
   appendChannelMessages,
   clearLegacyChatStorage,
@@ -27,6 +26,7 @@ import {
   loadRecentChannelMessages,
 } from './chat-storage';
 import { hasI18nKey, tLoose } from './i18n';
+import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels/chat/mount-chat-panel';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -837,6 +837,13 @@ export class ChatUI {
 
 
   constructor() {
+    if (shouldUseReactChatPanel()) {
+      mountReactChatPanel(this.panel);
+      this.input = document.getElementById('chat-input') as HTMLInputElement;
+      this.sendBtn = document.getElementById('chat-send')!;
+      this.tabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-channel]')];
+      this.panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
+    }
     clearLegacyChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
@@ -1130,10 +1137,10 @@ export class ChatUI {
       const line = document.createElement('div');
       line.className = `chat-line chat-kind-${entry.kind}`;
       line.dataset.chatMessageId = entry.id;
-      patchElementChildren(line, buildLineFragment(entry));
+      line.replaceChildren(buildLineFragment(entry));
       fragment.appendChild(line);
     }
-    patchElementChildren(log, Array.from(fragment.childNodes));
+    log.replaceChildren(...Array.from(fragment.childNodes));
 
     if (options?.preserveScrollFromLoadMore) {
       const previousScrollHeight = options.previousScrollHeight ?? 0;
@@ -1374,7 +1381,7 @@ export class ChatUI {
   private clearChannel(channel: ChatChannel): void {
     const log = this.logs.get(channel);
     if (log) {
-      patchElementHtml(log, '');
+      log.replaceChildren();
     }
   }
 

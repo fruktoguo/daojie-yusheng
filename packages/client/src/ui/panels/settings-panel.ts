@@ -41,11 +41,21 @@ import {
   formatSignedAmount,
   renderOfflineGainReport,
 } from '../offline-gain-render';
-import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 import { t } from '../i18n';
+import {
+  mountReactSettingsPanel,
+  setReactSettingsPanelCallbacks,
+  shouldUseReactSettingsPanel,
+  syncReactSettingsPanelState,
+  unmountReactSettingsPanel,
+} from '../../react-ui/panels/settings/mount-settings-panel';
 
 type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  root.innerHTML = html;
+}
 
 /** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
 type SettingsPanelOptions = {
@@ -129,6 +139,12 @@ export class SettingsPanel {
   /** 注入设置面板运行时依赖。 */
   setOptions(options: SettingsPanelOptions): void {
     this.options = options;
+    setReactSettingsPanelCallbacks({
+      onDisplayNameUpdated: options.onDisplayNameUpdated,
+      onRoleNameUpdated: options.onRoleNameUpdated,
+      redeemCodes: options.redeemCodes,
+      onLogout: options.onLogout,
+    });
   }
 
   /** 打开设置弹层 */
@@ -143,17 +159,31 @@ export class SettingsPanel {
     this.currentDisplayName = this.options.getCurrentDisplayName().normalize('NFC');
     this.currentRoleName = this.options.getCurrentRoleName().normalize('NFC');
     this.displayNameAvailable = true;
+    this.syncReactState();
+
+    if (this.useReactPanel()) {
+      detailModalHost.open({
+        ownerId: 'settings-panel',
+        size: 'xl',
+        variantClass: 'detail-modal--settings',
+        title: t('settings.modal.title', undefined),
+        subtitle: this.buildSubtitle(),
+        hint: t('settings.modal.close-hint', undefined),
+        renderBody: (body) => {
+          body.replaceChildren();
+        },
+        onAfterRender: (body, signal) => mountReactSettingsPanel(body, signal),
+        onClose: unmountReactSettingsPanel,
+      });
+      return;
+    }
 
     detailModalHost.open({
       ownerId: 'settings-panel',
       size: 'xl',
       variantClass: 'detail-modal--settings',
       title: t('settings.modal.title', undefined),
-      subtitle: t('settings.modal.subtitle', {
-        account: this.currentAccountName || t('settings.modal.not-logged-in', undefined),
-        displayName: this.currentDisplayName || t('settings.modal.not-set', undefined),
-        roleName: this.currentRoleName || t('settings.modal.not-set', undefined),
-      }),
+      subtitle: this.buildSubtitle(),
       hint: t('settings.modal.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
@@ -164,9 +194,30 @@ export class SettingsPanel {
     });
   }
 
+  private useReactPanel(): boolean {
+    return shouldUseReactSettingsPanel();
+  }
+
+  private buildSubtitle(): string {
+    return t('settings.modal.subtitle', {
+      account: this.currentAccountName || t('settings.modal.not-logged-in', undefined),
+      displayName: this.currentDisplayName || t('settings.modal.not-set', undefined),
+      roleName: this.currentRoleName || t('settings.modal.not-set', undefined),
+    });
+  }
+
+  private syncReactState(): void {
+    syncReactSettingsPanelState({
+      accountName: this.currentAccountName,
+      playerId: this.currentPlayerId,
+      displayName: this.currentDisplayName,
+      roleName: this.currentRoleName,
+    });
+  }
+
   /** renderBody：渲染设置弹层主体。 */
   private renderBody(body: HTMLElement): void {
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
         <div class="settings-modal-shell ui-tabbed-modal-shell">
           <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="${escapeHtml(t('settings.tabs.aria', undefined))}">
             <button
@@ -216,7 +267,7 @@ export class SettingsPanel {
             ${this.renderOfflineGainTab()}
           </div>
         </div>
-      `);
+    `);
   }
 
   /** bindModal：绑定弹窗。 */
@@ -775,10 +826,10 @@ export class SettingsPanel {
     const listEl = body.querySelector<HTMLElement>('#settings-offline-gain-list');
     const statusEl = body.querySelector<HTMLElement>('#settings-offline-gain-status');
     if (summaryEl) {
-      patchElementHtml(summaryEl, this.renderOfflineGainHistorySummary(totals));
+      replaceElementHtml(summaryEl, this.renderOfflineGainHistorySummary(totals));
     }
     if (listEl) {
-      patchElementHtml(listEl, this.renderOfflineGainHistoryList(reports));
+      replaceElementHtml(listEl, this.renderOfflineGainHistoryList(reports));
     }
     if (statusMessage) {
       setStatus(statusEl, statusMessage, 'success');
@@ -884,7 +935,7 @@ export class SettingsPanel {
     });
     const detailEl = body.querySelector<HTMLElement>('#settings-offline-gain-detail');
     if (detailEl) {
-      patchElementHtml(detailEl, renderOfflineGainReport(selected));
+      replaceElementHtml(detailEl, renderOfflineGainReport(selected));
     }
   }
 
@@ -912,13 +963,13 @@ export class SettingsPanel {
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
       setStatus(statusEl, t('settings.redeem.error.empty', undefined), 'error');
-      patchElementHtml(resultEl, '');
+      resultEl.replaceChildren();
       return;
     }
 
     button.disabled = true;
       setStatus(statusEl, t('settings.redeem.status.submitted', undefined), '');
-    patchElementHtml(resultEl, '');
+    resultEl.replaceChildren();
     try {
       const result = await this.options.redeemCodes(codes);
       const successCount = result.results.filter((entry) => entry.ok).length;
@@ -933,10 +984,10 @@ export class SettingsPanel {
           : t('settings.redeem.status.result-success', { successCount }),
         failedCount > 0 ? 'error' : 'success',
       );
-      patchElementChildren(resultEl, result.results.map((entry) => this.createRedeemResultCard(entry)));
+      resultEl.replaceChildren(...result.results.map((entry) => this.createRedeemResultCard(entry)));
     } catch (error) {
       setStatus(statusEl, error instanceof Error ? error.message : t('settings.redeem.error.failed', undefined), 'error');
-      patchElementHtml(resultEl, '');
+      resultEl.replaceChildren();
     } finally {
       button.disabled = false;
     }

@@ -2,7 +2,6 @@ import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, Mar
 import { EQUIP_SLOTS, ITEM_TYPES, MAX_ENHANCE_LEVEL, createItemStackSignature } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
-import { patchElementHtml } from '../dom-patch';
 import { t } from '../i18n';
 import type {
   MarketPanelInternals,

@@ -2,8 +2,14 @@ import { type Suggestion, type SuggestionReply } from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
-import { patchElementHtml } from './dom-patch';
 import { t } from './i18n';
+import {
+  mountReactSuggestionPanel,
+  setReactSuggestionPanelCallbacks,
+  shouldUseReactSuggestionPanel,
+  syncReactSuggestionPanelState,
+  unmountReactSuggestionPanel,
+} from '../react-ui/panels/suggestion/mount-suggestion-panel';
 
 /** SuggestionListTab：建议列表页签。 */
 type SuggestionListTab = 'all' | 'mine';
@@ -18,6 +24,12 @@ const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
   'suggest-reply-content',
   'suggest-search',
 ]);
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
+}
 
 /** SuggestionRenderState：建议面板滚动与选区状态。 */
 type SuggestionRenderState = {
@@ -138,12 +150,27 @@ export class SuggestionPanel {
     >,
     private readonly isConnected: () => boolean,
   ) {
+    setReactSuggestionPanelCallbacks({
+      onCreateSuggestion: (title, description) => this.socket.sendCreateSuggestion(title, description),
+      onReplySuggestion: (suggestionId, content) => this.socket.sendReplySuggestion(suggestionId, content),
+      onVoteSuggestion: (suggestionId, vote) => this.socket.sendVoteSuggestion(suggestionId, vote),
+      onMarkRepliesRead: (suggestionId) => {
+        const suggestion = this.suggestions.find((entry) => entry.id === suggestionId);
+        if (suggestion) {
+          suggestion.authorLastReadGmReplyAt = this.getLastGmReplyAt(suggestion);
+          this.updateHudUnreadState();
+        }
+        this.socket.sendMarkSuggestionRepliesRead(suggestionId);
+      },
+      onRequestRefresh: () => this.requestSuggestionsIfNeeded(),
+    });
     this.setupGlobalListeners();
   }
 
   /** setPlayerId：处理set玩家ID。 */
   setPlayerId(id: string): void {
     this.playerId = id;
+    this.syncReactState();
     this.updateHudUnreadState();
   }
 
@@ -159,6 +186,7 @@ export class SuggestionPanel {
     }
     this.ensureSelection();
     this.clampPages();
+    this.syncReactState();
     this.updateHudUnreadState();
     this.render();
   }
@@ -176,7 +204,11 @@ export class SuggestionPanel {
     this.pageByTab = { all: 1, mine: 1 };
     this.lastSuggestionSyncAt = 0;
     this.lastRefreshRequestAt = 0;
+    this.syncReactState();
     this.updateHudUnreadState();
+    if (this.useReactPanel()) {
+      unmountReactSuggestionPanel();
+    }
     detailModalHost.close(SuggestionPanel.MODAL_OWNER);
   }
 
@@ -191,7 +223,24 @@ export class SuggestionPanel {
   open(): void {
     this.requestSuggestionsIfNeeded();
     this.ensureSelection();
+    this.syncReactState();
     const meta = this.buildModalMeta();
+    if (this.useReactPanel()) {
+      detailModalHost.open({
+        ownerId: SuggestionPanel.MODAL_OWNER,
+        size: 'full',
+        title: t('suggestion.modal.title', undefined),
+        subtitle: meta.subtitle,
+        variantClass: 'detail-modal--suggestion',
+        hint: t('suggestion.modal.close-hint', undefined),
+        renderBody: (body) => {
+          body.replaceChildren();
+        },
+        onAfterRender: (body, signal) => mountReactSuggestionPanel(body, signal),
+        onClose: unmountReactSuggestionPanel,
+      });
+      return;
+    }
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
       size: 'full',
@@ -323,7 +372,7 @@ export class SuggestionPanel {
 
   /** renderBody：渲染建议面板主体。 */
   private renderBody(body: HTMLElement): void {
-    patchElementHtml(body, this.buildBodyHtml());
+    replaceElementHtml(body, this.buildBodyHtml());
   }
 
   /** renderSuggestionListEntry：渲染建议列表条目。 */
@@ -458,6 +507,13 @@ export class SuggestionPanel {
   private render(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      if (detailModalHost.isOpenFor(SuggestionPanel.MODAL_OWNER)) {
+        this.patchModalMeta(this.buildModalMeta());
+      }
+      return;
+    }
     if (!detailModalHost.isOpenFor(SuggestionPanel.MODAL_OWNER)) {
       return;
     }
@@ -648,16 +704,16 @@ export class SuggestionPanel {
 
     allTabButton.classList.toggle('active', this.activeTab === 'all');
     mineTabButton.classList.toggle('active', this.activeTab === 'mine');
-    patchElementHtml(mineTabButton, this.renderMineTabLabel(unreadCount));
+    replaceElementHtml(mineTabButton, this.renderMineTabLabel(unreadCount));
 
     listRoot.dataset.listKind = this.activeTab;
-    patchElementHtml(
+    replaceElementHtml(
       listRoot,
       pageData.items.length > 0
         ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
         : `<div class="empty-hint">${escapeHtml(this.formatListEmpty())}</div>`,
     );
-    patchElementHtml(
+    replaceElementHtml(
       threadRoot,
       selectedSuggestion
         ? this.renderSuggestionDetail(selectedSuggestion)
@@ -1042,6 +1098,17 @@ export class SuggestionPanel {
     }
     const hasUnread = this.getMySuggestions().some((suggestion) => this.hasUnreadGmReply(suggestion));
     button.toggleAttribute('data-has-unread', hasUnread);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactSuggestionPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactSuggestionPanelState({
+      suggestions: this.suggestions,
+      playerId: this.playerId,
+    });
   }
 }
 

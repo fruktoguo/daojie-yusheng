@@ -13,6 +13,7 @@
     "dev": "vite",
     "dev:react-ui-prototype": "vite --open /react-ui-prototype.html",
     "build": "tsc --noEmit && vite build && pnpm run proof:production-boundaries",
+    "verify:react-equipment": "node ./scripts/verify-react-equipment-panel.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

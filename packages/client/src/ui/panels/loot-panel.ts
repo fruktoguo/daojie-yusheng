@@ -5,9 +5,17 @@
 import { LootWindowState } from '@mud/shared';
 import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementChildren } from '../dom-patch';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { t } from '../i18n';
+import {
+  isReactLootPanelMounted,
+  mountReactLootPanel,
+  resolveReactLootModalMeta,
+  setReactLootPanelCallbacks,
+  shouldUseReactLootPanel,
+  syncReactLootPanelState,
+  unmountReactLootPanel,
+} from '../../react-ui/panels/loot/mount-loot-panel';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -76,18 +84,33 @@ export class LootPanel {
     this.onCancelGather = onCancelGather ?? null;
     this.onStopHarvest = onStopHarvest ?? null;
     this.onManualClose = onManualClose ?? null;
+    setReactLootPanelCallbacks({
+      onTake,
+      onTakeAll,
+      onStartGather,
+      onCancelGather,
+      onStopHarvest,
+      onManualClose,
+    });
   }
 
   /** clear：清理clear。 */
   clear(): void {
     this.windowState = null;
     this.suppressAutoOpen = false;
+    if (this.useReactPanel()) {
+      syncReactLootPanelState({ windowState: null, suppressAutoOpen: false });
+      unmountReactLootPanel();
+    }
     detailModalHost.close(LootPanel.MODAL_OWNER);
   }
 
   /** 显式再次拿取时，允许服务端回包重新打开窗口。 */
   resetManualCloseSuppression(): void {
     this.suppressAutoOpen = false;
+    if (this.useReactPanel()) {
+      syncReactLootPanelState({ windowState: this.windowState, suppressAutoOpen: false });
+    }
   }
 
   /** 更新拾取窗口状态，null 时关闭弹层 */
@@ -95,6 +118,21 @@ export class LootPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.windowState = windowState;
+    if (this.useReactPanel()) {
+      syncReactLootPanelState({ windowState, suppressAutoOpen: this.suppressAutoOpen });
+      if (!windowState) {
+        this.suppressAutoOpen = false;
+        syncReactLootPanelState({ windowState: null, suppressAutoOpen: false });
+        unmountReactLootPanel();
+        detailModalHost.close(LootPanel.MODAL_OWNER);
+        return;
+      }
+      if (this.suppressAutoOpen) {
+        return;
+      }
+      this.renderReact();
+      return;
+    }
     if (!windowState) {
       this.suppressAutoOpen = false;
       detailModalHost.close(LootPanel.MODAL_OWNER);
@@ -104,6 +142,47 @@ export class LootPanel {
       return;
     }
     this.render();
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactLootPanel();
+  }
+
+  private renderReact(): void {
+    if (!this.windowState) {
+      return;
+    }
+    const meta = resolveReactLootModalMeta(this.windowState);
+    const onClose = () => {
+      this.suppressAutoOpen = true;
+      syncReactLootPanelState({ windowState: this.windowState, suppressAutoOpen: true });
+      this.onManualClose?.();
+    };
+    if (detailModalHost.isOpenFor(LootPanel.MODAL_OWNER) && isReactLootPanelMounted()) {
+      detailModalHost.patch({
+        ownerId: LootPanel.MODAL_OWNER,
+        variantClass: meta.variantClass,
+        title: meta.title,
+        subtitle: meta.subtitle,
+        hint: meta.hint,
+        onClose,
+      });
+      return;
+    }
+    detailModalHost.open({
+      ownerId: LootPanel.MODAL_OWNER,
+      variantClass: meta.variantClass,
+      title: meta.title,
+      subtitle: meta.subtitle,
+      hint: meta.hint,
+      renderBody: (body) => {
+        body.replaceChildren();
+      },
+      onClose,
+      onAfterRender: (body, signal) => {
+        mountReactLootPanel(body, signal);
+      },
+    });
   }
 
   /** render：渲染渲染。 */
@@ -174,7 +253,7 @@ export class LootPanel {
     for (const source of sources) {
       shell.append(this.createSourceSection(source));
     }
-    patchElementChildren(body, shell);
+    body.replaceChildren(shell);
   }
 
   /** patchBody：按 source section 粒度刷新拾取弹层。 */
@@ -183,7 +262,7 @@ export class LootPanel {
 
     let shell = body.querySelector<HTMLElement>('.loot-shell');
     if (!shell) {
-      patchElementChildren(body, createElement('div', 'loot-shell'));
+      body.replaceChildren(createElement('div', 'loot-shell'));
       shell = body.querySelector<HTMLElement>('.loot-shell');
       if (!shell) {
         return false;
@@ -203,7 +282,7 @@ export class LootPanel {
         // 保留旧 section 节点本身，只按 diff 迁移属性与子树，
         // 避免 replaceWith 把用户正 hover/mousedown 的按钮直接抹掉。
         this.mergeSectionAttributes(existing, nextSection);
-        patchElementChildren(existing, Array.from(nextSection.childNodes));
+        existing.replaceChildren(...Array.from(nextSection.childNodes));
         staleSections.delete(source.sourceId);
       } else {
         shell.append(nextSection);

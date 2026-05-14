@@ -21,9 +21,11 @@ import { applyStaticI18n } from './ui/i18n';
 import { collectMainDomElements } from './main-dom-elements';
 import { createMainFrontendModules } from './main-frontend-modules';
 import { initializeMainApp } from './main-app-composition';
+import { mountReactMapMinimapShell } from './react-ui/shell/MapMinimapShell';
 
 bindExternalLinkGuard(document);
 applyStaticI18n(document);
+mountReactMapMinimapShell(document);
 
 initializeMainApp({
   windowRef: window,

@@ -50,7 +50,6 @@ import {
   resolveTechniqueIdFromBookItemId,
 } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import {
   buildItemTooltipPayload,
@@ -72,6 +71,14 @@ import {
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
 } from '../../constants/ui/inventory-panel';
 import { t } from '../i18n';
+import {
+  mountReactInventoryPanel,
+  setReactInventoryPanelCallbacks,
+  shouldUseReactInventoryPanel,
+  syncReactInventoryPanelState,
+  unmountReactInventoryPanel,
+} from '../../react-ui/panels/inventory/mount-inventory-panel';
+import type { ReactInventoryItemView } from '../../react-ui/panels/inventory/InventoryPanel';
 
 /** InventoryActionKind：分类枚举。 */
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
@@ -86,6 +93,12 @@ type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
 };
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
+}
 
 /** InventoryActionDialogState：背包物品操作对话框状态。 */
 interface InventoryActionDialogState {
@@ -315,6 +328,11 @@ export class InventoryPanel {
 
   constructor() {
     this.ensureTooltipStyle();
+    setReactInventoryPanelCallbacks({
+      onFilterChange: (filter) => this.handleReactFilterChange(filter),
+      onSortInventory: () => this.onSortInventory?.(),
+      onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
+    });
     this.bindPaneEvents();
     this.bindTooltipEvents();
     const paneVisibilityObserver = new MutationObserver(() => this.flushPendingVisibleRefresh());
@@ -359,7 +377,12 @@ export class InventoryPanel {
     this.shellRefs = null;
     this.cellBySlotIndex.clear();
     this.pendingVisibleRefresh = false;
-    patchElementChildren(this.pane, this.createInventoryEmptyState());
+    if (this.useReactPanel()) {
+      this.syncReactState(null);
+    } else {
+      unmountReactInventoryPanel();
+      this.pane.replaceChildren(this.createInventoryEmptyState());
+    }
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }  
   /**
@@ -396,6 +419,15 @@ export class InventoryPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.lastInventory = inventory;
+    if (this.useReactPanel()) {
+      this.pendingVisibleRefresh = false;
+      this.syncReactState(inventory);
+      if (!this.patchModal()) {
+        this.renderModal();
+      }
+      this.syncCooldownRefresh();
+      return;
+    }
     if (this.isPaneVisible()) {
       this.pendingVisibleRefresh = false;
       if (!this.patchList(inventory)) {
@@ -505,8 +537,124 @@ export class InventoryPanel {
   /** render：渲染渲染。 */
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
+    if (this.useReactPanel()) {
+      this.syncReactState(inventory);
+      return;
+    }
     this.ensureShell();
     this.patchList(inventory);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactInventoryPanel();
+  }
+
+  private handleReactFilterChange(filter: InventoryFilter): void {
+    if (!filter || filter === this.activeFilter) {
+      return;
+    }
+    this.activeFilter = filter;
+    this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+    if (!this.lastInventory) {
+      this.syncReactState(null);
+      return;
+    }
+    this.syncReactState(this.lastInventory);
+    this.scrollToTop();
+    this.scheduleLoadMoreCheck();
+  }
+
+  private syncReactState(inventory: Inventory | null = this.lastInventory): void {
+    if (!inventory) {
+      syncReactInventoryPanelState({
+        inventory: null,
+        title: t('inventory.title', undefined),
+        items: [],
+        activeFilter: this.activeFilter,
+        totalItems: 0,
+        totalVisibleItems: 0,
+        renderedVisibleCount: 0,
+        capacity: 0,
+        emptyText: t('inventory.empty.all', undefined),
+        loadHint: null,
+      });
+      mountReactInventoryPanel();
+      return;
+    }
+
+    let visibleSnapshot = this.collectVisibleItems(inventory);
+    const previousRenderedVisibleCount = this.renderedVisibleCount;
+    this.syncRenderedVisibleCount(visibleSnapshot.totalVisibleItems);
+    if (previousRenderedVisibleCount !== this.renderedVisibleCount) {
+      visibleSnapshot = this.collectVisibleItems(inventory);
+    }
+    const cooldownStateMap = this.getCooldownStateMap(inventory);
+    const items = visibleSnapshot.renderedItems.map(({ item, slotIndex }) => (
+      this.buildReactInventoryItemView(item, slotIndex, cooldownStateMap.get(item.itemId) ?? null)
+    ));
+    syncReactInventoryPanelState({
+      inventory,
+      title: t('inventory.title.with-count', {
+        count: formatDisplayInteger(inventory.items.length),
+        capacity: formatDisplayInteger(inventory.capacity),
+      }),
+      items,
+      activeFilter: this.activeFilter,
+      totalItems: inventory.items.length,
+      totalVisibleItems: visibleSnapshot.totalVisibleItems,
+      renderedVisibleCount: this.renderedVisibleCount,
+      capacity: inventory.capacity,
+      emptyText: visibleSnapshot.totalVisibleItems === 0
+        ? inventory.items.length === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined)
+        : null,
+      loadHint: items.length < visibleSnapshot.totalVisibleItems
+        ? t('inventory.load-more', {
+          rendered: formatDisplayInteger(items.length),
+          total: formatDisplayInteger(visibleSnapshot.totalVisibleItems),
+        })
+        : null,
+    });
+    mountReactInventoryPanel();
+  }
+
+  private buildReactInventoryItemView(
+    item: ItemStack,
+    slotIndex: number,
+    cooldownState: InventoryItemCooldownState | null,
+  ): ReactInventoryItemView {
+    const cooldownRemaining = this.getItemCooldownRemainingTicks(cooldownState);
+    const itemIdentity = this.getItemIdentity(item);
+    const itemMeta = getItemDisplayMeta(item);
+    const displayName = itemMeta.displayItem.name;
+    const primaryAction = this.getPrimaryAction(item, cooldownState);
+    return {
+      slotIndex,
+      itemKey: itemIdentity,
+      name: displayName,
+      nameClassName: `inventory-cell-name ${this.getNameClass(displayName)}`.trim(),
+      countLabel: formatDisplayCountBadge(item.count),
+      itemType: item.type,
+      typeLabel: getItemAffixTypeLabel(item, getItemTypeLabel(item.type)),
+      cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
+      grade: itemMeta.grade ?? undefined,
+      affinityBadge: itemMeta.affinityBadge
+        ? {
+          label: itemMeta.affinityBadge.label,
+          title: itemMeta.affinityBadge.title,
+          className: `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`,
+        }
+        : undefined,
+      levelLabel: itemMeta.levelLabel ?? undefined,
+      cooldown: cooldownState
+        ? {
+          title: this.getItemCooldownTitle(cooldownState, cooldownRemaining),
+          progress: this.getItemCooldownRatio(cooldownState, cooldownRemaining).toFixed(4),
+          label: formatDisplayInteger(cooldownRemaining),
+        }
+        : undefined,
+      cooldownRemaining,
+      primaryAction,
+    };
   }
 
   /** bindPaneEvents：绑定Pane事件。 */
@@ -1211,7 +1359,7 @@ export class InventoryPanel {
 
   private renderFormationDialogBody(body: HTMLElement, item: ItemStack): void {
     const diskMultiplier = this.resolveFormationDiskMultiplier(item);
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="formation-dialog-layout">
       <div class="formation-config-grid">
         <label class="formation-config-field formation-config-field--select ui-detail-field">
@@ -1791,7 +1939,7 @@ export class InventoryPanel {
     statusLabel: string | null,
   ): void {
     const previewItem = resolvePreviewItem(item);
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="quest-detail-grid inventory-detail-grid">
         <div class="quest-detail-section">
           <strong>${t('inventory.detail.item-type', undefined)}</strong>
@@ -1850,7 +1998,7 @@ export class InventoryPanel {
 
   /** renderDestroyConfirmBody：渲染摧毁确认主体。 */
   private renderDestroyConfirmBody(body: HTMLElement): void {
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="panel-section">
         <div class="empty-hint">${t('inventory.destroy.warning', undefined)}</div>
       </div>
@@ -1884,7 +2032,7 @@ export class InventoryPanel {
  */
  cancelLabel?: string },
   ): void {
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
         <strong>${t('inventory.use-confirm.instructions', undefined)}</strong>
         ${summary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
@@ -1899,7 +2047,7 @@ export class InventoryPanel {
   }
 
   private renderSectFoundingDialogBody(body: HTMLElement): void {
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="sect-founding-modal">
         <div class="sect-founding-form">
           <label class="sect-founding-field">
@@ -1969,7 +2117,7 @@ export class InventoryPanel {
     halfCount: number,
     maxCount: number,
   ): void {
-    patchElementHtml(body, `
+    replaceElementHtml(body, `
       <div class="ui-detail-field ui-detail-field--section">
         <strong>${t('inventory.action-dialog.choose-count', undefined)}</strong>
         <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
@@ -2739,6 +2887,12 @@ export class InventoryPanel {
       return;
     }
     this.pendingVisibleRefresh = false;
+    if (this.useReactPanel()) {
+      this.syncReactState(this.lastInventory);
+      this.scheduleLoadMoreCheck();
+      this.syncCooldownRefresh();
+      return;
+    }
     if (!this.patchList(this.lastInventory)) {
       this.render(this.lastInventory);
     }
@@ -2816,8 +2970,12 @@ export class InventoryPanel {
       if (!this.isInventoryUiActive()) {
         return;
       }
-      if (this.isPaneVisible() && !this.patchList(this.lastInventory)) {
-        this.render(this.lastInventory);
+      if (this.isPaneVisible()) {
+        if (this.useReactPanel()) {
+          this.syncReactState(this.lastInventory);
+        } else if (!this.patchList(this.lastInventory)) {
+          this.render(this.lastInventory);
+        }
       }
       if (!this.patchModal()) {
         this.renderModal();

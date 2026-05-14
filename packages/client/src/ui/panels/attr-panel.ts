@@ -33,7 +33,6 @@ import {
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
-import { patchElementHtml } from '../dom-patch';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import {
@@ -61,6 +60,13 @@ import {
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
 import { t } from '../i18n';
+import {
+  mountReactAttrPanel,
+  setReactAttrPanelCallbacks,
+  shouldUseReactAttrPanel,
+  syncReactAttrPanelState,
+  unmountReactAttrPanel,
+} from '../../react-ui/panels/attr/mount-attr-panel';
 
 type AttrPanelCallbacks = {
   onRequestDetail?: () => void;
@@ -321,6 +327,12 @@ function splitTooltipLines(detail: string): string[] {
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** formatCritDamageDisplay：格式化Crit Damage显示。 */
@@ -610,7 +622,7 @@ interface RadarEntry {
 }
 
 /** 单个雷达节点的渲染快照，记录坐标、标签和值提示。 */
-interface AttrRadarNodeSnapshot {
+export interface AttrRadarNodeSnapshot {
 /**
  * key：图标与增量更新使用的稳定键。
  */
@@ -674,7 +686,7 @@ interface AttrRadarNodeSnapshot {
 }
 
 /** 雷达属性页的渲染快照，包含标题、网格、轴线和节点。 */
-interface AttrRadarPaneSnapshot {
+export interface AttrRadarPaneSnapshot {
 /**
  * kind：kind相关字段。
  */
@@ -740,7 +752,7 @@ interface AttrRadarPaneSnapshot {
 }
 
 /** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
-interface AttrNumericCardSnapshot {
+export interface AttrNumericCardSnapshot {
 /**
  * key：key标识。
  */
@@ -774,7 +786,7 @@ interface AttrNumericCardSnapshot {
 }
 
 /** 数值属性页的渲染快照，按卡片列表组织。 */
-interface AttrNumericPaneSnapshot {
+export interface AttrNumericPaneSnapshot {
 /**
  * kind：kind相关字段。
  */
@@ -793,7 +805,7 @@ interface AttrNumericPaneSnapshot {
 }
 
 /** 属性页占位快照，用于尚未同步到数据时的提示。 */
-interface AttrPlaceholderPaneSnapshot {
+export interface AttrPlaceholderPaneSnapshot {
 /**
  * kind：kind相关字段。
  */
@@ -807,7 +819,7 @@ interface AttrPlaceholderPaneSnapshot {
 }
 
 /** 采集 / 炼器 / 强化技能的渲染快照，包含等级和进度信息。 */
-interface AttrCraftSkillSnapshot {
+export interface AttrCraftSkillSnapshot {
 /**
  * key：key标识。
  */
@@ -861,7 +873,7 @@ interface AttrCraftSkillSnapshot {
 }
 
 /** 生活技能页的渲染快照，按技能列表展示。 */
-interface AttrCraftPaneSnapshot {
+export interface AttrCraftPaneSnapshot {
 /**
  * kind：kind相关字段。
  */
@@ -875,10 +887,10 @@ interface AttrCraftPaneSnapshot {
 }
 
 /** 单个属性页的统一渲染快照类型。 */
-type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
+export type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
 
 /** 整个属性面板的渲染快照，按分页保存各页内容。 */
-interface AttrPanelSnapshot {
+export interface AttrPanelSnapshot {
 /**
  * panes：pane相关字段。
  */
@@ -922,6 +934,12 @@ export class AttrPanel {
 
   constructor() {
     this.ensureTooltipStyle();
+    setReactAttrPanelCallbacks({
+      onRequestDetail: () => this.callbacks?.onRequestDetail?.(),
+      onOpenCraftSkill: (key) => this.openCraftSkill(key),
+      onBindCraftSkill: (key) => this.bindCraftSkill(key),
+      onSwitchTab: (tab) => this.switchTab(tab),
+    });
     this.bindPaneEvents();
     this.bindTooltipEvents();
     window.addEventListener(ACTION_SHORTCUTS_CHANGED_EVENT, () => this.patchCraftActionButtons());
@@ -944,7 +962,10 @@ export class AttrPanel {
     this.tabButtons.clear();
     this.paneEls.clear();
     this.tooltip.hide(true);
-    patchElementHtml(this.pane, '<div class="empty-hint">尚未观测到角色属性</div>');
+    if (this.useReactPanel()) {
+      unmountReactAttrPanel();
+    }
+    replaceElementHtml(this.pane, '<div class="empty-hint">尚未观测到角色属性</div>');
   }
 
   /** 接收属性更新事件并重新渲染 */
@@ -974,6 +995,14 @@ export class AttrPanel {
       data.miningSkill,
     );
     const structureKey = this.buildStructureKey(snapshot);
+    if (this.useReactPanel()) {
+      this.renderReact(snapshot);
+      this.refreshActiveTooltipContent();
+      if (this.tooltipTarget) {
+        this.requestDetailIfNeeded();
+      }
+      return;
+    }
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
     } else {
@@ -1032,6 +1061,10 @@ export class AttrPanel {
       player.forgingSkill,
       player.miningSkill,
     );
+    if (this.useReactPanel()) {
+      this.renderReact(snapshot);
+      return;
+    }
     this.render(snapshot);
   }
 
@@ -1065,6 +1098,10 @@ export class AttrPanel {
       detail.forgingSkill,
       detail.miningSkill,
     );
+    if (this.useReactPanel()) {
+      this.renderReact(snapshot);
+      return;
+    }
     this.render(snapshot);
   }
 
@@ -1683,7 +1720,7 @@ export class AttrPanel {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
     preserveSelection(this.pane, () => {
-      patchElementHtml(this.pane, `<div class="attr-layout">
+      replaceElementHtml(this.pane, `<div class="attr-layout">
         <div class="action-tab-bar">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
@@ -1695,6 +1732,58 @@ export class AttrPanel {
       </div>`);
       this.refreshDomRefs();
     });
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactAttrPanel();
+  }
+
+  private renderReact(snapshot: AttrPanelSnapshot): void {
+    this.lastSnapshot = snapshot;
+    this.lastStructureKey = this.buildStructureKey(snapshot);
+    this.tabButtons.clear();
+    this.paneEls.clear();
+    syncReactAttrPanelState({
+      snapshot,
+      activeTab: this.activeTab,
+      rawData: this.latestData,
+    });
+    mountReactAttrPanel();
+  }
+
+  private switchTab(tab: AttrTab): void {
+    if (tab === this.activeTab) {
+      return;
+    }
+    this.tooltipTarget = null;
+    this.tooltip.hide(true);
+    this.activeTab = tab;
+    if (this.useReactPanel()) {
+      if (this.lastSnapshot) {
+        this.renderReact(this.lastSnapshot);
+      }
+      return;
+    }
+    this.patchTabState();
+    if (this.lastSnapshot && !this.patchPane(tab, this.lastSnapshot.panes[tab])) {
+      this.render(this.lastSnapshot);
+    }
+  }
+
+  private openCraftSkill(key: string): void {
+    this.tooltipTarget = null;
+    this.tooltip.hide(true);
+    this.callbacks?.onOpenCraftSkill?.(key);
+  }
+
+  private bindCraftSkill(key: string): void {
+    this.tooltipTarget = null;
+    this.tooltip.hide(true);
+    this.callbacks?.onBindCraftSkill?.(key);
+    this.patchCraftActionButtons();
+    if (this.useReactPanel() && this.lastSnapshot) {
+      this.renderReact(this.lastSnapshot);
+    }
   }
 
   /** renderTabs：渲染标签页。 */
@@ -2064,10 +2153,7 @@ export class AttrPanel {
       if (craftBindButton) {
         const key = craftBindButton.dataset.craftBind;
         if (key) {
-          this.tooltipTarget = null;
-          this.tooltip.hide(true);
-          this.callbacks?.onBindCraftSkill?.(key);
-          this.patchCraftActionButtons();
+          this.bindCraftSkill(key);
           event.preventDefault();
           event.stopPropagation();
         }
@@ -2077,9 +2163,7 @@ export class AttrPanel {
       if (craftSkillRow) {
         const key = craftSkillRow.dataset.craftOpen;
         if (key) {
-          this.tooltipTarget = null;
-          this.tooltip.hide(true);
-          this.callbacks?.onOpenCraftSkill?.(key);
+          this.openCraftSkill(key);
           event.preventDefault();
           event.stopPropagation();
         }
@@ -2093,13 +2177,7 @@ export class AttrPanel {
       if (!tab || tab === this.activeTab) {
         return;
       }
-      this.tooltipTarget = null;
-      this.tooltip.hide(true);
-      this.activeTab = tab;
-      this.patchTabState();
-      if (this.lastSnapshot && !this.patchPane(tab, this.lastSnapshot.panes[tab])) {
-        this.render(this.lastSnapshot);
-      }
+      this.switchTab(tab);
     });
     this.pane.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') {

@@ -6,6 +6,7 @@ import type {
   TechniqueState,
 } from '@mud/shared';
 import type { PanelCapabilities, PanelRuntimeState } from '../../ui/panel-system/types';
+import { syncEquipmentPanelState } from '../panels/equipment/EquipmentPanel';
 import { panelDataStore } from '../stores/panel-data-store';
 import { shellStore } from '../stores/shell-store';
 
@@ -63,6 +64,10 @@ export const reactUiBridge = {
 
   syncPlayer(player: PlayerState | null): void {
     panelDataStore.patchState({ player });
+    syncEquipmentPanelState({
+      equipment: player?.equipment ?? panelDataStore.getState().equipment,
+      player,
+    });
   },  
   /**
  * syncAttrUpdate：处理AttrUpdate并更新相关状态。
@@ -93,6 +98,10 @@ export const reactUiBridge = {
 
   syncEquipment(equipment: PlayerState['equipment'] | null): void {
     panelDataStore.patchState({ equipment });
+    syncEquipmentPanelState({
+      equipment,
+      player: panelDataStore.getState().player,
+    });
   },  
   /**
  * syncTechniques：处理功法并更新相关状态。
@@ -159,6 +168,10 @@ export const reactUiBridge = {
       autoBattle: false,
       autoRetaliate: true,
       quests: null,
+    });
+    syncEquipmentPanelState({
+      equipment: null,
+      player: null,
     });
   },
 };

@@ -2,7 +2,6 @@ import type { PlayerState } from '@mud/shared';
 
 import type { ToastKind } from '../main-app-assembly-types';
 import { detailModalHost } from './detail-modal-host';
-import { patchElementChildren } from './dom-patch';
 import { t } from './i18n';
 
 type WorldMigrationLinePreset = 'peaceful' | 'real';
@@ -39,7 +38,7 @@ function renderWorldMigrationModal(
     subtitle: t('world-migration.modal.subtitle', { world: currentPreset === 'real' ? t('world-migration.line.real') : t('world-migration.line.peaceful') }),
     hint: t('world-migration.modal.hint'),
     renderBody: (body: HTMLElement) => {
-      patchElementChildren(body, createWorldMigrationShell(currentPreset, pendingTargetPreset));
+      body.replaceChildren(createWorldMigrationShell(currentPreset, pendingTargetPreset));
     },
     onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
       bindWorldMigrationActions(body, signal, options);

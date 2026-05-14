@@ -3,7 +3,6 @@
 import { Inventory, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
-import { patchElementChildren, patchElementHtml } from '../dom-patch';
 import {
   bindInlineItemTooltips,
   renderInlineItemChip,
@@ -19,6 +18,13 @@ import {
   STATUS_PRIORITY,
 } from '../../constants/ui/quest-panel';
 import { t } from '../i18n';
+import {
+  mountReactQuestPanel,
+  setReactQuestPanelCallbacks,
+  shouldUseReactQuestPanel,
+  syncReactQuestPanelState,
+  unmountReactQuestPanel,
+} from '../../react-ui/panels/quest/mount-quest-panel';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -34,7 +40,7 @@ function escapeHtml(value: string): string {
 function replaceRichContent(node: HTMLElement, html: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  patchElementHtml(node, html.trim() ? html : '');
+  node.innerHTML = html.trim() ? html : '';
 }
 
 /** isSameQuestIdSequence：判断是否Same任务ID Sequence。 */
@@ -122,6 +128,13 @@ export class QuestPanel {
 
   setCallbacks(onNavigateQuest: (questId: string) => void): void {
     this.onNavigateQuest = onNavigateQuest;
+    setReactQuestPanelCallbacks({
+      onNavigateQuest,
+      onOpenDetail: (questId) => {
+        this.selectedQuestId = questId;
+        this.openQuestModal();
+      },
+    });
   }
 
   /** setCurrentMapId：处理set当前地图ID。 */
@@ -129,6 +142,10 @@ export class QuestPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.currentMapId = mapId;
+    if (this.useReactPanel()) {
+      this.patchModal();
+      return;
+    }
     this.patchModal();
   }
 
@@ -137,6 +154,12 @@ export class QuestPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.inventory = inventory;
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      this.patchModal();
+      return;
+    }
     if (this.lastQuests.length === 0) {
       return;
     }
@@ -152,6 +175,12 @@ export class QuestPanel {
 
     this.lastQuests = quests;
     this.normalizeState(quests);
+    if (this.useReactPanel()) {
+      this.syncReactState();
+      this.mountReactPanel();
+      this.patchModal();
+      return;
+    }
     if (!this.patchList()) {
       this.renderList();
     }
@@ -174,9 +203,15 @@ export class QuestPanel {
     this.hasUserSelectedLine = false;
     this.inventory = null;
     this.shellRefs = null;
+    if (this.useReactPanel()) {
+      syncReactQuestPanelState({ quests: [], inventory: null });
+      this.mountReactPanel();
+      detailModalHost.close(QuestPanel.MODAL_OWNER);
+      return;
+    }
     const emptyNode = this.createEmptyState();
     emptyNode.textContent = t('quest.empty.all', undefined);
-    patchElementChildren(this.pane, emptyNode);
+    this.pane.replaceChildren(emptyNode);
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
@@ -184,6 +219,23 @@ export class QuestPanel {
   closeDetail(): void {
     this.selectedQuestId = undefined;
     detailModalHost.close(QuestPanel.MODAL_OWNER);
+  }
+
+  private useReactPanel(): boolean {
+    return shouldUseReactQuestPanel();
+  }
+
+  private syncReactState(): void {
+    syncReactQuestPanelState({
+      quests: this.lastQuests,
+      inventory: this.inventory,
+    });
+  }
+
+  private mountReactPanel(): void {
+    if (!mountReactQuestPanel()) {
+      unmountReactQuestPanel();
+    }
   }
 
   /** renderList：渲染列表。 */
@@ -198,7 +250,7 @@ export class QuestPanel {
       this.shellRefs = null;
       const emptyNode = this.createEmptyState();
       emptyNode.textContent = t('quest.empty.all', undefined);
-      patchElementChildren(this.pane, emptyNode);
+      this.pane.replaceChildren(emptyNode);
       return;
     }
     this.ensureShell();
@@ -311,12 +363,16 @@ export class QuestPanel {
 
     const visibleQuests = this.getVisibleQuests(quests);
     const visibleQuestIds = visibleQuests.map((quest) => quest.id);
+    const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
+    if (!titleNode) {
+      return false;
+    }
     if (visibleQuests.length === 0) {
       const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]') ?? this.createEmptyState();
       emptyNode.textContent = t('quest.empty.line', {
         line: getQuestLineLabel(this.activeLine),
       });
-      this.syncSectionContent(section, subtabs, [emptyNode]);
+      section.replaceChildren(titleNode, subtabs, emptyNode);
       this.lastVisibleQuestIds = [];
       this.lastStructureLine = this.activeLine;
       return true;
@@ -336,7 +392,7 @@ export class QuestPanel {
       return card;
     });
     existingCards.forEach((card) => card.remove());
-    this.syncSectionContent(section, subtabs, orderedCards);
+    section.replaceChildren(titleNode, subtabs, ...orderedCards);
 
     for (const quest of visibleQuests) {
       const card = this.pane.querySelector<HTMLElement>(`[data-quest-id="${CSS.escape(quest.id)}"]`);
@@ -447,32 +503,6 @@ export class QuestPanel {
     return true;
   }
 
-  /** syncSectionContent：同步Section Content。 */
-  private syncSectionContent(section: HTMLElement, subtabs: HTMLElement, orderedNodes: HTMLElement[]): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
-    if (!titleNode) {
-      return;
-    }
-    const allowed = new Set<HTMLElement>(orderedNodes);
-    for (const child of Array.from(section.children)) {
-      if (child === titleNode || child === subtabs) {
-        continue;
-      }
-      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
-        child.remove();
-      }
-    }
-    let reference = subtabs.nextSibling;
-    for (const node of orderedNodes) {
-      if (reference !== node) {
-        section.insertBefore(node, reference);
-      }
-      reference = node.nextSibling;
-    }
-  }
-
   /** openQuestModal：打开任务详情弹窗。 */
   private openQuestModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -537,7 +567,7 @@ export class QuestPanel {
     submitLocation: string,
     navigateLabel: string,
   ): void {
-    patchElementHtml(body, `
+    body.innerHTML = `
         <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>${escapeHtml(t('quest.detail.chapter', undefined))}</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.desc', undefined))}</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>${escapeHtml(t('quest.detail.story', undefined))}</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
@@ -566,7 +596,7 @@ export class QuestPanel {
         </div>
         <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>${escapeHtml(t('quest.detail.objective-note', undefined))}</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>${escapeHtml(t('quest.detail.relay', undefined))}</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
-      `);
+      `;
   }
 
   /** patchModal：处理patch弹窗。 */
