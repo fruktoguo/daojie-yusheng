@@ -241,7 +241,7 @@ pull_image_id() {
   local image="$1"
   local pulled_id
 
-  if ! docker pull "$image"; then
+  if ! docker pull "$image" >/dev/null; then
     return 0
   fi
 

@@ -6,7 +6,7 @@ IMAGE_PREFIX="${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/yuohira}"
 VERSION="prod"
 MODE="all"
 VERSION_SET=1
-BUILD_CACHEBUST="$(git rev-parse HEAD 2>/dev/null || date +%s)"
+BUILD_CACHEBUST="${BUILD_CACHEBUST:-$(git rev-parse HEAD 2>/dev/null || date +%s)}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
