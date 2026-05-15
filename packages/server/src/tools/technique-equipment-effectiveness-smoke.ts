@@ -7,6 +7,8 @@ import {
   computeEnhancementJobTicks,
   computeEnhancementAdjustedSuccessRate,
   computeEnhancementToolSpeedRate,
+  getEquipmentAttributeEffectivenessBreakdown,
+  getEquipmentRealmEffectiveness,
   getMiningDamageMultiplier,
   TileType,
 } from '@mud/shared';
@@ -155,6 +157,33 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   assert.equal(player.enhancementJob?.totalTicks, expectedTicks);
 }
 
+function testEquipmentRealmEffectivenessUsesExponentialPenalty(): void {
+  const playerRealmLv = 1;
+  const equipmentRealmLv = 11;
+  const expectedMultiplier = 0.95 ** 10;
+  const baseItem = {
+    itemId: 'equip.test_high_realm_blade',
+    name: '测试高境界剑',
+    type: 'equipment',
+    count: 1,
+    grade: 'yellow',
+    level: equipmentRealmLv,
+    equipSlot: 'weapon',
+    enhanceLevel: 0,
+    equipAttrs: { constitution: 100 },
+    equipStats: { physAtk: 100 },
+    enhancementSpeedRate: 1,
+  };
+  const effectiveItem = applyEquipmentAttributeEffectivenessToItemStack(baseItem as never, playerRealmLv);
+  const breakdown = getEquipmentAttributeEffectivenessBreakdown(baseItem as never, playerRealmLv);
+  assert.equal(getEquipmentRealmEffectiveness(playerRealmLv, equipmentRealmLv), expectedMultiplier);
+  assert.equal(breakdown.realmGap, 10);
+  assert.equal(breakdown.realmPercent, expectedMultiplier * 100);
+  assert.equal(effectiveItem.equipAttrs?.constitution, Math.ceil((100 * expectedMultiplier - Number.EPSILON) * 100) / 100);
+  assert.equal(effectiveItem.equipStats?.physAtk, Math.ceil((100 * expectedMultiplier - Number.EPSILON) * 100) / 100);
+  assert.equal(effectiveItem.enhancementSpeedRate, Math.ceil((1 * expectedMultiplier - Number.EPSILON) * 10_000) / 10_000);
+}
+
 function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
   const recipe = {
     recipeId: 'test.recipe',
@@ -220,6 +249,7 @@ function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
 
 function main(): void {
   testEnhancedHammerAffectsEnhancementPanelAndJob();
+  testEquipmentRealmEffectivenessUsesExponentialPenalty();
   testEnhancedAlchemyAndForgingToolsAffectJobs();
   testEnhancedMiningPickaxeAlreadyAffectsTileDamage();
   console.log(JSON.stringify({ ok: true, case: 'technique-equipment-effectiveness' }, null, 2));

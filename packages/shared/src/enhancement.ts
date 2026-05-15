@@ -35,6 +35,7 @@ import {
 export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL;
 export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 1 - Math.exp(CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL);
 export const EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL = 0.05;
+export const EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL = 1 - EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL;
 
 export interface EquipmentAttributeEffectivenessBreakdown {
   enhanceLevel: number;
@@ -90,7 +91,7 @@ export function getEquipmentRealmEffectiveness(
   }
   const normalizedEquipmentRealmLv = normalizeEquipmentRealmLv(equipmentRealmLv);
   const realmGap = Math.max(0, normalizedEquipmentRealmLv - normalizedPlayerRealmLv);
-  return Math.max(0, 1 - realmGap * EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL);
+  return EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL ** realmGap;
 }
 
 export function getEquipmentAttributeEffectivenessBreakdown(
@@ -104,7 +105,7 @@ export function getEquipmentAttributeEffectivenessBreakdown(
     ? 0
     : Math.max(0, equipmentRealmLv - normalizedPlayerRealmLv);
   const enhancementPercent = getEnhancementPercent(enhanceLevel);
-  const realmPercent = Math.max(0, 100 - realmGap * EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL * 100);
+  const realmPercent = (EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL ** realmGap) * 100;
   return {
     enhanceLevel,
     equipmentRealmLv,
