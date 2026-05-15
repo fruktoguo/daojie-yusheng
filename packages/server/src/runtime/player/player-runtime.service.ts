@@ -632,7 +632,7 @@ export class PlayerRuntimeService {
         const online = typeof player.sessionId === 'string' && player.sessionId.trim().length > 0;
         return {
             online,
-            inWorld: online && typeof player.templateId === 'string' && player.templateId.trim().length > 0,
+            inWorld: typeof player.templateId === 'string' && player.templateId.trim().length > 0,
             lastHeartbeatAt: Number.isFinite(player.lastHeartbeatAt)
                 ? Math.trunc(Number(player.lastHeartbeatAt))
                 : (online ? Date.now() : null),

@@ -26,7 +26,7 @@ class WorldGatewayPresenceHelper {
         await this.gateway.playerDomainPersistenceService.savePlayerPresence(binding.playerId, {
             ...disconnectPresence,
             online: false,
-            inWorld: false,
+            inWorld: Boolean(disconnectPresence.inWorld),
             offlineSinceAt: Date.now(),
             versionSeed: Date.now(),
         }).catch((error) => {

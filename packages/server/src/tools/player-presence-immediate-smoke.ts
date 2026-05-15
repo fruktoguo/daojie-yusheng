@@ -183,7 +183,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);
   assert.equal(heartbeatCount, 0);
-  assert.equal(notReadyCount, 0);
+  assert.equal(notReadyCount, 1);
 
   const client = {
     id: 'socket:presence',
@@ -213,7 +213,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   assert.deepEqual(presenceWrites[1], {
     playerId: 'presence:player',
     online: false,
-    inWorld: false,
+    inWorld: true,
     offlineSinceAt: presenceWrites[1]?.offlineSinceAt ?? null,
   });
   assert.ok(Number.isFinite(Number(presenceWrites[1]?.offlineSinceAt ?? NaN)));
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
         ok: true,
         bootstrap,
         gateway,
-        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入，不走普通 flush worker；重复 heartbeat 在节流窗口内不会重复直写',
+        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入，不走普通 flush worker；重复 heartbeat 在节流窗口内不会重复直写；掉线只改 online/offlineSinceAt，不把仍在世界中的挂机玩家降级为普通离线',
         excludes: '不证明真实 socket 心跳频率、数据库写入耗时分布或多节点下的 heartbeat 协调',
         completionMapping: 'release:proof:player-presence-immediate-write',
       },

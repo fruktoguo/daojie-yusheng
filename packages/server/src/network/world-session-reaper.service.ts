@@ -16,6 +16,7 @@ const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
     retryOnFlushFailure: true,
     clearLocalRouteAfterFlush: true,
     clearDetachedCachesAfterFlush: true,
+    unloadIdleDetachedRuntimeAfterFlush: false,
 });
 
 @Injectable()
