@@ -6,6 +6,7 @@ IMAGE_PREFIX="${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/yuohira}"
 VERSION="prod"
 MODE="all"
 VERSION_SET=1
+BUILD_CACHEBUST="$(git rev-parse HEAD 2>/dev/null || date +%s)"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -77,7 +78,7 @@ build_image() {
   local dockerfile="packages/${target}/Dockerfile"
 
   log_info "构建 ${target} 镜像: $(get_image_name "$target")"
-  docker build -t "$(get_image_name "$target")" -f "$dockerfile" .
+  docker build --build-arg "BUILD_CACHEBUST=${BUILD_CACHEBUST}" -t "$(get_image_name "$target")" -f "$dockerfile" .
 }
 
 push_image() {

@@ -13,6 +13,8 @@ COPY packages/client packages/client
 COPY packages/server/data packages/server/data
 COPY packages/server/src/tools/protocol-audit.ts packages/server/src/tools/protocol-audit.ts
 COPY packages/server/src/runtime/instance/map-instance.runtime.ts packages/server/src/runtime/instance/map-instance.runtime.ts
+ARG BUILD_CACHEBUST=local
+RUN printf '%s\n' "$BUILD_CACHEBUST" >/dev/null
 RUN pnpm build:client
 
 FROM nginx:alpine
