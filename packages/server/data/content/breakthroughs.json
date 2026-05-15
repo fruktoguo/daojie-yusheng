@@ -807,7 +807,14 @@
           "count": 164
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_30_31_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 29999,
+          "label": "六维总属性达到 29999"
+        }
+      ]
     },
     {
       "fromRealmLv": 31,
@@ -819,7 +826,14 @@
           "count": 173
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_31_32_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 31500,
+          "label": "六维总属性达到 31500"
+        }
+      ]
     },
     {
       "fromRealmLv": 32,
@@ -831,7 +845,14 @@
           "count": 181
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_32_33_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 33000,
+          "label": "六维总属性达到 33000"
+        }
+      ]
     },
     {
       "fromRealmLv": 33,
@@ -843,7 +864,14 @@
           "count": 190
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_33_34_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 39000,
+          "label": "六维总属性达到 39000"
+        }
+      ]
     },
     {
       "fromRealmLv": 34,
@@ -855,7 +883,14 @@
           "count": 198
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_34_35_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 42000,
+          "label": "六维总属性达到 42000"
+        }
+      ]
     },
     {
       "fromRealmLv": 35,
@@ -867,7 +902,14 @@
           "count": 207
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_35_36_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 45500,
+          "label": "六维总属性达到 45500"
+        }
+      ]
     },
     {
       "fromRealmLv": 36,
@@ -879,7 +921,14 @@
           "count": 216
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_36_37_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 56000,
+          "label": "六维总属性达到 56000"
+        }
+      ]
     },
     {
       "fromRealmLv": 37,
@@ -891,7 +940,14 @@
           "count": 225
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_37_38_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 61000,
+          "label": "六维总属性达到 61000"
+        }
+      ]
     },
     {
       "fromRealmLv": 38,
@@ -903,7 +959,14 @@
           "count": 234
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_38_39_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 67000,
+          "label": "六维总属性达到 67000"
+        }
+      ]
     },
     {
       "fromRealmLv": 39,
@@ -915,7 +978,14 @@
           "count": 244
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_39_40_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 80000,
+          "label": "六维总属性达到 80000"
+        }
+      ]
     },
     {
       "fromRealmLv": 40,
@@ -927,7 +997,14 @@
           "count": 253
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_40_41_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 90000,
+          "label": "六维总属性达到 90000"
+        }
+      ]
     },
     {
       "fromRealmLv": 41,
@@ -939,7 +1016,14 @@
           "count": 263
         }
       ],
-      "requirements": []
+      "requirements": [
+        {
+          "id": "bw_41_42_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 99999,
+          "label": "六维总属性达到 99999"
+        }
+      ]
     },
     {
       "fromRealmLv": 42,
