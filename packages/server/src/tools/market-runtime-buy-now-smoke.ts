@@ -39,6 +39,12 @@ async function main(): Promise<void> {
           name: itemId === 'rat_tail' ? '鼠尾' : itemId,
         };
       },
+      listItemTemplates() {
+        return [];
+      },
+      getItemSortLevel() {
+        return 0;
+      },
     } as never,
     {
       peekInventoryItem(requestedPlayerId: string, slotIndex: number) {
@@ -69,11 +75,15 @@ async function main(): Promise<void> {
         return true;
       },
       debitWallet(requestedPlayerId: string, walletType: string, amount: number) {
-        if (requestedPlayerId !== buyerId || walletType !== 'spirit_stone') {
+        if (walletType !== 'spirit_stone') {
           throw new Error(`unexpected debit args: ${JSON.stringify({ requestedPlayerId, walletType, amount })}`);
         }
-        buyerPlayer.wallet.balances[0].balance -= amount;
-        return buyerPlayer;
+        const player = runtimePlayers.get(requestedPlayerId);
+        if (!player?.wallet?.balances?.[0]) {
+          throw new Error(`unexpected debit player: ${requestedPlayerId}`);
+        }
+        player.wallet.balances[0].balance -= amount;
+        return player;
       },
       creditWallet(requestedPlayerId: string, walletType: string, amount: number) {
         if (walletType !== 'spirit_stone') {
@@ -162,11 +172,63 @@ async function main(): Promise<void> {
   assert.equal(sellerPlayer.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count ?? 0, 6);
   assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.length, 0);
   assert.equal(result.notices.some((entry) => entry.playerId === buyerId), true);
-  const buyerMarketHistory = service.buildTradeHistoryPage(buyerId, 1, 'market');
-  const buyerAuctionHistory = service.buildTradeHistoryPage(buyerId, 1, 'auction');
+  const buyerMarketHistory = await service.buildTradeHistoryPage(buyerId, 1, 'market');
+  const buyerAuctionHistory = await service.buildTradeHistoryPage(buyerId, 1, 'auction');
   assert.equal(buyerMarketHistory.records.length, 1);
   assert.equal(buyerMarketHistory.records[0]?.source, 'market');
   assert.equal(buyerAuctionHistory.records.length, 0);
+
+  buyerPlayer.wallet.balances[0].balance = 30;
+  buyerPlayer.inventory.items = [];
+  sellerPlayer.inventory.items = [{ itemId: 'rat_tail', count: 4, name: '鼠尾' }];
+  (service as unknown as { tradeHistory: Array<Record<string, unknown>> }).tradeHistory = [];
+  (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders = [
+    {
+      version: 1,
+      id: 'order:auction:1',
+      ownerId: sellerId,
+      side: 'sell',
+      status: 'open',
+      itemKey,
+      item: orderItem,
+      remainingQuantity: 1,
+      unitPrice: 4,
+      createdAt: 2,
+      updatedAt: 2,
+      auction: {
+        version: 1,
+        mode: 'auction',
+        buyoutPrice: 6,
+        startAtMs: Date.now(),
+        normalDurationSeconds: 3600,
+        endAtMs: Date.now() + 3600_000,
+        maxEndAtMs: Date.now() + 7200_000,
+        bids: [],
+      },
+    },
+  ];
+  (service as unknown as { hydrateAuctionStateFromOpenOrders(): void }).hydrateAuctionStateFromOpenOrders();
+
+  const marketListing = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'all' });
+  assert.equal(marketListing.items.some((entry: Record<string, unknown>) => entry.itemId === 'rat_tail' && Number(entry.sellQuantity ?? 0) > 0), false);
+  assert.equal(service.buildMarketOrders(sellerId).orders.length, 0);
+  assert.equal(service.buildMarketUpdate(sellerId).myOrders.length, 0);
+
+  const auctionBuyNow = await service.buyNow(buyerId, { itemKey, quantity: 1 });
+  assert.equal(auctionBuyNow.notices.some((entry) => String(entry.text ?? '').includes('当前没有可买入的挂售')), true);
+  assert.equal(buyerPlayer.wallet.balances[0].balance, 30);
+  assert.equal(buyerPlayer.inventory.items.length, 0);
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders[0]?.remainingQuantity, 1);
+
+  await service.createBuyOrder(buyerId, { itemKey, quantity: 1, unitPrice: 6 });
+  assert.equal(buyerPlayer.inventory.items.length, 0);
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.id === 'order:auction:1' && order.remainingQuantity === 1), true);
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.side === 'buy' && order.ownerId === buyerId), true);
+
+  sellerPlayer.wallet.balances[0].balance = 30;
+  await service.createBuyOrder(sellerId, { itemKey, quantity: 1, unitPrice: 6 });
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.side === 'buy' && order.ownerId === sellerId), true);
+
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-buy-now' }, null, 2));
 }
 

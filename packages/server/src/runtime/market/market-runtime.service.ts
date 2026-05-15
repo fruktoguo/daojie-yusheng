@@ -1072,7 +1072,10 @@ export class MarketRuntimeService {
             });
         }
         for (const order of this.openOrders) {
-            if (order.remainingQuantity <= 0 || order.status !== 'open' || !this.canTradeItemOnMarket(order.item)) {
+            if (order.remainingQuantity <= 0
+                || order.status !== 'open'
+                || this.isAuctionOrder(order)
+                || !this.canTradeItemOnMarket(order.item)) {
                 continue;
             }
 
@@ -1977,7 +1980,11 @@ export class MarketRuntimeService {
 
     buildOwnOrders(playerId) {
         return this.openOrders
-            .filter((order) => order.ownerId === playerId && order.status === 'open' && order.remainingQuantity > 0 && this.canTradeItemOnMarket(order.item))
+            .filter((order) => order.ownerId === playerId
+            && order.status === 'open'
+            && order.remainingQuantity > 0
+            && !this.isAuctionOrder(order)
+            && this.canTradeItemOnMarket(order.item))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
             .map((order) => ({
             id: order.id,
@@ -2004,7 +2011,10 @@ export class MarketRuntimeService {
             return null;
         }
 
-        const orders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0 && this.getOrderItemKey(order) === normalizedItemKey);
+        const orders = this.openOrders.filter((order) => order.status === 'open'
+            && order.remainingQuantity > 0
+            && !this.isAuctionOrder(order)
+            && this.getOrderItemKey(order) === normalizedItemKey);
         if (orders.length === 0) {
             return null;
         }
@@ -2026,7 +2036,11 @@ export class MarketRuntimeService {
 
         const grouped = new Map();
         for (const order of this.openOrders) {
-            if (order.status !== 'open' || order.remainingQuantity <= 0 || order.side !== side || this.getOrderItemKey(order) !== itemKey) {
+            if (order.status !== 'open'
+                || order.remainingQuantity <= 0
+                || order.side !== side
+                || this.isAuctionOrder(order)
+                || this.getOrderItemKey(order) !== itemKey) {
                 continue;
             }
 
@@ -2053,7 +2067,11 @@ export class MarketRuntimeService {
 
     getSortedOrders(itemKey, side) {
         return this.openOrders
-            .filter((order) => order.status === 'open' && order.remainingQuantity > 0 && order.side === side && this.getOrderItemKey(order) === itemKey)
+            .filter((order) => order.status === 'open'
+            && order.remainingQuantity > 0
+            && order.side === side
+            && !this.isAuctionOrder(order)
+            && this.getOrderItemKey(order) === itemKey)
             .sort((left, right) => {
             if (side === 'sell' && left.unitPrice !== right.unitPrice) {
                 return left.unitPrice - right.unitPrice;
@@ -2079,6 +2097,7 @@ export class MarketRuntimeService {
             && this.getOrderItemKey(order) === itemKey
             && order.side === oppositeSide
             && order.status === 'open'
+            && !this.isAuctionOrder(order)
             && order.remainingQuantity > 0);
     }
     /**
