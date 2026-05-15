@@ -1287,13 +1287,22 @@ async function normalizeOffsetPlayerNoWithClient(client: { query: (sql: string, 
 
 async function syncPlayerNoSequenceWithClient(client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }): Promise<void> {
   await client.query(`
-    SELECT setval(
-      '${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass,
-      GREATEST(
-        COALESCE((SELECT MAX(player_no) FROM ${PLAYER_AUTH_TABLE}), ${PLAYER_AUTH_PLAYER_NO_START - 1}),
-        ${PLAYER_AUTH_PLAYER_NO_START - 1}
-      ),
-      true
+    WITH sequence_state AS (
+      SELECT MAX(player_no) AS max_player_no
+      FROM ${PLAYER_AUTH_TABLE}
     )
+    SELECT CASE
+      WHEN max_player_no IS NULL THEN setval(
+        '${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass,
+        ${PLAYER_AUTH_PLAYER_NO_START},
+        false
+      )
+      ELSE setval(
+        '${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass,
+        GREATEST(max_player_no, ${PLAYER_AUTH_PLAYER_NO_START}),
+        true
+      )
+    END
+    FROM sequence_state
   `);
 }
