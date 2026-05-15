@@ -685,6 +685,22 @@ export interface GmStateRes {
  */
 
   perf: GmPerformanceSnapshot;
+  /**
+ * operations：GM 运维操作状态。
+ */
+
+  operations?: {
+    /**
+ * maintenanceActive：维护中开关是否启用。
+ */
+
+    maintenanceActive: boolean;
+    /**
+ * restartRequested：是否已经发起本轮重启。
+ */
+
+    restartRequested: boolean;
+  };
 }
 
 /** 兑换码组里的单个奖励条目。 */

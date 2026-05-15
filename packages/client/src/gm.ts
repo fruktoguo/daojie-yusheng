@@ -210,6 +210,10 @@ const resetPlayerBtn = document.getElementById('reset-player') as HTMLButtonElem
 const resetHeavenGateBtn = document.getElementById('reset-heaven-gate') as HTMLButtonElement;
 /** removeBotBtn：remove Bot Btn。 */
 const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
+/** toggleMaintenanceModeBtn：切换维护态按钮。 */
+const toggleMaintenanceModeBtn = document.getElementById('toggle-maintenance-mode') as HTMLButtonElement;
+/** restartServerBtn：重启服务器按钮。 */
+const restartServerBtn = document.getElementById('restart-server') as HTMLButtonElement;
 
 /** summaryTotalEl：摘要总量El。 */
 const summaryTotalEl = document.getElementById('summary-total') as HTMLDivElement;
@@ -219,6 +223,8 @@ const summaryOnlineEl = document.getElementById('summary-online') as HTMLDivElem
 const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging') as HTMLDivElement;
 /** summaryOfflineEl：摘要Offline El。 */
 const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
+/** summaryMaintenanceEl：摘要维护态 El。 */
+const summaryMaintenanceEl = document.getElementById('summary-maintenance') as HTMLDivElement;
 /** summaryBotsEl：摘要Bots El。 */
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 /** summaryTickEl：摘要Tick El。 */
@@ -2789,6 +2795,51 @@ async function deleteRuntimeFlag(key: string): Promise<void> {
     method: 'DELETE',
   });
   await loadRuntimeFlags();
+}
+
+async function setMaintenanceMode(active: boolean): Promise<void> {
+  if (!token) return;
+  toggleMaintenanceModeBtn.disabled = true;
+  try {
+    await request<BasicOkRes & { active?: boolean }>(`${GM_API_BASE_PATH}/maintenance`, {
+      method: 'POST',
+      body: JSON.stringify({ active }),
+    });
+    if (state) {
+      state = {
+        ...state,
+        operations: {
+          maintenanceActive: active,
+          restartRequested: state.operations?.restartRequested === true,
+        },
+      };
+      renderSummary(state);
+    }
+    await loadState(true);
+    setStatus(active ? '已开启维护中' : '已关闭维护中');
+  } finally {
+    toggleMaintenanceModeBtn.disabled = false;
+  }
+}
+
+async function restartServer(): Promise<void> {
+  if (!token) return;
+  restartServerBtn.disabled = true;
+  await request<BasicOkRes & { restartRequested?: boolean }>(`${GM_API_BASE_PATH}/server/restart`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  if (state) {
+    state = {
+      ...state,
+      operations: {
+        maintenanceActive: state.operations?.maintenanceActive === true,
+        restartRequested: true,
+      },
+    };
+    renderSummary(state);
+  }
+  setPendingStatus('重启指令已发送，服务即将断开并由外层托管器拉起');
 }
 
 function renderRuntimeFlagsPanel(): void {
@@ -5688,6 +5739,16 @@ function renderSummary(data: GmStateRes): void {
   summaryOnlineEl.textContent = `${data.playerStats.onlinePlayers}`;
   summaryOfflineHangingEl.textContent = `${data.playerStats.offlineHangingPlayers}`;
   summaryOfflineEl.textContent = `${data.playerStats.offlinePlayers}`;
+  const maintenanceActive = data.operations?.maintenanceActive === true;
+  const restartRequested = data.operations?.restartRequested === true;
+  summaryMaintenanceEl.textContent = restartRequested
+    ? '重启中'
+    : maintenanceActive
+      ? '维护中'
+      : '关闭';
+  toggleMaintenanceModeBtn.textContent = maintenanceActive ? '结束维护' : '开启维护中';
+  toggleMaintenanceModeBtn.disabled = restartRequested;
+  restartServerBtn.disabled = restartRequested;
   summaryBotsEl.textContent = `${data.botCount}`;
   summaryTickEl.textContent = tickPerf.lastMapId
     ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
@@ -8195,6 +8256,27 @@ serverFlagsAddBtn.addEventListener('click', () => {
     serverFlagsNewKeyInput.value = '';
   }).catch((err: unknown) => {
     setStatus(err instanceof Error ? err.message : '添加开关失败', true);
+  });
+});
+toggleMaintenanceModeBtn.addEventListener('click', () => {
+  const nextActive = state?.operations?.maintenanceActive !== true;
+  const message = nextActive
+    ? '确认开启维护中？主线连接会被拒绝，世界 tick 会暂停。'
+    : '确认结束维护？玩家将可以重新连接。';
+  if (!window.confirm(message)) {
+    return;
+  }
+  setMaintenanceMode(nextActive).catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '切换维护中失败', true);
+  });
+});
+restartServerBtn.addEventListener('click', () => {
+  if (!window.confirm('确认重启服务器？当前连接会断开，服务由外层托管器重新拉起。')) {
+    return;
+  }
+  restartServer().catch((err: unknown) => {
+    restartServerBtn.disabled = false;
+    setStatus(err instanceof Error ? err.message : '重启服务器失败', true);
   });
 });
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));

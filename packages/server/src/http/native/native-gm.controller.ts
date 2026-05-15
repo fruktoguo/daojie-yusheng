@@ -7,7 +7,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
-import { GmRuntimeFlagPersistenceService } from '../../persistence/gm-runtime-flag-persistence.service';
+import { GmRuntimeFlagPersistenceService, GM_RUNTIME_MAINTENANCE_FLAG_KEY } from '../../persistence/gm-runtime-flag-persistence.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmMailService } from './native-gm-mail.service';
@@ -198,9 +198,19 @@ interface MapConfigBody {
   [key: string]: unknown;
 }
 
+interface SetMaintenanceBody {
+/**
+ * active：是否开启维护中。
+ */
+
+  active?: boolean;
+}
+
 interface NodeMigrationBody {
   targetNodeId?: string;
 }
+
+let restartRequestedAt: string | null = null;
 /**
  * RedeemCodeRuntimeServicePort：定义接口结构约束，明确可交付字段含义。
  */
@@ -255,8 +265,15 @@ export class NativeGmController {
 
 
   @Get('state')
-  getState(@Query() query: GmListPlayersQuery) {
-    return this.nextGmWorldService.getState(query);
+  async getState(@Query() query: GmListPlayersQuery) {
+    const state = await this.nextGmWorldService.getState(query) as Record<string, unknown>;
+    return {
+      ...state,
+      operations: {
+        maintenanceActive: this.runtimeFlagService.getFlag(GM_RUNTIME_MAINTENANCE_FLAG_KEY),
+        restartRequested: restartRequestedAt !== null,
+      },
+    };
   }
   /**
  * getWorldSummary：读取世界运行态摘要。
@@ -989,6 +1006,42 @@ export class NativeGmController {
   async listRuntimeFlags() {
     const flags = await this.runtimeFlagService.listFlags();
     return { flags };
+  }
+
+  @Post('maintenance')
+  async setMaintenance(@Body() body: SetMaintenanceBody) {
+    if (!this.runtimeFlagService.isEnabled()) {
+      throw new BadRequestException('当前未启用 GM 运行时开关持久化，无法切换维护中');
+    }
+    const active = body?.active === true;
+    await this.runtimeFlagService.setFlag(GM_RUNTIME_MAINTENANCE_FLAG_KEY, active);
+    return {
+      ok: true,
+      active,
+    };
+  }
+
+  @Post('server/restart')
+  restartServer() {
+    if (restartRequestedAt !== null) {
+      return {
+        ok: true,
+        restartRequested: true,
+        requestedAt: restartRequestedAt,
+        alreadyRequested: true,
+      };
+    }
+    restartRequestedAt = new Date().toISOString();
+    const delayMs = 500;
+    setTimeout(() => {
+      process.kill(process.pid, 'SIGTERM');
+    }, delayMs).unref();
+    return {
+      ok: true,
+      restartRequested: true,
+      requestedAt: restartRequestedAt,
+      delayMs,
+    };
   }
 
   @Post('runtime-flags/:key')

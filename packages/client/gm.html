@@ -1796,6 +1796,7 @@
             <div class="summary-card"><div class="panel-title" data-i18n="gm.online-count">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
             <div class="summary-card"><div class="panel-title" data-i18n="gm.offline-hanging">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
             <div class="summary-card"><div class="panel-title" data-i18n="gm.offline-count">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">维护状态</div><div id="summary-maintenance" class="panel-value">关闭</div></div>
           </div>
           <div class="summary-grid">
             <div class="summary-card"><div class="panel-title" data-i18n="gm.bots">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
@@ -1814,6 +1815,11 @@
           <div class="button-row" style="margin-bottom: 12px;">
             <button id="toggle-peace-mode" class="small-btn" type="button" data-i18n="gm.toggle-peace-mode">切换和平模式</button>
             <div class="editor-note" data-i18n="gm.editor-note-peace-mode-note">开启后会立刻关闭所有玩家的全体攻击，并允许玩家在任意位置重叠。</div>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <button id="toggle-maintenance-mode" class="small-btn danger" type="button">开启维护中</button>
+            <button id="restart-server" class="small-btn danger" type="button">重启服务器</button>
+            <div class="editor-note">维护中会阻止主线连接并暂停世界 tick；重启会让当前服务进程退出，由外层托管器拉起。</div>
           </div>
           <div class="summary-grid">
             <div class="summary-card"><div class="panel-title" data-i18n="gm.path-cancelled">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
