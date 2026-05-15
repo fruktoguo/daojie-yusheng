@@ -328,7 +328,7 @@ export class PlayerRuntimeService {
             dirtyDomains: createPlayerDirtyDomainSet(),
         };
         this.playerProgressionService.initializePlayer(player);
-        this.rebuildActionState(player, 0);
+        this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
     /** 更新角色名与展示名，仅在确实变化时递增版本。 */
@@ -979,7 +979,7 @@ export class PlayerRuntimeService {
             return player;
         }
         player.actions.contextActions = normalized;
-        this.rebuildActionState(player, currentTick);
+        this.rebuildActionState(player, resolvePlayerRuntimeTick(player, currentTick));
         return player;
     }
     /**
@@ -1577,7 +1577,7 @@ export class PlayerRuntimeService {
                 player.combat.cultivationActive = true;
             }
             this.playerAttributesService.recalculate(player);
-            this.rebuildActionState(player, 0);
+            this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
             consumed = true;
         }
         else {
@@ -2151,40 +2151,6 @@ export class PlayerRuntimeService {
         return player;
     }
     /**
- * translateActionCooldownReadyTicks：跨地图传送时平移动作冷却tick坐标。
- * @param player 玩家对象。
- * @param fromTick 源地图当前tick。
- * @param toTick 目标地图当前tick。
- * @returns 无返回值，直接更新动作冷却tick相关状态。
- */
-
-    translateActionCooldownReadyTicks(player, fromTick, toTick) {
-        const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
-        if (!cooldowns) {
-            return;
-        }
-        const normalizedFromTick = Math.max(0, Math.trunc(Number(fromTick) || 0));
-        const normalizedToTick = Math.max(0, Math.trunc(Number(toTick) || 0));
-        let changed = false;
-        for (const [actionId, readyTickInput] of Object.entries(cooldowns)) {
-            const readyTick = Math.max(0, Math.trunc(Number(readyTickInput) || 0));
-            const remainingTicks = readyTick - normalizedFromTick;
-            if (remainingTicks <= 0) {
-                delete cooldowns[actionId];
-                changed = true;
-                continue;
-            }
-            const nextReadyTick = normalizedToTick + remainingTicks;
-            if (nextReadyTick !== readyTick) {
-                cooldowns[actionId] = nextReadyTick;
-                changed = true;
-            }
-        }
-        if (changed) {
-            this.rebuildActionState(player, normalizedToTick);
-        }
-    }
-    /**
  * updateAutoBattleSkills：处理AutoBattle技能并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
@@ -2201,7 +2167,7 @@ export class PlayerRuntimeService {
             return player;
         }
         player.combat.autoBattleSkills = normalized;
-        this.rebuildActionState(player, 0);
+        this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill']);
         this.bumpPersistentRevision(player);
         void this.persistAutoBattleSkills(player).catch((error) => {
@@ -2323,7 +2289,7 @@ export class PlayerRuntimeService {
             return player;
         }
         player.combat.autoBattleSkills = limited;
-        this.rebuildActionState(player, 0);
+        this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         markPlayerDirtyDomains(player, ['auto_battle_skill']);
         this.bumpPersistentRevision(player);
         return player;
@@ -2895,12 +2861,13 @@ export class PlayerRuntimeService {
                 markPlayerDirtyDomains(player, buffTickResult.vitalsChanged ? ['buff', 'attr', 'vitals'] : ['buff', 'attr']);
                 this.bumpPersistentRevision(player);
             }
-            if (recoverPlayerVitals(player, currentTick)) {
+            const playerTick = resolvePlayerRuntimeTick(player, currentTick);
+            if (recoverPlayerVitals(player, playerTick)) {
                 player.selfRevision += 1;
                 markPlayerDirtyDomains(player, ['vitals']);
                 this.bumpPersistentRevision(player);
             }
-            if (player.hp > 0 && shouldResumeIdleCultivation(player, currentTick, options.idleCultivationBlockedPlayerIds)) {
+            if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick, options.idleCultivationBlockedPlayerIds)) {
                 player.combat.cultivationActive = true;
                 this.playerAttributesService.recalculate(player);
                 markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
@@ -2911,15 +2878,15 @@ export class PlayerRuntimeService {
                 const result = this.playerProgressionService.advanceCultivation(player, 1, {
                     auraMultiplier: resolveCultivationAuraMultiplier(player, options),
                 });
-                this.applyProgressionResult(player, result, currentTick);
+                this.applyProgressionResult(player, result, playerTick);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
-                this.applyProgressionResult(player, result, currentTick, true);
-                this.disableAutoRootFoundationAtCap(player, currentTick);
+                this.applyProgressionResult(player, result, playerTick, true);
+                this.disableAutoRootFoundationAtCap(player, playerTick);
             }
-            if (hasActiveSkillCooldown(player, currentTick)) {
-                this.rebuildActionState(player, currentTick);
+            if (hasActiveSkillCooldown(player, playerTick)) {
+                this.rebuildActionState(player, playerTick);
             }
             this.accumulateOfflineGainAfterTick(player, offlineGainBefore);
 
@@ -3536,7 +3503,7 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['position_checkpoint']);
             this.bumpPersistentRevision(player);
         }
-        this.rebuildActionState(player, 0);
+        this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
     /**
@@ -3792,7 +3759,8 @@ export class PlayerRuntimeService {
     rebuildActionState(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const nextActions = buildActionEntries(player, currentTick);
+        const playerTick = resolvePlayerRuntimeTick(player, currentTick);
+        const nextActions = buildActionEntries(player, playerTick);
 
         const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
         if (isSameActionList(player.actions.actions, nextActions) && !techniqueFlagsChanged) {
@@ -5788,6 +5756,13 @@ function advancePlayerChronology(player) {
 function normalizeLifeElapsedTicks(value) {
     return Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
 }
+
+function resolvePlayerRuntimeTick(player, fallbackTick = 0) {
+    if (Number.isFinite(Number(player?.lifeElapsedTicks))) {
+        return Math.max(0, Math.trunc(Number(player.lifeElapsedTicks) || 0));
+    }
+    return Math.max(0, Math.trunc(Number(fallbackTick) || 0));
+}
 /**
  * normalizeLifespanYears：规范化或转换LifespanYear。
  * @param value 参数说明。
@@ -6095,7 +6070,7 @@ function normalizeActionCooldownReadyTick(player, actionId, currentTick, maxCool
         ? Math.max(1, Math.trunc(Number(maxCooldownTicks)))
         : null;
     if (normalizedCurrentTick <= 0) {
-        // 偏好/内容重建可能没有地图 tick，只收敛面板显示，不清运行时真源。
+        // 偏好/内容重建可能还没有玩家 tick，只收敛面板显示，不清运行时真源。
         return normalizedMax !== null && readyTick > normalizedMax ? normalizedMax : readyTick;
     }
     if (remainingTicks <= 0 || (normalizedMax !== null && remainingTicks > normalizedMax)) {

@@ -103,10 +103,10 @@ export class WorldRuntimeContextActionQueryService {
 
         const actions = [];
         const player = this.playerRuntimeService.getPlayer(view.playerId);
-        const currentTick = Number.isFinite(Number(view?.tick))
-            ? Math.max(0, Math.trunc(Number(view.tick)))
-            : (typeof deps?.resolveCurrentTickForPlayerId === 'function'
-                ? deps.resolveCurrentTickForPlayerId(view.playerId)
+        const currentTick = typeof deps?.resolveCurrentTickForPlayerId === 'function'
+            ? deps.resolveCurrentTickForPlayerId(view.playerId)
+            : (Number.isFinite(Number(view?.tick))
+                ? Math.max(0, Math.trunc(Number(view.tick)))
                 : 0);
         actions.push({
             id: 'battle:force_attack',

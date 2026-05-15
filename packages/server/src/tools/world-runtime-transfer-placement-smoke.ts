@@ -103,6 +103,7 @@ async function main(): Promise<void> {
   player.x = 3;
   player.y = 7;
   player.facing = 1;
+  player.lifeElapsedTicks = 100;
   player.attrs.numericStats.moveSpeed = 18;
   const skillId = 'skill.transfer.cooldown';
   player.techniques.techniques = [
@@ -211,7 +212,8 @@ async function main(): Promise<void> {
   assert.equal(updatedPlayer?.x, 41);
   assert.equal(updatedPlayer?.y, 12);
   assert.equal(updatedPlayer?.facing, 3);
-  assert.equal(updatedPlayer?.combat.cooldownReadyTickBySkillId[skillId], 37);
+  assert.equal(updatedPlayer?.lifeElapsedTicks, 100, '传送不能重置或平移玩家自己的 tick');
+  assert.equal(updatedPlayer?.combat.cooldownReadyTickBySkillId[skillId], 130);
   assert.equal(updatedPlayer?.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 30);
   assert.ok((updatedPlayer?.persistentRevision ?? 0) > beforePersistentRevision);
   assert.ok((updatedPlayer?.selfRevision ?? 0) > beforeSelfRevision);
@@ -224,8 +226,8 @@ async function main(): Promise<void> {
     sessionId,
   });
   assert.deepEqual(logs, [
-    ['disconnectPlayer', playerId],
     ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
+    ['disconnectPlayer', playerId],
     ['connectPlayer', {
       playerId,
       sessionId,
@@ -251,7 +253,7 @@ async function main(): Promise<void> {
         },
         dirtyDomains: Array.from(dirtyDomains).sort(),
         answers:
-          'WorldRuntimeTransferService.applyTransfer 现已直接证明会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
+          'WorldRuntimeTransferService.applyTransfer 现已直接证明会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，玩家 tick 与技能冷却不会随源/目标地图 tick 差异被平移，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
         excludes:
           '不证明 player_position_checkpoint/player_world_anchor 的跨节点协议消息格式已完全固化，也不证明真实多节点 socket redirect、route handoff 或数据库写回时序',
         completionMapping: 'release:proof:world-runtime-transfer.placement-dirty-domains',

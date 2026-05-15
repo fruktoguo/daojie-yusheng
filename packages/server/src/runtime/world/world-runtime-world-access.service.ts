@@ -38,6 +38,9 @@ export class WorldRuntimeWorldAccessService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = deps.playerRuntimeService.getPlayer(playerId);
+        if (player && Number.isFinite(Number(player.lifeElapsedTicks))) {
+            return Math.max(0, Math.trunc(Number(player.lifeElapsedTicks) || 0));
+        }
         if (!player?.instanceId) {
             return deps.tick;
         }

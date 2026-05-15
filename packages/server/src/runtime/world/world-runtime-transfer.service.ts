@@ -75,9 +75,6 @@ export class WorldRuntimeTransferService {
             preferredY: transfer.targetY,
         });
         target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
-        if (runtimePlayer && typeof deps.playerRuntimeService?.translateActionCooldownReadyTicks === 'function') {
-            deps.playerRuntimeService.translateActionCooldownReadyTicks(runtimePlayer, source.tick ?? 0, target.tick ?? 0);
-        }
         deps.setPlayerLocation(transfer.playerId, {
             instanceId: target.meta.instanceId,
             sessionId: transfer.sessionId,

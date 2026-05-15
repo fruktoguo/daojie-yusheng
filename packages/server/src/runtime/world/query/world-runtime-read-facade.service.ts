@@ -143,7 +143,10 @@ export class WorldRuntimeReadFacadeService {
         if (!resolvedView) {
             return null;
         }
-        deps.playerRuntimeService.setContextActions(playerId, this.buildContextActions(resolvedView, deps), resolvedView.tick);
+        const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
+            ? deps.resolveCurrentTickForPlayerId(playerId)
+            : resolvedView.tick;
+        deps.playerRuntimeService.setContextActions(playerId, this.buildContextActions(resolvedView, deps), currentTick);
         return resolvedView;
     }
     /**

@@ -8624,6 +8624,56 @@
     .craft-workbench-content .enhancement-layout--single-slot {
       grid-template-columns: minmax(0, 1.8fr) minmax(320px, 380px);
     }
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--craft,
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--alchemy {
+      border-color: rgba(246, 238, 224, 0.28);
+      background:
+        radial-gradient(circle at top right, rgba(211, 138, 76, 0.14), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(128, 155, 99, 0.1), transparent 32%),
+        var(--surface-gradient-paper);
+      color: var(--ink-dark);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.34);
+    }
+    :root[data-color-mode="dark"] .craft-workbench-sidebar {
+      border-right-color: rgba(246, 238, 224, 0.14);
+    }
+    :root[data-color-mode="dark"] .craft-workbench-content {
+      border-top-color: rgba(246, 238, 224, 0.14);
+    }
+    :root[data-color-mode="dark"] .craft-profession-summary,
+    :root[data-color-mode="dark"] .craft-queue-panel,
+    :root[data-color-mode="dark"] .craft-placeholder-panel {
+      border-color: rgba(246, 238, 224, 0.16);
+      background: rgba(34, 28, 24, 0.82);
+    }
+    :root[data-color-mode="dark"] .craft-mode-tab {
+      border-color: rgba(246, 238, 224, 0.16);
+      background: rgba(45, 37, 31, 0.86);
+      color: var(--ink-strong);
+    }
+    :root[data-color-mode="dark"] .craft-mode-tab:hover {
+      border-color: rgba(246, 238, 224, 0.32);
+      background: rgba(64, 52, 42, 0.94);
+    }
+    :root[data-color-mode="dark"] .craft-mode-tab.active {
+      border-color: rgba(246, 238, 224, 0.42);
+      background: linear-gradient(180deg, rgba(84, 64, 44, 0.96), rgba(58, 45, 35, 0.96));
+      box-shadow: inset 4px 0 0 rgba(211, 138, 76, 0.88);
+    }
+    :root[data-color-mode="dark"] .craft-queue-item,
+    :root[data-color-mode="dark"] .craft-queue-empty {
+      border-color: rgba(246, 238, 224, 0.14);
+      background: rgba(45, 37, 31, 0.78);
+      color: rgba(235, 221, 201, 0.78);
+    }
+    :root[data-color-mode="dark"] .craft-queue-item.active {
+      background: rgba(69, 55, 43, 0.9);
+      color: var(--ink-strong);
+    }
+    :root[data-color-mode="dark"] .craft-queue-progress-bar {
+      border-color: rgba(246, 238, 224, 0.14);
+      background: rgba(246, 238, 224, 0.1);
+    }
     .craft-start-mode-row {
       display: flex;
       flex-wrap: wrap;
@@ -10516,6 +10566,7 @@
       min-height: 120px;
     }
     :root[data-color-mode="dark"] .enhancement-candidate,
+    :root[data-color-mode="dark"] .enhancement-picker-cell,
     :root[data-color-mode="dark"] .enhancement-target-slot-card,
     :root[data-color-mode="dark"] .enhancement-target-level-card,
     :root[data-color-mode="dark"] .enhancement-summary-card,
@@ -10541,6 +10592,7 @@
     :root[data-color-mode="dark"] .enhancement-candidate-name,
     :root[data-color-mode="dark"] .enhancement-target-slot-name,
     :root[data-color-mode="dark"] .enhancement-target-slot-action,
+    :root[data-color-mode="dark"] .enhancement-material-row > strong,
     :root[data-color-mode="dark"] .enhancement-summary-title,
     :root[data-color-mode="dark"] .enhancement-preview-title,
     :root[data-color-mode="dark"] .enhancement-section-title,
@@ -10555,6 +10607,11 @@
     :root[data-color-mode="dark"] .enhancement-card-head-value {
       border-color: rgba(236, 222, 192, 0.18);
       background: rgba(70, 56, 45, 0.9);
+    }
+    :root[data-color-mode="dark"] .enhancement-summary-rate {
+      border-color: rgba(236, 222, 192, 0.2);
+      background: rgba(60, 48, 38, 0.92);
+      color: #ffb3a2;
     }
     :root[data-color-mode="dark"] .enhancement-formula-pill {
       border-color: rgba(236, 222, 192, 0.2);
@@ -10573,9 +10630,12 @@
     :root[data-color-mode="dark"] .enhancement-protection-note,
     :root[data-color-mode="dark"] .enhancement-action-note,
     :root[data-color-mode="dark"] .enhancement-material-owned,
+    :root[data-color-mode="dark"] .enhancement-material-row > span,
     :root[data-color-mode="dark"] .enhancement-target-level-note,
     :root[data-color-mode="dark"] .enhancement-candidate-meta,
     :root[data-color-mode="dark"] .enhancement-picker-cell-meta,
+    :root[data-color-mode="dark"] .enhancement-picker-cell .inventory-cell-type,
+    :root[data-color-mode="dark"] .enhancement-picker-cell .inventory-cell-count,
     :root[data-color-mode="dark"] .enhancement-summary-subtitle,
     :root[data-color-mode="dark"] .enhancement-preview-lines,
     :root[data-color-mode="dark"] .enhancement-preview-empty,
@@ -10590,6 +10650,11 @@
     :root[data-color-mode="dark"] .enhancement-target-level-input {
       background: rgba(44, 36, 28, 0.96);
       border-color: rgba(236, 222, 192, 0.16);
+    }
+    :root[data-color-mode="dark"] .enhancement-picker-cell .item-card-chip {
+      border-color: rgba(236, 222, 192, 0.18);
+      background: rgba(58, 47, 38, 0.94);
+      color: rgba(248, 238, 219, 0.92);
     }
     @media (max-width: 720px) {
       .action-item {

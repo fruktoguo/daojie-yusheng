@@ -156,7 +156,29 @@ async function main(): Promise<void> {
   const layer1State = layer1.tongtianTowerState;
   layer1State.activeWave = null;
   layer1State.nextSpawnTick = layer1.tick + 60;
+  const cooldownPlayer = deps.playerRuntimeService.getPlayer('player:1');
+  assert.ok(cooldownPlayer, '通天塔退出前应存在玩家运行态');
+  cooldownPlayer.lifeElapsedTicks = 100;
+  cooldownPlayer.combat.cooldownReadyTickBySkillId['skill:tongtian:cooldown-smoke'] = 130;
+  cooldownPlayer.actions.actions = [{
+    id: 'skill:tongtian:cooldown-smoke',
+    name: '通天塔冷却测试',
+    type: 'skill',
+    desc: '',
+    cooldownLeft: 30,
+  }];
   tower.executeAction('player:1', 'tower:tongtian:exit', deps);
+  assert.equal(cooldownPlayer.lifeElapsedTicks, 100, '退出通天塔不能重置玩家自己的 tick');
+  assert.equal(
+    cooldownPlayer.combat.cooldownReadyTickBySkillId['skill:tongtian:cooldown-smoke'],
+    130,
+    '退出通天塔不能按源/目标地图 tick 平移技能冷却',
+  );
+  assert.equal(
+    cooldownPlayer.actions.actions.find((entry: any) => entry.id === 'skill:tongtian:cooldown-smoke')?.cooldownLeft,
+    30,
+    '退出通天塔后技能冷却剩余时间应保持玩家 tick 坐标',
+  );
   deps.refreshPlayerContextActions('player:1', deps.getPlayerViewOrThrow('player:1'));
   assert.deepEqual(
     deps.getContextActionIds('player:1').filter((id: string) => id.startsWith('tower:tongtian:')),
@@ -308,6 +330,9 @@ function createDeps(
             playerId,
             sessionId,
             attrs: { numericStats: { moveSpeed: 100, viewRange: 20 } },
+            lifeElapsedTicks: 0,
+            combat: { cooldownReadyTickBySkillId: {} },
+            actions: { actions: [], contextActions: [], revision: 1 },
           };
           players.set(playerId, player);
         }

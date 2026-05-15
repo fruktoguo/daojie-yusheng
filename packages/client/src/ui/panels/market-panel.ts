@@ -476,32 +476,32 @@ export class MarketPanel {
   updateMarket(data: S2C_MarketUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
+    const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
+    const auctionConsignModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
     const knownListedItems = data.listedItems.length > 0 ? data.listedItems : this.getKnownListedItems(this.marketUpdate);
     this.marketUpdate = {
       ...data,
       listedItems: knownListedItems,
     };
-    if (this.selectedItemKey && !knownListedItems.some((item) => item.itemKey === this.selectedItemKey)) {
+    if (!auctionModalOpen && this.selectedItemKey && !knownListedItems.some((item) => item.itemKey === this.selectedItemKey)) {
       this.selectedItemKey = null;
       this.itemBook = null;
       this.tradeDialog = null;
     }
-    this.currentPage = this.clampPage(this.currentPage, this.getVisibleMarketTotalItems(this.marketUpdate));
-    this.syncPageSelection();
+    if (!auctionModalOpen) {
+      this.currentPage = this.clampPage(this.currentPage, this.getVisibleMarketTotalItems(this.marketUpdate));
+      this.syncPageSelection();
+    }
     this.renderPane();
-    if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+    if (marketModalOpen) {
       if (this.modalTab === 'market' && this.selectedItemKey) {
         this.requestItemBook(this.selectedItemKey);
       }
       this.renderModal();
-    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-    this.syncAuctionSelection();
-    const selectedAuctionLot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, this.marketUpdate, this.auctionTab);
-    if (selectedAuctionLot) {
-      this.requestItemBook(selectedAuctionLot.itemKey);
-    }
-      this.renderAuctionModal();
-    } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
+    } else if (auctionModalOpen) {
+      this.patchAuctionModalLiveState({ patchDetail: false });
+    } else if (auctionConsignModalOpen) {
       this.patchAuctionConsignModalState();
     } else {
       this.syncTradeDialogOverlay();
@@ -567,8 +567,7 @@ export class MarketPanel {
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.syncAuctionSelection();
-      this.renderAuctionModal();
+      this.patchAuctionModalLiveState();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
     } else {
@@ -593,7 +592,7 @@ export class MarketPanel {
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.renderAuctionModal();
+      this.patchAuctionModalLiveState();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
     }
@@ -636,7 +635,7 @@ export class MarketPanel {
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.renderAuctionModal();
+      this.patchAuctionModalLiveState();
     }
   }
 
@@ -1096,6 +1095,20 @@ export class MarketPanel {
 
   private patchAuctionDetailPanel(): void {
     this.auctionView.patchAuctionDetailPanel();
+  }
+
+  /** 拍卖行打开时只同步动态子区域，避免 1Hz 市场摘要回包重建整个弹层。 */
+  private patchAuctionModalLiveState(options: { patchDetail?: boolean } = {}): void {
+    this.syncAuctionSelection();
+    this.patchAuctionActiveSelection();
+    const selectedAuctionLot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, this.marketUpdate, this.auctionTab);
+    if (selectedAuctionLot) {
+      this.requestItemBook(selectedAuctionLot.itemKey);
+    }
+    if (options.patchDetail !== false) {
+      this.patchAuctionDetailPanel();
+    }
+    this.syncTradeDialogOverlay();
   }
 
   /** 渲染市场弹层主体和右侧分栏。 */
