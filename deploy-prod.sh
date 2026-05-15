@@ -111,6 +111,34 @@ wait_for_docker() {
   return 1
 }
 
+ensure_swarm_manager() {
+  local local_state
+  local control_available
+  local advertise_addr
+
+  local_state="$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)"
+  control_available="$(docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null || true)"
+
+  if [ "$local_state" = "active" ] && [ "$control_available" = "true" ]; then
+    log_info "Swarm manager 已激活"
+    return 0
+  fi
+
+  if [ "$local_state" = "active" ]; then
+    log_warn "当前节点已加入 Swarm 但不是 manager，将重置为单节点 manager"
+  else
+    log_step "初始化 Docker Swarm"
+  fi
+
+  docker swarm leave --force 2>/dev/null || true
+  advertise_addr="$(server_primary_ip)"
+  if ! docker swarm init --advertise-addr "$advertise_addr"; then
+    log_warn "使用 advertise-addr=${advertise_addr} 初始化失败，尝试 Docker 默认地址探测"
+    docker swarm init
+  fi
+  log_info "Swarm manager 初始化完成"
+}
+
 server_primary_ip() {
   local ip
   ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
@@ -424,21 +452,10 @@ fi
 log_info "Docker 就绪"
 
 # ============================================================
-# 初始化 Swarm（幂等）
+# 初始化 Swarm manager（幂等）
 # ============================================================
 
-if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
-  log_step "初始化 Docker Swarm"
-  docker swarm leave --force 2>/dev/null || true
-  advertise_addr="$(server_primary_ip)"
-  if ! docker swarm init --advertise-addr "$advertise_addr"; then
-    log_warn "使用 advertise-addr=${advertise_addr} 初始化失败，尝试 Docker 默认地址探测"
-    docker swarm init
-  fi
-  log_info "Swarm 初始化完成"
-else
-  log_info "Swarm 已激活"
-fi
+ensure_swarm_manager
 
 # ============================================================
 # 创建数据卷（幂等）
