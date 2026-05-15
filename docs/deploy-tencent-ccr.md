@@ -1,6 +1,6 @@
 # 腾讯云 CCR + Docker Swarm 部署
 
-这套文件是现有 GitHub/GHCR 自动部署的并行方案，不替换 `.github/workflows/*`，也不修改默认 `docker-stack.yml`。
+这套文件是腾讯云 CCR + Docker Swarm 的自管部署方案，不依赖服务器拉取源码仓库。
 
 ## 它部署什么
 
@@ -18,12 +18,12 @@
 
 ## push 到腾讯云包含什么
 
-`docker-build-tencent.sh` 推送的是 Docker 镜像，不是 Git 源代码。
+`docker-build-latest.sh` 和 `docker-build-prod.sh` 推送的是 Docker 镜像，不是 Git 源代码。
 
 - `daojie-yusheng-client`：前端构建后的 `packages/client/dist`、Nginx 与 Nginx 配置
 - `daojie-yusheng-server`：后端编译后的 `packages/server/dist`、生产运行依赖、shared dist、server data 与运行所需文件
 
-源代码仍在 GitHub 和本地仓库里。腾讯云 CCR 只保存构建后的可运行镜像。
+源代码仍在本地仓库里。腾讯云 CCR 只保存构建后的可运行镜像。
 
 ## 服务端镜像体积口径
 
@@ -50,34 +50,65 @@
 docker login ccr.ccs.tencentyun.com
 ```
 
-然后构建并推送：
+构建并推送 latest：
 
 ```bash
 TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-tencent.sh latest
+  ./docker-build-latest.sh
+```
+
+构建并推送 prod：
+
+```bash
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh
 ```
 
 只推后端：
 
 ```bash
 TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-tencent.sh latest --server-only
+  ./docker-build-latest.sh --server-only
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh --server-only
 ```
 
 如果不设置 `TENCENT_IMAGE_PREFIX`，脚本默认使用 `ccr.ccs.tencentyun.com/tcb-100001011660-qtgo`。
 
-## 首次服务器初始化
+## 一键服务器部署
 
-首次部署前，生产机需要有 Docker Swarm：
+latest 服务器运行 latest 部署脚本：
 
 ```bash
-docker swarm init
+scp deploy-latest.sh root@你的服务器:/tmp/deploy-latest.sh
+ssh root@你的服务器 'bash /tmp/deploy-latest.sh'
 ```
 
-登录腾讯云 CCR：
+prod 服务器运行 prod 部署脚本：
+
+```bash
+scp deploy-prod.sh root@你的服务器:/tmp/deploy-prod.sh
+ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
+```
+
+一键脚本会在 Ubuntu/Debian 系服务器上自举基础依赖、安装并启动 Docker、初始化 Swarm、创建外部数据卷、生成 `/opt/daojie-yusheng/prod.env` 和 `/opt/daojie-yusheng/docker-stack.yml`，然后用 `docker stack deploy --prune` 部署 `daojie-yusheng` stack。重复运行脚本会清理 stack 中已移除的旧服务。
+
+首次运行时可以直接回车使用默认 CCR 前缀 `ccr.ccs.tencentyun.com/tcb-100001011660-qtgo`。数据库密码、玩家 token、GM token 签名密钥、密钥管理加密密钥和 GM 管理密码都支持自动生成；如果仓库是私有的，需要先执行：
 
 ```bash
 docker login ccr.ccs.tencentyun.com
+```
+
+一键脚本还会安装 `daojie-ccr-auto-update.timer`。后续只要把新镜像推送到 CCR，服务器会定时拉取镜像并更新 `server`、`backup-worker` 和 `client`，不需要再次手工更新服务。
+
+## 手动服务器初始化
+
+下面步骤只用于排障、自定义部署或不使用一键脚本的场景。
+
+初始化 Swarm：
+
+```bash
+docker swarm init
 ```
 
 创建外部数据卷：
@@ -86,7 +117,7 @@ docker login ccr.ccs.tencentyun.com
 bash scripts/tencent-swarm-volumes.sh
 ```
 
-这些卷保存 PostgreSQL、Redis 和 GM 数据库备份目录。它们是 `external: true`，所以必须提前存在。
+这些卷保存 PostgreSQL、Redis 和 GM 数据库备份目录。`docker-stack.tencent.yml` 使用 `external: true`，所以手动部署时必须提前存在。
 
 ## 部署 stack
 
@@ -94,8 +125,8 @@ bash scripts/tencent-swarm-volumes.sh
 
 ```bash
 export TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间
-export CLIENT_IMAGE_TAG=latest
-export SERVER_IMAGE_TAG=latest
+export CLIENT_IMAGE_TAG=latest # prod 环境改成 prod
+export SERVER_IMAGE_TAG=latest # prod 环境改成 prod
 export DB_USERNAME=mud
 export DB_PASSWORD='换成强密码'
 export DB_DATABASE=daojie_yusheng
@@ -109,7 +140,7 @@ export SERVER_CORS_ORIGINS='https://你的域名'
 部署：
 
 ```bash
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng-tencent
+docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng-tencent
 ```
 
 如果要让腾讯云方案接管当前正式 stack 名，也可以把最后的 stack 名改成 `daojie-yusheng`。不要在同一台机器上同时跑两个占用 `11921/11922` 的 stack。
@@ -135,15 +166,17 @@ curl http://127.0.0.1:11921/
 
 ```bash
 TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-tencent.sh latest
+  ./docker-build-latest.sh
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh
 ```
 
-如果使用一键部署脚本，服务器上会安装 `daojie-ccr-auto-update.timer`。推送新镜像后，服务器每 60 秒读取 CCR 远端 digest；发现变化时自动执行 Swarm service update，更新 `server`、`backup-worker` 和 `client`。
+如果使用一键部署脚本，服务器上会安装 `daojie-ccr-auto-update.timer`。推送新镜像后，服务器每 60 秒拉取 CCR 镜像并比较本地运行态镜像 ID；发现变化时自动执行 Swarm service update，更新 `server`、`backup-worker` 和 `client`。
 
 也可以手动重新部署 stack：
 
 ```bash
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng-tencent
+docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng-tencent
 ```
 
 也可以只更新单个服务：
@@ -161,18 +194,8 @@ docker service rollback daojie-yusheng-tencent_server
 docker service rollback daojie-yusheng-tencent_client
 ```
 
-## 和现有 GitHub 部署的关系
-
-现有 GitHub Actions 仍然走 GHCR：
-
-- `.github/workflows/deploy.yml`
-- `.github/workflows/publish-prod-image.yml`
-- `.github/workflows/deploy-prod-stack.yml`
-
-新增腾讯云方案只多了一条手动/自管链路：
+## 自管部署链路
 
 ```text
 本地或 CI 构建镜像 -> push 腾讯云 CCR -> 服务器 CCR 自动更新器或 docker stack deploy
 ```
-
-如果以后要把 GitHub Actions 也改成自动推腾讯云 CCR，可以在现有 workflow 旁边新增一个 Tencent publish workflow；当前改动没有接管 GitHub 自动部署。

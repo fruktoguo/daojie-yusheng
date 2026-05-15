@@ -1,8 +1,6 @@
 services:
   client:
     image: ${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-auto}
     ports:
@@ -36,8 +34,6 @@ services:
 
   server:
     image: ${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
@@ -156,21 +152,6 @@ services:
       replicas: 1
       update_config:
         order: stop-first
-
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      DOCKER_API_VERSION: "1.44"
-      WATCHTOWER_POLL_INTERVAL: 60
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_LABEL_ENABLE: "true"
-    deploy:
-      replicas: 1
-      placement:
-        constraints:
-          - node.role == manager
 
 volumes:
   pgdata:

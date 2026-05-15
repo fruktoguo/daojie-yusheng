@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ============================================================
 # 道劫余生 - 一键部署脚本（自包含）
-# 用法：tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
+# 用法：把本文件复制到服务器后执行 sudo bash deploy-prod.sh
 # 幂等设计：重复运行安全，可用于首次部署 / 重新部署 / 重启
 # ============================================================
 
@@ -17,6 +17,17 @@ log_info()  { printf '%b[INFO]%b  %s\n' "$GREEN" "$NC" "$1"; }
 log_warn()  { printf '%b[WARN]%b  %s\n' "$YELLOW" "$NC" "$1"; }
 log_error() { printf '%b[ERROR]%b %s\n' "$RED" "$NC" "$1" >&2; }
 log_step()  { printf '\n%b==> %s%b\n' "$CYAN" "$1" "$NC"; }
+
+DEFAULT_TENCENT_IMAGE_PREFIX="ccr.ccs.tencentyun.com/tcb-100001011660-qtgo"
+DEPLOY_DIR="/opt/daojie-yusheng"
+ENV_FILE="${DEPLOY_DIR}/prod.env"
+STACK_FILE="${DEPLOY_DIR}/docker-stack.yml"
+STACK_NAME="daojie-yusheng"
+DOCKER_AUTH_CONFIG_FILE="/root/.docker/config.json"
+AUTO_UPDATE_SCRIPT="${DEPLOY_DIR}/ccr-auto-update.sh"
+AUTO_UPDATE_STATE_FILE="${DEPLOY_DIR}/ccr-auto-update.state"
+AUTO_UPDATE_SERVICE_FILE="/etc/systemd/system/daojie-ccr-auto-update.service"
+AUTO_UPDATE_TIMER_FILE="/etc/systemd/system/daojie-ccr-auto-update.timer"
 
 write_env_var() {
   local key="$1"
@@ -52,15 +63,109 @@ sync_registry_auth_if_available() {
   fi
 }
 
-DEPLOY_DIR="/opt/daojie-yusheng"
-ENV_FILE="${DEPLOY_DIR}/prod.env"
-STACK_FILE="${DEPLOY_DIR}/docker-stack.yml"
-STACK_NAME="daojie-yusheng"
-DEPLOY_SCRIPT_URL="${DEPLOY_SCRIPT_URL:-https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh}"
-DOCKER_AUTH_CONFIG_FILE="/root/.docker/config.json"
-AUTO_UPDATE_SCRIPT="${DEPLOY_DIR}/ccr-auto-update.sh"
-AUTO_UPDATE_SERVICE_FILE="/etc/systemd/system/daojie-ccr-auto-update.service"
-AUTO_UPDATE_TIMER_FILE="/etc/systemd/system/daojie-ccr-auto-update.timer"
+install_base_packages() {
+  local missing=()
+  local package
+
+  for package in ca-certificates curl gnupg lsb-release openssl iproute2; do
+    if ! dpkg -s "$package" >/dev/null 2>&1; then
+      missing+=("$package")
+    fi
+  done
+
+  if [ "${#missing[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  if ! command -v apt-get >/dev/null 2>&1; then
+    log_error "缺少基础命令且找不到 apt-get；此脚本只支持 Ubuntu/Debian 系发行版"
+    exit 1
+  fi
+
+  log_step "安装基础依赖"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y --no-install-recommends "${missing[@]}"
+}
+
+enable_and_start_docker() {
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable docker || true
+    systemctl start docker || true
+  elif command -v service >/dev/null 2>&1; then
+    service docker start || true
+  fi
+}
+
+wait_for_docker() {
+  local attempt=1
+
+  while [ "$attempt" -le 30 ]; do
+    if docker info >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+
+  return 1
+}
+
+server_primary_ip() {
+  local ip
+  ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
+  if [ -z "$ip" ]; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  fi
+  printf '%s' "${ip:-127.0.0.1}"
+}
+
+read_with_default() {
+  local prompt="$1"
+  local default_value="$2"
+  local output_var="$3"
+  local input=""
+
+  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    printf "%s" "$prompt" >/dev/tty
+    read -r input </dev/tty || input=""
+  fi
+
+  printf -v "$output_var" '%s' "${input:-$default_value}"
+}
+
+pull_required_image() {
+  local name="$1"
+  local image="$2"
+  local registry
+
+  log_info "拉取镜像 ${name}: ${image}"
+  if ! docker pull "$image"; then
+    log_error "镜像拉取失败: ${image}"
+    registry="$(registry_host_from_prefix "${TENCENT_IMAGE_PREFIX:-}")"
+    if [ -n "$registry" ]; then
+      log_error "请确认镜像前缀/标签正确，服务器能访问镜像仓库；私有仓库需先执行 sudo docker login ${registry}"
+    else
+      log_error "请确认镜像前缀/标签正确，服务器能访问镜像仓库"
+    fi
+    exit 1
+  fi
+}
+
+ensure_port_available() {
+  local port="$1"
+  local label="$2"
+
+  if docker service ls --filter "name=${STACK_NAME}_${label}" --format '{{.Name}}' 2>/dev/null | grep -Fxq "${STACK_NAME}_${label}"; then
+    return 0
+  fi
+
+  if command -v ss >/dev/null 2>&1 && ss -ltn "( sport = :${port} )" | tail -n +2 | grep -q .; then
+    log_error "${label} 端口已被占用: ${port}"
+    log_error "请停止占用端口的服务，或在 ${ENV_FILE} 中设置对应 PUBLISHED_PORT 后重跑"
+    exit 1
+  fi
+}
 
 install_ccr_auto_update() {
   log_step "安装 CCR 自动更新器"
@@ -73,6 +178,7 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/daojie-yusheng}"
 ENV_FILE="${ENV_FILE:-${DEPLOY_DIR}/prod.env}"
 STACK_NAME="${STACK_NAME:-daojie-yusheng}"
 LOCK_DIR="/tmp/daojie-ccr-auto-update.lock"
+STATE_FILE="${STATE_FILE:-${DEPLOY_DIR}/ccr-auto-update.state}"
 
 log() {
   printf '[daojie-ccr-auto-update] %s\n' "$1"
@@ -83,6 +189,7 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   exit 0
 fi
 trap 'rmdir "$LOCK_DIR"' EXIT
+mkdir -p "$DEPLOY_DIR"
 
 if [ ! -f "$ENV_FILE" ]; then
   log "配置文件不存在: $ENV_FILE"
@@ -104,8 +211,8 @@ fi
 # 拉取镜像并返回本地镜像 ID（穿透 registry 缓存）
 pull_image_id() {
   local image="$1"
-  if ! docker pull "$image" >/dev/null 2>&1; then
-    return 1
+  if ! docker pull "$image"; then
+    return 0
   fi
   docker image inspect "$image" --format '{{.Id}}' 2>/dev/null | head -n 1
 }
@@ -130,6 +237,7 @@ update_service() {
   local image="$2"
   local pulled_id="$3"
   local running_id
+  local updated_var="$4"
 
   if ! service_exists "$service"; then
     log "服务不存在，跳过: $service"
@@ -144,7 +252,8 @@ update_service() {
   fi
 
   log "更新 $service: ${running_id:-none} -> $pulled_id"
-  docker service update --with-registry-auth --detach=false --image "$image" "$service"
+  docker service update --with-registry-auth --detach=false --force --image "$image" "$service"
+  printf -v "$updated_var" '%s' "1"
 }
 
 wait_http_ok() {
@@ -182,45 +291,37 @@ log "拉取 server 镜像..."
 server_pulled_id="$(pull_image_id "$server_image")"
 if [ -z "$server_pulled_id" ]; then
   log "拉取 server 镜像失败: $server_image"
-  exit 0
+  exit 1
 fi
 
 log "拉取 client 镜像..."
 client_pulled_id="$(pull_image_id "$client_image")"
 if [ -z "$client_pulled_id" ]; then
   log "拉取 client 镜像失败: $client_image"
-  exit 0
+  exit 1
 fi
 
 updated_server=0
+updated_backup_worker=0
 updated_client=0
 
-server_running="$(running_image_id "${STACK_NAME}_server")"
-if [ "$server_running" != "$server_pulled_id" ]; then
-  update_service "${STACK_NAME}_server" "$server_image" "$server_pulled_id"
-  update_service "${STACK_NAME}_backup-worker" "$server_image" "$server_pulled_id"
-  updated_server=1
-fi
-
-client_running="$(running_image_id "${STACK_NAME}_client")"
-if [ "$client_running" != "$client_pulled_id" ]; then
-  update_service "${STACK_NAME}_client" "$client_image" "$client_pulled_id"
-  updated_client=1
-fi
+update_service "${STACK_NAME}_server" "$server_image" "$server_pulled_id" updated_server
+update_service "${STACK_NAME}_backup-worker" "$server_image" "$server_pulled_id" updated_backup_worker
+update_service "${STACK_NAME}_client" "$client_image" "$client_pulled_id" updated_client
 
 if [ "$updated_server" -eq 1 ]; then
-  wait_http_ok "server" "http://127.0.0.1:11922/health"
+  wait_http_ok "server" "http://127.0.0.1:${SERVER_PUBLISHED_PORT:-11922}/health"
 else
   log "${STACK_NAME}_server 无需更新"
 fi
 
 if [ "$updated_client" -eq 1 ]; then
-  wait_http_ok "client" "http://127.0.0.1:11921/"
+  wait_http_ok "client" "http://127.0.0.1:${CLIENT_PUBLISHED_PORT:-11921}/"
 else
   log "${STACK_NAME}_client 无需更新"
 fi
 
-if [ "$updated_server" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
+if [ "$updated_server" -eq 1 ] || [ "$updated_backup_worker" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
   log "清理旧镜像（保留最近 3 个版本）..."
   # 清理 dangling 镜像（无标签的中间层）
   docker image prune -f >/dev/null 2>&1 || true
@@ -233,6 +334,17 @@ if [ "$updated_server" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
     fi
   done
 fi
+
+{
+  printf 'last_checked_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  printf 'server_image=%s\n' "$server_image"
+  printf 'server_image_id=%s\n' "$server_pulled_id"
+  printf 'client_image=%s\n' "$client_image"
+  printf 'client_image_id=%s\n' "$client_pulled_id"
+  printf 'updated_server=%s\n' "$updated_server"
+  printf 'updated_backup_worker=%s\n' "$updated_backup_worker"
+  printf 'updated_client=%s\n' "$updated_client"
+} > "$STATE_FILE"
 
 log "本轮检查完成"
 AUTO_UPDATE_EOF
@@ -247,6 +359,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+Environment=DEPLOY_DIR=${DEPLOY_DIR}
+Environment=ENV_FILE=${ENV_FILE}
+Environment=STACK_NAME=${STACK_NAME}
+Environment=STATE_FILE=${AUTO_UPDATE_STATE_FILE}
 ExecStart=${AUTO_UPDATE_SCRIPT}
 EOF
 
@@ -273,8 +389,6 @@ EOF
   fi
 }
 
-mkdir -p "$DEPLOY_DIR"
-
 # ============================================================
 # 前置检查
 # ============================================================
@@ -286,15 +400,23 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+if [ ! -f /etc/os-release ] || ! grep -qi '^ID=.*ubuntu\|^ID_LIKE=.*ubuntu\|^ID_LIKE=.*debian' /etc/os-release; then
+  log_warn "未识别为 Ubuntu/Debian 系统；脚本会继续尝试，但自动安装依赖可能失败"
+fi
+
+install_base_packages
+mkdir -p "$DEPLOY_DIR"
+
 if ! command -v docker &>/dev/null; then
   log_warn "未安装 Docker，正在安装..."
   curl -fsSL https://get.docker.com | sh
-  systemctl enable docker
-  systemctl start docker
+  enable_and_start_docker
   log_info "Docker 安装完成"
+else
+  enable_and_start_docker
 fi
 
-if ! docker info &>/dev/null; then
+if ! wait_for_docker; then
   log_error "Docker 未运行"
   exit 1
 fi
@@ -308,7 +430,11 @@ log_info "Docker 就绪"
 if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
   log_step "初始化 Docker Swarm"
   docker swarm leave --force 2>/dev/null || true
-  docker swarm init 2>/dev/null || docker swarm init --advertise-addr "$(hostname -I | awk '{print $1}')"
+  advertise_addr="$(server_primary_ip)"
+  if ! docker swarm init --advertise-addr "$advertise_addr"; then
+    log_warn "使用 advertise-addr=${advertise_addr} 初始化失败，尝试 Docker 默认地址探测"
+    docker swarm init
+  fi
   log_info "Swarm 初始化完成"
 else
   log_info "Swarm 已激活"
@@ -339,6 +465,9 @@ generate_secret() {
   openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64
 }
 
+REQUESTED_CLIENT_IMAGE_TAG="prod"
+REQUESTED_SERVER_IMAGE_TAG="prod"
+
 ensure_generated_env_var() {
   local key="$1"
   local value
@@ -354,71 +483,111 @@ ensure_generated_env_var() {
   log_info "已自动生成缺失配置: $key"
 }
 
+set_env_var() {
+  local key="$1"
+  local value="$2"
+  local encoded
+  local tmp_file
+
+  encoded="$(write_env_var "$key" "$value")"
+  tmp_file="$(mktemp "${ENV_FILE}.XXXXXX")"
+
+  if [ -f "$ENV_FILE" ] && grep -Eq "^${key}=" "$ENV_FILE"; then
+    awk -v key="$key" -v encoded="$encoded" '
+      index($0, key "=") == 1 { print encoded; next }
+      { print }
+    ' "$ENV_FILE" > "$tmp_file"
+  else
+    if [ -f "$ENV_FILE" ]; then
+      cp "$ENV_FILE" "$tmp_file"
+    fi
+    printf '%s\n' "$encoded" >> "$tmp_file"
+  fi
+
+  cat "$tmp_file" > "$ENV_FILE"
+  rm -f "$tmp_file"
+  printf -v "$key" '%s' "$value"
+  export "$key"
+}
+
 if [ -f "$ENV_FILE" ]; then
   log_info "已有配置: $ENV_FILE"
   set -a && . "$ENV_FILE" && set +a
 
+  if [ -z "${TENCENT_IMAGE_PREFIX:-}" ]; then
+    TENCENT_IMAGE_PREFIX="$DEFAULT_TENCENT_IMAGE_PREFIX"
+    export TENCENT_IMAGE_PREFIX
+    write_env_var "TENCENT_IMAGE_PREFIX" "$TENCENT_IMAGE_PREFIX" >> "$ENV_FILE"
+    log_info "已自动补齐缺失配置: TENCENT_IMAGE_PREFIX=${TENCENT_IMAGE_PREFIX}"
+  fi
+
   ensure_generated_env_var "SERVER_GM_AUTH_SECRET"
   ensure_generated_env_var "SERVER_SECRET_ENCRYPTION_KEY"
+  ensure_generated_env_var "DB_PASSWORD"
+  ensure_generated_env_var "SERVER_PLAYER_TOKEN_SECRET"
+  set_env_var "CLIENT_IMAGE_TAG" "$REQUESTED_CLIENT_IMAGE_TAG"
+  set_env_var "SERVER_IMAGE_TAG" "$REQUESTED_SERVER_IMAGE_TAG"
 
-  missing=0
-  for var in TENCENT_IMAGE_PREFIX DB_PASSWORD SERVER_PLAYER_TOKEN_SECRET GM_PASSWORD SERVER_GM_AUTH_SECRET SERVER_SECRET_ENCRYPTION_KEY; do
-    if [ -z "${!var:-}" ]; then
-      log_error "配置缺失: $var"
-      missing=1
+  if [ -z "${GM_PASSWORD:-}" ]; then
+    if [ -t 0 ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
+      printf "  GM 管理密码: " >/dev/tty
+      read -r GM_PASSWORD </dev/tty
+      [ -z "$GM_PASSWORD" ] && log_error "GM_PASSWORD 不能为空" && exit 1
+      export GM_PASSWORD
+      write_env_var "GM_PASSWORD" "$GM_PASSWORD" >> "$ENV_FILE"
+      log_info "已写入缺失配置: GM_PASSWORD"
+    else
+      log_error "配置缺失: GM_PASSWORD；非交互环境请提前设置 GM_PASSWORD 或编辑 $ENV_FILE"
+      exit 1
     fi
-  done
-  if [ "$missing" -eq 1 ]; then
-    log_error "请编辑 $ENV_FILE 补全后重新运行"
-    exit 1
   fi
+
+  CLIENT_IMAGE_TAG="$REQUESTED_CLIENT_IMAGE_TAG"
+  SERVER_IMAGE_TAG="$REQUESTED_SERVER_IMAGE_TAG"
+  DB_USERNAME="${DB_USERNAME:-mud}"
+  DB_DATABASE="${DB_DATABASE:-daojie_yusheng}"
+  SERVER_CORS_ORIGINS="${SERVER_CORS_ORIGINS:-*}"
+  CLIENT_PUBLISHED_PORT="${CLIENT_PUBLISHED_PORT:-11921}"
+  SERVER_PUBLISHED_PORT="${SERVER_PUBLISHED_PORT:-11922}"
+  export CLIENT_IMAGE_TAG SERVER_IMAGE_TAG DB_USERNAME DB_DATABASE SERVER_CORS_ORIGINS CLIENT_PUBLISHED_PORT SERVER_PUBLISHED_PORT
   log_info "配置验证通过"
 else
   log_warn "首次部署，进入配置引导..."
   echo ""
 
-  printf "  腾讯云 CCR 镜像前缀: "
-  read -r input_prefix </dev/tty
-  [ -z "$input_prefix" ] && log_error "不能为空" && exit 1
+  read_with_default "  腾讯云 CCR 镜像前缀 [回车默认 ${DEFAULT_TENCENT_IMAGE_PREFIX}]: " "$DEFAULT_TENCENT_IMAGE_PREFIX" input_prefix
 
   default_db_pass="$(generate_secret)"
-  printf "  数据库密码 [回车自动生成]: "
-  read -r input_db_pass </dev/tty
-  input_db_pass="${input_db_pass:-$default_db_pass}"
+  read_with_default "  数据库密码 [回车自动生成]: " "$default_db_pass" input_db_pass
 
   default_jwt="$(generate_secret)"
-  printf "  玩家 Token 密钥 [回车自动生成]: "
-  read -r input_jwt </dev/tty
-  input_jwt="${input_jwt:-$default_jwt}"
+  read_with_default "  玩家 Token 密钥 [回车自动生成]: " "$default_jwt" input_jwt
 
   default_gm_auth_secret="$(generate_secret)"
-  printf "  GM Token 签名密钥 [回车自动生成]: "
-  read -r input_gm_auth_secret </dev/tty
-  input_gm_auth_secret="${input_gm_auth_secret:-$default_gm_auth_secret}"
+  read_with_default "  GM Token 签名密钥 [回车自动生成]: " "$default_gm_auth_secret" input_gm_auth_secret
 
   default_secret_encryption_key="$(generate_secret)"
-  printf "  GM 密钥管理加密密钥 [回车自动生成]: "
-  read -r input_secret_encryption_key </dev/tty
-  input_secret_encryption_key="${input_secret_encryption_key:-$default_secret_encryption_key}"
+  read_with_default "  GM 密钥管理加密密钥 [回车自动生成]: " "$default_secret_encryption_key" input_secret_encryption_key
 
-  printf "  GM 管理密码: "
-  read -r input_gm_pass </dev/tty
-  [ -z "$input_gm_pass" ] && log_error "不能为空" && exit 1
+  default_gm_pass="$(generate_secret)"
+  read_with_default "  GM 管理密码 [回车自动生成]: " "$default_gm_pass" input_gm_pass
 
-  printf "  前端域名（如 https://example.com）[回车默认不限制]: "
-  read -r input_cors </dev/tty
-  input_cors="${input_cors:-*}"
+  read_with_default "  前端域名（如 https://example.com）[回车默认不限制]: " "*" input_cors
 
   {
     write_env_var "TENCENT_IMAGE_PREFIX" "$input_prefix"
+    write_env_var "DB_USERNAME" "mud"
     write_env_var "DB_PASSWORD" "$input_db_pass"
+    write_env_var "DB_DATABASE" "daojie_yusheng"
     write_env_var "SERVER_PLAYER_TOKEN_SECRET" "$input_jwt"
     write_env_var "SERVER_GM_AUTH_SECRET" "$input_gm_auth_secret"
     write_env_var "SERVER_SECRET_ENCRYPTION_KEY" "$input_secret_encryption_key"
     write_env_var "GM_PASSWORD" "$input_gm_pass"
     write_env_var "SERVER_CORS_ORIGINS" "$input_cors"
-    write_env_var "CLIENT_IMAGE_TAG" "latest"
-    write_env_var "SERVER_IMAGE_TAG" "latest"
+    write_env_var "CLIENT_PUBLISHED_PORT" "11921"
+    write_env_var "SERVER_PUBLISHED_PORT" "11922"
+    write_env_var "CLIENT_IMAGE_TAG" "$REQUESTED_CLIENT_IMAGE_TAG"
+    write_env_var "SERVER_IMAGE_TAG" "$REQUESTED_SERVER_IMAGE_TAG"
   } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   log_info "配置已保存到 $ENV_FILE"
@@ -426,6 +595,17 @@ else
 fi
 
 sync_registry_auth_if_available
+
+CLIENT_PUBLISHED_PORT="${CLIENT_PUBLISHED_PORT:-11921}"
+SERVER_PUBLISHED_PORT="${SERVER_PUBLISHED_PORT:-11922}"
+export CLIENT_PUBLISHED_PORT SERVER_PUBLISHED_PORT
+ensure_port_available "$CLIENT_PUBLISHED_PORT" "client"
+ensure_port_available "$SERVER_PUBLISHED_PORT" "server"
+
+pull_required_image "postgres" "postgres:16-alpine"
+pull_required_image "redis" "redis:7-alpine"
+pull_required_image "server" "${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}"
+pull_required_image "client" "${TENCENT_IMAGE_PREFIX}/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}"
 
 # ============================================================
 # 生成 Stack 文件（内嵌）
@@ -441,7 +621,7 @@ services:
       NGINX_WORKER_PROCESSES: auto
     ports:
       - target: 80
-        published: 11921
+        published: ${CLIENT_PUBLISHED_PORT:-11921}
         protocol: tcp
         mode: ingress
     networks:
@@ -487,7 +667,7 @@ services:
       SERVER_OUTBOX_RUNTIME_ENABLED: "1"
     ports:
       - target: 13001
-        published: 11922
+        published: ${SERVER_PUBLISHED_PORT:-11922}
         protocol: tcp
         mode: ingress
     volumes:
@@ -616,7 +796,7 @@ log_info "Stack 文件已生成: $STACK_FILE"
 
 log_step "部署服务"
 
-docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+docker stack deploy --with-registry-auth --prune -c "$STACK_FILE" "$STACK_NAME"
 log_info "部署指令已发送"
 
 install_ccr_auto_update
@@ -630,8 +810,10 @@ log_step "等待服务启动"
 wait_for_service() {
   local service="$1"
   local attempt=1
-  while [ "$attempt" -le 30 ]; do
-    if docker service ps "${STACK_NAME}_${service}" --filter desired-state=running --format '{{.CurrentState}}' 2>/dev/null | grep -q "Running"; then
+  local replicas
+  while [ "$attempt" -le 60 ]; do
+    replicas="$(docker service ls --filter "name=${STACK_NAME}_${service}" --format '{{.Replicas}}' 2>/dev/null | head -n 1)"
+    if [ "$replicas" = "1/1" ]; then
       log_info "${service} 就绪"
       return 0
     fi
@@ -643,9 +825,17 @@ wait_for_service() {
   return 1
 }
 
-wait_for_service "postgres"
-wait_for_service "server"
-wait_for_service "client"
+wait_failed=0
+wait_for_service "postgres" || wait_failed=1
+wait_for_service "redis" || wait_failed=1
+wait_for_service "server" || wait_failed=1
+wait_for_service "backup-worker" || wait_failed=1
+wait_for_service "client" || wait_failed=1
+
+if [ "$wait_failed" -eq 1 ]; then
+  log_error "服务未全部就绪，请执行 docker stack services ${STACK_NAME} 和 docker service ps ${STACK_NAME}_server --no-trunc 查看原因"
+  exit 1
+fi
 
 # ============================================================
 # 数据库建表（幂等）
@@ -670,28 +860,29 @@ fi
 
 log_step "部署完成 ✓"
 
-IP="$(hostname -I | awk '{print $1}')"
+IP="$(server_primary_ip)"
 echo ""
 echo "  访问地址:"
-echo "    前端: http://${IP}:11921"
-echo "    后端: http://${IP}:11922/health"
+echo "    前端: http://${IP}:${CLIENT_PUBLISHED_PORT}"
+echo "    后端: http://${IP}:${SERVER_PUBLISHED_PORT}/health"
 echo ""
 echo "  管理命令:"
 echo "    查看状态:  docker stack services ${STACK_NAME}"
 echo "    查看日志:  docker service logs ${STACK_NAME}_server -f"
 echo "    停止服务:  docker stack rm ${STACK_NAME}"
-echo "    重新部署:  bash ${DEPLOY_DIR}/deploy.sh"
+echo "    重新部署:  bash ${DEPLOY_DIR}/deploy-prod.sh"
 echo ""
 echo "  配置文件:  ${ENV_FILE}"
 echo "  Stack文件: ${STACK_FILE}"
 echo "  自动更新:  ${AUTO_UPDATE_SCRIPT}"
+echo "  更新状态:  ${AUTO_UPDATE_STATE_FILE}"
 echo ""
 log_info "CCR 自动更新器已启用，推送新镜像后会定时检查并更新 Swarm service"
 
-# 保存部署脚本，方便后续重新运行
-if curl -fsSL "$DEPLOY_SCRIPT_URL" -o "${DEPLOY_DIR}/deploy.sh"; then
-  chmod +x "${DEPLOY_DIR}/deploy.sh"
-  log_info "部署脚本已保存: ${DEPLOY_DIR}/deploy.sh"
+SOURCE_SCRIPT="${BASH_SOURCE[0]:-$0}"
+if [ -r "$SOURCE_SCRIPT" ] && cp "$SOURCE_SCRIPT" "${DEPLOY_DIR}/deploy-prod.sh"; then
+  chmod +x "${DEPLOY_DIR}/deploy-prod.sh"
+  log_info "部署脚本已保存: ${DEPLOY_DIR}/deploy-prod.sh"
 else
-  log_warn "部署脚本保存失败；可再次通过远程一键命令重新运行"
+  log_warn "部署脚本保存失败；请保留当前脚本用于后续重跑"
 fi

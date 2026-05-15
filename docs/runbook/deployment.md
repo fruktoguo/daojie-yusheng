@@ -27,20 +27,35 @@
 
 ## 前置条件
 
-- [ ] Docker 和 Docker Swarm 已安装
-- [ ] 已登录镜像仓库（腾讯云 CCR 或 GHCR）
-- [ ] 环境变量已配置
-- [ ] 数据卷已创建
+一键部署只要求：
+
+- [ ] Ubuntu/Debian 系服务器
+- [ ] 使用 root 或 sudo 执行脚本
+- [ ] 服务器可以访问 Docker 安装源和镜像仓库
+- [ ] `11921` 和 `11922` 端口未被其他服务占用，或提前在 `/opt/daojie-yusheng/prod.env` 配置 `CLIENT_PUBLISHED_PORT` / `SERVER_PUBLISHED_PORT`
+- [ ] 如果镜像仓库是私有的，已执行 `sudo docker login <registry>`
+
+Docker、Swarm、外部数据卷、部署配置和 CCR 自动更新器由一键脚本创建或补齐。脚本使用 `docker stack deploy --prune`，重复运行会清理 stack 中已移除的旧服务。下面的手动步骤才需要自行准备 Docker、Swarm、环境变量和数据卷。
 
 ## 首次部署
 
-生产服务器可以直接执行一键脚本。脚本会把配置和生成的 stack 文件保存在 `/opt/daojie-yusheng`：
+服务器可以直接执行对应环境的一键脚本。脚本会把配置和生成的 stack 文件保存在 `/opt/daojie-yusheng`。
+
+latest：
 
 ```bash
-tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
+scp deploy-latest.sh root@你的服务器:/tmp/deploy-latest.sh
+ssh root@你的服务器 'bash /tmp/deploy-latest.sh'
 ```
 
-公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`。一键脚本会为已有 `prod.env` 自动补齐缺失的 GM token 签名密钥和密钥管理加密密钥，并安装 `daojie-ccr-auto-update.timer` 定时检查 CCR 镜像 digest。
+prod：
+
+```bash
+scp deploy-prod.sh root@你的服务器:/tmp/deploy-prod.sh
+ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
+```
+
+公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`。一键脚本会为已有 `prod.env` 自动补齐缺失的数据库密码、玩家 token、GM token 签名密钥和密钥管理加密密钥；首次交互部署时 GM 管理密码也可以回车自动生成。脚本会安装 `daojie-ccr-auto-update.timer` 定时拉取 CCR 镜像并比较运行态镜像 ID。
 
 下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
 
@@ -53,11 +68,7 @@ docker swarm init
 ### 2. 登录镜像仓库
 
 ```bash
-# 腾讯云 CCR
 docker login ccr.ccs.tencentyun.com
-
-# 或 GitHub Container Registry
-docker login ghcr.io
 ```
 
 ### 3. 创建数据卷
@@ -70,8 +81,8 @@ bash scripts/tencent-swarm-volumes.sh
 
 ```bash
 export TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间
-export CLIENT_IMAGE_TAG=latest
-export SERVER_IMAGE_TAG=latest
+export CLIENT_IMAGE_TAG=latest # prod 环境改成 prod
+export SERVER_IMAGE_TAG=latest # prod 环境改成 prod
 export DB_USERNAME=mud
 export DB_PASSWORD='强密码'
 export DB_DATABASE=daojie_yusheng
@@ -85,7 +96,7 @@ export SERVER_CORS_ORIGINS='https://你的域名'
 ### 5. 部署 Stack
 
 ```bash
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng
+docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng
 ```
 
 ### 6. 验证部署
@@ -110,16 +121,22 @@ curl http://127.0.0.1:11921/
 ```bash
 # 完整构建
 TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-tencent.sh latest
+  ./docker-build-latest.sh
+
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh
 
 # 只构建服务端
 TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-tencent.sh latest --server-only
+  ./docker-build-latest.sh --server-only
+
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh --server-only
 ```
 
 ### 更新 Stack
 
-一键部署环境默认安装 CCR 自动更新器。推送新镜像后，服务器每 60 秒检查 CCR 远端 digest；如果 digest 变化，会自动更新 `daojie-yusheng_server`、`daojie-yusheng_backup-worker` 和 `daojie-yusheng_client`。
+一键部署环境默认安装 CCR 自动更新器。推送新镜像后，服务器每 60 秒拉取 CCR 镜像并比较运行态镜像 ID；如果镜像变化，会自动更新 `daojie-yusheng_server`、`daojie-yusheng_backup-worker` 和 `daojie-yusheng_client`。
 
 检查自动更新器：
 
@@ -132,7 +149,7 @@ cat /opt/daojie-yusheng/ccr-auto-update.state
 也可以手动重新部署 stack：
 
 ```bash
-docker stack deploy --with-registry-auth -c docker-stack.tencent.yml daojie-yusheng
+docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng
 ```
 
 ### 只更新单个服务

@@ -5,7 +5,7 @@ set -euo pipefail
 IMAGE_PREFIX="${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/yuohira}"
 VERSION="latest"
 MODE="all"
-VERSION_SET=0
+VERSION_SET=1
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -19,15 +19,14 @@ log_error() { printf '%b[ERROR]%b %s\n' "$RED" "$NC" "$1" >&2; }
 usage() {
   cat <<'USAGE'
 用法:
-  ./docker-build-tencent.sh [版本号] [--client-only|-c] [--server-only|-s]
+  ./docker-build-latest.sh [--client-only|-c] [--server-only|-s]
 
 环境变量:
   TENCENT_IMAGE_PREFIX  腾讯云 CCR 镜像命名空间，默认 ccr.ccs.tencentyun.com/tcb-100001011660-qtgo
 
 示例:
   docker login ccr.ccs.tencentyun.com
-  TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/namespace ./docker-build-tencent.sh latest
-  ./docker-build-tencent.sh 2026-04-30-1 --server-only
+  TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/namespace ./docker-build-latest.sh
 USAGE
 }
 
@@ -44,14 +43,9 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      if [ "$VERSION_SET" -eq 0 ]; then
-        VERSION="$arg"
-        VERSION_SET=1
-      else
-        log_error "无法识别参数: $arg"
-        usage
-        exit 1
-      fi
+      log_error "latest 构建脚本不接收版本参数: $arg"
+      usage
+      exit 1
       ;;
   esac
 done
@@ -92,16 +86,6 @@ push_image() {
   docker push "$(get_image_name "$target")"
 }
 
-tag_latest_image() {
-  local target="$1"
-  local version_image="${IMAGE_PREFIX}/daojie-yusheng-${target}:${VERSION}"
-  local latest_image="${IMAGE_PREFIX}/daojie-yusheng-${target}:latest"
-
-  log_info "同步 latest 标签: ${latest_image}"
-  docker tag "$version_image" "$latest_image"
-  docker push "$latest_image"
-}
-
 if ! docker info >/dev/null 2>&1; then
   log_error "当前 Docker 不可用，请先启动 Docker"
   exit 1
@@ -117,12 +101,6 @@ done
 for target in "${TARGETS[@]}"; do
   push_image "$target"
 done
-
-if [ "$VERSION" != "latest" ]; then
-  for target in "${TARGETS[@]}"; do
-    tag_latest_image "$target"
-  done
-fi
 
 printf '\n'
 log_info "完成，已推送镜像:"

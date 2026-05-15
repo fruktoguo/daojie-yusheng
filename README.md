@@ -65,10 +65,18 @@ pnpm build:config-editor
 
 服务器不需要源码、不需要 `pnpm install`。一键脚本会把部署文件保存到 `/opt/daojie-yusheng`，并使用 Docker Swarm 运行生产 stack。
 
-**一键部署**：
+**latest 部署**：
 
 ```bash
-tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubusercontent.com/fruktoguo/daojie-yusheng/main/deploy.sh -o "$tmp" && sudo bash "$tmp"
+scp deploy-latest.sh root@你的服务器:/tmp/deploy-latest.sh
+ssh root@你的服务器 'bash /tmp/deploy-latest.sh'
+```
+
+**prod 部署**：
+
+```bash
+scp deploy-prod.sh root@你的服务器:/tmp/deploy-prod.sh
+ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
 ```
 
 脚本会自动完成：安装 Docker → 初始化 Swarm → 创建数据卷 → 交互式配置密码与 GM token/密钥管理 secret → 部署全套服务 → 建表 → 安装 CCR 自动更新器。公开镜像仓库不需要登录；私有镜像仓库需要先执行 `sudo docker login <registry>`。
@@ -93,7 +101,9 @@ tmp="$(mktemp /tmp/daojie-deploy.XXXXXX.sh)" && curl -fsSL https://raw.githubuse
 ```bash
 # 本地构建并推送镜像
 docker login ccr.ccs.tencentyun.com
-TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-tencent.sh latest
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-latest.sh
+# latest 验证没问题后，再构建并推送正式 tag
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-prod.sh
 # 推送后 60 秒内服务器自动拉取更新，无需 SSH
 ```
 
@@ -109,8 +119,9 @@ docker service logs daojie-yusheng_server -f
 # 回滚
 docker service rollback daojie-yusheng_server
 
-# 重新部署（在服务器上）
-bash /opt/daojie-yusheng/deploy.sh
+# 重新部署 latest 或 prod
+bash /opt/daojie-yusheng/deploy-latest.sh
+bash /opt/daojie-yusheng/deploy-prod.sh
 ```
 
 ## 验证

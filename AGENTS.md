@@ -485,11 +485,12 @@ docker stack rm daojie-yusheng
 **推送镜像**：
 ```bash
 docker login ccr.ccs.tencentyun.com
-TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-tencent.sh latest
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-latest.sh
+TENCENT_IMAGE_PREFIX=你的镜像前缀 ./docker-build-prod.sh
 ```
 
 **服务器自动更新**：
-- 生产 stack 中包含 Watchtower 服务，定期检查 CCR 镜像更新并自动拉取部署
+- 服务器安装 `daojie-ccr-auto-update.timer`，定期检查 CCR 镜像更新并自动更新 Swarm 服务
 - 推送镜像后无需 SSH 到服务器，等待自动更新即可
 
 **发布前必须确认**：
