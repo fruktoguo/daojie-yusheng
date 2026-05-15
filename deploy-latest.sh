@@ -239,10 +239,14 @@ fi
 # 拉取镜像并返回本地镜像 ID（穿透 registry 缓存）
 pull_image_id() {
   local image="$1"
+  local pulled_id
+
   if ! docker pull "$image"; then
     return 0
   fi
-  docker image inspect "$image" --format '{{.Id}}' 2>/dev/null | head -n 1
+
+  pulled_id="$(docker image inspect "$image" --format '{{.Id}}' 2>/dev/null | head -n 1)"
+  printf '%s\n' "$pulled_id"
 }
 
 # 获取服务运行中容器的镜像 ID（真实运行态，不依赖 service spec）

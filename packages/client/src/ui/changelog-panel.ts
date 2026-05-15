@@ -26,6 +26,7 @@ export class ChangelogPanel {
     const useReactPanel = shouldUseReactChangelogPanel();
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
+      variantClass: 'detail-modal--changelog',
       title: t('changelog.panel.title', undefined),
       subtitle: this.buildSubtitle(),
       hint: t('changelog.panel.close-hint', undefined),

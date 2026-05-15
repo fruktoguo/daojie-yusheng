@@ -53,9 +53,30 @@
     .chat-log-panel {
       display: none;
       height: 100%;
+      min-height: 0;
     }
     .chat-log-panel.active {
       display: flex;
+    }
+    .chat-log-panel.active > .chat-log {
+      min-height: 0;
+    }
+    .react-panel-host--chat {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+    .react-panel-host--chat .chat-tabs {
+      flex: 0 0 auto;
+    }
+    .react-panel-host--chat .chat-log-stack {
+      flex: 1;
+      min-height: 0;
+    }
+    .react-panel-host--chat .chat-compose {
+      flex: 0 0 auto;
+      margin-top: auto;
     }
     .chat-log {
       flex: 1;
@@ -252,7 +273,8 @@
       min-height: 0;
     }
     .split-tab-pane.active {
-      display: block;
+      display: flex;
+      flex-direction: column;
     }
     .merged-pane-shell {
       display: flex;
@@ -1974,6 +1996,24 @@
       flex: 1;
       min-height: 0;
       overflow: hidden;
+    }
+    .detail-modal-card.detail-modal--changelog {
+      width: min(820px, calc(100vw - 24px));
+      height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--changelog #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
     .chronicle-shell {
       display: flex;

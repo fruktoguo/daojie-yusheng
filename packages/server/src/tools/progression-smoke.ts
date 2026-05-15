@@ -16,6 +16,7 @@ const smoke_player_auth_1 = require("./smoke-player-auth");
  */
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 const PROGRESSION_WAIT_MS = 15_000;
+const PROGRESSION_EQUIPMENT_ITEM_ID = 'equip.orebreak_hammer';
 const PROGRESSION_RESOURCE_MAP_ID = 'bamboo_forest';
 const PROGRESSION_RESOURCE_TILE = Object.freeze({
     x: 12,
@@ -89,7 +90,7 @@ async function main() {
         return Array.isArray(state.player?.inventory.items) && state.player.inventory.items.length >= 2 && panelEvents.length > 0;
     }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
-        itemId: 'equip.geng_gate_blade',
+        itemId: PROGRESSION_EQUIPMENT_ITEM_ID,
         count: 1,
     });
     await waitFor(() => panelEvents.some(hasGrantedEquipmentPatch), PROGRESSION_WAIT_MS);
@@ -118,19 +119,20 @@ async function main() {
 /**
  * 记录equipmentslot。
  */
-    const equipmentSlot = currentState.player.inventory.items.findIndex((entry) => entry.itemId === 'equip.geng_gate_blade');
+    const equipmentSlot = currentState.player.inventory.items.findIndex((entry) => entry.itemId === PROGRESSION_EQUIPMENT_ITEM_ID);
     if (equipmentSlot < 0) {
         throw new Error('equipment item missing after learning');
     }
+    const beforeEquipStats = currentState.player?.attrs?.numericStats ?? {};
     socket.emit(shared_1.C2S.Equip, { slotIndex: equipmentSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.geng_gate_blade')
+        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === PROGRESSION_EQUIPMENT_ITEM_ID)
             && panelEvents.some(hasEquipPatch)
-            && panelEvents.some(hasEquipmentAttrPatch);
+            && hasEquipmentStateBoost(state, beforeEquipStats);
     }, PROGRESSION_WAIT_MS);
     socket.emit(shared_1.C2S.Cultivate, { techId: 'qingmu_sword' });
     await waitFor(async () => {
@@ -283,7 +285,7 @@ async function main() {
  * 判断是否已grantedequipmentpatch。
  */
 function hasGrantedEquipmentPatch(payload) {
-    return payload.inv?.slots?.some((entry) => entry.item?.itemId === 'equip.geng_gate_blade') ?? false;
+    return payload.inv?.slots?.some((entry) => entry.item?.itemId === PROGRESSION_EQUIPMENT_ITEM_ID) ?? false;
 }
 /**
  * 判断是否已learn功法patch。
@@ -303,13 +305,30 @@ function hasTechniqueAttrPatch(payload) {
  * 判断是否已equippatch。
  */
 function hasEquipPatch(payload) {
-    return payload.eq?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.geng_gate_blade') ?? false;
+    return payload.eq?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === PROGRESSION_EQUIPMENT_ITEM_ID) ?? false;
 }
 /**
  * 判断是否已equipmentattrpatch。
  */
 function hasEquipmentAttrPatch(payload) {
     return (payload.attr?.numericStats?.physAtk ?? 0) >= 14;
+}
+function hasEquipmentStateBoost(state, beforeStats) {
+    const stats = state.player?.attrs?.numericStats ?? {};
+    return (stats.physAtk ?? 0) > (beforeStats.physAtk ?? 0)
+        || (stats.spellAtk ?? 0) > (beforeStats.spellAtk ?? 0)
+        || (stats.hit ?? 0) > (beforeStats.hit ?? 0)
+        || (stats.crit ?? 0) > (beforeStats.crit ?? 0)
+        || (stats.breakPower ?? 0) > (beforeStats.breakPower ?? 0);
+}
+function pickEquipmentProofStats(stats) {
+    return {
+        physAtk: stats.physAtk ?? null,
+        spellAtk: stats.spellAtk ?? null,
+        hit: stats.hit ?? null,
+        crit: stats.crit ?? null,
+        breakPower: stats.breakPower ?? null,
+    };
 }
 /**
  * 判断是否已cultivatepatch。

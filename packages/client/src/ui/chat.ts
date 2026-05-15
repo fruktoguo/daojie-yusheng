@@ -1028,7 +1028,7 @@ export class ChatUI {
       }
       const log = this.logs.get(channel);
       const stickToBottom = this.isLogNearBottom(log);
-      if (stickToBottom || state.loadedCount <= CHAT_LOG_MAX_VISIBLE_MESSAGES) {
+      if (stickToBottom || state.loadedCount < CHAT_LOG_MAX_VISIBLE_MESSAGES) {
         state.loadedCount = Math.min(total, state.loadedCount + 1);
       }
       this.renderChannel(channel, { stickToBottom });
