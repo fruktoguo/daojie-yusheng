@@ -3,7 +3,9 @@
 import { Injectable } from '@nestjs/common';
 import { C2S, S2C } from '@mud/shared';
 import { cpus, loadavg, uptime } from 'os';
-import { serialize } from 'v8';
+import { getHeapSpaceStatistics, writeHeapSnapshot } from 'v8';
+import { existsSync, mkdirSync, statSync } from 'fs';
+import { join } from 'path';
 import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { WorldSessionService } from '../../network/world-session.service';
@@ -19,8 +21,10 @@ const EMPTY_NETWORK_BUCKETS = [];
 const EMPTY_PATHFINDING_FAILURES = [];
 const EMPTY_MEMORY_ESTIMATE_DOMAINS = [];
 const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
+const EMPTY_HEAP_SPACE_SNAPSHOTS = [];
 const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
 const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
+const HEAP_SNAPSHOT_DIR = join(process.cwd(), '.runtime', 'heap-snapshots');
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
@@ -212,23 +216,25 @@ export class RuntimeGmStateService {
             if (!instanceId) {
                 continue;
             }
-            const playerBytes = estimateSerializedBytes(instance?.playersById) + estimateSerializedBytes(instance?.playersByHandle);
-            const monsterBytes = estimateSerializedBytes(instance?.monstersByRuntimeId) + estimateSerializedBytes(instance?.monsterRuntimeIdByTile);
-            const terrainBytes = estimateSerializedBytes(instance?.occupancy)
-                + estimateSerializedBytes(instance?.auraByTile)
-                + estimateSerializedBytes(instance?.tileResourceBuckets)
-                + estimateSerializedBytes(instance?.baseTileResourceBuckets)
-                + estimateSerializedBytes(instance?.tileDamageByTile)
-                + estimateSerializedBytes(instance?.changedTileResourceEntryCountByKey);
-            const objectBytes = estimateSerializedBytes(instance?.npcsById)
-                + estimateSerializedBytes(instance?.npcIdByTile)
-                + estimateSerializedBytes(instance?.landmarksById)
-                + estimateSerializedBytes(instance?.landmarkIdByTile)
-                + estimateSerializedBytes(instance?.containersById)
-                + estimateSerializedBytes(instance?.containerIdByTile)
-                + estimateSerializedBytes(instance?.groundPilesByTile)
-                + estimateSerializedBytes(instance?.pendingCommands)
-                + estimateSerializedBytes(instance?.freeHandles);
+            const playerBytes = estimateRuntimeCollectionBytes(instance?.playersById, 96)
+                + estimateRuntimeCollectionBytes(instance?.playersByHandle, 48);
+            const monsterBytes = estimateRuntimeCollectionBytes(instance?.monstersByRuntimeId, 8192)
+                + estimateRuntimeCollectionBytes(instance?.monsterRuntimeIdByTile, 64);
+            const terrainBytes = estimateRuntimeCollectionBytes(instance?.occupancy, 64)
+                + estimateRuntimeCollectionBytes(instance?.auraByTile, 96)
+                + estimateRuntimeCollectionBytes(instance?.tileResourceBuckets, 128)
+                + estimateRuntimeCollectionBytes(instance?.baseTileResourceBuckets, 128)
+                + estimateRuntimeCollectionBytes(instance?.tileDamageByTile, 64)
+                + estimateRuntimeCollectionBytes(instance?.changedTileResourceEntryCountByKey, 64);
+            const objectBytes = estimateRuntimeCollectionBytes(instance?.npcsById, 512)
+                + estimateRuntimeCollectionBytes(instance?.npcIdByTile, 64)
+                + estimateRuntimeCollectionBytes(instance?.landmarksById, 512)
+                + estimateRuntimeCollectionBytes(instance?.landmarkIdByTile, 64)
+                + estimateRuntimeCollectionBytes(instance?.containersById, 1024)
+                + estimateRuntimeCollectionBytes(instance?.containerIdByTile, 64)
+                + estimateRuntimeCollectionBytes(instance?.groundPilesByTile, 512)
+                + estimateRuntimeCollectionBytes(instance?.pendingCommands, 256)
+                + estimateRuntimeCollectionBytes(instance?.freeHandles, 32);
             instancePlayerBytes += playerBytes;
             instanceMonsterBytes += monsterBytes;
             instanceTerrainBytes += terrainBytes;
@@ -238,7 +244,7 @@ export class RuntimeGmStateService {
             monsterCount += currentMonsterCount;
             topInstances.push({
                 instanceId,
-                label: buildMemoryEstimateInstanceLabel(typeof instance?.snapshot === 'function' ? instance.snapshot() : instance?.meta ?? instance),
+                label: buildMemoryEstimateInstanceLabel(instance?.meta ?? instance),
                 bytes: playerBytes + monsterBytes + terrainBytes + objectBytes,
                 playerBytes,
                 monsterBytes,
@@ -248,14 +254,14 @@ export class RuntimeGmStateService {
             });
         }
 
-        domains.push(buildMemoryDomainEstimate('player_runtime', '玩家运行态主存储', estimateSerializedBytes(runtimePlayers), totalPlayerCount));
-        domains.push(buildMemoryDomainEstimate('player_effects', '玩家待发战斗效果队列', estimateSerializedBytes(pendingCombatEffectsByPlayerId), normalizeNonNegativeCount(pendingCombatEffectsByPlayerId?.size)));
-        domains.push(buildMemoryDomainEstimate('player_locations', '玩家位置索引', estimateSerializedBytes(playerLocations), normalizeNonNegativeCount(playerLocations?.size)));
-        domains.push(buildMemoryDomainEstimate('session_bindings', '会话绑定索引', estimateSerializedBytes(sessionBindingsByPlayerId)
-            + estimateSerializedBytes(sessionBindingsBySessionId)
-            + estimateSerializedBytes(sessionBindingsBySocketId)
-            + estimateSerializedBytes(expiredBindings)
-            + estimateSerializedBytes(purgedPlayerIds), normalizeNonNegativeCount(sessionBindingsByPlayerId?.size)));
+        domains.push(buildMemoryDomainEstimate('player_runtime', '玩家运行态轻量估算', estimatePlayerRuntimeBytes(runtimePlayers), totalPlayerCount));
+        domains.push(buildMemoryDomainEstimate('player_effects', '玩家待发战斗效果队列', estimateRuntimeCollectionBytes(pendingCombatEffectsByPlayerId, 192), normalizeNonNegativeCount(pendingCombatEffectsByPlayerId?.size)));
+        domains.push(buildMemoryDomainEstimate('player_locations', '玩家位置索引', estimateRuntimeCollectionBytes(playerLocations, 96), normalizeNonNegativeCount(playerLocations?.size)));
+        domains.push(buildMemoryDomainEstimate('session_bindings', '会话绑定索引', estimateRuntimeCollectionBytes(sessionBindingsByPlayerId, 192)
+            + estimateRuntimeCollectionBytes(sessionBindingsBySessionId, 192)
+            + estimateRuntimeCollectionBytes(sessionBindingsBySocketId, 192)
+            + estimateRuntimeCollectionBytes(expiredBindings, 192)
+            + estimateRuntimeCollectionBytes(purgedPlayerIds, 64), normalizeNonNegativeCount(sessionBindingsByPlayerId?.size)));
         domains.push(buildMemoryDomainEstimate('instance_players', '实例内玩家索引', instancePlayerBytes, totalPlayerCount));
         domains.push(buildMemoryDomainEstimate('instance_monsters', '实例内怪物运行态与占位索引', instanceMonsterBytes, monsterCount));
         domains.push(buildMemoryDomainEstimate('instance_terrain', '实例地块占位与资源桶', instanceTerrainBytes, instances.length));
@@ -293,18 +299,37 @@ export class RuntimeGmStateService {
             topInstances: topInstances.length > 0
                 ? topInstances.slice(0, MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT)
                 : EMPTY_MEMORY_ESTIMATE_INSTANCES,
+            heapSpaces: buildHeapSpaceSnapshots(),
         };
         this.lastMemoryEstimate = nextEstimate;
         this.lastMemoryEstimateExpiresAt = now + MEMORY_ESTIMATE_CACHE_TTL_MS;
         return nextEstimate;
+    }
+    /** 生成 V8 Heap Snapshot 文件，供线下用 Chrome DevTools / heap-profiler 分析真实 retainer。 */
+    writeHeapSnapshot() {
+        const startedAt = Date.now();
+        if (!existsSync(HEAP_SNAPSHOT_DIR)) {
+            mkdirSync(HEAP_SNAPSHOT_DIR, { recursive: true });
+        }
+        const fileName = `server-${startedAt}-${process.pid}.heapsnapshot`;
+        const path = writeHeapSnapshot(join(HEAP_SNAPSHOT_DIR, fileName));
+        const bytes = statSync(path).size;
+        return {
+            ok: true,
+            path,
+            bytes: roundMetric(bytes),
+            durationMs: roundMetric(Date.now() - startedAt),
+            generatedAt: startedAt,
+        };
     }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {
 
         const mapNamesById = new Map(this.mapTemplateRepository.listSummaries().map((entry) => [entry.id, entry.name]));
 
-        const players = this.playerRuntimeService
-            .listPlayerSnapshots()
+        const players = (typeof this.playerRuntimeService.listGmPlayerSummaries === 'function'
+            ? this.playerRuntimeService.listGmPlayerSummaries()
+            : this.playerRuntimeService.listPlayerSnapshots())
             .map((player) => {
 
             const mapId = typeof player.templateId === 'string' ? player.templateId : '';
@@ -348,9 +373,10 @@ export class RuntimeGmStateService {
  * @returns 无返回值，直接更新Performance快照相关状态。
  */
 
-    buildPerformanceSnapshot() {
+    buildPerformanceSnapshot(options: { includeMemoryEstimate?: boolean } = {}) {
 
         const summary = this.worldRuntimeService.getRuntimeSummary();
+        const includeMemoryEstimate = options?.includeMemoryEstimate === true;
 
         const loadAvg = loadavg();
 
@@ -373,7 +399,9 @@ export class RuntimeGmStateService {
         const networkInBytes = sumBucketBytes(networkInBuckets);
         const networkOutBytes = sumBucketBytes(networkOutBuckets);
         const cpuBreakdown = buildCpuBreakdown(summary);
-        const memoryEstimate = this.buildMemoryEstimate(summary, rssBytes);
+        const memoryEstimate = includeMemoryEstimate
+            ? this.buildMemoryEstimate(summary, rssBytes)
+            : buildSkippedMemoryEstimate(rssBytes);
         const cpuPercent = elapsedMicros > 0
             ? roundMetric(Math.max(0, Math.min(100, (cpuMicros / elapsedMicros) * 100)))
             : 0;
@@ -523,6 +551,22 @@ function buildMemoryDomainEstimate(key, label, bytes, count) {
     };
 }
 
+function buildSkippedMemoryEstimate(rssBytes) {
+    const normalizedRssBytes = roundMetric(Math.max(0, Number(rssBytes) || 0));
+    return {
+        mode: 'skipped',
+        generatedAt: 0,
+        cacheTtlMs: 0,
+        rssBytes: normalizedRssBytes,
+        coveredBytes: 0,
+        uncoveredBytes: normalizedRssBytes,
+        coveragePercent: 0,
+        domains: EMPTY_MEMORY_ESTIMATE_DOMAINS,
+        topInstances: EMPTY_MEMORY_ESTIMATE_INSTANCES,
+        heapSpaces: EMPTY_HEAP_SPACE_SNAPSHOTS,
+    };
+}
+
 function buildMemoryEstimateInstanceLabel(instance) {
     const displayName = typeof instance?.displayName === 'string' && instance.displayName.trim()
         ? instance.displayName.trim()
@@ -535,20 +579,72 @@ function buildMemoryEstimateInstanceLabel(instance) {
     return instanceId && instanceId !== displayName ? `${displayName} · ${instanceId}` : displayName;
 }
 
-function estimateSerializedBytes(value) {
+function estimatePlayerRuntimeBytes(players) {
+    if (!(players instanceof Map) || players.size <= 0) {
+        return 0;
+    }
+    let bytes = 0;
+    for (const player of players.values()) {
+        bytes += 4096;
+        bytes += estimateCollectionBytes(player?.inventory?.items, 256);
+        bytes += estimateCollectionBytes(player?.equipment?.slots, 192);
+        bytes += estimateCollectionBytes(player?.techniques?.techniques, 192);
+        bytes += estimateCollectionBytes(player?.actions?.actions, 160);
+        bytes += estimateCollectionBytes(player?.quests?.quests, 256);
+        bytes += estimateCollectionBytes(player?.buffs?.buffs, 160);
+        bytes += estimatePlainObjectBytes(player?.attrs?.finalAttrs, 64);
+        bytes += estimatePlainObjectBytes(player?.attrs?.numericStats, 64);
+        bytes += estimatePlainObjectBytes(player?.attrs?.ratioDivisors, 48);
+        bytes += estimateCollectionBytes(player?.pendingLogbookMessages, 192);
+    }
+    return roundMetric(bytes);
+}
+
+function estimateCollectionBytes(value, bytesPerEntry) {
+    if (Array.isArray(value)) {
+        return value.length * bytesPerEntry;
+    }
+    if (value instanceof Map || value instanceof Set) {
+        return value.size * bytesPerEntry;
+    }
+    return 0;
+}
+
+function estimatePlainObjectBytes(value, bytesPerField) {
+    if (!value || typeof value !== 'object') {
+        return 0;
+    }
+    return Object.keys(value).length * bytesPerField;
+}
+
+function estimateRuntimeCollectionBytes(value, bytesPerEntry) {
     if (value == null) {
         return 0;
     }
+    if (Array.isArray(value)) {
+        return roundMetric(value.length * bytesPerEntry);
+    }
+    if (value instanceof Map || value instanceof Set) {
+        return roundMetric(value.size * bytesPerEntry);
+    }
+    if (typeof value === 'object') {
+        return roundMetric(Object.keys(value).length * bytesPerEntry);
+    }
+    return 0;
+}
+
+function buildHeapSpaceSnapshots() {
     try {
-        return roundMetric(serialize(value).byteLength);
+        return getHeapSpaceStatistics().map((space) => ({
+            name: String(space.space_name ?? ''),
+            sizeBytes: roundMetric(Number(space.space_size ?? 0)),
+            usedBytes: roundMetric(Number(space.space_used_size ?? 0)),
+            availableBytes: roundMetric(Number(space.space_available_size ?? 0)),
+            physicalBytes: roundMetric(Number(space.physical_space_size ?? 0)),
+        }));
     }
     catch (_error) {
-        try {
-            return roundMetric(Buffer.byteLength(JSON.stringify(value), 'utf8'));
-        }
-        catch (_jsonError) {
-            return 0;
-        }
+        return [];
     }
 }
 
@@ -665,6 +761,14 @@ function measureNetworkPayload(event, payload) {
     if (!eventKey) {
         return {
             eventKey: '',
+            packetBytes: 0,
+            payloadBytes: 0,
+            serializedPayload: '',
+        };
+    }
+    if (eventKey === S2C.GmState) {
+        return {
+            eventKey,
             packetBytes: 0,
             payloadBytes: 0,
             serializedPayload: '',

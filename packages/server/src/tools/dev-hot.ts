@@ -4,6 +4,7 @@
 
 import { spawn } from "node:child_process";
 import path from "node:path";
+import "../config/load-local-runtime-env";
 
 const projectRoot = path.resolve(__dirname, "..", "..");
 const distEntry = path.join(projectRoot, "dist/main.js");
@@ -23,6 +24,10 @@ const shouldClearConsoleOnRestart =
   process.stdout.isTTY && process.env.SERVER_DEV_CLEAR_CONSOLE_ON_RESTART !== "0";
 const restartDebounceMs = parseNonNegativeInteger(
   process.env.SERVER_DEV_RESTART_DEBOUNCE_MS,
+  0,
+);
+const serverDevMaxOldSpaceMb = parseNonNegativeInteger(
+  process.env.SERVER_DEV_MAX_OLD_SPACE_MB,
   0,
 );
 
@@ -222,7 +227,10 @@ function startServer() {
   printServerSessionBanner(generation);
   log(`启动 server 进程 #${generation}`);
 
-  const child = spawn(process.execPath, [distEntry], {
+  const serverArgs = serverDevMaxOldSpaceMb > 0
+    ? [`--max-old-space-size=${serverDevMaxOldSpaceMb}`, distEntry]
+    : [distEntry];
+  const child = spawn(process.execPath, serverArgs, {
     cwd: projectRoot,
     env: process.env,
     stdio: ["inherit", "inherit", "inherit"],

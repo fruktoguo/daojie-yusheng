@@ -122,6 +122,7 @@ function createEmptyGmState(): S2C_GmState {
         coveragePercent: 0,
         domains: [],
         topInstances: [],
+        heapSpaces: [],
       },
       pathfinding: {
         statsStartedAt: 0,

@@ -70,6 +70,27 @@ export class WorldSyncService {
         this.clearPlayerCaches(playerId, true);
     }
 
+    unloadDetachedPlayerRuntime(
+        playerId: string,
+        options: { allowOfflineHangingDemotion?: boolean; reason?: string } = {},
+    ): boolean {
+        if (options.allowOfflineHangingDemotion !== true) {
+            return false;
+        }
+        if (typeof this.playerRuntimeService.canUnloadDetachedPlayerRuntime === 'function'
+            && !this.playerRuntimeService.canUnloadDetachedPlayerRuntime(playerId)) {
+            return false;
+        }
+        if (typeof this.worldRuntimeService.worldRuntimePlayerSessionService?.disconnectPlayer === 'function') {
+            this.worldRuntimeService.worldRuntimePlayerSessionService.disconnectPlayer(playerId, this.worldRuntimeService);
+        }
+        if (typeof this.playerRuntimeService.removePlayerRuntime === 'function') {
+            this.playerRuntimeService.removePlayerRuntime(playerId);
+            return true;
+        }
+        return false;
+    }
+
     emitLootWindowUpdate(playerId: string) {
         this.worldSyncQuestLootService.emitLootWindowUpdate(playerId);
     }

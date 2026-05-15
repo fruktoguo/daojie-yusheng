@@ -52,6 +52,7 @@ class WorldGatewayGmCommandHelper {
         }
         try {
             this.gateway.worldGmSocketService.enqueueSpawnBots(playerId, payload?.count);
+            this.gateway.worldGmSocketService.emitState(client);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_SPAWN_BOTS_FAILED', error);
@@ -73,6 +74,7 @@ class WorldGatewayGmCommandHelper {
         }
         try {
             this.gateway.worldGmSocketService.enqueueRemoveBots(playerId, payload?.playerIds, payload?.all);
+            this.gateway.worldGmSocketService.emitState(client);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_BOTS_FAILED', error);
@@ -94,6 +96,7 @@ class WorldGatewayGmCommandHelper {
         }
         try {
             this.gateway.worldGmSocketService.enqueueUpdatePlayer(requesterPlayerId, payload);
+            this.gateway.worldGmSocketService.emitState(client);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_UPDATE_PLAYER_FAILED', error);
@@ -115,6 +118,7 @@ class WorldGatewayGmCommandHelper {
         }
         try {
             this.gateway.worldGmSocketService.enqueueResetPlayer(requesterPlayerId, payload?.playerId);
+            this.gateway.worldGmSocketService.emitState(client);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_RESET_PLAYER_FAILED', error);

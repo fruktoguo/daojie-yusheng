@@ -7,7 +7,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
+import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -107,7 +107,7 @@ export class MarketRuntimeService {
             ...order,
             item: this.toFullItem(order.item),
         }));
-        this.tradeHistory = await this.marketPersistenceService.loadTradeHistory();
+        this.tradeHistory = trimTradeHistoryRuntimeCache(await this.marketPersistenceService.loadTradeHistory());
         this.storageByPlayerId.clear();
         this.auctionBidsByItemKey.clear();
         this.auctionTimingByItemKey.clear();
@@ -306,13 +306,11 @@ export class MarketRuntimeService {
         };
     }
     /** 构造玩家自己的成交历史分页。 */
-    buildTradeHistoryPage(playerId, page, source = 'market') {
+    async buildTradeHistoryPage(playerId, page, source = 'market') {
 
         const normalizedSource = this.normalizeTradeSource(source);
 
-        const visibleRecords = this.tradeHistory
-            .filter((entry) => this.normalizeTradeSource(entry.source) === normalizedSource && (entry.buyerId === playerId || entry.sellerId === playerId))
-            .slice(0, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+        const visibleRecords = await this.loadVisibleTradeHistory(playerId, normalizedSource);
 
         const totalVisible = visibleRecords.length;
 
@@ -2720,6 +2718,16 @@ export class MarketRuntimeService {
     normalizeTradeSource(source) {
         return source === 'auction' ? 'auction' : 'market';
     }
+    /** 读取玩家可见成交历史；有数据库真源时按需查询，避免全表历史常驻内存。 */
+    async loadVisibleTradeHistory(playerId, source) {
+        if (typeof this.marketPersistenceService.loadTradeHistoryForPlayer === 'function'
+            && this.marketPersistenceService.isEnabled?.()) {
+            return this.marketPersistenceService.loadTradeHistoryForPlayer(playerId, source, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+        }
+        return this.tradeHistory
+            .filter((entry) => this.normalizeTradeSource(entry.source) === source && (entry.buyerId === playerId || entry.sellerId === playerId))
+            .slice(0, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+    }
     /**
  * createEmptyResult：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -3003,6 +3011,7 @@ export class MarketRuntimeService {
                 if (context.newTradeRecords.length > 0) {
                     this.tradeHistory.unshift(...context.newTradeRecords.map((entry) => ({ ...entry })));
                     this.tradeHistory.sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
+                    this.tradeHistory = trimTradeHistoryRuntimeCache(this.tradeHistory);
                 }
                 return result;
             }
@@ -3128,6 +3137,13 @@ function cloneWalletBalances(existingBalances) {
             version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
         })).filter((entry) => entry.walletType)
         : [];
+}
+
+function trimTradeHistoryRuntimeCache(records) {
+    return (Array.isArray(records) ? records : [])
+        .slice()
+        .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
+        .slice(0, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT);
 }
 
 function applyMarketBuyNowToSellerInventory(existingItems, item, quantity) {

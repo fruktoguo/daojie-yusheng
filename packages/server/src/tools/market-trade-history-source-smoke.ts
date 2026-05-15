@@ -55,8 +55,8 @@ async function main(): Promise<void> {
     },
   ];
 
-  const marketHistory = service.buildTradeHistoryPage(buyerId, 1, 'market');
-  const auctionHistory = service.buildTradeHistoryPage(buyerId, 1, 'auction');
+  const marketHistory = await service.buildTradeHistoryPage(buyerId, 1, 'market');
+  const auctionHistory = await service.buildTradeHistoryPage(buyerId, 1, 'auction');
 
   assert.equal(marketHistory.source, 'market');
   assert.deepEqual(marketHistory.records.map((entry) => entry.id), ['trade:market', 'trade:legacy']);

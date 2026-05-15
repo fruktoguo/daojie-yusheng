@@ -5,6 +5,7 @@
 
 import { Inject, Injectable } from '@nestjs/common';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
+import { NativeGmStateQueryService } from '../http/native/native-gm-state-query.service';
 
 /** GM Socket 下发服务：将 GM 操作转换为 runtime gm state 队列。 */
 @Injectable()
@@ -14,6 +15,7 @@ export class WorldGmSocketService {
  */
 
     runtimeGmStateService;    
+    gmStateQueryService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param runtimeGmStateService 参数说明。
@@ -22,8 +24,10 @@ export class WorldGmSocketService {
 
     constructor(
         @Inject(RuntimeGmStateService) runtimeGmStateService: any,
+        @Inject(NativeGmStateQueryService) gmStateQueryService: any,
     ) {
         this.runtimeGmStateService = runtimeGmStateService;
+        this.gmStateQueryService = gmStateQueryService;
     }
 
     /** 向请求者同步 GM 当前状态。 */
@@ -34,20 +38,30 @@ export class WorldGmSocketService {
     /** 触发 GM 请求：新增机器人。 */
     enqueueSpawnBots(requesterPlayerId, count) {
         this.runtimeGmStateService.enqueueSpawnBots(requesterPlayerId, count);
+        this.invalidatePlayerListCaches();
     }
 
     /** 触发 GM 请求：移除机器人。 */
     enqueueRemoveBots(requesterPlayerId, playerIds, all) {
         this.runtimeGmStateService.enqueueRemoveBots(requesterPlayerId, playerIds, all);
+        this.invalidatePlayerListCaches();
     }
 
     /** 触发 GM 请求：更新玩家。 */
     enqueueUpdatePlayer(requesterPlayerId, payload) {
         this.runtimeGmStateService.enqueueUpdatePlayer(requesterPlayerId, payload);
+        this.invalidatePlayerListCaches();
     }
 
     /** 触发 GM 请求：重置玩家。 */
     enqueueResetPlayer(requesterPlayerId, playerId) {
         this.runtimeGmStateService.enqueueResetPlayer(requesterPlayerId, playerId);
+        this.invalidatePlayerListCaches();
+    }
+
+    invalidatePlayerListCaches() {
+        if (typeof this.gmStateQueryService?.invalidatePlayerListCaches === 'function') {
+            this.gmStateQueryService.invalidatePlayerListCaches();
+        }
     }
 };

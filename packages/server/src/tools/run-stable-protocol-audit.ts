@@ -6,6 +6,7 @@
 
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import '../config/load-local-runtime-env';
 import { createStableDistSnapshot, resolveToolPackageRoot } from './stable-dist';
 
 async function main() {

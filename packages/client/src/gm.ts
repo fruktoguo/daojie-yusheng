@@ -32,8 +32,10 @@ import {
   type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
   type GmCpuSectionSnapshot,
+  type GmHeapSnapshotRes,
   type GmMemoryDomainEstimateSnapshot,
   type GmMemoryInstanceEstimateSnapshot,
+  type GmV8HeapSpaceSnapshot,
   type GmEditorBuffOption,
   type GmEditorCatalogRes,
   type GmEditorItemOption,
@@ -51,6 +53,7 @@ import {
   EQUIP_SLOT_LABELS,
   type GmNetworkBucket,
   type GmManagedPlayerSummary,
+  type GmPlayerListRes,
   type GmPlayerDetailRes,
   type GmPlayerRiskFactor,
   type GmPlayerRiskLevel,
@@ -326,6 +329,10 @@ const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as H
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
 /** resetPathfindingStatsBtn：reset Pathfinding属性Btn。 */
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
+/** writeHeapSnapshotBtn：生成Heap Snapshot按钮。 */
+const writeHeapSnapshotBtn = document.getElementById('write-heap-snapshot') as HTMLButtonElement;
+/** heapSnapshotMetaEl：Heap Snapshot操作状态。 */
+const heapSnapshotMetaEl = document.getElementById('heap-snapshot-meta') as HTMLDivElement;
 /** cpuCurrentPercentEl：cpu当前Percent El。 */
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
 /** cpuTickWindowPercentEl：cpu Tick窗口Percent El。 */
@@ -376,6 +383,8 @@ const memoryRssHeapRatioNoteEl = document.getElementById('memory-rss-heap-ratio-
 const memoryEstimateMetaEl = document.getElementById('memory-estimate-meta') as HTMLDivElement;
 /** memoryDomainListEl：内存域画像列表。 */
 const memoryDomainListEl = document.getElementById('memory-domain-list') as HTMLDivElement;
+/** memoryHeapSpaceListEl：V8 heap space列表。 */
+const memoryHeapSpaceListEl = document.getElementById('memory-heap-space-list') as HTMLDivElement;
 /** memoryInstanceListEl：实例内存画像列表。 */
 const memoryInstanceListEl = document.getElementById('memory-instance-list') as HTMLDivElement;
 /** pathfindingResetMetaEl：pathfinding Reset元数据El。 */
@@ -598,6 +607,7 @@ let selectedPlayerDetailError: string | null = null;
 let loadingPlayerDetailId: string | null = null;
 /** detailRequestNonce：详情请求Nonce。 */
 let detailRequestNonce = 0;
+let playerListRequestNonce = 0;
 /** draftSnapshot：draft快照。 */
 let draftSnapshot: PlayerState | null = null;
 /** editorDirty：编辑器Dirty。 */
@@ -666,6 +676,10 @@ function buildGmStateApiPath(params: URLSearchParams): string {
   return `${GM_API_BASE_PATH}/state?${params.toString()}`;
 }
 
+function buildGmPlayersApiPath(params: URLSearchParams): string {
+  return `${GM_API_BASE_PATH}/players?${params.toString()}`;
+}
+
 function buildGmPlayerApiPath(playerId: string): string {
   return `${GM_API_BASE_PATH}/players/${encodeURIComponent(playerId)}`;
 }
@@ -724,6 +738,8 @@ let lastNetworkOutStructureKey: string | null = null;
 let lastCpuBreakdownStructureKey: string | null = null;
 /** lastMemoryDomainStructureKey：last Memory Domain Structure Key。 */
 let lastMemoryDomainStructureKey: string | null = null;
+/** lastMemoryHeapSpaceStructureKey：last Memory Heap Space Structure Key。 */
+let lastMemoryHeapSpaceStructureKey: string | null = null;
 /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
 let lastMemoryInstanceStructureKey: string | null = null;
 /** lastPathfindingFailureStructureKey：last Pathfinding Failure Structure Key。 */
@@ -2316,6 +2332,11 @@ function getMemoryInstanceMeta(totalRssBytes: number, instance: GmMemoryInstance
   return `${formatBytes(instance.bytes)} · 占 RSS ${formatPercent(instance.bytes, totalRssBytes)} · 玩家 ${instance.playerCount} · 怪物 ${instance.monsterCount} · 玩家容器 ${formatBytes(instance.playerBytes)} · 怪物容器 ${formatBytes(instance.monsterBytes)} · 其余实例容器 ${formatBytes(instance.instanceBytes)}`;
 }
 
+function getHeapSpaceMeta(heapTotalBytes: number, space: GmV8HeapSpaceSnapshot): string {
+  const usage = space.sizeBytes > 0 ? formatPercent(space.usedBytes, space.sizeBytes) : '0%';
+  return `已用 ${formatBytes(space.usedBytes)} / 总量 ${formatBytes(space.sizeBytes)} · 使用率 ${usage} · 可用 ${formatBytes(space.availableBytes)} · 物理 ${formatBytes(space.physicalBytes)} · 占 Heap ${formatPercent(space.usedBytes, heapTotalBytes)}`;
+}
+
 /** getPathfindingFailureMeta：读取Pathfinding Failure元数据。 */
 function getPathfindingFailureMeta(totalFailures: number, count: number): string {
   return `${count} 次 · 占失败 ${formatPercent(count, totalFailures)}`;
@@ -2375,6 +2396,17 @@ function renderPerfLists(data: GmStateRes): void {
         meta: getMemoryInstanceMeta(totalRssBytes, instance),
       }))
     : [];
+  const heapTotalBytes = Math.max(0, (data.perf.cpu.heapTotalMb ?? 0) * 1024 * 1024);
+  const heapSpaceItems = Array.isArray(data.perf.memoryEstimate?.heapSpaces)
+    ? data.perf.memoryEstimate.heapSpaces
+        .slice()
+        .sort((left, right) => right.usedBytes - left.usedBytes || left.name.localeCompare(right.name))
+        .map((space) => ({
+          key: space.name,
+          label: space.name,
+          meta: getHeapSpaceMeta(heapTotalBytes, space),
+        }))
+    : [];
   const totalFailures = data.perf.pathfinding.failed + data.perf.pathfinding.cancelled;
   const pathfindingFailureItems = data.perf.pathfinding.failureReasons.map((bucket) => ({
     key: bucket.reason,
@@ -2405,6 +2437,12 @@ function renderPerfLists(data: GmStateRes): void {
     lastMemoryDomainStructureKey,
     memoryDomainItems,
     '当前还没有运行态内存画像。',
+  );
+  lastMemoryHeapSpaceStructureKey = renderStructuredStatList(
+    memoryHeapSpaceListEl,
+    lastMemoryHeapSpaceStructureKey,
+    heapSpaceItems,
+    '当前还没有 V8 heap space 数据。',
   );
   lastMemoryInstanceStructureKey = renderStructuredStatList(
     memoryInstanceListEl,
@@ -2574,12 +2612,7 @@ function setStatus(message: string, isError = false): void {
 /** worldViewer：世界Viewer。 */
 const worldViewer = new GmWorldViewer(request, setStatus);
 
-/** switchServerTab：处理switch服务端Tab。 */
-function switchServerTab(tab: GmServerTab): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  /** currentServerTab：当前服务端Tab。 */
-  currentServerTab = tab;
+function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
   serverSubtabTrafficBtn.classList.toggle('active', tab === 'traffic');
   serverSubtabCpuBtn.classList.toggle('active', tab === 'cpu');
@@ -2596,6 +2629,15 @@ function switchServerTab(tab: GmServerTab): void {
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
   serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
+}
+
+/** switchServerTab：处理switch服务端Tab。 */
+function switchServerTab(tab: GmServerTab): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  /** currentServerTab：当前服务端Tab。 */
+  currentServerTab = tab;
+  applyServerTabVisibility(tab);
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
@@ -2609,6 +2651,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'workers' && !workerState && !workerStateLoading) {
     loadWorkerState(false).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载 worker 状态失败', true);
+    });
+  }
+  if (tab === 'memory') {
+    loadState(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载内存画像失败', true);
     });
   }
   if (tab === 'flags' && !runtimeFlagsLoading) {
@@ -3729,6 +3776,14 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     worldViewer.startPolling();
   } else if (tab === 'server') {
     switchServerTab(currentServerTab);
+  } else if (tab === 'players') {
+    loadPlayerList(false, true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    });
+  } else if (tab === 'shortcuts') {
+    loadPlayerList(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+    });
   } else if (tab === 'secrets') {
     loadSecrets().catch(() => {});
   }
@@ -5813,7 +5868,7 @@ function renderSummary(data: GmStateRes): void {
     : '当前 Heap 已用接近 0，暂不计算倍率';
   const memoryEstimate = data.perf.memoryEstimate;
   memoryEstimateMetaEl.textContent = memoryEstimate?.generatedAt > 0
-    ? `运行态画像：${new Date(memoryEstimate.generatedAt).toLocaleString()} · 快照估算覆盖 ${formatBytes(memoryEstimate.coveredBytes)} / RSS ${formatBytes(memoryEstimate.rssBytes)} · 覆盖 ${memoryEstimate.coveragePercent.toFixed(1)}% · 缓存 ${Math.round(memoryEstimate.cacheTtlMs / 1000)} 秒`
+    ? `运行态容器估算：${new Date(memoryEstimate.generatedAt).toLocaleString()} · 已覆盖 ${formatBytes(memoryEstimate.coveredBytes)} / RSS ${formatBytes(memoryEstimate.rssBytes)} · 覆盖 ${memoryEstimate.coveragePercent.toFixed(1)}% · 未覆盖部分需看 V8 heap space 或 Heap Snapshot · 缓存 ${Math.round(memoryEstimate.cacheTtlMs / 1000)} 秒`
     : '运行态内存画像尚未生成。';
   pathfindingResetMetaEl.textContent = data.perf.pathfinding.statsStartedAt > 0
     ? `寻路统计起点：${new Date(data.perf.pathfinding.statsStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.pathfinding.statsElapsedSec)}`
@@ -5978,11 +6033,13 @@ function render(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!state) return;
-  switchServerTab(currentServerTab);
+  applyServerTabVisibility(currentServerTab);
   renderSummary(state);
   renderDatabasePanel();
-  renderPlayerList(state);
-  renderEditor(state);
+  if (currentTab === 'players') {
+    renderPlayerList(state);
+    renderEditor(state);
+  }
   if (currentTab === 'shortcuts') {
     renderShortcutMailComposer(true);
   }
@@ -6156,28 +6213,44 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 }
 
 /** loadState：加载状态。 */
-async function loadState(silent = false, refreshDetail = false): Promise<void> {
+async function loadState(silent = false, refreshDetail = false, forceIncludePlayers = false): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!token) return;
-  const params = new URLSearchParams({
-    page: String(currentPlayerPage),
-    pageSize: '50',
-    sort: currentPlayerSort,
-    accountStatus: currentPlayerAccountStatusFilter,
-  });
-  const keyword = playerSearchInput.value.trim();
-  if (keyword) {
-    params.set('keyword', keyword);
+  const shouldIncludePlayers = forceIncludePlayers
+    || (!silent && (currentTab === 'players' || currentTab === 'shortcuts'))
+    || refreshDetail;
+  const params = new URLSearchParams();
+  if (shouldIncludePlayers) {
+    params.set('page', String(currentPlayerPage));
+    params.set('pageSize', '50');
+    params.set('sort', currentPlayerSort);
+    params.set('accountStatus', currentPlayerAccountStatusFilter);
+    params.set('includePlayers', '1');
+    const keyword = playerSearchInput.value.trim();
+    if (keyword) {
+      params.set('keyword', keyword);
+    }
   }
-  const data = await request<GmStateRes>(buildGmStateApiPath(params));
+  if (currentTab === 'server' && currentServerTab === 'memory') {
+    params.set('includeMemoryEstimate', '1');
+  }
+  let data = await request<GmStateRes>(buildGmStateApiPath(params));
   assertGmStateResponseShape(data);
+  if (!shouldIncludePlayers && state) {
+    data = {
+      ...data,
+      players: state.players,
+    };
+  }
   /** state：状态。 */
   state = data;
-  /** currentPlayerPage：当前玩家分页。 */
-  currentPlayerPage = data.playerPage.page;
-  /** currentPlayerTotalPages：当前玩家总量Pages。 */
-  currentPlayerTotalPages = data.playerPage.totalPages;
+  if (shouldIncludePlayers) {
+    /** currentPlayerPage：当前玩家分页。 */
+    currentPlayerPage = data.playerPage.page;
+    /** currentPlayerTotalPages：当前玩家总量Pages。 */
+    currentPlayerTotalPages = data.playerPage.totalPages;
+  }
   try {
     await loadGmMapPickerCatalog();
   } catch (error) {
@@ -6187,22 +6260,24 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     }
   }
   const previousSelectedPlayerId = selectedPlayerId;
-  if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
-    /** selectedPlayerId：selected玩家ID。 */
-    selectedPlayerId = data.players[0]?.id ?? null;
-    if (selectedPlayerDetail?.id !== selectedPlayerId) {
-      selectedPlayerDetail = null;
+  if (shouldIncludePlayers) {
+    if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
+      /** selectedPlayerId：selected玩家ID。 */
+      selectedPlayerId = data.players[0]?.id ?? null;
+      if (selectedPlayerDetail?.id !== selectedPlayerId) {
+        selectedPlayerDetail = null;
+      }
     }
   }
   render();
-  const shouldLoadDetail = !!selectedPlayerId && (
+  const shouldLoadDetail = shouldIncludePlayers && !!selectedPlayerId && (
     refreshDetail
     || selectedPlayerId !== previousSelectedPlayerId
     || selectedPlayerDetail?.id !== selectedPlayerId
   );
   if (shouldLoadDetail && selectedPlayerId) {
     await loadSelectedPlayerDetail(selectedPlayerId, true);
-  } else if (!selectedPlayerId) {
+  } else if (shouldIncludePlayers && !selectedPlayerId) {
     /** selectedPlayerDetail：selected玩家详情。 */
     selectedPlayerDetail = null;
     /** selectedPlayerDetailError：selected玩家详情错误。 */
@@ -6210,7 +6285,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     /** loadingPlayerDetailId：loading玩家详情ID。 */
     loadingPlayerDetailId = null;
   }
-  if (!silent) {
+  if (!silent && shouldIncludePlayers) {
     setStatus(`已同步角色列表第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页，本页 ${data.players.length} 条，共 ${data.playerPage.total} 条`);
   }
   if (currentTab === 'server' && currentServerTab === 'database') {
@@ -6219,6 +6294,70 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
   // 同步地图列表到世界管理
   if (currentTab === 'world') {
     worldViewer.updateMapIds(data.mapIds);
+  }
+}
+
+function buildPlayerListQueryParams(refresh = false): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(currentPlayerPage),
+    pageSize: '50',
+    sort: currentPlayerSort,
+    accountStatus: currentPlayerAccountStatusFilter,
+  });
+  if (refresh) {
+    params.set('refresh', '1');
+  }
+  const keyword = playerSearchInput.value.trim();
+  if (keyword) {
+    params.set('keyword', keyword);
+  }
+  return params;
+}
+
+async function loadPlayerList(silent = true, refreshDetail = false, refreshList = false): Promise<void> {
+  if (!token) return;
+  if (!state) {
+    await loadState(silent, refreshDetail, true);
+    return;
+  }
+  const nonce = ++playerListRequestNonce;
+  const data = await request<GmPlayerListRes>(buildGmPlayersApiPath(buildPlayerListQueryParams(refreshList)));
+  if (nonce !== playerListRequestNonce) {
+    return;
+  }
+  state = {
+    ...state,
+    players: data.players,
+    playerPage: data.playerPage,
+    playerStats: data.playerStats,
+    botCount: data.botCount,
+  };
+  currentPlayerPage = data.playerPage.page;
+  currentPlayerTotalPages = data.playerPage.totalPages;
+
+  const previousSelectedPlayerId = selectedPlayerId;
+  if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
+    selectedPlayerId = data.players[0]?.id ?? null;
+    if (selectedPlayerDetail?.id !== selectedPlayerId) {
+      selectedPlayerDetail = null;
+    }
+  }
+  render();
+
+  const shouldLoadDetail = !!selectedPlayerId && (
+    refreshDetail
+    || selectedPlayerId !== previousSelectedPlayerId
+    || selectedPlayerDetail?.id !== selectedPlayerId
+  );
+  if (shouldLoadDetail && selectedPlayerId) {
+    await loadSelectedPlayerDetail(selectedPlayerId, true);
+  } else if (!selectedPlayerId) {
+    selectedPlayerDetail = null;
+    selectedPlayerDetailError = null;
+    loadingPlayerDetailId = null;
+  }
+  if (!silent) {
+    setStatus(`已同步角色列表第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页，本页 ${data.players.length} 条，共 ${data.playerPage.total} 条`);
   }
 }
 
@@ -6418,7 +6557,11 @@ function logout(message?: string): void {
 async function delayRefresh(message: string): Promise<void> {
   setStatus(message);
   await new Promise((resolve) => window.setTimeout(resolve, GM_APPLY_DELAY_MS));
-  await loadState(true, true);
+  if (currentTab === 'players' || currentTab === 'shortcuts') {
+    await loadPlayerList(true, true, true);
+  } else {
+    await loadState(true, true);
+  }
   setStatus(`${message}，已完成同步`);
 }
 
@@ -7064,7 +7207,7 @@ async function refreshSelectedPlayer(): Promise<void> {
   render();
 
   try {
-    await loadState(true, true);
+    await loadPlayerList(true, true, true);
     setStatus(t('gm.player.refreshed', { name: selected.name }));
   } catch (error) {
     setStatus(error instanceof Error ? error.message : t('gm.player.detail-load-failed'), true);
@@ -7618,6 +7761,25 @@ async function resetPathfindingStats(): Promise<void> {
     setStatus(error instanceof Error ? error.message : t('gm.perf.pathfinding.reset.failed'), true);
   } finally {
     resetPathfindingStatsBtn.disabled = false;
+  }
+}
+
+async function writeHeapSnapshot(): Promise<void> {
+  writeHeapSnapshotBtn.disabled = true;
+  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot，服务端会短暂停顿...';
+  try {
+    const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
+      method: 'POST',
+    });
+    heapSnapshotMetaEl.textContent = `已生成：${result.path} · ${formatBytes(result.bytes)} · ${result.durationMs.toFixed(0)} ms`;
+    setStatus(`Heap Snapshot 已生成：${result.path}`);
+    await loadState(true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '生成 Heap Snapshot 失败';
+    heapSnapshotMetaEl.textContent = message;
+    setStatus(message, true);
+  } finally {
+    writeHeapSnapshotBtn.disabled = false;
   }
 }
 
@@ -8187,7 +8349,7 @@ playerSearchInput.addEventListener('input', () => {
     window.clearTimeout(playerSearchTimer);
   }
   playerSearchTimer = window.setTimeout(() => {
-    loadState(true).catch((error: unknown) => {
+    loadPlayerList(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
     });
   }, 250);
@@ -8199,7 +8361,7 @@ playerSortSelect.addEventListener('change', () => {
   currentPlayerPage = 1;
   /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
   lastPlayerListStructureKey = null;
-  loadState(true).catch((error: unknown) => {
+  loadPlayerList(true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
@@ -8207,7 +8369,7 @@ playerAccountStatusFilterSelect.addEventListener('change', () => {
   currentPlayerAccountStatusFilter = (playerAccountStatusFilterSelect.value as GmPlayerAccountStatusFilter) || 'all';
   currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
-  loadState(true).catch((error: unknown) => {
+  loadPlayerList(true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
@@ -8216,7 +8378,7 @@ playerPrevPageBtn.addEventListener('click', () => {
     return;
   }
   currentPlayerPage -= 1;
-  loadState(true).catch((error: unknown) => {
+  loadPlayerList(true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
@@ -8225,7 +8387,7 @@ playerNextPageBtn.addEventListener('click', () => {
     return;
   }
   currentPlayerPage += 1;
-  loadState(true).catch((error: unknown) => {
+  loadPlayerList(true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.list.failed'), true);
   });
 });
@@ -8313,7 +8475,10 @@ playerDatabaseTabsEl.addEventListener('click', (event) => {
 });
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
-  loadState(false, true).catch((error: unknown) => {
+  const loader = currentTab === 'players' || currentTab === 'shortcuts'
+    ? loadPlayerList(false, true)
+    : loadState(false, true);
+  loader.catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.refresh.failed'), true);
   });
 });
@@ -8548,6 +8713,9 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
+});
+writeHeapSnapshotBtn.addEventListener('click', () => {
+  writeHeapSnapshot().catch(() => {});
 });
 serverLogsLoadOlderBtn.addEventListener('click', () => {
   loadServerLogs(true).catch((error: unknown) => {

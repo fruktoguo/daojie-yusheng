@@ -275,6 +275,11 @@ export class NativeGmController {
       },
     };
   }
+
+  @Get('players')
+  async listPlayers(@Query() query: GmListPlayersQuery) {
+    return this.nextGmWorldService.listPlayers(query);
+  }
   /**
  * getWorldSummary：读取世界运行态摘要。
  * @returns 无返回值，完成世界运行态摘要的读取/组装。
@@ -595,6 +600,7 @@ export class NativeGmController {
       ? body.newPassword
       : body?.password ?? '';
     await this.nextManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -608,6 +614,7 @@ export class NativeGmController {
   @Put('players/:playerId/account')
   async updatePlayerAccount(@Param('playerId') playerId: string, @Body() body: UpdatePlayerAccountBody) {
     await this.nextManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -621,6 +628,7 @@ export class NativeGmController {
   @Post('players/:playerId/ban')
   async banPlayerAccount(@Param('playerId') playerId: string, @Body() body: GmBanManagedPlayerReq) {
     await this.nextManagedAccountService.banManagedPlayerAccount(playerId, body?.reason ?? '');
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
 
@@ -634,6 +642,7 @@ export class NativeGmController {
   @Post('players/:playerId/unban')
   async unbanPlayerAccount(@Param('playerId') playerId: string) {
     await this.nextManagedAccountService.unbanManagedPlayerAccount(playerId);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
 
@@ -648,6 +657,7 @@ export class NativeGmController {
   @Put('players/:playerId')
   async updatePlayer(@Param('playerId') playerId: string, @Body() body: UpdatePlayerBody) {
     await this.nextGmPlayerService.updatePlayer(playerId, body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -666,6 +676,7 @@ export class NativeGmController {
     } else {
       await this.nextGmPlayerService.resetPersistedPlayer(playerId);
     }
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -679,6 +690,7 @@ export class NativeGmController {
   @Post('players/:playerId/body-training/level')
   async setPlayerBodyTrainingLevel(@Param('playerId') playerId: string, @Body() body: SetPlayerBodyTrainingLevelBody) {
     await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -692,6 +704,7 @@ export class NativeGmController {
   @Post('players/:playerId/foundation/add')
   async addPlayerFoundation(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
     await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -705,6 +718,7 @@ export class NativeGmController {
   @Post('players/:playerId/combat-exp/add')
   async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
     await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -717,6 +731,7 @@ export class NativeGmController {
   @Post('players/:playerId/heaven-gate/reset')
   async resetHeavenGate(@Param('playerId') playerId: string) {
     await this.nextGmPlayerService.resetHeavenGate(playerId);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -729,6 +744,7 @@ export class NativeGmController {
   @Post('bots/spawn')
   async spawnBots(@Body() body: SpawnBotsBody) {
     this.nextGmPlayerService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -741,6 +757,7 @@ export class NativeGmController {
   @Post('bots/remove')
   async removeBots(@Body() body: RemoveBotsBody) {
     this.nextGmPlayerService.removeBots(body?.playerIds ?? [], body?.all ?? false);
+    this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -751,7 +768,9 @@ export class NativeGmController {
 
   @Post('shortcuts/players/return-all-to-default-spawn')
   async returnAllPlayersToDefaultSpawn(@Body() body: GmPlayerScopeBody) {
-    return this.nextGmPlayerService.returnAllPlayersToDefaultSpawn(body ?? {});
+    const result = await this.nextGmPlayerService.returnAllPlayersToDefaultSpawn(body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return result;
   }
   /**
  * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
@@ -761,7 +780,9 @@ export class NativeGmController {
 
   @Post('shortcuts/players/cleanup-invalid-items')
   async cleanupAllPlayersInvalidItems(@Body() body: GmPlayerScopeBody) {
-    return this.nextGmPlayerService.cleanupAllPlayersInvalidItems(body ?? {});
+    const result = await this.nextGmPlayerService.cleanupAllPlayersInvalidItems(body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return result;
   }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
@@ -771,7 +792,9 @@ export class NativeGmController {
 
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
   async compensateAllPlayersCombatExp(@Body() body: GmPlayerScopeBody) {
-    return this.nextGmPlayerService.compensateAllPlayersCombatExp(body ?? {});
+    const result = await this.nextGmPlayerService.compensateAllPlayersCombatExp(body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return result;
   }
   /**
  * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
@@ -781,7 +804,9 @@ export class NativeGmController {
 
   @Post('shortcuts/compensation/foundation-2026-04-09')
   async compensateAllPlayersFoundation(@Body() body: GmPlayerScopeBody) {
-    return this.nextGmPlayerService.compensateAllPlayersFoundation(body ?? {});
+    const result = await this.nextGmPlayerService.compensateAllPlayersFoundation(body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return result;
   }
   /**
  * resetNetworkPerf：执行resetNetworkPerf相关逻辑。
@@ -804,6 +829,16 @@ export class NativeGmController {
   resetCpuPerf() {
     this.nextGmWorldService.resetCpuPerf();
     return { ok: true };
+  }
+  /**
+ * writeHeapSnapshot：生成 V8 Heap Snapshot 文件。
+ * @returns 返回生成文件路径、大小和耗时。
+ */
+
+
+  @Post('perf/memory/heap-snapshot')
+  writeHeapSnapshot() {
+    return this.nextGmWorldService.writeHeapSnapshot();
   }
   /**
  * resetPathfindingPerf：读取resetPathfindingPerf并返回结果。

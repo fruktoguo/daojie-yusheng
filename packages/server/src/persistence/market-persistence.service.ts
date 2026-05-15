@@ -111,6 +111,28 @@ export class MarketPersistenceService {
             .filter((entry) => Boolean(entry))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
     }
+    /** 按玩家与来源读取最近成交历史，避免把全表成交记录常驻在运行时内存。 */
+    async loadTradeHistoryForPlayer(playerId, source, limit) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const normalizedSource = source === 'auction' ? 'auction' : 'market';
+        const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(500, Math.trunc(Number(limit)))) : 100;
+        if (!this.pool || !this.enabled || !normalizedPlayerId) {
+            return [];
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${MARKET_TRADE_TABLE}
+          WHERE (buyer_id = $1 OR seller_id = $1)
+            AND COALESCE(raw_payload->>'source', 'market') = $2
+          ORDER BY created_at_ms DESC, trade_id ASC
+          LIMIT $3
+        `, [normalizedPlayerId, normalizedSource, normalizedLimit]);
+        const rows = result.rows ?? [];
+        return rows
+            .map((row) => normalizeTradeRecord(row.raw_payload))
+            .filter((entry) => Boolean(entry))
+            .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
+    }
     /**
  * loadStorages：读取Storage并返回结果。
  * @returns 无返回值，完成Storage的读取/组装。
@@ -618,6 +640,14 @@ async function ensureMarketTables(pool) {
         await client.query(`
           CREATE INDEX IF NOT EXISTS server_market_trade_party_idx
           ON ${MARKET_TRADE_TABLE}(buyer_id, seller_id, created_at_ms DESC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_trade_buyer_created_idx
+          ON ${MARKET_TRADE_TABLE}(buyer_id, created_at_ms DESC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_trade_seller_created_idx
+          ON ${MARKET_TRADE_TABLE}(seller_id, created_at_ms DESC)
         `);
         await client.query(`
           CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (

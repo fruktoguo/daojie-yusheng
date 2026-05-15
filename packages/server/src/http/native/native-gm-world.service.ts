@@ -4,7 +4,7 @@
  * 性能计数器重置、tick/时间配置修改等 GM 操作。
  */
 import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
+import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
@@ -46,6 +46,7 @@ interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): Record<string, unknown>;
   resetNetworkPerfCounters(): void;
   resetCpuPerfCounters(): void;
+  writeHeapSnapshot(): unknown;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -104,6 +105,8 @@ interface RuntimeMapConfigServiceLike {
 
 
 interface NativeGmStateQueryServiceLike {
+  invalidatePlayerListCaches(): void;
+  listPlayers(query: GmListPlayersQuery | undefined): Promise<GmPlayerListRes>;
   getState(query: GmListPlayersQuery | undefined, timers: {  
   /**
  * networkPerfStartedAt：networkPerfStartedAt相关字段。
@@ -375,6 +378,14 @@ export class NativeGmWorldService {
       cpuPerfStartedAt: this.cpuPerfStartedAt,
       pathfindingPerfStartedAt: this.pathfindingPerfStartedAt,
     });
+  }
+
+  async listPlayers(query?: GmListPlayersQuery) {
+    return this.nextGmStateQueryService.listPlayers(query);
+  }
+
+  invalidatePlayerListCaches(): void {
+    this.nextGmStateQueryService.invalidatePlayerListCaches();
   }
   /**
  * getRuntimeSummary：读取运行态摘要。
@@ -745,6 +756,7 @@ export class NativeGmWorldService {
       x: Number.isFinite(body?.x) ? Math.trunc(Number(body.x)) : undefined,
       y: Number.isFinite(body?.y) ? Math.trunc(Number(body.y)) : undefined,
     });
+    this.invalidatePlayerListCaches();
     return { ok: true };
   }
   /**
@@ -840,6 +852,10 @@ export class NativeGmWorldService {
 
   resetPathfindingPerf() {
     this.pathfindingPerfStartedAt = Date.now();
+  }
+
+  writeHeapSnapshot() {
+    return this.runtimeGmStateService.writeHeapSnapshot();
   }
 
   private async persistMapConfig(mapId: string, partial: GmMapConfigPayload): Promise<void> {

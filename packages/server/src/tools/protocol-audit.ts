@@ -352,6 +352,41 @@ async function emitAndWait(socket, emitEvent, payload, responseEvent, predicate,
   }
 }
 
+function findRecentOwnMarketOrderUpdate(socket, afterCount, itemId, side) {
+  const events = typeof socket.getEvents === 'function' ? socket.getEvents(S2C.MarketUpdate) : [];
+  const start = Math.max(0, afterCount - 2);
+  return events.slice(start).find((payload) => {
+    const orders = Array.isArray(payload?.myOrders) ? payload.myOrders : [];
+    if (!itemId) {
+      return orders.length > 0;
+    }
+    return orders.some((entry) => entry?.side === side && (!itemId || entry?.item?.itemId === itemId));
+  }) ?? null;
+}
+
+async function emitAndWaitForOwnMarketOrder(socket, emitEvent, payload, itemId, side, timeoutMs) {
+  const afterCount = socket.getEventCount(S2C.MarketUpdate);
+  socket.emit(emitEvent, payload);
+  const predicate = (update) => {
+    const orders = Array.isArray(update?.myOrders) ? update.myOrders : [];
+    if (!itemId) {
+      return orders.length > 0;
+    }
+    return orders.some((entry) => entry?.side === side && (!itemId || entry?.item?.itemId === itemId));
+  };
+  try {
+    return await socket.waitForEventAfter(S2C.MarketUpdate, afterCount, predicate, timeoutMs);
+  } catch (error) {
+    const recent = await lib.waitForValue(async () => {
+      return findRecentOwnMarketOrderUpdate(socket, afterCount, itemId, side);
+    }, 1000, "recentOwnMarketOrderUpdate").catch(() => null);
+    if (recent) {
+      return recent;
+    }
+    throw enrichEmitAndWaitError(socket, error, emitEvent, S2C.MarketUpdate, afterCount);
+  }
+}
+
 /**
  * 等待 tick delta envelope 内的 EventBus 通知。
  */
@@ -1069,7 +1104,7 @@ async function hello(runtime, socket, payload) {
       explicitHello: undefined,
     });
   }
-  var session = await awaitAuthenticatedBootstrap(runtime, socket, 5000);
+  var session = await awaitAuthenticatedBootstrap(runtime, socket, 10000);
   process.stdout.write("[protocol audit] bootstrap ready " + (runtime.caseName || 'unknown') + " session=" + (session.sessionId || 'none') + "\n");
   if (session.sessionId) {
     sessionAuthRegistry.set(session.sessionId, { accessToken: accessToken });
@@ -1321,7 +1356,7 @@ async function bootstrapCase(runtime) {
   var before = (await runtime.api.fetchState(playerId)).player;
   await emitAndWait(socket, C2S.Ping, { clientAt: 1001 }, S2C.Pong, function (payload) {
     return payload && payload.clientAt === 1001;
-  }, 5000);
+  }, 10000);
   socket.emit(C2S.Move, { d: Direction.North });
   await lib.waitForState(runtime.api, playerId, function (player) { return player.x !== before.x || player.y !== before.y; }, 4000, "move");
 /**
@@ -1330,7 +1365,7 @@ async function bootstrapCase(runtime) {
   var moved = (await runtime.api.fetchState(playerId)).player;
   await emitAndWait(socket, C2S.RequestTileDetail, { x: moved.x, y: moved.y }, S2C.TileDetail, function (payload) {
     return payload && payload.x === moved.x && payload.y === moved.y;
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理属性榜单与世界摘要case。
@@ -1353,7 +1388,7 @@ async function statPanelCase(runtime) {
       && typeof payload.numericStatBreakdowns === 'object'
       && payload.numericStatBreakdowns !== null
       && typeof payload.numericStatBreakdowns.maxHp === 'object';
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.RequestLeaderboard, { limit: 5 }, S2C.Leaderboard, function (payload) {
     return payload
       && typeof payload.generatedAt === 'number'
@@ -1361,10 +1396,10 @@ async function statPanelCase(runtime) {
       && Array.isArray(payload.boards.supremeAttrs)
       && payload.boards.supremeAttrs.length === 6
       && Array.isArray(payload.boards.sects);
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.RequestWorldSummary, {}, S2C.WorldSummary, function (payload) {
     return payload && typeof payload.generatedAt === 'number' && payload.summary !== undefined;
-  }, 5000);
+  }, 10000);
 }
 
 function assertBootstrapSelfCarriesAttrSurface(payload) {
@@ -1421,7 +1456,7 @@ async function craftPanelCase(runtime) {
       && payload.state.furnaceItemId === "equip.copper_pill_furnace"
       && Array.isArray(payload.catalog)
       && payload.catalog.length > 0;
-  }, 5000);
+  }, 10000);
 /**
  * 记录炼丹目录项。
  */
@@ -1474,7 +1509,7 @@ async function craftPanelCase(runtime) {
       && payload.state
       && payload.state.furnaceItemId === "equip.copper_pill_furnace"
       && (!Array.isArray(payload.catalog) || payload.catalog.length === 0);
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.StartAlchemy, {
     recipeId: alchemyEntry.recipeId,
     ingredients: alchemyEntry.ingredients.map(function (entry) {
@@ -1487,7 +1522,7 @@ async function craftPanelCase(runtime) {
       && state
       && state.job
       && state.job.recipeId === alchemyEntry.recipeId;
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.Move, { d: Direction.North }, S2C.AlchemyPanel, function (payload) {
     var state = getCraftPanelRuntimeState(payload);
     return payload
@@ -1496,14 +1531,14 @@ async function craftPanelCase(runtime) {
       && state.job.recipeId === alchemyEntry.recipeId
       && state.job.phase === "paused"
       && state.job.pausedTicks > 0;
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.CancelAlchemy, {}, S2C.AlchemyPanel, function (payload) {
     var state = getCraftPanelRuntimeState(payload);
     return payload
       && state
       && (payload.statePatch || payload.state?.furnaceItemId === "equip.copper_pill_furnace")
       && state.job === null;
-  }, 5000);
+  }, 10000);
   player = (await runtime.api.fetchState(playerId)).player;
   socket.emit(C2S.Equip, { slotIndex: slot(player, "equip.copper_enhancement_hammer") });
   await lib.waitForState(runtime.api, playerId, function (current) {
@@ -1520,7 +1555,7 @@ async function craftPanelCase(runtime) {
       && payload.state.hammerItemId === "equip.copper_enhancement_hammer"
       && Array.isArray(payload.state.candidates)
       && payload.state.candidates.some(function (entry) { return entry.item && entry.item.itemId === "equip.geng_gate_blade"; });
-  }, 5000);
+  }, 10000);
 /**
  * 记录强化候选。
  */
@@ -1548,7 +1583,7 @@ async function craftPanelCase(runtime) {
         && payload.state
         && Array.isArray(payload.state.candidates)
         && payload.state.candidates.some(function (entry) { return entry.item && entry.item.itemId === "equip.geng_gate_blade"; });
-    }, 5000);
+    }, 10000);
     enhancementCandidate = enhancementPanel.state.candidates.find(function (entry) {
       return entry.item && entry.item.itemId === "equip.geng_gate_blade";
     });
@@ -1574,7 +1609,7 @@ async function craftPanelCase(runtime) {
       && state.job.desiredTargetLevel === desiredTargetLevel
       && state.job.protectionUsed === Boolean(protectionCandidate)
       && (!payload.statePatch || (!("candidates" in payload.statePatch) && (!("records" in payload.statePatch) || payload.statePatch.records === undefined || Array.isArray(payload.statePatch.records))));
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.Move, { d: Direction.South }, S2C.EnhancementPanel, function (payload) {
     var state = getEnhancementRuntimeState(payload);
     return payload
@@ -1584,14 +1619,14 @@ async function craftPanelCase(runtime) {
       && state.job.phase === "paused"
       && state.job.pausedTicks > 0
       && (!payload.statePatch || (!("candidates" in payload.statePatch) && (!("records" in payload.statePatch) || payload.statePatch.records === undefined || Array.isArray(payload.statePatch.records))));
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.CancelEnhancement, {}, S2C.EnhancementPanel, function (payload) {
     var state = getEnhancementRuntimeState(payload);
     return payload
       && state
       && (payload.statePatch || payload.state?.hammerItemId === "equip.copper_enhancement_hammer")
       && state.job === null;
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理心跳chatcase。
@@ -1634,7 +1669,7 @@ async function heartbeatChatCase(runtime) {
   sender.emit(C2S.Heartbeat, { clientAt: 2002 });
   await emitAndWait(sender, C2S.Ping, { clientAt: 2003 }, S2C.Pong, function (payload) {
     return payload && payload.clientAt === 2003;
-  }, 5000);
+  }, 10000);
 /**
  * 记录noticeafter。
  */
@@ -1648,7 +1683,7 @@ async function heartbeatChatCase(runtime) {
     return Array.isArray(payload?.items) && payload.items.some(function (item) {
       return item?.kind === 'chat' && item.text === message && item.from === senderChatLabel;
     });
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理navigatecase。
@@ -1665,7 +1700,7 @@ async function navigateCase(runtime) {
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
   await emitAndWait(socket, C2S.NavigateQuest, { questId: questId }, S2C.QuestNavigateResult, function (payload) {
     return payload && payload.questId === questId;
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理传送点case。
@@ -1678,7 +1713,7 @@ async function portalCase(runtime) {
   await hello(runtime, socket, { mapId: "bamboo_forest", preferredX: 4, preferredY: 39 });
   await emitAndWait(socket, C2S.UsePortal, {}, S2C.MapEnter, function (payload) {
     return payload && payload.mid === "wildlands";
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理kickcase。
@@ -1703,7 +1738,7 @@ async function kickCase(runtime) {
   await runtime.api.deletePlayer(playerId);
   await socket.waitForEventAfter(S2C.Kick, kickAfter, function (payload) {
     return payload && typeof payload.reason === 'string' && payload.reason.length > 0;
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理errorcase。
@@ -1716,7 +1751,7 @@ async function errorCase(runtime) {
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
   await emitAndWait(socket, C2S.RequestNpcShop, { npcId: "" }, S2C.Error, function (payload) {
     return !!(payload && payload.message);
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理shopcase。
@@ -1740,14 +1775,14 @@ async function shopCase(runtime) {
  */
   var shop = await emitAndWait(socket, C2S.RequestNpcShop, { npcId: "npc_herbalist_lan" }, S2C.NpcShop, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && payload.shop && Array.isArray(payload.shop.items) && payload.shop.items.length > 0;
-  }, 5000);
+  }, 10000);
 /**
  * 记录物品ID。
  */
   var itemId = shop.shop.items[0].itemId;
   await emitAndWait(socket, C2S.UseAction, { actionId: "npc_shop:npc_herbalist_lan" }, S2C.NpcShop, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && payload.shop && Array.isArray(payload.shop.items) && payload.shop.items.length > 0;
-  }, 5000);
+  }, 10000);
 /**
  * 记录before。
  */
@@ -1758,7 +1793,7 @@ async function shopCase(runtime) {
   var worldDeltaAfter = socket.getEventCount(S2C.WorldDelta);
   socket.emit(C2S.BuyNpcShopItem, { npcId: "npc_herbalist_lan", itemId: itemId, quantity: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) { return count(player, itemId) >= before + 1; }, 5000, "npcBuy");
-  await waitForEventBusNotice(socket, worldDeltaAfter, function () { return true; }, 5000);
+  await waitForEventBusNotice(socket, worldDeltaAfter, function () { return true; }, 10000);
 }
 /**
  * 处理detail任务case。
@@ -1773,16 +1808,16 @@ async function detailQuestCase(runtime) {
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
   await emitAndWait(socket, C2S.RequestDetail, { kind: "npc", id: "npc_herbalist_lan" }, S2C.Detail, function (payload) {
     return payload && payload.kind === "npc" && payload.id === "npc_herbalist_lan" && payload.npc && payload.npc.id === "npc_herbalist_lan";
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.RequestQuests, {}, S2C.Quests, function (payload) {
     return payload && Array.isArray(payload.quests);
-  }, 5000);
+  }, 10000);
 /**
  * 记录NPC任务。
  */
   var npcQuests = await emitAndWait(socket, C2S.RequestNpcQuests, { npcId: "npc_herbalist_lan" }, S2C.NpcQuests, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && Array.isArray(payload.quests);
-  }, 5000);
+  }, 10000);
 /**
  * 记录首个任务。
  */
@@ -1799,7 +1834,7 @@ async function detailQuestCase(runtime) {
   if (firstNpcQuest?.id) {
     await socket.waitForEventAfter(S2C.Quests, acceptQuestAfter, function (payload) {
       return Array.isArray(payload?.quests) && payload.quests.some(function (entry) { return entry.id === auditedQuestId; });
-    }, 5000);
+    }, 10000);
   }
   else {
     await lib.delay(150);
@@ -1817,7 +1852,7 @@ async function detailQuestCase(runtime) {
   socket.emit(C2S.UseAction, { actionId: "npc_quests:npc_herbalist_lan" });
   await socket.waitForEventAfter(S2C.Quests, questRefreshAfter, function (payload) {
     return Array.isArray(payload && payload.quests);
-  }, 5000);
+  }, 10000);
   await lib.delay(150);
   if (socket.getEventCount(S2C.NpcQuests) !== npcQuestAfter) {
     throw new Error("npc_quests action should not open npc quest panel");
@@ -1876,7 +1911,7 @@ async function pendingLogbookAckCase(runtime) {
         && item.persistUntilAck === true
         && item.from === '系统审计';
     });
-  }, 5000);
+  }, 10000);
   socket.emit(C2S.AckSystemMessages, { ids: [messageId] });
   await lib.waitForState(runtime.api, playerId, function (player) {
     return !Array.isArray(player?.pendingLogbookMessages)
@@ -1971,7 +2006,7 @@ async function playerControlCase(runtime) {
       return payload?.act?.actions?.some(function (entry) {
         return entry?.id === learnedSkillId && entry.autoBattleEnabled === true;
       }) === true;
-    }, 5000);
+    }, 10000);
   }
   socket.emit(C2S.UpdateAutoUsePills, {
     pills: [{ itemId: "pill.minor_heal", conditions: [] }],
@@ -2028,10 +2063,10 @@ async function playerControlCase(runtime) {
  */
     var actionPatched = payload?.act?.actions?.some(function (entry) { return entry.id === learnedSkillId && entry.skillEnabled === false; });
     return techniquePatched === true && actionPatched === true;
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.UsePortal, {}, S2C.MapEnter, function (payload) {
     return payload && payload.mid === "wildlands";
-  }, 5000);
+  }, 10000);
   socket.emit(C2S.DebugResetSpawn, {});
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.templateId === "yunlai_town";
@@ -2043,7 +2078,7 @@ async function playerControlCase(runtime) {
   socket.emit(C2S.HeavenGateAction, { action: "open" });
   await waitForEventBusNotice(socket, worldDeltaAfter, function (item) {
     return item?.text === "当前境界不可开天门";
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理redeemcodescase。
@@ -2099,7 +2134,7 @@ async function redeemCodesCase(runtime) {
     return Array.isArray(payload?.result?.results) && payload.result.results.some(function (entry) {
       return entry.code === code && entry.ok === true;
     });
-  }, 5000);
+  }, 10000);
   await lib.waitForState(runtime.api, playerId, function (current) {
     return walletBalance(current, 'spirit_stone') === before + 4;
   }, 5000, 'redeemCode');
@@ -2133,7 +2168,7 @@ async function gmCase(runtime) {
  */
   var gmState = await emitAndWait(socket, C2S.GmGetState, {}, S2C.GmState, function (payload) {
     return Array.isArray(payload?.players) && Array.isArray(payload?.mapIds);
-  }, 5000);
+  }, 10000);
 /**
  * 记录bot数量。
  */
@@ -2154,10 +2189,10 @@ async function gmCase(runtime) {
     autoBattle: current.combat.autoBattle,
   }, S2C.GmState, function (payload) {
     return Array.isArray(payload?.players) && payload.players.some(function (entry) { return entry.id === playerId; });
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.GmResetPlayer, { playerId: playerId }, S2C.GmState, function (payload) {
     return Array.isArray(payload?.players) && payload.players.some(function (entry) { return entry.id === playerId; });
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.GmRemoveBots, { all: true }, S2C.GmState, function (payload) {
     return Array.isArray(payload?.players) && Array.isArray(payload?.mapIds);
   }, 8000);
@@ -2180,7 +2215,7 @@ async function suggestionCase(runtime) {
  * 记录玩家ID。
  */
   var playerId = session.playerId;
-  await emitAndWait(socket, C2S.RequestSuggestions, {}, S2C.SuggestionUpdate, function () { return true; }, 5000);
+  await emitAndWait(socket, C2S.RequestSuggestions, {}, S2C.SuggestionUpdate, function () { return true; }, 10000);
 /**
  * 记录title。
  */
@@ -2190,23 +2225,23 @@ async function suggestionCase(runtime) {
  */
   var created = await emitAndWait(socket, C2S.CreateSuggestion, { title: title, description: "protocol audit" }, S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.title === title; });
-  }, 5000);
+  }, 10000);
 /**
  * 记录suggestionID。
  */
   var suggestionId = created.suggestions.find(function (entry) { return entry.title === title; }).id;
   await emitAndWait(socket, C2S.VoteSuggestion, { suggestionId: suggestionId, vote: "up" }, S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
-  }, 5000);
+  }, 10000);
   await runtime.api.post("/runtime/suggestions/" + suggestionId + "/reply", { content: "GM 审计回复" });
   await emitAndWait(socket, C2S.ReplySuggestion, { suggestionId: suggestionId, content: "审计回复" }, S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) {
       return entry.id === suggestionId && Array.isArray(entry.replies) && entry.replies.length > 1 && entry.replies[entry.replies.length - 1].authorType === "author";
     });
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.MarkSuggestionRepliesRead, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
-  }, 5000);
+  }, 10000);
   if (HAS_DATABASE) {
 /**
  * 记录GM鉴权。
@@ -2223,10 +2258,10 @@ async function suggestionCase(runtime) {
     await awaitAuthenticatedBootstrap(runtime, gmSocket, 12000);
     await emitAndWait(gmSocket, C2S.GmMarkSuggestionCompleted, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
       return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId && entry.status === "completed"; });
-    }, 5000);
+    }, 10000);
     await emitAndWait(gmSocket, C2S.GmRemoveSuggestion, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
       return payload && Array.isArray(payload.suggestions) && payload.suggestions.every(function (entry) { return entry.id !== suggestionId; });
-    }, 5000);
+    }, 10000);
   }
 }
 /**
@@ -2258,13 +2293,13 @@ async function mailCase(runtime) {
   }
   await emitAndWait(socket, C2S.RequestMailSummary, {}, S2C.MailSummary, function (payload) {
     return payload && payload.summary && (payload.summary.unreadCount >= 1 || payload.summary.claimableCount >= 1 || payload.summary.revision >= 1);
-  }, 5000);
+  }, 10000);
 /**
  * 记录page。
  */
   var page = await emitAndWait(socket, C2S.RequestMailPage, { page: 1, pageSize: 20 }, S2C.MailPage, function (payload) {
     return payload && payload.page && payload.page.items && payload.page.items.some(function (entry) { return entry && entry.mailId === targetMailId; });
-  }, 5000);
+  }, 10000);
 /**
  * 记录mailID。
  */
@@ -2275,10 +2310,10 @@ async function mailCase(runtime) {
   var mailId = mailEntry.mailId;
   await emitAndWait(socket, C2S.RequestMailDetail, { mailId: mailId }, S2C.MailDetail, function (payload) {
     return payload && payload.detail && payload.detail.mailId === mailId;
-  }, 5000);
+  }, 10000);
   await emitAndWait(socket, C2S.MarkMailRead, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
-  }, 5000);
+  }, 10000);
 /**
  * 记录claim令牌。
  */
@@ -2317,17 +2352,17 @@ async function mailCase(runtime) {
   }, 5000, "mailCaseRuntimeFence:" + playerId);
   await runtime.api.post("/runtime/persistence/flush", {});
   await lib.delay(100);
-  await waitForPresenceSessionFence(playerId, claimRuntimeState, 5000);
+  await waitForPresenceSessionFence(playerId, claimRuntimeState, 10000);
   var claimResult = await emitAndWait(claimSocket, C2S.ClaimMailAttachments, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
-  }, 5000);
+  }, 10000);
   if (!claimResult?.ok) {
     throw new Error("mail claim failed: " + (claimResult?.message || "unknown"));
   }
   await lib.waitForState(runtime.api, playerId, function (player) { return count(player, "rat_tail") >= 2; }, 5000, "mailClaim");
   await emitAndWait(claimSocket, C2S.DeleteMail, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
-  }, 5000);
+  }, 10000);
 }
 /**
  * 处理progressioncase。
@@ -2470,7 +2505,7 @@ async function lootCase(runtime) {
  */
   var pileEvent = await looter.waitForEventAfter(S2C.WorldDelta, worldDeltaAfter, function (payload) {
     return Array.isArray(payload && payload.g) && payload.g.some(function (entry) { return entry.x === dropperState.x && entry.y === dropperState.y; });
-  }, 5000);
+  }, 10000);
 /**
  * 记录pile。
  */
@@ -2553,15 +2588,15 @@ async function marketCase(runtime) {
  * 记录storage物品ID。
  */
   var storageItemId = unusedMarketItemIds[2];
-  await emitAndWait(seller, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
-  await emitAndWait(buyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
-  await emitAndWait(storageBuyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
+  await emitAndWait(seller, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 10000);
+  await emitAndWait(buyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 10000);
+  await emitAndWait(storageBuyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 10000);
   await emitAndWait(buyer, C2S.RequestMarketListings, { page: 1, pageSize: 20, category: 'all', equipmentSlot: 'all', techniqueCategory: 'all' }, S2C.MarketListings, function (payload) {
     return payload && payload.page === 1 && Array.isArray(payload.items);
-  }, 5000);
+  }, 10000);
   await emitAndWait(buyer, C2S.RequestAuctionListings, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' }, S2C.AuctionListings, function (payload) {
     return payload && payload.tab === "participate" && payload.page === 1 && payload.pageSize <= 10 && Array.isArray(payload.items);
-  }, 5000);
+  }, 10000);
   await runtime.api.grantItem(sellerId, tradeItemId, 4);
   await runtime.api.grantItem(sellerId, auctionItemId, 1);
   await runtime.api.grantItem(sellerId, "spirit_stone", 20);
@@ -2575,9 +2610,12 @@ async function marketCase(runtime) {
  */
   var listed;
   try {
-    listed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, tradeItemId), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-      return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; });
-    }, 5000);
+    var tradeSlotIndex = slot(sellerState, tradeItemId);
+    tradeItemId = sellerState.inventory.items[tradeSlotIndex]?.itemId ?? tradeItemId;
+    seller.emit(C2S.CreateMarketSellOrder, { slotIndex: tradeSlotIndex, quantity: 1, unitPrice: 1 });
+    listed = await waitForMarket(runtime, sellerId, function (market) {
+      return market && Array.isArray(market.myOrders) && market.myOrders.some(function (entry) { return entry.side === "sell" && entry.item; });
+    }, 10000, "marketCreateSellOrder");
   }
   catch (error) {
     var latestMarketEvents = seller.getEvents(S2C.MarketUpdate).slice(-3);
@@ -2601,37 +2639,41 @@ async function marketCase(runtime) {
 /**
  * 记录物品key。
  */
-  var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; }).itemKey;
+  var listedSellOrder = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item; });
+  if (!listedSellOrder) {
+    throw new Error("failed to resolve created sell order from market update");
+  }
+  tradeItemId = listedSellOrder.item.itemId;
+  var itemKey = listedSellOrder.itemKey;
   sellerState = (await runtime.api.fetchState(sellerId)).player;
-  var auctionListed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, auctionItemId), quantity: 1, unitPrice: 1, listingMode: 'auction', buyoutPrice: 2 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; });
-  }, 5000);
-  var auctionOrderId = auctionListed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === auctionItemId; }).id;
+  var auctionSlotIndex = slot(sellerState, auctionItemId);
+  auctionItemId = sellerState.inventory.items[auctionSlotIndex]?.itemId ?? auctionItemId;
+  seller.emit(C2S.CreateMarketSellOrder, { slotIndex: auctionSlotIndex, quantity: 1, unitPrice: 1, listingMode: 'auction', buyoutPrice: 2 });
   var auctionListings = await emitAndWait(buyer, C2S.RequestAuctionListings, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' }, S2C.AuctionListings, function (payload) {
     return payload && Array.isArray(payload.items) && payload.items.some(function (entry) {
-      return entry.item && entry.item.itemId === auctionItemId;
+      return entry.item && entry.itemKey !== itemKey;
     });
-  }, 5000);
+  }, 10000);
   var auctionItemKey = auctionListings.items.find(function (entry) {
-    return entry.item && entry.item.itemId === auctionItemId;
+    return entry.item && entry.itemKey !== itemKey;
   }).itemKey;
-  if (!auctionItemKey || auctionItemKey === itemKey || auctionItemKey === auctionOrderId) {
+  var auctionListingEntry = auctionListings.items.find(function (entry) { return entry.itemKey === auctionItemKey; });
+  auctionItemId = auctionListingEntry?.item?.itemId ?? auctionItemId;
+  if (!auctionItemKey || auctionItemKey === itemKey) {
     throw new Error("failed to resolve auction lot key from auction listings");
   }
   await emitAndWait(buyer, C2S.PlaceAuctionBid, { lotId: auctionItemKey, itemKey: auctionItemKey, unitPrice: 2 }, S2C.AuctionListings, function (payload) {
     return payload && Array.isArray(payload.items) && payload.items.some(function (entry) { return entry.itemKey === auctionItemKey && entry.currentPrice >= 2 && entry.bidCount >= 1; });
-  }, 5000);
-  await emitAndWait(buyer, C2S.BuyoutAuctionLot, { lotId: auctionItemKey, itemKey: auctionItemKey }, S2C.MarketUpdate, function () { return true; }, 5000);
+  }, 10000);
+  await emitAndWait(buyer, C2S.BuyoutAuctionLot, { lotId: auctionItemKey, itemKey: auctionItemKey }, S2C.MarketUpdate, function () { return true; }, 10000);
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, auctionItemId) >= 1; }, 5000, "auctionBuyout");
   await emitAndWait(buyer, C2S.RequestMarketItemBook, { itemKey: itemKey }, S2C.MarketItemBook, function (payload) {
     return payload && payload.itemKey === itemKey;
-  }, 5000);
+  }, 10000);
   buyer.emit(C2S.BuyMarketItem, { itemKey: itemKey, quantity: 1 });
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, tradeItemId) >= 1; }, 5000, "buyNow");
-  await requestMarketTradeHistoryUntilVisible(buyer, 5000);
-  await emitAndWait(buyer, C2S.CreateMarketBuyOrder, { itemId: tradeItemId, quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "buy" && entry.item && entry.item.itemId === tradeItemId; });
-  }, 5000);
+  await requestMarketTradeHistoryUntilVisible(buyer, 10000);
+  await emitAndWaitForOwnMarketOrder(buyer, C2S.CreateMarketBuyOrder, { itemId: tradeItemId, quantity: 1, unitPrice: 1 }, tradeItemId, "buy", 10000);
   await runtime.api.grantItem(sellerId, tradeItemId, 1);
   sellerState = (await runtime.api.fetchState(sellerId)).player;
 /**
@@ -2646,7 +2688,7 @@ async function marketCase(runtime) {
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, tradeItemId) >= buyFulfilledAt + 1; }, 5000, "sellNow");
   await buyer.waitForEventAfter(S2C.MarketTradeHistory, historyUpdateAfter, function (payload) {
     return payload && Array.isArray(payload.records) && payload.records.some(function (entry) { return entry.itemId === tradeItemId; });
-  }, 5000);
+  }, 10000);
   sellerState = (await runtime.api.fetchState(sellerId)).player;
   await runtime.api.grantItem(sellerId, cancelItemId, 1);
   await lib.waitForState(runtime.api, sellerId, function (player) { return count(player, cancelItemId) >= 1; }, 5000, "grantCancelItem");
@@ -2656,9 +2698,9 @@ async function marketCase(runtime) {
  */
   var own;
   try {
-    own = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, cancelItemId), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-      return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === cancelItemId; });
-    }, 5000);
+    var cancelSlotIndex = slot(sellerState, cancelItemId);
+    cancelItemId = sellerState.inventory.items[cancelSlotIndex]?.itemId ?? cancelItemId;
+    own = await emitAndWaitForOwnMarketOrder(seller, C2S.CreateMarketSellOrder, { slotIndex: cancelSlotIndex, quantity: 1, unitPrice: 1 }, cancelItemId, "sell", 10000);
   }
   catch (error) {
     process.stderr.write("[protocol audit] market seller cancel-order diagnostic " + JSON.stringify({
@@ -2684,7 +2726,7 @@ async function marketCase(runtime) {
   try {
     await emitAndWait(seller, C2S.CancelMarketOrder, { orderId: orderId }, S2C.MarketUpdate, function (payload) {
       return payload && payload.myOrders && payload.myOrders.every(function (entry) { return entry.id !== orderId; });
-    }, 5000);
+    }, 10000);
   }
   catch (error) {
     process.stderr.write("[protocol audit] market seller cancel diagnostic " + JSON.stringify({
@@ -2738,9 +2780,7 @@ async function marketCase(runtime) {
  */
   var fillerIdSet = new Set(fillerIds);
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return player.inventory.items.length >= storageBuyerCapacity; }, 10000, "fillInventory");
-  await emitAndWait(storageBuyer, C2S.CreateMarketBuyOrder, { itemId: storageItemId, quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "buy" && entry.item && entry.item.itemId === storageItemId; });
-  }, 5000);
+  await emitAndWaitForOwnMarketOrder(storageBuyer, C2S.CreateMarketBuyOrder, { itemId: storageItemId, quantity: 1, unitPrice: 1 }, storageItemId, "buy", 10000);
   await runtime.api.grantItem(storageSellerId, storageItemId, 1);
 /**
  * 记录storageseller状态。

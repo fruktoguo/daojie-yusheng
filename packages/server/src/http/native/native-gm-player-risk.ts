@@ -216,13 +216,16 @@ async function buildSimilarAccountClusterRiskFactor(account: NativeGmRiskAccount
     return createPlayerRiskFactor('similar-account-cluster', '相似账号簇', 20, 0, '当前数据库未启用，无法联查同前缀账号簇。');
   }
   const pattern = `^${escapeSqlRegex(serialPattern.prefix)}[0-9]{3,}$`;
+  const prefixLikePattern = `${escapeSqlLike(serialPattern.prefix)}%`;
   const aggregate = await queryOne<{ total_count?: unknown; banned_count?: unknown }>(pool, `
     SELECT
       COUNT(*) AS total_count,
       COALESCE(SUM(CASE WHEN banned_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS banned_count
     FROM server_player_auth
-    WHERE user_id <> $1 AND username ~* $2
-  `, [userId, pattern]);
+    WHERE user_id <> $1
+      AND lower(username) LIKE $2 ESCAPE '\\'
+      AND username ~* $3
+  `, [userId, prefixLikePattern, pattern]);
   const totalCount = normalizeInteger(aggregate?.total_count, 0);
   if (totalCount <= 0) {
     return createPlayerRiskFactor('similar-account-cluster', '相似账号簇', 20, 0, '未发现同前缀纯数字尾号账号簇。');
@@ -230,10 +233,12 @@ async function buildSimilarAccountClusterRiskFactor(account: NativeGmRiskAccount
   const previewRows = await queryMany<{ username?: unknown }>(pool, `
     SELECT username
     FROM server_player_auth
-    WHERE user_id <> $1 AND username ~* $2
+    WHERE user_id <> $1
+      AND lower(username) LIKE $2 ESCAPE '\\'
+      AND username ~* $3
     ORDER BY created_at DESC
     LIMIT 5
-  `, [userId, pattern]);
+  `, [userId, prefixLikePattern, pattern]);
   const bannedCount = normalizeInteger(aggregate?.banned_count, 0);
   let score = totalCount >= 10 ? 18 : totalCount >= 5 ? 12 : 8;
   if (bannedCount > 0) {
@@ -596,6 +601,10 @@ function isContactStyleSerialAccountPattern(pattern: { prefix: string; digits: s
 
 function escapeSqlRegex(value: string): string {
   return value.replace(/[\\^$.*+?()[\]{}|]/gu, '\\$&');
+}
+
+function escapeSqlLike(value: string): string {
+  return value.replace(/[\\%_]/gu, (char) => `\\${char}`);
 }
 
 function getAccountAgeDays(account: { createdAt?: string | null } | null | undefined): number {

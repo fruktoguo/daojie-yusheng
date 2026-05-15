@@ -200,8 +200,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
-    flushMarketResult(result) {
-        this.gateway.worldClientEventService.flushMarketResult(this.gateway.gatewaySessionStateHelper.getMarketSubscribers(), result, {
+    async flushMarketResult(result) {
+        await this.gateway.worldClientEventService.flushMarketResult(this.gateway.gatewaySessionStateHelper.getMarketSubscribers(), result, {
             marketListingRequests: this.gateway.gatewaySessionStateHelper.getMarketListingRequests(),
             auctionListingRequests: this.gateway.gatewaySessionStateHelper.getAuctionListingRequests(),
             marketTradeHistoryRequests: this.gateway.gatewaySessionStateHelper.getMarketTradeHistoryRequests(),

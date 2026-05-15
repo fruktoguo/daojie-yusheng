@@ -261,8 +261,8 @@ async function main() {
     /**
  * 保存当前值映射。
  */
-    const filteredStatePath = `/api/gm/state?page=1&pageSize=1&sort=name&keyword=${encodeURIComponent(runtimePlayerId)}`;
-    const filteredGmState = assertGmStateShape(await authedGetJson(filteredStatePath, token), filteredStatePath);
+    const filteredStatePath = `/api/gm/players?page=1&pageSize=1&sort=name&keyword=${encodeURIComponent(runtimePlayerId)}&refresh=1`;
+    const filteredGmState = assertGmStateShape(await authedGetJson(filteredStatePath, token), filteredStatePath, { requireStateFields: false });
     assertGmStateQueryContract(filteredGmState, {
         expectedPlayerId: runtimePlayerId,
         keyword: runtimePlayerId,
@@ -470,16 +470,16 @@ async function fetchGmMapRuntime(token, mapId, viewerId, x, y) {
 /**
  * 断言GM状态shape。
  */
-function assertGmStateShape(payload, label) {
+function assertGmStateShape(payload, label, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
         throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
     }
-    if (!Array.isArray(payload.players) || !Array.isArray(payload.mapIds)) {
+    if (!Array.isArray(payload.players) || (options.requireStateFields !== false && !Array.isArray(payload.mapIds))) {
         throw new Error(`unexpected ${label} collections: ${JSON.stringify(payload)}`);
     }
-    if (payload.mapIds.length === 0 || !payload.mapIds.every((entry) => typeof entry === 'string' && entry.trim().length > 0)) {
+    if (options.requireStateFields !== false && (payload.mapIds.length === 0 || !payload.mapIds.every((entry) => typeof entry === 'string' && entry.trim().length > 0))) {
         throw new Error(`unexpected ${label} mapIds: ${JSON.stringify(payload.mapIds)}`);
     }
     if (!Number.isFinite(payload?.playerPage?.page)
@@ -519,7 +519,9 @@ function assertGmStateShape(payload, label) {
         })}`);
     }
     payload.players.forEach((player, index) => assertGmManagedPlayerSummaryShape(player, `${label}.players[${index}]`));
-    assertGmPerformanceSnapshotShape(payload.perf, `${label}.perf`);
+    if (options.requireStateFields !== false) {
+        assertGmPerformanceSnapshotShape(payload.perf, `${label}.perf`);
+    }
     return payload;
 }
 /**

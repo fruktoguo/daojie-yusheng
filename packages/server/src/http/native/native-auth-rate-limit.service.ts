@@ -35,7 +35,7 @@ interface RateLimitBucket {
 
 const RATE_LIMIT_CONFIG: Record<RateLimitScope, RateLimitConfig> = {
   register: { windowMs: 10 * 60 * 1000, blockMs: 30 * 60 * 1000, maxIpFailures: 8, maxSubjectFailures: 4, message: '注册尝试过于频繁，请稍后再试。' },
-  login: { windowMs: 10 * 60 * 1000, blockMs: 20 * 60 * 1000, maxIpFailures: 12, maxSubjectFailures: 6, message: '登录尝试过于频繁，请稍后再试。' },
+  login: { windowMs: 10 * 60 * 1000, blockMs: 30 * 1000, maxIpFailures: 12, maxSubjectFailures: 6, message: '登录尝试过于频繁，请稍后再试。' },
   refresh: { windowMs: 10 * 60 * 1000, blockMs: 15 * 60 * 1000, maxIpFailures: 20, maxSubjectFailures: 10, message: '刷新登录态过于频繁，请稍后再试。' },
   gmLogin: { windowMs: 15 * 60 * 1000, blockMs: 30 * 60 * 1000, maxIpFailures: 6, maxSubjectFailures: 4, message: 'GM 登录尝试过于频繁，请稍后再试。' },
 };

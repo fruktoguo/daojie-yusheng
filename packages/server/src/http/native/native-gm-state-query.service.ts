@@ -8,6 +8,7 @@ import {
   VIEW_RADIUS,
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
+  type GmPlayerListRes,
   type GmPlayerAccountStatusFilter,
   type GmPlayerSortMode,
 } from '@mud/shared';
@@ -21,6 +22,24 @@ import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
+const GM_PERSISTED_PLAYER_SUMMARY_CACHE_TTL_MS = 60_000;
+const GM_PLAYER_LIST_VIEW_CACHE_TTL_MS = 60_000;
+const GM_PLAYER_RISK_ENRICH_CONCURRENCY = 8;
+const GM_PLAYER_RISK_SEARCH_KEYWORDS = [
+  '风险',
+  '账号完整性',
+  '账号命名模式',
+  '相似账号簇',
+  '账号年龄',
+  '重复 ip',
+  '重复ip',
+  '重复设备',
+  '坊市关系',
+  'low',
+  'medium',
+  'high',
+  'critical',
+];
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -63,7 +82,7 @@ interface NativeManagedAccountServiceLike {
 
 
 interface RuntimeGmStateServiceLike {
-  buildPerformanceSnapshot(): any;
+  buildPerformanceSnapshot(options?: { includeMemoryEstimate?: boolean }): any;
   buildSharedGmStatePerf(): any;
 }
 /**
@@ -142,6 +161,7 @@ interface PlayerProgressionServiceLike {
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): any[];
+  listGmPlayerSummaries?(): any[];
   buildStarterPersistenceSnapshot(playerId: string): any | null;
 }
 interface GmPersistedPlayerSummaryRow {
@@ -173,6 +193,23 @@ interface GmPersistedPlayerSummaryRow {
   in_world?: unknown;
   updated_at_ms?: unknown;
 }
+
+interface GmPersistedPlayerSummaryEntry {
+  summary: GmManagedPlayerSummary;
+  account: ManagedAccountEntryLike | null;
+}
+
+interface GmPlayerSearchEntry {
+  summary: GmManagedPlayerSummary;
+  account: ManagedAccountEntryLike | null;
+  searchText: string;
+}
+interface GmPlayerListViewSnapshot {
+  players: GmManagedPlayerSummary[];
+  playerPage: ReturnType<typeof buildPlayerPage>;
+  playerStats: ReturnType<typeof buildPlayerSearchStats>;
+  botCount: number;
+}
 /**
  * PerformanceTimerState：定义接口结构约束，明确可交付字段含义。
  */
@@ -203,6 +240,9 @@ interface NormalizedGmListPlayersQuery {
   keywordNeedle: string;
   sort: GmPlayerSortMode;
   accountStatus: GmPlayerAccountStatusFilter;
+  includeMemoryEstimate: boolean;
+  includePlayers: boolean;
+  refresh: boolean;
 }
 
 const DEFAULT_GM_PAGE_SIZE = 50;
@@ -214,6 +254,12 @@ const MAX_GM_PAGE_SIZE = 200;
 
 @Injectable()
 export class NativeGmStateQueryService {
+  private persistedPlayerSummaryCache: GmPersistedPlayerSummaryEntry[] | null = null;
+  private persistedPlayerSummaryCacheExpiresAt = 0;
+  private persistedPlayerSummaryCachePromise: Promise<GmPersistedPlayerSummaryEntry[]> | null = null;
+  private persistedPlayerSummaryCacheGeneration = 0;
+  private playerListViewCache = new Map<string, { expiresAt: number; snapshot: GmPlayerListViewSnapshot }>();
+  private playerListViewCacheGeneration = 0;
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param nextManagedAccountService NativeManagedAccountServiceLike 参数说明。
@@ -249,31 +295,138 @@ export class NativeGmStateQueryService {
 
 
   async getState(query: GmListPlayersQuery | undefined, timers: PerformanceTimerState) {
-    const perf = this.buildPerformanceSnapshot(timers);
-    const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
+    const normalizedQuery = normalizeGmListPlayersQuery(query);
+    const perf = this.buildPerformanceSnapshot(timers, {
+      includeMemoryEstimate: normalizedQuery.includeMemoryEstimate,
+    });
+    if (!normalizedQuery.includePlayers) {
+      const summary = await this.buildLightPlayerListSummary(normalizedQuery);
+      return {
+        players: [],
+        playerPage: summary.playerPage,
+        playerStats: summary.playerStats,
+        mapIds: this.listSortedMapIds(),
+        botCount: summary.botCount,
+        perf,
+      };
+    }
+    const listView = await this.listPlayersByQuery(normalizedQuery);
+
+    return {
+      ...listView,
+      perf,
+    };
+  }
+
+  async listPlayers(query: GmListPlayersQuery | undefined): Promise<GmPlayerListRes> {
+    const normalizedQuery = normalizeGmListPlayersQuery({
+      ...query,
+      includePlayers: true,
+    });
+    return this.listPlayersByQuery(normalizedQuery);
+  }
+
+  private async listPlayersByQuery(normalizedQuery: NormalizedGmListPlayersQuery): Promise<GmPlayerListRes> {
+    const cacheKey = buildPlayerListViewCacheKey(normalizedQuery);
+    const now = Date.now();
+    const cached = this.playerListViewCache.get(cacheKey);
+    if (!normalizedQuery.refresh && cached && now < cached.expiresAt) {
+      return cached.snapshot;
+    }
+    const cacheGeneration = this.playerListViewCacheGeneration;
+
+    const searchEntries = await this.buildPlayerSearchEntries();
+    const shouldUseFullRisk = shouldUseFullRiskPlayerSearch(normalizedQuery);
+    const searchableEntries = shouldUseFullRisk
+      ? await this.enrichSearchEntries(searchEntries)
+      : searchEntries;
+    const filteredEntries = filterPlayerSearchEntries(searchableEntries, normalizedQuery.keywordNeedle, normalizedQuery.accountStatus);
+    const sortedEntries = sortPlayerSearchEntries(filteredEntries, normalizedQuery.sort);
+    const playerPage = buildPlayerPage(normalizedQuery, sortedEntries.length);
+    const pageEntries = slicePlayerSearchEntries(sortedEntries, playerPage.page, playerPage.pageSize);
+    const players = shouldUseFullRisk
+      ? pageEntries.map((entry) => entry.summary)
+      : (await this.enrichSearchEntries(pageEntries)).map((entry) => entry.summary);
+
+    const snapshot = {
+      players,
+      playerPage,
+      playerStats: buildPlayerSearchStats(filteredEntries),
+      botCount: filteredEntries.reduce((count, entry) => count + (entry.summary.meta.isBot ? 1 : 0), 0),
+    };
+    if (this.playerListViewCacheGeneration === cacheGeneration) {
+      this.rememberPlayerListViewCache(cacheKey, snapshot);
+    }
+    return snapshot;
+  }
+
+  private async buildLightPlayerListSummary(normalizedQuery: NormalizedGmListPlayersQuery): Promise<Pick<GmPlayerListRes, 'playerPage' | 'playerStats' | 'botCount'>> {
+    const searchEntries = await this.buildPlayerSearchEntries();
+    const filteredEntries = filterPlayerSearchEntries(searchEntries, normalizedQuery.keywordNeedle, normalizedQuery.accountStatus);
+    return {
+      playerPage: buildPlayerPage(normalizedQuery, filteredEntries.length),
+      playerStats: buildPlayerSearchStats(filteredEntries),
+      botCount: filteredEntries.reduce((count, entry) => count + (entry.summary.meta.isBot ? 1 : 0), 0),
+    };
+  }
+
+  private async buildPlayerSearchEntries(): Promise<GmPlayerSearchEntry[]> {
+    const runtimePlayers = typeof this.playerRuntimeService.listGmPlayerSummaries === 'function'
+      ? this.playerRuntimeService.listGmPlayerSummaries()
+      : this.playerRuntimeService.listPlayerSnapshots();
     const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex(
       runtimePlayers.map((entry) => entry.playerId),
     );
-    const persistedSummaries = await this.listPersistedPlayerSummaries();
-    const allPlayers = await this.buildManagedPlayers(runtimePlayers, persistedSummaries, accountIndex);
-    const normalizedQuery = normalizeGmListPlayersQuery(query);
-    const filteredPlayers = filterManagedPlayers(allPlayers, normalizedQuery.keywordNeedle, normalizedQuery.accountStatus);
-    const sortedPlayers = sortManagedPlayers(filteredPlayers, normalizedQuery.sort);
-    const playerPage = buildPlayerPage(normalizedQuery, sortedPlayers.length);
-    const players = sliceManagedPlayers(sortedPlayers, playerPage.page, playerPage.pageSize);
+    const persistedEntries = await this.listPersistedPlayerSummaries();
+    const entries = runtimePlayers.map((snapshot) => {
+      const account = accountIndex.get(snapshot.playerId) ?? null;
+      return this.toPlayerSearchEntry(this.toManagedPlayerSummary(snapshot, account), account);
+    });
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
+    for (const { summary, account } of persistedEntries) {
+      if (runtimePlayerIds.has(summary.id)) {
+        continue;
+      }
+      entries.push(this.toPlayerSearchEntry(summary, account));
+    }
+
+    return entries;
+  }
+
+  private rememberPlayerListViewCache(cacheKey: string, snapshot: GmPlayerListViewSnapshot): void {
+    if (this.playerListViewCache.size > 24) {
+      this.playerListViewCache.clear();
+    }
+    this.playerListViewCache.set(cacheKey, {
+      expiresAt: Date.now() + GM_PLAYER_LIST_VIEW_CACHE_TTL_MS,
+      snapshot,
+    });
+  }
+
+  invalidatePlayerListCaches(): void {
+    this.playerListViewCache.clear();
+    this.playerListViewCacheGeneration += 1;
+    this.persistedPlayerSummaryCache = null;
+    this.persistedPlayerSummaryCacheExpiresAt = 0;
+    this.persistedPlayerSummaryCachePromise = null;
+    this.persistedPlayerSummaryCacheGeneration += 1;
+  }
+
+  private listSortedMapIds(): string[] {
+    return this.mapTemplateRepository
+      .listSummaries()
+      .map((entry) => entry.id)
+      .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+  }
+
+  private toPlayerSearchEntry(summary: GmManagedPlayerSummary, account: ManagedAccountEntryLike | null): GmPlayerSearchEntry {
     return {
-      players,
-      playerPage,
-      playerStats: buildManagedPlayerStats(filteredPlayers),
-      mapIds: this.mapTemplateRepository
-        .listSummaries()
-        .map((entry) => entry.id)
-        .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')),
-      botCount: filteredPlayers.reduce((count, snapshot) => count + (snapshot.meta.isBot ? 1 : 0), 0),
-      perf,
+      summary,
+      account,
+      searchText: buildPlayerSearchText(summary),
     };
-  }  
+  }
   /**
  * collectManagedPlayerIds：执行Managed玩家ID相关逻辑。
  * @param runtimePlayers 参数说明。
@@ -282,25 +435,35 @@ export class NativeGmStateQueryService {
  */
 
 
-  private async buildManagedPlayers(runtimePlayers, persistedSummaries: GmManagedPlayerSummary[], accountIndex) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const players = (await Promise.all(runtimePlayers
-      .map((snapshot) => this.toManagedPlayerSummary(snapshot, accountIndex.get(snapshot.playerId)))))
-      .sort(compareManagedPlayerSummary);
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    for (const summary of persistedSummaries) {
-      if (runtimePlayerIds.has(summary.id)) {
-        continue;
-      }
-      players.push(summary);
+  private async listPersistedPlayerSummaries(): Promise<GmPersistedPlayerSummaryEntry[]> {
+    const now = Date.now();
+    if (this.persistedPlayerSummaryCache && now < this.persistedPlayerSummaryCacheExpiresAt) {
+      return this.persistedPlayerSummaryCache.slice();
     }
+    if (this.persistedPlayerSummaryCachePromise) {
+      return (await this.persistedPlayerSummaryCachePromise).slice();
+    }
+    const cacheGeneration = this.persistedPlayerSummaryCacheGeneration;
+    const cachePromise = this.loadPersistedPlayerSummaries();
+    this.persistedPlayerSummaryCachePromise = cachePromise;
+    try {
+      const entries = await cachePromise;
+      if (
+        this.persistedPlayerSummaryCacheGeneration === cacheGeneration
+        && this.persistedPlayerSummaryCachePromise === cachePromise
+      ) {
+        this.persistedPlayerSummaryCache = entries;
+        this.persistedPlayerSummaryCacheExpiresAt = Date.now() + GM_PERSISTED_PLAYER_SUMMARY_CACHE_TTL_MS;
+      }
+      return entries.slice();
+    } finally {
+      if (this.persistedPlayerSummaryCachePromise === cachePromise) {
+        this.persistedPlayerSummaryCachePromise = null;
+      }
+    }
+  }
 
-    players.sort(compareManagedPlayerSummary);
-    return players;
-  }  
-  private async listPersistedPlayerSummaries(): Promise<GmManagedPlayerSummary[]> {
+  private async loadPersistedPlayerSummaries(): Promise<GmPersistedPlayerSummaryEntry[]> {
     const pool = this.databasePoolProvider.getPool('gm-state-summary');
     if (!pool) {
       return [];
@@ -357,10 +520,10 @@ export class NativeGmStateQueryService {
       ORDER BY rw.player_id ASC
     `);
 
-    return Promise.all(result.rows.map((row) => this.toManagedPlayerSummaryFromSummaryRow(row)));
+    return Promise.all(result.rows.map((row) => this.toManagedPlayerSummaryEntryFromSummaryRow(row)));
   }
 
-  private async toManagedPlayerSummaryFromSummaryRow(row: GmPersistedPlayerSummaryRow): Promise<GmManagedPlayerSummary> {
+  private async toManagedPlayerSummaryEntryFromSummaryRow(row: GmPersistedPlayerSummaryRow): Promise<GmPersistedPlayerSummaryEntry> {
     const playerId = normalizeDisplayString(row.player_id) || 'unknown-player';
     const playerNo = normalizeOptionalPlayerNo(row.player_no);
     const roleName = normalizeDisplayString(row.role_name) || playerId;
@@ -376,7 +539,7 @@ export class NativeGmStateQueryService {
         : undefined,
       dirtyFlags: [],
     };
-    const riskView = await buildNativeGmPlayerRiskView({
+    const account = {
       userId: meta.userId,
       username: normalizeDisplayString(row.username) || undefined,
       createdAt: normalizeDateString(row.created_at),
@@ -386,16 +549,13 @@ export class NativeGmStateQueryService {
       registerDeviceId: normalizeDisplayString(row.register_device_id) || undefined,
       lastLoginDeviceId: normalizeDisplayString(row.last_login_device_id) || undefined,
       bannedAt: normalizeDateString(row.banned_at),
-    }, {
-      id: playerId,
-      name: roleName,
-      autoBattle: row.auto_battle === true,
-      autoBattleStationary: row.auto_battle_stationary === true,
-      autoRetaliate: row.auto_retaliate !== false,
-      meta,
-    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
+      isRiskAdmin: false,
+    };
+    const riskView = buildCheapGmPlayerRiskView(account, { meta });
 
     return {
+      account,
+      summary: {
       id: playerId,
       playerNo,
       name: roleName,
@@ -421,6 +581,39 @@ export class NativeGmStateQueryService {
       riskTags: riskView.riskTags,
       isRiskAdmin: riskView.isRiskAdmin,
       meta,
+      },
+    };
+  }
+
+  private async enrichSearchEntries(
+    entries: GmPlayerSearchEntry[],
+  ): Promise<GmPlayerSearchEntry[]> {
+    return mapWithConcurrency(entries, GM_PLAYER_RISK_ENRICH_CONCURRENCY, async (entry) => {
+      const summary = await this.enrichPlayerWithRisk(entry.summary, entry.account);
+      return this.toPlayerSearchEntry(summary, entry.account);
+    });
+  }
+
+  private async enrichPlayerWithRisk(
+    player: GmManagedPlayerSummary,
+    account: ManagedAccountEntryLike | null,
+  ): Promise<GmManagedPlayerSummary> {
+    const riskView = await buildNativeGmPlayerRiskView(account, {
+      id: player.id,
+      name: player.roleName,
+      autoBattle: player.autoBattle,
+      autoBattleStationary: player.autoBattleStationary,
+      autoRetaliate: player.autoRetaliate,
+      meta: player.meta,
+    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
+
+    return {
+      ...player,
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
     };
   }
   /**
@@ -430,8 +623,10 @@ export class NativeGmStateQueryService {
  */
 
 
-  private buildPerformanceSnapshot(timers: PerformanceTimerState) {
-    const perf: any = this.runtimeGmStateService.buildPerformanceSnapshot();
+  private buildPerformanceSnapshot(timers: PerformanceTimerState, options?: { includeMemoryEstimate?: boolean }) {
+    const perf: any = this.runtimeGmStateService.buildPerformanceSnapshot({
+      includeMemoryEstimate: options?.includeMemoryEstimate === true,
+    });
     const now = Date.now();
     const sharedGmStatePerf: any = this.runtimeGmStateService.buildSharedGmStatePerf();
 
@@ -460,46 +655,48 @@ export class NativeGmStateQueryService {
  */
 
 
-  private async toManagedPlayerSummary(snapshot, account = null) {
-    const player = this.toLegacyPlayerState(snapshot);
-    const roleName = resolveManagedPlayerName(player, account, player.id);
-    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+  private toManagedPlayerSummary(snapshot, account = null) {
+    const playerId = typeof snapshot.playerId === 'string' ? snapshot.playerId : 'unknown-player';
+    const playerNameSource = {
+      id: playerId,
+      name: snapshot.name,
+      displayName: snapshot.displayName,
+    };
+    const roleName = resolveManagedPlayerName(playerNameSource, account, playerId);
+    const displayName = resolveManagedPlayerDisplayName(playerNameSource, account, roleName);
     const meta = {
       userId: account?.userId,
-      isBot: player.isBot === true,
-      online: player.online === true,
-      inWorld: player.inWorld !== false,
+      isBot: isNativeGmBotPlayerId(playerId),
+      online: typeof snapshot.sessionId === 'string' && snapshot.sessionId.length > 0,
+      inWorld: typeof snapshot.instanceId === 'string' && snapshot.instanceId.length > 0,
       dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
     };
-    const riskView = await buildNativeGmPlayerRiskView(account, {
-      id: player.id,
-      name: roleName,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
-      meta,
-    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
+    const riskView = buildCheapGmPlayerRiskView(account, { meta });
+    const mapId = typeof snapshot.templateId === 'string' && snapshot.templateId.trim()
+      ? snapshot.templateId.trim()
+      : 'yunlai_town';
+    const hp = normalizeInteger(snapshot.hp, 1);
 
     return {
-      id: player.id,
+      id: playerId,
       playerNo: account?.playerNo ?? null,
       name: roleName,
       roleName,
       displayName,
       accountName: account?.username,
-      mapId: player.mapId,
-      mapName: this.resolveMapName(player.mapId),
-      realmLv: player.realmLv ?? 1,
-      realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
-      x: player.x,
-      y: player.y,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      dead: player.dead,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
+      mapId,
+      mapName: this.resolveMapName(mapId),
+      realmLv: normalizeInteger(snapshot.realm?.realmLv, 1),
+      realmLabel: snapshot.realm?.displayName ?? snapshot.realm?.name ?? '凡胎',
+      x: normalizeInteger(snapshot.x, 0),
+      y: normalizeInteger(snapshot.y, 0),
+      hp,
+      maxHp: normalizeInteger(snapshot.maxHp, 1),
+      qi: normalizeInteger(snapshot.qi, 0),
+      dead: hp <= 0,
+      autoBattle: snapshot.combat?.autoBattle === true,
+      autoBattleStationary: snapshot.combat?.autoBattleStationary === true,
+      autoRetaliate: snapshot.combat?.autoRetaliate !== false,
       accountStatus: riskView.accountStatus,
       riskScore: riskView.riskScore,
       riskLevel: riskView.riskLevel,
@@ -852,35 +1049,79 @@ function normalizeGmListPlayersQuery(query: GmListPlayersQuery | undefined): Nor
     keywordNeedle: keyword.toLocaleLowerCase('zh-Hans-CN'),
     sort: isGmPlayerSortMode(query?.sort) ? query.sort : 'realm-desc',
     accountStatus: isGmPlayerAccountStatusFilter(query?.accountStatus) ? query.accountStatus : 'all',
+    includeMemoryEstimate: parseBooleanQueryFlag(query?.includeMemoryEstimate),
+    includePlayers: parseBooleanQueryFlag(query?.includePlayers),
+    refresh: parseBooleanQueryFlag(query?.refresh),
   };
 }
 
-function filterManagedPlayers(
-  players: GmManagedPlayerSummary[],
+function buildPlayerListViewCacheKey(query: NormalizedGmListPlayersQuery): string {
+  return [
+    query.page,
+    query.pageSize,
+    query.keyword,
+    query.sort,
+    query.accountStatus,
+  ].join('|');
+}
+
+function buildPlayerSearchText(player: GmManagedPlayerSummary): string {
+  return [
+    player.id,
+    formatPlayerNo(player.playerNo),
+    player.name,
+    player.roleName,
+    player.displayName,
+    player.accountName,
+    player.mapId,
+    player.mapName,
+    player.realmLabel,
+    player.accountStatus,
+    player.riskLevel,
+    ...player.riskTags,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .join('\n')
+    .toLocaleLowerCase('zh-Hans-CN');
+}
+
+function shouldUseFullRiskPlayerSearch(query: NormalizedGmListPlayersQuery): boolean {
+  if (query.sort === 'risk-desc' || query.sort === 'risk-asc') {
+    return true;
+  }
+  return GM_PLAYER_RISK_SEARCH_KEYWORDS.some((keyword) => query.keywordNeedle.includes(keyword));
+}
+
+function parseBooleanQueryFlag(value: unknown): boolean {
+  if (value === true) {
+    return true;
+  }
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function filterPlayerSearchEntries(
+  entries: GmPlayerSearchEntry[],
   keywordNeedle: string,
   accountStatus: GmPlayerAccountStatusFilter,
-): GmManagedPlayerSummary[] {
-  return players.filter((player) => {
+): GmPlayerSearchEntry[] {
+  return entries.filter((entry) => {
+    const player = entry.summary;
     if (accountStatus !== 'all' && player.accountStatus !== accountStatus) {
       return false;
     }
     if (!keywordNeedle) {
       return true;
     }
-    return matchesKeyword(player.id, keywordNeedle)
-      || matchesKeyword(formatPlayerNo(player.playerNo), keywordNeedle)
-      || matchesKeyword(player.name, keywordNeedle)
-      || matchesKeyword(player.roleName, keywordNeedle)
-      || matchesKeyword(player.displayName, keywordNeedle)
-      || matchesKeyword(player.accountName, keywordNeedle)
-      || matchesKeyword(player.mapId, keywordNeedle)
-      || matchesKeyword(player.mapName, keywordNeedle)
-      || player.riskTags.some((tag) => matchesKeyword(tag, keywordNeedle));
+    return entry.searchText.includes(keywordNeedle);
   });
 }
 
-function sortManagedPlayers(players: GmManagedPlayerSummary[], sort: GmPlayerSortMode): GmManagedPlayerSummary[] {
-  return [...players].sort((left, right) => compareManagedPlayerSummary(left, right, sort));
+function sortPlayerSearchEntries(entries: GmPlayerSearchEntry[], sort: GmPlayerSortMode): GmPlayerSearchEntry[] {
+  return [...entries].sort((left, right) => compareManagedPlayerSummary(left.summary, right.summary, sort));
 }
 
 function buildPlayerPage(query: NormalizedGmListPlayersQuery, total: number) {
@@ -898,16 +1139,37 @@ function buildPlayerPage(query: NormalizedGmListPlayersQuery, total: number) {
   };
 }
 
-function sliceManagedPlayers(players: GmManagedPlayerSummary[], page: number, pageSize: number): GmManagedPlayerSummary[] {
+function slicePlayerSearchEntries(entries: GmPlayerSearchEntry[], page: number, pageSize: number): GmPlayerSearchEntry[] {
   const start = (page - 1) * pageSize;
-  return players.slice(start, start + pageSize);
+  return entries.slice(start, start + pageSize);
 }
 
-function buildManagedPlayerStats(players: GmManagedPlayerSummary[]) {
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  const workerCount = Math.max(1, Math.min(Math.trunc(concurrency), items.length));
+  let nextIndex = 0;
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+
+  return results;
+}
+
+function buildPlayerSearchStats(entries: GmPlayerSearchEntry[]) {
   let onlinePlayers = 0;
   let offlineHangingPlayers = 0;
 
-  for (const player of players) {
+  for (const entry of entries) {
+    const player = entry.summary;
     if (player.meta.online) {
       onlinePlayers += 1;
       continue;
@@ -918,10 +1180,10 @@ function buildManagedPlayerStats(players: GmManagedPlayerSummary[]) {
   }
 
   return {
-    totalPlayers: players.length,
+    totalPlayers: entries.length,
     onlinePlayers,
     offlineHangingPlayers,
-    offlinePlayers: Math.max(0, players.length - onlinePlayers - offlineHangingPlayers),
+    offlinePlayers: Math.max(0, entries.length - onlinePlayers - offlineHangingPlayers),
   };
 }
 
@@ -983,9 +1245,44 @@ function isGmPlayerAccountStatusFilter(value: unknown): value is GmPlayerAccount
     || value === 'abnormal';
 }
 
-function matchesKeyword(value: string | undefined, keywordNeedle: string): boolean {
-  return typeof value === 'string'
-    && value.toLocaleLowerCase('zh-Hans-CN').includes(keywordNeedle);
+function buildCheapGmPlayerRiskView(
+  account: ManagedAccountEntryLike | null | undefined,
+  player: { meta?: { isBot?: boolean | null } | null },
+) {
+  if (player.meta?.isBot === true) {
+    return {
+      accountStatus: 'normal' as const,
+      riskScore: 0,
+      riskLevel: 'low' as const,
+      riskTags: [],
+      isRiskAdmin: account?.isRiskAdmin === true,
+    };
+  }
+  if (!account || !normalizeDisplayString(account.userId) || !normalizeDisplayString(account.username)) {
+    return {
+      accountStatus: 'abnormal' as const,
+      riskScore: 20,
+      riskLevel: 'medium' as const,
+      riskTags: ['账号完整性'],
+      isRiskAdmin: account?.isRiskAdmin === true,
+    };
+  }
+  if (normalizeDisplayString(account.bannedAt)) {
+    return {
+      accountStatus: 'banned' as const,
+      riskScore: 0,
+      riskLevel: 'low' as const,
+      riskTags: [],
+      isRiskAdmin: account.isRiskAdmin === true,
+    };
+  }
+  return {
+    accountStatus: 'normal' as const,
+    riskScore: 0,
+    riskLevel: 'low' as const,
+    riskTags: [],
+    isRiskAdmin: account.isRiskAdmin === true,
+  };
 }
 
 function compareBotPriority(left, right) {

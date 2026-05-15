@@ -1965,10 +1965,21 @@
             <div class="stats-card"><div class="stats-card-label" data-i18n="gm.rss-heap-ratio">RSS / Heap 已用</div><div id="memory-rss-heap-ratio" class="stats-card-value">0x</div><div id="memory-rss-heap-ratio-note" class="stats-card-note" data-i18n="gm.memory-rss-heap-ratio-note">倍率越高，非堆占比越大</div></div>
           </div>
           <div id="memory-estimate-meta" class="note-card" data-i18n="gm.memory-estimate-meta">运行态内存画像尚未生成。</div>
+          <div class="panel-actions">
+            <button id="write-heap-snapshot" class="small-btn danger" type="button">生成 Heap Snapshot</button>
+            <div id="heap-snapshot-meta" class="inline-status">会短暂停顿服务端进程，仅用于运维诊断。</div>
+          </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head">
-              <div class="panel-title" data-i18n="gm.object-domain-profile">对象域画像</div>
-              <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-object-domain-profile-note">按玩家 / 怪物 / 实例快照估算，便于先定位优化方向</div>
+              <div class="panel-title">V8 Heap Space</div>
+              <div class="network-breakdown-subtitle">按 V8 内部堆空间拆分，用于先判断 old_space / large_object_space / code_space 是否异常</div>
+            </div>
+            <div id="memory-heap-space-list" class="network-breakdown-list"><div class="empty-hint">当前还没有 V8 heap space 数据。</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title" data-i18n="gm.object-domain-profile">运行态容器估算</div>
+              <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-object-domain-profile-note">只覆盖玩家 / 怪物 / 实例等显式容器，不等同于完整 Heap 分析</div>
             </div>
             <div id="memory-domain-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-runtime-memory-profile">当前还没有运行态内存画像。</div></div>
           </div>

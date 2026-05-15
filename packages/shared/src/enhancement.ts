@@ -13,10 +13,7 @@ import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
 import {
-  CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL,
-  CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL,
   applyAsymptoticSuccessModifier,
-  computeCraftAdjustedSuccessRate,
 } from './craft-success';
 
 import {
@@ -32,8 +29,8 @@ import {
   ENHANCEMENT_SPIRIT_STONE_ITEM_ID,
 } from './constants/gameplay/enhancement';
 
-export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL;
-export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 1 - Math.exp(CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL);
+export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.01;
+export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
 export const EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL = 0.05;
 export const EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL = 1 - EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL;
 
@@ -156,6 +153,22 @@ export function applyEnhancementSuccessModifier(
   return applyAsymptoticSuccessModifier(baseRate, modifier);
 }
 
+export function computeEnhancementLevelSuccessModifier(
+  targetItemLevel: number | undefined,
+  roleEnhancementLevel: number | undefined,
+): number {
+  const normalizedTargetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
+  const normalizedRoleLevel = Math.max(1, Math.floor(Number(roleEnhancementLevel) || 1));
+  const levelDelta = normalizedRoleLevel - normalizedTargetLevel;
+  if (levelDelta > 0) {
+    return levelDelta * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL;
+  }
+  if (levelDelta < 0) {
+    return levelDelta * ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY;
+  }
+  return 0;
+}
+
 export function computeEnhancementAdjustedSuccessRate(
   targetEnhanceLevel: number,
   roleEnhancementLevel: number | undefined,
@@ -163,7 +176,9 @@ export function computeEnhancementAdjustedSuccessRate(
   toolSuccessRateModifier = 0,
 ): number {
   const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
-  return computeCraftAdjustedSuccessRate(baseRate, targetItemLevel, roleEnhancementLevel, toolSuccessRateModifier);
+  const levelModifier = computeEnhancementLevelSuccessModifier(targetItemLevel, roleEnhancementLevel);
+  const normalizedToolModifier = Number.isFinite(toolSuccessRateModifier) ? Number(toolSuccessRateModifier) : 0;
+  return applyEnhancementSuccessModifier(baseRate, levelModifier + normalizedToolModifier);
 }
 
 function normalizeEnhancementRequirement(value: unknown): EnhancementMaterialRequirement | null {

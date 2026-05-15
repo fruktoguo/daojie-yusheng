@@ -591,6 +591,12 @@ export interface GmListPlayersQuery {
   sort?: GmPlayerSortMode;
   /** 账号状态筛选。 */
   accountStatus?: GmPlayerAccountStatusFilter;
+  /** 是否包含 GM 内存页的重型运行态容器估算。 */
+  includeMemoryEstimate?: boolean | string;
+  /** 是否包含玩家列表分页。 */
+  includePlayers?: boolean | string;
+  /** 是否绕过 GM 玩家列表缓存。 */
+  refresh?: boolean | string;
 }
 
 /** GM 玩家列表分页结果。 */
@@ -651,6 +657,18 @@ export interface GmPlayerSummaryStats {
  */
 
   offlinePlayers: number;
+}
+
+/** GM 玩家列表查询响应。 */
+export interface GmPlayerListRes {
+  /** 当前页玩家摘要。 */
+  players: GmManagedPlayerSummary[];
+  /** 当前分页元信息。 */
+  playerPage: GmPlayerListPage;
+  /** 当前筛选条件下的统计摘要。 */
+  playerStats: GmPlayerSummaryStats;
+  /** 当前筛选条件下的机器人数量。 */
+  botCount: number;
 }
 
 /** GM 总状态响应。 */

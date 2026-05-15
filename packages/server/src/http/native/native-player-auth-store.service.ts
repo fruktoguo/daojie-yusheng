@@ -348,6 +348,35 @@ const CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL = `
   ON ${PLAYER_AUTH_TABLE}(display_name)
 `;
 
+const CREATE_PLAYER_AUTH_USERNAME_PREFIX_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_username_prefix_idx
+  ON ${PLAYER_AUTH_TABLE}(lower(username) text_pattern_ops)
+`;
+
+const CREATE_PLAYER_AUTH_REGISTER_IP_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_register_ip_idx
+  ON ${PLAYER_AUTH_TABLE}(register_ip)
+  WHERE register_ip IS NOT NULL
+`;
+
+const CREATE_PLAYER_AUTH_LAST_LOGIN_IP_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_last_login_ip_idx
+  ON ${PLAYER_AUTH_TABLE}(last_login_ip)
+  WHERE last_login_ip IS NOT NULL
+`;
+
+const CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_register_device_idx
+  ON ${PLAYER_AUTH_TABLE}(register_device_id)
+  WHERE register_device_id IS NOT NULL
+`;
+
+const CREATE_PLAYER_AUTH_LAST_LOGIN_DEVICE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_last_login_device_idx
+  ON ${PLAYER_AUTH_TABLE}(last_login_device_id)
+  WHERE last_login_device_id IS NOT NULL
+`;
+
 const CREATE_PLAYER_AUTH_PLAYER_NO_SEQUENCE_SQL = `
   CREATE SEQUENCE IF NOT EXISTS ${PLAYER_AUTH_PLAYER_NO_SEQUENCE}
   START WITH ${PLAYER_AUTH_PLAYER_NO_START}
@@ -1223,6 +1252,11 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
     `);
     await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_USERNAME_PREFIX_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_REGISTER_IP_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_IP_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL);
     await syncPlayerNoSequenceWithClient(client);
     await client.query('COMMIT');

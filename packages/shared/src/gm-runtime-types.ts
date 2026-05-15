@@ -326,6 +326,35 @@ export interface GmMemoryInstanceEstimateSnapshot {
   monsterCount: number;
 }
 
+/** GM V8 heap space 快照项。 */
+export interface GmV8HeapSpaceSnapshot {
+/**
+ * name：V8 heap space 名称。
+ */
+
+  name: string;
+  /**
+ * sizeBytes：当前 space 总容量。
+ */
+
+  sizeBytes: number;
+  /**
+ * usedBytes：当前 space 已用容量。
+ */
+
+  usedBytes: number;
+  /**
+ * availableBytes：当前 space 可用容量。
+ */
+
+  availableBytes: number;
+  /**
+ * physicalBytes：当前 space 物理占用。
+ */
+
+  physicalBytes: number;
+}
+
 /** GM 运行态内存画像快照。 */
 export interface GmMemoryEstimateSnapshot {
 /**
@@ -373,6 +402,40 @@ export interface GmMemoryEstimateSnapshot {
  */
 
   topInstances: GmMemoryInstanceEstimateSnapshot[];
+  /**
+ * heapSpaces：V8 heap space 分解。
+ */
+
+  heapSpaces: GmV8HeapSpaceSnapshot[];
+}
+
+/** GM 生成 Heap Snapshot 结果。 */
+export interface GmHeapSnapshotRes {
+/**
+ * ok：操作是否成功。
+ */
+
+  ok: true;
+  /**
+ * path：服务端生成的 heapsnapshot 文件路径。
+ */
+
+  path: string;
+  /**
+ * bytes：文件大小。
+ */
+
+  bytes: number;
+  /**
+ * durationMs：生成耗时。
+ */
+
+  durationMs: number;
+  /**
+ * generatedAt：生成时间。
+ */
+
+  generatedAt: number;
 }
 
 /** 路径搜索失败原因统计。 */

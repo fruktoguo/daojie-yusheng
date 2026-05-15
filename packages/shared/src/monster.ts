@@ -603,7 +603,7 @@ const MONSTER_TENDENCY_VIEW_RANGE_BASE = 8;
 /** 怪物基础回复，配置倾向 100% 时为 50。 */
 const MONSTER_TENDENCY_REGEN_BASE = 50;
 /** 1-30 级怪物额外削弱倍率。 */
-const MONSTER_LOW_LEVEL_NERF_MULTIPLIER = 0.7;
+const MONSTER_LOW_LEVEL_NERF_MULTIPLIER = 0.5;
 /** 怪物品阶倍率基数。 */
 const MONSTER_GRADE_MULTIPLIER_BASE = 1.2;
 /** 怪物血脉层级基础倍率。 */

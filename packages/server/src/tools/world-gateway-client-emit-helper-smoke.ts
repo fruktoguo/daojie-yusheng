@@ -29,6 +29,9 @@ function createGateway(log = []) {
             getMarketListingRequests() {
                 return new Map([['player:1', 2]]);
             },            
+            getAuctionListingRequests() {
+                return new Map([['player:1', 4]]);
+            },
             /**
  * getMarketTradeHistoryRequests：读取坊市Trade历史Request。
  * @returns 无返回值，完成坊市TradeHistoryRequest的读取/组装。
@@ -99,7 +102,7 @@ function createGateway(log = []) {
  */
 
             flushMarketResult(subscribers, result, options) {
-                log.push(['flushMarketResult', Array.from(subscribers), result, options.marketListingRequests.get('player:1'), options.marketTradeHistoryRequests.get('player:1')]);
+                log.push(['flushMarketResult', Array.from(subscribers), result, options.marketListingRequests.get('player:1'), options.marketTradeHistoryRequests.get('player:1'), options.auctionListingRequests.get('player:1')]);
             },            
             /**
  * broadcastSuggestionUpdate：处理broadcastSuggestionUpdate并更新相关状态。
@@ -126,7 +129,7 @@ async function testClientEmitHelper() {
     helper.emitQuests(client, { quests: [] });
     helper.emitProtocolMailSummary(client, { unread: 2 });
     helper.emitNpcShop(client, { npcId: 'npc.a' });
-    helper.flushMarketResult({ ok: true });
+    await helper.flushMarketResult({ ok: true });
     await helper.emitMailSummaryForPlayer(client, 'player:1');
     helper.broadcastSuggestions();
     assert.deepEqual(log, [
@@ -136,7 +139,7 @@ async function testClientEmitHelper() {
         ['emitMailSummary', 'socket:1', { unread: 2 }],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitNpcShop', 'socket:1', { npcId: 'npc.a' }],
-        ['flushMarketResult', ['player:1'], { ok: true }, 2, 3],
+        ['flushMarketResult', ['player:1'], { ok: true }, 2, 3, 4],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitMailSummaryForPlayer', 'socket:1', 'player:1'],
         ['broadcastSuggestionUpdate'],

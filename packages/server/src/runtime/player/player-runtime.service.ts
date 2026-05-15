@@ -527,6 +527,21 @@ export class PlayerRuntimeService {
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(playerId);
         this.pendingOfflineGainReportsByPlayerId.delete(playerId);
     }
+    /** 判断断线窗口过期后是否可以卸载完整玩家运行态，避免空闲离线玩家长期常驻。 */
+    canUnloadDetachedPlayerRuntime(playerId) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return false;
+        }
+        const online = typeof player.sessionId === 'string' && player.sessionId.trim().length > 0;
+        if (online) {
+            return false;
+        }
+        if (this.offlineGainSessionsByPlayerId.has(playerId) && !this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        return !hasDetachedRuntimeActivity(player);
+    }
     /** 打开指定坐标的战利品窗口。 */
     openLootWindow(playerId, tileX, tileY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3266,6 +3281,36 @@ export class PlayerRuntimeService {
 
     listPlayerSnapshots() {
         return Array.from(this.players.values(), (player) => cloneRuntimePlayerState(player));
+    }
+    /** 列出 GM 列表所需的轻量玩家摘要，避免为诊断面板深拷贝完整玩家运行态。 */
+    listGmPlayerSummaries() {
+        return Array.from(this.players.values(), (player) => ({
+            playerId: player.playerId,
+            name: player.name,
+            displayName: player.displayName,
+            sessionId: player.sessionId,
+            instanceId: player.instanceId,
+            templateId: player.templateId,
+            x: player.x,
+            y: player.y,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            qi: player.qi,
+            realm: player.realm
+                ? {
+                    realmLv: player.realm.realmLv,
+                    name: player.realm.name,
+                    displayName: player.realm.displayName,
+                }
+                : null,
+            combat: {
+                autoBattle: player.combat?.autoBattle === true,
+                autoBattleStationary: player.combat?.autoBattleStationary === true,
+                autoRetaliate: player.combat?.autoRetaliate !== false,
+            },
+            persistentRevision: player.persistentRevision,
+            persistedRevision: player.persistedRevision,
+        }));
     }
     /**
  * restoreSnapshot：执行restore快照相关逻辑。
@@ -6510,6 +6555,25 @@ function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
         return false;
     }
     return currentTick - player.combat.lastActiveTick >= AUTO_IDLE_CULTIVATION_DELAY_TICKS;
+}
+
+function hasDetachedRuntimeActivity(player) {
+    if (!player) {
+        return false;
+    }
+    const combat = player.combat ?? {};
+    if (combat.cultivationActive === true || combat.autoRootFoundation === true) {
+        return true;
+    }
+    return hasRemainingRuntimeJob(player.alchemyJob)
+        || hasRemainingRuntimeJob(player.forgingJob)
+        || hasRemainingRuntimeJob(player.enhancementJob)
+        || hasRemainingRuntimeJob(player.gatherJob)
+        || hasRemainingRuntimeJob(player.buildingJob);
+}
+
+function hasRemainingRuntimeJob(job) {
+    return Boolean(job && Number(job.remainingTicks) > 0);
 }
 /**
  * cloneTemporaryBuff：构建TemporaryBuff。

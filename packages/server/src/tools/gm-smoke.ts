@@ -500,15 +500,15 @@ async function main() {
  */
         const initialHttpState = await authedGetJson('/api/gm/state', gmToken);
         assertGmStateShape(initialHttpState, 'initial http gm state');
-        const queriedHttpState = await authedGetJson(`/api/gm/state?page=1&pageSize=5&sort=name&keyword=${encodeURIComponent(auth.loginName)}`, gmToken);
-        assertGmStateShape(queriedHttpState, 'queried http gm state');
+        const queriedHttpState = await authedGetJson(`/api/gm/players?page=1&pageSize=5&sort=name&keyword=${encodeURIComponent(auth.loginName)}&refresh=1`, gmToken);
+        assertGmStateShape(queriedHttpState, 'queried http gm players', { requireStateFields: false });
         assertGmStateQueryContract(queriedHttpState, {
             pageSize: 5,
             sort: 'name',
             keyword: auth.loginName,
             expectedPlayerId: auth.playerId,
         });
-        assertGmPerfHotspots(queriedHttpState, 'queried http gm state');
+        assertGmPerfHotspots(initialHttpState, 'initial http gm state');
         if (gmStateEvents.some((entry) => entry?.kind === 'legacy')) {
             throw new Error(`gm socket leaked legacy gm state before mutations: ${JSON.stringify(gmStateEvents)}`);
         }
@@ -1878,7 +1878,7 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
                 fetchPlayerState(playerId),
                 fetchGmStateForPlayer(playerId, token),
             ]);
-            assertGmStateShape(gmPayload, label);
+            assertGmStateShape(gmPayload, label, { requireStateFields: false });
 /**
  * 记录运行态。
  */
@@ -1919,7 +1919,7 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
 async function fetchGmStateForPlayer(playerId, token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return authedGetJson(`/api/gm/state?page=1&pageSize=5&keyword=${encodeURIComponent(playerId)}`, token);
+    return authedGetJson(`/api/gm/players?page=1&pageSize=5&keyword=${encodeURIComponent(playerId)}&refresh=1`, token);
 }
 /**
  * 等待玩家级 GM 摘要收敛。
@@ -1941,7 +1941,7 @@ async function waitForGmPlayerSummary(playerId, token, predicate, timeoutMs, lab
  * 记录payload。
  */
             const payload = await fetchGmStateForPlayer(playerId, token);
-            assertGmStateShape(payload, label);
+            assertGmStateShape(payload, label, { requireStateFields: false });
 /**
  * 记录summary。
  */
@@ -1990,9 +1990,9 @@ async function waitForSocketGmState(gmStateEvents, socketError, playerId, expect
 /**
  * 断言GM状态shape。
  */
-function assertGmStateShape(payload, label) {
+function assertGmStateShape(payload, label, options = {}) {
     if (!Array.isArray(payload?.players)
-        || !Array.isArray(payload?.mapIds)
+        || (options.requireStateFields !== false && !Array.isArray(payload?.mapIds))
         || !Number.isFinite(payload?.botCount)
         || !Number.isFinite(payload?.playerPage?.page)
         || !Number.isFinite(payload?.playerPage?.pageSize)
@@ -2004,8 +2004,7 @@ function assertGmStateShape(payload, label) {
         || !Number.isFinite(payload?.playerStats?.onlinePlayers)
         || !Number.isFinite(payload?.playerStats?.offlineHangingPlayers)
         || !Number.isFinite(payload?.playerStats?.offlinePlayers)
-        || typeof payload?.perf !== 'object'
-        || payload?.perf === null) {
+        || (options.requireStateFields !== false && (typeof payload?.perf !== 'object' || payload?.perf === null))) {
         throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
     }
 }

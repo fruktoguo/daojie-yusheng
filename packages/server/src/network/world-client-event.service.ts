@@ -461,7 +461,7 @@ export class WorldClientEventService {
  * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
-    flushMarketResult(subscriberPlayerIds, result, options) {
+    async flushMarketResult(subscriberPlayerIds, result, options) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const notices = Array.isArray(result?.notices) ? result.notices : [];
@@ -516,7 +516,7 @@ export class WorldClientEventService {
             if (!request) {
                 continue;
             }
-            this.emitMarketTradeHistory(socket, this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, request.page, request.source));
+            this.emitMarketTradeHistory(socket, await this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, request.page, request.source));
         }
     }
     /**
