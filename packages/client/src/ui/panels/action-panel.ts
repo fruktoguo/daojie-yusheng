@@ -943,10 +943,12 @@ export class ActionPanel {
       actions.map((action) => [
         action.id,
         action.type,
-        action.cooldownLeft ?? 0,
-        action.autoBattleEnabled === false ? 'manual' : 'auto',
-        action.autoBattleOrder ?? '',
-        action.skillEnabled === false ? 'disabled' : 'enabled',
+        action.name,
+        action.desc,
+        action.range ?? '',
+        action.requiresTarget ? 'target' : '',
+        action.targetMode ?? '',
+        this.isSwitchAction(action) ? 'switch' : '',
         this.shortcutBindings.get(action.id) ?? '',
       ].join('/')).join('|'),
     ].join('::');
@@ -1325,7 +1327,7 @@ export class ActionPanel {
         <div class="gm-player-meta">${escapeHtml(stripSectManagementData(action.desc))}${this.renderShortcutMeta(action.id)}</div>
       </div>
       <div class="action-card-side">
-        <div class="gm-player-stat">${state.label}</div>
+        <div class="gm-player-stat" data-switch-state="${action.id}">${state.label}</div>
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
       </div>
     </div>`;
@@ -2037,8 +2039,21 @@ export class ActionPanel {
     this.updateDragIndicators();
   }
 
-  /** 开关卡片目前仍跟随整块重渲染，不单独 patch。 */
+  /** 开关卡片只更新状态文本和高亮，避免自动化开关频繁触发整栏重建。 */
   private patchToggleCards(): boolean {
+    for (const action of this.currentActions) {
+      if (!this.isSwitchAction(action)) {
+        continue;
+      }
+      const row = this.pane.querySelector<HTMLElement>(`[data-action-card="${CSS.escape(action.id)}"]`);
+      const stateNode = row?.querySelector<HTMLElement>('[data-switch-state]');
+      if (!row || !stateNode) {
+        return false;
+      }
+      const state = this.getSwitchCardState(action);
+      row.classList.toggle('is-active', state.active);
+      stateNode.textContent = state.label;
+    }
     return true;
   }
 

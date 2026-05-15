@@ -1236,16 +1236,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || !isPlainEqual(previousAutoUsePills, nextAutoUsePills)
         || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules)
         || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
-        || previousAutoRetaliate !== nextAutoRetaliate
-        || previousAutoBattleStationary !== nextAutoBattleStationary
-        || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
         || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId
-        || previousAutoIdleCultivation !== nextAutoIdleCultivation
-        || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
         || previousAutoRootFoundation !== nextAutoRootFoundation
-        || previousCultivationActive !== nextCultivationActive
-        || previousSenseQiActive !== nextSenseQiActive
-        || previousWangQiActive !== nextWangQiActive
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {
         player.actions = mergedActions;
