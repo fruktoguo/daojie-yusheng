@@ -66,6 +66,10 @@ interface WorldSyncMinimapPort {
 }
 
 const visibleTilesSnapshotCacheByPlayer = new WeakMap<object, any>();
+const npcRenderEntityCache = new WeakMap<object, any>();
+const containerRenderEntityCache = new WeakMap<object, any>();
+const formationRenderEntityCache = new WeakMap<object, any>();
+const monsterBuffProjectionCache = new WeakMap<any[], any[]>();
 
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
 @Injectable()
@@ -197,23 +201,18 @@ export class WorldSyncMapSnapshotService {
       if (target.instanceId !== player.instanceId && visible.projectedFromParentMap !== true) {
         continue;
       }
-      entities.set(target.playerId, {
-        ...buildPlayerRenderEntity(target, '#0f0', this.resolveAccountIdentityProjection(target.playerId, target)),
-        x: visible.projectedFromParentMap === true ? visible.x : target.x,
-        y: visible.projectedFromParentMap === true ? visible.y : target.y,
-      });
+      entities.set(
+        target.playerId,
+        buildPlayerRenderEntity(
+          target,
+          '#0f0',
+          this.resolveAccountIdentityProjection(target.playerId, target),
+          visible.projectedFromParentMap === true ? { x: visible.x, y: visible.y } : null,
+        ),
+      );
     }
     for (const npc of view.localNpcs) {
-      entities.set(npc.npcId, {
-        id: npc.npcId,
-        x: npc.x,
-        y: npc.y,
-        char: npc.char,
-        color: npc.color,
-        name: npc.name,
-        kind: 'npc',
-        npcQuestMarker: npc.questMarker ?? undefined,
-      });
+      entities.set(npc.npcId, projectNpcRenderEntity(npc));
     }
     for (const monster of view.localMonsters) {
       entities.set(monster.runtimeId, {
@@ -230,7 +229,7 @@ export class WorldSyncMapSnapshotService {
         maxHp: monster.maxHp,
         qi: monster.qi,
         maxQi: monster.maxQi,
-        buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : undefined,
+        buffs: projectMonsterBuffs(monster.buffs),
       });
     }
     for (const container of view.localContainers) {
@@ -246,42 +245,11 @@ export class WorldSyncMapSnapshotService {
       const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
         ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
         : undefined;
-      entities.set(`container:${containerTemplateId}:${container.id}`, {
-        id: `container:${containerTemplateId}:${container.id}`,
-        x: container.x,
-        y: container.y,
-        char: container.char,
-        color: container.color,
-        name: container.name,
-        kind: 'container',
-        respawnRemainingTicks,
-      });
+      const entityId = `container:${containerTemplateId}:${container.id}`;
+      entities.set(entityId, projectContainerRenderEntity(container, entityId, respawnRemainingTicks));
     }
     for (const formation of view.localFormations ?? []) {
-      entities.set(formation.id, {
-        id: formation.id,
-        x: formation.x,
-        y: formation.y,
-        char: formation.char ?? '◎',
-        color: formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff',
-        name: formation.name,
-        kind: 'formation',
-        formationRadius: formation.radius,
-        formationRangeShape: formation.rangeShape,
-        formationRangeHighlightColor: formation.rangeHighlightColor,
-        formationBoundaryChar: formation.boundaryChar,
-        formationBoundaryColor: formation.boundaryColor,
-        formationBoundaryRangeHighlightColor: formation.boundaryRangeHighlightColor,
-        formationEyeVisibleWithoutSenseQi: formation.eyeVisibleWithoutSenseQi === true,
-        formationRangeVisibleWithoutSenseQi: formation.rangeVisibleWithoutSenseQi === true,
-        formationBoundaryVisibleWithoutSenseQi: formation.boundaryVisibleWithoutSenseQi === true,
-        formationShowText: formation.showText !== false,
-        formationBlocksBoundary: formation.blocksBoundary === true,
-        formationOwnerSectId: formation.ownerSectId ?? null,
-        formationOwnerPlayerId: formation.ownerPlayerId ?? null,
-        formationActive: formation.active !== false,
-        formationLifecycle: formation.lifecycle === 'persistent' ? 'persistent' : 'deployed',
-      });
+      entities.set(formation.id, projectFormationRenderEntity(formation));
     }
     return entities;
   }
@@ -808,15 +776,15 @@ function getBuffPresentationScale(buffs) {
   return scale;
 }
 
-function buildPlayerRenderEntity(player, color, identity = null) {
+function buildPlayerRenderEntity(player, color, identity = null, projectedPosition = null) {
   const playerId = normalizePlayerIdentityText(player.playerId);
   const displayName = normalizePlayerDisplayText(identity?.displayName ?? player.displayName, playerId);
   const name = normalizePlayerDisplayText(identity?.name ?? player.name, playerId);
   const charSource = displayName && (displayName !== '@' || !name) ? displayName : name;
   return {
     id: player.playerId,
-    x: player.x,
-    y: player.y,
+    x: projectedPosition?.x ?? player.x,
+    y: projectedPosition?.y ?? player.y,
     char: getFirstGrapheme(charSource) || '人',
     color,
     name: name || displayName || '修士',
@@ -826,6 +794,175 @@ function buildPlayerRenderEntity(player, color, identity = null) {
     maxHp: player.maxHp,
     buffs: projectVisiblePlayerBuffs(player),
   };
+}
+
+function projectNpcRenderEntity(npc) {
+  const cached = npc && typeof npc === 'object' ? npcRenderEntityCache.get(npc) : null;
+  if (cached && isSameNpcRenderEntity(cached, npc)) {
+    return cached;
+  }
+  const projected = {
+    id: npc.npcId,
+    x: npc.x,
+    y: npc.y,
+    char: npc.char,
+    color: npc.color,
+    name: npc.name,
+    kind: 'npc',
+    npcQuestMarker: npc.questMarker ?? undefined,
+  };
+  if (npc && typeof npc === 'object') {
+    npcRenderEntityCache.set(npc, projected);
+  }
+  return projected;
+}
+
+function projectMonsterBuffs(buffs) {
+  if (!Array.isArray(buffs)) {
+    return undefined;
+  }
+  if (buffs.length === 0) {
+    return [];
+  }
+  const cached = monsterBuffProjectionCache.get(buffs);
+  if (cached && isSameShallowRecordList(cached, buffs)) {
+    return cached;
+  }
+  const projected = buffs.map((buff) => ({ ...buff }));
+  monsterBuffProjectionCache.set(buffs, projected);
+  return projected;
+}
+
+function projectContainerRenderEntity(container, entityId, respawnRemainingTicks) {
+  const cached = container && typeof container === 'object' ? containerRenderEntityCache.get(container) : null;
+  if (cached && isSameContainerRenderEntity(cached, container, entityId, respawnRemainingTicks)) {
+    return cached;
+  }
+  const projected = {
+    id: entityId,
+    x: container.x,
+    y: container.y,
+    char: container.char,
+    color: container.color,
+    name: container.name,
+    kind: 'container',
+    respawnRemainingTicks,
+  };
+  if (container && typeof container === 'object') {
+    containerRenderEntityCache.set(container, projected);
+  }
+  return projected;
+}
+
+function projectFormationRenderEntity(formation) {
+  const cached = formation && typeof formation === 'object' ? formationRenderEntityCache.get(formation) : null;
+  if (cached && isSameFormationRenderEntity(cached, formation)) {
+    return cached;
+  }
+  const projected = {
+    id: formation.id,
+    x: formation.x,
+    y: formation.y,
+    char: formation.char ?? '◎',
+    color: formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff',
+    name: formation.name,
+    kind: 'formation',
+    formationRadius: formation.radius,
+    formationRangeShape: formation.rangeShape,
+    formationRangeHighlightColor: formation.rangeHighlightColor,
+    formationBoundaryChar: formation.boundaryChar,
+    formationBoundaryColor: formation.boundaryColor,
+    formationBoundaryRangeHighlightColor: formation.boundaryRangeHighlightColor,
+    formationEyeVisibleWithoutSenseQi: formation.eyeVisibleWithoutSenseQi === true,
+    formationRangeVisibleWithoutSenseQi: formation.rangeVisibleWithoutSenseQi === true,
+    formationBoundaryVisibleWithoutSenseQi: formation.boundaryVisibleWithoutSenseQi === true,
+    formationShowText: formation.showText !== false,
+    formationBlocksBoundary: formation.blocksBoundary === true,
+    formationOwnerSectId: formation.ownerSectId ?? null,
+    formationOwnerPlayerId: formation.ownerPlayerId ?? null,
+    formationActive: formation.active !== false,
+    formationLifecycle: formation.lifecycle === 'persistent' ? 'persistent' : 'deployed',
+  };
+  if (formation && typeof formation === 'object') {
+    formationRenderEntityCache.set(formation, projected);
+  }
+  return projected;
+}
+
+function isSameNpcRenderEntity(projected, npc) {
+  return projected.id === npc.npcId
+    && projected.x === npc.x
+    && projected.y === npc.y
+    && projected.char === npc.char
+    && projected.color === npc.color
+    && projected.name === npc.name
+    && projected.npcQuestMarker === (npc.questMarker ?? undefined);
+}
+
+function isSameContainerRenderEntity(projected, container, entityId, respawnRemainingTicks) {
+  return projected.id === entityId
+    && projected.x === container.x
+    && projected.y === container.y
+    && projected.char === container.char
+    && projected.color === container.color
+    && projected.name === container.name
+    && projected.respawnRemainingTicks === respawnRemainingTicks;
+}
+
+function isSameFormationRenderEntity(projected, formation) {
+  return projected.id === formation.id
+    && projected.x === formation.x
+    && projected.y === formation.y
+    && projected.char === (formation.char ?? '◎')
+    && projected.color === (formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff')
+    && projected.name === formation.name
+    && projected.formationRadius === formation.radius
+    && projected.formationRangeShape === formation.rangeShape
+    && projected.formationRangeHighlightColor === formation.rangeHighlightColor
+    && projected.formationBoundaryChar === formation.boundaryChar
+    && projected.formationBoundaryColor === formation.boundaryColor
+    && projected.formationBoundaryRangeHighlightColor === formation.boundaryRangeHighlightColor
+    && projected.formationEyeVisibleWithoutSenseQi === (formation.eyeVisibleWithoutSenseQi === true)
+    && projected.formationRangeVisibleWithoutSenseQi === (formation.rangeVisibleWithoutSenseQi === true)
+    && projected.formationBoundaryVisibleWithoutSenseQi === (formation.boundaryVisibleWithoutSenseQi === true)
+    && projected.formationShowText === (formation.showText !== false)
+    && projected.formationBlocksBoundary === (formation.blocksBoundary === true)
+    && projected.formationOwnerSectId === (formation.ownerSectId ?? null)
+    && projected.formationOwnerPlayerId === (formation.ownerPlayerId ?? null)
+    && projected.formationActive === (formation.active !== false)
+    && projected.formationLifecycle === (formation.lifecycle === 'persistent' ? 'persistent' : 'deployed');
+}
+
+function isSameShallowRecordList(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (!isSameShallowRecord(left[index], right[index])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isSameShallowRecord(left, right) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') {
+    return false;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function normalizePlayerIdentityText(value) {

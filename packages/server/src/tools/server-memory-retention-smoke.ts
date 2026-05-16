@@ -38,6 +38,7 @@ async function main(): Promise<void> {
   const auxStateRefProof = proveAuxStateReusesStableProjectionRefs();
   const minimapAuxRefProof = proveMinimapAuxReusesStaticMarkerRefs();
   const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
+  const renderEntityRefProof = proveRenderEntitiesReuseStableRefs();
   const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
   const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
     auxStateRefProof,
     minimapAuxRefProof,
     tileProjectionProof,
+    renderEntityRefProof,
     panelSliceRefProof,
     combatEffectRefProof,
     persistenceDirtyDomainProjectionProof,
@@ -71,7 +73,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -648,6 +650,99 @@ function proveTileProjectionRefsReachPlayerCache(): {
     cacheRefShared,
     deltaPatchCount: second.tilePatches.length,
     instanceCacheUsed,
+  };
+}
+
+function proveRenderEntitiesReuseStableRefs(): {
+  npcRefShared: boolean;
+  containerRefShared: boolean;
+  formationRefShared: boolean;
+  monsterBuffsRefShared: boolean;
+  projectedPlayerPositionApplied: boolean;
+  playerProjectionAvoidsSpread: boolean;
+} {
+  const player = createProjectorPlayer();
+  const target = {
+    ...createProjectorPlayer(),
+    playerId: 'render_target',
+    instanceId: player.instanceId,
+    x: 2,
+    y: 2,
+    name: '目标',
+    displayName: '目标',
+  };
+  const npc = { npcId: 'npc_ref', x: 1, y: 1, char: '商', color: '#fff', name: '商人', questMarker: null };
+  const monsterBuffs = [{ id: 'burning', remainingTicks: 3, stacks: 1, presentationScale: 1.2 }];
+  const monster = {
+    runtimeId: 'monster_ref',
+    x: 2,
+    y: 1,
+    char: '妖',
+    color: '#f00',
+    name: '妖兽',
+    tier: 'normal',
+    buffs: monsterBuffs,
+    hp: 10,
+    maxHp: 10,
+    qi: 5,
+    maxQi: 5,
+  };
+  const container = { id: 'container_ref', x: 3, y: 1, char: '箱', color: '#ccc', name: '箱子' };
+  const formation = {
+    id: 'formation_ref',
+    x: 4,
+    y: 1,
+    char: '阵',
+    color: '#0af',
+    name: '阵法',
+    radius: 2,
+    rangeShape: 'circle',
+    active: true,
+  };
+  const service = new WorldSyncMapSnapshotService(
+    {
+      getInstanceTileState: () => null,
+      getInstanceRuntime: () => null,
+    },
+    { getPlayer: (playerId: string) => (playerId === target.playerId ? target : null) },
+    { has: () => true, getOrThrow: () => createTileTemplate() },
+    { getMapTimeConfig: () => null, getMapTickSpeed: () => 1 },
+    {},
+    null,
+  );
+  const view = {
+    ...createProjectorView(),
+    visiblePlayers: [{ playerId: target.playerId, projectedFromParentMap: true, x: 7, y: 8 }],
+    localNpcs: [npc],
+    localMonsters: [monster],
+    localContainers: [container],
+    localFormations: [formation],
+  };
+  const first = service.buildRenderEntitiesSnapshot(view, player);
+  const second = service.buildRenderEntitiesSnapshot(view, player);
+  const npcRefShared = first.get(npc.npcId) === second.get(npc.npcId);
+  const containerRefShared = first.get(`container:${view.instance.templateId}:${container.id}`) === second.get(`container:${view.instance.templateId}:${container.id}`);
+  const formationRefShared = first.get(formation.id) === second.get(formation.id);
+  const monsterBuffsRefShared = first.get(monster.runtimeId)?.buffs === second.get(monster.runtimeId)?.buffs;
+  const projectedTarget = first.get(target.playerId);
+  const projectedPlayerPositionApplied = projectedTarget?.x === 7 && projectedTarget?.y === 8;
+  const source = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
+  const playerProjectionAvoidsSpread = source.includes('projectedPosition?.x ?? player.x')
+    && !source.includes('...buildPlayerRenderEntity(target');
+
+  assert.equal(npcRefShared, true);
+  assert.equal(containerRefShared, true);
+  assert.equal(formationRefShared, true);
+  assert.equal(monsterBuffsRefShared, true);
+  assert.equal(projectedPlayerPositionApplied, true);
+  assert.equal(playerProjectionAvoidsSpread, true);
+  return {
+    npcRefShared,
+    containerRefShared,
+    formationRefShared,
+    monsterBuffsRefShared,
+    projectedPlayerPositionApplied,
+    playerProjectionAvoidsSpread,
   };
 }
 
