@@ -444,18 +444,11 @@ class MapInstanceRuntime {
             this.npcIdByTile.set(this.toTileIndex(state.x, state.y), state.npcId);
         }
         for (const landmark of request.template.landmarks) {
-            this.landmarksById.set(landmark.id, {
-                ...landmark,
-                container: landmark.container ? snapshotContainer(landmark.container) : undefined,
-            });
+            this.landmarksById.set(landmark.id, landmark);
             this.landmarkIdByTile.set(this.toTileIndex(landmark.x, landmark.y), landmark.id);
         }
         for (const container of request.template.containers) {
-            this.containersById.set(container.id, {
-                ...container,
-                drops: container.drops,
-                lootPools: container.lootPools,
-            });
+            this.containersById.set(container.id, container);
             this.containerIdByTile.set(this.toTileIndex(container.x, container.y), container.id);
         }
         for (const monster of request.monsterSpawns) {
@@ -3884,7 +3877,7 @@ class MapInstanceRuntime {
             }
             entries.push({
                 tileIndex: pile.tileIndex,
-                items: pile.items.map((entry) => ({ ...entry.item })),
+                items: pile.items.map((entry) => entry.item),
             });
         }
         entries.sort((left, right) => left.tileIndex - right.tileIndex);
@@ -3911,7 +3904,7 @@ class MapInstanceRuntime {
             }
             entries.push({
                 tileIndex,
-                items: pile.items.map((entry) => ({ ...entry.item })),
+                items: pile.items.map((entry) => entry.item),
             });
         }
         entries.sort((left, right) => left.tileIndex - right.tileIndex);

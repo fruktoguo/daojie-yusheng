@@ -1386,6 +1386,8 @@ function proveEntryCachesFollowLifecycle(): {
   buildingDeconstructClearsCache: boolean;
   groundPilePickupClearsCache: boolean;
   hydrateGroundPilesClearsCache: boolean;
+  groundPersistenceAvoidsItemSpread: boolean;
+  staticMapObjectsUseTemplateRefs: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
@@ -1414,12 +1416,24 @@ function proveEntryCachesFollowLifecycle(): {
   // hydrateGroundPiles 重置时也要清理 view cache。
   const hydrateGroundPilesClearsCache = mapInstanceSource.includes('this.localGroundPileViewCacheBySourceId.clear()');
 
+  // 地面物品 flush/delta 只重建 tile entries，不再逐 item spread 模板字段。
+  const groundPersistenceAvoidsItemSpread = mapInstanceSource.includes('items: pile.items.map((entry) => entry.item)')
+    && !mapInstanceSource.includes('items: pile.items.map((entry) => ({ ...entry.item }))');
+
+  // landmark/container 静态对象直接挂模板引用，不再为每个实例复制外壳与 drops/lootPools。
+  const staticMapObjectsUseTemplateRefs = mapInstanceSource.includes('this.landmarksById.set(landmark.id, landmark)')
+    && mapInstanceSource.includes('this.containersById.set(container.id, container)')
+    && !mapInstanceSource.includes('this.landmarksById.set(landmark.id, {')
+    && !mapInstanceSource.includes('this.containersById.set(container.id, {');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
   assert.equal(buildingDeconstructClearsCache, true);
   assert.equal(groundPilePickupClearsCache, true);
   assert.equal(hydrateGroundPilesClearsCache, true);
+  assert.equal(groundPersistenceAvoidsItemSpread, true);
+  assert.equal(staticMapObjectsUseTemplateRefs, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1427,6 +1441,8 @@ function proveEntryCachesFollowLifecycle(): {
     buildingDeconstructClearsCache,
     groundPilePickupClearsCache,
     hydrateGroundPilesClearsCache,
+    groundPersistenceAvoidsItemSpread,
+    staticMapObjectsUseTemplateRefs,
   };
 }
 
