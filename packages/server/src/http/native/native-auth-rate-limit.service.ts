@@ -139,10 +139,9 @@ export class NativeAuthRateLimitService {
       return;
     }
     const overflow = this.buckets.size - RATE_LIMIT_BUCKET_MAX_COUNT;
-    const oldestKeys = Array.from(this.buckets.entries())
-      .sort((left, right) => left[1].lastTouchedAt - right[1].lastTouchedAt)
-      .slice(0, overflow)
-      .map(([key]) => key);
+    // 改单遍 K-max-heap：在 N 条 entry 中筛出 lastTouchedAt 最旧的 K=overflow 条，
+    // 时间复杂度 O(N log K)，避免 N=50k 时 sort+slice 的 O(N log N)（~10-30ms 阻塞）。
+    const oldestKeys = selectOldestBucketKeys(this.buckets, overflow);
     for (const key of oldestKeys) {
       this.buckets.delete(key);
     }
@@ -157,5 +156,76 @@ export class NativeAuthRateLimitService {
     const normalized = typeof subject === 'string' ? subject.trim().toLowerCase() : '';
     if (!normalized) return '';
     return createHash('sha256').update(normalized).digest('hex').slice(0, 24);
+  }
+}
+
+/**
+ * 单遍 K-max-heap：返回 buckets 中 lastTouchedAt 最旧的 keepCount 个 key。
+ * 时间复杂度 O(N log K)，N=buckets.size、K=keepCount。
+ * 当 K 远小于 N 时（典型场景：overflow ≪ 50000）相比 sort+slice 的 O(N log N) 更省 CPU。
+ *
+ * 使用 max-heap 保留当前最旧的 K 条 lastTouchedAt：堆顶是这 K 条里最新的一条；
+ * 遍历到下一条 entry 时如果比堆顶更旧，就 pop 堆顶 push 新条目。
+ */
+function selectOldestBucketKeys(buckets: Map<string, RateLimitBucket>, keepCount: number): string[] {
+  if (keepCount <= 0 || buckets.size === 0) {
+    return [];
+  }
+  if (keepCount >= buckets.size) {
+    // 等价于全部 evict，避免无意义的堆维护成本。
+    return Array.from(buckets.keys());
+  }
+  const heap: { key: string; touchedAt: number }[] = [];
+  for (const [key, bucket] of buckets) {
+    const touchedAt = bucket.lastTouchedAt;
+    if (heap.length < keepCount) {
+      heap.push({ key, touchedAt });
+      siftHeapUp(heap, heap.length - 1);
+      continue;
+    }
+    if (touchedAt < heap[0].touchedAt) {
+      heap[0] = { key, touchedAt };
+      siftHeapDown(heap, 0);
+    }
+  }
+  return heap.map((entry) => entry.key);
+}
+
+/** max-heap 上移，保持堆顶为最大 touchedAt（即"K 条最旧条目"中最不旧的那条）。 */
+function siftHeapUp(heap: { key: string; touchedAt: number }[], startIndex: number): void {
+  let index = startIndex;
+  while (index > 0) {
+    const parentIndex = (index - 1) >>> 1;
+    if (heap[parentIndex].touchedAt >= heap[index].touchedAt) {
+      return;
+    }
+    const tmp = heap[parentIndex];
+    heap[parentIndex] = heap[index];
+    heap[index] = tmp;
+    index = parentIndex;
+  }
+}
+
+/** max-heap 下移，根据子节点选择更大的 touchedAt 维持堆性质。 */
+function siftHeapDown(heap: { key: string; touchedAt: number }[], startIndex: number): void {
+  const length = heap.length;
+  let index = startIndex;
+  while (true) {
+    const leftIndex = index * 2 + 1;
+    const rightIndex = leftIndex + 1;
+    let largestIndex = index;
+    if (leftIndex < length && heap[leftIndex].touchedAt > heap[largestIndex].touchedAt) {
+      largestIndex = leftIndex;
+    }
+    if (rightIndex < length && heap[rightIndex].touchedAt > heap[largestIndex].touchedAt) {
+      largestIndex = rightIndex;
+    }
+    if (largestIndex === index) {
+      return;
+    }
+    const tmp = heap[largestIndex];
+    heap[largestIndex] = heap[index];
+    heap[index] = tmp;
+    index = largestIndex;
   }
 }
