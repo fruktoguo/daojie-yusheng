@@ -11,6 +11,7 @@ import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLAS
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
+import { MAX_NOTICES_PER_PLAYER, NOTICE_KIND_PRIORITY, findLowestPriorityNoticeIndex } from '../event-bus/runtime-event-bus.types';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
@@ -84,6 +85,8 @@ export class PlayerRuntimeService {
     pendingPlayerStatisticTotalsEmitPlayerIds = new Set();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
+    /** 仅在测试 harness fallback 路径首次触发时打印一次提示，避免刷屏。 */
+    noticeFallbackWarned = false;
     /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
     constructor(
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
@@ -1448,16 +1451,58 @@ export class PlayerRuntimeService {
         };
         player.notices.nextId += 1;
         if (player.transferState === 'in_transfer') {
-            player.transferBufferedNotices.push(notice);
+            this.appendBoundedNoticeBuffer(player.transferBufferedNotices, notice);
             return player;
         }
         // 委托给 EventBus（如果可用），否则回退到本地队列
         if (this.runtimeEventBusService) {
             this.runtimeEventBusService.queuePlayerNotice(playerId, notice);
         } else {
-            player.notices.queue.push(notice);
+            // 进入 fallback 路径意味着 NestJS 注入缺失或运行在非 NestJS 测试 harness 中。
+            // 真实生产场景已由 onModuleInit 在启动期 fail-fast，此处仅为 smoke/单测兜底。
+            this.warnNoticeFallbackOnce();
+            this.appendBoundedNoticeBuffer(player.notices.queue, notice);
         }
         return player;
+    }
+    /**
+     * 启动期 fail-fast：NestJS 应用进入 onModuleInit 时 RuntimeEventBusService 必须已经
+     * 注入完成，否则后续所有通知都会落到 fallback 队列，触发 M4 描述的隐性兜底缺陷。
+     * 测试 harness 通过 new 直接构造时不会触发 NestJS 生命周期，依旧保留 fallback 行为。
+     */
+    onModuleInit() {
+        if (!this.runtimeEventBusService) {
+            throw new Error('PlayerRuntimeService requires RuntimeEventBusService to be injected at application startup');
+        }
+    }
+    /** 仅在测试 harness 缺失 RuntimeEventBusService 时打印一次警告，避免每条通知刷屏。 */
+    warnNoticeFallbackOnce() {
+        if (this.noticeFallbackWarned) {
+            return;
+        }
+        this.noticeFallbackWarned = true;
+        console.warn('PlayerRuntimeService 通知缺失 RuntimeEventBusService，已退回到玩家本地受限队列。生产环境应在启动期 fail-fast。');
+    }
+    /**
+     * 受限缓冲区追加：与 RuntimeEventBusService.queuePlayerNotice 对齐，
+     * 上限 MAX_NOTICES_PER_PLAYER，超限时按 NOTICE_KIND_PRIORITY 丢弃最低优先级条目，
+     * 确保 transferBufferedNotices 与 fallback 队列在 ≤120s 转移窗口内不会无界增长。
+     */
+    appendBoundedNoticeBuffer(queue, notice) {
+        if (!Array.isArray(queue)) {
+            return;
+        }
+        if (queue.length >= MAX_NOTICES_PER_PLAYER) {
+            const incomingPriority = NOTICE_KIND_PRIORITY[notice?.kind ?? 'info'] ?? 0;
+            const dropIndex = findLowestPriorityNoticeIndex(queue);
+            const droppedPriority = NOTICE_KIND_PRIORITY[queue[dropIndex]?.kind ?? 'info'] ?? 0;
+            if (incomingPriority < droppedPriority) {
+                // 新通知比现有最低优先级还低：直接丢弃新通知，保留旧条目。
+                return;
+            }
+            queue.splice(dropIndex, 1);
+        }
+        queue.push(notice);
     }
     /**
  * drainNotices：执行drainNotice相关逻辑。
