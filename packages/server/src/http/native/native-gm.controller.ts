@@ -596,9 +596,15 @@ export class NativeGmController {
 
   @Post('players/:playerId/password')
   async updatePlayerPassword(@Param('playerId') playerId: string, @Body() body: UpdatePlayerPasswordBody) {
-    const nextPassword = typeof body?.newPassword === 'string' && body.newPassword.trim()
+    const rawPassword = typeof body?.newPassword === 'string'
       ? body.newPassword
-      : body?.password ?? '';
+      : typeof body?.password === 'string'
+        ? body.password
+        : '';
+    const nextPassword = rawPassword.trim();
+    if (!nextPassword) {
+      throw new BadRequestException('新密码不能为空');
+    }
     await this.nextManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };

@@ -197,20 +197,52 @@ export class NativeManagedAccountService {
   }
 
   /** 更新托管账号密码，修改前仍沿用统一密码规则。 */
-  async updateManagedPlayerPassword(playerId: string, newPassword: string): Promise<void> {
+  async updateManagedPlayerPassword(playerId: string, newPassword: string, actor = 'gm'): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const user = await this.requireManagedUser(playerId);
     const passwordError = validatePassword(newPassword);
     if (passwordError) {
       throw new BadRequestException(passwordError);
     }
 
-    await this.authStore.saveUser({
-      ...user,
-      passwordHash: await hashPassword(newPassword),
-      updatedAt: Date.now(),
-    });
+    const user = await this.requireManagedUser(playerId);
+    const startedAt = Date.now();
+
+    let nextPasswordHash: string;
+    try {
+      nextPasswordHash = await hashPassword(newPassword);
+    } catch (error) {
+      this.logger.error(
+        `GM 修改密码：哈希失败 playerId=${playerId} actor=${normalizeModerationActor(actor)} error=${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+
+    try {
+      await this.authStore.saveUser({
+        ...user,
+        passwordHash: nextPasswordHash,
+        updatedAt: Date.now(),
+      });
+    } catch (error) {
+      this.logger.error(
+        `GM 修改密码：写入失败 playerId=${playerId} userId=${user.id} actor=${normalizeModerationActor(actor)} elapsedMs=${Date.now() - startedAt} error=${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > 1500) {
+      this.logger.warn(
+        `GM 修改密码：完成但耗时偏长 playerId=${playerId} userId=${user.id} actor=${normalizeModerationActor(actor)} elapsedMs=${elapsedMs}`,
+      );
+    } else {
+      this.logger.log(
+        `GM 修改密码：完成 playerId=${playerId} userId=${user.id} actor=${normalizeModerationActor(actor)} elapsedMs=${elapsedMs}`,
+      );
+    }
   }
 
   /** 更新托管账号用户名，并同步修正显示名与持久化身份。 */
@@ -294,6 +326,13 @@ export class NativeManagedAccountService {
   /** 确认托管目标存在，否则直接返回可读错误。 */
   private async requireManagedUser(playerId: string): Promise<NativePlayerAuthUser> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    // 优先走内存索引：avoid 不必要的数据库往返，并降低 GM 高频管理操作的尾延迟。
+    // 内存索引由 onModuleInit 完整重建、saveUser 增量同步，保证与 DB 一致。
+    const cached = this.authStore.getMemoryUserByPlayerId(playerId);
+    if (cached) {
+      return cached;
+    }
 
     const user = await this.authStore.findUserByPlayerId(playerId);
     if (!user) {
