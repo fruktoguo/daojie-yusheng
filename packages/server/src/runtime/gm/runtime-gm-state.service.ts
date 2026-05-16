@@ -82,6 +82,8 @@ export class RuntimeGmStateService {
     networkOutBucketByKey = new Map();
     /** GM 手动启动的网络诊断开关；环境变量开启时不依赖此状态。 */
     networkPerfManuallyEnabled = false;
+    /** GM 手动启动的大包包体采样开关；只记录超过阈值且截断后的最近样本。 */
+    networkPayloadCaptureManuallyEnabled = false;
     /** 滚动 reset 调度计时器，避免长期诊断累积；onModuleDestroy 清理。 */
     networkPerfRollingResetTimer = null;
     /** 上一次 reset 时间戳，供监控/GM 面板观察当前窗口起点。 */
@@ -194,9 +196,14 @@ export class RuntimeGmStateService {
     shouldRecordNetworkPerf() {
         return this.networkPerfManuallyEnabled || isNetworkPerfRecordingEnabled();
     }
+    /** 是否记录大包详情样本。 */
+    shouldCaptureNetworkPayloadBody() {
+        return this.networkPayloadCaptureManuallyEnabled || isNetworkPayloadBodyCaptureEnabled();
+    }
     /** 由 GM 面板显式启动网络性能统计。 */
     enableNetworkPerfCounters() {
         this.networkPerfManuallyEnabled = true;
+        this.networkPayloadCaptureManuallyEnabled = true;
         this.ensureNetworkPerfRollingReset();
     }
     /** 清空累计网络统计。 */
@@ -290,6 +297,21 @@ export class RuntimeGmStateService {
         let instanceMonsterBytes = 0;
         let instanceTerrainBytes = 0;
         let instanceObjectBytes = 0;
+        let instanceOccupancyBytes = 0;
+        let instanceAuraBytes = 0;
+        let instanceTileResourceBucketsBytes = 0;
+        let instanceBaseTileResourceBucketsBytes = 0;
+        let instanceTileDamageBytes = 0;
+        let instanceChangedTileResourceBytes = 0;
+        let instanceNpcsBytes = 0;
+        let instanceNpcIndexBytes = 0;
+        let instanceLandmarksBytes = 0;
+        let instanceLandmarkIndexBytes = 0;
+        let instanceContainersBytes = 0;
+        let instanceContainerIndexBytes = 0;
+        let instanceGroundPilesBytes = 0;
+        let instancePendingCommandsBytes = 0;
+        let instanceFreeHandlesBytes = 0;
         let totalPlayerCount = normalizeNonNegativeCount(runtimePlayers?.size);
         let monsterCount = 0;
 
@@ -306,25 +328,45 @@ export class RuntimeGmStateService {
                 + estimateRuntimeCollectionBytes(instance?.playersByHandle, 48);
             const monsterBytes = estimateRuntimeCollectionBytes(instance?.monstersByRuntimeId, 8192)
                 + estimateRuntimeCollectionBytes(instance?.monsterRuntimeIdByTile, 64);
-            const terrainBytes = estimateRuntimeCollectionBytes(instance?.occupancy, 64)
-                + estimateRuntimeCollectionBytes(instance?.auraByTile, 96)
-                + estimateRuntimeCollectionBytes(instance?.tileResourceBuckets, 128)
-                + estimateRuntimeCollectionBytes(instance?.baseTileResourceBuckets, 128)
-                + estimateRuntimeCollectionBytes(instance?.tileDamageByTile, 64)
-                + estimateRuntimeCollectionBytes(instance?.changedTileResourceEntryCountByKey, 64);
-            const objectBytes = estimateRuntimeCollectionBytes(instance?.npcsById, 512)
-                + estimateRuntimeCollectionBytes(instance?.npcIdByTile, 64)
-                + estimateRuntimeCollectionBytes(instance?.landmarksById, 512)
-                + estimateRuntimeCollectionBytes(instance?.landmarkIdByTile, 64)
-                + estimateRuntimeCollectionBytes(instance?.containersById, 1024)
-                + estimateRuntimeCollectionBytes(instance?.containerIdByTile, 64)
-                + estimateRuntimeCollectionBytes(instance?.groundPilesByTile, 512)
-                + estimateRuntimeCollectionBytes(instance?.pendingCommands, 256)
-                + estimateRuntimeCollectionBytes(instance?.freeHandles, 32);
+            const occupancyBytes = estimateRuntimeCollectionBytes(instance?.occupancy, 64);
+            const auraBytes = estimateRuntimeCollectionBytes(instance?.auraByTile, 96);
+            const tileResBucketsBytes = estimateRuntimeCollectionBytes(instance?.tileResourceBuckets, 128);
+            const baseTileResBucketsBytes = estimateRuntimeCollectionBytes(instance?.baseTileResourceBuckets, 128);
+            const tileDamageBytes = estimateRuntimeCollectionBytes(instance?.tileDamageByTile, 64);
+            const changedTileResBytes = estimateRuntimeCollectionBytes(instance?.changedTileResourceEntryCountByKey, 64);
+            const terrainBytes = occupancyBytes + auraBytes + tileResBucketsBytes
+                + baseTileResBucketsBytes + tileDamageBytes + changedTileResBytes;
+            const npcsBytes = estimateRuntimeCollectionBytes(instance?.npcsById, 512);
+            const npcIndexBytes = estimateRuntimeCollectionBytes(instance?.npcIdByTile, 64);
+            const landmarksBytes = estimateRuntimeCollectionBytes(instance?.landmarksById, 512);
+            const landmarkIndexBytes = estimateRuntimeCollectionBytes(instance?.landmarkIdByTile, 64);
+            const containersBytes = estimateRuntimeCollectionBytes(instance?.containersById, 1024);
+            const containerIndexBytes = estimateRuntimeCollectionBytes(instance?.containerIdByTile, 64);
+            const groundPilesBytes = estimateRuntimeCollectionBytes(instance?.groundPilesByTile, 512);
+            const pendingCommandsBytes = estimateRuntimeCollectionBytes(instance?.pendingCommands, 256);
+            const freeHandlesBytes = estimateRuntimeCollectionBytes(instance?.freeHandles, 32);
+            const objectBytes = npcsBytes + npcIndexBytes + landmarksBytes + landmarkIndexBytes
+                + containersBytes + containerIndexBytes + groundPilesBytes
+                + pendingCommandsBytes + freeHandlesBytes;
             instancePlayerBytes += playerBytes;
             instanceMonsterBytes += monsterBytes;
             instanceTerrainBytes += terrainBytes;
             instanceObjectBytes += objectBytes;
+            instanceOccupancyBytes += occupancyBytes;
+            instanceAuraBytes += auraBytes;
+            instanceTileResourceBucketsBytes += tileResBucketsBytes;
+            instanceBaseTileResourceBucketsBytes += baseTileResBucketsBytes;
+            instanceTileDamageBytes += tileDamageBytes;
+            instanceChangedTileResourceBytes += changedTileResBytes;
+            instanceNpcsBytes += npcsBytes;
+            instanceNpcIndexBytes += npcIndexBytes;
+            instanceLandmarksBytes += landmarksBytes;
+            instanceLandmarkIndexBytes += landmarkIndexBytes;
+            instanceContainersBytes += containersBytes;
+            instanceContainerIndexBytes += containerIndexBytes;
+            instanceGroundPilesBytes += groundPilesBytes;
+            instancePendingCommandsBytes += pendingCommandsBytes;
+            instanceFreeHandlesBytes += freeHandlesBytes;
             const playerCount = normalizeNonNegativeCount(instance?.playersById?.size ?? instance?.playerCount);
             const currentMonsterCount = normalizeNonNegativeCount(instance?.monstersByRuntimeId?.size ?? instance?.monsterCount);
             monsterCount += currentMonsterCount;
@@ -340,6 +382,7 @@ export class RuntimeGmStateService {
             });
         }
 
+        const instanceCount = instances.length;
         domains.push(buildMemoryDomainEstimate('player_runtime', '玩家运行态轻量估算', estimatePlayerRuntimeBytes(runtimePlayers), totalPlayerCount));
         domains.push(buildMemoryDomainEstimate('player_effects', '玩家待发战斗效果队列', estimateRuntimeCollectionBytes(pendingCombatEffectsByPlayerId, 192), normalizeNonNegativeCount(pendingCombatEffectsByPlayerId?.size)));
         domains.push(buildMemoryDomainEstimate('player_locations', '玩家位置索引', estimateRuntimeCollectionBytes(playerLocations, 96), normalizeNonNegativeCount(playerLocations?.size)));
@@ -350,12 +393,59 @@ export class RuntimeGmStateService {
             + estimateRuntimeCollectionBytes(purgedPlayerIds, 64), normalizeNonNegativeCount(sessionBindingsByPlayerId?.size)));
         domains.push(buildMemoryDomainEstimate('instance_players', '实例内玩家索引', instancePlayerBytes, totalPlayerCount));
         domains.push(buildMemoryDomainEstimate('instance_monsters', '实例内怪物运行态与占位索引', instanceMonsterBytes, monsterCount));
-        domains.push(buildMemoryDomainEstimate('instance_terrain', '实例地块占位与资源桶', instanceTerrainBytes, instances.length));
-        domains.push(buildMemoryDomainEstimate('instance_objects', '实例容器、掉落与命令队列', instanceObjectBytes, instances.length));
+        // 地块层细分（原 instance_terrain 拆开）
+        domains.push(buildMemoryDomainEstimate('instance_occupancy', '实例地块玩家/怪物占位索引', instanceOccupancyBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_aura', '实例风水/灵气分布', instanceAuraBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_tile_resources', '实例地块当前资源桶', instanceTileResourceBucketsBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_base_tile_resources', '实例地块基础资源桶', instanceBaseTileResourceBucketsBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_tile_damage', '实例地块破坏值索引', instanceTileDamageBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_changed_tile_resources', '实例地块资源变更计数', instanceChangedTileResourceBytes, instanceCount));
+        // 实例对象层细分（原 instance_objects 拆开）
+        domains.push(buildMemoryDomainEstimate('instance_npcs', '实例 NPC 数据', instanceNpcsBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_npc_index', '实例 NPC 位置索引', instanceNpcIndexBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_landmarks', '实例地标数据', instanceLandmarksBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_landmark_index', '实例地标位置索引', instanceLandmarkIndexBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_containers', '实例容器数据', instanceContainersBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_container_index', '实例容器位置索引', instanceContainerIndexBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_ground_piles', '实例地面掉落堆', instanceGroundPilesBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_pending_commands', '实例 pending 命令队列', instancePendingCommandsBytes, instanceCount));
+        domains.push(buildMemoryDomainEstimate('instance_free_handles', '实例空闲句柄池', instanceFreeHandlesBytes, instanceCount));
+        // GM 自身诊断状态
+        const gmNetworkBucketsBytes = estimateGmNetworkBucketsBytes(this.networkInBucketByKey, this.networkOutBucketByKey);
+        const gmBucketCount = (this.networkInBucketByKey?.size ?? 0) + (this.networkOutBucketByKey?.size ?? 0);
+        domains.push(buildMemoryDomainEstimate('gm_network_buckets', 'GM 网络诊断 bucket 与大包样本', gmNetworkBucketsBytes, gmBucketCount));
+        // process / V8 真实分块（吃掉以前的 uncovered 大头）
+        const memoryUsageNow = process.memoryUsage();
+        const arrayBuffersBytes = Number(memoryUsageNow.arrayBuffers ?? 0) || 0;
+        const externalBytes = Number(memoryUsageNow.external ?? 0) || 0;
+        const heapTotalBytesNow = Number(memoryUsageNow.heapTotal ?? 0) || 0;
+        const heapUsedBytesNow = Number(memoryUsageNow.heapUsed ?? 0) || 0;
+        const externalNonArrayBufferBytes = Math.max(0, externalBytes - arrayBuffersBytes);
+        const heapCommittedUnusedBytes = Math.max(0, heapTotalBytesNow - heapUsedBytesNow);
+        const processNativeOtherBytes = Math.max(0, rssBytes - heapTotalBytesNow - externalBytes);
+        domains.push(buildMemoryDomainEstimate('process_array_buffers', '原生 Buffer/ArrayBuffer (socket.io/pg/redis/protobuf/log 缓冲)', arrayBuffersBytes, 0));
+        domains.push(buildMemoryDomainEstimate('process_external_native', '其他 C++ native 对象 (V8 模块/native addon)', externalNonArrayBufferBytes, 0));
+        domains.push(buildMemoryDomainEstimate('v8_heap_committed_unused', 'V8 已申请未使用堆 (空闲页)', heapCommittedUnusedBytes, 0));
+        domains.push(buildMemoryDomainEstimate('process_native_other', '进程其他 (代码段/线程栈/共享库/分配器碎片)', processNativeOtherBytes, 0));
+        // V8 已用堆中未被运行时估算覆盖的部分（推断 JS 对象未归类的大小）
+        const trackedJsBytes = domains.reduce((sum, entry) => {
+            switch (entry.key) {
+                case 'process_array_buffers':
+                case 'process_external_native':
+                case 'v8_heap_committed_unused':
+                case 'process_native_other':
+                case 'gm_network_buckets':
+                    return sum;
+                default:
+                    return sum + entry.bytes;
+            }
+        }, 0);
+        const v8HeapUsedUnattributedBytes = Math.max(0, heapUsedBytesNow - trackedJsBytes);
+        domains.push(buildMemoryDomainEstimate('v8_heap_used_unattributed', 'V8 已用堆中未归类 JS 对象 (NestJS DI/模板/缓存/未列容器)', v8HeapUsedUnattributedBytes, 0));
 
         const coveredBytes = domains.reduce((sum, entry) => sum + entry.bytes, 0);
         const uncoveredBytes = Math.max(0, rssBytes - coveredBytes);
-        domains.push(buildMemoryDomainEstimate('uncovered', '未归类常驻差额', uncoveredBytes, 0));
+        domains.push(buildMemoryDomainEstimate('uncovered', '未归类常驻差额 (理论 ≈ 0)', uncoveredBytes, 0));
         domains.sort((left, right) => {
             if (right.bytes !== left.bytes) {
                 return right.bytes - left.bytes;
@@ -548,6 +638,7 @@ export class RuntimeGmStateService {
                 failureReasons: EMPTY_PATHFINDING_FAILURES,
             },
             networkStatsEnabled: this.shouldRecordNetworkPerf(),
+            networkPayloadCaptureEnabled: this.shouldCaptureNetworkPayloadBody(),
             networkStatsStartedAt: now,
             networkStatsElapsedSec: 0,
             networkInBytes,
@@ -582,7 +673,7 @@ export class RuntimeGmStateService {
             return;
         }
         const current = bucketByKey.get(label);
-        const sample = buildNetworkLargePayloadSample(direction, event, payload, measurement);
+        const sample = buildNetworkLargePayloadSample(this.shouldCaptureNetworkPayloadBody(), direction, event, payload, measurement);
         if (current) {
             current.bytes += measurement.packetBytes;
             current.count += 1;
@@ -724,6 +815,32 @@ function estimateRuntimeCollectionBytes(value, bytesPerEntry) {
         return roundMetric(Object.keys(value).length * bytesPerEntry);
     }
     return 0;
+}
+
+/**
+ * 估算 GM 自身网络诊断 bucket 与大包样本的字节占用。
+ * 每个 bucket 头部 256B；每个 largePayloadSamples 元素 256B 元数据 +
+ * UTF-16 代价的 body.length * 2。largePayloadSamples 是已知潜在泄漏点，
+ * 长期开启网络诊断时应该看得到这一项膨胀。
+ */
+function estimateGmNetworkBucketsBytes(inMap, outMap) {
+    let bytes = 0;
+    for (const map of [inMap, outMap]) {
+        if (!(map instanceof Map)) {
+            continue;
+        }
+        for (const bucket of map.values() as Iterable<any>) {
+            bytes += 256;
+            const samples = bucket?.largePayloadSamples;
+            if (Array.isArray(samples)) {
+                for (const sample of samples) {
+                    const bodyLen = typeof sample?.body === 'string' ? sample.body.length : 0;
+                    bytes += 256 + bodyLen * 2;
+                }
+            }
+        }
+    }
+    return roundMetric(bytes);
 }
 
 function buildHeapSpaceSnapshots() {
@@ -876,8 +993,8 @@ function measureNetworkPayload(event, payload) {
     };
 }
 
-function buildNetworkLargePayloadSample(direction, event, payload, measurement) {
-    if (!isNetworkPayloadBodyCaptureEnabled()) {
+function buildNetworkLargePayloadSample(captureEnabled, direction, event, payload, measurement) {
+    if (!captureEnabled) {
         return null;
     }
     if (direction === 's2c' && measurement.eventKey === S2C.GmState) {

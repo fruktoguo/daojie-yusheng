@@ -658,6 +658,11 @@ export interface GmPerformanceSnapshot {
 
   networkStatsEnabled?: boolean;
   /**
+ * networkPayloadCaptureEnabled：网络大包详情采样是否已启用。
+ */
+
+  networkPayloadCaptureEnabled?: boolean;
+  /**
  * networkStatsStartedAt：networkStatStartedAt相关字段。
  */
 
