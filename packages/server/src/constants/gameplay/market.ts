@@ -12,3 +12,5 @@ export const MARKET_TRADE_HISTORY_VISIBLE_LIMIT = 100;
 export const MARKET_TRADE_HISTORY_PAGE_SIZE = 10;
 /** 运行时内存中保留的最近成交记录上限，完整历史以数据库为真源按需查询。 */
 export const MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT = 500;
+/** 运行时内存中保留的玩家坊市仓库 LRU 上限，超过后驱逐离线/无挂单玩家的缓存条目。 */
+export const MARKET_STORAGE_RUNTIME_CACHE_LIMIT = 5000;

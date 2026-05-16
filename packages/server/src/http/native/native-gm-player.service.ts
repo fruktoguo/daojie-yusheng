@@ -155,6 +155,7 @@ interface MarketRuntimeServiceLike {
   getStorage(playerId: string): { items: any[] };
   runExclusiveMarketMutation(playerId: string, action: (context: any) => Promise<any> | any): Promise<any>;
   setStorage(playerId: string, storage: { items: any[] }, context: any): void;
+  ensureStorageHydrated?(playerId: string): Promise<void>;
 }
 /**
  * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -1451,6 +1452,9 @@ export class NativeGmPlayerService {
 
 
   private async cleanupInvalidMarketStorage(playerId: string) {
+    if (typeof this.marketRuntimeService.ensureStorageHydrated === 'function') {
+      await this.marketRuntimeService.ensureStorageHydrated(playerId);
+    }
     const storage = this.marketRuntimeService.getStorage(playerId);
     const items = Array.isArray(storage?.items) ? storage.items : [];
     const nextItems = items.filter((entry) => this.isValidItem(entry?.item?.itemId));

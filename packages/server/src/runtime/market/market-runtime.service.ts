@@ -3,13 +3,14 @@
  * 维护挂单、撮合成交、仓库存取和交易历史，
  * 所有写操作串行化执行并持久化到数据库。
  */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type BeforeApplicationShutdown } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
+import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
@@ -19,7 +20,7 @@ const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
 
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
 @Injectable()
-export class MarketRuntimeService {
+export class MarketRuntimeService implements BeforeApplicationShutdown {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -45,14 +46,30 @@ export class MarketRuntimeService {
  */
 
     instanceCatalogService;
+    /**
+ * playerPersistenceFlushService：玩家持久化刷盘服务引用，用于在坊市成交后立即把当事玩家的内存
+ * 改动落库，避免 5 秒周期 flush 与异常重启之间的丢失窗口；smoke 直接构造时可以省略。
+ */
+
+    playerPersistenceFlushService: any = null;
     /** 运行时日志器，记录加载、撮合与持久化异常。 */
     logger = new Logger(MarketRuntimeService.name);
     /** 当前仍然有效的求购/出售挂单。 */
     openOrders = [];
     /** 最近成交记录，用于交易历史面板。 */
     tradeHistory = [];
-    /** 每个玩家的坊市仓库缓存。 */
+    /** 每个玩家的坊市仓库缓存。仅缓存已经被 hydrateStorageForPlayer 加载过的玩家条目。 */
     storageByPlayerId = new Map();
+    /**
+     * 已经从持久化层加载过 (hydrate) 的玩家 ID。Set 的迭代顺序近似于 LRU：
+     * 命中时通过 delete + add 重新插入到末尾，超出 MARKET_STORAGE_RUNTIME_CACHE_LIMIT
+     * 时按迭代顺序从头驱逐离线/无挂单玩家。
+     */
+    loadedStoragePlayerIds = new Set<string>();
+    /** 同一玩家的并发 hydrate 复用同一个 Promise，避免重复 SQL 与并发写入。 */
+    storageHydrationLocks = new Map<string, Promise<void>>();
+    /** 当前正在执行 mutation 的玩家集合，eviction 时跳过这些条目以防数据丢失。 */
+    pendingStorageMutationPlayerIds = new Map<string, number>();
     /** 拍卖行独立出价态，避免拍卖出价误走坊市买单撮合。 */
     auctionBidsByItemKey = new Map();
     /** 拍卖行权威结束时间，前端只用投影字段本地倒计时。 */
@@ -68,16 +85,45 @@ export class MarketRuntimeService {
         @Inject(MarketPersistenceService) marketPersistenceService: any,
         @Inject(DurableOperationService) durableOperationService: any,
         @Inject(InstanceCatalogService) instanceCatalogService: any,
+        @Optional() @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.marketPersistenceService = marketPersistenceService;
         this.durableOperationService = durableOperationService;
         this.instanceCatalogService = instanceCatalogService;
+        this.playerPersistenceFlushService = playerPersistenceFlushService ?? null;
     }
     /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
     async onApplicationBootstrap() {
         await this.reloadFromPersistence();
+    }
+    /**
+     * 关停前：先等当前 marketOperationQueue 串行链跑完，把还在跑的市场 mutation 抽干，
+     * 再让玩家持久化服务做一次全量 flush；保证关停时 mutation 改动的玩家 inventory/wallet
+     * 不会因为 NestJS shutdown hook 并行调度而被遗漏。
+     */
+    async beforeApplicationShutdown(): Promise<void> {
+        try {
+            await this.marketOperationQueue;
+        }
+        catch (error) {
+            this.logger.error(
+                `等待坊市 mutation 队列收尾失败：${error instanceof Error ? error.stack : String(error)}`,
+            );
+        }
+        const flushAllNow = this.playerPersistenceFlushService?.flushAllNow;
+        if (typeof flushAllNow !== 'function') {
+            return;
+        }
+        try {
+            await flushAllNow.call(this.playerPersistenceFlushService);
+        }
+        catch (error) {
+            this.logger.error(
+                `关停前坊市玩家二次 flush 失败：${error instanceof Error ? error.stack : String(error)}`,
+            );
+        }
     }
     async resolveInstanceLeaseContext(instanceId) {
         const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
@@ -108,14 +154,41 @@ export class MarketRuntimeService {
             item: this.toFullItem(order.item),
         }));
         this.tradeHistory = trimTradeHistoryRuntimeCache(await this.marketPersistenceService.loadTradeHistory());
+        // 改为按需 lazy-load：启动时不再灌入所有历史玩家的坊市仓库，
+        // 只在玩家实际触发坊市操作或参与撮合时通过 ensureStorageHydrated 拉取。
         this.storageByPlayerId.clear();
+        this.loadedStoragePlayerIds.clear();
+        this.storageHydrationLocks.clear();
+        this.pendingStorageMutationPlayerIds.clear();
         this.auctionBidsByItemKey.clear();
         this.auctionTimingByItemKey.clear();
         this.hydrateAuctionStateFromOpenOrders();
-        for (const entry of await this.marketPersistenceService.loadStorages()) {
-            this.storageByPlayerId.set(entry.playerId, cloneStorage(entry.storage));
-        }
         this.compactOpenOrders();
+        // 维持不变量：openOrders 中的所有 owner 与拍卖出价人都已 hydrate，
+        // 之后撮合/退款分支无需再为对手方做异步等待，只需 hydrate 当前主动玩家即可。
+        await this.ensureStoragesHydrated(this.collectOrderParticipantPlayerIds());
+    }
+    /** 收集当前 openOrders 与拍卖出价中的所有参与玩家，用于 hydrate 不变量维护。 */
+    collectOrderParticipantPlayerIds() {
+        const participants = new Set();
+        for (const order of this.openOrders) {
+            const ownerId = typeof order?.ownerId === 'string' ? order.ownerId : '';
+            if (ownerId) {
+                participants.add(ownerId);
+            }
+        }
+        for (const bids of this.auctionBidsByItemKey.values()) {
+            if (!Array.isArray(bids)) {
+                continue;
+            }
+            for (const bid of bids) {
+                const bidderId = typeof bid?.bidderId === 'string' ? bid.bidderId : '';
+                if (bidderId) {
+                    participants.add(bidderId);
+                }
+            }
+        }
+        return participants;
     }
     /** 生成玩家进入坊市时需要的总览数据。 */
     buildMarketUpdate(playerId) {
@@ -331,6 +404,7 @@ export class MarketRuntimeService {
     }
     /** 发起出售挂单，必要时直接撮合买单。 */
     async createSellOrder(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
             const listingMode = payload?.listingMode === 'auction' || payload?.auction === true ? 'auction' : 'market';
@@ -462,6 +536,7 @@ export class MarketRuntimeService {
     }
     /** 发起求购挂单，必要时直接撮合卖单。 */
     async createBuyOrder(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
             const item = this.resolveMarketItemForBuy(payload);
@@ -571,6 +646,7 @@ export class MarketRuntimeService {
     }
     /** 立即按当前市场挂单买入指定物品。 */
     async buyNow(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const quantity = this.normalizeQuantity(payload.quantity);
             if (!quantity) {
@@ -728,6 +804,7 @@ export class MarketRuntimeService {
     }
     /** 立即按当前市场挂单卖出指定物品。 */
     async sellNow(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
             const item = this.playerRuntimeService.peekInventoryItem(playerId, payload.slotIndex);
@@ -877,6 +954,7 @@ export class MarketRuntimeService {
     }
     /** 取消玩家自己的挂单。 */
     async cancelOrder(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         const requestedOrderId = String(payload.orderId ?? '').trim();
         const requestedOrder = this.openOrders.find((entry) => entry.id === requestedOrderId && entry.ownerId === playerId);
         if (requestedOrder?.side === 'sell' && this.isAuctionOrder(requestedOrder) && this.getSortedAuctionBids(this.buildAuctionLotKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
@@ -961,6 +1039,7 @@ export class MarketRuntimeService {
     }
     /** 把仓库物品领取回背包，或在背包满时保留在仓库。 */
     async claimStorage(playerId) {
+        await this.ensureStorageHydrated(playerId);
         if (this.durableOperationService?.isEnabled()) {
             return this.runExclusive(async () => {
                 const context = this.createMutationContext();
@@ -1006,6 +1085,7 @@ export class MarketRuntimeService {
                     this.playerRuntimeService.replaceInventoryItems(playerId, plan.nextInventoryItems);
                     this.setStorage(playerId, { items: plan.remainingItems }, context);
                     context.skipPersistence = true;
+                    this.evictStorageCacheIfOverLimit();
                     if (plan.remainingItems.length > 0) {
                         return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
                     }
@@ -1297,6 +1377,7 @@ export class MarketRuntimeService {
     }
     /** 提交拍卖行加价，只写拍卖出价态，不进入坊市买单撮合。 */
     async placeAuctionBid(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const requestedKey = String(payload?.itemKey ?? payload?.lotId ?? '').trim();
             const itemKey = this.resolveAuctionLotKey(requestedKey);
@@ -1382,6 +1463,7 @@ export class MarketRuntimeService {
     }
     /** 拍卖行一口价入口，避免客户端误走坊市买入事件。 */
     async buyoutAuctionLot(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const requestedKey = String(payload?.itemKey ?? payload?.lotId ?? '').trim();
             const itemKey = this.resolveAuctionLotKey(requestedKey);
@@ -2713,6 +2795,8 @@ export class MarketRuntimeService {
         else {
             this.storageByPlayerId.delete(playerId);
         }
+        // 经过 mutation 写入的玩家视作已 hydrate，并刷新 LRU 顺序。
+        this.touchStorageLru(playerId);
         context.dirtyStoragePlayerIds.add(playerId);
     }
     /**
@@ -2919,7 +3003,159 @@ export class MarketRuntimeService {
  */
 
     getStorage(playerId) {
+        if (typeof playerId === 'string' && playerId && this.loadedStoragePlayerIds.has(playerId)) {
+            this.touchStorageLru(playerId);
+        }
         return cloneStorage(this.storageByPlayerId.get(playerId));
+    }
+    /** 把命中的玩家 ID 重新插到 Set 末尾，使其成为最近使用项，从而保留在 LRU 缓存窗口内。 */
+    touchStorageLru(playerId) {
+        if (typeof playerId !== 'string' || !playerId) {
+            return;
+        }
+        if (this.loadedStoragePlayerIds.has(playerId)) {
+            this.loadedStoragePlayerIds.delete(playerId);
+        }
+        this.loadedStoragePlayerIds.add(playerId);
+    }
+    /**
+     * 按需 hydrate 单个玩家的坊市仓库。已 hydrate 的玩家直接返回并刷新 LRU；
+     * 未 hydrate 时按 playerId 加锁拉取，避免重复 SQL 与并发覆盖。
+     */
+    async ensureStorageHydrated(playerId) {
+        const normalized = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalized) {
+            return;
+        }
+        if (this.loadedStoragePlayerIds.has(normalized)) {
+            this.touchStorageLru(normalized);
+            return;
+        }
+        let pending = this.storageHydrationLocks.get(normalized);
+        if (!pending) {
+            pending = (async () => {
+                try {
+                    const loaded = typeof this.marketPersistenceService?.loadStorageForPlayer === 'function'
+                        ? await this.marketPersistenceService.loadStorageForPlayer(normalized)
+                        : { items: [] };
+                    if (this.loadedStoragePlayerIds.has(normalized)) {
+                        // 期间已经被其他 mutation 写入并 hydrate，直接尊重内存态。
+                        return;
+                    }
+                    if (loaded && Array.isArray(loaded.items) && loaded.items.length > 0) {
+                        this.storageByPlayerId.set(normalized, cloneStorage(loaded));
+                    }
+                    else {
+                        this.storageByPlayerId.delete(normalized);
+                    }
+                    this.loadedStoragePlayerIds.add(normalized);
+                }
+                catch (error) {
+                    this.logger.error(`坊市仓库 lazy hydrate 失败 (playerId=${normalized}): ${error instanceof Error ? error.message : String(error)}`);
+                    throw error;
+                }
+                finally {
+                    this.storageHydrationLocks.delete(normalized);
+                }
+            })();
+            this.storageHydrationLocks.set(normalized, pending);
+        }
+        await pending;
+        this.touchStorageLru(normalized);
+    }
+    /** 批量 hydrate 多个玩家，常用于撮合前一次性预热所有受影响的对手方。 */
+    async ensureStoragesHydrated(playerIds) {
+        const unique = new Set();
+        if (playerIds && typeof playerIds[Symbol.iterator] === 'function') {
+            for (const playerId of playerIds) {
+                const normalized = typeof playerId === 'string' ? playerId.trim() : '';
+                if (!normalized || this.loadedStoragePlayerIds.has(normalized)) {
+                    continue;
+                }
+                unique.add(normalized);
+            }
+        }
+        if (unique.size === 0) {
+            return;
+        }
+        await Promise.all(Array.from(unique, (playerId) => this.ensureStorageHydrated(playerId)));
+    }
+    /** 标记玩家正在执行 mutation，eviction 期间避免误删该玩家的缓存条目。 */
+    pinStoragePlayer(playerId) {
+        if (typeof playerId !== 'string' || !playerId) {
+            return;
+        }
+        const next = (this.pendingStorageMutationPlayerIds.get(playerId) ?? 0) + 1;
+        this.pendingStorageMutationPlayerIds.set(playerId, next);
+    }
+    /** 释放上一次 pinStoragePlayer 计数；归零后从 pending 集合中移除。 */
+    unpinStoragePlayer(playerId) {
+        if (typeof playerId !== 'string' || !playerId) {
+            return;
+        }
+        const current = this.pendingStorageMutationPlayerIds.get(playerId) ?? 0;
+        if (current <= 1) {
+            this.pendingStorageMutationPlayerIds.delete(playerId);
+            return;
+        }
+        this.pendingStorageMutationPlayerIds.set(playerId, current - 1);
+    }
+    /** 收集当前必须保留在缓存中的玩家集合：在线玩家、有挂单玩家、当前正在 mutation 的玩家。 */
+    collectStorageCachePinned() {
+        const pinned = new Set();
+        for (const order of this.openOrders) {
+            const ownerId = typeof order?.ownerId === 'string' ? order.ownerId : '';
+            if (ownerId) {
+                pinned.add(ownerId);
+            }
+        }
+        for (const bids of this.auctionBidsByItemKey.values()) {
+            if (!Array.isArray(bids)) {
+                continue;
+            }
+            for (const bid of bids) {
+                const bidderId = typeof bid?.bidderId === 'string' ? bid.bidderId : '';
+                if (bidderId) {
+                    pinned.add(bidderId);
+                }
+            }
+        }
+        for (const playerId of this.pendingStorageMutationPlayerIds.keys()) {
+            pinned.add(playerId);
+        }
+        if (typeof this.playerRuntimeService?.getPlayer === 'function') {
+            for (const playerId of this.loadedStoragePlayerIds) {
+                if (this.playerRuntimeService.getPlayer(playerId)) {
+                    pinned.add(playerId);
+                }
+            }
+        }
+        return pinned;
+    }
+    /** 超出 LRU 上限时按迭代顺序驱逐最久未使用且未被 pin 的玩家。 */
+    evictStorageCacheIfOverLimit() {
+        const limit = MARKET_STORAGE_RUNTIME_CACHE_LIMIT;
+        if (!Number.isFinite(limit) || limit <= 0) {
+            return;
+        }
+        if (this.loadedStoragePlayerIds.size <= limit) {
+            return;
+        }
+        const pinned = this.collectStorageCachePinned();
+        const target = this.loadedStoragePlayerIds.size - limit;
+        let removed = 0;
+        const ordered = Array.from(this.loadedStoragePlayerIds);
+        for (const playerId of ordered) {
+            if (removed >= target) {
+                break;
+            }
+            if (pinned.has(playerId) || this.storageHydrationLocks.has(playerId)) {
+                continue;
+            }
+            this.loadedStoragePlayerIds.delete(playerId);
+            this.storageByPlayerId.delete(playerId);
+            removed += 1;
+        }
     }
     /**
  * getCurrencyItemName：读取Currency道具名称。
@@ -3011,9 +3247,12 @@ export class MarketRuntimeService {
         for (const [playerId, storage] of context.storageSnapshotByPlayerId.entries()) {
             if (storage.items.length > 0) {
                 this.storageByPlayerId.set(playerId, cloneStorage(storage));
+                this.loadedStoragePlayerIds.add(playerId);
             }
             else {
                 this.storageByPlayerId.delete(playerId);
+                // 回滚到空仓库时仍然视作已 hydrate（之前 ensureStorageHydrated 已经拉取过持久化态）。
+                this.loadedStoragePlayerIds.add(playerId);
             }
         }
         for (const snapshot of context.onlinePlayerSnapshots.values()) {
@@ -3062,6 +3301,15 @@ export class MarketRuntimeService {
                     this.tradeHistory.sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
                     this.tradeHistory = trimTradeHistoryRuntimeCache(this.tradeHistory);
                 }
+                // 坊市订单/仓库/历史是即时事务落库，但买卖双方的 inventory/wallet 仅标 dirty
+                // 等周期 flush（默认 5 秒）。这里在 mutation 返回前对所有受影响的在线玩家依次
+                // 立即 flush，关闭"成交即时落库 vs 玩家延迟刷盘"的窗口。
+                // 任意单玩家 flush 失败不回滚整笔交易：dirty 标记不会被 markPersisted 清掉，
+                // 下一次周期 flush / 玩家断线 / 关停 flush 仍会重试。
+                await this.flushAffectedPlayersAfterMutation(context);
+                // 落库完成且无回滚后再尝试 LRU 驱逐：此时缓存与持久化已经一致，
+                // 移除最久未使用且未被 pin 的玩家不会丢任何脏数据。
+                this.evictStorageCacheIfOverLimit();
                 return result;
             }
             catch (error) {
@@ -3072,6 +3320,38 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');
             }
         });
+    }
+    /**
+     * 坊市 mutation 收尾后立即对所有受影响的在线玩家强制 flush 一次：
+     * - context.onlinePlayerSnapshots 由 captureOnlinePlayerState 在所有动钱/动物品的入口标记，
+     *   覆盖买家、卖家、收货方等当事玩家。
+     * - flushPlayer 内部已经处理 lease 失效与无脏域的快速返回，调用方不需要预过滤。
+     * - 单玩家失败仅记录日志：market 已经 commit，玩家 dirty 标记仍保留，下一次周期/断线/关停
+     *   flush 会继续重试，避免单点失败回滚整笔交易。
+     */
+    async flushAffectedPlayersAfterMutation(context) {
+        const flushPort = this.playerPersistenceFlushService;
+        if (!flushPort || typeof flushPort.flushPlayer !== 'function') {
+            return;
+        }
+        const onlineSnapshots = context?.onlinePlayerSnapshots;
+        if (!onlineSnapshots || typeof onlineSnapshots.keys !== 'function') {
+            return;
+        }
+        const playerIds = Array.from(onlineSnapshots.keys());
+        for (const affectedPlayerId of playerIds) {
+            if (typeof affectedPlayerId !== 'string' || !affectedPlayerId) {
+                continue;
+            }
+            try {
+                await flushPort.flushPlayer(affectedPlayerId);
+            }
+            catch (error) {
+                this.logger.error(
+                    `坊市成交后玩家分域 flush 失败 playerId=${affectedPlayerId}：${error instanceof Error ? error.stack : String(error)}`,
+                );
+            }
+        }
     }
     /**
  * runExclusive：执行runExclusive相关逻辑。

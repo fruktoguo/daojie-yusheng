@@ -325,7 +325,8 @@ export class WorldRuntimeController {
     }
     /** getMarket：读取市场行情。 */
     @Get('players/:playerId/market')
-    getMarket(@Param('playerId') playerId) {
+    async getMarket(@Param('playerId') playerId) {
+        await this.marketRuntimeService.ensureStorageHydrated(playerId);
         return this.marketRuntimeService.buildMarketUpdate(playerId);
     }
     /** getMarketItemBook：读取市场物品书。 */

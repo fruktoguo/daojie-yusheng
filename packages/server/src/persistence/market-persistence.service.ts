@@ -3,10 +3,11 @@
  * 管理 server_market_order、server_market_trade_history 和 player_market_storage_item 表，
  * 支持订单/成交/托管仓的事务性写入、结构化加载和恢复水位推进。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
 import { isValidMarketPrice } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 import { ensureBigintColumnType } from './schema-bigint-migration';
 
 const MARKET_ORDER_TABLE = 'server_market_order';
@@ -32,6 +33,13 @@ export class MarketPersistenceService {
  */
 
     enabled = false;
+
+    databasePoolProvider;
+
+    constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
+        this.databasePoolProvider = databasePoolProvider;
+    }
+
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -45,9 +53,12 @@ export class MarketPersistenceService {
             this.logger.log('坊市持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool?.('market');
+        if (!sharedPool) {
+            this.logger.warn('坊市持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensureMarketTables(this.pool);
             this.enabled = true;
@@ -55,7 +66,7 @@ export class MarketPersistenceService {
         }
         catch (error) {
             this.logger.error('坊市持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
+            this.releasePoolReference();
         }
     }
     /**
@@ -64,7 +75,7 @@ export class MarketPersistenceService {
  */
 
     async onModuleDestroy() {
-        await this.safeClosePool();
+        this.releasePoolReference();
     }
 
     /** 检查数据库可用性，用于上游交易流程决定是否执行持久化。 */
@@ -140,6 +151,29 @@ export class MarketPersistenceService {
 
     async loadStorages() {
         return this.loadStructuredStorages();
+    }
+    /**
+ * loadStorageForPlayer：按玩家 ID 按需加载坊市托管仓行，避免一次性灌入全部历史玩家的仓库。
+ * @param playerId 玩家 ID。
+ * @returns 单个玩家的托管仓物品快照，若无行返回空仓库。
+ */
+    async loadStorageForPlayer(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!this.pool || !this.enabled || !normalizedPlayerId) {
+            return { items: [] };
+        }
+        const result = await this.pool.query(`
+          SELECT player_id, slot_index, item_id, count, raw_payload
+          FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          WHERE player_id = $1
+          ORDER BY slot_index ASC, storage_item_id ASC
+        `, [normalizedPlayerId]);
+        const rows = Array.isArray(result.rows) ? result.rows : [];
+        if (rows.length === 0) {
+            return { items: [] };
+        }
+        const items = rows.map((row) => normalizeStructuredStorageItem(row));
+        return { items };
     }
     /**
  * persistMutation：判断persistMutation是否满足条件。
@@ -414,19 +448,13 @@ export class MarketPersistenceService {
         }
     }
     /**
- * safeClosePool：执行safeClosePool相关逻辑。
- * @returns 无返回值，直接更新safeClosePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async safeClosePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const pool = this.pool;
+    releasePoolReference() {
         this.pool = null;
         this.enabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 }
 /**

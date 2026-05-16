@@ -42,6 +42,9 @@ class WorldGatewayMarketHelper {
             if (settlement) {
                 await this.gateway.gatewayClientEmitHelper.flushMarketResult(settlement);
             }
+            // 按需 hydrate：玩家首次打开坊市时把其仓库从持久化拉到内存缓存，
+            // 避免之前的 lazy 设计在 sync 构造方法中读出空仓库。
+            await this.gateway.marketRuntimeService.ensureStorageHydrated(playerId);
             const response = this.gateway.marketRuntimeService.buildMarketUpdate(playerId);
             this.gateway.gatewayClientEmitHelper.emitMarketUpdate(client, response);
             this.gateway.gatewayClientEmitHelper.emitMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(this.gateway.gatewaySessionStateHelper.getMarketListingsRequest(playerId)));
