@@ -351,12 +351,10 @@ function cloneEnhancementJob(entry) {
  */
 
 function countInventoryItem(player, itemId) {
-    if (itemId === 'spirit_stone') {
-        const balances = Array.isArray(player.wallet?.balances) ? player.wallet.balances : [];
-        const walletCount = balances.reduce((total, entry) => total + (entry?.walletType === itemId ? Math.max(0, Math.trunc(Number(entry?.balance ?? 0))) : 0), 0);
-        const inventoryCount = player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
-        return walletCount + inventoryCount;
-    }
+    // 灵石（spirit_stone）的 wallet.balances 由 syncWalletCacheFromInventory 全量
+    // 镜像自 inventory.items，不是独立账户；craft 实际消费走 debitWallet →
+    // consumeInventoryItemCount，从 inventory 扣减。这里统一只读 inventory，
+    // 让"持有量计数"与"可消费量"对齐，避免显示翻倍并误判材料充足。
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
 /**

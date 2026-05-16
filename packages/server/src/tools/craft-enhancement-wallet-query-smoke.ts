@@ -46,7 +46,10 @@ function createPlayer() {
       balances: [
         {
           walletType: 'spirit_stone',
-          balance: 12,
+          // 灵石的 wallet.balance 由 syncWalletCacheFromInventory 全量镜像自
+          // inventory.items 的 spirit_stone 总数，二者必须保持一致；这里也按
+          // 同步后状态构造夹具，避免把"双视图同源"误用成"双账户相加"。
+          balance: 3,
           frozenBalance: 0,
           version: 1,
         },
@@ -84,13 +87,16 @@ function main() {
   assert.ok(candidate, 'expected enhancement candidate');
   assert.equal(candidate.materials.length, 1);
   assert.equal(candidate.materials[0]?.itemId, 'spirit_stone');
-  assert.equal(candidate.materials[0]?.ownedCount, 15);
+  // ownedCount 必须等同于"实际可消费量"，也就是 inventory 中 spirit_stone 的总数；
+  // wallet.balances 是 inventory 的镜像缓存，不能被叠加（叠加会让玩家看到双倍灵石
+  // 并误判材料充足）。
+  assert.equal(candidate.materials[0]?.ownedCount, 3);
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'CraftPanelEnhancementQueryService 现已把 spirit_stone 材料候选的 ownedCount 对齐到真钱包可消费总额，并兼容库存回退',
+        answers: 'CraftPanelEnhancementQueryService 的 spirit_stone ownedCount 现按 inventory 真源计算，与 syncWalletCacheFromInventory 保持的镜像视图一致，不再叠加 wallet.balances。',
         completionMapping: 'release:proof:with-db.craft-enhancement-wallet-query',
       },
       null,
