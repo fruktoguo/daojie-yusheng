@@ -3994,8 +3994,11 @@ async function removeSuggestion(id: string): Promise<void> {
   }
 }
 
+/** GM 默认请求超时（毫秒）。超过该值仍未收到响应即立即 reject，避免 UI 永久卡在“正在保存…”。 */
+const GM_DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 /** request：处理请求。 */
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs: number = GM_DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const headers = new Headers(init.headers ?? {});
@@ -4006,7 +4009,43 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(path, { ...init, headers });
+  // 默认带超时：服务端阻塞、网络抖动或 pooler 卡顿时主动取消请求并向上抛出可读错误。
+  // 兼容外部传入的 init.signal：任一被触发都会终止 fetch。
+  const controller = new AbortController();
+  const externalSignal = init.signal ?? null;
+  const onExternalAbort = () => controller.abort(externalSignal?.reason);
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+  }
+  let timedOut = false;
+  const timeoutHandle = timeoutMs > 0
+    ? window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs)
+    : null;
+
+  let response: Response;
+  try {
+    response = await fetch(path, { ...init, headers, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) {
+      const seconds = Math.max(1, Math.round(timeoutMs / 1000)).toString();
+      throw new Error(t('gm.request.timeout', { seconds }));
+    }
+    throw error;
+  } finally {
+    if (timeoutHandle !== null) {
+      window.clearTimeout(timeoutHandle);
+    }
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
+  }
   const text = await response.text();
   let data: unknown = null;
   if (text) {
@@ -7284,11 +7323,23 @@ async function saveSelectedPlayerPassword(): Promise<void> {
 
   if (!newPassword) {
     setStatus(t('gm.player.password.fill-new'), true);
+    if (passwordInput) {
+      passwordInput.focus();
+    }
     return;
   }
 
+  // 显式标记保存中状态：按钮置灰 + “正在保存…” 文案 + 输入框只读，避免重复点击。
+  // 使用 dataset 记录原始文案，恢复时还原（即使 i18n 后续变更也不会丢失原文）。
+  const originalLabel = button?.textContent ?? '';
   if (button) {
+    button.dataset.originalLabel = originalLabel;
+    button.dataset.savingState = 'pending';
+    button.textContent = t('gm.player.password.saving-button');
     button.disabled = true;
+  }
+  if (passwordInput) {
+    passwordInput.readOnly = true;
   }
   try {
     setPendingStatus(t('gm.player.password.updating', { username: detail.account.username }));
@@ -7305,10 +7356,18 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     }
     setStatus(t('gm.player.password.updated', { username: detail.account.username }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+    const message = error instanceof Error && error.message ? error.message : t('gm.request.failed');
+    setStatus(t('gm.player.password.failed', { message }), true);
   } finally {
     if (button) {
       button.disabled = false;
+      const restoreLabel = button.dataset.originalLabel || t('gm.player.password.save-button');
+      button.textContent = restoreLabel;
+      delete button.dataset.savingState;
+      delete button.dataset.originalLabel;
+    }
+    if (passwordInput) {
+      passwordInput.readOnly = false;
     }
   }
 }
