@@ -9,20 +9,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const runtimeFiles = [
-  'packages/server/src/runtime/world/world-runtime-combat-action.service.ts',
+  'packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts',
   'packages/server/src/runtime/combat/combat-outcome-apply-adapters.ts',
   'packages/server/src/runtime/combat/combat-event-query.ts',
   'packages/server/src/runtime/combat/combat-runtime-event-ring.helpers.ts',
   'packages/server/src/runtime/combat/pending-combat-cast.helpers.ts',
-  'packages/server/src/runtime/world/combat-action.types.ts',
+  'packages/server/src/runtime/world/combat/combat-action.types.ts',
 ];
 
 // 旧生产服务在阶段 14 被计划瘦身/删除；删除前先用静态护栏锁定不再新增
 // 直接 DB/socket/fs/redis 访问。JSON.stringify 等历史实现在老代码里仍被允许。
 const legacyRuntimeFiles = [
-  'packages/server/src/runtime/world/world-runtime-basic-attack.service.ts',
-  'packages/server/src/runtime/world/world-runtime-player-skill-dispatch.service.ts',
-  'packages/server/src/runtime/world/world-runtime-monster-action-apply.service.ts',
+  'packages/server/src/runtime/world/combat/world-runtime-basic-attack.service.ts',
+  'packages/server/src/runtime/world/combat/world-runtime-player-skill-dispatch.service.ts',
+  'packages/server/src/runtime/world/combat/world-runtime-monster-action-apply.service.ts',
 ];
 
 const forbiddenRuntimePatterns = [
@@ -69,7 +69,7 @@ function run() {
     }
   }
 
-  const serviceSource = readSource(repoRoot, 'packages/server/src/runtime/world/world-runtime-combat-action.service.ts');
+  const serviceSource = readSource(repoRoot, 'packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts');
   assert.equal(serviceSource.includes('recordBoundedCombatRing'), true);
   assert.equal(serviceSource.includes('buildCombatEvents'), true);
   assert.equal(serviceSource.includes('writesDatabaseInTick: false'), true);
@@ -111,14 +111,19 @@ function run() {
 }
 
 function resolveRepoRoot() {
+  const envPackageRoot = typeof process.env.SERVER_PACKAGE_ROOT === 'string'
+    ? process.env.SERVER_PACKAGE_ROOT.trim()
+    : '';
   const candidates = [
     process.cwd(),
     path.resolve(process.cwd(), '..'),
     path.resolve(process.cwd(), '..', '..'),
+    ...(envPackageRoot ? [path.resolve(envPackageRoot, '..', '..')] : []),
     path.resolve(__dirname, '..', '..', '..', '..', '..'),
+    path.resolve(__dirname, '..', '..', '..', '..', '..', '..', '..'),
   ];
   for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, 'packages/server/src/runtime/world/world-runtime-combat-action.service.ts'))) {
+    if (fs.existsSync(path.join(candidate, 'packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts'))) {
       return candidate;
     }
   }

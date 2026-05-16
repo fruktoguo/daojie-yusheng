@@ -10,6 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("node:assert/strict");
 const { Pool } = require("pg");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
+const { DatabasePoolProvider } = require("../persistence/database-pool.provider");
 const { WorldRuntimeFormationService } = require("../runtime/world/world-runtime-formation.service");
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
@@ -741,17 +742,21 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
   const largeSpiritStoneCount = 100_000_009;
   const largeQiCost = 10_000_000_900;
   const pool = new Pool({ connectionString: databaseUrl });
+  const databasePoolProvider = new DatabasePoolProvider();
   const saveService = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     playerRuntimeService,
+    databasePoolProvider,
   );
   const restoreService = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     playerRuntimeService,
+    databasePoolProvider,
   );
   const guardianStartupService = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     playerRuntimeService,
+    databasePoolProvider,
   );
   try {
     await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
@@ -828,6 +833,7 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     await saveService.closePersistencePool().catch(() => undefined);
     await restoreService.closePersistencePool().catch(() => undefined);
     await guardianStartupService.closePersistencePool().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
     await pool.end().catch(() => undefined);
   }

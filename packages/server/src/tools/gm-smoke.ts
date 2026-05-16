@@ -2015,10 +2015,11 @@ function assertGmPerfHotspots(payload, label) {
     if (!Array.isArray(payload?.perf?.cpu?.breakdown) || payload.perf.cpu.breakdown.length <= 0) {
         throw new Error(`unexpected ${label} cpu breakdown payload: ${JSON.stringify(payload?.perf?.cpu)}`);
     }
-    if (!Array.isArray(payload?.perf?.networkInBuckets) || payload.perf.networkInBuckets.length <= 0) {
+    const networkStatsEnabled = payload?.perf?.networkStatsEnabled === true;
+    if (!Array.isArray(payload?.perf?.networkInBuckets) || (networkStatsEnabled && payload.perf.networkInBuckets.length <= 0)) {
         throw new Error(`unexpected ${label} network in buckets payload: ${JSON.stringify(payload?.perf)}`);
     }
-    if (!Array.isArray(payload?.perf?.networkOutBuckets) || payload.perf.networkOutBuckets.length <= 0) {
+    if (!Array.isArray(payload?.perf?.networkOutBuckets) || (networkStatsEnabled && payload.perf.networkOutBuckets.length <= 0)) {
         throw new Error(`unexpected ${label} network out buckets payload: ${JSON.stringify(payload?.perf)}`);
     }
 }

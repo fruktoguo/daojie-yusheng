@@ -218,6 +218,7 @@ async function main() {
         if (destroyedEntry?.status !== 'destroyed') {
             throw new Error(`destroyed code state mismatch: ${JSON.stringify(destroyedEntry)}`);
         }
+        await delay(3100);
         socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
         await waitFor(async () => {
 /**
@@ -228,7 +229,7 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchState();
-                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码已被使用')
+                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码无效或已过期')
                 && rewardCount(state, REWARD_ITEM_ID) === afterFirstCount;
         }, 5000);
         console.log(JSON.stringify({

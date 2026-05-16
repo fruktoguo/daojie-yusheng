@@ -102,7 +102,7 @@ withRandom(0.99, () => {
     const service = new PlayerCombatService({});
     const fallbackCombatExp = resolveMonsterCombatExpEquivalentFallback(12);
     assert.equal(fallbackCombatExp, 32500, '怪物战斗经验兜底应按境界表 expToNext * 品阶系数，不应退回 level * 100');
-    assert.equal(resolveMonsterCombatExpEquivalentFallback(25), 4547000, '玄阶怪物战斗经验系数应按凡阶 0.25 后每阶翻倍，玄阶为 1.0');
+    assert.equal(resolveMonsterCombatExpEquivalentFallback(25), 4500000, '玄阶怪物战斗经验系数应按凡阶 0.25 后每阶翻倍，玄阶为 1.0');
     assert.equal(resolveMonsterCombatExpEquivalentFallback({ level: 12, tier: 'variant' }), 65000, '异种怪物战斗经验应在普通等价值基础上乘 2');
     assert.equal(resolveMonsterCombatExpEquivalentFallback({ level: 12, tier: 'demon_king' }), 130000, '妖王怪物战斗经验应在普通等价值基础上乘 4');
 

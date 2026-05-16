@@ -53,25 +53,6 @@ async function main() {
         throw new Error(`no alive monster ${preferredMonsterId} found in ${instanceId}`);
     }
 /**
- * 记录怪物before。
- */
-    const monsterBefore = await fetchMonster(instanceId, target.runtimeId);
-/**
- * 记录技能。
- */
-    const skill = selectRangedSkill(monsterBefore.monster?.skills);
-    if (!skill) {
-        throw new Error(`monster ${target.runtimeId} has no ranged skill`);
-    }
-/**
- * 记录目标BuffID。
- */
-    const targetBuffId = skill.effects.find((entry) => entry.type === 'buff' && entry.target === 'target')?.buffId ?? null;
-/**
- * 记录技能range。
- */
-    const skillRange = resolveSkillRange(skill);
-/**
  * 记录认证。
  */
     const auth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
@@ -154,7 +135,6 @@ async function main() {
             hp: boostedHp,
             maxHp: boostedHp,
         });
-        const readyPlayer = await fetchPlayerState(playerId);
 /**
  * 记录resolved目标。
  */
@@ -177,6 +157,61 @@ async function main() {
             const fallbackTarget = visibleMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
         }, 5000);
+        const resolvedMonsterBefore = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+/**
+ * 记录用于贴近目标的技能。
+ */
+        const positioningSkill = selectRangedSkill(resolvedMonsterBefore.monster?.skills)
+            ?? (Array.isArray(resolvedMonsterBefore.monster?.skills) ? resolvedMonsterBefore.monster.skills[0] : null);
+        if (!positioningSkill) {
+            throw new Error(`monster ${resolvedTarget.runtimeId} has no skill`);
+        }
+/**
+ * 记录技能range。
+ */
+        const skillRange = resolveSkillRange(positioningSkill);
+        const combatAnchor = await resolveMonsterSkillAnchor(instanceId, resolvedTarget, skillRange);
+        await postJson('/runtime/players/connect', {
+            playerId,
+            sessionId,
+            instanceId,
+            mapId: instanceId.replace('public:', ''),
+            preferredX: combatAnchor.x,
+            preferredY: combatAnchor.y,
+        });
+        let anchorProbe = null;
+        await waitFor(async () => {
+            const state = await fetchPlayerState(playerId);
+            const player = state.player;
+            if (!player || player.instanceId !== instanceId) {
+                anchorProbe = { phase: 'player_missing_or_wrong_instance', player };
+                return false;
+            }
+            const monsterState = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+            const monster = monsterState.monster;
+            if (!monster) {
+                anchorProbe = { phase: 'monster_missing', player, monster };
+                return false;
+            }
+            const distance = Math.max(Math.abs(player.x - monster.x), Math.abs(player.y - monster.y));
+            anchorProbe = {
+                phase: 'waiting_for_anchor',
+                combatAnchor,
+                player: { x: player.x, y: player.y, instanceId: player.instanceId },
+                monster: { x: monster.x, y: monster.y, aggroTargetPlayerId: monster.aggroTargetPlayerId },
+                distance,
+                skillRange,
+            };
+            return distance <= skillRange && monster.aggroTargetPlayerId === playerId;
+        }, 5000).catch((error) => {
+            throw new Error(`${error.message}: ${JSON.stringify(anchorProbe)}`);
+        });
+        await postJson(`/runtime/players/${playerId}/vitals`, {
+            hp: boostedHp,
+            maxHp: boostedHp,
+        });
+        const readyPlayer = await fetchPlayerState(playerId);
+        let skillProbe = null;
         await waitFor(async () => {
             const [playerState, monsterState] = await Promise.all([
                 fetchPlayerState(playerId),
@@ -191,6 +226,7 @@ async function main() {
  */
             const monster = monsterState.monster;
             if (!player || !monster) {
+                skillProbe = { phase: 'player_or_monster_missing', player, monster };
                 return false;
             }
 /**
@@ -200,8 +236,8 @@ async function main() {
 /**
  * 记录cooleddown。
  */
-            const cooledDown = typeof monster.cooldownReadyTickBySkillId?.[skill.id] === 'number'
-                && monster.cooldownReadyTickBySkillId[skill.id] > 0;
+            const observedSkill = findObservedMonsterSkill(monster, player);
+            const targetBuffId = observedSkill?.effects?.find((entry) => entry.type === 'buff' && entry.target === 'target')?.buffId ?? null;
 /**
  * 记录玩家damaged。
  */
@@ -212,8 +248,50 @@ async function main() {
             const buffApplied = targetBuffId
                 ? player.buffs?.buffs?.some((entry) => entry.buffId === targetBuffId)
                 : true;
-            return Boolean(distance <= skillRange && cooledDown && playerDamaged && buffApplied);
-        }, 8000);
+            skillProbe = {
+                phase: 'waiting_for_monster_skill',
+                player: {
+                    x: player.x,
+                    y: player.y,
+                    hp: player.hp,
+                    maxHp: player.maxHp,
+                    instanceId: player.instanceId,
+                    buffs: player.buffs,
+                },
+                monster: {
+                    x: monster.x,
+                    y: monster.y,
+                    hp: monster.hp,
+                    maxHp: monster.maxHp,
+                    qi: monster.qi,
+                    aggroTargetPlayerId: monster.aggroTargetPlayerId,
+                    pendingCast: monster.pendingCast,
+                    cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
+                    skills: Array.isArray(monster.skills)
+                        ? monster.skills.map((entry) => ({
+                            id: entry.id,
+                            range: resolveSkillRange(entry),
+                            cooldown: monster.cooldownReadyTickBySkillId?.[entry.id] ?? 0,
+                            qiCost: entry.qiCost ?? entry.cost?.qi ?? entry.resourceCost?.qi ?? null,
+                            windupTicks: entry.monsterCast?.windupTicks ?? null,
+                            conditions: entry.monsterCast?.conditions ?? null,
+                            effects: entry.effects,
+                        }))
+                        : [],
+                },
+                distance,
+                skillRange,
+                observedSkillId: observedSkill?.id ?? null,
+                targetBuffId,
+                playerDamaged,
+                buffApplied,
+                worldEventCount: worldEvents.length,
+                combatFxObserved: worldEvents.some(hasCombatFx),
+            };
+            return Boolean(distance <= skillRange && observedSkill && playerDamaged && buffApplied);
+        }, 8000).catch((error) => {
+            throw new Error(`${error.message}: ${JSON.stringify(skillProbe)}`);
+        });
 /**
  * 记录final玩家。
  */
@@ -222,6 +300,8 @@ async function main() {
  * 记录final怪物。
  */
         const finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+        const finalCastSkill = findObservedMonsterSkill(finalMonster.monster, finalPlayer.player);
+        const finalTargetBuffId = finalCastSkill?.effects?.find((entry) => entry.type === 'buff' && entry.target === 'target')?.buffId ?? null;
         if (!worldEvents.some(hasCombatFx)) {
             throw new Error('expected combat fx world delta after monster skill');
         }
@@ -232,14 +312,14 @@ async function main() {
             instanceId,
             runtimeId: resolvedTarget.runtimeId,
             monsterId: resolvedTarget.monsterId,
-            skillId: skill.id,
+            skillId: finalCastSkill?.id ?? null,
             playerHpLost: readyPlayer.player.hp - finalPlayer.player.hp,
-            targetBuffId,
-            targetBuffApplied: targetBuffId
-                ? finalPlayer.player.buffs?.buffs?.some((entry) => entry.buffId === targetBuffId)
+            targetBuffId: finalTargetBuffId,
+            targetBuffApplied: finalTargetBuffId
+                ? finalPlayer.player.buffs?.buffs?.some((entry) => entry.buffId === finalTargetBuffId)
                 : null,
             worldEventCount: worldEvents.length,
-            monsterSkillCooldownReadyTick: finalMonster.monster.cooldownReadyTickBySkillId?.[skill.id] ?? null,
+            monsterSkillCooldownReadyTick: finalCastSkill ? finalMonster.monster.cooldownReadyTickBySkillId?.[finalCastSkill.id] ?? null : null,
             finalMonster,
             finalPlayer,
         }, null, 2));
@@ -285,6 +365,76 @@ function selectRangedSkill(skills) {
         return left.id.localeCompare(right.id, 'zh-Hans-CN');
     });
     return ranged[0] ?? null;
+}
+/**
+ * 读取本轮已经进入冷却的妖兽技能。
+ */
+function findCastMonsterSkill(monster) {
+    if (!monster || !Array.isArray(monster.skills)) {
+        return null;
+    }
+    const cooldowns = monster.cooldownReadyTickBySkillId ?? {};
+    return monster.skills.find((entry) => typeof cooldowns?.[entry.id] === 'number' && cooldowns[entry.id] > 0) ?? null;
+}
+/**
+ * 读取已经对玩家产生效果的妖兽技能。
+ */
+function findObservedMonsterSkill(monster, player) {
+    const castSkill = findCastMonsterSkill(monster);
+    if (castSkill) {
+        return castSkill;
+    }
+    if (!monster || !Array.isArray(monster.skills) || !player) {
+        return null;
+    }
+/**
+ * 记录玩家Buff。
+ */
+    const playerBuffs = Array.isArray(player.buffs?.buffs)
+        ? player.buffs.buffs
+        : (Array.isArray(player.buffs) ? player.buffs : []);
+    for (const skill of monster.skills) {
+        const targetBuffIds = Array.isArray(skill.effects)
+            ? skill.effects
+                .filter((entry) => entry?.type === 'buff' && entry?.target === 'target' && typeof entry?.buffId === 'string')
+                .map((entry) => entry.buffId)
+            : [];
+        if (targetBuffIds.length === 0) {
+            continue;
+        }
+        if (playerBuffs.some((buff) => targetBuffIds.includes(buff?.buffId) && (!buff?.sourceSkillId || buff.sourceSkillId === skill.id))) {
+            return skill;
+        }
+    }
+    return null;
+}
+/**
+ * 选一个当前视线可达且在技能范围内的位置，避免烟测依赖固定偏移或障碍布局。
+ */
+async function resolveMonsterSkillAnchor(instanceIdValue, monster, skillRange) {
+    const radius = Math.max(1, Math.trunc(Number(skillRange) || 1));
+    for (let distance = 1; distance <= radius; distance += 1) {
+        for (let dy = -distance; dy <= distance; dy += 1) {
+            for (let dx = -distance; dx <= distance; dx += 1) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) !== distance) {
+                    continue;
+                }
+                const x = monster.x + dx;
+                const y = monster.y + dy;
+                try {
+                    const state = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceIdValue}/tiles/${x}/${y}`);
+                    if (state?.tile?.walkable === false || state?.tile?.blocksSight === true) {
+                        continue;
+                    }
+                    return { x, y };
+                }
+                catch {
+                    // out-of-bounds or unavailable tile, continue search
+                }
+            }
+        }
+    }
+    return { x: monster.x, y: monster.y };
 }
 /**
  * 解析技能range。

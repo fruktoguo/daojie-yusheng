@@ -284,6 +284,9 @@ function createTickDeps(
     processPendingRespawns() {},
     materializeNavigationCommands() {},
     materializeAutoUsePills() {},
+    worldRuntimeAutoCombatService: {
+      materializeAutoCombatCommands() {},
+    },
     materializeAutoCombatCommands() {},
     async dispatchPendingCommands() {},
     dispatchPendingSystemCommands() {},

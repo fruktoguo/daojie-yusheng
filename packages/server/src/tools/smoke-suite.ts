@@ -417,6 +417,7 @@ async function startServer(port, extraEnv = {}) {
             ...process.env,
             ...extraEnv,
             SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
+            SERVER_NODE_ID: process.env.SERVER_NODE_ID || 'server-smoke-suite',
             SERVER_PORT: String(port),
             SERVER_RUNTIME_HTTP: '1',
             ...(allowUnreadyTraffic

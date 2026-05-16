@@ -139,6 +139,15 @@ function createMonster(overrides = {}) {
 
 function createBasicAttackService(attacker, target, log = []) {
   const playerRuntimeService = {
+    getPlayer(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      if (playerId === target.playerId) {
+        return target;
+      }
+      return null;
+    },
     getPlayerOrThrow(playerId) {
       if (playerId === attacker.playerId) {
         return attacker;
