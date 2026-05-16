@@ -14,6 +14,7 @@ import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
 import {
   applyAsymptoticSuccessModifier,
+  applyMultiplicativeSuccessModifier,
 } from './craft-success';
 
 import {
@@ -27,9 +28,18 @@ import {
   ENHANCEMENT_ACTION_ID,
   ENHANCEMENT_HAMMER_TAG,
   ENHANCEMENT_SPIRIT_STONE_ITEM_ID,
+  ENHANCEMENT_HIGH_LEVEL_THRESHOLD,
+  ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE,
+  ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE,
+  ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL,
+  ENHANCEMENT_HIGH_LEVEL_MIN_SUCCESS_RATE,
 } from './constants/gameplay/enhancement';
 
+/** 强化技能高于物品等级时，每多 1 级给"增益 factor"加多少（加算合并）。 */
 export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.01;
+/** 强化技能低于物品等级时，每差 1 级让"减益 factor"乘以多少（乘算合并、几何衰减）。 */
+export const ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL = 0.9;
+/** 历史命名兼容：旧 log-odds 单位的"低等级惩罚"系数；新公式不再使用，仅为外部 import 不破坏而保留。 */
 export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
 export const EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL = 0.05;
 export const EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL = 1 - EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL;
@@ -53,8 +63,16 @@ export function normalizeEnhanceLevel(value: unknown): number {
 
 export function getEnhancementTargetSuccessRate(targetEnhanceLevel: number): number {
   const level = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
-  const index = Math.min(level, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
-  return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
+  if (level < ENHANCEMENT_HIGH_LEVEL_THRESHOLD) {
+    const tableIndex = Math.min(level, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
+    return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[tableIndex] ?? 0);
+  }
+  // +阈值 起进入指数衰减分段：basePoint × (1 − decayPerLevel) ^ (level − threshold)。
+  // 几何级数衰减永不归零，但仍设 1% 下限作为底板，避免高等级概率退化为肉眼归零。
+  const exponent = level - ENHANCEMENT_HIGH_LEVEL_THRESHOLD;
+  const decayFactor = Math.max(0, 1 - ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL);
+  const decayedRate = ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE * Math.pow(decayFactor, exponent);
+  return Math.max(ENHANCEMENT_HIGH_LEVEL_MIN_SUCCESS_RATE, decayedRate);
 }
 
 export function getEnhancementSpiritStoneCost(itemLevel: number | undefined, hasMaterialCost = false): number {
@@ -146,27 +164,85 @@ export function computeEnhancementJobTicks(
   return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
 
+/**
+ * 兼容旧调用方的赔率域成功率修正包装。新公式（严格分段乘除）由
+ * `applyMultiplicativeSuccessFactor` / `computeEnhancementAdjustedSuccessRate` 走。
+ */
 export function applyEnhancementSuccessModifier(
   baseRate: number | undefined,
   modifier: number | undefined,
+  maxRate: number = 1,
 ): number {
-  return applyAsymptoticSuccessModifier(baseRate, modifier);
+  return applyAsymptoticSuccessModifier(baseRate, modifier, maxRate);
 }
 
-export function computeEnhancementLevelSuccessModifier(
+/**
+ * 用"严格分段乘除"应用强化成功率修正。
+ *
+ * - `factor = 1` 不变；`> 1` 增益；`< 1` 削弱；
+ * - `maxRate` 是渐近上限（永远不会越过）；
+ * - 弱段直接乘、过半进入除段、强段直接除失败率，详见 `applyMultiplicativeSuccessModifier`。
+ */
+export function applyMultiplicativeSuccessFactor(
+  baseRate: number | undefined,
+  factor: number | undefined,
+  maxRate: number = 1,
+): number {
+  return applyMultiplicativeSuccessModifier(baseRate, factor, maxRate);
+}
+
+/**
+ * 按目标强化等级返回每步成功率的渐近上限。
+ * 高于阈值（默认 +11）的强化封顶到 `ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE`，
+ * 阻止任何 modifier 把成功率推过该上限，避免"失败 -1 级"形成正向偏置随机游走。
+ */
+export function getEnhancementMaxSuccessRate(targetEnhanceLevel: number | undefined): number {
+  const normalized = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
+  if (normalized >= ENHANCEMENT_HIGH_LEVEL_THRESHOLD) {
+    return ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE;
+  }
+  return 1;
+}
+
+/**
+ * 强化技能差对成功率的影响，拆成增益增量（加算）与减益乘子（乘算）两个分量。
+ * 调用方收集所有来源后，分别用"加算合 increment、乘算合 decay、最后乘成总 factor"。
+ */
+export interface EnhancementSuccessFactorContribution {
+  /** 增益贡献：累加到 `1 + Σ increment` 里。 */
+  increment: number;
+  /** 减益贡献：累乘到 `∏ decay` 里。 */
+  decay: number;
+}
+
+export function computeEnhancementLevelSuccessFactorContribution(
   targetItemLevel: number | undefined,
   roleEnhancementLevel: number | undefined,
-): number {
+): EnhancementSuccessFactorContribution {
   const normalizedTargetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
   const normalizedRoleLevel = Math.max(1, Math.floor(Number(roleEnhancementLevel) || 1));
   const levelDelta = normalizedRoleLevel - normalizedTargetLevel;
   if (levelDelta > 0) {
-    return levelDelta * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL;
+    // 增益：每级 factor 加 0.01，加算合并到总增益里。
+    return { increment: levelDelta * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL, decay: 1 };
   }
   if (levelDelta < 0) {
-    return levelDelta * ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY;
+    // 减益：每级 factor 乘 0.9，乘算合并到总减益里（指数衰减）。
+    return { increment: 0, decay: Math.pow(ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL, -levelDelta) };
   }
-  return 0;
+  return { increment: 0, decay: 1 };
+}
+
+/**
+ * 历史导出：返回单一数值的"等级修正"。在新公式（严格分段乘除）下没有等价语义；
+ * 仅保留兼容已有外部导出，内部不再使用。
+ */
+export function computeEnhancementLevelSuccessModifier(
+  targetItemLevel: number | undefined,
+  roleEnhancementLevel: number | undefined,
+): number {
+  const contribution = computeEnhancementLevelSuccessFactorContribution(targetItemLevel, roleEnhancementLevel);
+  return contribution.increment - (1 - contribution.decay);
 }
 
 export function computeEnhancementAdjustedSuccessRate(
@@ -176,9 +252,14 @@ export function computeEnhancementAdjustedSuccessRate(
   toolSuccessRateModifier = 0,
 ): number {
   const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
-  const levelModifier = computeEnhancementLevelSuccessModifier(targetItemLevel, roleEnhancementLevel);
-  const normalizedToolModifier = Number.isFinite(toolSuccessRateModifier) ? Number(toolSuccessRateModifier) : 0;
-  return applyEnhancementSuccessModifier(baseRate, levelModifier + normalizedToolModifier);
+  const maxRate = getEnhancementMaxSuccessRate(targetEnhanceLevel);
+  const skillContribution = computeEnhancementLevelSuccessFactorContribution(targetItemLevel, roleEnhancementLevel);
+  const toolIncrement = Number.isFinite(toolSuccessRateModifier) ? Math.max(0, Number(toolSuccessRateModifier)) : 0;
+  // 增益加算（技能差正、锤子贡献、未来幸运等）；减益乘算（技能差负、未来负向 buff 等）。
+  const incrementSum = skillContribution.increment + toolIncrement;
+  const decayProduct = skillContribution.decay;
+  const factor = (1 + incrementSum) * decayProduct;
+  return applyMultiplicativeSuccessFactor(baseRate, factor, maxRate);
 }
 
 function normalizeEnhancementRequirement(value: unknown): EnhancementMaterialRequirement | null {

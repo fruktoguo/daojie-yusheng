@@ -13,13 +13,26 @@ export const CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL = Math.log(1 / 0.98);
  * 在赔率空间应用成功率修正。
  *
  * 说明：
- * - 正修正不会把非边界基础成功率直接推到 `1`。
- * - 负修正不会把非边界基础成功率直接压到 `0`。
+ * - 正修正不会把基础成功率推过 `maxRate`（默认 `maxRate = 1`）。
+ * - 负修正不会把基础成功率压到 `0` 以下。
+ * - 把 rate/maxRate 看作 [0, 1] 上的归一化概率，做赔率变换后再缩回 [0, maxRate]，
+ *   等价于赔率 = rate / (maxRate − rate)，乘 e^modifier。
  */
-export function applyAsymptoticSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
-  const normalizedRate = clampUnitSuccessRate(rate);
-  if (normalizedRate <= 0 || normalizedRate >= 1) {
-    return normalizedRate;
+export function applyAsymptoticSuccessModifier(
+  rate: number | undefined,
+  modifier: number | undefined,
+  maxRate: number = 1,
+): number {
+  const cap = clampUnitSuccessRate(maxRate);
+  if (cap <= 0) {
+    return 0;
+  }
+  const normalizedRate = Math.min(clampUnitSuccessRate(rate), cap);
+  if (normalizedRate <= 0) {
+    return 0;
+  }
+  if (normalizedRate >= cap) {
+    return cap;
   }
 
   const normalizedModifier = Number.isFinite(modifier) ? Number(modifier) : 0;
@@ -29,11 +42,71 @@ export function applyAsymptoticSuccessModifier(rate: number | undefined, modifie
 
   if (normalizedModifier > 0) {
     const inverseGrowth = Math.exp(-normalizedModifier);
-    return normalizedRate / (normalizedRate + ((1 - normalizedRate) * inverseGrowth));
+    return (normalizedRate * cap) / (normalizedRate + ((cap - normalizedRate) * inverseGrowth));
   }
 
   const growth = Math.exp(normalizedModifier);
-  return (normalizedRate * growth) / ((1 - normalizedRate) + (normalizedRate * growth));
+  return (normalizedRate * growth * cap) / ((cap - normalizedRate) + (normalizedRate * growth));
+}
+
+/**
+ * 在赔率域用"严格分段乘除"做成功率修正。
+ *
+ * 语义：
+ * - `factor` 是赔率乘子，`factor = 1` 不变，`> 1` 增益，`< 1` 削弱。
+ * - 上限 `maxRate`：成功率永远不会越过 `maxRate`。
+ * - 中点 `mid = maxRate / 2`：
+ *   - 弱段（`rate ≤ mid`）：`rate × factor`，直接乘；如果乘出来仍 ≤ mid 就照实乘。
+ *   - 越过中点：把 factor 拆成"乘到 mid 用掉的份额"和"剩余进入除段的份额"，
+ *     等价于赔率域的连续乘子，但在弱段保持线性可读。
+ *   - 强段（`rate > mid`）：失败率被 `factor` 除。
+ * - `factor < 1`（削弱）：用对偶——把失败率当作 rate 走 1/factor 的增益分支再翻回，
+ *   保证削弱与增益完全对称且不会让 rate 跌破 0。
+ */
+export function applyMultiplicativeSuccessModifier(
+  rate: number | undefined,
+  factor: number | undefined,
+  maxRate: number = 1,
+): number {
+  const cap = clampUnitSuccessRate(maxRate);
+  if (cap <= 0) {
+    return 0;
+  }
+  const normalizedRate = Math.min(clampUnitSuccessRate(rate), cap);
+  if (normalizedRate <= 0) {
+    return 0;
+  }
+  if (normalizedRate >= cap) {
+    return cap;
+  }
+  const normalizedFactor = Number.isFinite(factor) ? Math.max(0, Number(factor)) : 1;
+  if (normalizedFactor === 1) {
+    return normalizedRate;
+  }
+  if (normalizedFactor === 0) {
+    return 0;
+  }
+
+  if (normalizedFactor < 1) {
+    // 对偶：削弱 ⇄ 失败率被 1/factor 增益。
+    const fail = cap - normalizedRate;
+    const newFail = applyMultiplicativeSuccessModifier(fail, 1 / normalizedFactor, cap);
+    return cap - newFail;
+  }
+
+  const mid = cap / 2;
+  if (normalizedRate <= mid) {
+    const candidate = normalizedRate * normalizedFactor;
+    if (candidate <= mid) {
+      return candidate;
+    }
+    // 越过中点：把剩余 factor 投入除段。乘到 mid 用了 mid/rate 倍，剩余 = factor*rate/mid。
+    const remaining = (normalizedFactor * normalizedRate) / mid;
+    return cap - (cap - mid) / remaining;
+  }
+
+  // 强段：直接对失败率做除。
+  return cap - (cap - normalizedRate) / normalizedFactor;
 }
 
 /** 按目标等级与技艺等级差计算通用成功率修正值。 */

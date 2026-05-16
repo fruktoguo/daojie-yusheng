@@ -14,7 +14,10 @@ export const MARKET_MAX_ENHANCE_LEVEL = 20;
 /** 每级强化属性增幅比率 */
 export const ENHANCEMENT_RATE_PER_LEVEL = 0.1;
 
-/** 各目标强化等级对应的基础成功率 */
+/**
+ * 各目标强化等级对应的基础成功率（覆盖 +1..+10）。
+ * +11 及以上由 `ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE` × `(1 - ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL) ^ (level - threshold)` 公式生成。
+ */
 export const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
   0.5,
   0.45,
@@ -26,18 +29,22 @@ export const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
   0.35,
   0.35,
   0.35,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
 ] as const;
+
+/** 强化目标等级达到该阈值后，每步成功率被封顶（防止 modifier 把概率推到 100%）。 */
+export const ENHANCEMENT_HIGH_LEVEL_THRESHOLD = 11;
+
+/** 高等级强化（targetEnhanceLevel ≥ 阈值）每步成功率的渐近上限。 */
+export const ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE = 0.5;
+
+/** 高等级强化阈值处（target = 阈值）的基础成功率起点。 */
+export const ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE = 0.3;
+
+/** 高等级强化阈值之后，每高 1 级基础成功率乘以的衰减系数 = 1 − 该值；指数衰减不归零。 */
+export const ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL = 0.05;
+
+/** 高等级强化基础成功率下限：指数衰减永不归零，但工程上需要明确底板，避免概率落到肉眼归零。 */
+export const ENHANCEMENT_HIGH_LEVEL_MIN_SUCCESS_RATE = 0.01;
 
 /** 强化基础耗时（tick） */
 export const ENHANCEMENT_BASE_JOB_TICKS = 5;

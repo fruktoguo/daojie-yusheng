@@ -1,29 +1,12 @@
-import { applyAsymptoticSuccessModifier } from './craft-success';
-
-/** 强化成功率表：按目标强化等级索引。 */
-const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
-  0.5,
-  0.45,
-  0.45,
-  0.4,
-  0.4,
-  0.4,
-  0.35,
-  0.35,
-  0.35,
-  0.35,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-  0.3,
-] as const;
+import { applyAsymptoticSuccessModifier, applyMultiplicativeSuccessModifier } from './craft-success';
+import {
+  ENHANCEMENT_HIGH_LEVEL_THRESHOLD,
+  ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE,
+  ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE,
+  ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL,
+  ENHANCEMENT_HIGH_LEVEL_MIN_SUCCESS_RATE,
+  ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL,
+} from './constants/gameplay/enhancement';
 
 /** 强化期望策略：描述某个保护起点下的期望消耗。 */
 export interface EnhancementExpectedCostStrategy {
@@ -98,16 +81,52 @@ function clampUnitRate(value: number | undefined): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? Number(value) : 0));
 }
 
-/** applyEnhancementSuccessModifier：应用强化Success Modifier。 */
-function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
-  return applyAsymptoticSuccessModifier(clampUnitRate(rate), modifier);
+/**
+ * applyEnhancementSuccessModifier：兼容旧赔率域调用（按 log-odds modifier 处理）。
+ * 当前期望推演已迁移到 `applyEnhancementSuccessFactor`，此函数仅为向后兼容保留。
+ */
+function applyEnhancementSuccessModifier(
+  rate: number | undefined,
+  modifier: number | undefined,
+  maxRate: number = 1,
+): number {
+  return applyAsymptoticSuccessModifier(clampUnitRate(rate), modifier, maxRate);
+}
+
+/**
+ * applyEnhancementSuccessFactor：用"严格分段乘除"应用强化成功率修正。
+ * 与 `enhancement.ts` 的 `applyMultiplicativeSuccessFactor` 同公式，
+ * 期望成本推演必须使用相同语义，否则与运行时实际概率不一致。
+ */
+function applyEnhancementSuccessFactor(
+  rate: number | undefined,
+  factor: number | undefined,
+  maxRate: number = 1,
+): number {
+  return applyMultiplicativeSuccessModifier(clampUnitRate(rate), factor, maxRate);
+}
+
+/** getEnhancementMaxSuccessRate：按目标强化等级返回每步成功率渐近上限，与 enhancement.ts 保持一致。 */
+function getEnhancementMaxSuccessRate(targetEnhanceLevel: number): number {
+  const normalized = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
+  if (normalized >= ENHANCEMENT_HIGH_LEVEL_THRESHOLD) {
+    return ENHANCEMENT_HIGH_LEVEL_MAX_SUCCESS_RATE;
+  }
+  return 1;
 }
 
 /** getEnhancementTargetSuccessRate：读取强化目标Success速率。 */
 function getEnhancementTargetSuccessRate(targetLevel: number): number {
   const normalizedLevel = Math.max(1, Math.floor(Number(targetLevel) || 1));
-  const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
-  return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
+  if (normalizedLevel < ENHANCEMENT_HIGH_LEVEL_THRESHOLD) {
+    const tableIndex = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
+    return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[tableIndex] ?? 0);
+  }
+  // +阈值起进入指数衰减分段；与 enhancement.ts 内的实现保持一致，期望成本推演必须使用相同基础概率。
+  const exponent = normalizedLevel - ENHANCEMENT_HIGH_LEVEL_THRESHOLD;
+  const decayFactor = Math.max(0, 1 - ENHANCEMENT_HIGH_LEVEL_DECAY_PER_LEVEL);
+  const decayedRate = ENHANCEMENT_HIGH_LEVEL_BASE_SUCCESS_RATE * Math.pow(decayFactor, exponent);
+  return Math.max(ENHANCEMENT_HIGH_LEVEL_MIN_SUCCESS_RATE, decayedRate);
 }
 
 /** getEnhancementSpiritStoneCost：读取强化灵石石Cost。 */
@@ -178,7 +197,12 @@ export function computeEnhancementExpectedCostStrategy(input: {
   const successRates = Array.from({ length: targetLevel + 1 }, (_, index) => (
     index <= 0
       ? 0
-      : applyEnhancementSuccessModifier(getEnhancementTargetSuccessRate(index), input.extraSuccessRate ?? 0)
+      : applyEnhancementSuccessFactor(
+        getEnhancementTargetSuccessRate(index),
+        // input.extraSuccessRate 此处语义改为"增益 increment"，加到 factor 上。
+        1 + Math.max(0, Number.isFinite(input.extraSuccessRate) ? Number(input.extraSuccessRate) : 0),
+        getEnhancementMaxSuccessRate(index),
+      )
   ));
   const matrix = buildCoefficientMatrix(targetLevel, input.protectionStartLevel, successRates);
   const expectedAttempts = solveLinearSystem(matrix, buildRewardVector(targetLevel, input.protectionStartLevel, successRates, () => 1))[0] ?? 0;
