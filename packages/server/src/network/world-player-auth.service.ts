@@ -185,6 +185,18 @@ interface NativePlayerAuthStorePort {
     bannedAt?: string | null;
     banReason?: string | null;
   } | null>;
+  /** 同步内存索引读取：用于鉴权热路径，避免每次握手都打数据库。 */
+  getMemoryUserById?(userId: string): {
+    id?: string | null;
+    userId?: string | null;
+    username?: string | null;
+    displayName?: string | null;
+    pendingRoleName?: string | null;
+    playerId?: string | null;
+    playerName?: string | null;
+    bannedAt?: string | null;
+    banReason?: string | null;
+  } | null;
 }
 /**
  * hasLegacyDatabaseConfigured：判断LegacyDatabaseConfigured是否满足条件。
@@ -700,12 +712,15 @@ export class WorldPlayerAuthService {
   private async loadNativeAuthStoreIdentity(payload: ValidatedPlayerTokenPayload): Promise<PlayerIdentityLike | null> {
     if (
       !this.nativePlayerAuthStore
-      || typeof this.nativePlayerAuthStore.findUserById !== 'function'
+      || typeof this.nativePlayerAuthStore.getMemoryUserById !== 'function'
       || typeof payload.sub !== 'string'
     ) {
       return null;
     }
-    const user = await this.nativePlayerAuthStore.findUserById(payload.sub);
+    // N49：鉴权热路径只走内存索引；启动期 reloadFromPersistence 已全量 hydrate，
+    // saveUser 同步刷新 replaceUser，单副本视角的 ban / 改密一致；多副本一致性由
+    // 后续 outbox auth_invalidate 事件总线接管，不再依赖每次握手 SELECT。
+    const user = this.nativePlayerAuthStore.getMemoryUserById(payload.sub);
     const identity = normalizeNativeAuthStoreIdentity(user, payload);
     if (!identity && user) {
       this.logger.warn(`玩家 native auth store 身份与 token 不一致：userId=${payload.sub}`);
@@ -716,12 +731,13 @@ export class WorldPlayerAuthService {
   private async isBannedAccountPayload(payload: ValidatedPlayerTokenPayload): Promise<boolean> {
     if (
       !this.nativePlayerAuthStore
-      || typeof this.nativePlayerAuthStore.findUserById !== 'function'
+      || typeof this.nativePlayerAuthStore.getMemoryUserById !== 'function'
       || typeof payload.sub !== 'string'
     ) {
       return false;
     }
-    const user = await this.nativePlayerAuthStore.findUserById(payload.sub);
+    // N49：复用同一份内存账号镜像判断 banned 状态，与 loadNativeAuthStoreIdentity 同源。
+    const user = this.nativePlayerAuthStore.getMemoryUserById(payload.sub);
     if (!user?.bannedAt) {
       return false;
     }
