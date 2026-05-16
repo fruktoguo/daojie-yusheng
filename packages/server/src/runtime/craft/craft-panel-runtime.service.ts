@@ -2513,7 +2513,7 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
         existing.count += normalized.count;
         return existing;
     }
-    player.inventory.items.push({ ...normalized });
+    player.inventory.items.push(normalized);
     return normalized;
 }
 /**

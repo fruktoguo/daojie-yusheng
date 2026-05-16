@@ -1582,7 +1582,7 @@ export class PlayerRuntimeService {
             existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
         }
         else {
-            player.inventory.items.push({ ...normalized });
+            player.inventory.items.push(normalized);
         }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, normalized.itemId);
@@ -1768,7 +1768,7 @@ export class PlayerRuntimeService {
                 );
             }
             else {
-                const clone = { ...entry, count: Math.max(1, Math.trunc(Number(entry.count ?? 1))) };
+                const clone = cloneItemWithCountPreservingTemplate(entry, Math.max(1, Math.trunc(Number(entry.count ?? 1))));
                 mergedMap.set(signature, clone);
                 mergedOrder.push(clone);
             }
@@ -1947,7 +1947,7 @@ export class PlayerRuntimeService {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
-        const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
+        const previousEquipped = equipmentEntry.item ?? null;
         equipmentEntry.item = this.contentTemplateRepository.normalizeItem(equippedItem);
         if (previousEquipped) {
             const previousSignature = createItemStackSignature(previousEquipped);
@@ -1982,7 +1982,7 @@ export class PlayerRuntimeService {
         if (!equipmentEntry || !equipmentEntry.item) {
             throw new NotFoundException(`装备槽位为空：${slot}`);
         }
-        const unequippedItem = { ...equipmentEntry.item };
+        const unequippedItem = equipmentEntry.item;
         const unequippedSignature = createItemStackSignature(unequippedItem);
         const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === unequippedSignature);
         if (mergeTarget) {
@@ -6028,16 +6028,17 @@ function takeSingleInventoryItemForEquipment(items, slotIndex) {
     const itemCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
     if (itemCount <= 1) {
         const [removed] = items.splice(slotIndex, 1);
-        return {
-            ...removed,
-            count: 1,
-        };
+        return cloneItemWithCountPreservingTemplate(removed, 1);
     }
     item.count = itemCount - 1;
-    return {
-        ...item,
-        count: 1,
-    };
+    return cloneItemWithCountPreservingTemplate(item, 1);
+}
+
+function cloneItemWithCountPreservingTemplate(item, count) {
+    if (!item || typeof item !== 'object') {
+        return item;
+    }
+    return Object.assign(Object.create(Object.getPrototypeOf(item)), item, { count });
 }
 /**
  * toTechniqueUpdateEntry：处理to功法Update条目并更新相关状态。

@@ -68,10 +68,10 @@ export class ContentTemplateRepository {
         if (!template) {
             return null;
         }
-        return {
-            ...template,
-            count: Math.max(1, Math.trunc(count)),
-        };
+        return createItemInstanceFromTemplate(template, {
+            itemId,
+            count,
+        });
     }
     /** 读取物品名称，供运行时和日志使用。 */
     getItemName(itemId) {
@@ -192,14 +192,7 @@ export class ContentTemplateRepository {
                 count: Math.max(1, Math.trunc(item.count)),
             };
         }
-        return {
-            ...template,
-            ...item,
-            equipSlot: template.equipSlot ?? item.equipSlot,
-            equipSpecialStats: template.equipSpecialStats ?? item.equipSpecialStats,
-            count: Math.max(1, Math.trunc(item.count)),
-            enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
-        };
+        return createItemInstanceFromTemplate(template, item);
     }
     
     getLearnTechniqueId(itemId) {
@@ -1199,6 +1192,40 @@ export class ContentTemplateRepository {
         }
     }
 };
+
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel']);
+
+function createItemInstanceFromTemplate(template, source: any = {}) {
+    const instance = Object.create(template);
+    for (const [key, value] of Object.entries(source ?? {})) {
+        if (ITEM_INSTANCE_FIELD_KEYS.has(key) || value === undefined) {
+            continue;
+        }
+        if (Object.prototype.hasOwnProperty.call(template, key)) {
+            continue;
+        }
+        instance[key] = value;
+    }
+    instance.itemId = typeof source?.itemId === 'string' && source.itemId.trim()
+        ? source.itemId.trim()
+        : template.itemId;
+    instance.count = normalizeItemInstanceCount(source?.count);
+    const enhanceLevel = normalizeItemInstanceEnhanceLevel(source?.enhanceLevel ?? source?.enhancementLevel ?? template.enhanceLevel);
+    if (enhanceLevel > 0) {
+        instance.enhanceLevel = enhanceLevel;
+    }
+    return instance;
+}
+
+function normalizeItemInstanceCount(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+function normalizeItemInstanceEnhanceLevel(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+}
 
 function parseMonsterIdFromRuntimeId(runtimeId) {
 
