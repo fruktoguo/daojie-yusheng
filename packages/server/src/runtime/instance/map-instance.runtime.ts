@@ -6260,26 +6260,15 @@ function countAliveMonsters(monstersByRuntimeId) {
 }
 /** snapshotNpc：快照 NPC。 */
 function snapshotNpc(source) {
-    return {
-        ...source,
-        shopItems: source.shopItems,
-        quests: source.quests,
-    };
+    return source;
 }
 /** snapshotContainer：快照容器。 */
 function snapshotContainer(source) {
-    return {
-        ...source,
-        drops: source.drops,
-        lootPools: source.lootPools,
-    };
+    return source;
 }
 /** snapshotLandmark：快照地标。 */
 function snapshotLandmark(source) {
-    return {
-        ...source,
-        container: source.container ? snapshotContainer(source.container) : undefined,
-    };
+    return source;
 }
 /** snapshotSafeZone：快照安全区。 */
 function snapshotSafeZone(source) {
@@ -6292,10 +6281,12 @@ function snapshotSafeZone(source) {
 /** snapshotGroundPile：快照地面物品堆。 */
 function snapshotGroundPile(source) {
     return {
-        ...source,
+        sourceId: source.sourceId,
+        x: source.x,
+        y: source.y,
         items: source.items.map((entry) => ({
             itemKey: entry.itemKey,
-            item: { ...entry.item },
+            item: entry.item,
         })),
     };
 }
@@ -6303,16 +6294,16 @@ function snapshotGroundPile(source) {
 function snapshotMonster(source) {
     return {
         ...source,
-        baseAttrs: cloneAttributes(source.baseAttrs),
-        attrs: cloneAttributes(source.attrs),
-        baseNumericStats: cloneNumericStats(source.baseNumericStats),
-        numericStats: cloneNumericStats(source.numericStats),
-        ratioDivisors: cloneNumericRatioDivisors(source.ratioDivisors),
+        baseAttrs: source.baseAttrs,
+        attrs: source.attrs,
+        baseNumericStats: source.baseNumericStats,
+        numericStats: source.numericStats,
+        ratioDivisors: source.ratioDivisors,
         statFormula: source.statFormula,
-        buffs: source.buffs.map((entry) => cloneTemporaryBuff(entry)),
+        buffs: source.buffs,
         skills: source.skills,
-        cooldownReadyTickBySkillId: { ...source.cooldownReadyTickBySkillId },
-        damageContributors: { ...source.damageContributors },
+        cooldownReadyTickBySkillId: source.cooldownReadyTickBySkillId,
+        damageContributors: source.damageContributors,
     };
 }
 /** cloneAttributes：克隆属性面板。 */
