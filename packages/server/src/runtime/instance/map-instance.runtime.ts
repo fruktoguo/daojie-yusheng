@@ -437,8 +437,8 @@ class MapInstanceRuntime {
                 dialogue: npc.dialogue,
                 role: npc.role,
                 hasShop: npc.hasShop,
-                shopItems: npc.shopItems.map((entry) => ({ ...entry })),
-                quests: npc.quests.map((entry) => ({ ...entry })),
+                shopItems: npc.shopItems,
+                quests: npc.quests,
             };
             this.npcsById.set(state.npcId, state);
             this.npcIdByTile.set(this.toTileIndex(state.x, state.y), state.npcId);
@@ -453,11 +453,8 @@ class MapInstanceRuntime {
         for (const container of request.template.containers) {
             this.containersById.set(container.id, {
                 ...container,
-                drops: container.drops.map((entry) => ({ ...entry })),
-                lootPools: container.lootPools.map((entry) => ({
-                    ...entry,
-                    tagGroups: entry.tagGroups?.map((group) => group.slice()),
-                })),
+                drops: container.drops,
+                lootPools: container.lootPools,
             });
             this.containerIdByTile.set(this.toTileIndex(container.x, container.y), container.id);
         }
@@ -6272,19 +6269,16 @@ function countAliveMonsters(monstersByRuntimeId) {
 function snapshotNpc(source) {
     return {
         ...source,
-        shopItems: source.shopItems.map((entry) => ({ ...entry })),
-        quests: source.quests.map((entry) => ({ ...entry })),
+        shopItems: source.shopItems,
+        quests: source.quests,
     };
 }
 /** snapshotContainer：快照容器。 */
 function snapshotContainer(source) {
     return {
         ...source,
-        drops: source.drops.map((entry) => ({ ...entry })),
-        lootPools: source.lootPools.map((entry) => ({
-            ...entry,
-            tagGroups: entry.tagGroups?.map((group) => group.slice()),
-        })),
+        drops: source.drops,
+        lootPools: source.lootPools,
     };
 }
 /** snapshotLandmark：快照地标。 */
