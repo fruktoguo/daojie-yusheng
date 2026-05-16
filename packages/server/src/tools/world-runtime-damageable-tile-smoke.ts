@@ -646,6 +646,12 @@ function testBasicAttackTileDropsEnterInventory() {
     getPlayer() { return attacker; },
     recordActivity() {},
     resolveCraftSkillExpToNextByLevel() { return 10000; },
+    markPersistenceDirtyDomains(targetPlayer: any, domains: string[]) {
+      targetPlayer.dirtyDomains = new Set([...(targetPlayer.dirtyDomains ?? []), ...domains]);
+    },
+    bumpPersistentRevision(targetPlayer: any) {
+      targetPlayer.persistentRevision = Math.max(0, Math.trunc(Number(targetPlayer.persistentRevision ?? 0))) + 1;
+    },
     receiveInventoryItem(_playerId: string, item: any) {
       attacker.inventory.items.push({ ...item });
       attacker.inventory.revision += 1;
@@ -681,6 +687,8 @@ function testBasicAttackTileDropsEnterInventory() {
   assert.equal(instance.getTileGroundPile(1, 1), null);
   assert.equal(attacker.inventory.items.some((item: any) => item.itemId === 'black_iron_chunk'), true);
   assert.equal(notices.some((entry) => entry[5] && (entry[5] as any).key === 'notice.loot.tile-drop-inventory'), true);
+  assert.equal(attacker.dirtyDomains.has('profession'), true);
+  assert.equal(attacker.persistentRevision, 1);
 }
 
 function testMiningExpAppliesToAnyOreTileDamage() {
@@ -702,22 +710,23 @@ function testMiningExpAppliesToAnyOreTileDamage() {
     playerRuntimeService,
   });
 
-  assert.ok(gained > 0);
-  assert.equal(attacker.miningSkill.exp, gained);
+  assert.ok(gained.gained > 0);
+  assert.equal(gained.changed, true);
+  assert.equal(attacker.miningSkill.exp, gained.gained);
 
   const expAfterOreDamage = attacker.miningSkill.exp;
-  assert.equal(applyMiningExpForTileDamage({
+  assert.deepEqual(applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.BlackIronOre,
     appliedDamage: 0,
     playerRuntimeService,
-  }), 0);
-  assert.equal(applyMiningExpForTileDamage({
+  }), { gained: 0, changed: false });
+  assert.deepEqual(applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.Wall,
     appliedDamage: 100,
     playerRuntimeService,
-  }), 0);
+  }), { gained: 0, changed: false });
   assert.equal(attacker.miningSkill.exp, expAfterOreDamage);
 }
 
@@ -797,6 +806,12 @@ async function testSkillTileDamageGrantsMiningExp() {
     resolveCraftSkillExpToNextByLevel() {
       return 10000;
     },
+    markPersistenceDirtyDomains(targetPlayer: any, domains: string[]) {
+      targetPlayer.dirtyDomains = new Set([...(targetPlayer.dirtyDomains ?? []), ...domains]);
+    },
+    bumpPersistentRevision(targetPlayer: any) {
+      targetPlayer.persistentRevision = Math.max(0, Math.trunc(Number(targetPlayer.persistentRevision ?? 0))) + 1;
+    },
     setSkillCooldownReadyTick(_playerId: string, skillId: string, readyTick: number) {
       attacker.combat.cooldownReadyTickBySkillId[skillId] = readyTick;
     },
@@ -858,6 +873,8 @@ async function testSkillTileDamageGrantsMiningExp() {
   });
 
   assert.ok(attacker.miningSkill.exp > 0);
+  assert.equal(attacker.dirtyDomains.has('profession'), true);
+  assert.equal(attacker.persistentRevision, 1);
   const tileCombatAfterSkill = instance.getTileCombatState(1, 0);
   const expectedDamage = Math.max(1, Math.round(100 * getMiningDamageMultiplier(50)));
   assert.equal(tileCombatAfterSkill?.hp, (tileCombatAfterSkill?.maxHp ?? 0) - expectedDamage);

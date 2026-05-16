@@ -566,12 +566,16 @@ export class WorldRuntimeBasicAttackService {
             tileDrops: result.tileDrops,
             deps,
         });
-        applyMiningExpForTileDamage({
+        const miningExpResult = applyMiningExpForTileDamage({
             attacker,
             tileType,
             appliedDamage,
             playerRuntimeService: this.playerRuntimeService,
         });
+        if (miningExpResult.changed) {
+            this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
+            this.playerRuntimeService.bumpPersistentRevision(attacker);
+        }
         const effectColor = getDamageTrailColor(damageKind);
         emitCombatPresentation({
             deps,

@@ -1603,12 +1603,16 @@ export class WorldRuntimePlayerSkillDispatchService {
                 tileDrops: tileDamageResult?.tileDrops,
                 deps,
             });
-            applyMiningExpForTileDamage({
+            const miningExpResult = applyMiningExpForTileDamage({
                 attacker,
                 tileType: tileState.tileType,
                 appliedDamage,
                 playerRuntimeService: this.playerRuntimeService,
             });
+            if (miningExpResult.changed) {
+                this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
+                this.playerRuntimeService.bumpPersistentRevision(attacker);
+            }
             emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,

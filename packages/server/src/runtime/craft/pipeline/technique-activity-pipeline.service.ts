@@ -308,12 +308,10 @@ function applyCraftSkillExpInline(
 ): boolean {
   if (gain <= 0) return false;
   skillState.exp += gain;
-  let leveledUp = false;
   while (skillState.exp >= skillState.expToNext && skillState.expToNext > 0) {
     skillState.exp -= skillState.expToNext;
     skillState.level += 1;
     skillState.expToNext = resolveExpToNext(skillState.level);
-    leveledUp = true;
   }
-  return leveledUp;
+  return true;
 }

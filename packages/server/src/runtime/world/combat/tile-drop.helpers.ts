@@ -52,17 +52,17 @@ export function applyMiningExpForTileDamage(input: {
   tileType: unknown;
   appliedDamage: unknown;
   playerRuntimeService: any;
-}): number {
+}): { gained: number; changed: boolean } {
   if (!isOreMinableTileType(input.tileType as any)) {
-    return 0;
+    return { gained: 0, changed: false };
   }
   const damage = Math.max(0, Math.round(Number(input.appliedDamage) || 0));
   if (damage <= 0) {
-    return 0;
+    return { gained: 0, changed: false };
   }
   const skill = input.attacker?.miningSkill;
   if (!skill) {
-    return 0;
+    return { gained: 0, changed: false };
   }
 
   const oreTileLevel = getOreMiningLevel(input.tileType as any) ?? 1;
@@ -80,7 +80,7 @@ export function applyMiningExpForTileDamage(input: {
   }).finalGain;
 
   if (gain <= 0) {
-    return 0;
+    return { gained: 0, changed: false };
   }
 
   skill.level = miningLevel;
@@ -91,7 +91,7 @@ export function applyMiningExpForTileDamage(input: {
     skill.level += 1;
     skill.expToNext = resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, skill.level);
   }
-  return gain;
+  return { gained: gain, changed: true };
 }
 
 export function resolveTileDamageDropMultiplier(appliedDamage: unknown): number {
