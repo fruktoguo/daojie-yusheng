@@ -385,6 +385,50 @@ function testHydrateInventoryItemsKeepTemplateOnPrototype() {
     assert.equal(JSON.parse(JSON.stringify(item)).effects, undefined);
 }
 
+function testSnapshotAndRestoreKeepItemPrototypes() {
+    const contentTemplateRepository = new ContentTemplateRepository();
+    const itemTemplate = {
+        itemId: 'item:snapshot-prototype',
+        name: 'Snapshot Prototype Item',
+        type: 'material',
+        desc: 'snapshot template-only item',
+    };
+    const equipmentTemplate = {
+        itemId: 'equip:snapshot-prototype',
+        name: 'Snapshot Prototype Equipment',
+        type: 'equipment',
+        equipSlot: 'weapon',
+        equipAttrs: { spirit: 4 },
+    };
+    contentTemplateRepository.itemTemplates.set(itemTemplate.itemId, itemTemplate);
+    contentTemplateRepository.itemTemplates.set(equipmentTemplate.itemId, equipmentTemplate);
+
+    const service = createPlayerRuntimeService(contentTemplateRepository);
+    const snapshot = createSnapshot(null);
+    snapshot.inventory.items = [{ itemId: itemTemplate.itemId, count: 2 }];
+    snapshot.equipment.slots = [{
+        slot: 'weapon',
+        item: { itemId: equipmentTemplate.itemId, count: 1, enhanceLevel: 1 },
+    }];
+    const player = service.hydrateFromSnapshot('player:snapshot-prototype', 'session:snapshot-prototype', snapshot);
+    service.players.set(player.playerId, player);
+
+    const runtimeSnapshot = service.snapshot(player.playerId);
+    assert.equal(runtimeSnapshot.inventory.items[0].name, itemTemplate.name);
+    assert.deepEqual(Object.keys(runtimeSnapshot.inventory.items[0]).sort(), ['count', 'itemId']);
+    const snapshotWeapon = runtimeSnapshot.equipment.slots.find((entry) => entry.slot === 'weapon')?.item;
+    assert.equal(snapshotWeapon.name, equipmentTemplate.name);
+    assert.equal(snapshotWeapon.equipAttrs, equipmentTemplate.equipAttrs);
+    assert.deepEqual(Object.keys(snapshotWeapon).sort(), ['count', 'enhanceLevel', 'itemId']);
+
+    service.restoreSnapshot(runtimeSnapshot);
+    const restoredSnapshot = service.snapshot(player.playerId);
+    assert.equal(restoredSnapshot.inventory.items[0].name, itemTemplate.name);
+    const restoredWeapon = restoredSnapshot.equipment.slots.find((entry) => entry.slot === 'weapon')?.item;
+    assert.equal(restoredWeapon.name, equipmentTemplate.name);
+    assert.equal(JSON.parse(JSON.stringify(restoredWeapon)).equipAttrs, undefined);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -396,5 +440,6 @@ testPendingSkillCastIsRuntimeOnly();
 testReplaceInventoryItemsKeepsTemplateOnPrototype();
 testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
 testHydrateInventoryItemsKeepTemplateOnPrototype();
+testSnapshotAndRestoreKeepItemPrototypes();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));

@@ -3982,7 +3982,7 @@ function cloneRuntimePlayerState(player) {
         inventory: {
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
-            items: player.inventory.items.map((entry) => ({ ...entry })),
+            items: player.inventory.items.map((entry) => cloneItemPreservingTemplate(entry)),
         },
         wallet: {
             balances: Array.isArray(player.wallet?.balances)
@@ -3998,7 +3998,7 @@ function cloneRuntimePlayerState(player) {
             revision: player.equipment.revision,
             slots: player.equipment.slots.map((entry) => ({
                 slot: entry.slot,
-                item: entry.item ? { ...entry.item } : null,
+                item: entry.item ? cloneItemPreservingTemplate(entry.item) : null,
             })),
         },
         techniques: {
@@ -6039,6 +6039,13 @@ function cloneItemWithCountPreservingTemplate(item, count) {
         return item;
     }
     return Object.assign(Object.create(Object.getPrototypeOf(item)), item, { count });
+}
+
+function cloneItemPreservingTemplate(item) {
+    if (!item || typeof item !== 'object') {
+        return item;
+    }
+    return Object.assign(Object.create(Object.getPrototypeOf(item)), item);
 }
 /**
  * toTechniqueUpdateEntry：处理to功法Update条目并更新相关状态。
