@@ -152,6 +152,63 @@ export interface GmSuggestionListRes {
   keyword: string;
 }
 
+/** GM 坊市交易记录查询条件。 */
+export interface GmMarketTradeListQuery {
+  /** 页码，从 1 开始。 */
+  page?: number;
+  /** 每页条数，服务端会限制范围。 */
+  pageSize?: number;
+  /** 玩家关键字：纯数字识别为 player_no（玩家序号），其它当作 playerId 精确匹配。 */
+  playerKeyword?: string;
+  /** 物品关键字：服务端按 contentTemplateRepository.getItemName 反查匹配的 itemId 集合。 */
+  itemKeyword?: string;
+}
+
+/** GM 坊市交易记录条目，按交易完成时间倒序返回。 */
+export interface GmMarketTradeItem {
+  /** 成交记录 ID。 */
+  id: string;
+  /** 成交来源：常规坊市挂单 / 拍卖行。 */
+  source: 'market' | 'auction';
+  /** 买家 playerId。 */
+  buyerId: string;
+  /** 卖家 playerId。 */
+  sellerId: string;
+  /** 买家玩家序号（player_no），可能为空（旧账号未回填）。 */
+  buyerNo?: number | null;
+  /** 卖家玩家序号。 */
+  sellerNo?: number | null;
+  /** 买家显示名。 */
+  buyerName?: string | null;
+  /** 卖家显示名。 */
+  sellerName?: string | null;
+  /** 物品 ID。 */
+  itemId: string;
+  /** 物品中文名（服务端从模板表解析）。 */
+  itemName: string;
+  /** 成交数量。 */
+  quantity: number;
+  /** 成交单价（灵石/件）。 */
+  unitPrice: number;
+  /** 成交总价 = quantity × unitPrice，由服务端预算好。 */
+  totalCost: number;
+  /** 成交完成时间（毫秒 epoch）。 */
+  createdAt: number;
+}
+
+/** GM 坊市交易记录响应。 */
+export interface GmMarketTradeListRes {
+  items: GmMarketTradeItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  /** 解析后的玩家关键字（去除首尾空白；空字符串表示无条件）。 */
+  playerKeyword: string;
+  /** 解析后的物品关键字。 */
+  itemKeyword: string;
+}
+
 /** 显示名可用性检查响应 */
 export interface DisplayNameAvailabilityRes {
 /**

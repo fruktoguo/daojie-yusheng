@@ -146,6 +146,7 @@ import { MarketRuntimeService } from './runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from './runtime/player/player-runtime.service';
 import { AssetAuditLogRetentionWorker } from './runtime/world/worker/asset-audit-log-retention.worker';
 import { MailSoftDeletePurgeWorker } from './runtime/world/worker/mail-soft-delete-purge.worker';
+import { MarketTradeHistoryRetentionWorker } from './runtime/world/worker/market-trade-history-retention.worker';
 import { PlayerAnchorCheckpointFlushWorker } from './runtime/world/worker/player-anchor-checkpoint-flush.worker';
 import { PlayerStateFlushWorker } from './runtime/world/worker/player-state-flush.worker';
 import { InstanceResourceFlushWorker } from './runtime/world/worker/instance-resource-flush.worker';
@@ -285,6 +286,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     MailRuntimeService,
     AssetAuditLogRetentionWorker,
     MailSoftDeletePurgeWorker,
+    MarketTradeHistoryRetentionWorker,
     MarketRuntimeService,
     PlayerRuntimeService,
     AssetAuditLogRetentionWorker,

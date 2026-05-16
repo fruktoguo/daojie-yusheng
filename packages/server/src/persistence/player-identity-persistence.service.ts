@@ -384,7 +384,83 @@ export class PlayerIdentityPersistenceService {
         this.pool = null;
         this.enabled = false;
     }
+    /**
+     * 按玩家序号反查 playerId 列表。player_no 是 bigint UNIQUE，理论上最多一条；
+     * 但在多账号迁移/灰度阶段允许返回多条，调用方按需 OR 聚合。
+     */
+    async findPlayerIdsByPlayerNo(playerNo: bigint | number): Promise<string[]> {
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+        const numericPlayerNo = typeof playerNo === 'bigint'
+            ? playerNo
+            : Number.isFinite(Number(playerNo))
+                ? Math.trunc(Number(playerNo))
+                : null;
+        if (numericPlayerNo === null) {
+            return [];
+        }
+        const result = await this.pool.query(
+            `
+              SELECT player_id
+              FROM ${PLAYER_IDENTITY_TABLE}
+              WHERE player_no = $1::bigint
+                AND player_id IS NOT NULL
+            `,
+            [numericPlayerNo],
+        );
+        const rows = result.rows ?? [];
+        const playerIds = rows
+            .map((row: any) => (typeof row?.player_id === 'string' ? row.player_id.trim() : ''))
+            .filter((entry: string) => entry.length > 0);
+        return Array.from(new Set(playerIds));
+    }
+    /**
+     * 按角色名 / 显示名 / 账号名模糊反查 playerId 列表。
+     * 用 ILIKE '%keyword%' 做不区分大小写的子串匹配，限速 LIMIT 防止误输入"a"这类宽匹配卡库。
+     * 调用方负责把这些 playerId 与 playerNo 反查、原始 playerId 精确匹配等结果合并去重。
+     */
+    async findPlayerIdsByName(keyword: string, limit: number = 200): Promise<string[]> {
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+        const trimmed = typeof keyword === 'string' ? keyword.trim() : '';
+        if (!trimmed) {
+            return [];
+        }
+        const normalizedLimit = Number.isFinite(Number(limit))
+            ? Math.max(1, Math.min(1000, Math.trunc(Number(limit))))
+            : 200;
+        const pattern = `%${escapeIlikePattern(trimmed)}%`;
+        const result = await this.pool.query(
+            `
+              SELECT DISTINCT player_id
+              FROM ${PLAYER_IDENTITY_TABLE}
+              WHERE player_id IS NOT NULL
+                AND (
+                  display_name ILIKE $1
+                  OR player_name ILIKE $1
+                  OR username ILIKE $1
+                )
+              LIMIT $2::bigint
+            `,
+            [pattern, normalizedLimit],
+        );
+        const rows = result.rows ?? [];
+        const playerIds = rows
+            .map((row: any) => (typeof row?.player_id === 'string' ? row.player_id.trim() : ''))
+            .filter((entry: string) => entry.length > 0);
+        return Array.from(new Set(playerIds));
+    }
 }
+/**
+ * escapeIlikePattern：把 GM 输入里的 ILIKE 通配符（% _）与反斜杠转义为字面量，
+ * 避免 GM 输入 "%" / "_" / "\" 时把模糊匹配变成全匹配或语法异常。
+ */
+function escapeIlikePattern(value: string): string {
+    return value.replace(/[\\%_]/gu, (match) => `\\${match}`);
+}
+
 /**
  * ensurePlayerIdentityTable：执行ensure玩家Identity表相关逻辑。
  * @param pool 参数说明。

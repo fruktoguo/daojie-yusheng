@@ -11,6 +11,7 @@ import { GmRuntimeFlagPersistenceService, GM_RUNTIME_MAINTENANCE_FLAG_KEY } from
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmMailService } from './native-gm-mail.service';
+import { NativeGmMarketTradeService } from './native-gm-market-trade.service';
 import { NativeGmPlayerService } from './native-gm-player.service';
 import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
@@ -255,6 +256,7 @@ export class NativeGmController {
     private readonly nextGmMailService: NativeGmMailService,
     @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: RedeemCodeRuntimeServicePort,
     @Inject(GmRuntimeFlagPersistenceService) private readonly runtimeFlagService: GmRuntimeFlagPersistenceService,
+    @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
   }
@@ -1102,5 +1104,22 @@ export class NativeGmController {
     }
     await this.runtimeFlagService.deleteFlag(key);
     return { ok: true, key };
+  }
+
+  /**
+   * GM 控制台「交易记录查询」tab 的列表入口。
+   * - playerKeyword：纯数字识别为玩家序号 (player_no)；其它当作 playerId 精确匹配。
+   * - itemKeyword：物品名（中文/英文 itemId）模糊匹配，服务端用模板表反查匹配 itemId 集合。
+   * - 同时存在多条件时为 AND；解析后无匹配立即返回空，避免退化为全表扫描。
+   * 返回按 created_at_ms 倒序的一页 GmMarketTradeItem。
+   */
+  @Get('market/trades')
+  listMarketTrades(@Query() query: any) {
+    return this.nextGmMarketTradeService.listTrades({
+      page: query?.page,
+      pageSize: query?.pageSize,
+      playerKeyword: query?.playerKeyword,
+      itemKeyword: query?.itemKeyword,
+    });
   }
 }

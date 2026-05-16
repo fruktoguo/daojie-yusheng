@@ -456,6 +456,133 @@ export class MarketPersistenceService {
         this.pool = null;
         this.enabled = false;
     }
+    /**
+     * 按"双玩家最近 N 条 ∩ M 天保留期"窗口删除老旧 trade 行：
+     * 同时满足"对买卖双方而言都已经不在最近 keepPerPlayer 条之内"和"created_at_ms < cutoff"的行才会被删除。
+     * 单批最多删除 batchLimit 行，调用方按需循环以分批限速、降低锁冲突。
+     */
+    async pruneTradeHistoryByDualKeepWindow(input) {
+        if (!this.pool || !this.enabled) {
+            return 0;
+        }
+        const cutoffMs = Number.isFinite(Number(input?.cutoffMs))
+            ? Math.max(0, Math.trunc(Number(input.cutoffMs)))
+            : Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const keepPerPlayer = Math.max(
+            1,
+            Math.trunc(Number.isFinite(Number(input?.keepPerPlayer)) ? Number(input.keepPerPlayer) : 100),
+        );
+        const batchLimit = Math.max(
+            1,
+            Math.min(
+                10_000,
+                Math.trunc(Number.isFinite(Number(input?.batchLimit)) ? Number(input.batchLimit) : 500),
+            ),
+        );
+        const result = await this.pool.query(
+            `
+              WITH ranked AS (
+                SELECT
+                  trade_id,
+                  buyer_id,
+                  seller_id,
+                  created_at_ms,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY buyer_id ORDER BY created_at_ms DESC, trade_id ASC
+                  ) AS buyer_rank,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY seller_id ORDER BY created_at_ms DESC, trade_id ASC
+                  ) AS seller_rank
+                FROM ${MARKET_TRADE_TABLE}
+              ),
+              candidate AS (
+                SELECT trade_id
+                FROM ranked
+                WHERE created_at_ms < $1::bigint
+                  AND buyer_rank > $2::bigint
+                  AND seller_rank > $2::bigint
+                ORDER BY created_at_ms ASC, trade_id ASC
+                LIMIT $3::bigint
+              )
+              DELETE FROM ${MARKET_TRADE_TABLE}
+              WHERE trade_id IN (SELECT trade_id FROM candidate)
+            `,
+            [cutoffMs, keepPerPlayer, batchLimit],
+        );
+        return Number.isFinite(Number(result?.rowCount)) ? Math.max(0, Math.trunc(Number(result.rowCount))) : 0;
+    }
+    /**
+     * GM 控制台用：按玩家关键字（playerId 精确 / player_no 数字）与物品 ID 集合分页查询交易记录。
+     * - playerIdMatches: 精确匹配 buyer_id 或 seller_id 的 playerId 列表
+     * - itemIds: WHERE item_id = ANY，调用方负责通过 itemKeyword -> contentTemplateRepository 解析
+     * - 没有任何条件时，按时间倒序返回最近一页
+     */
+    async queryTradeHistoryForGm(input) {
+        if (!this.pool || !this.enabled) {
+            return { items: [], total: 0 };
+        }
+        const page = Math.max(1, Math.trunc(Number(input?.page) > 0 ? Number(input.page) : 1));
+        const pageSize = Math.max(
+            1,
+            Math.min(200, Math.trunc(Number(input?.pageSize) > 0 ? Number(input.pageSize) : 20)),
+        );
+        const playerIdMatches = Array.isArray(input?.playerIdMatches)
+            ? input.playerIdMatches
+                .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+                .filter((entry) => entry.length > 0)
+            : [];
+        const itemIds = Array.isArray(input?.itemIds)
+            ? input.itemIds
+                .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+                .filter((entry) => entry.length > 0)
+            : [];
+        const itemIdRequested = Array.isArray(input?.itemIds);
+        // 调用方传了 itemIds 但解析后为空，意味着没有匹配的物品，直接空结果而不是退化为全表。
+        if (itemIdRequested && itemIds.length === 0) {
+            return { items: [], total: 0 };
+        }
+        const playerKeywordRequested = Array.isArray(input?.playerIdMatches);
+        if (playerKeywordRequested && playerIdMatches.length === 0) {
+            return { items: [], total: 0 };
+        }
+        const conditions = [];
+        const values = [];
+        let paramIndex = 1;
+        if (playerIdMatches.length > 0) {
+            conditions.push(`(buyer_id = ANY($${paramIndex}::varchar[]) OR seller_id = ANY($${paramIndex}::varchar[]))`);
+            values.push(playerIdMatches);
+            paramIndex += 1;
+        }
+        if (itemIds.length > 0) {
+            conditions.push(`item_id = ANY($${paramIndex}::varchar[])`);
+            values.push(itemIds);
+            paramIndex += 1;
+        }
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        const totalRes = await this.pool.query(
+            `SELECT COUNT(*)::bigint AS total FROM ${MARKET_TRADE_TABLE} ${whereClause}`,
+            values,
+        );
+        const total = Math.max(0, Math.trunc(Number(totalRes.rows?.[0]?.total ?? 0)));
+        if (total === 0) {
+            return { items: [], total };
+        }
+        const offset = (page - 1) * pageSize;
+        const listValues = [...values, pageSize, offset];
+        const listRes = await this.pool.query(
+            `
+              SELECT trade_id, buyer_id, seller_id, item_id, quantity, unit_price, created_at_ms, raw_payload
+              FROM ${MARKET_TRADE_TABLE}
+              ${whereClause}
+              ORDER BY created_at_ms DESC, trade_id ASC
+              LIMIT $${paramIndex}::bigint OFFSET $${paramIndex + 1}::bigint
+            `,
+            listValues,
+        );
+        const rows = listRes.rows ?? [];
+        const items = rows.map((row) => normalizeGmTradeRow(row)).filter((entry) => Boolean(entry));
+        return { items, total };
+    }
 }
 /**
  * normalizeMarketOrder：规范化或转换坊市订单。
@@ -573,6 +700,38 @@ function normalizeTradeRecord(raw) {
         quantity: Number.isFinite(candidate.quantity) ? Math.max(1, Math.trunc(Number(candidate.quantity ?? 1))) : 1,
         unitPrice: normalizeUnitPrice(candidate.unitPrice),
         createdAt: Number.isFinite(candidate.createdAt) ? Math.trunc(Number(candidate.createdAt ?? Date.now())) : Date.now(),
+    };
+}
+/**
+ * normalizeGmTradeRow：把 server_market_trade_history 的 SQL 行规范化成 GM 控制台条目。
+ * raw_payload 优先（携带 source 等字段），列字段兜底，缺关键值则丢弃。
+ */
+
+function normalizeGmTradeRow(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+    const tradeId = typeof row.trade_id === 'string' ? row.trade_id.trim() : '';
+    const buyerId = typeof row.buyer_id === 'string' ? row.buyer_id.trim() : '';
+    const sellerId = typeof row.seller_id === 'string' ? row.seller_id.trim() : '';
+    const itemId = typeof row.item_id === 'string' ? row.item_id.trim() : '';
+    if (!tradeId || !buyerId || !sellerId || !itemId) {
+        return null;
+    }
+    const rawPayload = row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : null;
+    const source = rawPayload && rawPayload.source === 'auction' ? 'auction' : 'market';
+    const quantity = Math.max(1, Math.trunc(Number(row.quantity ?? rawPayload?.quantity ?? 1)));
+    const unitPrice = normalizeUnitPrice(row.unit_price ?? rawPayload?.unitPrice);
+    const createdAt = Math.max(0, Math.trunc(Number(row.created_at_ms ?? rawPayload?.createdAt ?? 0)));
+    return {
+        id: tradeId,
+        source,
+        buyerId,
+        sellerId,
+        itemId,
+        quantity,
+        unitPrice,
+        createdAt,
     };
 }
 /**

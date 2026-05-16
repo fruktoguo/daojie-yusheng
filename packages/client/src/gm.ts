@@ -101,6 +101,9 @@ import {
   type RedeemCodeGroupView,
   type GmSecretListItem,
   type GmSetSecretReq,
+  type GmMarketTradeItem,
+  type GmMarketTradeListQuery,
+  type GmMarketTradeListRes,
 } from '@mud/shared';
 import {
   GM_FACING_OPTIONS,
@@ -439,6 +442,8 @@ const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLEleme
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
 /** secretsWorkspaceEl：密钥管理 workspace El。 */
 const secretsWorkspaceEl = document.getElementById('secrets-workspace') as HTMLElement;
+/** tradesWorkspaceEl：交易记录 workspace El。 */
+const tradesWorkspaceEl = document.getElementById('trades-workspace') as HTMLElement;
 /** shortcutMailComposerEl：shortcut邮件Composer El。 */
 const shortcutMailComposerEl = document.getElementById('shortcut-mail-composer') as HTMLDivElement | null;
 /** serverTabBtn：服务端Tab Btn。 */
@@ -455,6 +460,28 @@ const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement
 const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButtonElement;
 /** secretsTabBtn：密钥管理 Tab Btn。 */
 const secretsTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement;
+/** tradesTabBtn：交易记录 Tab Btn。 */
+const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
+/** tradesFormEl：交易记录搜索表单。 */
+const tradesFormEl = document.getElementById('gm-trades-form') as HTMLFormElement;
+/** tradesPlayerInput：玩家序号 / playerId 输入。 */
+const tradesPlayerInput = document.getElementById('gm-trades-player') as HTMLInputElement;
+/** tradesItemInput：物品名输入。 */
+const tradesItemInput = document.getElementById('gm-trades-item') as HTMLInputElement;
+/** tradesPageSizeInput：每页条数输入。 */
+const tradesPageSizeInput = document.getElementById('gm-trades-page-size') as HTMLInputElement;
+/** tradesResetBtn：清空条件按钮。 */
+const tradesResetBtn = document.getElementById('gm-trades-reset') as HTMLButtonElement;
+/** tradesMetaEl：当前查询元信息。 */
+const tradesMetaEl = document.getElementById('gm-trades-meta') as HTMLElement;
+/** tradesListEl：交易记录列表容器。 */
+const tradesListEl = document.getElementById('gm-trades-list') as HTMLElement;
+/** tradesPageMetaEl：分页元信息。 */
+const tradesPageMetaEl = document.getElementById('gm-trades-page-meta') as HTMLElement;
+/** tradesPagePrevBtn：上一页。 */
+const tradesPagePrevBtn = document.getElementById('gm-trades-page-prev') as HTMLButtonElement;
+/** tradesPageNextBtn：下一页。 */
+const tradesPageNextBtn = document.getElementById('gm-trades-page-next') as HTMLButtonElement;
 /** suggestionListEl：建议列表El。 */
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
 /** suggestionSearchInput：建议搜索输入。 */
@@ -619,7 +646,7 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' = 'server';
+let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'trades' = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
@@ -3748,7 +3775,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 }
 
 /** switchTab：处理switch Tab。 */
-function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets'): void {
+function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'trades'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   // 离开世界管理时停止轮询
@@ -3764,6 +3791,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   secretsTabBtn.classList.toggle('active', tab === 'secrets');
+  tradesTabBtn.classList.toggle('active', tab === 'trades');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
@@ -3771,6 +3799,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   secretsWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
+  tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
   if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
   } else if (tab === 'redeem') {
@@ -3795,6 +3824,11 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     });
   } else if (tab === 'secrets') {
     loadSecrets().catch(() => {});
+  } else if (tab === 'trades') {
+    // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
+    loadTrades({ resetPage: true }).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
+    });
   }
 }
 
@@ -6730,6 +6764,149 @@ async function deleteSecret(key: string): Promise<void> {
   }
 }
 
+// ===== 交易记录 tab =====
+/** tradesQueryState：交易记录 tab 当前查询状态，分页 / 关键字。 */
+let tradesQueryState: { page: number; pageSize: number; playerKeyword: string; itemKeyword: string } = {
+  page: 1,
+  pageSize: 20,
+  playerKeyword: '',
+  itemKeyword: '',
+};
+
+/** loadTrades：根据当前/给定查询条件请求服务端并渲染。 */
+async function loadTrades(options?: { resetPage?: boolean; playerKeyword?: string; itemKeyword?: string; pageSize?: number }): Promise<void> {
+  if (options?.resetPage) {
+    tradesQueryState.page = 1;
+  }
+  if (typeof options?.playerKeyword === 'string') {
+    tradesQueryState.playerKeyword = options.playerKeyword.trim();
+  }
+  if (typeof options?.itemKeyword === 'string') {
+    tradesQueryState.itemKeyword = options.itemKeyword.trim();
+  }
+  if (typeof options?.pageSize === 'number' && Number.isFinite(options.pageSize)) {
+    tradesQueryState.pageSize = Math.max(1, Math.min(200, Math.trunc(options.pageSize)));
+  }
+
+  const params = new URLSearchParams();
+  params.set('page', String(tradesQueryState.page));
+  params.set('pageSize', String(tradesQueryState.pageSize));
+  if (tradesQueryState.playerKeyword) {
+    params.set('playerKeyword', tradesQueryState.playerKeyword);
+  }
+  if (tradesQueryState.itemKeyword) {
+    params.set('itemKeyword', tradesQueryState.itemKeyword);
+  }
+
+  tradesMetaEl.textContent = '查询中…';
+  try {
+    const result = await request<GmMarketTradeListRes>(`${GM_API_BASE_PATH}/market/trades?${params.toString()}`);
+    tradesQueryState.page = result.page;
+    tradesQueryState.pageSize = result.pageSize;
+    renderTrades(result);
+  } catch (error) {
+    tradesMetaEl.textContent = '';
+    tradesListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+    tradesPagePrevBtn.disabled = true;
+    tradesPageNextBtn.disabled = true;
+  }
+}
+
+/** renderTrades：把后端返回结果渲染成表格 + 分页元信息。 */
+function renderTrades(result: GmMarketTradeListRes): void {
+  const { items, total, page, pageSize, totalPages, playerKeyword, itemKeyword } = result;
+  const conditionParts: string[] = [];
+  if (playerKeyword) {
+    conditionParts.push(`玩家="${escapeHtml(playerKeyword)}"`);
+  }
+  if (itemKeyword) {
+    conditionParts.push(`物品="${escapeHtml(itemKeyword)}"`);
+  }
+  tradesMetaEl.innerHTML = `共 ${total} 条 · 当前条件 ${conditionParts.length > 0 ? conditionParts.join('，') : '无'}`;
+  tradesPageMetaEl.textContent = `第 ${page} / ${Math.max(1, totalPages)} 页 · 共 ${total} 条`;
+  tradesPagePrevBtn.disabled = page <= 1;
+  tradesPageNextBtn.disabled = page >= totalPages;
+
+  if (items.length === 0) {
+    tradesListEl.innerHTML = '<div class="empty-hint">没有符合条件的交易记录。</div>';
+    return;
+  }
+
+  const rowsHtml = items.map((row) => renderTradeRow(row)).join('');
+  tradesListEl.innerHTML = `
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="background:rgba(255,255,255,0.6); border-bottom:1.5px solid var(--ink-black);">
+          <th style="text-align:left; padding:8px 10px;">完成时间</th>
+          <th style="text-align:left; padding:8px 10px;">来源</th>
+          <th style="text-align:left; padding:8px 10px;">买家</th>
+          <th style="text-align:left; padding:8px 10px;">卖家</th>
+          <th style="text-align:left; padding:8px 10px;">物品</th>
+          <th style="text-align:right; padding:8px 10px;">数量</th>
+          <th style="text-align:right; padding:8px 10px;">单价</th>
+          <th style="text-align:right; padding:8px 10px;">总价</th>
+          <th style="text-align:left; padding:8px 10px;">交易 ID</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+}
+
+function renderTradeRow(row: GmMarketTradeItem): string {
+  const buyerLabel = formatTradePartyLabel(row.buyerNo, row.buyerName, row.buyerId);
+  const sellerLabel = formatTradePartyLabel(row.sellerNo, row.sellerName, row.sellerId);
+  const sourceLabel = row.source === 'auction' ? '拍卖行' : '坊市';
+  return `
+    <tr style="border-bottom:1px solid var(--wash-ink);">
+      <td style="padding:8px 10px; white-space:nowrap; color:var(--ink-grey);">${escapeHtml(formatTradeTimestamp(row.createdAt))}</td>
+      <td style="padding:8px 10px;">${escapeHtml(sourceLabel)}</td>
+      <td style="padding:8px 10px;">${buyerLabel}</td>
+      <td style="padding:8px 10px;">${sellerLabel}</td>
+      <td style="padding:8px 10px;">${escapeHtml(row.itemName)} <span style="color:var(--light-ink); font-size:12px;">(${escapeHtml(row.itemId)})</span></td>
+      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${row.quantity.toLocaleString('zh-Hans-CN')}</td>
+      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${formatTradePrice(row.unitPrice)}</td>
+      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${formatTradePrice(row.totalCost)}</td>
+      <td style="padding:8px 10px; color:var(--light-ink); font-family:monospace; font-size:12px; word-break:break-all;">${escapeHtml(row.id)}</td>
+    </tr>
+  `;
+}
+
+function formatTradePartyLabel(playerNo: number | null | undefined, playerName: string | null | undefined, playerId: string): string {
+  const parts: string[] = [];
+  const noText = typeof playerNo === 'number' && Number.isFinite(playerNo) ? `#${playerNo}` : null;
+  const trimmedName = typeof playerName === 'string' ? playerName.trim() : '';
+  if (noText) {
+    parts.push(`<span style="font-family:var(--font-heading-sub);">${escapeHtml(noText)}</span>`);
+  }
+  if (trimmedName) {
+    parts.push(`<span>${escapeHtml(trimmedName)}</span>`);
+  }
+  parts.push(`<span style="color:var(--light-ink); font-family:monospace; font-size:12px;">${escapeHtml(playerId)}</span>`);
+  return `<div style="display:flex; flex-direction:column; gap:2px;">${parts.join('')}</div>`;
+}
+
+function formatTradePrice(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '-';
+  }
+  return Math.round(value * 100) / 100 === Math.trunc(value)
+    ? Math.trunc(value).toLocaleString('zh-Hans-CN')
+    : value.toLocaleString('zh-Hans-CN', { maximumFractionDigits: 2 });
+}
+
+function formatTradeTimestamp(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '-';
+  }
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 /** changeGmPassword：处理变更GM密码。 */
 async function changeGmPassword(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -8494,6 +8671,7 @@ serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
 shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
 secretsTabBtn.addEventListener('click', () => switchTab('secrets'));
+tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
@@ -8927,6 +9105,44 @@ gmPasswordForm.addEventListener('submit', (event) => {
 secretForm.addEventListener('submit', (event) => {
   event.preventDefault();
   saveSecret().catch(() => {});
+});
+tradesFormEl.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const pageSizeRaw = Number(tradesPageSizeInput.value);
+  loadTrades({
+    resetPage: true,
+    playerKeyword: tradesPlayerInput.value,
+    itemKeyword: tradesItemInput.value,
+    pageSize: Number.isFinite(pageSizeRaw) ? Math.trunc(pageSizeRaw) : undefined,
+  }).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
+  });
+});
+tradesResetBtn.addEventListener('click', () => {
+  tradesPlayerInput.value = '';
+  tradesItemInput.value = '';
+  tradesPageSizeInput.value = '20';
+  loadTrades({
+    resetPage: true,
+    playerKeyword: '',
+    itemKeyword: '',
+    pageSize: 20,
+  }).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
+  });
+});
+tradesPagePrevBtn.addEventListener('click', () => {
+  if (tradesQueryState.page <= 1) return;
+  tradesQueryState.page -= 1;
+  loadTrades().catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
+  });
+});
+tradesPageNextBtn.addEventListener('click', () => {
+  tradesQueryState.page += 1;
+  loadTrades().catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
+  });
 });
 savePlayerBtn.addEventListener('click', () => {
   saveSelectedPlayer().catch(() => {});
