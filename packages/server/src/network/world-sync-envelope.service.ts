@@ -175,14 +175,19 @@ export class WorldSyncEnvelopeService {
             ...(effects.length > 0 ? { combatEffects: effects } : {}),
             ...(aoiEffects.length > 0 ? { aoiEffects } : {}),
         };
-        nextEnvelope.worldDelta = {
+        const worldDelta = nextEnvelope.worldDelta ?? {
             t: view.tick,
             wr: view.worldRevision,
             sr: view.selfRevision,
-            ...(nextEnvelope.worldDelta ?? {}),
-            ...(effects.length > 0 ? { fx: effects } : {}),
-            eventBus,
         };
+        worldDelta.t = worldDelta.t ?? view.tick;
+        worldDelta.wr = worldDelta.wr ?? view.worldRevision;
+        worldDelta.sr = worldDelta.sr ?? view.selfRevision;
+        if (effects.length > 0) {
+            worldDelta.fx = effects;
+        }
+        worldDelta.eventBus = eventBus;
+        nextEnvelope.worldDelta = worldDelta;
         if (playerDrain?.gmStatePush) {
             nextEnvelope.gmStatePush = true;
         }

@@ -46,6 +46,7 @@ type NativePlayerAuthStorePort = {
 @Injectable()
 export class WorldProjectorService {
     private readonly cacheByPlayerId = new Map<string, any>();
+    private readonly identityProjectionByPlayerId = new Map<string, any>();
 
     constructor(
         @Inject(MapTemplateRepository)
@@ -196,23 +197,28 @@ export class WorldProjectorService {
         if (!view) {
             return view;
         }
-        let changed = false;
         const selfIdentity = this.resolveAccountIdentityProjection(view.playerId, view.self);
         const self = selfIdentity
             ? { ...view.self, ...selfIdentity }
             : view.self;
-        changed ||= self !== view.self;
-        const visiblePlayers = Array.isArray(view.visiblePlayers)
-            ? view.visiblePlayers.map((entry: any) => {
+        let visiblePlayers = view.visiblePlayers;
+        if (Array.isArray(view.visiblePlayers)) {
+            for (let index = 0; index < view.visiblePlayers.length; index += 1) {
+                const entry = view.visiblePlayers[index];
                 const identity = this.resolveAccountIdentityProjection(entry?.playerId, entry);
                 if (!identity) {
-                    return entry;
+                    if (visiblePlayers !== view.visiblePlayers) {
+                        visiblePlayers.push(entry);
+                    }
+                    continue;
                 }
-                changed = true;
-                return { ...entry, ...identity };
-            })
-            : view.visiblePlayers;
-        return changed ? { ...view, self, visiblePlayers } : view;
+                if (visiblePlayers === view.visiblePlayers) {
+                    visiblePlayers = view.visiblePlayers.slice(0, index);
+                }
+                visiblePlayers.push({ ...entry, ...identity });
+            }
+        }
+        return self !== view.self || visiblePlayers !== view.visiblePlayers ? { ...view, self, visiblePlayers } : view;
     }
 
     private resolveAccountIdentityProjection(playerId: unknown, fallback: any): { name?: string; displayName?: string } | null {
@@ -222,17 +228,37 @@ export class WorldProjectorService {
         }
         const account = this.playerAuthStore.getMemoryUserByPlayerId(normalizedPlayerId);
         if (!account) {
+            this.identityProjectionByPlayerId.delete(normalizedPlayerId);
             return null;
         }
         const name = normalizeIdentityText(account.pendingRoleName) || normalizeIdentityText(account.playerName);
         const displayName = normalizeIdentityText(account.displayName);
         if (!name && !displayName) {
+            this.identityProjectionByPlayerId.delete(normalizedPlayerId);
             return null;
         }
-        return {
-            name: name || normalizeIdentityText(fallback?.name),
-            displayName: displayName || normalizeIdentityText(fallback?.displayName),
+        const fallbackName = normalizeIdentityText(fallback?.name);
+        const fallbackDisplayName = normalizeIdentityText(fallback?.displayName);
+        const cached = this.identityProjectionByPlayerId.get(normalizedPlayerId);
+        if (cached
+            && cached.name === name
+            && cached.displayName === displayName
+            && cached.fallbackName === fallbackName
+            && cached.fallbackDisplayName === fallbackDisplayName) {
+            return cached.projection;
+        }
+        const projection = {
+            name: name || fallbackName,
+            displayName: displayName || fallbackDisplayName,
         };
+        this.identityProjectionByPlayerId.set(normalizedPlayerId, {
+            name,
+            displayName,
+            fallbackName,
+            fallbackDisplayName,
+            projection,
+        });
+        return projection;
     }
 }
 
@@ -272,11 +298,18 @@ function mergeWorldState(previous: any, worldState: any): any {
 }
 
 function hasPlayerPresentationScaleChange(view: any, previousPlayers: Map<string, any>): boolean {
-    const candidates = [
-        { playerId: view?.playerId, buffs: view?.self?.buffs },
-        ...(Array.isArray(view?.visiblePlayers) ? view.visiblePlayers : []),
-    ];
-    for (const entry of candidates) {
+    const selfPlayerId = typeof view?.playerId === 'string' ? view.playerId : '';
+    if (selfPlayerId) {
+        const nextScale = resolveBuffPresentationScale(view?.self?.buffs) ?? null;
+        const previousScale = previousPlayers.get(selfPlayerId)?.sc ?? null;
+        if (nextScale !== previousScale) {
+            return true;
+        }
+    }
+    if (!Array.isArray(view?.visiblePlayers)) {
+        return false;
+    }
+    for (const entry of view.visiblePlayers) {
         const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
         if (!playerId) {
             continue;

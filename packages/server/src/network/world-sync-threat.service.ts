@@ -38,7 +38,7 @@ export class WorldSyncThreatService {
                 t: view.tick,
                 wr: view.worldRevision,
                 sr: view.selfRevision,
-                threatArrows: cloneThreatArrows(threatArrows),
+                threatArrows,
             });
         }
         return threatArrows;
@@ -65,14 +65,24 @@ export class WorldSyncThreatService {
     buildThreatArrows(view) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const visiblePlayerIds = new Set([
-            view.playerId,
-            ...view.visiblePlayers.map((entry) => entry.playerId),
-        ]);
-
-        const visibleMonsterIds = new Set(view.localMonsters.map((entry) => entry.runtimeId));
-
-        const visibleEntityIds = new Set([...visiblePlayerIds, ...visibleMonsterIds]);
+        const visiblePlayerIds = new Set();
+        const visibleEntityIds = new Set();
+        if (typeof view.playerId === 'string' && view.playerId.length > 0) {
+            visiblePlayerIds.add(view.playerId);
+            visibleEntityIds.add(view.playerId);
+        }
+        for (const entry of view.visiblePlayers ?? []) {
+            if (typeof entry?.playerId !== 'string' || entry.playerId.length === 0) {
+                continue;
+            }
+            visiblePlayerIds.add(entry.playerId);
+            visibleEntityIds.add(entry.playerId);
+        }
+        for (const entry of view.localMonsters ?? []) {
+            if (typeof entry?.runtimeId === 'string' && entry.runtimeId.length > 0) {
+                visibleEntityIds.add(entry.runtimeId);
+            }
+        }
 
         const arrows = [];
 
@@ -119,15 +129,6 @@ export class WorldSyncThreatService {
     }
 };
 /**
- * cloneThreatArrows：构建ThreatArrow。
- * @param source 来源对象。
- * @returns 无返回值，直接更新ThreatArrow相关状态。
- */
-
-function cloneThreatArrows(source) {
-    return source.map(([ownerId, targetId]) => [ownerId, targetId]);
-}
-/**
  * diffThreatArrows：执行diffThreatArrow相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
@@ -140,7 +141,7 @@ function diffThreatArrows(previous, current, forceFull) {
 
     if (forceFull || !previous) {
         return {
-            full: cloneThreatArrows(current),
+            full: current,
             adds: [],
             removes: [],
         };
