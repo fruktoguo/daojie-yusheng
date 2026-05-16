@@ -1,9 +1,22 @@
 /**
  * 密码哈希与验证：使用自定义 scrypt 格式（sn1$...）存储密码。
  * 兼容旧版 bcrypt 哈希的验证，并标记需要升级的旧格式。
+ *
+ * 实现采用异步 scrypt（基于 libuv 线程池），避免阻塞 Node.js 事件循环；
+ * GM 修改密码、玩家登录等高并发或高延迟敏感链路因此不会卡住其他请求。
  */
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { compareSync as compareBcryptSync } from 'bcryptjs';
+
+/** 异步 scrypt：在 libuv 线程池中计算，不会阻塞事件循环。 */
+const scryptAsync = promisify(scryptCallback) as (
+  password: string,
+  salt: Buffer,
+  keyLength: number,
+  options: { N: number; r: number; p: number },
+) => Promise<Buffer>;
+
 /** scrypt 哈希解析结果。 */
 interface ParsedScryptHash {
   cost: number;
@@ -39,7 +52,7 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
 
   let derived: Buffer;
   try {
-    derived = scryptSync(normalizedPassword, parsed.salt, parsed.keyLength, {
+    derived = await scryptAsync(normalizedPassword, parsed.salt, parsed.keyLength, {
       N: parsed.cost,
       r: parsed.blockSize,
       p: parsed.parallelization,
@@ -65,7 +78,7 @@ export async function hashPassword(password: unknown): Promise<string> {
   const blockSize = 8;
   const parallelization = 1;
   const keyLength = 64;
-  const hash = scryptSync(normalizedPassword, salt, keyLength, {
+  const hash = await scryptAsync(normalizedPassword, salt, keyLength, {
     N: cost,
     r: blockSize,
     p: parallelization,

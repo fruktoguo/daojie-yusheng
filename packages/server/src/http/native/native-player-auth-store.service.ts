@@ -8,7 +8,7 @@ import { isDuplicateFriendlyDisplayName } from '@mud/shared';
 import { Pool } from 'pg';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName } from '../../auth/account-validation';
-import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { readTrimmedEnv, resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType } from '../../persistence/schema-bigint-migration';
 /**
  * AuthConflictKind：统一结构类型，保证协议与运行时一致性。
@@ -436,6 +436,17 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
     this.pool = new Pool({
       connectionString: databaseUrl,
+      max: resolveAuthStorePoolMax(),
+      idleTimeoutMillis: resolveAuthStorePoolIdleTimeoutMillis(),
+      connectionTimeoutMillis: resolveAuthStorePoolConnectionTimeoutMillis(),
+      statement_timeout: resolveAuthStoreStatementTimeoutMillis(),
+    });
+    // 防止意外的连接错误导致进程退出，仅记录日志，下一次 query 会自动重新拿连接。
+    this.pool.on('error', (error) => {
+      this.logger.error(
+        `主线玩家鉴权存储连接池捕获错误：${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     });
 
     try {
@@ -1225,6 +1236,91 @@ function buildConflictMessage(requestedKind: AuthConflictKind, conflictKind: Aut
  * @returns 返回 Promise，完成后得到ensure玩家认证表。
  */
 
+
+/** 主线玩家鉴权存储默认连接池上限。 */
+const AUTH_STORE_POOL_MAX_DEFAULT = 8;
+const AUTH_STORE_POOL_MAX_MIN = 1;
+const AUTH_STORE_POOL_MAX_MAX = 50;
+
+/** 主线玩家鉴权存储默认连接获取超时（毫秒）。超过该值仍未拿到连接将直接 reject，避免 GM 修改密码等接口无限挂起。 */
+const AUTH_STORE_POOL_CONNECTION_TIMEOUT_DEFAULT = 5_000;
+const AUTH_STORE_POOL_CONNECTION_TIMEOUT_MIN = 250;
+const AUTH_STORE_POOL_CONNECTION_TIMEOUT_MAX = 60_000;
+
+/** 主线玩家鉴权存储默认空闲连接回收时间（毫秒）。 */
+const AUTH_STORE_POOL_IDLE_TIMEOUT_DEFAULT = 30_000;
+const AUTH_STORE_POOL_IDLE_TIMEOUT_MIN = 1_000;
+const AUTH_STORE_POOL_IDLE_TIMEOUT_MAX = 300_000;
+
+/** 主线玩家鉴权存储默认 statement_timeout（毫秒），防止任何单条 SQL 永久卡住。 */
+const AUTH_STORE_STATEMENT_TIMEOUT_DEFAULT = 10_000;
+const AUTH_STORE_STATEMENT_TIMEOUT_MIN = 500;
+const AUTH_STORE_STATEMENT_TIMEOUT_MAX = 120_000;
+
+function resolveAuthStorePoolMax(): number {
+  return normalizePositiveIntegerEnv(
+    'SERVER_PLAYER_AUTH_POOL_MAX',
+    'PLAYER_AUTH_POOL_MAX',
+    AUTH_STORE_POOL_MAX_DEFAULT,
+    AUTH_STORE_POOL_MAX_MIN,
+    AUTH_STORE_POOL_MAX_MAX,
+  );
+}
+
+function resolveAuthStorePoolConnectionTimeoutMillis(): number {
+  return normalizePositiveIntegerEnv(
+    'SERVER_PLAYER_AUTH_POOL_CONNECTION_TIMEOUT_MS',
+    'PLAYER_AUTH_POOL_CONNECTION_TIMEOUT_MS',
+    AUTH_STORE_POOL_CONNECTION_TIMEOUT_DEFAULT,
+    AUTH_STORE_POOL_CONNECTION_TIMEOUT_MIN,
+    AUTH_STORE_POOL_CONNECTION_TIMEOUT_MAX,
+  );
+}
+
+function resolveAuthStorePoolIdleTimeoutMillis(): number {
+  return normalizePositiveIntegerEnv(
+    'SERVER_PLAYER_AUTH_POOL_IDLE_TIMEOUT_MS',
+    'PLAYER_AUTH_POOL_IDLE_TIMEOUT_MS',
+    AUTH_STORE_POOL_IDLE_TIMEOUT_DEFAULT,
+    AUTH_STORE_POOL_IDLE_TIMEOUT_MIN,
+    AUTH_STORE_POOL_IDLE_TIMEOUT_MAX,
+  );
+}
+
+function resolveAuthStoreStatementTimeoutMillis(): number {
+  return normalizePositiveIntegerEnv(
+    'SERVER_PLAYER_AUTH_STATEMENT_TIMEOUT_MS',
+    'PLAYER_AUTH_STATEMENT_TIMEOUT_MS',
+    AUTH_STORE_STATEMENT_TIMEOUT_DEFAULT,
+    AUTH_STORE_STATEMENT_TIMEOUT_MIN,
+    AUTH_STORE_STATEMENT_TIMEOUT_MAX,
+  );
+}
+
+function normalizePositiveIntegerEnv(
+  primary: string,
+  fallback: string,
+  defaultValue: number,
+  min: number,
+  max: number,
+): number {
+  const rawValue = readTrimmedEnv(primary, fallback);
+  if (!rawValue) {
+    return defaultValue;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed)) {
+    return defaultValue;
+  }
+  const normalized = Math.trunc(parsed);
+  if (normalized < min) {
+    return min;
+  }
+  if (normalized > max) {
+    return max;
+  }
+  return normalized;
+}
 
 export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
