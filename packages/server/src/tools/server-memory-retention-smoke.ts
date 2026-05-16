@@ -14,6 +14,7 @@ import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.
 import { WorldSyncMapStaticAuxService } from '../network/world-sync-map-static-aux.service';
 import { WorldSyncMinimapService } from '../network/world-sync-minimap.service';
 import { WorldSyncPlayerStateService } from '../network/world-sync-player-state.service';
+import { toPlayerSnapshotFromMigrationRow } from '../network/world-player-source.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
   const renderEntityRefProof = proveRenderEntitiesReuseStableRefs();
   const envelopeContainerRespawnProof = proveEnvelopeContainerRespawnAvoidsNoopArrayClone();
   const envelopeThreatHotpathProof = proveEnvelopeThreatHotpathOptimizationsPresent();
+  const playerSourceMigrationRefProof = provePlayerSourceMigrationRefsReused();
   const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
   const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
@@ -70,6 +72,7 @@ async function main(): Promise<void> {
     renderEntityRefProof,
     envelopeContainerRespawnProof,
     envelopeThreatHotpathProof,
+    playerSourceMigrationRefProof,
     panelSliceRefProof,
     combatEffectRefProof,
     persistenceDirtyDomainProjectionProof,
@@ -78,7 +81,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -843,6 +846,73 @@ function proveEnvelopeThreatHotpathOptimizationsPresent(): {
     eventBusMutatesWorldDelta,
     threatArrowsPassThrough,
     threatVisibleSetsAvoidIntermediateArrays,
+  };
+}
+
+function provePlayerSourceMigrationRefsReused(): {
+  techniqueSkillsRefShared: boolean;
+  techniqueLayerAttrsRefShared: boolean;
+  questRewardsRefShared: boolean;
+} {
+  const skill = {
+    id: 'skill:memory-proof',
+    name: 'memory proof skill',
+    description: '',
+    type: 'active',
+    effects: [],
+  };
+  const layerAttrs = {
+    constitution: 1,
+    spirit: 0,
+    perception: 0,
+    talent: 0,
+    strength: 0,
+    meridians: 0,
+  };
+  const reward = {
+    itemId: 'item:memory-proof',
+    count: 1,
+  };
+  const row = {
+    mapId: 'map:memory-proof',
+    unlockedMinimapIds: [],
+    techniques: [{
+      techId: 'tech:memory-proof',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      skills: [skill],
+      layers: [{
+        level: 1,
+        expToNext: 10,
+        attrs: layerAttrs,
+      }],
+    }],
+    quests: [{
+      id: 'quest:memory-proof',
+      questId: 'quest:memory-proof',
+      status: 'active',
+      rewardItemIds: ['item:memory-proof'],
+      rewards: [reward],
+    }],
+  };
+
+  const snapshot = toPlayerSnapshotFromMigrationRow(row as any) as any;
+  const technique = snapshot.techniques.techniques[0];
+  const quest = snapshot.quests.entries[0];
+  const techniqueSkillsRefShared = technique.skills === row.techniques[0].skills
+    && technique.skills[0] === skill;
+  const techniqueLayerAttrsRefShared = technique.layers[0].attrs === layerAttrs;
+  const questRewardsRefShared = quest.rewards === row.quests[0].rewards
+    && quest.rewards[0] === reward;
+
+  assert.equal(techniqueSkillsRefShared, true);
+  assert.equal(techniqueLayerAttrsRefShared, true);
+  assert.equal(questRewardsRefShared, true);
+  return {
+    techniqueSkillsRefShared,
+    techniqueLayerAttrsRefShared,
+    questRewardsRefShared,
   };
 }
 

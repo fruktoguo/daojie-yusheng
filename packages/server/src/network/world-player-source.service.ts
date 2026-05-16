@@ -466,13 +466,13 @@ function normalizeTechniques(value) {
             grade: typeof technique.grade === 'string' ? technique.grade : undefined,
 
             category: typeof technique.category === 'string' ? technique.category : undefined,
-            skills: Array.isArray(technique.skills) ? technique.skills.map((entry) => ({ ...entry })) : [],
+            skills: Array.isArray(technique.skills) ? technique.skills : [],
             layers: Array.isArray(technique.layers)
                 ? technique.layers.map((layer) => ({
                     level: Math.max(1, toFiniteInt(layer?.level, 1)),
                     expToNext: Math.max(0, toFiniteInt(layer?.expToNext, 0)),
 
-                    attrs: layer?.attrs && typeof layer.attrs === 'object' ? { ...layer.attrs } : undefined,
+                    attrs: layer?.attrs && typeof layer.attrs === 'object' ? layer.attrs : undefined,
                 }))
                 : undefined,
         });
@@ -496,7 +496,7 @@ function normalizeQuests(value) {
         .map((entry) => ({
         ...entry,
         rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
-        rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
+        rewards: Array.isArray(entry.rewards) ? entry.rewards : [],
     }));
 }
 /**
