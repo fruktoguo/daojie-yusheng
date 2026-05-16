@@ -6,6 +6,7 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
 
+import { isNativeGmBotPlayerId } from '../http/native/native-gm.constants';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { isRelationMissingError } from './pg-error-utils';
 
@@ -55,16 +56,25 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
 
   /** 读取单个计数器值，不存在返回 0。 */
   get(playerId: string, key: string): number {
+    if (isNativeGmBotPlayerId(playerId)) {
+      return 0;
+    }
     return this.cache.get(normalizeId(playerId))?.get(key) ?? 0;
   }
 
   /** 读取玩家所有计数器。 */
   getAll(playerId: string): ReadonlyMap<string, number> {
+    if (isNativeGmBotPlayerId(playerId)) {
+      return EMPTY_MAP;
+    }
     return this.cache.get(normalizeId(playerId)) ?? EMPTY_MAP;
   }
 
   /** 设置计数器值（覆盖）。 */
   set(playerId: string, key: string, value: number): void {
+    if (isNativeGmBotPlayerId(playerId)) {
+      return;
+    }
     const pid = normalizeId(playerId);
     let map = this.cache.get(pid);
     if (!map) {
@@ -98,6 +108,20 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
     return Array.from(this.cache.keys());
   }
 
+  /** 释放临时玩家计数器缓存；GM bot 不应长期占用 player_counters 内存。 */
+  releasePlayerCache(playerId: string): void {
+    const pid = normalizeId(playerId);
+    if (!pid) {
+      return;
+    }
+    this.cache.delete(pid);
+    for (const key of Array.from(this.pendingWrites.keys())) {
+      if (key.startsWith(`${pid}:`)) {
+        this.pendingWrites.delete(key);
+      }
+    }
+  }
+
   private async loadAll(): Promise<void> {
     if (!this.pool) return;
     const result = await this.pool.query(
@@ -108,7 +132,7 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
       const pid = normalizeId(row.player_id);
       const key = String(row.counter_key ?? '');
       const value = Number(row.value) || 0;
-      if (!pid || !key) continue;
+      if (!pid || !key || isNativeGmBotPlayerId(pid)) continue;
       let map = this.cache.get(pid);
       if (!map) {
         map = new Map();

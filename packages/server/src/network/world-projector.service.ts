@@ -114,28 +114,34 @@ export class WorldProjectorService {
             && !hasPlayerPresentationScaleChange(identityView, previous.players)
             ? previous
             : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
-        const current = combineProjectorState(currentWorld, capturePlayerState(player));
-        this.cacheByPlayerId.set(identityView.playerId, current);
-        const worldChanged = previous.worldRevision !== current.worldRevision || currentWorld !== previous;
-        const playerPatch = worldChanged ? diffPlayerEntries(previous.players, current.players) : [];
-        const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, current.monsters) : [];
-        const npcPatch = worldChanged ? diffNpcEntries(previous.npcs, current.npcs) : [];
-        const portalPatch = worldChanged ? diffPortalEntries(previous.portals, current.portals) : [];
-        const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, current.groundPiles) : [];
-        const containerPatch = worldChanged ? diffContainerEntries(previous.containers, current.containers) : [];
-        const buildingPatch = worldChanged ? diffBuildingEntries(previous.buildings, current.buildings) : [];
-        const formationPatch = worldChanged ? diffFormationEntries(previous.formations, current.formations) : [];
+        const worldChanged = previous.worldRevision !== currentWorld.worldRevision || currentWorld !== previous;
+        const playerPatch = worldChanged ? diffPlayerEntries(previous.players, currentWorld.players) : [];
+        const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, currentWorld.monsters) : [];
+        const npcPatch = worldChanged ? diffNpcEntries(previous.npcs, currentWorld.npcs) : [];
+        const portalPatch = worldChanged ? diffPortalEntries(previous.portals, currentWorld.portals) : [];
+        const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, currentWorld.groundPiles) : [];
+        const containerPatch = worldChanged ? diffContainerEntries(previous.containers, currentWorld.containers) : [];
+        const buildingPatch = worldChanged ? diffBuildingEntries(previous.buildings, currentWorld.buildings) : [];
+        const formationPatch = worldChanged ? diffFormationEntries(previous.formations, currentWorld.formations) : [];
         const selfDelta = buildSelfDelta(previous, player);
         const panelDelta = buildPanelDelta(previous, player);
+        const hasWorldPatch = playerPatch.length > 0
+            || monsterPatch.length > 0
+            || npcPatch.length > 0
+            || portalPatch.length > 0
+            || groundPatch.length > 0
+            || containerPatch.length > 0
+            || buildingPatch.length > 0
+            || formationPatch.length > 0;
+        const playerChanged = Boolean(selfDelta || panelDelta);
+        if (worldChanged || playerChanged) {
+            const current = playerChanged
+                ? combineProjectorState(currentWorld, capturePlayerState(player))
+                : mergeWorldState(previous, currentWorld);
+            this.cacheByPlayerId.set(identityView.playerId, current);
+        }
         if (
-            playerPatch.length === 0
-            && monsterPatch.length === 0
-            && npcPatch.length === 0
-            && portalPatch.length === 0
-            && groundPatch.length === 0
-            && containerPatch.length === 0
-            && buildingPatch.length === 0
-            && formationPatch.length === 0
+            !hasWorldPatch
             && !selfDelta
             && !panelDelta
         ) {
@@ -143,14 +149,7 @@ export class WorldProjectorService {
         }
         return {
             worldDelta:
-                playerPatch.length > 0
-                || monsterPatch.length > 0
-                || npcPatch.length > 0
-                || portalPatch.length > 0
-                || groundPatch.length > 0
-                || containerPatch.length > 0
-                || buildingPatch.length > 0
-                || formationPatch.length > 0
+                hasWorldPatch
                     ? {
                         t: view.tick,
                         wr: identityView.worldRevision,
@@ -236,6 +235,25 @@ function hasDynamicContainerCountdown(view: any, previousContainers: Map<string,
         }
     }
     return false;
+}
+
+function mergeWorldState(previous: any, worldState: any): any {
+    if (worldState === previous) {
+        return previous;
+    }
+    return {
+        ...previous,
+        instanceId: worldState.instanceId,
+        worldRevision: worldState.worldRevision,
+        players: worldState.players,
+        npcs: worldState.npcs,
+        monsters: worldState.monsters,
+        portals: worldState.portals,
+        groundPiles: worldState.groundPiles,
+        containers: worldState.containers,
+        buildings: worldState.buildings,
+        formations: worldState.formations,
+    };
 }
 
 function hasPlayerPresentationScaleChange(view: any, previousPlayers: Map<string, any>): boolean {

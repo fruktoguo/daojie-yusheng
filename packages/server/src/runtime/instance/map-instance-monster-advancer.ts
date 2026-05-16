@@ -176,12 +176,10 @@ export function resolveMonsterLostSightChaseTarget(
   monster: MonsterRuntimeState,
   ctx: MonsterAdvancerContext,
 ): { x: number; y: number } | null {
-  const { aggroTargetPlayerId, lastSeenTick, lastSeenX, lastSeenY } = {
-    aggroTargetPlayerId: monster.aggroTargetPlayerId,
-    lastSeenTick: monster.lastSeenTargetTick,
-    lastSeenX: monster.lastSeenTargetX,
-    lastSeenY: monster.lastSeenTargetY,
-  };
+  const aggroTargetPlayerId = monster.aggroTargetPlayerId;
+  const lastSeenTick = monster.lastSeenTargetTick;
+  const lastSeenX = monster.lastSeenTargetX;
+  const lastSeenY = monster.lastSeenTargetY;
   if (
     typeof aggroTargetPlayerId !== 'string' ||
     !Number.isInteger(lastSeenTick) ||

@@ -19,26 +19,36 @@ async function main(): Promise<void> {
     delete process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
 
     assert.equal(service.shouldRecordNetworkPerf(), false);
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
     JSON.stringify = throwIfStringifyUsed as typeof JSON.stringify;
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
-    assert.equal(service.networkOutBucketByKey.size, 0);
-
-    service.enableNetworkPerfCounters();
-    assert.equal(service.shouldRecordNetworkPerf(), true);
-    service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
-    assert.equal(service.networkOutBucketByKey.size, 1);
-    service.resetNetworkPerfCounters();
-    assert.equal(service.shouldRecordNetworkPerf(), true);
     assert.equal(service.networkOutBucketByKey.size, 0);
 
     process.env.SERVER_GM_NETWORK_PERF_ENABLED = 'true';
     assert.equal(service.shouldRecordNetworkPerf(), true);
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
     assert.equal(service.networkOutBucketByKey.size, 1);
+    const [envBucket] = Array.from(service.networkOutBucketByKey.values());
+    assert.ok(envBucket.bytes > 0);
+    assert.equal(envBucket.count, 1);
+    assert.equal(envBucket.largePayloadSamples, undefined);
+
+    service.resetNetworkPerfCounters();
+    assert.equal(service.networkOutBucketByKey.size, 0);
+    JSON.stringify = originalStringify;
+
+    delete process.env.SERVER_GM_NETWORK_PERF_ENABLED;
+    service.enableNetworkPerfCounters();
+    assert.equal(service.shouldRecordNetworkPerf(), true);
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), true);
+    service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
+    assert.equal(service.networkOutBucketByKey.size, 1);
     const [bucket] = Array.from(service.networkOutBucketByKey.values());
     assert.ok(bucket.bytes > 0);
     assert.equal(bucket.count, 1);
-    assert.equal(bucket.largePayloadSamples, undefined);
+    assert.ok(Array.isArray(bucket.largePayloadSamples));
+    assert.equal(bucket.largePayloadSamples.length, 1);
+    assert.ok(String(bucket.largePayloadSamples[0]?.body ?? '').includes('测试玩家_0'));
   } finally {
     JSON.stringify = originalStringify;
     restoreEnv('SERVER_GM_NETWORK_PERF_ENABLED', originalEnabled);

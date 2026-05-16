@@ -7,9 +7,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limit.service';
+import { WorldProjectorService } from '../network/world-projector.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
+import { PlayerCountersPersistenceService } from '../persistence/player-counters-persistence.service';
 import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { RedeemCodeRuntimeService } from '../runtime/redeem/redeem-code-runtime.service';
@@ -23,6 +25,9 @@ async function main(): Promise<void> {
   const authRateProof = await proveAuthRateLimitPrune();
   const flushWakeupProof = proveFlushWakeupBound();
   const eventBusProof = proveEventBusReleasesQueues();
+  const playerCountersProof = provePlayerCountersSkipGmBots();
+  const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
+  const viewHotpathProof = proveViewHotpathOptimizationsPresent();
   const suggestionProof = await proveSuggestionTextBounds();
   const gmObserverProof = proveGmWorldObserverIdsRemoved();
 
@@ -35,10 +40,13 @@ async function main(): Promise<void> {
     authRateProof,
     flushWakeupProof,
     eventBusProof,
+    playerCountersProof,
+    projectorProof,
+    viewHotpathProof,
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -177,6 +185,230 @@ function proveEventBusReleasesQueues(): {
   assert.equal(playerAfterFlush, 0);
   assert.equal(instanceAfterFlush, 0);
   return { playerAfterDrain, instanceAfterDrain, playerAfterFlush, instanceAfterFlush };
+}
+
+function provePlayerCountersSkipGmBots(): { cachedPlayerIds: string[]; realCounter: number; botCounter: number } {
+  const service = new PlayerCountersPersistenceService(null);
+  service.increment('gm_bot_memory_1', 'monsterKillCount');
+  service.setMax('gm_bot_memory_1', 'highestRealmLv', 99);
+  service.increment('real_player_memory_1', 'monsterKillCount', 3);
+
+  const cachedPlayerIds = service.listCachedPlayerIds();
+  assert.deepEqual(cachedPlayerIds, ['real_player_memory_1']);
+  assert.equal(service.get('real_player_memory_1', 'monsterKillCount'), 3);
+  assert.equal(service.get('gm_bot_memory_1', 'monsterKillCount'), 0);
+  assert.equal(service.getAll('gm_bot_memory_1').size, 0);
+  return {
+    cachedPlayerIds,
+    realCounter: service.get('real_player_memory_1', 'monsterKillCount'),
+    botCounter: service.get('gm_bot_memory_1', 'monsterKillCount'),
+  };
+}
+
+function proveProjectorKeepsCacheOnNoopDelta(): { deltaIsNull: boolean; cacheReused: boolean } {
+  const service = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const view = createProjectorView();
+  const player = createProjectorPlayer();
+  service.createInitialEnvelope({ playerId: 'projector_player', sessionId: 'projector_session' }, view, player);
+  const state = service as unknown as { cacheByPlayerId: Map<string, unknown> };
+  const before = state.cacheByPlayerId.get('projector_player');
+  const delta = service.createDeltaEnvelope({ ...view, tick: 2 }, player);
+  const after = state.cacheByPlayerId.get('projector_player');
+  assert.equal(delta, null);
+  assert.equal(after, before);
+  return { deltaIsNull: delta === null, cacheReused: after === before };
+}
+
+function createProjectorView(): any {
+  return {
+    playerId: 'projector_player',
+    tick: 1,
+    worldRevision: 1,
+    selfRevision: 1,
+    instance: {
+      instanceId: 'public:projector',
+      templateId: 'yunlai_town',
+      name: '云来镇',
+      kind: 'public',
+      width: 16,
+      height: 16,
+    },
+    self: { x: 1, y: 1, name: '测试', displayName: '测试', buffs: [] },
+    visiblePlayers: [],
+    localNpcs: [],
+    localMonsters: [],
+    localPortals: [],
+    localGroundPiles: [],
+    localContainers: [],
+    localBuildings: [],
+    localFormations: [],
+  };
+}
+
+function createProjectorPlayer(): any {
+  const attrs = createAttributes();
+  return {
+    playerId: 'projector_player',
+    instanceId: 'public:projector',
+    templateId: 'yunlai_town',
+    x: 1,
+    y: 1,
+    facing: 'south',
+    hp: 10,
+    maxHp: 10,
+    qi: 5,
+    maxQi: 5,
+    selfRevision: 1,
+    wallet: { balances: [] },
+    inventory: { revision: 1, capacity: 20, items: [] },
+    equipment: { revision: 1, slots: [] },
+    techniques: { revision: 1, techniques: [], cultivatingTechId: null },
+    bodyTraining: null,
+    attrs: {
+      revision: 1,
+      stage: '炼气',
+      baseAttrs: attrs,
+      finalAttrs: attrs,
+      numericStats: createNumericStats(),
+      ratioDivisors: createRatioDivisors(),
+    },
+    actions: { revision: 1, actions: [] },
+    combat: {
+      autoBattle: false,
+      autoUsePills: [],
+      combatTargetingRules: null,
+      autoBattleTargetingMode: 'nearest',
+      retaliatePlayerTargetId: null,
+      combatTargetId: null,
+      combatTargetLocked: false,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      allowAoePlayerHit: false,
+      autoIdleCultivation: false,
+      autoSwitchCultivation: false,
+      autoRootFoundation: false,
+      cultivationActive: false,
+      senseQiActive: false,
+      wangQiActive: false,
+    },
+    buffs: { revision: 1, buffs: [] },
+    bonuses: [
+      {
+        source: 'runtime:realm_state',
+        label: '境界',
+        attrs: { constitution: 1 },
+        attrMode: 'flat',
+        stats: { maxHp: 1 },
+      },
+    ],
+    foundation: 1,
+    rootFoundation: 1,
+    combatExp: 0,
+    comprehension: 0,
+    luck: 0,
+    fengShuiLuck: 0,
+    boneAgeBaseYears: 18,
+    lifeElapsedTicks: 0,
+    lifespanYears: 80,
+    realm: { realmLv: 1, progress: 0, progressToNext: 100, breakthroughReady: false },
+    alchemySkill: null,
+    forgingSkill: null,
+    buildingSkill: null,
+    gatherSkill: null,
+    enhancementSkill: null,
+    miningSkill: null,
+  };
+}
+
+function createAttributes(): Record<string, number> {
+  return { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 };
+}
+
+function createRatioDivisors(): Record<string, unknown> {
+  return {
+    dodge: 100,
+    crit: 100,
+    breakPower: 100,
+    resolvePower: 100,
+    cooldownSpeed: 100,
+    moveSpeed: 100,
+    elementDamageReduce: { metal: 100, wood: 100, water: 100, fire: 100, earth: 100 },
+  };
+}
+
+function createNumericStats(): Record<string, unknown> {
+  return {
+    maxHp: 10,
+    maxQi: 5,
+    physAtk: 1,
+    spellAtk: 1,
+    physDef: 1,
+    spellDef: 1,
+    hit: 1,
+    dodge: 1,
+    crit: 0,
+    antiCrit: 0,
+    critDamage: 0,
+    breakPower: 0,
+    resolvePower: 0,
+    maxQiOutputPerTick: 1,
+    qiRegenRate: 0,
+    hpRegenRate: 0,
+    cooldownSpeed: 0,
+    auraCostReduce: 0,
+    auraPowerRate: 0,
+    playerExpRate: 0,
+    techniqueExpRate: 0,
+    realmExpPerTick: 0,
+    techniqueExpPerTick: 0,
+    lootRate: 0,
+    rareLootRate: 0,
+    viewRange: 8,
+    moveSpeed: 1,
+    extraAggroRate: 0,
+    extraRange: 0,
+    extraArea: 0,
+    actionsPerTurn: 1,
+    elementDamageBonus: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+    elementDamageReduce: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+  };
+}
+
+function proveViewHotpathOptimizationsPresent(): {
+  playerViewCache: boolean;
+  localMonsterEntryCache: boolean;
+  overlayAvoidsConcatMap: boolean;
+  projectorSkipsUnchangedPanelCapture: boolean;
+  contentTemplateAvoidsDuplicateMonsterClone: boolean;
+} {
+  const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
+  const viewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
+  const projectorSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-projector.service.ts'), 'utf8');
+  const contentTemplateSource = readFileSync(resolve(process.cwd(), 'packages/server/src/content/content-template.repository.ts'), 'utf8');
+  const playerViewCache = mapInstanceSource.includes('playerViewCacheByPlayerId')
+    && mapInstanceSource.includes('cached.worldRevision === this.worldRevision')
+    && mapInstanceSource.includes('this.playerViewCacheByPlayerId.delete(playerId)');
+  const localMonsterEntryCache = mapInstanceSource.includes('localMonsterViewCacheByRuntimeId')
+    && mapInstanceSource.includes('getLocalMonsterViewEntry(monster)')
+    && mapInstanceSource.includes('this.localMonsterViewCacheByRuntimeId.delete(runtimeId)');
+  const overlayAvoidsConcatMap = viewQuerySource.includes('appendProjectedParentEntries')
+    && !viewQuerySource.includes('.concat(\n            parentInstance.collectLocalMonsters')
+    && !viewQuerySource.includes('.map(project)');
+  const projectorSkipsUnchangedPanelCapture = projectorSource.includes('const playerChanged = Boolean(selfDelta || panelDelta)')
+    && projectorSource.includes('playerChanged\n                ? combineProjectorState(currentWorld, capturePlayerState(player))');
+  const contentTemplateAvoidsDuplicateMonsterClone = contentTemplateSource.includes('baseAttrs: resolvedStats.attrs')
+    && contentTemplateSource.includes('statFormula: template.statFormula')
+    && contentTemplateSource.includes('skills: template.skills')
+    && !contentTemplateSource.includes('baseAttrs: cloneMonsterAttributes(resolvedStats.attrs)');
+  assert.equal(playerViewCache, true);
+  assert.equal(localMonsterEntryCache, true);
+  assert.equal(overlayAvoidsConcatMap, true);
+  assert.equal(projectorSkipsUnchangedPanelCapture, true);
+  assert.equal(contentTemplateAvoidsDuplicateMonsterClone, true);
+  return { playerViewCache, localMonsterEntryCache, overlayAvoidsConcatMap, projectorSkipsUnchangedPanelCapture, contentTemplateAvoidsDuplicateMonsterClone };
 }
 
 async function proveSuggestionTextBounds(): Promise<{ titleLength: number; descriptionLength: number; replyLength: number }> {

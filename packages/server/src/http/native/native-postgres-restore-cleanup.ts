@@ -35,7 +35,12 @@ export interface PostgresRestoreSectCleanupReport {
 }
 
 export async function cleanupPostgresRestoreOrphanSectState(databaseUrl: string): Promise<PostgresRestoreSectCleanupReport> {
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 5_000,
+  });
   try {
     return await cleanupPostgresRestoreOrphanSectStateWithClient(pool);
   } finally {

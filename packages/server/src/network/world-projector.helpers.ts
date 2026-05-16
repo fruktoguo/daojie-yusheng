@@ -247,6 +247,10 @@ function buildAttrBonuses(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBon
         : [];
 }
 
+function getPlayerAttrBonusSource(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBonus[] {
+    return Array.isArray(player.bonuses) ? player.bonuses : [];
+}
+
 function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpecialStats): Partial<PlayerSpecialStats> | undefined {
     const patch: Partial<PlayerSpecialStats> = {};
     if (previous.foundation !== current.foundation) { patch.foundation = current.foundation; }
@@ -679,8 +683,8 @@ function buildFullBuffDelta(player: ProjectorPlayerLike): S2C_PanelDelta['buff']
 function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): ProjectedAttrDeltaView {
     const stageChanged = previousAttr.stage !== player.attrs.stage;
     const baseAttrsPatch = diffAttributes(previousAttr.baseAttrs, player.attrs.baseAttrs);
-    const nextBonuses = buildAttrBonuses(player);
-    const bonusesChanged = !isSameAttrBonuses(previousAttr.bonuses, nextBonuses);
+    const bonusesChanged = !isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
+    const nextBonuses = bonusesChanged ? buildAttrBonuses(player) : undefined;
     const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, player.attrs.finalAttrs);
     const numericStatsPatch = diffNumericStats(previousAttr.numericStats, player.attrs.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, player.attrs.ratioDivisors);
@@ -724,7 +728,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         r: player.attrs.revision,
         stage: stageChanged ? player.attrs.stage : undefined,
         baseAttrs: baseAttrsPatch.patch,
-        bonuses: bonusesChanged ? nextBonuses : undefined,
+        bonuses: nextBonuses,
         finalAttrs: finalAttrsPatch.patch,
         numericStats: numericStatsPatch.patch,
         ratioDivisors: ratioDivisorsPatch.patch,
@@ -804,7 +808,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
         || !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
         || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStats(player))
-        || !isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
+        || !isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
     if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
         delta.attr = buildAttrDelta(previousAttr, player);
     }

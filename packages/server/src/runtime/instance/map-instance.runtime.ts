@@ -206,6 +206,10 @@ class MapInstanceRuntime {
  */
 
     worldRevision = 0;    
+    /** 玩家视野快照缓存；同一玩家在世界/自身 revision 未变时复用视野数组，降低空 tick 分配。 */
+    playerViewCacheByPlayerId = new Map();
+    /** 妖兽视野条目缓存；同一 runtimeId 字段未变时复用条目对象，降低 collectLocalMonsters 高频分配。 */
+    localMonsterViewCacheByRuntimeId = new Map();
     /**
  * persistentRevision：persistentRevision相关字段。
  */
@@ -524,6 +528,7 @@ class MapInstanceRuntime {
         const existing = this.playersById.get(request.playerId);
         if (existing) {
             existing.sessionId = request.sessionId;
+            this.playerViewCacheByPlayerId.delete(request.playerId);
             return existing;
         }
 
@@ -565,6 +570,7 @@ class MapInstanceRuntime {
         this.playersById.delete(playerId);
         this.playersByHandle.delete(player.handle);
         this.pendingCommands.delete(playerId);
+        this.playerViewCacheByPlayerId.delete(playerId);
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
         this.freeHandles.push(player.handle);
         this.worldRevision += 1;
@@ -2080,27 +2086,43 @@ class MapInstanceRuntime {
         if (!player) {
             return null;
         }
+        const cached = this.playerViewCacheByPlayerId.get(playerId);
+        const normalizedRadius = Math.max(1, Math.trunc(Number(radius) || DEFAULT_VIEW_RADIUS));
+        if (cached
+            && cached.worldRevision === this.worldRevision
+            && cached.selfRevision === player.selfRevision
+            && cached.x === player.x
+            && cached.y === player.y
+            && cached.radius === normalizedRadius) {
+            return {
+                ...cached.view,
+                sessionId: player.sessionId,
+                tick: this.tick,
+                worldRevision: this.worldRevision,
+                selfRevision: player.selfRevision,
+            };
+        }
 
-        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, radius);
+        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius);
         const visibleTileIndices = visibleTileVisibility.indices;
 
-        const visiblePlayers = this.collectVisiblePlayers(player, radius, visibleTileVisibility);
+        const visiblePlayers = this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility);
 
-        const localMonsters = this.collectLocalMonsters(player.x, player.y, radius, visibleTileVisibility);
+        const localMonsters = this.collectLocalMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localNpcs = this.collectLocalNpcs(player.x, player.y, radius, visibleTileVisibility);
+        const localNpcs = this.collectLocalNpcs(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localPortals = this.collectLocalPortals(player.x, player.y, radius, visibleTileVisibility);
+        const localPortals = this.collectLocalPortals(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localLandmarks = this.collectLocalLandmarks(player.x, player.y, radius, visibleTileVisibility);
+        const localLandmarks = this.collectLocalLandmarks(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localSafeZones = this.collectLocalSafeZones(player.x, player.y, radius, visibleTileVisibility);
+        const localSafeZones = this.collectLocalSafeZones(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localContainers = this.collectLocalContainers(player.x, player.y, radius, visibleTileVisibility);
+        const localContainers = this.collectLocalContainers(player.x, player.y, normalizedRadius, visibleTileVisibility);
 
-        const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, radius, visibleTileVisibility);
-        const localBuildings = this.collectLocalBuildings(player.x, player.y, radius, visibleTileVisibility);
-        return {
+        const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, normalizedRadius, visibleTileVisibility);
+        const localBuildings = this.collectLocalBuildings(player.x, player.y, normalizedRadius, visibleTileVisibility);
+        const view = {
             playerId: player.playerId,
             sessionId: player.sessionId,
             tick: this.tick,
@@ -2135,6 +2157,15 @@ class MapInstanceRuntime {
             localGroundPiles,
             localBuildings,
         };
+        this.playerViewCacheByPlayerId.set(playerId, {
+            worldRevision: this.worldRevision,
+            selfRevision: player.selfRevision,
+            x: player.x,
+            y: player.y,
+            radius: normalizedRadius,
+            view,
+        });
+        return view;
     }
     /** snapshot：构建地图实例快照。 */
     snapshot() {
@@ -3030,6 +3061,7 @@ class MapInstanceRuntime {
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         this.monstersByRuntimeId.delete(runtimeId);
         this.monsterSpawnKeyByRuntimeId.delete(runtimeId);
+        this.localMonsterViewCacheByRuntimeId.delete(runtimeId);
         this.dirtyMonsterRuntimeIds?.delete?.(runtimeId);
         const group = this.monsterSpawnGroupsByKey.get(monster.spawnKey);
         if (group) {
@@ -4707,6 +4739,7 @@ class MapInstanceRuntime {
         const monsters = [];
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
+                this.localMonsterViewCacheByRuntimeId.delete(monster.runtimeId);
                 continue;
             }
             if (!this.isTileInsideViewRadius(centerX, centerY, radius, monster.x, monster.y)) {
@@ -4715,23 +4748,44 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(monster.x, monster.y, visibility)) {
                 continue;
             }
-            monsters.push({
-                runtimeId: monster.runtimeId,
-                monsterId: monster.monsterId,
-                name: monster.name,
-                char: monster.char,
-                color: monster.color,
-                tier: monster.tier,
-                x: monster.x,
-                y: monster.y,
-                hp: monster.hp,
-                maxHp: monster.maxHp,
-                qi: monster.qi,
-                maxQi: monster.maxQi,
-            });
+            monsters.push(this.getLocalMonsterViewEntry(monster));
         }
         monsters.sort(compareLocalMonsters);
         return monsters;
+    }
+    /** getLocalMonsterViewEntry：复用未变化的本地妖兽视野条目。 */
+    getLocalMonsterViewEntry(monster) {
+        const cached = this.localMonsterViewCacheByRuntimeId.get(monster.runtimeId);
+        if (cached
+            && cached.monsterId === monster.monsterId
+            && cached.name === monster.name
+            && cached.char === monster.char
+            && cached.color === monster.color
+            && cached.tier === monster.tier
+            && cached.x === monster.x
+            && cached.y === monster.y
+            && cached.hp === monster.hp
+            && cached.maxHp === monster.maxHp
+            && cached.qi === monster.qi
+            && cached.maxQi === monster.maxQi) {
+            return cached;
+        }
+        const entry = {
+            runtimeId: monster.runtimeId,
+            monsterId: monster.monsterId,
+            name: monster.name,
+            char: monster.char,
+            color: monster.color,
+            tier: monster.tier,
+            x: monster.x,
+            y: monster.y,
+            hp: monster.hp,
+            maxHp: monster.maxHp,
+            qi: monster.qi,
+            maxQi: monster.maxQi,
+        };
+        this.localMonsterViewCacheByRuntimeId.set(monster.runtimeId, entry);
+        return entry;
     }
     /** advanceMonsters：推进妖兽 AI 和行动。 */
     advanceMonsters(monsterActions) {

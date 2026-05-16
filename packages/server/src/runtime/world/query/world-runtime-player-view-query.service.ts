@@ -215,45 +215,87 @@ function decorateOverlayParentView(runtime, view) {
         return view;
     }
     const { parentInstance, parentVisibleTileIndices, parentCenterX, parentCenterY, radius, originX, originY } = context;
-    const project = (entry) => ({
-        ...entry,
-        x: Math.trunc(Number(entry.x)) - originX,
-        y: Math.trunc(Number(entry.y)) - originY,
+    const projection = {
         instanceId: parentInstance.meta?.instanceId,
         templateId: parentInstance.template?.id,
-        projectedFromParentMap: true,
-    });
+        originX,
+        originY,
+    };
+    const visiblePlayers = appendProjectedParentEntries(
+        view.visiblePlayers,
+        parentInstance.collectVisiblePlayers(
+            { playerId: '', x: parentCenterX, y: parentCenterY },
+            radius,
+            parentVisibleTileIndices,
+        ),
+        projection,
+    );
+    const localMonsters = appendProjectedParentEntries(
+        view.localMonsters,
+        parentInstance.collectLocalMonsters(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localNpcs = appendProjectedParentEntries(
+        view.localNpcs,
+        parentInstance.collectLocalNpcs(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localPortals = appendProjectedParentEntries(
+        view.localPortals,
+        parentInstance.collectLocalPortals(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localLandmarks = appendProjectedParentEntries(
+        view.localLandmarks,
+        parentInstance.collectLocalLandmarks(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localContainers = appendProjectedParentEntries(
+        view.localContainers,
+        parentInstance.collectLocalContainers(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localGroundPiles = appendProjectedParentEntries(
+        view.localGroundPiles,
+        parentInstance.collectLocalGroundPiles(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
+    const localBuildings = appendProjectedParentEntries(
+        view.localBuildings,
+        parentInstance.collectLocalBuildings(parentCenterX, parentCenterY, radius, parentVisibleTileIndices),
+        projection,
+    );
     return {
         ...view,
-        visiblePlayers: view.visiblePlayers.concat(
-            parentInstance.collectVisiblePlayers(
-                { playerId: '', x: parentCenterX, y: parentCenterY },
-                radius,
-                parentVisibleTileIndices,
-            ).map(project),
-        ),
-        localMonsters: view.localMonsters.concat(
-            parentInstance.collectLocalMonsters(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localNpcs: view.localNpcs.concat(
-            parentInstance.collectLocalNpcs(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localPortals: view.localPortals.concat(
-            parentInstance.collectLocalPortals(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localLandmarks: view.localLandmarks.concat(
-            parentInstance.collectLocalLandmarks(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localContainers: view.localContainers.concat(
-            parentInstance.collectLocalContainers(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localGroundPiles: view.localGroundPiles.concat(
-            parentInstance.collectLocalGroundPiles(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
-        localBuildings: view.localBuildings.concat(
-            parentInstance.collectLocalBuildings(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
-        ),
+        visiblePlayers,
+        localMonsters,
+        localNpcs,
+        localPortals,
+        localLandmarks,
+        localContainers,
+        localGroundPiles,
+        localBuildings,
     };
+}
+
+function appendProjectedParentEntries(baseEntries, parentEntries, projection) {
+    if (!Array.isArray(parentEntries) || parentEntries.length === 0) {
+        return baseEntries;
+    }
+    const result = Array.isArray(baseEntries) && baseEntries.length > 0
+        ? baseEntries.slice()
+        : [];
+    for (const entry of parentEntries) {
+        result.push({
+            ...entry,
+            x: Math.trunc(Number(entry.x)) - projection.originX,
+            y: Math.trunc(Number(entry.y)) - projection.originY,
+            instanceId: projection.instanceId,
+            templateId: projection.templateId,
+            projectedFromParentMap: true,
+        });
+    }
+    return result;
 }
 
 function buildOverlayParentContext(runtime, sourceInstance, view) {
