@@ -123,6 +123,8 @@ import {
 import { applyStaticI18n, t } from './ui/i18n';
 import { startClientVersionReload } from './version-reload';
 
+const GM_PLAYER_QUICK_RESET_PASSWORD = '123456789';
+
 applyStaticI18n(document);
 
 /** loginOverlay：login Overlay。 */
@@ -742,6 +744,8 @@ let lastMemoryDomainStructureKey: string | null = null;
 let lastMemoryHeapSpaceStructureKey: string | null = null;
 /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
 let lastMemoryInstanceStructureKey: string | null = null;
+/** networkStatsActivationPending：网络统计启动请求是否进行中。 */
+let networkStatsActivationPending = false;
 /** lastPathfindingFailureStructureKey：last Pathfinding Failure Structure Key。 */
 let lastPathfindingFailureStructureKey: string | null = null;
 /** lastShortcutMailComposerStructureKey：last Shortcut邮件Composer Structure Key。 */
@@ -2651,6 +2655,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'workers' && !workerState && !workerStateLoading) {
     loadWorkerState(false).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载 worker 状态失败', true);
+    });
+  }
+  if (tab === 'traffic') {
+    ensureNetworkStatsActive().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '启动流量统计失败', true);
     });
   }
   if (tab === 'memory') {
@@ -5449,6 +5458,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="button-row" style="margin-top: 10px;">
         <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
+        <button class="small-btn" type="button" data-action="reset-player-password-default">重置密码为 123456789</button>
         <button class="small-btn danger" type="button" data-action="ban-player-account" ${account.status === 'banned' ? 'disabled' : ''}>快捷封号</button>
         <button class="small-btn" type="button" data-action="unban-player-account" ${account.status !== 'banned' ? 'disabled' : ''}>快捷解封</button>
       </div>
@@ -5855,7 +5865,9 @@ function renderSummary(data: GmStateRes): void {
   summaryPathQueueEl.textContent = `${data.perf.pathfinding.queueDepth}`;
   summaryPathWorkersEl.textContent = `${data.perf.pathfinding.runningWorkers} / ${data.perf.pathfinding.workerCount}`;
   summaryPathCancelledEl.textContent = `${data.perf.pathfinding.cancelled}`;
-  trafficResetMetaEl.textContent = startedAt
+  trafficResetMetaEl.textContent = data.perf.networkStatsEnabled === false
+    ? '流量统计尚未启动，打开本页或点击重置后开始采集。'
+    : startedAt
     ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)}`
     : '统计区间尚未开始。';
   trafficTotalInEl.textContent = formatBytes(data.perf.networkInBytes);
@@ -7308,7 +7320,7 @@ async function saveSelectedPlayer(): Promise<void> {
 }
 
 /** saveSelectedPlayerPassword：保存Selected玩家密码。 */
-async function saveSelectedPlayerPassword(): Promise<void> {
+async function saveSelectedPlayerPassword(forcedPassword?: string, action = 'save-player-password'): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const detail = getSelectedPlayerDetail();
@@ -7318,8 +7330,8 @@ async function saveSelectedPlayerPassword(): Promise<void> {
   }
 
   const passwordInput = editorContentEl.querySelector<HTMLInputElement>('#player-password-input');
-  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-password"]');
-  const newPassword = passwordInput?.value.trim() ?? '';
+  const button = editorContentEl.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
+  const newPassword = typeof forcedPassword === 'string' ? forcedPassword : (passwordInput?.value.trim() ?? '');
 
   if (!newPassword) {
     setStatus(t('gm.player.password.fill-new'), true);
@@ -7354,7 +7366,9 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     if (passwordInput) {
       passwordInput.value = '';
     }
-    setStatus(t('gm.player.password.updated', { username: detail.account.username }));
+    setStatus(forcedPassword
+      ? `已将账号 ${detail.account.username} 的密码重置为 ${GM_PLAYER_QUICK_RESET_PASSWORD}`
+      : t('gm.player.password.updated', { username: detail.account.username }));
   } catch (error) {
     const message = error instanceof Error && error.message ? error.message : t('gm.request.failed');
     setStatus(t('gm.player.password.failed', { message }), true);
@@ -7761,20 +7775,39 @@ async function resetNetworkStats(): Promise<void> {
 
   resetNetworkStatsBtn.disabled = true;
   try {
-    currentNetworkInPage = 1;
-    currentNetworkOutPage = 1;
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
-      method: 'POST',
-    });
-    await loadState(true);
+    await activateNetworkStats();
     setStatus(t('gm.perf.network.reset.done'));
   } catch (error) {
     setStatus(error instanceof Error ? error.message : t('gm.perf.network.reset.failed'), true);
   } finally {
+    resetNetworkStatsBtn.disabled = false;
+  }
+}
+
+async function activateNetworkStats(): Promise<void> {
+  currentNetworkInPage = 1;
+  currentNetworkOutPage = 1;
+  await request<{
+    /**
+ * ok：ok相关字段。
+ */
+    ok: true;
+  }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
+    method: 'POST',
+  });
+  await loadState(true);
+}
+
+async function ensureNetworkStatsActive(): Promise<void> {
+  if (!token || networkStatsActivationPending || state?.perf.networkStatsEnabled === true) {
+    return;
+  }
+  networkStatsActivationPending = true;
+  resetNetworkStatsBtn.disabled = true;
+  try {
+    await activateNetworkStats();
+  } finally {
+    networkStatsActivationPending = false;
     resetNetworkStatsBtn.disabled = false;
   }
 }
@@ -8025,6 +8058,10 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
+  if (action === 'reset-player-password-default') {
+    saveSelectedPlayerPassword(GM_PLAYER_QUICK_RESET_PASSWORD, 'reset-player-password-default').catch(() => {});
     return;
   }
   if (action === 'ban-player-account') {
