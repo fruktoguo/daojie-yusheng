@@ -412,14 +412,7 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return [];
         }
-        return (this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? []).map((entry) => ({
-            ...entry,
-            spiritStones: entry.spiritStones ? { ...entry.spiritStones } : undefined,
-            items: Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item })) : [],
-            progress: Array.isArray(entry.progress) ? entry.progress.map((item) => ({ ...item })) : [],
-            techniques: Array.isArray(entry.techniques) ? entry.techniques.map((item) => ({ ...item })) : [],
-            professions: Array.isArray(entry.professions) ? entry.professions.map((item) => ({ ...item })) : [],
-        }));
+        return this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
     }
     /** 从数据库回读并组合玩家统计总账。 */
     async loadPlayerStatisticTotals(playerId, now = Date.now()) {

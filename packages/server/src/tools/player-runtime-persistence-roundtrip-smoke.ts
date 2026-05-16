@@ -429,6 +429,29 @@ function testSnapshotAndRestoreKeepItemPrototypes() {
     assert.equal(JSON.parse(JSON.stringify(restoredWeapon)).equipAttrs, undefined);
 }
 
+function testPendingStatisticRecordsReuseReadonlyReferences() {
+    const service = createPlayerRuntimeService();
+    const report = {
+        id: 'offline-report:1',
+        startedAt: 1,
+        endedAt: 2,
+        spiritStones: { gained: 3 },
+        items: [{ itemId: 'pill.test', count: 1 }],
+        progress: [{ kind: 'foundation', amount: 2 }],
+        techniques: [{ techId: 'tech.test', exp: 4 }],
+        professions: [{ kind: 'alchemy', exp: 5 }],
+    };
+    service.pendingOfflineGainReportsByPlayerId.set('player:pending-stat', [report]);
+
+    const records = service.getPendingPlayerStatisticRecords('player:pending-stat');
+    assert.equal(records, service.pendingOfflineGainReportsByPlayerId.get('player:pending-stat'));
+    assert.equal(records[0], report);
+    assert.equal(records[0].items, report.items);
+    assert.equal(records[0].progress, report.progress);
+    assert.equal(records[0].techniques, report.techniques);
+    assert.equal(records[0].professions, report.professions);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -441,5 +464,6 @@ testReplaceInventoryItemsKeepsTemplateOnPrototype();
 testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
 testHydrateInventoryItemsKeepTemplateOnPrototype();
 testSnapshotAndRestoreKeepItemPrototypes();
+testPendingStatisticRecordsReuseReadonlyReferences();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
