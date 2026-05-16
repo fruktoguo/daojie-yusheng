@@ -395,6 +395,7 @@ class WorldRuntimeSectService {
         if (!instanceId || !Array.isArray(view?.localPortals)) {
             return [];
         }
+        const ledSect = this.findSectLedByPlayer(view?.playerId);
         const actions = [];
         const seen = new Set();
         for (const portal of view.localPortals) {
@@ -428,6 +429,9 @@ class WorldRuntimeSectService {
             }
             seen.add(sectId);
             if (playerSectId === sect.sectId || isSectMember(sect, view.playerId)) {
+                continue;
+            }
+            if (ledSect && ledSect.sectId !== sect.sectId) {
                 continue;
             }
             actions.push({
@@ -494,6 +498,10 @@ class WorldRuntimeSectService {
             }
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        const ledSect = this.findSectLedByPlayer(playerId);
+        if (ledSect && ledSect.sectId !== sect.sectId) {
+            throw new BadRequestException(`你身为${ledSect.name}宗主，不能加入其他宗门，请先转让宗主之位或解散原宗门`);
+        }
         const location = deps.getPlayerLocationOrThrow(playerId);
         if (location.instanceId !== sect.entranceInstanceId) {
             throw new BadRequestException('需要在该宗门山门前递交拜帖');
@@ -527,6 +535,10 @@ class WorldRuntimeSectService {
         const application = targetId ? findPendingSectApplication(sect, targetId) : null;
         if (!application) {
             throw new NotFoundException('未找到待审批拜帖');
+        }
+        const ledSect = this.findSectLedByPlayer(targetId);
+        if (ledSect && ledSect.sectId !== sect.sectId) {
+            throw new BadRequestException(`${application.name}是${ledSect.name}宗主，无法直接入宗，请其先转让宗主之位或解散原宗门`);
         }
         const applicant = this.playerRuntimeService.getPlayer?.(targetId) ?? null;
         if (applicant) {
@@ -912,6 +924,26 @@ class WorldRuntimeSectService {
     findSectById(sectId) {
         const normalized = normalizeOptionalString(sectId);
         return normalized ? this.sectsById.get(normalized) ?? null : null;
+    }
+
+    findSectLedByPlayer(playerId) {
+        const normalized = normalizeOptionalString(playerId);
+        if (!normalized) {
+            return null;
+        }
+        for (const sect of this.sectsById.values()) {
+            if (sect.status === 'dissolved') {
+                continue;
+            }
+            if (normalizeOptionalString(sect.leaderPlayerId) === normalized) {
+                return sect;
+            }
+            if (Array.isArray(sect.members)
+                && sect.members.some((entry) => entry?.playerId === normalized && entry?.roleId === 'leader')) {
+                return sect;
+            }
+        }
+        return null;
     }
 
     findSectByInstanceId(instanceId) {
