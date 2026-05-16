@@ -130,20 +130,26 @@ export class WorldSyncEnvelopeService {
         if (!instance || !lootContainerService || typeof lootContainerService.getHerbContainerWorldProjection !== 'function') {
             return view;
         }
-        let changed = false;
-        const localContainers = view.localContainers.map((entry) => {
+        let localContainers = null;
+        for (let index = 0; index < view.localContainers.length; index += 1) {
+            const entry = view.localContainers[index];
             const container = instance.getContainerById?.(entry.id) ?? null;
             const projection = lootContainerService.getHerbContainerWorldProjection(instanceId, container, instance.tick);
             const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
                 ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
                 : undefined;
             if (respawnRemainingTicks === entry.respawnRemainingTicks) {
-                return entry;
+                if (localContainers) {
+                    localContainers.push(entry);
+                }
+                continue;
             }
-            changed = true;
-            return projectContainerRespawnEntry(entry, respawnRemainingTicks);
-        });
-        return changed ? { ...view, localContainers } : view;
+            if (!localContainers) {
+                localContainers = view.localContainers.slice(0, index);
+            }
+            localContainers.push(projectContainerRespawnEntry(entry, respawnRemainingTicks));
+        }
+        return localContainers ? { ...view, localContainers } : view;
     }
     /**
  * appendNextCombatEffects：执行appendNext战斗Effect相关逻辑。
