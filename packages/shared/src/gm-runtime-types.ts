@@ -436,6 +436,81 @@ export interface GmHeapSnapshotRes {
  */
 
   generatedAt: number;
+  /** summaryPath：服务端生成的摘要 JSON 文件路径。 */
+  summaryPath?: string;
+  /** summaryBytes：摘要 JSON 文件大小（字节）。 */
+  summaryBytes?: number;
+  /** summaryDurationMs：摘要解析耗时（毫秒）。 */
+  summaryDurationMs?: number;
+  /** summaryError：摘要解析失败时的错误信息；成功时为 null/undefined。 */
+  summaryError?: string | null;
+  /** summary：摘要 JSON 内容（topByBytes / topByCount / diffSincePrevious 等结构）。 */
+  summary?: GmHeapSnapshotSummary | null;
+}
+
+/** GM 读取最近一次 Heap Snapshot 摘要的响应。 */
+export interface GmHeapSnapshotSummaryRes {
+  /** ok：是否成功；false 时附 reason / hint 提示。 */
+  ok: boolean;
+  /** reason：失败原因（如 "no_summary_yet"）。 */
+  reason?: string;
+  /** hint：失败时给运维的下一步提示。 */
+  hint?: string;
+  /** fileName：摘要文件名（仅 ok=true 时存在）。 */
+  fileName?: string;
+  /** bytes：摘要文件大小。 */
+  bytes?: number;
+  /** summary：摘要 JSON 内容。 */
+  summary?: GmHeapSnapshotSummary;
+}
+
+/** Heap Snapshot 摘要中按 constructor 维度的统计条目。 */
+export interface GmHeapSnapshotConstructorStat {
+  /** 构造函数或 V8 类型名（显示名）。 */
+  name: string;
+  /** V8 节点类型（hidden/array/string/object/code/closure/...）。 */
+  nodeType: string;
+  /** 该 constructor 节点数量。 */
+  count: number;
+  /** self_size 累加，单位 byte。 */
+  selfSizeBytes: number;
+  /** 原始 V8 name 字段（截断到 64 字节），用于区分同 nodeType 下不同 nameIdx 的条目。 */
+  rawName?: string;
+}
+
+/** Heap Snapshot 摘要 JSON 结构（与 server-side HeapSnapshotSummary 对齐）。 */
+export interface GmHeapSnapshotSummary {
+  /** generatedAtMs：摘要生成时间戳。 */
+  generatedAtMs: number;
+  /** parseDurationMs：解析耗时（毫秒）。 */
+  parseDurationMs: number;
+  /** snapshotFileBytes：源 .heapsnapshot 文件大小。 */
+  snapshotFileBytes: number;
+  /** declaredNodeCount：V8 写入时声明的节点数。 */
+  declaredNodeCount: number;
+  /** parsedNodeCount：实际解析到的节点数。 */
+  parsedNodeCount: number;
+  /** parsedStringCount：实际解析到的字符串数。 */
+  parsedStringCount: number;
+  /** totalSelfSizeBytes：所有节点 self_size 累加。 */
+  totalSelfSizeBytes: number;
+  /** topByBytes：按 self_size 倒序前 N。 */
+  topByBytes: GmHeapSnapshotConstructorStat[];
+  /** topByCount：按 count 倒序前 N。 */
+  topByCount: GmHeapSnapshotConstructorStat[];
+  /** diffSincePrevious：与上一次 summary 的对比（仅在存在上一份时输出）。 */
+  diffSincePrevious?: {
+    intervalMs: number;
+    totalSelfSizeDeltaBytes: number;
+    previousAtMs: number;
+    previousFileName: string;
+    topGrowingByBytes: Array<{
+      name: string;
+      nodeType: string;
+      countDelta: number;
+      sizeDeltaBytes: number;
+    }>;
+  };
 }
 
 /** 路径搜索失败原因统计。 */

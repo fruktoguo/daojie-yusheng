@@ -49,7 +49,8 @@ interface RuntimeGmStateServiceLike {
   enableNetworkPerfCounters(): void;
   resetNetworkPerfCounters(): void;
   resetCpuPerfCounters(): void;
-  writeHeapSnapshot(): unknown;
+  writeHeapSnapshot(options?: { deleteSnapshotAfterSummary?: boolean }): unknown | Promise<unknown>;
+  getLatestHeapSnapshotSummary(): unknown;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -1025,8 +1026,12 @@ export class NativeGmWorldService {
     this.pathfindingPerfStartedAt = Date.now();
   }
 
-  writeHeapSnapshot() {
-    return this.runtimeGmStateService.writeHeapSnapshot();
+  writeHeapSnapshot(options?: { deleteSnapshotAfterSummary?: boolean }) {
+    return this.runtimeGmStateService.writeHeapSnapshot(options);
+  }
+
+  getLatestHeapSnapshotSummary() {
+    return this.runtimeGmStateService.getLatestHeapSnapshotSummary();
   }
 
   private async persistMapConfig(mapId: string, partial: GmMapConfigPayload): Promise<void> {
