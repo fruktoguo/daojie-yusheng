@@ -27,6 +27,8 @@ const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
 const HEAP_SNAPSHOT_DIR = join(process.cwd(), '.runtime', 'heap-snapshots');
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
+const LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS = 4096;
+const NETWORK_PAYLOAD_ESTIMATE_MAX_DEPTH = 16;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
@@ -150,11 +152,21 @@ export class RuntimeGmStateService {
     }
     /** 记录客户端 -> 服务端的 socket 事件流量。 */
     recordNetworkIn(event, payload) {
+        if (!this.shouldRecordNetworkPerf()) {
+            return;
+        }
         this.recordNetworkBucket(this.networkInBucketByKey, 'c2s', event, payload);
     }
     /** 记录服务端 -> 客户端的 socket 事件流量。 */
     recordNetworkOut(event, payload) {
+        if (!this.shouldRecordNetworkPerf()) {
+            return;
+        }
         this.recordNetworkBucket(this.networkOutBucketByKey, 's2c', event, payload);
+    }
+    /** GM 网络性能统计是热路径诊断能力，生产默认关闭，需要显式开关。 */
+    shouldRecordNetworkPerf() {
+        return isNetworkPerfRecordingEnabled();
     }
     /** 清空累计网络统计。 */
     resetNetworkPerfCounters() {
@@ -495,7 +507,7 @@ export class RuntimeGmStateService {
             return;
         }
         const current = bucketByKey.get(label);
-        const sample = buildNetworkLargePayloadSample(direction, event, measurement);
+        const sample = buildNetworkLargePayloadSample(direction, event, payload, measurement);
         if (current) {
             current.bytes += measurement.packetBytes;
             current.count += 1;
@@ -763,7 +775,6 @@ function measureNetworkPayload(event, payload) {
             eventKey: '',
             packetBytes: 0,
             payloadBytes: 0,
-            serializedPayload: '',
         };
     }
     if (eventKey === S2C.GmState) {
@@ -771,32 +782,18 @@ function measureNetworkPayload(event, payload) {
             eventKey,
             packetBytes: 0,
             payloadBytes: 0,
-            serializedPayload: '',
         };
     }
-    try {
-        const serialized = JSON.stringify(payload ?? null);
-        const serializedPayload = serialized ?? 'null';
-        const payloadBytes = Buffer.byteLength(serializedPayload, 'utf8');
-        return {
-            eventKey,
-            packetBytes: Buffer.byteLength(eventKey, 'utf8') + payloadBytes,
-            payloadBytes,
-            serializedPayload,
-        };
-    }
-    catch (_error) {
-        return {
-            eventKey,
-            packetBytes: Buffer.byteLength(eventKey, 'utf8'),
-            payloadBytes: 0,
-            serializedPayload: '',
-        };
-    }
+    const payloadBytes = estimateNetworkPayloadBytes(payload);
+    return {
+        eventKey,
+        packetBytes: Buffer.byteLength(eventKey, 'utf8') + payloadBytes,
+        payloadBytes,
+    };
 }
 
-function buildNetworkLargePayloadSample(direction, event, measurement) {
-    if (!isDevelopmentLikeEnv()) {
+function buildNetworkLargePayloadSample(direction, event, payload, measurement) {
+    if (!isNetworkPayloadBodyCaptureEnabled()) {
         return null;
     }
     if (direction === 's2c' && measurement.eventKey === S2C.GmState) {
@@ -810,7 +807,7 @@ function buildNetworkLargePayloadSample(direction, event, measurement) {
         bytes: measurement.payloadBytes,
         packetBytes: measurement.packetBytes,
         recordedAt: Date.now(),
-        body: formatNetworkPayloadBody(measurement.serializedPayload),
+        body: formatNetworkPayloadBody(payload),
     };
 }
 
@@ -825,21 +822,80 @@ function appendNetworkLargePayloadSample(bucket, sample) {
     bucket.largePayloadSamples = samples.slice(0, LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT);
 }
 
-function formatNetworkPayloadBody(serializedPayload) {
-    if (!serializedPayload) {
-        return '';
-    }
+function formatNetworkPayloadBody(payload) {
     try {
-        return JSON.stringify(JSON.parse(serializedPayload), null, 2);
+        const serialized = JSON.stringify(payload ?? null, null, 2) ?? 'null';
+        return truncateNetworkPayloadBody(serialized);
     }
     catch (_error) {
-        return serializedPayload;
+        return '';
     }
+}
+
+function truncateNetworkPayloadBody(value) {
+    const normalized = String(value ?? '');
+    if (normalized.length <= LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS) {
+        return normalized;
+    }
+    return `${normalized.slice(0, LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS)}\n...<truncated>`;
+}
+
+function estimateNetworkPayloadBytes(payload) {
+    const seen = new WeakSet();
+    return Math.max(0, Math.trunc(estimateNetworkPayloadValueBytes(payload, 0, seen)));
+}
+
+function estimateNetworkPayloadValueBytes(value, depth, seen) {
+    if (value == null) {
+        return 4;
+    }
+    const valueType = typeof value;
+    if (valueType === 'string') {
+        return Buffer.byteLength(value, 'utf8') + 2;
+    }
+    if (valueType === 'number' || valueType === 'bigint' || valueType === 'boolean') {
+        return Buffer.byteLength(String(value), 'utf8');
+    }
+    if (valueType !== 'object') {
+        return 0;
+    }
+    if (seen.has(value)) {
+        return 0;
+    }
+    if (depth >= NETWORK_PAYLOAD_ESTIMATE_MAX_DEPTH) {
+        return 2;
+    }
+    seen.add(value);
+    if (Array.isArray(value)) {
+        let bytes = 2;
+        for (const entry of value) {
+            bytes += 1 + estimateNetworkPayloadValueBytes(entry, depth + 1, seen);
+        }
+        return bytes;
+    }
+    let bytes = 2;
+    for (const [key, entry] of Object.entries(value)) {
+        bytes += Buffer.byteLength(key, 'utf8') + 3 + estimateNetworkPayloadValueBytes(entry, depth + 1, seen);
+    }
+    return bytes;
+}
+
+function isNetworkPerfRecordingEnabled() {
+    return isTruthyEnvValue(process.env.SERVER_GM_NETWORK_PERF_ENABLED);
+}
+
+function isNetworkPayloadBodyCaptureEnabled() {
+    return isTruthyEnvValue(process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS) && isDevelopmentLikeEnv();
 }
 
 function isDevelopmentLikeEnv() {
     const runtimeEnv = String(process.env.SERVER_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
     return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
+}
+
+function isTruthyEnvValue(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 
 function buildCpuBreakdown(summary) {

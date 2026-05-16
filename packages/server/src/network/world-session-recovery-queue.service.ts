@@ -35,6 +35,12 @@ export class WorldSessionRecoveryQueueService {
     1_000,
     120_000,
   );
+  private readonly maxQueueLength = normalizePositiveInteger(
+    readTrimmedEnv('SERVER_BOOTSTRAP_RECOVERY_QUEUE_MAX', 'BOOTSTRAP_RECOVERY_QUEUE_MAX'),
+    5_000,
+    64,
+    20_000,
+  );
 
   enqueue<T>(input: {
     key: string;
@@ -47,6 +53,11 @@ export class WorldSessionRecoveryQueueService {
       return Promise.reject(new Error('recovery_queue_key_required'));
     }
     return new Promise<T>((resolve, reject) => {
+      this.rejectQueuedTaskByKey(key, new Error('recovery_queue_superseded'));
+      if (this.queue.length >= this.maxQueueLength) {
+        reject(new Error('recovery_queue_full'));
+        return;
+      }
       this.queue.push({
         key,
         priority: input.priority ?? 'normal',
@@ -60,11 +71,12 @@ export class WorldSessionRecoveryQueueService {
     });
   }
 
-  getSnapshot(): { concurrency: number; inFlight: number; queued: number; keys: string[] } {
+  getSnapshot(): { concurrency: number; inFlight: number; queued: number; maxQueued: number; keys: string[] } {
     return {
       concurrency: this.concurrency,
       inFlight: this.inFlight,
       queued: this.queue.length,
+      maxQueued: this.maxQueueLength,
       keys: this.queue.map((entry) => entry.key),
     };
   }
@@ -116,6 +128,17 @@ export class WorldSessionRecoveryQueueService {
       }
       return left.key.localeCompare(right.key);
     });
+  }
+
+  private rejectQueuedTaskByKey(key: string, reason: Error): void {
+    const existingIndex = this.queue.findIndex((entry) => entry.key === key);
+    if (existingIndex < 0) {
+      return;
+    }
+    const [existing] = this.queue.splice(existingIndex, 1);
+    if (existing) {
+      existing.reject(reason);
+    }
   }
 }
 

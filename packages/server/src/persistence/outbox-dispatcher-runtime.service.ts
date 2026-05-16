@@ -13,6 +13,7 @@ const DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE = 128;
 const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
 const DEFAULT_OUTBOX_MAX_ATTEMPTS = 8;
+const DEFAULT_OUTBOX_LOCAL_DEDUPE_LIMIT = 10_000;
 
 /** Outbox 分发运行时：定时轮询 + 本地/共享去重 + 消费者分发 */
 @Injectable()
@@ -22,6 +23,8 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
   private running = false;
   private readonly processedEventIds = new Set<string>();
   private readonly processedOperationIds = new Set<string>();
+  private readonly processedEventIdOrder: string[] = [];
+  private readonly processedOperationIdOrder: string[] = [];
   private eventConsumer: ((event: Record<string, unknown>) => Promise<void> | void) | null = null;
 
   constructor(
@@ -156,17 +159,15 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
   }
 
   markProcessedEvent(eventId: string, operationId: string): void {
-    if (eventId) {
-      this.processedEventIds.add(eventId);
-    }
-    if (operationId) {
-      this.processedOperationIds.add(operationId);
-    }
+    addBoundedDedupeKey(this.processedEventIds, this.processedEventIdOrder, eventId, resolveOutboxLocalDedupeLimit());
+    addBoundedDedupeKey(this.processedOperationIds, this.processedOperationIdOrder, operationId, resolveOutboxLocalDedupeLimit());
   }
 
   clearProcessedEvents(): void {
     this.processedEventIds.clear();
     this.processedOperationIds.clear();
+    this.processedEventIdOrder.length = 0;
+    this.processedOperationIdOrder.length = 0;
   }
 
   private async handleConsumeFailure(
@@ -233,6 +234,29 @@ function resolveOutboxRetryDelayMs(): number {
 function resolveOutboxMaxAttempts(): number {
   const parsed = Number(process.env.SERVER_OUTBOX_MAX_ATTEMPTS ?? process.env.DATABASE_OUTBOX_MAX_ATTEMPTS);
   return Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : DEFAULT_OUTBOX_MAX_ATTEMPTS;
+}
+
+function resolveOutboxLocalDedupeLimit(): number {
+  const parsed = Number(process.env.SERVER_OUTBOX_LOCAL_DEDUPE_LIMIT ?? process.env.DATABASE_OUTBOX_LOCAL_DEDUPE_LIMIT);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_OUTBOX_LOCAL_DEDUPE_LIMIT;
+  }
+  return Math.min(200_000, Math.max(1_000, Math.trunc(parsed)));
+}
+
+function addBoundedDedupeKey(target: Set<string>, order: string[], value: string, limit: number): void {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized || target.has(normalized)) {
+    return;
+  }
+  target.add(normalized);
+  order.push(normalized);
+  while (order.length > limit) {
+    const oldest = order.shift();
+    if (oldest) {
+      target.delete(oldest);
+    }
+  }
 }
 
 function isOutboxRuntimeEnabled(): boolean {

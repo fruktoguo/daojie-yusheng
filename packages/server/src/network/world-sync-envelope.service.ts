@@ -115,6 +115,7 @@ export class WorldSyncEnvelopeService {
 
     clearPlayerCache(playerId) {
         this.worldProjectorService.clear(playerId);
+        this.runtimeEventBusService?.discardPlayer?.(playerId);
     }
 
     withContainerRespawnProjection(view) {
@@ -156,8 +157,7 @@ export class WorldSyncEnvelopeService {
         const playerDrain = options?.drainPlayer
             ? this.runtimeEventBusService?.drainPlayerEventBusPayload?.(playerId)
             : null;
-        const effects = this.collectCombatEffects(view, player);
-        const aoiEffects = this.collectAoiPresentations(view, player);
+        const { effects, aoiEffects } = this.collectVisibleEventBusEffects(view, player);
         if (!playerDrain?.payload && effects.length === 0 && aoiEffects.length === 0) {
             return envelope;
         }
@@ -180,6 +180,22 @@ export class WorldSyncEnvelopeService {
         }
         return nextEnvelope;
     }
+    /** 只在实例确实有表现事件时构建一次玩家 AOI 可见集合。 */
+    collectVisibleEventBusEffects(view, player) {
+        const instanceCombatEffects = this.worldRuntimeService.getCombatEffects(view.instance.instanceId);
+        const instanceAoiEffects = this.runtimeEventBusService?.getAoiPresentations?.(view.instance.instanceId) ?? [];
+        const hasCombatEffects = Array.isArray(instanceCombatEffects) && instanceCombatEffects.length > 0;
+        const hasAoiEffects = Array.isArray(instanceAoiEffects) && instanceAoiEffects.length > 0;
+        if (!hasCombatEffects && !hasAoiEffects) {
+            return { effects: [], aoiEffects: [] };
+        }
+        const template = this.templateRepository.getOrThrow(view.instance.templateId);
+        const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
+        return {
+            effects: hasCombatEffects ? filterCombatEffects(instanceCombatEffects, visibleTileKeys) : [],
+            aoiEffects: hasAoiEffects ? filterAoiPresentations(instanceAoiEffects, visibleTileKeys) : [],
+        };
+    }
     /**
  * collectNextCombatEffects：执行Next战斗Effect相关逻辑。
  * @param view 参数说明。
@@ -188,9 +204,13 @@ export class WorldSyncEnvelopeService {
  */
 
     collectCombatEffects(view, player) {
+        const effects = this.worldRuntimeService.getCombatEffects(view.instance.instanceId);
+        if (!Array.isArray(effects) || effects.length === 0) {
+            return [];
+        }
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
-        return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
+        return filterCombatEffects(effects, visibleTileKeys);
     }
     /**
  * collectAoiPresentations：按玩家 AOI 裁剪事件总线 AOI 表现事件。
@@ -200,10 +220,14 @@ export class WorldSyncEnvelopeService {
  */
 
     collectAoiPresentations(view, player) {
+        const effects = this.runtimeEventBusService?.getAoiPresentations?.(view.instance.instanceId) ?? [];
+        if (!Array.isArray(effects) || effects.length === 0) {
+            return [];
+        }
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
         return filterAoiPresentations(
-            this.runtimeEventBusService?.getAoiPresentations?.(view.instance.instanceId) ?? [],
+            effects,
             visibleTileKeys,
         );
     }

@@ -6,7 +6,7 @@ function main() {
   const gatewaySource = readToolTarget('../network/world.gateway.ts');
   const reaperSource = readToolTarget('../network/world-session-reaper.service.ts');
 
-  const handleDisconnectBody = sliceFunctionBody(gatewaySource, 'async handleDisconnect(client)');
+  const handleDisconnectBody = sliceMethodBody(gatewaySource, 'handleDisconnect');
   assert.ok(handleDisconnectBody, 'expected to locate WorldGateway.handleDisconnect body');
   assert.equal(
     handleDisconnectBody.includes('clearLocalRoute('),
@@ -14,7 +14,7 @@ function main() {
     'expected detached disconnect path to preserve local route during detach window',
   );
 
-  const reaperBody = sliceFunctionBody(reaperSource, 'async reapExpiredSessions()');
+  const reaperBody = sliceMethodBody(reaperSource, 'reapExpiredSessions');
   assert.ok(reaperBody, 'expected to locate WorldSessionReaperService.reapExpiredSessions body');
   assert.ok(
     reaperBody.includes('resolveRouteSessionEpoch(binding, this.playerRuntimeService.getPlayer?.(binding.playerId))'),
@@ -24,12 +24,14 @@ function main() {
   const flushIndex = reaperBody.indexOf('flushPlayer(binding.playerId)');
   const clearRouteIndex = reaperBody.indexOf('clearLocalRoute(binding.playerId, routeSessionEpoch)');
   const clearCacheIndex = reaperBody.indexOf('clearDetachedPlayerCaches(binding.playerId)');
+  const unloadRuntimeIndex = reaperBody.indexOf('unloadIdleDetachedRuntime(binding.playerId)');
   assert.ok(flushIndex >= 0, 'expected reaper to flush player before cleanup');
   assert.ok(clearRouteIndex >= 0, 'expected reaper to clear local route after flush');
   assert.ok(clearCacheIndex >= 0, 'expected reaper to clear detached caches after route cleanup');
+  assert.ok(unloadRuntimeIndex >= 0, 'expected reaper to attempt idle detached runtime unload after cache cleanup');
   assert.ok(
-    flushIndex < clearRouteIndex && clearRouteIndex < clearCacheIndex,
-    'expected reaper cleanup order flush -> clearLocalRoute -> clearDetachedPlayerCaches',
+    flushIndex < clearRouteIndex && clearRouteIndex < clearCacheIndex && clearCacheIndex < unloadRuntimeIndex,
+    'expected reaper cleanup order flush -> clearLocalRoute -> clearDetachedPlayerCaches -> unloadIdleDetachedRuntime',
   );
 
   console.log(JSON.stringify({
@@ -37,7 +39,8 @@ function main() {
     gatewayDisconnectPreservesDetachedRoute: true,
     reaperClearsRouteAfterFlush: true,
     reaperUsesBindingSessionEpochFallback: true,
-    answers: '已直接证明源码边界上 detached 窗口内不会在 handleDisconnect 抢删本地 route，过期回收会按 flush -> clearLocalRoute(sessionEpoch) -> clearDetachedPlayerCaches 顺序执行；当 runtime player 已不在场时，reaper 也会回退使用 binding 中保存的 sessionEpoch 清 route。',
+    reaperUnloadsIdleDetachedRuntimeAfterCacheCleanup: true,
+    answers: '已直接证明源码边界上 detached 窗口内不会在 handleDisconnect 抢删本地 route，过期回收会按 flush -> clearLocalRoute(sessionEpoch) -> clearDetachedPlayerCaches -> unloadIdleDetachedRuntime 顺序执行；当 runtime player 已不在场时，reaper 也会回退使用 binding 中保存的 sessionEpoch 清 route。',
     excludes: '不证明真实 socket/bootstrap/with-db 执行结果，只证明本轮改动后的源码合同与调用顺序。',
     completionMapping: 'release:report:detached-route-cleanup',
   }, null, 2));
@@ -47,8 +50,10 @@ function readToolTarget(relativePath) {
   return fs.readFileSync(path.resolve(__dirname, relativePath), 'utf8');
 }
 
-function sliceFunctionBody(source, signature) {
-  const start = source.indexOf(signature);
+function sliceMethodBody(source, methodName) {
+  const pattern = new RegExp(`\\basync\\s+${methodName}\\s*\\(`);
+  const match = pattern.exec(source);
+  const start = match ? match.index : -1;
   if (start < 0) {
     return '';
   }

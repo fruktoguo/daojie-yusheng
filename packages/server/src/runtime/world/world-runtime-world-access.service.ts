@@ -60,6 +60,9 @@ export class WorldRuntimeWorldAccessService {
         const dirtyInstanceIds = typeof deps.listDirtyPersistentInstances === 'function'
             ? deps.listDirtyPersistentInstances()
             : [];
+        const flushWakeupKeys = typeof deps.flushWakeupService?.listWakeupKeys === 'function'
+            ? deps.flushWakeupService.listWakeupKeys()
+            : null;
         return this.worldRuntimeSummaryQueryService.buildRuntimeSummary({
             tick: deps.tick,
             lastTickDurationMs: deps.lastTickDurationMs,
@@ -81,12 +84,12 @@ export class WorldRuntimeWorldAccessService {
             recoveryQueue: typeof deps.worldSessionRecoveryQueueService?.getSnapshot === 'function'
                 ? deps.worldSessionRecoveryQueueService.getSnapshot()
                 : null,
-            flushWakeup: typeof deps.flushWakeupService?.listWakeupKeys === 'function'
+            flushWakeup: flushWakeupKeys
                 ? {
                     concurrency: 0,
                     inFlight: 0,
-                    queued: deps.flushWakeupService.listWakeupKeys().length,
-                    keys: deps.flushWakeupService.listWakeupKeys(),
+                    queued: flushWakeupKeys.length,
+                    keys: flushWakeupKeys,
                 }
                 : null,
         });

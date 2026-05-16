@@ -23,6 +23,9 @@ const MAX_BATCH_REDEEM_CODES = 50;
 
 /** 单个分组一次最多创建的兑换码数量。 */
 const MAX_GROUP_CREATE_COUNT = 500;
+const REDEEM_RATE_LIMIT_MS = 3_000;
+const REDEEM_RATE_CACHE_TTL_MS = 60_000;
+const REDEEM_RATE_CACHE_MAX_PLAYERS = 10_000;
 
 @Injectable()
 export class RedeemCodeRuntimeService {
@@ -237,8 +240,9 @@ export class RedeemCodeRuntimeService {
         if (!this._redeemRateMap) {
             this._redeemRateMap = new Map();
         }
+        this.pruneRedeemRateMap(now);
         const lastAttempt = this._redeemRateMap.get(playerId) ?? 0;
-        if (now - lastAttempt < 3000) {
+        if (now - lastAttempt < REDEEM_RATE_LIMIT_MS) {
             throw new BadRequestException('操作过于频繁，请稍后再试');
         }
         this._redeemRateMap.set(playerId, now);
@@ -619,6 +623,28 @@ export class RedeemCodeRuntimeService {
             groups: this.groups.map((entry) => cloneGroup(entry)),
             codes: this.codes.map((entry) => cloneCode(entry)),
         });
+    }
+    /** 清理兑换频率缓存，避免长期运行后按历史玩家数永久增长。 */
+    pruneRedeemRateMap(now = Date.now()) {
+        if (!(this._redeemRateMap instanceof Map) || this._redeemRateMap.size <= 0) {
+            return;
+        }
+        for (const [playerId, lastAttempt] of this._redeemRateMap) {
+            if (now - Number(lastAttempt ?? 0) >= REDEEM_RATE_CACHE_TTL_MS) {
+                this._redeemRateMap.delete(playerId);
+            }
+        }
+        if (this._redeemRateMap.size <= REDEEM_RATE_CACHE_MAX_PLAYERS) {
+            return;
+        }
+        const overflow = this._redeemRateMap.size - REDEEM_RATE_CACHE_MAX_PLAYERS;
+        const oldestPlayerIds = Array.from(this._redeemRateMap.entries())
+            .sort((left, right) => Number(left[1] ?? 0) - Number(right[1] ?? 0))
+            .slice(0, overflow)
+            .map(([playerId]) => playerId);
+        for (const playerId of oldestPlayerIds) {
+            this._redeemRateMap.delete(playerId);
+        }
     }
     /** 按顺序执行一次互斥写操作。 */
     async runExclusive(action) {

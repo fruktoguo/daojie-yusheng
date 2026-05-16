@@ -10,7 +10,7 @@ import { WorldSessionService } from '../network/world-session.service';
 async function main(): Promise<void> {
   const successProof = await runReaperSuccessProof();
   const retryProof = await runReaperRetryProof();
-  const runtimeRetainAfterReaperProof = await runDetachedRuntimeRetainAfterReaperProof();
+  const idleRuntimeUnloadAfterReaperProof = await runDetachedRuntimeUnloadAfterReaperProof();
   const activeRuntimeRetainProof = await runActiveDetachedRuntimeRetainProof();
 
   console.log(
@@ -19,10 +19,10 @@ async function main(): Promise<void> {
         ok: true,
         successProof,
         retryProof,
-        runtimeRetainAfterReaperProof,
+        idleRuntimeUnloadAfterReaperProof,
         activeRuntimeRetainProof,
         answers:
-          '已直接证明 detached session 过期后，reaper 会先 flushPlayer，再按当前 sessionEpoch 清本地 route，最后清 detached caches，但不会卸载玩家运行态或把离线挂机降级为普通离线；flush 失败时会重试且不会提前清 route/caches/runtime。',
+          '已直接证明 detached session 过期后，reaper 会先 flushPlayer，再按当前 sessionEpoch 清本地 route，清 detached caches，最后只尝试卸载可安全降级的 idle detached runtime；flush 失败时会重试且不会提前清 route/caches/runtime。',
         excludes: '不证明真实 socket 连接、gateway bootstrap 或跨节点 redirect，只证明 expired detached session 的 route cleanup 顺序与重试语义。',
         completionMapping: 'release:proof:world-session-reaper-route',
       },
@@ -56,6 +56,7 @@ async function runReaperSuccessProof(): Promise<{
   const flushed: string[] = [];
   const routeCleared: Array<[string, number | null]> = [];
   const cleared: string[] = [];
+  const unloaded: string[] = [];
   const steps: Array<[string, string] | [string, string, number | null]> = [];
   const reaper = new WorldSessionReaperService(
     service,
@@ -63,6 +64,14 @@ async function runReaperSuccessProof(): Promise<{
       clearDetachedPlayerCaches(targetPlayerId: string) {
         steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
         cleared.push(targetPlayerId);
+      },
+      unloadDetachedPlayerRuntime(targetPlayerId: string, options: { allowOfflineHangingDemotion?: boolean; reason?: string }) {
+        steps.push(['unloadDetachedPlayerRuntime', targetPlayerId]);
+        if (options?.allowOfflineHangingDemotion === true && options.reason === 'session_reaped') {
+          unloaded.push(targetPlayerId);
+          return true;
+        }
+        return false;
       },
     } as never,
     {
@@ -89,12 +98,14 @@ async function runReaperSuccessProof(): Promise<{
   assert.deepEqual(flushed, [playerId]);
   assert.deepEqual(routeCleared, [[playerId, 7]]);
   assert.deepEqual(cleared, [playerId]);
+  assert.deepEqual(unloaded, [playerId]);
   assert.deepEqual(steps, [
     ['flushPlayer', playerId],
     ['clearLocalRoute', playerId, 7],
     ['clearDetachedPlayerCaches', playerId],
+    ['unloadDetachedPlayerRuntime', playerId],
   ]);
-  assert.equal(WORLD_SESSION_REAPER_CONTRACT.unloadIdleDetachedRuntimeAfterFlush, false);
+  assert.equal(WORLD_SESSION_REAPER_CONTRACT.unloadIdleDetachedRuntimeAfterFlush, true);
 
   return { playerId, flushed, routeCleared, cleared };
 }
@@ -123,6 +134,7 @@ async function runReaperRetryProof(): Promise<{
   let flushAttempts = 0;
   const routeCleared: Array<[string, number | null]> = [];
   const cleared: string[] = [];
+  const unloaded: string[] = [];
   const steps: Array<[string, string] | [string, string, number | null]> = [];
   const reaper = new WorldSessionReaperService(
     service,
@@ -130,6 +142,11 @@ async function runReaperRetryProof(): Promise<{
       clearDetachedPlayerCaches(targetPlayerId: string) {
         steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
         cleared.push(targetPlayerId);
+      },
+      unloadDetachedPlayerRuntime(targetPlayerId: string) {
+        steps.push(['unloadDetachedPlayerRuntime', targetPlayerId]);
+        unloaded.push(targetPlayerId);
+        return true;
       },
     } as never,
     {
@@ -158,23 +175,26 @@ async function runReaperRetryProof(): Promise<{
   assert.equal(flushAttempts, 1);
   assert.deepEqual(routeCleared, []);
   assert.deepEqual(cleared, []);
+  assert.deepEqual(unloaded, []);
 
   await reaper.reapExpiredSessions();
   assert.equal(flushAttempts, 2);
   assert.deepEqual(routeCleared, [[playerId, 11]]);
   assert.deepEqual(cleared, [playerId]);
+  assert.deepEqual(unloaded, [playerId]);
   assert.deepEqual(steps, [
     ['flushPlayer', playerId],
     ['flushPlayer', playerId],
     ['clearLocalRoute', playerId, 11],
     ['clearDetachedPlayerCaches', playerId],
+    ['unloadDetachedPlayerRuntime', playerId],
   ]);
   assert.equal(WORLD_SESSION_REAPER_CONTRACT.clearLocalRouteAfterFlush, true);
 
   return { playerId, flushAttempts, routeCleared, cleared };
 }
 
-async function runDetachedRuntimeRetainAfterReaperProof(): Promise<{
+async function runDetachedRuntimeUnloadAfterReaperProof(): Promise<{
   playerId: string;
   disconnected: string[];
   removed: string[];
@@ -203,7 +223,7 @@ async function runDetachedRuntimeRetainAfterReaperProof(): Promise<{
       removed.push(targetPlayerId);
     },
   };
-  const worldSyncService = createWorldSyncServiceForRuntimeRetainProof(disconnected, removed);
+  const worldSyncService = createWorldSyncServiceForRuntimeRetainProof(disconnected, removed, true);
   const reaper = new WorldSessionReaperService(
     service,
     worldSyncService as never,
@@ -214,9 +234,9 @@ async function runDetachedRuntimeRetainAfterReaperProof(): Promise<{
 
   await reaper.reapExpiredSessions();
 
-  assert.deepEqual(disconnected, []);
-  assert.deepEqual(removed, []);
-  assert.equal(WORLD_SESSION_REAPER_CONTRACT.unloadIdleDetachedRuntimeAfterFlush, false);
+  assert.deepEqual(disconnected, [playerId]);
+  assert.deepEqual(removed, [playerId]);
+  assert.equal(WORLD_SESSION_REAPER_CONTRACT.unloadIdleDetachedRuntimeAfterFlush, true);
   return { playerId, disconnected, removed };
 }
 
@@ -249,7 +269,7 @@ async function runActiveDetachedRuntimeRetainProof(): Promise<{
       removed.push(targetPlayerId);
     },
   };
-  const worldSyncService = createWorldSyncServiceForRuntimeRetainProof(disconnected, removed);
+  const worldSyncService = createWorldSyncServiceForRuntimeRetainProof(disconnected, removed, false);
   const reaper = new WorldSessionReaperService(
     service,
     worldSyncService as never,
@@ -265,12 +285,15 @@ async function runActiveDetachedRuntimeRetainProof(): Promise<{
   return { playerId, disconnected, removed };
 }
 
-function createWorldSyncServiceForRuntimeRetainProof(disconnected: string[], removed: string[]) {
+function createWorldSyncServiceForRuntimeRetainProof(disconnected: string[], removed: string[], shouldUnload: boolean) {
   return {
     clearDetachedPlayerCaches() {
       return undefined;
     },
     unloadDetachedPlayerRuntime(playerId: string) {
+      if (!shouldUnload) {
+        return false;
+      }
       disconnected.push(playerId);
       removed.push(playerId);
       return true;

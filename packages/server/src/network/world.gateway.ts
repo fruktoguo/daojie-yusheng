@@ -142,6 +142,9 @@ class WorldGateway {
         if (!client || client.data?.gmPerfObserversAttached === true) {
             return;
         }
+        if (!this.runtimeGmStateService?.shouldRecordNetworkPerf?.()) {
+            return;
+        }
         if (client.data) {
             client.data.gmPerfObserversAttached = true;
         }

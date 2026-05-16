@@ -16,7 +16,7 @@ const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
     retryOnFlushFailure: true,
     clearLocalRouteAfterFlush: true,
     clearDetachedCachesAfterFlush: true,
-    unloadIdleDetachedRuntimeAfterFlush: false,
+    unloadIdleDetachedRuntimeAfterFlush: true,
 });
 
 @Injectable()
@@ -128,6 +128,7 @@ export class WorldSessionReaperService {
                     const routeSessionEpoch = resolveRouteSessionEpoch(binding, this.playerRuntimeService.getPlayer?.(binding.playerId));
                     await this.playerSessionRouteService.clearLocalRoute(binding.playerId, routeSessionEpoch);
                     this.worldSyncService.clearDetachedPlayerCaches(binding.playerId);
+                    this.unloadIdleDetachedRuntime(binding.playerId);
                 }
                 catch (error) {
                     this.worldSessionService.requeueExpiredBinding(binding);
@@ -140,6 +141,21 @@ export class WorldSessionReaperService {
         }
         finally {
             this.running = false;
+        }
+    }
+
+    private unloadIdleDetachedRuntime(playerId: string): void {
+        if (typeof this.worldSyncService?.unloadDetachedPlayerRuntime !== 'function') {
+            return;
+        }
+        try {
+            this.worldSyncService.unloadDetachedPlayerRuntime(playerId, {
+                allowOfflineHangingDemotion: true,
+                reason: 'session_reaped',
+            });
+        }
+        catch (error) {
+            this.logger.warn(`卸载 detached 玩家运行态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         }
     }
 }

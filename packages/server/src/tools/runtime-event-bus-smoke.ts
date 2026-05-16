@@ -225,6 +225,8 @@ function testFlushTickClearsInstanceQueuesAndReportsTotals(): void {
   assert.equal(result.totalStateDeltas, 1);
   assert.equal(svc.getCombatEffects('inst1').length, 0);
   assert.equal(svc.getAoiPresentations('inst1').length, 0);
+  assert.equal(svc.getPlayerQueueCount(), 0);
+  assert.equal(svc.getInstanceQueueCount(), 0);
 }
 
 function testDrainPlayerClearsQueue(): void {
@@ -235,6 +237,7 @@ function testDrainPlayerClearsQueue(): void {
   assert.ok(first);
   assert.equal(first.notices.length, 1);
   assert.equal(svc.drainPlayer('p1'), null);
+  assert.equal(svc.getPlayerQueueCount(), 0);
 }
 
 function testDrainPlayerEventBusPayloadMatchesEnvelopeShape(): void {
@@ -257,6 +260,7 @@ function testDrainPlayerEventBusPayloadMatchesEnvelopeShape(): void {
   assert.equal(result.payload.stateDelta?.hp, 88);
   assert.equal(result.payload.feedbacks?.[0]?.action, 'alchemy');
   assert.equal(svc.drainPlayer('p1'), null);
+  assert.equal(svc.getPlayerQueueCount(), 0);
 }
 
 function testFlushPlayerReturnsSummaryAndClearsQueue(): void {
@@ -269,6 +273,7 @@ function testFlushPlayerReturnsSummaryAndClearsQueue(): void {
   assert.equal(result.totalNotices, 1);
   assert.equal(result.totalActiveJobs, 1);
   assert.equal(svc.drainPlayer('p1'), null);
+  assert.equal(svc.getPlayerQueueCount(), 0);
 }
 
 function testFlushInstanceReturnsSummaryAndClearsQueue(): void {
@@ -281,6 +286,7 @@ function testFlushInstanceReturnsSummaryAndClearsQueue(): void {
   assert.equal(result.totalCombatEffects, 1);
   assert.equal(result.totalAoiEffects, 1);
   assert.equal(svc.drainInstance('inst1'), null);
+  assert.equal(svc.getInstanceQueueCount(), 0);
 }
 
 function testDrainPlayerNonExistentReturnsNull(): void {

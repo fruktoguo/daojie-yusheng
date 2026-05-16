@@ -7,6 +7,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { SuggestionPersistenceService } from '../../persistence/suggestion-persistence.service';
 
+const SUGGESTION_TITLE_MAX_LENGTH = 50;
+const SUGGESTION_BODY_MAX_LENGTH = 500;
+const SUGGESTION_AUTHOR_NAME_MAX_LENGTH = 64;
+
 @Injectable()
 export class SuggestionRuntimeService {
     /** 持久化服务，负责读写建议文档。 */
@@ -37,7 +41,7 @@ export class SuggestionRuntimeService {
             this.revision = 1;
             return;
         }
-        this.suggestions = loaded.suggestions.map((entry) => cloneSuggestion(entry));
+        this.suggestions = loaded.suggestions.map((entry) => normalizeSuggestion(entry));
         this.revision = loaded.revision;
     }
     /** 获取按时间和热度排序后的建议快照。 */
@@ -50,9 +54,8 @@ export class SuggestionRuntimeService {
     async create(authorId, authorName, title, description) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const normalizedTitle = String(title ?? '').trim();
-
-        const normalizedDescription = String(description ?? '').trim();
+        const normalizedTitle = normalizeSuggestionText(title, SUGGESTION_TITLE_MAX_LENGTH);
+        const normalizedDescription = normalizeSuggestionText(description, SUGGESTION_BODY_MAX_LENGTH);
         if (!normalizedTitle || !normalizedDescription) {
             return null;
         }
@@ -61,7 +64,7 @@ export class SuggestionRuntimeService {
             const suggestion = {
                 id: randomUUID(),
                 authorId,
-                authorName: authorName.trim() || authorId,
+                authorName: normalizeSuggestionText(authorName, SUGGESTION_AUTHOR_NAME_MAX_LENGTH) || authorId,
                 title: normalizedTitle,
                 description: normalizedDescription,
                 status: 'pending',
@@ -108,7 +111,7 @@ export class SuggestionRuntimeService {
     async addReply(suggestionId, authorType, authorId, authorName, content) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const normalizedContent = String(content ?? '').trim();
+        const normalizedContent = normalizeSuggestionText(content, SUGGESTION_BODY_MAX_LENGTH);
         if (!normalizedContent) {
             return null;
         }
@@ -134,7 +137,7 @@ export class SuggestionRuntimeService {
                 id: randomUUID(),
                 authorType,
                 authorId,
-                authorName: authorName.trim() || authorId,
+                authorName: normalizeSuggestionText(authorName, SUGGESTION_AUTHOR_NAME_MAX_LENGTH) || authorId,
                 content: normalizedContent,
                 createdAt: Date.now(),
             };
@@ -226,6 +229,32 @@ export class SuggestionRuntimeService {
         }
     }
 };
+function normalizeSuggestion(suggestion) {
+    return {
+        ...suggestion,
+        authorName: normalizeSuggestionText(suggestion.authorName, SUGGESTION_AUTHOR_NAME_MAX_LENGTH) || suggestion.authorId,
+        title: normalizeSuggestionText(suggestion.title, SUGGESTION_TITLE_MAX_LENGTH),
+        description: normalizeSuggestionText(suggestion.description, SUGGESTION_BODY_MAX_LENGTH),
+        upvotes: Array.isArray(suggestion.upvotes) ? suggestion.upvotes.filter((entry) => typeof entry === 'string') : [],
+        downvotes: Array.isArray(suggestion.downvotes) ? suggestion.downvotes.filter((entry) => typeof entry === 'string') : [],
+        replies: Array.isArray(suggestion.replies)
+            ? suggestion.replies.map((reply) => ({
+                ...reply,
+                authorName: normalizeSuggestionText(reply.authorName, SUGGESTION_AUTHOR_NAME_MAX_LENGTH) || reply.authorId,
+                content: normalizeSuggestionText(reply.content, SUGGESTION_BODY_MAX_LENGTH),
+            }))
+            : [],
+    };
+}
+
+function normalizeSuggestionText(value, maxLength) {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) {
+        return '';
+    }
+    return normalized.length > maxLength ? normalized.slice(0, maxLength) : normalized;
+}
+
 /**
  * cloneSuggestion：构建Suggestion。
  * @param suggestion 参数说明。

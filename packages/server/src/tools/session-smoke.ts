@@ -506,6 +506,10 @@ async function runWorldSessionReaperSuccessProof() {
             steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
             cleared.push(targetPlayerId);
         },
+        unloadDetachedPlayerRuntime(targetPlayerId) {
+            steps.push(['unloadDetachedPlayerRuntime', targetPlayerId]);
+            return true;
+        },
     }, {    
     /**
  * flushPlayer：执行刷新玩家相关逻辑。
@@ -541,6 +545,7 @@ async function runWorldSessionReaperSuccessProof() {
         ['flushPlayer', playerId],
         ['clearLocalRoute', playerId, 7],
         ['clearDetachedPlayerCaches', playerId],
+        ['unloadDetachedPlayerRuntime', playerId],
     ], 'reaper success proof');
     return {
         playerId,
@@ -612,6 +617,10 @@ async function runWorldSessionReaperRetryProof() {
             steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
             cleared.push(targetPlayerId);
         },
+        unloadDetachedPlayerRuntime(targetPlayerId) {
+            steps.push(['unloadDetachedPlayerRuntime', targetPlayerId]);
+            return true;
+        },
     }, {    
     /**
  * flushPlayer：执行刷新玩家相关逻辑。
@@ -666,6 +675,7 @@ async function runWorldSessionReaperRetryProof() {
         ['flushPlayer', playerId],
         ['clearLocalRoute', playerId, 11],
         ['clearDetachedPlayerCaches', playerId],
+        ['unloadDetachedPlayerRuntime', playerId],
     ], 'reaper retry proof');
     if (world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT.retryOnFlushFailure !== true) {
         throw new Error(`unexpected reaper retry contract: ${JSON.stringify(world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT)}`);

@@ -39,11 +39,14 @@ const RATE_LIMIT_CONFIG: Record<RateLimitScope, RateLimitConfig> = {
   refresh: { windowMs: 10 * 60 * 1000, blockMs: 15 * 60 * 1000, maxIpFailures: 20, maxSubjectFailures: 10, message: '刷新登录态过于频繁，请稍后再试。' },
   gmLogin: { windowMs: 15 * 60 * 1000, blockMs: 30 * 60 * 1000, maxIpFailures: 6, maxSubjectFailures: 4, message: 'GM 登录尝试过于频繁，请稍后再试。' },
 };
+const RATE_LIMIT_BUCKET_PRUNE_INTERVAL_MS = 60_000;
+const RATE_LIMIT_BUCKET_MAX_COUNT = 50_000;
 /** 认证限流服务：内存滑动窗口 + IP/主体双维度。 */
 @Injectable()
 export class NativeAuthRateLimitService {
   /** 所有限流桶，key 格式为 `scope:dimension:value`。 */
   private readonly buckets = new Map<string, RateLimitBucket>();
+  private lastPrunedAt = 0;
 
   /** 检查当前请求是否已被封禁，被封禁时直接抛出 429。 */
   assertAllowed(scope: RateLimitScope, request: any, subject?: string): void {
@@ -91,6 +94,7 @@ export class NativeAuthRateLimitService {
   private registerFailure(key: string, maxFailures: number, config: RateLimitConfig): void {
 
     const now = Date.now();
+    this.pruneBuckets(now);
     const bucket = this.readBucket(key, config.windowMs);
     bucket.failures += 1;
     bucket.lastTouchedAt = now;
@@ -114,6 +118,35 @@ export class NativeAuthRateLimitService {
     current.lastTouchedAt = now;
     return current;
   }  
+  /** 周期清理过期桶并在异常高基数下按最旧访问裁剪。 */
+  private pruneBuckets(now: number): void {
+    if (now - this.lastPrunedAt < RATE_LIMIT_BUCKET_PRUNE_INTERVAL_MS && this.buckets.size <= RATE_LIMIT_BUCKET_MAX_COUNT) {
+      return;
+    }
+    this.lastPrunedAt = now;
+    for (const [key, bucket] of this.buckets) {
+      const scope = key.split(':', 1)[0] as RateLimitScope;
+      const config = RATE_LIMIT_CONFIG[scope];
+      if (!config) {
+        this.buckets.delete(key);
+        continue;
+      }
+      if (bucket.blockedUntil <= now && now - bucket.lastTouchedAt >= config.windowMs) {
+        this.buckets.delete(key);
+      }
+    }
+    if (this.buckets.size <= RATE_LIMIT_BUCKET_MAX_COUNT) {
+      return;
+    }
+    const overflow = this.buckets.size - RATE_LIMIT_BUCKET_MAX_COUNT;
+    const oldestKeys = Array.from(this.buckets.entries())
+      .sort((left, right) => left[1].lastTouchedAt - right[1].lastTouchedAt)
+      .slice(0, overflow)
+      .map(([key]) => key);
+    for (const key of oldestKeys) {
+      this.buckets.delete(key);
+    }
+  }
   /** 构建桶的唯一 key：`scope:dimension:value`。 */
   private buildKey(scope: RateLimitScope, dimension: 'ip' | 'subject', value: string): string {
     return `${scope}:${dimension}:${value}`;

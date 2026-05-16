@@ -319,16 +319,10 @@ export class RuntimeEventBusService {
       return null;
     }
 
-    const hasContent =
-      queue.notices.length > 0 ||
-      queue.panelPatches.size > 0 ||
-      queue.activeJobs.size > 0 ||
-      queue.techniquePanelDirty.size > 0 ||
-      queue.stateDelta !== null ||
-      queue.feedback.length > 0 ||
-      queue.gmStatePush;
+    const hasContent = hasPlayerQueueContent(queue);
 
     if (!hasContent) {
+      this.playerQueues.delete(playerId);
       return null;
     }
 
@@ -343,15 +337,7 @@ export class RuntimeEventBusService {
       gmStatePush: queue.gmStatePush,
     };
 
-    // 重置队列（复用 Map 对象避免 GC）
-    queue.notices = [];
-    queue.minNoticePriority = Number.POSITIVE_INFINITY;
-    queue.panelPatches = new Map();
-    queue.activeJobs = new Map();
-    queue.techniquePanelDirty = new Set();
-    queue.stateDelta = null;
-    queue.feedback = [];
-    queue.gmStatePush = false;
+    this.playerQueues.delete(playerId);
 
     return result;
   }
@@ -407,6 +393,9 @@ export class RuntimeEventBusService {
   drainInstance(instanceId: string): InstanceDrainResult | null {
     const queue = this.instanceQueues.get(instanceId);
     if (!queue || (queue.combatEffects.length === 0 && queue.aoiEffects.size === 0)) {
+      if (queue) {
+        this.instanceQueues.delete(instanceId);
+      }
       return null;
     }
 
@@ -415,8 +404,7 @@ export class RuntimeEventBusService {
       aoiEffects: queue.aoiEffects.size > 0 ? Array.from(queue.aoiEffects.values()) : [],
     };
 
-    queue.combatEffects = [];
-    queue.aoiEffects = new Map();
+    this.instanceQueues.delete(instanceId);
     return result;
   }
 
@@ -499,8 +487,8 @@ export class RuntimeEventBusService {
     let maxPlayerQueueSize = 0;
     let maxInstanceQueueSize = 0;
 
-    // 统计玩家维度（实际 drain 由 WorldSyncService 在 flushConnectedPlayers 中逐个调用）
-    for (const [, queue] of this.playerQueues) {
+    // 清空未被在线同步 drain 的玩家维度队列，EventBus 只保留当前 tick 的暂存事件。
+    for (const [playerId, queue] of this.playerQueues) {
       const queueSize =
         queue.notices.length +
         queue.panelPatches.size +
@@ -522,10 +510,11 @@ export class RuntimeEventBusService {
         totalFeedback += queue.feedback.length;
         if (queue.gmStatePush) totalGmStatePushes++;
       }
+      this.playerQueues.delete(playerId);
     }
 
     // 清空实例维度战斗表现（sync 已读取完毕）
-    for (const [, queue] of this.instanceQueues) {
+    for (const [instanceId, queue] of this.instanceQueues) {
       if (queue.combatEffects.length > maxInstanceQueueSize) {
         maxInstanceQueueSize = queue.combatEffects.length;
       }
@@ -536,9 +525,8 @@ export class RuntimeEventBusService {
         instanceCount++;
         totalCombatEffects += queue.combatEffects.length;
         totalAoiEffects += queue.aoiEffects.size;
-        queue.combatEffects = [];
-        queue.aoiEffects = new Map();
       }
+      this.instanceQueues.delete(instanceId);
     }
 
     const flushedTotal =
@@ -628,6 +616,18 @@ export class RuntimeEventBusService {
     }
     return queue;
   }
+}
+
+function hasPlayerQueueContent(queue: PlayerEventQueue): boolean {
+  return (
+    queue.notices.length > 0 ||
+    queue.panelPatches.size > 0 ||
+    queue.activeJobs.size > 0 ||
+    queue.techniquePanelDirty.size > 0 ||
+    queue.stateDelta !== null ||
+    queue.feedback.length > 0 ||
+    queue.gmStatePush
+  );
 }
 
 const NOTICE_KIND_PRIORITY: Record<NoticeKind, number> = {

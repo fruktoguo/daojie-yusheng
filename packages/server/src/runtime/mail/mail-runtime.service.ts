@@ -17,6 +17,7 @@ const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
 
 /** 默认系统发件人名称。 */
 const MAIL_DEFAULT_SENDER_LABEL = '司命台';
+const MAILBOX_CACHE_MAX_PLAYERS = normalizePositiveInteger(process.env.SERVER_MAILBOX_CACHE_MAX_PLAYERS, 5_000, 100, 50_000);
 
 @Injectable()
 export class MailRuntimeService {
@@ -52,6 +53,8 @@ export class MailRuntimeService {
     instanceCatalogService;
     /** 玩家邮箱缓存，按 playerId 索引。 */
     mailboxByPlayerId = new Map();
+    /** 邮箱缓存最近访问时间，用于 LRU 剪枝。 */
+    mailboxLastAccessAtByPlayerId = new Map();
     /** 正在加载中的邮箱任务，避免重复读库。 */
     loadingMailboxByPlayerId = new Map();
     /** 正在串行执行的邮箱写任务，避免同玩家邮箱写链互相覆盖。 */
@@ -75,6 +78,7 @@ export class MailRuntimeService {
     /** 清空内存邮箱缓存，通常用于重载或测试。 */
     clearRuntimeCache() {
         this.mailboxByPlayerId.clear();
+        this.mailboxLastAccessAtByPlayerId.clear();
         this.loadingMailboxByPlayerId.clear();
         this.mailboxWriteByPlayerId.clear();
     }
@@ -82,27 +86,32 @@ export class MailRuntimeService {
     async ensurePlayerMailbox(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const cached = this.mailboxByPlayerId.get(playerId);
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const cached = this.mailboxByPlayerId.get(normalizedPlayerId);
         if (cached) {
+            this.touchMailboxCache(normalizedPlayerId);
             return cached;
         }
 
-        const existingLoad = this.loadingMailboxByPlayerId.get(playerId);
+        const existingLoad = this.loadingMailboxByPlayerId.get(normalizedPlayerId);
         if (existingLoad) {
             return existingLoad;
         }
 
         const loading = (async () => {
+            try {
+                const loaded = await this.mailPersistenceService.loadMailbox(normalizedPlayerId);
 
-            const loaded = await this.mailPersistenceService.loadMailbox(playerId);
-
-            const mailbox = loaded ?? createEmptyMailbox();
-            this.compactMailbox(mailbox);
-            this.mailboxByPlayerId.set(playerId, mailbox);
-            this.loadingMailboxByPlayerId.delete(playerId);
-            return mailbox;
+                const mailbox = loaded ?? createEmptyMailbox();
+                this.compactMailbox(mailbox);
+                this.rememberMailboxCache(normalizedPlayerId, mailbox);
+                return mailbox;
+            }
+            finally {
+                this.loadingMailboxByPlayerId.delete(normalizedPlayerId);
+            }
         })();
-        this.loadingMailboxByPlayerId.set(playerId, loading);
+        this.loadingMailboxByPlayerId.set(normalizedPlayerId, loading);
         return loading;
     }
     /** 确保新玩家至少会收到一封欢迎信。 */
@@ -302,7 +311,7 @@ export class MailRuntimeService {
                     for (const credit of resolution.walletCredits) {
                         this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
                     }
-                    this.mailboxByPlayerId.delete(playerId);
+                    this.discardMailboxCache(playerId);
                     this.loadingMailboxByPlayerId.delete(playerId);
                     await this.ensurePlayerMailbox(playerId);
                     return {
@@ -714,6 +723,48 @@ export class MailRuntimeService {
             .filter((entry) => entry.deletedAt == null && (entry.expireAt == null || entry.expireAt > now))
             .sort((left, right) => right.createdAt - left.createdAt || right.mailId.localeCompare(left.mailId));
     }
+    /** 记录邮箱缓存访问并按 LRU 清理长期未用玩家邮箱。 */
+    rememberMailboxCache(playerId, mailbox) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        this.mailboxByPlayerId.set(normalizedPlayerId, mailbox);
+        this.touchMailboxCache(normalizedPlayerId);
+        this.pruneMailboxCache(normalizedPlayerId);
+    }
+    touchMailboxCache(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        this.mailboxLastAccessAtByPlayerId.set(normalizedPlayerId, Date.now());
+    }
+    discardMailboxCache(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        this.mailboxByPlayerId.delete(normalizedPlayerId);
+        this.mailboxLastAccessAtByPlayerId.delete(normalizedPlayerId);
+    }
+    pruneMailboxCache(protectedPlayerId = '') {
+        if (this.mailboxByPlayerId.size <= MAILBOX_CACHE_MAX_PLAYERS) {
+            return;
+        }
+        const protectedId = typeof protectedPlayerId === 'string' ? protectedPlayerId.trim() : '';
+        const candidates = Array.from(this.mailboxByPlayerId.keys())
+            .filter((playerId) => playerId !== protectedId
+                && !this.loadingMailboxByPlayerId.has(playerId)
+                && !this.mailboxWriteByPlayerId.has(playerId))
+            .sort((left, right) => (this.mailboxLastAccessAtByPlayerId.get(left) ?? 0) - (this.mailboxLastAccessAtByPlayerId.get(right) ?? 0));
+        for (const playerId of candidates) {
+            if (this.mailboxByPlayerId.size <= MAILBOX_CACHE_MAX_PLAYERS) {
+                break;
+            }
+            this.discardMailboxCache(playerId);
+        }
+    }
     /** 持久化单个玩家的邮箱快照。 */
     async persistMailbox(playerId, mailbox) {
         this.compactMailbox(mailbox);
@@ -939,4 +990,12 @@ function normalizeAttachments(attachments) {
         itemId: entry.itemId.trim(),
         count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(Number(entry.count))) : 1,
     }));
+}
+
+function normalizePositiveInteger(value, defaultValue, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return defaultValue;
+    }
+    return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
