@@ -2,6 +2,7 @@
  * 原生 HTTP 模块注册清单。
  * 集中导出所有原生 HTTP 控制器和服务提供者，供 NestJS 模块统一注册。
  */
+import { BotTokenService } from '../auth/bot-token.service';
 import { NativeDatabaseRestoreCoordinatorService } from './native/native-database-restore-coordinator.service';
 import { NativeGmAdminService } from './native/native-gm-admin.service';
 import { NativeGmEditorQueryService } from './native/native-gm-editor-query.service';
@@ -15,6 +16,8 @@ import { NativeGmPlayerService } from './native/native-gm-player.service';
 import { NativeGmWorkerService } from './native/native-gm-worker.service';
 import { NativeGmWorldService } from './native/native-gm-world.service';
 import { NativeGmAuthGuard } from './native/native-gm-auth.guard';
+import { NativeBotController } from './native/native-bot.controller';
+import { NativeBotService } from './native/native-bot.service';
 import { NativePlayerAuthStoreService } from './native/native-player-auth-store.service';
 import { NativePlayerAuthService } from './native/native-player-auth.service';
 import { NativeAuthRateLimitService } from './native/native-auth-rate-limit.service';
@@ -44,6 +47,7 @@ export const NATIVE_HTTP_CONTROLLERS = [
   NativeGmController,
   NativeGmAdminController,
   NativeGmSecretController,
+  NativeBotController,
 ];
 
 /** 原生 HTTP 入口依赖：鉴权/GM/管理/数据库恢复服务的统一导出。 */
@@ -66,4 +70,6 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmWorkerService,
   NativeGmWorldService,
   NativeGmSecretStoreService,
+  BotTokenService,
+  NativeBotService,
 ];
