@@ -51,7 +51,6 @@ import {
   isSameActionEntry,
   isSameBuffEntry,
 } from './projector-compare';
-import { cloneSyncedItemStack, cloneTechniqueEntry } from './projector-clone';
 
 /** 对比前后帧玩家实体，生成 add/remove/update patch 列表。 */
 export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, current: Map<string, ProjectedPlayerEntry>): WorldPlayerPatchView[] {
@@ -291,7 +290,7 @@ export function diffInventorySlots(previous: SyncedItemStack[], current: SyncedI
         const prev = previous[index] ?? null;
         const next = current[index] ?? null;
         if (!isSameItem(prev, next)) {
-            patch.push({ slotIndex: index, item: next ? cloneSyncedItemStack(next) : null });
+            patch.push({ slotIndex: index, item: next });
         }
     }
     return patch;
@@ -303,7 +302,7 @@ export function diffEquipmentSlots(previous: EquipmentSlotUpdateEntry[], current
     for (const entry of current) {
         const prev = previousBySlot.get(entry.slot);
         if (!prev || !isSameItem(prev.item ?? null, entry.item ?? null)) {
-            patch.push({ slot: entry.slot, item: entry.item ? cloneSyncedItemStack(entry.item) : null });
+            patch.push(entry);
         }
     }
     return patch;
@@ -313,7 +312,7 @@ export function diffTechniqueEntries(previous: TechniqueUpdateEntryView[], curre
     const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
     return current
         .filter((entry) => !isSameTechniqueEntry(previousById.get(entry.techId) ?? null, entry))
-        .map((entry) => cloneTechniqueEntry(entry));
+        .map((entry) => entry);
 }
 
 export function diffRemovedTechniqueIds(previous: TechniqueUpdateEntryView[], current: TechniqueUpdateEntryView[]): string[] {
@@ -325,7 +324,7 @@ export function diffActionEntries(previous: ProjectedActionEntry[], current: Pro
     const previousById = new Map(previous.map((entry) => [entry.id, entry]));
     return current
         .filter((entry) => !isSameActionEntry(previousById.get(entry.id) ?? null, entry))
-        .map((entry) => ({ ...entry }));
+        .map((entry) => entry);
 }
 
 export function diffRemovedActionIds(previous: ProjectedActionEntry[], current: ProjectedActionEntry[]): string[] {

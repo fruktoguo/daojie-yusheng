@@ -108,6 +108,7 @@ const groundPileProjectionCache = new WeakMap<ProjectorGroundPileLike, Projected
 const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedContainerEntry>();
 const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
+const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
 
 type SpecialStatsCacheEntry = {
     attrsRevision: number;
@@ -121,6 +122,11 @@ type SpecialStatsCacheEntry = {
     luck: number;
     fengShuiLuck: number;
     stats: PlayerSpecialStats;
+};
+
+type PanelDeltaBuildResult = {
+    delta: S2C_PanelDelta | null;
+    panel: ProjectedPanelState;
 };
 
 const specialStatsCache = new WeakMap<ProjectorPlayerLike, SpecialStatsCacheEntry>();
@@ -309,9 +315,17 @@ function resolvePortalDisplayName(
 }
 
 function buildAttrBonuses(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBonus[] {
-    return Array.isArray(player.bonuses)
-        ? player.bonuses.map((entry) => cloneAttrBonus(entry))
-        : [];
+    const source = getPlayerAttrBonusSource(player);
+    if (source.length === 0) {
+        return [];
+    }
+    const cached = attrBonusCloneCache.get(source);
+    if (cached && isSameAttrBonuses(cached, source)) {
+        return cached;
+    }
+    const cloned = source.map((entry) => cloneAttrBonus(entry));
+    attrBonusCloneCache.set(source, cloned);
+    return cloned;
 }
 
 function getPlayerAttrBonusSource(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBonus[] {
@@ -686,7 +700,7 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
             ? prev.attr : captureAttrPanelSlice(player),
         action: prev && canReuseActionPanelSlice(prev.action, player)
             ? prev.action : captureActionPanelSlice(player),
-        buff: prev && prev.buff.revision === player.buffs.revision
+        buff: prev && canReuseBuffPanelSlice(prev.buff, player)
             ? prev.buff : captureBuffPanelSlice(player),
     };
 }
@@ -728,6 +742,11 @@ function canReuseActionPanelSlice(previousAction: ProjectedActionPanelState, pla
         && previousAction.cultivationActive === player.combat.cultivationActive
         && previousAction.senseQiActive === player.combat.senseQiActive
         && previousAction.wangQiActive === (player.combat.wangQiActive === true);
+}
+
+function canReuseBuffPanelSlice(previousBuff: ProjectedPanelState['buff'], player: ProjectorPlayerLike): boolean {
+    return previousBuff.revision === player.buffs.revision
+        && isSameBuffList(previousBuff.buffs, projectVisiblePlayerBuffs(player));
 }
 
 function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['inventory'] {
@@ -888,27 +907,30 @@ function buildFullBuffDeltaFromState(buff: ProjectedPanelState['buff']): S2C_Pan
 }
 
 function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): ProjectedAttrDeltaView {
-    const stageChanged = previousAttr.stage !== player.attrs.stage;
-    const baseAttrsPatch = diffAttributes(previousAttr.baseAttrs, player.attrs.baseAttrs);
-    const bonusesChanged = !isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
-    const nextBonuses = bonusesChanged ? buildAttrBonuses(player) : undefined;
-    const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, player.attrs.finalAttrs);
-    const numericStatsPatch = diffNumericStats(previousAttr.numericStats, player.attrs.numericStats);
-    const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, player.attrs.ratioDivisors);
-    const nextSpecialStats = resolvePlayerSpecialStatsCached(player);
+    return buildAttrDeltaFromState(previousAttr, captureAttrPanelSlice(player));
+}
+
+function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentAttr: ProjectedAttrPanelState): ProjectedAttrDeltaView {
+    const stageChanged = previousAttr.stage !== currentAttr.stage;
+    const baseAttrsPatch = diffAttributes(previousAttr.baseAttrs, currentAttr.baseAttrs);
+    const bonusesChanged = !isSameAttrBonuses(previousAttr.bonuses, currentAttr.bonuses);
+    const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, currentAttr.finalAttrs);
+    const numericStatsPatch = diffNumericStats(previousAttr.numericStats, currentAttr.numericStats);
+    const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, currentAttr.ratioDivisors);
+    const nextSpecialStats = currentAttr.specialStats;
     const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
-    const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears;
-    const lifeElapsedTicksChanged = previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks;
-    const lifespanYearsChanged = previousAttr.lifespanYears !== player.lifespanYears;
-    const realmProgressChanged = previousAttr.realmProgress !== player.realm?.progress;
-    const realmProgressToNextChanged = previousAttr.realmProgressToNext !== player.realm?.progressToNext;
-    const realmBreakthroughReadyChanged = previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady;
-    const alchemySkillChanged = !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill);
-    const forgingSkillChanged = !isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill);
-    const buildingSkillChanged = !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill);
-    const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill);
-    const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill);
-    const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill);
+    const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== currentAttr.boneAgeBaseYears;
+    const lifeElapsedTicksChanged = previousAttr.lifeElapsedTicks !== currentAttr.lifeElapsedTicks;
+    const lifespanYearsChanged = previousAttr.lifespanYears !== currentAttr.lifespanYears;
+    const realmProgressChanged = previousAttr.realmProgress !== currentAttr.realmProgress;
+    const realmProgressToNextChanged = previousAttr.realmProgressToNext !== currentAttr.realmProgressToNext;
+    const realmBreakthroughReadyChanged = previousAttr.realmBreakthroughReady !== currentAttr.realmBreakthroughReady;
+    const alchemySkillChanged = !isSameCraftSkillState(previousAttr.alchemySkill, currentAttr.alchemySkill);
+    const forgingSkillChanged = !isSameCraftSkillState(previousAttr.forgingSkill, currentAttr.forgingSkill);
+    const buildingSkillChanged = !isSameCraftSkillState(previousAttr.buildingSkill, currentAttr.buildingSkill);
+    const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, currentAttr.gatherSkill);
+    const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, currentAttr.enhancementSkill);
+    const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, currentAttr.miningSkill);
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -929,29 +951,29 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
         + (enhancementSkillChanged ? 1 : 0)
         + (miningSkillChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
-        return buildFullAttrDelta(player);
+        return buildFullAttrDeltaFromState(currentAttr);
     }
     return {
-        r: player.attrs.revision,
-        stage: stageChanged ? player.attrs.stage : undefined,
+        r: currentAttr.revision,
+        stage: stageChanged ? currentAttr.stage : undefined,
         baseAttrs: baseAttrsPatch.patch,
-        bonuses: nextBonuses,
+        bonuses: bonusesChanged ? currentAttr.bonuses : undefined,
         finalAttrs: finalAttrsPatch.patch,
         numericStats: numericStatsPatch.patch,
         ratioDivisors: ratioDivisorsPatch.patch,
         specialStats: specialStatsChanged ? buildSpecialStatsPatch(previousAttr.specialStats, nextSpecialStats) : undefined,
-        boneAgeBaseYears: boneAgeBaseYearsChanged ? player.boneAgeBaseYears : undefined,
-        lifeElapsedTicks: lifeElapsedTicksChanged ? player.lifeElapsedTicks : undefined,
-        lifespanYears: lifespanYearsChanged ? player.lifespanYears : undefined,
-        realmProgress: realmProgressChanged ? player.realm?.progress : undefined,
-        realmProgressToNext: realmProgressToNextChanged ? player.realm?.progressToNext : undefined,
-        realmBreakthroughReady: realmBreakthroughReadyChanged ? player.realm?.breakthroughReady : undefined,
-        alchemySkill: alchemySkillChanged ? (player.alchemySkill ? { ...player.alchemySkill } : undefined) : undefined,
-        forgingSkill: forgingSkillChanged ? (player.forgingSkill ? { ...player.forgingSkill } : undefined) : undefined,
-        buildingSkill: buildingSkillChanged ? (player.buildingSkill ? { ...player.buildingSkill } : undefined) : undefined,
-        gatherSkill: gatherSkillChanged ? (player.gatherSkill ? { ...player.gatherSkill } : undefined) : undefined,
-        enhancementSkill: enhancementSkillChanged ? (player.enhancementSkill ? { ...player.enhancementSkill } : undefined) : undefined,
-        miningSkill: miningSkillChanged ? (player.miningSkill ? { ...player.miningSkill } : undefined) : undefined,
+        boneAgeBaseYears: boneAgeBaseYearsChanged ? currentAttr.boneAgeBaseYears : undefined,
+        lifeElapsedTicks: lifeElapsedTicksChanged ? currentAttr.lifeElapsedTicks : undefined,
+        lifespanYears: lifespanYearsChanged ? currentAttr.lifespanYears : undefined,
+        realmProgress: realmProgressChanged ? currentAttr.realmProgress : undefined,
+        realmProgressToNext: realmProgressToNextChanged ? currentAttr.realmProgressToNext : undefined,
+        realmBreakthroughReady: realmBreakthroughReadyChanged ? currentAttr.realmBreakthroughReady : undefined,
+        alchemySkill: alchemySkillChanged ? currentAttr.alchemySkill : undefined,
+        forgingSkill: forgingSkillChanged ? currentAttr.forgingSkill : undefined,
+        buildingSkill: buildingSkillChanged ? currentAttr.buildingSkill : undefined,
+        gatherSkill: gatherSkillChanged ? currentAttr.gatherSkill : undefined,
+        enhancementSkill: enhancementSkillChanged ? currentAttr.enhancementSkill : undefined,
+        miningSkill: miningSkillChanged ? currentAttr.miningSkill : undefined,
     };
 }
 
@@ -969,112 +991,99 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     return delta;
 }
 
+function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
+    const panel = capturePanelState(player, previous.panel);
+    const delta = buildPanelDeltaFromState(previous.panel, panel);
+    return { delta, panel };
+}
+
 function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
+    return buildPanelUpdate(previous, player).delta;
+}
+
+function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {
     const delta: S2C_PanelDelta = {};
-    const previousInventory = previous.panel.inventory;
-    const previousEquipment = previous.panel.equipment;
-    const previousTechnique = previous.panel.technique;
-    const previousAttr = previous.panel.attr;
-    const previousAction = previous.panel.action;
-    const previousBuff = previous.panel.buff;
-    if (previousInventory.revision !== player.inventory.revision) {
-        const slotPatch = diffInventorySlots(previousInventory.items, player.inventory.items);
+    const previousInventory = previousPanel.inventory;
+    const currentInventory = currentPanel.inventory;
+    const previousEquipment = previousPanel.equipment;
+    const currentEquipment = currentPanel.equipment;
+    const previousTechnique = previousPanel.technique;
+    const currentTechnique = currentPanel.technique;
+    const previousAttr = previousPanel.attr;
+    const currentAttr = currentPanel.attr;
+    const previousAction = previousPanel.action;
+    const currentAction = currentPanel.action;
+    const previousBuff = previousPanel.buff;
+    const currentBuff = currentPanel.buff;
+    if (previousInventory.revision !== currentInventory.revision) {
+        const slotPatch = diffInventorySlots(previousInventory.items, currentInventory.items);
         delta.inv = {
-            r: player.inventory.revision,
-            capacity: previousInventory.capacity !== player.inventory.capacity ? player.inventory.capacity : undefined,
-            size: previousInventory.items.length !== player.inventory.items.length ? player.inventory.items.length : undefined,
+            r: currentInventory.revision,
+            capacity: previousInventory.capacity !== currentInventory.capacity ? currentInventory.capacity : undefined,
+            size: previousInventory.items.length !== currentInventory.items.length ? currentInventory.items.length : undefined,
             slots: slotPatch.length > 0 ? slotPatch : undefined,
         };
     }
-    if (previousEquipment.revision !== player.equipment.revision) {
-        const slotPatch = diffEquipmentSlots(previousEquipment.slots, player.equipment.slots);
-        delta.eq = { r: player.equipment.revision, slots: slotPatch };
+    if (previousEquipment.revision !== currentEquipment.revision) {
+        const slotPatch = diffEquipmentSlots(previousEquipment.slots, currentEquipment.slots);
+        delta.eq = { r: currentEquipment.revision, slots: slotPatch };
     }
-    if (previousTechnique.revision !== player.techniques.revision) {
-        const techniquePatch = diffTechniqueEntries(previousTechnique.techniques, player.techniques.techniques);
-        const removed = diffRemovedTechniqueIds(previousTechnique.techniques, player.techniques.techniques);
+    if (previousTechnique.revision !== currentTechnique.revision) {
+        const techniquePatch = diffTechniqueEntries(previousTechnique.techniques, currentTechnique.techniques);
+        const removed = diffRemovedTechniqueIds(previousTechnique.techniques, currentTechnique.techniques);
         delta.tech = {
-            r: player.techniques.revision,
+            r: currentTechnique.revision,
             techniques: techniquePatch,
             removeTechniqueIds: removed.length > 0 ? removed : undefined,
-            cultivatingTechId: previousTechnique.cultivatingTechId !== player.techniques.cultivatingTechId
-                ? player.techniques.cultivatingTechId : undefined,
-            bodyTraining: previousTechnique.bodyTraining !== player.bodyTraining
-                ? (player.bodyTraining ? { ...player.bodyTraining } : null) : undefined,
+            cultivatingTechId: previousTechnique.cultivatingTechId !== currentTechnique.cultivatingTechId
+                ? currentTechnique.cultivatingTechId : undefined,
+            bodyTraining: previousTechnique.bodyTraining !== currentTechnique.bodyTraining
+                ? currentTechnique.bodyTraining : undefined,
         };
     }
-    const attrMetaChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears
-        || previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks
-        || previousAttr.lifespanYears !== player.lifespanYears
-        || previousAttr.realmProgress !== player.realm?.progress
-        || previousAttr.realmProgressToNext !== player.realm?.progressToNext
-        || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
-        || !isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill)
-        || !isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill)
-        || !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
-        || !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
-        || !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
-        || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
-        || !isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
-    if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
-        delta.attr = buildAttrDelta(previousAttr, player);
+    if (previousAttr !== currentAttr) {
+        delta.attr = buildAttrDeltaFromState(previousAttr, currentAttr);
     }
-    const actionOrderChanged = !isSameActionOrder(previousAction.actions, player.actions.actions);
-    if (previousAction.revision !== player.actions.revision) {
-        const actionPatch = diffActionEntries(previousAction.actions, player.actions.actions);
-        const removedActionIds = diffRemovedActionIds(previousAction.actions, player.actions.actions);
+    const actionOrderChanged = !isSameActionOrder(previousAction.actions, currentAction.actions);
+    if (previousAction.revision !== currentAction.revision) {
+        const actionPatch = diffActionEntries(previousAction.actions, currentAction.actions);
+        const removedActionIds = diffRemovedActionIds(previousAction.actions, currentAction.actions);
         delta.act = {
-            r: player.actions.revision,
+            r: currentAction.revision,
             actions: actionPatch,
             removeActionIds: removedActionIds.length > 0 ? removedActionIds : undefined,
-            actionOrder: actionOrderChanged ? buildActionOrder(player.actions.actions) : undefined,
+            actionOrder: actionOrderChanged ? buildActionOrder(currentAction.actions) : undefined,
         };
     }
-    const actionTopLevelChanged = previousAction.autoBattle !== player.combat.autoBattle
-        || !isSameAutoUsePillList(previousAction.autoUsePills ?? [], player.combat.autoUsePills ?? [])
-        || !isSameCombatTargetingRules(previousAction.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
-        || previousAction.autoBattleTargetingMode !== player.combat.autoBattleTargetingMode
-        || previousAction.retaliatePlayerTargetId !== player.combat.retaliatePlayerTargetId
-        || previousAction.combatTargetId !== player.combat.combatTargetId
-        || previousAction.combatTargetLocked !== player.combat.combatTargetLocked
-        || previousAction.autoRetaliate !== player.combat.autoRetaliate
-        || previousAction.autoBattleStationary !== player.combat.autoBattleStationary
-        || previousAction.allowAoePlayerHit !== player.combat.allowAoePlayerHit
-        || previousAction.autoIdleCultivation !== player.combat.autoIdleCultivation
-        || previousAction.autoSwitchCultivation !== player.combat.autoSwitchCultivation
-        || previousAction.autoRootFoundation !== (player.combat.autoRootFoundation === true)
-        || previousAction.cultivationActive !== player.combat.cultivationActive
-        || previousAction.senseQiActive !== player.combat.senseQiActive
-        || previousAction.wangQiActive !== (player.combat.wangQiActive === true);
+    const actionTopLevelChanged = previousAction !== currentAction;
     if (actionTopLevelChanged) {
-        const actionDeltaBase = delta.act ?? { r: player.actions.revision };
+        const actionDeltaBase = delta.act ?? { r: currentAction.revision };
         delta.act = {
             ...actionDeltaBase,
-            actionOrder: buildActionOrder(player.actions.actions),
-            autoBattle: player.combat.autoBattle,
-            autoUsePills: cloneAutoUsePillList(player.combat.autoUsePills),
-            combatTargetingRules: cloneCombatTargetingRules(player.combat.combatTargetingRules),
-            autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
-            retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
-            combatTargetId: player.combat.combatTargetId,
-            combatTargetLocked: player.combat.combatTargetLocked,
-            autoRetaliate: player.combat.autoRetaliate,
-            autoBattleStationary: player.combat.autoBattleStationary,
-            allowAoePlayerHit: player.combat.allowAoePlayerHit,
-            autoIdleCultivation: player.combat.autoIdleCultivation,
-            autoSwitchCultivation: player.combat.autoSwitchCultivation,
-            autoRootFoundation: player.combat.autoRootFoundation === true,
-            cultivationActive: player.combat.cultivationActive,
-            senseQiActive: player.combat.senseQiActive,
-            wangQiActive: player.combat.wangQiActive === true,
+            actionOrder: buildActionOrder(currentAction.actions),
+            autoBattle: currentAction.autoBattle,
+            autoUsePills: currentAction.autoUsePills,
+            combatTargetingRules: currentAction.combatTargetingRules,
+            autoBattleTargetingMode: currentAction.autoBattleTargetingMode,
+            retaliatePlayerTargetId: currentAction.retaliatePlayerTargetId,
+            combatTargetId: currentAction.combatTargetId,
+            combatTargetLocked: currentAction.combatTargetLocked,
+            autoRetaliate: currentAction.autoRetaliate,
+            autoBattleStationary: currentAction.autoBattleStationary,
+            allowAoePlayerHit: currentAction.allowAoePlayerHit,
+            autoIdleCultivation: currentAction.autoIdleCultivation,
+            autoSwitchCultivation: currentAction.autoSwitchCultivation,
+            autoRootFoundation: currentAction.autoRootFoundation,
+            cultivationActive: currentAction.cultivationActive,
+            senseQiActive: currentAction.senseQiActive,
+            wangQiActive: currentAction.wangQiActive,
         };
     }
-    const currentBuffs = projectVisiblePlayerBuffs(player);
-    if (previousBuff.revision !== player.buffs.revision || !isSameBuffList(previousBuff.buffs, currentBuffs)) {
-        const buffPatch = diffBuffEntries(previousBuff.buffs, currentBuffs);
-        const removedBuffIds = diffRemovedBuffIds(previousBuff.buffs, currentBuffs);
+    if (previousBuff !== currentBuff) {
+        const buffPatch = diffBuffEntries(previousBuff.buffs, currentBuff.buffs);
+        const removedBuffIds = diffRemovedBuffIds(previousBuff.buffs, currentBuff.buffs);
         delta.buff = {
-            r: player.buffs.revision,
+            r: currentBuff.revision,
             buffs: buffPatch,
             removeBuffIds: removedBuffIds.length > 0 ? removedBuffIds : undefined,
         };
@@ -1092,8 +1101,11 @@ export {
     buildFullWorldDeltaFromState,
     buildMapEnter,
     buildPanelDelta,
+    buildPanelUpdate,
     buildSelfDelta,
     capturePlayerState,
+    captureSelfState,
+    capturePanelState,
     captureProjectorState,
     captureWorldState,
     combineProjectorState,

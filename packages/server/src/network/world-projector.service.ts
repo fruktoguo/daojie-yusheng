@@ -14,9 +14,10 @@ import {
     buildFullSelfDeltaFromState,
     buildFullWorldDeltaFromState,
     buildMapEnter,
-    buildPanelDelta,
+    buildPanelUpdate,
     buildSelfDelta,
     capturePlayerState,
+    captureSelfState,
     captureWorldState,
     combineProjectorState,
     diffBuildingEntries,
@@ -129,7 +130,8 @@ export class WorldProjectorService {
         const buildingPatch = worldChanged ? diffBuildingEntries(previous.buildings, currentWorld.buildings) : [];
         const formationPatch = worldChanged ? diffFormationEntries(previous.formations, currentWorld.formations) : [];
         const selfDelta = buildSelfDelta(previous, player);
-        const panelDelta = buildPanelDelta(previous, player);
+        const panelUpdate = buildPanelUpdate(previous, player);
+        const panelDelta = panelUpdate.delta;
         const hasWorldPatch = playerPatch.length > 0
             || monsterPatch.length > 0
             || npcPatch.length > 0
@@ -141,7 +143,11 @@ export class WorldProjectorService {
         const playerChanged = Boolean(selfDelta || panelDelta);
         if (worldChanged || playerChanged) {
             const current = playerChanged
-                ? combineProjectorState(currentWorld, capturePlayerState(player, previous.panel))
+                ? combineProjectorState(currentWorld, {
+                    selfRevision: player.selfRevision,
+                    self: captureSelfState(player),
+                    panel: panelUpdate.panel,
+                })
                 : mergeWorldState(previous, currentWorld);
             this.cacheByPlayerId.set(identityView.playerId, current);
         }
