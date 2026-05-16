@@ -116,11 +116,14 @@ function resolveAttackablePlayerAtTile(instance, playerRuntimeService, player, t
     if (instance?.meta?.supportsPvp !== true) {
         return null;
     }
-    const snapshots = typeof instance?.getPlayersAtTile === 'function'
-        ? instance.getPlayersAtTile(tile.x, tile.y)
-        : typeof playerRuntimeService.listPlayerSnapshots === 'function'
-            ? playerRuntimeService.listPlayerSnapshots().filter((entry) => entry.instanceId === player.instanceId && entry.x === tile.x && entry.y === tile.y)
-            : [];
+    // N17：禁止退化到 playerRuntimeService.listPlayerSnapshots —— 那条路径会触发全服 5000 玩家深克隆，
+    // 一次普攻 fallback 就能产生 25 万对象/MB 量级短命对象。
+    // 实例-局部 getPlayersAtTile 是 O(occupants) 扫桶，已是真源；如果 instance 没实现就直接返回空集，
+    // 让上层走"该格无可攻玩家"分支，而不是退化全服扫。
+    if (typeof instance?.getPlayersAtTile !== 'function') {
+        return null;
+    }
+    const snapshots = instance.getPlayersAtTile(tile.x, tile.y);
     const candidates = snapshots
         .filter((entry) => entry?.playerId && entry.playerId !== player.playerId)
         .sort((left, right) => String(left.playerId).localeCompare(String(right.playerId), 'zh-Hans-CN'));

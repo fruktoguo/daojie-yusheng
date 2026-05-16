@@ -1039,22 +1039,28 @@ export class WorldRuntimePlayerSkillDispatchService {
                 return { kind: 'formation_boundary', formationId: boundary.formationId, x: cell.x, y: cell.y };
             }
         }
-        const players = this.playerRuntimeService.listPlayerSnapshots()
-            .filter((entry) => entry.instanceId === attacker.instanceId && entry.playerId !== attacker.playerId && entry.hp > 0)
-            .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
-        for (const cell of affectedCells) {
-            const player = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
-            if (
-                instance?.meta?.supportsPvp === true
-                && (
-                player
-                && isHostileCombatRelationResolution(resolveCombatRelation(attacker, {
-                    kind: 'player',
-                    target: player,
-                }))
-                )
-            ) {
-                return { kind: 'player', playerId: player.playerId };
+        // N17：禁止退化到 playerRuntimeService.listPlayerSnapshots —— 全服 5000 玩家深克隆只为找
+        // affectedCells (通常 ≤ 50 格) 上的玩家，是 OOM 现场短命对象主源之一。
+        // 改成对每个 affectedCell 直接走 instance.getPlayersAtTile，是 O(occupants) 扫桶。
+        // 如果 instance 没实现，直接跳过本段、继续地块/阵眼分支，不退化全服扫。
+        if (instance?.meta?.supportsPvp === true && typeof instance.getPlayersAtTile === 'function') {
+            for (const cell of affectedCells) {
+                const occupants = instance.getPlayersAtTile(cell.x, cell.y);
+                for (const candidate of occupants) {
+                    if (
+                        !candidate?.playerId
+                        || candidate.playerId === attacker.playerId
+                        || candidate.hp <= 0
+                    ) {
+                        continue;
+                    }
+                    if (isHostileCombatRelationResolution(resolveCombatRelation(attacker, {
+                        kind: 'player',
+                        target: candidate,
+                    }))) {
+                        return { kind: 'player', playerId: candidate.playerId };
+                    }
+                }
             }
         }
         for (const cell of affectedCells) {
