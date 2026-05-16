@@ -5401,7 +5401,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         techniques: needsTechnique ? {
             revision: player.techniques.revision,
-            techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => ({ ...entry })) : [],
+            techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => buildPersistedTechniqueState(entry)) : [],
             cultivatingTechId: player.techniques.cultivatingTechId,
         } : {
             revision: player.techniques.revision,
@@ -5449,6 +5449,21 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         pendingLogbookMessages: needsDomain('logbook') ? player.pendingLogbookMessages.map((entry) => ({ ...entry })) : [],
         runtimeBonuses: needsDomain('attr') ? player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)) : [],
+    };
+}
+
+function buildPersistedTechniqueState(entry) {
+    return {
+        techId: entry.techId,
+        level: entry.level,
+        exp: entry.exp,
+        expToNext: entry.expToNext,
+        realmLv: entry.realmLv,
+        realm: entry.realm ?? TechniqueRealm.Entry,
+        skillsEnabled: entry.skillsEnabled !== false,
+        name: entry.name,
+        grade: entry.grade ?? null,
+        category: entry.category ?? null,
     };
 }
 
@@ -6043,24 +6058,9 @@ function toTechniqueUpdateEntry(technique) {
         name: technique.name,
         grade: technique.grade ?? null,
         category: technique.category ?? null,
-        skills: technique.skills.map((entry) => ({ ...entry })),
-        layers: technique.layers?.map((entry) => ({
-            level: entry.level,
-            expToNext: entry.expToNext,
-            attrs: entry.attrs ? { ...entry.attrs } : undefined,
-            qiProjection: entry.qiProjection ? entry.qiProjection.map((modifier) => ({
-                ...modifier,
-                selector: modifier.selector
-                    ? {
-                        ...modifier.selector,
-                        resourceKeys: modifier.selector.resourceKeys ? modifier.selector.resourceKeys.slice() : undefined,
-                        families: modifier.selector.families ? modifier.selector.families.slice() : undefined,
-                        forms: modifier.selector.forms ? modifier.selector.forms.slice() : undefined,
-                        elements: modifier.selector.elements ? modifier.selector.elements.slice() : undefined,
-                    }
-                    : undefined,
-            })) : undefined,
-        })) ?? null,
+        // skills/layers 直接引用模板，运行时只读共享，不在 update 投影里克隆。
+        skills: technique.skills,
+        layers: technique.layers ?? null,
     };
 }
 /**

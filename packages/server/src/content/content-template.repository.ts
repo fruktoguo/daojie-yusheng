@@ -233,25 +233,11 @@ export class ContentTemplateRepository {
         if (!template) {
             return null;
         }
-        return {
-            techId: template.id,
-            name: template.name,
+        return buildTechniqueRuntimeStateFromTemplate(template, {
             level: 1,
             exp: 0,
-            expToNext: template.layers.find((entry) => entry.level === 1)?.expToNext ?? 0,
-            realmLv: template.realmLv,
             realm: TechniqueRealm.Entry,
-            skills: template.skills.map((entry) => ({ ...entry })),
-            grade: template.grade,
-            category: template.category,
-            layers: template.layers.map((entry) => ({
-                level: entry.level,
-                expToNext: entry.expToNext,
-                attrs: entry.attrs ? { ...entry.attrs } : undefined,
-                specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
-                qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
-            })),
-        };
+        });
     }
     
     getTechniqueName(techniqueId) {
@@ -278,6 +264,9 @@ export class ContentTemplateRepository {
         }
 
         const template = this.techniqueTemplates.get(techId);
+        if (template) {
+            return buildTechniqueRuntimeStateFromTemplate(template, input);
+        }
 
         const level = Number.isFinite(input.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
 
@@ -1438,6 +1427,31 @@ function normalizeTechniqueGrade(raw) {
         default:
             return 'mortal';
     }
+}
+
+function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) {
+    const level = Number.isFinite(input?.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
+    const exp = Number.isFinite(input?.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0;
+    const expToNext = Number.isFinite(input?.expToNext)
+        ? Math.max(0, Math.trunc(Number(input.expToNext)))
+        : (getTechniqueExpToNext(level, template.layers) ?? 0);
+    return {
+        techId: template.id,
+        name: template.name,
+        level,
+        exp,
+        expToNext,
+        realmLv: template.realmLv,
+        realm: Number.isFinite(input?.realm)
+            ? Math.max(0, Math.trunc(Number(input.realm)))
+            : deriveTechniqueRealm(level, template.layers),
+        skillsEnabled: input?.skillsEnabled !== false,
+        // skills/layers 是启动期内容模板，运行态只读共享；玩家态只保留等级/经验等动态字段。
+        skills: template.skills,
+        grade: template.grade,
+        category: template.category,
+        layers: template.layers,
+    };
 }
 
 function cloneSkill(source) {

@@ -4312,10 +4312,29 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
       expToNext: normalizeOptionalNumber(normalized?.expToNext),
       realmLv: normalizeOptionalInteger(normalized?.realmLv),
       skillsEnabled: normalized?.skillsEnabled !== false,
-      rawPayload: { ...normalized, techId },
+      rawPayload: buildTechniqueStateRawPayload(normalized, techId),
     });
   }
   return rows;
+}
+
+function buildTechniqueStateRawPayload(entry: Record<string, unknown>, techId: string): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    techId,
+    level: normalizeMinimumInteger(entry.level, 1, 1),
+    exp: normalizeOptionalNumber(entry.exp) ?? 0,
+    expToNext: normalizeOptionalNumber(entry.expToNext) ?? 0,
+    skillsEnabled: entry.skillsEnabled !== false,
+  };
+  const realm = normalizeOptionalInteger(entry.realm);
+  if (realm !== null) {
+    payload.realm = realm;
+  }
+  const realmLv = normalizeOptionalInteger(entry.realmLv);
+  if (realmLv !== null) {
+    payload.realmLv = realmLv;
+  }
+  return payload;
 }
 
 function buildPersistentBuffStateRows(snapshot: PersistedPlayerSnapshot): PersistentBuffStateRow[] {

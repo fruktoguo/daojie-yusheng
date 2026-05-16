@@ -153,8 +153,9 @@ export function cloneTechniqueEntry(source: TechniqueUpdateEntryView): Technique
     return {
         ...source,
         skillsEnabled: source.skillsEnabled !== false,
-        skills: source.skills?.map((entry) => cloneSkillDef(entry)),
-        layers: source.layers?.map((entry) => cloneTechniqueLayerDef(entry)),
+        // skills/layers 来自模板，运行时只读共享，投影/diff 不需要克隆。
+        skills: source.skills,
+        layers: source.layers,
     };
 }
 
