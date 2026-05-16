@@ -479,11 +479,11 @@ class MapInstanceRuntime {
                 level: monster.level,
                 tier: monster.tier,
                 expMultiplier: monster.expMultiplier,
-                baseAttrs: cloneAttributes(monster.baseAttrs),
-                attrs: cloneAttributes(monster.baseAttrs),
-                baseNumericStats: cloneNumericStats(monster.baseNumericStats),
-                numericStats: cloneNumericStats(monster.baseNumericStats),
-                ratioDivisors: cloneNumericRatioDivisors(monster.ratioDivisors),
+                baseAttrs: monster.baseAttrs,
+                attrs: monster.baseAttrs,
+                baseNumericStats: monster.baseNumericStats,
+                numericStats: monster.baseNumericStats,
+                ratioDivisors: monster.ratioDivisors,
                 statFormula: monster.statFormula,
                 initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs : [],
                 buffs: [],
@@ -3020,11 +3020,11 @@ class MapInstanceRuntime {
             level: monster.level,
             tier: monster.tier,
             expMultiplier: monster.expMultiplier,
-            baseAttrs: cloneAttributes(monster.baseAttrs),
-            attrs: cloneAttributes(monster.baseAttrs),
-            baseNumericStats: cloneNumericStats(monster.baseNumericStats),
-            numericStats: cloneNumericStats(monster.baseNumericStats),
-            ratioDivisors: cloneNumericRatioDivisors(monster.ratioDivisors),
+            baseAttrs: monster.baseAttrs,
+            attrs: monster.baseAttrs,
+            baseNumericStats: monster.baseNumericStats,
+            numericStats: monster.baseNumericStats,
+            ratioDivisors: monster.ratioDivisors,
             statFormula: monster.statFormula,
             initialBuffs: Array.isArray(monster.initialBuffs) ? monster.initialBuffs : [],
             buffs: [],
@@ -6391,8 +6391,11 @@ function recalculateMonsterBaseStatsFromFormula(monster) {
     if (!formula?.raw) {
         return false;
     }
-    const raw = clonePlainValue(formula.raw);
-    raw.level = Math.max(1, Math.trunc(Number(monster.level) || Number(raw.level) || 1));
+    const formulaRaw = formula.raw;
+    const raw = {
+        ...formulaRaw,
+        level: Math.max(1, Math.trunc(Number(monster.level) || Number(formulaRaw.level) || 1)),
+    };
     if (typeof monster.tier === 'string' && monster.tier.trim()) {
         raw.tier = monster.tier.trim();
     }
@@ -6404,20 +6407,6 @@ function recalculateMonsterBaseStatsFromFormula(monster) {
     monster.baseNumericStats = cloneNumericStats(resolved.computedStats);
     recalculateMonsterDerivedState(monster);
     return true;
-}
-/** clonePlainValue：克隆 JSON 风格配置值。 */
-function clonePlainValue(value) {
-    if (Array.isArray(value)) {
-        return value.map((entry) => clonePlainValue(entry));
-    }
-    if (value && typeof value === 'object') {
-        const result: Record<string, any> = {};
-        for (const [key, entry] of Object.entries(value)) {
-            result[key] = clonePlainValue(entry);
-        }
-        return result;
-    }
-    return value;
 }
 /** applyMonsterInitialBuffs：按模板给妖兽重建出生自带 Buff。 */
 function applyMonsterInitialBuffs(monster) {
