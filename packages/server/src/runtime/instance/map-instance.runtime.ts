@@ -3708,7 +3708,7 @@ class MapInstanceRuntime {
                 const payload = entry.statePayload;
                 monster.pendingCast = undefined;
                 if (Array.isArray(payload.buffs)) {
-                    monster.buffs = payload.buffs.map((buff) => ({ ...buff }));
+                    monster.buffs = payload.buffs;
                 }
                 if (Number.isFinite(Number(payload.attackReadyTick))) {
                     monster.attackReadyTick = Math.max(0, Math.trunc(Number(payload.attackReadyTick)));
@@ -3720,10 +3720,10 @@ class MapInstanceRuntime {
                     monster.maxQi = Math.max(0, Math.trunc(Number(payload.maxQi)));
                 }
                 if (payload.cooldownReadyTickBySkillId && typeof payload.cooldownReadyTickBySkillId === 'object') {
-                    monster.cooldownReadyTickBySkillId = { ...payload.cooldownReadyTickBySkillId };
+                    monster.cooldownReadyTickBySkillId = payload.cooldownReadyTickBySkillId;
                 }
                 if (payload.damageContributors && typeof payload.damageContributors === 'object') {
-                    monster.damageContributors = { ...payload.damageContributors };
+                    monster.damageContributors = payload.damageContributors;
                 }
             }
             if (monster.alive) {
@@ -4091,9 +4091,9 @@ class MapInstanceRuntime {
                     qi: monster.qi,
                     maxQi: monster.maxQi,
                     attackReadyTick: monster.attackReadyTick,
-                    cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
-                    damageContributors: { ...(monster.damageContributors ?? {}) },
-                    buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : [],
+                    cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId ?? {},
+                    damageContributors: monster.damageContributors ?? {},
+                    buffs: Array.isArray(monster.buffs) ? monster.buffs : [],
                 },
             });
         }
@@ -4141,9 +4141,9 @@ class MapInstanceRuntime {
                     qi: monster.qi,
                     maxQi: monster.maxQi,
                     attackReadyTick: monster.attackReadyTick,
-                    cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
-                    damageContributors: { ...(monster.damageContributors ?? {}) },
-                    buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : [],
+                    cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId ?? {},
+                    damageContributors: monster.damageContributors ?? {},
+                    buffs: Array.isArray(monster.buffs) ? monster.buffs : [],
                 },
             });
         }
@@ -6213,12 +6213,9 @@ function normalizePersistedGroundItem(item) {
         return null;
     }
 
-    const count = Number.isFinite(item.count) ? Math.max(1, Math.trunc(item.count)) : 1;
-    return {
-        ...item,
-        itemId: item.itemId,
-        count,
-    };
+    item.itemId = item.itemId.trim();
+    item.count = Number.isFinite(Number(item.count)) ? Math.max(1, Math.trunc(Number(item.count))) : 1;
+    return item;
 }
 /** compareGroundPiles：比较地面物品堆顺序。 */
 function compareGroundPiles(left, right) {

@@ -324,14 +324,7 @@ function groupGroundItemsByTile(items) {
             items: [],
         };
         const payload = item.itemPayload && typeof item.itemPayload === 'object' ? item.itemPayload : {};
-        current.items.push({
-            ...payload,
-            itemId: typeof payload.itemId === 'string' ? payload.itemId : 'unknown',
-            name: typeof payload.name === 'string' ? payload.name : undefined,
-            count: Number.isFinite(Number(payload.count)) ? Math.max(1, Math.trunc(Number(payload.count))) : 1,
-            grade: typeof payload.grade === 'string' ? payload.grade : undefined,
-            type: typeof payload.type === 'string' ? payload.type : undefined,
-        });
+        current.items.push(payload);
         piles.set(tileIndex, current);
     }
     return Array.from(piles.values(), (pile) => ({

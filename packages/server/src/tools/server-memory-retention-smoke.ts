@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；妖兽运行态 hydrate 和落盘投影复用 payload 子结构引用；地面物品 DB hydrate 直接接管 payload 引用并仅就地规范化 itemId/count；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -1395,11 +1395,15 @@ function proveEntryCachesFollowLifecycle(): {
   monsterSnapshotAvoidsNestedClones: boolean;
   buildingRoomQueriesReuseRefs: boolean;
   buildingRoomHydrateAvoidsInstanceIdSpread: boolean;
+  monsterRuntimeHydrateAndPersistenceReusePayloadRefs: boolean;
+  groundHydrateReusesPayloadRefs: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+  const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
+  const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
   // tileProjectionByCoord 必须挂在 MapInstanceRuntime 上，且 service 内不再持有 service-level 字段。
   const tileProjectionOnInstance = mapInstanceSource.includes('tileProjectionByCoord = new Map()')
@@ -1476,6 +1480,29 @@ function proveEntryCachesFollowLifecycle(): {
     && !mapInstanceSource.includes('this.roomsById.set(id, { ...room, instanceId: this.meta.instanceId })')
     && !mapInstanceSource.includes('this.fengShuiByRoomId.set(roomId, { ...snapshot, instanceId: this.meta.instanceId })');
 
+  const monsterRuntimeHydrateAndPersistenceReusePayloadRefs = mapInstanceSource.includes('monster.buffs = payload.buffs;')
+    && mapInstanceSource.includes('monster.cooldownReadyTickBySkillId = payload.cooldownReadyTickBySkillId;')
+    && mapInstanceSource.includes('monster.damageContributors = payload.damageContributors;')
+    && mapInstanceSource.includes('cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId ?? {}')
+    && mapInstanceSource.includes('damageContributors: monster.damageContributors ?? {}')
+    && mapInstanceSource.includes('buffs: Array.isArray(monster.buffs) ? monster.buffs : []')
+    && !mapInstanceSource.includes('monster.buffs = payload.buffs.map((buff) => ({ ...buff }))')
+    && !mapInstanceSource.includes('monster.cooldownReadyTickBySkillId = { ...payload.cooldownReadyTickBySkillId }')
+    && !mapInstanceSource.includes('monster.damageContributors = { ...payload.damageContributors }')
+    && !mapInstanceSource.includes('cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) }')
+    && !mapInstanceSource.includes('damageContributors: { ...(monster.damageContributors ?? {}) }')
+    && !mapInstanceSource.includes('buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : []');
+
+  const groundHydrateReusesPayloadRefs = worldLifecycleSource.includes('current.items.push(payload);')
+    && worldInstanceLeaseSource.includes('current.items.push(payload);')
+    && mapInstanceSource.includes('item.itemId = item.itemId.trim();')
+    && mapInstanceSource.includes('item.count = Number.isFinite(Number(item.count)) ? Math.max(1, Math.trunc(Number(item.count))) : 1;')
+    && mapInstanceSource.includes('return item;')
+    && !worldLifecycleSource.includes('itemId: typeof payload.itemId === \'string\' ? payload.itemId : \'unknown\'')
+    && !worldInstanceLeaseSource.includes('itemId: typeof payload.itemId === \'string\' ? payload.itemId : \'unknown\'')
+    && !mapInstanceSource.includes('return {\n        ...item,')
+    && !mapInstanceSource.includes('return {\n        ...item,\n        itemId: item.itemId,');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
@@ -1491,6 +1518,8 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(monsterSnapshotAvoidsNestedClones, true);
   assert.equal(buildingRoomQueriesReuseRefs, true);
   assert.equal(buildingRoomHydrateAvoidsInstanceIdSpread, true);
+  assert.equal(monsterRuntimeHydrateAndPersistenceReusePayloadRefs, true);
+  assert.equal(groundHydrateReusesPayloadRefs, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1507,6 +1536,8 @@ function proveEntryCachesFollowLifecycle(): {
     monsterSnapshotAvoidsNestedClones,
     buildingRoomQueriesReuseRefs,
     buildingRoomHydrateAvoidsInstanceIdSpread,
+    monsterRuntimeHydrateAndPersistenceReusePayloadRefs,
+    groundHydrateReusesPayloadRefs,
   };
 }
 
