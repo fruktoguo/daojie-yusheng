@@ -81,19 +81,28 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
     return cached;
   }
   const projected: VisibleBuffState = freezeVisibleBuffProjection({
-    ...source,
-    attrs: source.attrs ? { ...source.attrs } : undefined,
-    stats: source.stats ? { ...source.stats } : undefined,
-    qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
+    buffId: source.buffId,
+    name: source.name,
+    desc: source.desc,
+    shortMark: source.shortMark,
+    category: source.category,
+    visibility: source.visibility,
+    remainingTicks: source.remainingTicks,
+    duration: source.duration,
+    stacks: source.stacks,
+    maxStacks: source.maxStacks,
+    sourceSkillId: source.sourceSkillId,
+    sourceSkillName: source.sourceSkillName,
+    realmLv: source.realmLv,
+    color: source.color,
+    attrs: source.attrs,
+    attrMode: source.attrMode,
+    stats: source.stats,
+    statMode: source.statMode,
+    qiProjection: source.qiProjection,
+    infiniteDuration: source.infiniteDuration,
+    presentationScale: source.presentationScale,
   });
-  if (projected.attrs) { freezeVisibleBuffProjection(projected.attrs); }
-  if (projected.stats) { freezeVisibleBuffProjection(projected.stats); }
-  if (projected.qiProjection) {
-    for (const entry of projected.qiProjection) {
-      freezeVisibleBuffProjection(entry);
-    }
-    freezeVisibleBuffProjection(projected.qiProjection);
-  }
   visibleBuffProjectionCache.set(source, projected);
   return projected;
 }

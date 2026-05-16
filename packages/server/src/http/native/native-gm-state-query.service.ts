@@ -1422,12 +1422,34 @@ function toLegacyEquipmentSlots(slots) {
 
 function cloneTemporaryBuff(entry) {
   return {
-    ...entry,
-    attrs: entry.attrs ? { ...entry.attrs } : undefined,
-    stats: entry.stats ? { ...entry.stats } : undefined,
-    qiProjection: Array.isArray(entry.qiProjection)
-      ? entry.qiProjection.map((projection) => ({ ...projection }))
-      : undefined,
+    buffId: entry.buffId,
+    name: entry.name,
+    desc: entry.desc,
+    baseDesc: entry.baseDesc,
+    shortMark: entry.shortMark,
+    category: entry.category,
+    visibility: entry.visibility,
+    remainingTicks: entry.remainingTicks,
+    duration: entry.duration,
+    stacks: entry.stacks,
+    maxStacks: entry.maxStacks,
+    sourceSkillId: entry.sourceSkillId,
+    sourceSkillName: entry.sourceSkillName,
+    realmLv: entry.realmLv,
+    color: entry.color,
+    attrs: entry.attrs,
+    attrMode: entry.attrMode,
+    stats: entry.stats,
+    statMode: entry.statMode,
+    qiProjection: entry.qiProjection,
+    infiniteDuration: entry.infiniteDuration,
+    presentationScale: entry.presentationScale,
+    sustainCost: entry.sustainCost,
+    sustainTicksElapsed: entry.sustainTicksElapsed,
+    expireWithBuffId: entry.expireWithBuffId,
+    persistOnDeath: entry.persistOnDeath,
+    persistOnReturnToSpawn: entry.persistOnReturnToSpawn,
+    sourceCasterId: entry.sourceCasterId,
   };
 }
 /**

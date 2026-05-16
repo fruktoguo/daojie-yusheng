@@ -2671,21 +2671,11 @@ export class PlayerRuntimeService {
                 existing.stacks = Math.min(buff.maxStacks, existing.stacks + Math.max(1, buff.stacks));
             }
             existing.maxStacks = buff.maxStacks;
-            existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
-            existing.attrMode = buff.attrMode;
-            existing.stats = buff.stats ? { ...buff.stats } : undefined;
-            existing.statMode = buff.statMode;
-            existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
-            existing.sourceSkillId = buff.sourceSkillId;
-            existing.sourceSkillName = buff.sourceSkillName;
-            existing.color = buff.color;
-            existing.presentationScale = buff.presentationScale;
             existing.infiniteDuration = buff.infiniteDuration === true;
-            existing.sustainCost = buff.sustainCost ? { ...buff.sustainCost } : undefined;
             existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
-            existing.expireWithBuffId = buff.expireWithBuffId;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
+            refreshTemporaryBuffPrototype(existing, buff);
         }
         else {
             player.buffs.buffs.push(cloneTemporaryBuff(buff));
@@ -2780,27 +2770,14 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
         if (existing) {
-            existing.name = buff.name;
-            existing.desc = buff.desc;
-            existing.baseDesc = buff.baseDesc;
-            existing.shortMark = buff.shortMark;
-            existing.category = buff.category;
-            existing.visibility = buff.visibility;
             existing.remainingTicks = Math.max(1, Math.round(buff.duration));
             existing.duration = Math.max(1, Math.round(buff.duration));
             existing.maxStacks = Math.max(existing.maxStacks ?? 1, buff.maxStacks ?? 1);
             existing.stacks = Math.min(existing.maxStacks, Math.max(1, Math.round(existing.stacks + (stackDelta || buff.stacks || 0))));
-            existing.sourceSkillId = buff.sourceSkillId;
-            existing.sourceSkillName = buff.sourceSkillName;
             existing.realmLv = buff.realmLv;
-            existing.color = buff.color;
-            existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
-            existing.attrMode = buff.attrMode;
-            existing.stats = buff.stats ? { ...buff.stats } : undefined;
-            existing.statMode = buff.statMode;
-            existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
+            refreshTemporaryBuffPrototype(existing, buff);
         }
         else {
             const created = cloneTemporaryBuff(buff);
@@ -5403,7 +5380,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
-            buffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+            buffs: player.buffs.buffs.map((entry) => materializeTemporaryBuff(entry)),
         } : {
             revision: player.buffs.revision,
             buffs: [],
@@ -6651,12 +6628,134 @@ function hasRemainingRuntimeJob(job) {
  */
 
 function cloneTemporaryBuff(source) {
-    return {
-        ...source,
-        attrs: source.attrs ? { ...source.attrs } : undefined,
-        stats: source.stats ? { ...source.stats } : undefined,
-        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
+    if (!source || typeof source !== 'object') {
+        return source;
+    }
+    const prototype = isTemporaryBuffRuntimeInstance(source)
+        ? Object.getPrototypeOf(source)
+        : createTemporaryBuffPrototype(source);
+    return compactUndefinedFields(Object.assign(Object.create(prototype), {
+        remainingTicks: source.remainingTicks,
+        duration: source.duration,
+        stacks: source.stacks,
+        maxStacks: source.maxStacks,
+        realmLv: source.realmLv,
+        infiniteDuration: source.infiniteDuration,
+        sustainTicksElapsed: source.sustainTicksElapsed,
+        persistOnDeath: source.persistOnDeath,
+        persistOnReturnToSpawn: source.persistOnReturnToSpawn,
+    }));
+}
+
+function isTemporaryBuffRuntimeInstance(source) {
+    const prototype = Object.getPrototypeOf(source);
+    return prototype && prototype !== Object.prototype && typeof prototype.buffId === 'string';
+}
+
+const TEMPORARY_BUFF_PROTOTYPE_KEYS = [
+    'buffId',
+    'name',
+    'desc',
+    'baseDesc',
+    'shortMark',
+    'category',
+    'visibility',
+    'sourceSkillId',
+    'sourceSkillName',
+    'color',
+    'attrs',
+    'attrMode',
+    'stats',
+    'statMode',
+    'qiProjection',
+    'presentationScale',
+    'sustainCost',
+    'expireWithBuffId',
+    'sourceCasterId',
+];
+
+function refreshTemporaryBuffPrototype(target, source) {
+    if (!target || typeof target !== 'object' || !source || typeof source !== 'object') {
+        return;
+    }
+    Object.setPrototypeOf(target, createTemporaryBuffPrototype(source));
+    for (const key of TEMPORARY_BUFF_PROTOTYPE_KEYS) {
+        delete target[key];
+    }
+}
+
+function createTemporaryBuffPrototype(source) {
+    const prototype = {
+        buffId: source.buffId,
+        name: source.name,
+        desc: source.desc,
+        baseDesc: source.baseDesc,
+        shortMark: source.shortMark,
+        category: source.category,
+        visibility: source.visibility,
+        sourceSkillId: source.sourceSkillId,
+        sourceSkillName: source.sourceSkillName,
+        color: source.color,
+        attrs: source.attrs,
+        attrMode: source.attrMode,
+        stats: source.stats,
+        statMode: source.statMode,
+        qiProjection: source.qiProjection,
+        presentationScale: source.presentationScale,
+        sustainCost: source.sustainCost,
+        expireWithBuffId: source.expireWithBuffId,
+        sourceCasterId: source.sourceCasterId,
+        toJSON() {
+            return materializeTemporaryBuff(this);
+        },
     };
+    return process.env.NODE_ENV === 'production' ? prototype : Object.freeze(prototype);
+}
+
+function compactUndefinedFields(target) {
+    for (const key of Object.keys(target)) {
+        if (target[key] === undefined) {
+            delete target[key];
+        }
+    }
+    return target;
+}
+
+function materializeTemporaryBuff(source) {
+    if (!source || typeof source !== 'object') {
+        return source;
+    }
+    const target = {
+        buffId: source.buffId,
+        name: source.name,
+        desc: source.desc,
+        baseDesc: source.baseDesc,
+        shortMark: source.shortMark,
+        category: source.category,
+        visibility: source.visibility,
+        remainingTicks: source.remainingTicks,
+        duration: source.duration,
+        stacks: source.stacks,
+        maxStacks: source.maxStacks,
+        sourceSkillId: source.sourceSkillId,
+        sourceSkillName: source.sourceSkillName,
+        realmLv: source.realmLv,
+        color: source.color,
+        attrs: source.attrs,
+        attrMode: source.attrMode,
+        stats: source.stats,
+        statMode: source.statMode,
+        qiProjection: source.qiProjection,
+        infiniteDuration: source.infiniteDuration,
+        presentationScale: source.presentationScale,
+        sustainCost: source.sustainCost,
+        sustainTicksElapsed: source.sustainTicksElapsed,
+        expireWithBuffId: source.expireWithBuffId,
+        persistOnDeath: source.persistOnDeath,
+        persistOnReturnToSpawn: source.persistOnReturnToSpawn,
+        sourceCasterId: source.sourceCasterId,
+    };
+    return compactUndefinedFields(target);
 }
 
 function buildPvPSoulInjuryBuffState(sourceRealmLv) {

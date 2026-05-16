@@ -429,6 +429,79 @@ function testSnapshotAndRestoreKeepItemPrototypes() {
     assert.equal(JSON.parse(JSON.stringify(restoredWeapon)).equipAttrs, undefined);
 }
 
+function testTemporaryBuffRuntimeUsesPrototypeAndMaterializesJson() {
+    const service = createPlayerRuntimeService();
+    const player = service.hydrateFromSnapshot('player:buff-prototype', 'session:buff-prototype', createSnapshot(null));
+    service.players.set(player.playerId, player);
+
+    const attrs = { spirit: 12 };
+    const stats = { physAtk: 7 };
+    const qiProjection = [{ key: 'test.qi', value: 3 }];
+    service.applyTemporaryBuff(player.playerId, {
+        buffId: 'buff:prototype',
+        name: 'Prototype Buff',
+        desc: 'template-only buff desc',
+        baseDesc: 'template-only base desc',
+        shortMark: '原',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 3,
+        sourceSkillId: 'skill:prototype',
+        sourceSkillName: 'Prototype Skill',
+        color: '#abcdef',
+        attrs,
+        attrMode: 'flat',
+        stats,
+        statMode: 'percent',
+        qiProjection,
+        presentationScale: 1.2,
+    });
+
+    const runtimeBuff = player.buffs.buffs[0];
+    assert.equal(runtimeBuff.name, 'Prototype Buff');
+    assert.equal(runtimeBuff.attrs, attrs);
+    assert.equal(runtimeBuff.stats, stats);
+    assert.equal(runtimeBuff.qiProjection, qiProjection);
+    assert.deepEqual(Object.keys(runtimeBuff).sort(), ['duration', 'maxStacks', 'remainingTicks', 'stacks']);
+
+    const snapshot = service.snapshot(player.playerId);
+    const snapshotBuff = snapshot.buffs.buffs[0];
+    assert.equal(snapshotBuff.name, 'Prototype Buff');
+    assert.equal(snapshotBuff.attrs, attrs);
+    assert.deepEqual(Object.keys(snapshotBuff).sort(), ['duration', 'maxStacks', 'remainingTicks', 'stacks']);
+    assert.deepEqual(JSON.parse(JSON.stringify(snapshotBuff)), {
+        buffId: 'buff:prototype',
+        name: 'Prototype Buff',
+        desc: 'template-only buff desc',
+        baseDesc: 'template-only base desc',
+        shortMark: '原',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 3,
+        sourceSkillId: 'skill:prototype',
+        sourceSkillName: 'Prototype Skill',
+        color: '#abcdef',
+        attrs,
+        attrMode: 'flat',
+        stats,
+        statMode: 'percent',
+        qiProjection,
+        presentationScale: 1.2,
+    });
+
+    service.restoreSnapshot(snapshot);
+    const restoredBuff = service.snapshot(player.playerId).buffs.buffs[0];
+    assert.equal(restoredBuff.name, 'Prototype Buff');
+    assert.equal(restoredBuff.attrs, attrs);
+    assert.deepEqual(Object.keys(restoredBuff).sort(), ['duration', 'maxStacks', 'remainingTicks', 'stacks']);
+}
+
 function testPendingStatisticRecordsReuseReadonlyReferences() {
     const service = createPlayerRuntimeService();
     const report = {
@@ -464,6 +537,7 @@ testReplaceInventoryItemsKeepsTemplateOnPrototype();
 testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
 testHydrateInventoryItemsKeepTemplateOnPrototype();
 testSnapshotAndRestoreKeepItemPrototypes();
+testTemporaryBuffRuntimeUsesPrototypeAndMaterializesJson();
 testPendingStatisticRecordsReuseReadonlyReferences();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
