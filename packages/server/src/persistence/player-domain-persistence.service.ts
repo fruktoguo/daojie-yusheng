@@ -5098,7 +5098,7 @@ function applyProjectedEquipment(
         {
           slot: slotType,
           item: existingRecord?.item && typeof existingRecord.item === 'object'
-            ? { ...(existingRecord.item as Record<string, unknown>) }
+            ? existingRecord.item as Record<string, unknown>
             : null,
         },
       ] as const;
