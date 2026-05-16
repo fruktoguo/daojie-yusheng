@@ -595,8 +595,10 @@ function freezeProjectedEntry<T extends object>(entry: T): T {
     return entry;
 }
 
-/** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。 */
-function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
+/** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。
+ *  previousPanel 非空时按 revision 短路：未变的 slice 直接复用前帧引用，避免无谓克隆。 */
+function capturePlayerState(player: ProjectorPlayerLike, previousPanel?: ProjectedPanelState | null): PlayerStateSlice {
+    const prev = previousPanel ?? null;
     return {
         selfRevision: player.selfRevision,
         self: {
@@ -607,9 +609,12 @@ function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
             wallet: cloneWalletState(player.wallet),
         },
         panel: {
-            inventory: captureInventoryPanelSlice(player),
-            equipment: captureEquipmentPanelSlice(player),
-            technique: captureTechniquePanelSlice(player),
+            inventory: prev && prev.inventory.revision === player.inventory.revision
+                ? prev.inventory : captureInventoryPanelSlice(player),
+            equipment: prev && prev.equipment.revision === player.equipment.revision
+                ? prev.equipment : captureEquipmentPanelSlice(player),
+            technique: prev && prev.technique.revision === player.techniques.revision
+                ? prev.technique : captureTechniquePanelSlice(player),
             attr: captureAttrPanelSlice(player),
             action: captureActionPanelSlice(player),
             buff: captureBuffPanelSlice(player),

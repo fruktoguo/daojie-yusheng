@@ -136,7 +136,7 @@ export class WorldProjectorService {
         const playerChanged = Boolean(selfDelta || panelDelta);
         if (worldChanged || playerChanged) {
             const current = playerChanged
-                ? combineProjectorState(currentWorld, capturePlayerState(player))
+                ? combineProjectorState(currentWorld, capturePlayerState(player, previous.panel))
                 : mergeWorldState(previous, currentWorld);
             this.cacheByPlayerId.set(identityView.playerId, current);
         }

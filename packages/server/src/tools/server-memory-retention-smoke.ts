@@ -629,7 +629,7 @@ function proveViewHotpathOptimizationsPresent(): {
     && !viewQuerySource.includes('.concat(\n            parentInstance.collectLocalMonsters')
     && !viewQuerySource.includes('.map(project)');
   const projectorSkipsUnchangedPanelCapture = projectorSource.includes('const playerChanged = Boolean(selfDelta || panelDelta)')
-    && projectorSource.includes('playerChanged\n                ? combineProjectorState(currentWorld, capturePlayerState(player))');
+    && projectorSource.includes('playerChanged\n                ? combineProjectorState(currentWorld, capturePlayerState(player, previous.panel))');
   const contentTemplateAvoidsDuplicateMonsterClone = contentTemplateSource.includes('baseAttrs: resolvedStats.attrs')
     && contentTemplateSource.includes('statFormula: template.statFormula')
     && contentTemplateSource.includes('skills: template.skills')
