@@ -101,6 +101,12 @@ export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost')
     runtime.worldRuntimeInstanceStateService.deleteInstanceRuntime(instanceId);
     runtime.worldRuntimeTickProgressService.clearInstance(instanceId);
     runtime.worldRuntimeLootContainerService.removeInstanceState(instanceId);
+    if (typeof runtime.runtimeEventBusService?.discardInstance === 'function') {
+      runtime.runtimeEventBusService.discardInstance(instanceId);
+    }
+    if (typeof runtime.worldRuntimeFormationService?.releaseInstance === 'function') {
+      runtime.worldRuntimeFormationService.releaseInstance(instanceId);
+    }
     runtime.logger.warn(`实例 ${instanceId} 已因 lease fencing 被卸载：${reason}`);
     return;
   }
@@ -149,6 +155,12 @@ export async function destroyManagedInstance(runtime, instanceId, reason = 'sche
   runtime.worldRuntimeInstanceStateService.deleteInstanceRuntime(instanceId);
   runtime.worldRuntimeTickProgressService.clearInstance(instanceId);
   runtime.worldRuntimeLootContainerService.removeInstanceState(instanceId);
+  if (typeof runtime.runtimeEventBusService?.discardInstance === 'function') {
+    runtime.runtimeEventBusService.discardInstance(instanceId);
+  }
+  if (typeof runtime.worldRuntimeFormationService?.releaseInstance === 'function') {
+    runtime.worldRuntimeFormationService.releaseInstance(instanceId);
+  }
   if (runtime.instanceCatalogService?.isEnabled?.()) {
     await runtime.instanceCatalogService.upsertInstanceCatalog({
       instanceId,

@@ -5,6 +5,26 @@
 import { calculateTerrainDurability, computeCraftSkillExpGain, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 
+/**
+ * 建筑操作结果缓存上限：默认 1000，可通过 env SERVER_BUILDING_OPERATION_RESULTS_LIMIT
+ * 调整以适配大型联盟副本与高并发建造审计。0 或非法值回退默认。
+ * 与 buildingOperationAuditLog 上限共用同一阈值，保证幂等回放与审计窗口一致。
+ */
+function resolveBuildingOperationResultsLimit() {
+    const raw = process.env.SERVER_BUILDING_OPERATION_RESULTS_LIMIT;
+    if (typeof raw !== 'string' || raw.trim().length === 0) {
+        return 1000;
+    }
+    const parsed = Number(raw.trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return 1000;
+    }
+    return Math.max(1, Math.min(1_000_000, Math.trunc(parsed)));
+}
+
+const BUILDING_OPERATION_RESULTS_LIMIT = resolveBuildingOperationResultsLimit();
+const BUILDING_OPERATION_AUDIT_LOG_LIMIT = BUILDING_OPERATION_RESULTS_LIMIT;
+
 export function handleBuildPlaceIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
     if (!requestId) {
@@ -306,10 +326,10 @@ function recordBuildingOperation(runtime, operationKey, result, meta) {
         tick: runtime.tick,
         recordedAt: Date.now(),
     });
-    while (runtime.buildingOperationAuditLog.length > 1000) {
+    while (runtime.buildingOperationAuditLog.length > BUILDING_OPERATION_AUDIT_LOG_LIMIT) {
         runtime.buildingOperationAuditLog.shift();
     }
-    while (runtime.buildingOperationResultsByKey.size > 1000) {
+    while (runtime.buildingOperationResultsByKey.size > BUILDING_OPERATION_RESULTS_LIMIT) {
         const oldestKey = runtime.buildingOperationResultsByKey.keys().next().value;
         if (!oldestKey) break;
         runtime.buildingOperationResultsByKey.delete(oldestKey);

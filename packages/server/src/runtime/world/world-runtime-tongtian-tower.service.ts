@@ -193,6 +193,13 @@ export class WorldRuntimeTongtianTowerService {
       deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
       deps.instanceTickProgressById?.delete?.(instanceId);
       deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
+      if (typeof (deps as { runtimeEventBusService?: { discardInstance?: (id: string) => void } }).runtimeEventBusService?.discardInstance === 'function') {
+        (deps as { runtimeEventBusService: { discardInstance: (id: string) => void } }).runtimeEventBusService.discardInstance(instanceId);
+      }
+      const formationService = (deps as { worldRuntimeFormationService?: { releaseInstance?: (id: string) => void } }).worldRuntimeFormationService;
+      if (typeof formationService?.releaseInstance === 'function') {
+        formationService.releaseInstance(instanceId);
+      }
       await this.markCatalogDestroyed(deps, instanceId, instance);
       this.logger.log(`通天塔空闲实例已销毁：${instanceId}`);
     }

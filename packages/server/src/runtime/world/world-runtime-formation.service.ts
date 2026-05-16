@@ -38,10 +38,12 @@ class WorldRuntimeFormationService {
     persistencePool = null;
     persistenceReady = false;
     persistenceInitPromise = null;
+    databasePoolProvider = null;
 
-    constructor(contentTemplateRepository, playerRuntimeService) {
+    constructor(contentTemplateRepository, playerRuntimeService, databasePoolProvider = null) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.databasePoolProvider = databasePoolProvider;
     }
 
     dispatchCreateFormation(playerId, payload, deps) {
@@ -907,6 +909,29 @@ class WorldRuntimeFormationService {
         });
     }
 
+    /**
+     * releaseInstance：实例销毁/fencing 卸载收口，清理内存中按 instanceId 索引的阵法状态。
+     * 防止 destroyManagedInstance / fenceInstanceRuntime 卸载实例时遗留 formationsByInstanceId 与
+     * restoredFormationInstanceIds 条目，避免随实例流转无界增长。
+     * 仅在没有持续性阵法（持续性阵法以阵眼实例为准，不应跟随承载实例销毁丢失）时清理；持续性阵法
+     * 转入 active=false 的标记，等待持久化层在阵眼销毁路径上单独清理。
+     */
+    releaseInstance(instanceId) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (!normalizedInstanceId) {
+            return;
+        }
+        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+        if (Array.isArray(formations) && formations.length > 0) {
+            // 实例已销毁，承载阵法对象再保留也无处广播；统一释放避免悬挂。
+            // 持续性阵法的真源在持久化层，此处不写盘，让阵眼路径或下次重启的 reloadInstance 决定恢复策略。
+            this.formationsByInstanceId.delete(normalizedInstanceId);
+        } else {
+            this.formationsByInstanceId.delete(normalizedInstanceId);
+        }
+        this.restoredFormationInstanceIds.delete(normalizedInstanceId);
+    }
+
     async saveFormationSnapshot(formation) {
         if (!formation) {
             return;
@@ -1044,13 +1069,16 @@ class WorldRuntimeFormationService {
         if (!databaseUrl.trim()) {
             return;
         }
-        const pool = new Pool({ connectionString: databaseUrl });
+        const sharedPool = this.databasePoolProvider?.getPool?.('formation') ?? null;
+        if (!sharedPool) {
+            this.logger.warn('阵法持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
         try {
-            await ensureInstanceFormationStateTable(pool);
-            this.persistencePool = pool;
+            await ensureInstanceFormationStateTable(sharedPool);
+            this.persistencePool = sharedPool;
             this.persistenceReady = true;
         } catch (error) {
-            await pool.end().catch(() => undefined);
             this.logger.warn(`阵法持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -1067,12 +1095,9 @@ class WorldRuntimeFormationService {
                 });
             }
         }
-        const pool = this.persistencePool;
+        // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
         this.persistenceReady = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 
     findOwnedFormation(playerId, formationInstanceId) {

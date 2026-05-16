@@ -61,12 +61,14 @@ class WorldRuntimeSectService {
     persistencePool = null;
     persistenceReady = false;
     persistenceInitPromise = null;
+    databasePoolProvider = null;
 
-    constructor(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService = null) {
+    constructor(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService = null, databasePoolProvider = null) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this._mailRuntimeService = mailRuntimeService;
+        this.databasePoolProvider = databasePoolProvider;
     }
 
     dispatchCreateSect(playerId, slotIndex, item, deps, payload = null) {
@@ -1168,24 +1170,24 @@ class WorldRuntimeSectService {
         if (!databaseUrl.trim()) {
             return;
         }
-        const pool = new Pool({ connectionString: databaseUrl });
+        const sharedPool = this.databasePoolProvider?.getPool?.('sect') ?? null;
+        if (!sharedPool) {
+            this.logger.warn('宗门持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
         try {
-            await ensureSectTable(pool);
-            this.persistencePool = pool;
+            await ensureSectTable(sharedPool);
+            this.persistencePool = sharedPool;
             this.persistenceReady = true;
         } catch (error) {
-            await pool.end().catch(() => undefined);
             this.logger.warn(`宗门持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
     async closePersistencePool() {
-        const pool = this.persistencePool;
+        // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
         this.persistenceReady = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 }
 export { WorldRuntimeSectService };

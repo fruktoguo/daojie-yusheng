@@ -78,6 +78,8 @@ import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import '../instance/map-instance.runtime';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -340,6 +342,10 @@ export class WorldRuntimeService {
 
     durableOperationService;
 
+    runtimeEventBusService;
+
+    databasePoolProvider;
+
     instanceLeaseSyncTimer = null;
 
     logger = new Logger(WorldRuntimeService.name);
@@ -425,6 +431,8 @@ export class WorldRuntimeService {
         @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any,
         @Inject(MailRuntimeService) mailRuntimeService: any,
         @Inject(DurableOperationService) durableOperationService: any,
+        @Inject(RuntimeEventBusService) runtimeEventBusService: any = undefined,
+        @Inject(DatabasePoolProvider) databasePoolProvider: any = undefined,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
@@ -495,14 +503,16 @@ export class WorldRuntimeService {
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
-        this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService);
-        this.worldRuntimeSectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService);
+        this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService, databasePoolProvider);
+        this.worldRuntimeSectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService, databasePoolProvider);
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
         this.worldRuntimeTongtianTowerService = worldRuntimeTongtianTowerService;
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
         this.durableOperationService = durableOperationService;
+        this.runtimeEventBusService = runtimeEventBusService;
+        this.databasePoolProvider = databasePoolProvider;
     }
 
     get lastTickDurationMs() {
@@ -584,6 +594,17 @@ export class WorldRuntimeService {
 
     isInstanceLeaseWritable(instance) {
         return isInstanceLeaseWritable(this, instance);
+    }
+
+    /**
+     * 暴露建筑幂等结果与审计日志的当前规模，供监控/GM 面板读取，
+     * 配合 SERVER_BUILDING_OPERATION_RESULTS_LIMIT 调优观察。
+     */
+    getBuildingOperationMetrics() {
+        return {
+            resultsCacheSize: this.buildingOperationResultsByKey.size,
+            auditLogSize: this.buildingOperationAuditLog.length,
+        };
     }
 
     fenceInstanceRuntime(instanceId, reason = 'lease_lost') {

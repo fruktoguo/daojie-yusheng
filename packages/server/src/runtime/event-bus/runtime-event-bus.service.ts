@@ -35,6 +35,8 @@ import {
   MAX_AOI_EFFECTS_PER_INSTANCE,
   MAX_PANEL_PATCHES_PER_PLAYER,
   MAX_FEEDBACK_PER_PLAYER,
+  NOTICE_KIND_PRIORITY,
+  findLowestPriorityNoticeIndex,
 } from './runtime-event-bus.types';
 import { RuntimeEventBusMetricsService } from './runtime-event-bus-metrics.service';
 
@@ -630,36 +632,12 @@ function hasPlayerQueueContent(queue: PlayerEventQueue): boolean {
   );
 }
 
-const NOTICE_KIND_PRIORITY: Record<NoticeKind, number> = {
-  combat: 1,
-  chat: 1,
-  grudge: 1,
-  info: 2,
-  travel: 2,
-  quest: 3,
-  loot: 3,
-  system: 4,
-  success: 5,
-  warn: 6,
-};
-
-function findLowestPriorityNoticeIndex(notices: NoticeQueueEntry[]): number {
-  let index = 0;
-  let priority = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < notices.length; i += 1) {
-    const current = NOTICE_KIND_PRIORITY[notices[i]?.kind ?? 'info'] ?? 0;
-    if (current < priority) {
-      priority = current;
-      index = i;
-    }
-  }
-  return index;
-}
+const NOTICE_KIND_PRIORITY_TABLE = NOTICE_KIND_PRIORITY;
 
 function findLowestNoticePriority(notices: NoticeQueueEntry[]): number {
   let priority = Number.POSITIVE_INFINITY;
   for (let i = 0; i < notices.length; i += 1) {
-    const current = NOTICE_KIND_PRIORITY[notices[i]?.kind ?? 'info'] ?? 0;
+    const current = NOTICE_KIND_PRIORITY_TABLE[notices[i]?.kind ?? 'info'] ?? 0;
     if (current < priority) {
       priority = current;
     }
