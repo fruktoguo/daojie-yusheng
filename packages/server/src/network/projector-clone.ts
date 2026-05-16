@@ -15,14 +15,7 @@ import type {
   PlayerSpecialStats,
   PlayerWalletState,
   QiProjectionModifier,
-  SkillDef,
-  SkillEffectDef,
-  SkillFormula,
-  SkillMonsterCastDef,
-  SkillPlayerCastDef,
-  SkillTargetingDef,
   SyncedItemStack,
-  TechniqueLayerDef,
   TechniqueUpdateEntryView,
   VisibleBuffState,
   AttrBonus,
@@ -156,96 +149,6 @@ export function cloneTechniqueEntry(source: TechniqueUpdateEntryView): Technique
         // skills/layers 来自模板，运行时只读共享，投影/diff 不需要克隆。
         skills: source.skills,
         layers: source.layers,
-    };
-}
-
-export function cloneSkillDef(source: SkillDef): SkillDef {
-    return {
-        ...source,
-        targeting: source.targeting ? cloneSkillTargetingDef(source.targeting) : undefined,
-        effects: source.effects.map((entry) => cloneSkillEffectDef(entry)),
-        playerCast: source.playerCast ? cloneSkillPlayerCastDef(source.playerCast) : undefined,
-        monsterCast: source.monsterCast ? cloneSkillMonsterCastDef(source.monsterCast) : undefined,
-    };
-}
-
-export function cloneSkillTargetingDef(source: SkillTargetingDef): SkillTargetingDef {
-    return { ...source };
-}
-
-export function cloneSkillEffectDef(source: SkillEffectDef): SkillEffectDef {
-    switch (source.type) {
-        case 'damage':
-            return {
-                ...source,
-                formula: cloneSkillFormula(source.formula),
-            };
-        case 'heal':
-            return {
-                ...source,
-                formula: cloneSkillFormula(source.formula),
-            };
-        case 'buff':
-            return {
-                ...source,
-                attrs: source.attrs ? clonePartialAttributes(source.attrs) : undefined,
-                stats: clonePartialNumericStats(source.stats),
-                qiProjection: source.qiProjection?.map((entry) => cloneQiProjectionModifier(entry)),
-                valueStats: clonePartialNumericStats(source.valueStats),
-                sustainCost: source.sustainCost ? cloneBuffSustainCostDef(source.sustainCost) : undefined,
-            };
-        case 'cleanse':
-            return { ...source };
-        case 'temporary_tile':
-            return {
-                ...source,
-                hpFormula: cloneSkillFormula(source.hpFormula),
-            };
-    }
-}
-
-export function cloneSkillFormula(source: SkillFormula): SkillFormula {
-    if (typeof source === 'number') {
-        return source;
-    }
-    if ('var' in source) {
-        return {
-            var: source.var,
-            scale: source.scale,
-        };
-    }
-    if (source.op === 'clamp') {
-        return {
-            op: source.op,
-            value: cloneSkillFormula(source.value),
-            min: source.min !== undefined ? cloneSkillFormula(source.min) : undefined,
-            max: source.max !== undefined ? cloneSkillFormula(source.max) : undefined,
-        };
-    }
-    return {
-        op: source.op,
-        args: source.args.map((entry) => cloneSkillFormula(entry)),
-    };
-}
-
-export function cloneSkillMonsterCastDef(source: SkillMonsterCastDef): SkillMonsterCastDef {
-    return {
-        ...source,
-        conditions: source.conditions ? cloneEquipmentConditionGroup(source.conditions) : undefined,
-    };
-}
-
-export function cloneSkillPlayerCastDef(source: SkillPlayerCastDef): SkillPlayerCastDef {
-    return { ...source };
-}
-
-export function cloneTechniqueLayerDef(source: TechniqueLayerDef): TechniqueLayerDef {
-    return {
-        level: source.level,
-        expToNext: source.expToNext,
-        attrs: source.attrs ? clonePartialAttributes(source.attrs) : undefined,
-        specialStats: source.specialStats ? { ...source.specialStats } : undefined,
-        qiProjection: source.qiProjection?.map((entry) => cloneQiProjectionModifier(entry)),
     };
 }
 

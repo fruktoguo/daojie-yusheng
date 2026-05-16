@@ -6383,14 +6383,6 @@ function cloneNumericRatioDivisors(source) {
         elementDamageReduce: { ...source.elementDamageReduce },
     };
 }
-/** cloneSkill：克隆技能配置。 */
-function cloneSkill(source) {
-    return {
-        ...source,
-        targeting: source.targeting ? { ...source.targeting } : undefined,
-        effects: source.effects.map((entry) => ({ ...entry })),
-    };
-}
 /** cloneTemporaryBuff：克隆临时 Buff。 */
 function cloneTemporaryBuff(source) {
     return {
@@ -6398,25 +6390,6 @@ function cloneTemporaryBuff(source) {
         attrs: source.attrs ? { ...source.attrs } : undefined,
         stats: source.stats ? { ...source.stats } : undefined,
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
-    };
-}
-/** cloneInitialBuff：克隆妖兽出生自带 Buff 配置。 */
-function cloneInitialBuff(source) {
-    return {
-        ...source,
-        attrs: source.attrs ? { ...source.attrs } : undefined,
-        stats: source.stats ? { ...source.stats } : undefined,
-        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
-    };
-}
-/** cloneMonsterStatFormula：克隆妖兽动态属性公式。 */
-function cloneMonsterStatFormula(source) {
-    if (!source?.raw) {
-        return undefined;
-    }
-    return {
-        raw: clonePlainValue(source.raw),
-        baselines: clonePlainValue(source.baselines),
     };
 }
 /** recalculateMonsterBaseStatsFromFormula：按当前等级/血脉重算妖兽基础属性。 */
