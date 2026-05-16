@@ -23,11 +23,16 @@ export interface SecretRecord {
   updatedAt: string;
 }
 
-/** 密钥列表项（不含明文值）。 */
+/** 密钥列表项（不含明文值）。
+ *
+ * N51 安全收口：原本 list 内对每条密钥都 decrypt 一遍只为生成 maskedValue —— 即一次 list 就把
+ * 所有密钥的解密路径都跑一遍，且 mask 仍含部分明文片段。改成只回 metadata + 估算长度。
+ */
 export interface SecretListItem {
   key: string;
   description: string;
-  maskedValue: string;
+  /** 密钥明文长度的近似估算（基于密文段长度反推），不暴露任何明文内容。 */
+  valueLength: number;
   updatedAt: string;
 }
 
@@ -78,13 +83,14 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
 
   async list(): Promise<SecretListItem[]> {
     this.assertAvailable();
+    // N51：list 不再 decrypt 任何密钥；valueLength 由密文段长度反推（近似值，不含明文信息）。
     const result = await this.pool!.query(
       `SELECT secret_key, description, encrypted_value, updated_at_text FROM ${SECRET_TABLE} ORDER BY secret_key`,
     );
     return result.rows.map((row) => ({
       key: row.secret_key,
       description: row.description ?? '',
-      maskedValue: this.maskDecrypted(this.decrypt(row.encrypted_value)),
+      valueLength: estimateSecretLength(row.encrypted_value),
       updatedAt: row.updated_at_text,
     }));
   }
@@ -161,11 +167,6 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
   }
 
-  private maskDecrypted(value: string): string {
-    if (value.length <= 4) return '****';
-    return value.slice(0, 2) + '*'.repeat(Math.min(value.length - 4, 8)) + value.slice(-2);
-  }
-
   private assertAvailable(): void {
     if (!this.isAvailable()) {
       throw new BadRequestException('密钥管理模块不可用：未配置 SERVER_SECRET_ENCRYPTION_KEY 或数据库未连接');
@@ -188,4 +189,20 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
       client.release();
     }
   }
+}
+
+/**
+ * 从 AES-256-GCM 密文段长度估算明文字符数。
+ *
+ * 存储格式 `iv(12B):authTag(16B):ciphertext` 的 hex 表达；ciphertext 的字节数等于明文 UTF-8
+ * 字节数（GCM 是 stream cipher，不 padding）。这里用 ciphertext 的 hex 字符数 / 2 作为估算
+ * 上界 —— 不暴露任何明文片段，只提供"密钥大小量级"信息供 GM UI 显示长度提示。
+ */
+function estimateSecretLength(stored: unknown): number {
+  if (typeof stored !== 'string') return 0;
+  const parts = stored.split(':');
+  if (parts.length !== 3) return 0;
+  const ciphertextHex = parts[2] ?? '';
+  // 估算明文 UTF-8 字节数（hex 字符数 / 2）；中文 / 多字节字符的"明文字符数"会略小于该字节数。
+  return Math.max(0, Math.floor(ciphertextHex.length / 2));
 }

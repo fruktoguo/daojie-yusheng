@@ -68,31 +68,39 @@ export function getBrowserLocalStorage(): Storage | null {
   }
 }
 
-/** 读取已保存的 GM 登录口令，并去掉首尾空白。 */
+/**
+ * 读取已保存的 GM 登录口令。
+ *
+ * N51 安全收口：本函数永远返回空字符串，并在调用时清理 localStorage 上可能残留的明文
+ * 密码（一次性迁移）。原本"localStorage 持久化 GM 密码 + 自动回填"的设计在玩家域 XSS
+ * 场景下会一并暴露 GM 凭证；安全收益远大于"刷新页面要重新输入"的体验损失。
+ */
 export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const storage = getBrowserLocalStorage();
   if (!storage) return '';
   try {
-    return storage.getItem(storageKey)?.trim() ?? '';
+    // 一次性清理：旧版本可能已经把明文密码写入 localStorage；这里强制移除避免泄漏面持久存在。
+    storage.removeItem(storageKey);
   } catch {
-    return '';
+    // ignore
   }
+  return '';
 }
 
-/** 保存或清理 GM 登录口令，空值会直接移除历史记录。 */
-export function persistGmPassword(password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
+/**
+ * 保存或清理 GM 登录口令。
+ *
+ * N51 安全收口：本函数不再写入 localStorage，无论传入什么都强制清理；
+ * 旧调用点保留以避免上层 diff 噪音，调用语义等价于"确保 GM 密码不在 localStorage 中"。
+ */
+export function persistGmPassword(_password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const storage = getBrowserLocalStorage();
   if (!storage) return;
-  const normalized = password.trim();
   try {
-    if (normalized) {
-      storage.setItem(storageKey, normalized);
-      return;
-    }
     storage.removeItem(storageKey);
   } catch {
     // 本地存储不可用时直接跳过，不影响 GM 主流程。

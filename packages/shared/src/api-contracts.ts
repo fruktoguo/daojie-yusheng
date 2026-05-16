@@ -3648,11 +3648,17 @@ export type GmSendMailRes = GmSendPlayerMailRes | GmBroadcastMailRes;
 
 // ─── GM 密钥管理 ───
 
-/** GM 密钥列表项（不含明文值）。 */
+/** GM 密钥列表项（不含明文值）。
+ *
+ * N51 安全收口：原 maskedValue 字段需要 list 时把所有密钥都 decrypt 一遍（即使只是为了 mask），
+ * 单次 list 调用就让全部密钥过一遍解密链路；攻击者拿到 GM token 后调用 list 即可获得 mask 中
+ * 残留的明文片段。新字段只回 valueLength（密文长度的近似值，不暴露任何明文信息）。
+ */
 export interface GmSecretListItem {
   key: string;
   description: string;
-  maskedValue: string;
+  /** 密钥明文长度的近似值（基于密文段长度反推），不返回任何明文内容。 */
+  valueLength: number;
   updatedAt: string;
 }
 

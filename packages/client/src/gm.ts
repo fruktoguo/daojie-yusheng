@@ -33,6 +33,7 @@ import {
   type GmSuggestionListRes,
   type GmCpuSectionSnapshot,
   type GmHeapSnapshotRes,
+  type GmHeapSnapshotSummaryRes,
   type GmMemoryDomainEstimateSnapshot,
   type GmMemoryInstanceEstimateSnapshot,
   type GmV8HeapSpaceSnapshot,
@@ -336,6 +337,10 @@ const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButto
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
 /** writeHeapSnapshotBtn：生成Heap Snapshot按钮。 */
 const writeHeapSnapshotBtn = document.getElementById('write-heap-snapshot') as HTMLButtonElement;
+/** copyHeapSnapshotSummaryBtn：生成 Heap Snapshot 后自动复制摘要 JSON 到剪贴板的按钮。 */
+const copyHeapSnapshotSummaryBtn = document.getElementById('copy-heap-snapshot-summary') as HTMLButtonElement | null;
+/** copyLatestHeapSnapshotSummaryBtn：复制最近一次 Heap Snapshot 摘要 JSON 到剪贴板的按钮。 */
+const copyLatestHeapSnapshotSummaryBtn = document.getElementById('copy-latest-heap-snapshot-summary') as HTMLButtonElement | null;
 /** heapSnapshotMetaEl：Heap Snapshot操作状态。 */
 const heapSnapshotMetaEl = document.getElementById('heap-snapshot-meta') as HTMLDivElement;
 /** cpuCurrentPercentEl：cpu当前Percent El。 */
@@ -6712,7 +6717,7 @@ function renderSecretList(list: GmSecretListItem[]): void {
   secretListEl.innerHTML = list.map((item) => `
     <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--wash-ink);">
       <code style="font-weight:600; min-width:160px;">${escapeHtml(item.key)}</code>
-      <span style="color:var(--ink-grey); font-family:monospace;">${escapeHtml(item.maskedValue)}</span>
+      <span style="color:var(--ink-grey); font-family:monospace;">长度 ${item.valueLength}</span>
       <span style="flex:1; color:var(--ink-grey); font-size:13px;">${escapeHtml(item.description)}</span>
       <span style="font-size:12px; color:var(--light-ink);">${escapeHtml(item.updatedAt.slice(0, 19).replace('T', ' '))}</span>
       <button class="small-btn danger" type="button" data-secret-delete="${escapeHtml(item.key)}">删除</button>
@@ -8052,6 +8057,89 @@ async function writeHeapSnapshot(): Promise<void> {
   }
 }
 
+/**
+ * writeAndCopyHeapSnapshotSummary：触发服务端生成 Heap Snapshot，
+ * 解析完成后把 ~50 KB 摘要 JSON 复制到剪贴板，省去下载 GB 级 .heapsnapshot 的成本。
+ */
+async function writeAndCopyHeapSnapshotSummary(): Promise<void> {
+  if (!copyHeapSnapshotSummaryBtn) {
+    return;
+  }
+  copyHeapSnapshotSummaryBtn.disabled = true;
+  writeHeapSnapshotBtn.disabled = true;
+  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot 并解析摘要，服务端会短暂停顿...';
+  try {
+    const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
+      method: 'POST',
+    });
+    if (!result.summary) {
+      const reason = result.summaryError ? `（${result.summaryError}）` : '';
+      const message = `已生成 ${result.path}，但摘要解析未完成${reason}，可点"复制最近摘要"重试`;
+      heapSnapshotMetaEl.textContent = message;
+      setStatus(message, true);
+      return;
+    }
+    const text = JSON.stringify(result.summary, null, 2);
+    const ok = await copyTextToClipboard(text);
+    const summaryBytesLabel = typeof result.summaryBytes === 'number' && result.summaryBytes > 0
+      ? formatBytes(result.summaryBytes)
+      : `${text.length}`;
+    if (ok) {
+      const detail = `已生成 ${formatBytes(result.bytes)} 原始文件 · 摘要 ${summaryBytesLabel} 已复制到剪贴板`;
+      heapSnapshotMetaEl.textContent = detail;
+      setStatus('Heap Snapshot 摘要已复制到剪贴板');
+    } else {
+      heapSnapshotMetaEl.textContent = '摘要已生成但写入剪贴板失败，请改用"复制最近摘要"或检查浏览器权限';
+      setStatus('剪贴板写入失败，请改用"复制最近摘要"按钮重试', true);
+    }
+    await loadState(true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '生成 Heap Snapshot 摘要失败';
+    heapSnapshotMetaEl.textContent = message;
+    setStatus(message, true);
+  } finally {
+    copyHeapSnapshotSummaryBtn.disabled = false;
+    writeHeapSnapshotBtn.disabled = false;
+  }
+}
+
+/**
+ * copyLatestHeapSnapshotSummary：读取服务端最近一次 Heap Snapshot 摘要并复制到剪贴板，
+ * 不重新生成（不会让 V8 暂停）；如果尚未生成过会提示运维先点"生成并复制摘要"。
+ */
+async function copyLatestHeapSnapshotSummary(): Promise<void> {
+  if (!copyLatestHeapSnapshotSummaryBtn) {
+    return;
+  }
+  copyLatestHeapSnapshotSummaryBtn.disabled = true;
+  try {
+    const result = await request<GmHeapSnapshotSummaryRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot/summary`);
+    if (!result.ok || !result.summary) {
+      const message = result.hint ?? result.reason ?? '尚未生成过 Heap Snapshot 摘要';
+      heapSnapshotMetaEl.textContent = message;
+      setStatus(message, true);
+      return;
+    }
+    const text = JSON.stringify(result.summary, null, 2);
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      const fileLabel = result.fileName ?? '最近一份摘要';
+      const sizeLabel = typeof result.bytes === 'number' && result.bytes > 0 ? formatBytes(result.bytes) : `${text.length}`;
+      heapSnapshotMetaEl.textContent = `${fileLabel} · ${sizeLabel} 已复制到剪贴板`;
+      setStatus('Heap Snapshot 摘要已复制到剪贴板');
+    } else {
+      heapSnapshotMetaEl.textContent = '剪贴板写入失败，请检查浏览器权限或在 https / localhost 下重试';
+      setStatus('剪贴板写入失败', true);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '读取 Heap Snapshot 摘要失败';
+    heapSnapshotMetaEl.textContent = message;
+    setStatus(message, true);
+  } finally {
+    copyLatestHeapSnapshotSummaryBtn.disabled = false;
+  }
+}
+
 /** handleEditorAction：处理编辑器动作。 */
 function handleEditorAction(action: string, trigger: HTMLElement): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -8990,6 +9078,12 @@ resetPathfindingStatsBtn.addEventListener('click', () => {
 });
 writeHeapSnapshotBtn.addEventListener('click', () => {
   writeHeapSnapshot().catch(() => {});
+});
+copyHeapSnapshotSummaryBtn?.addEventListener('click', () => {
+  writeAndCopyHeapSnapshotSummary().catch(() => {});
+});
+copyLatestHeapSnapshotSummaryBtn?.addEventListener('click', () => {
+  copyLatestHeapSnapshotSummary().catch(() => {});
 });
 serverLogsLoadOlderBtn.addEventListener('click', () => {
   loadServerLogs(true).catch((error: unknown) => {
