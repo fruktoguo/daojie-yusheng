@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -589,7 +589,14 @@ function proveMinimapAuxReusesStaticMarkerRefs(): {
   return { visibleMarkerRefShared, diffAddRefShared, mapStaticUsesVisibleTileByKey, cacheMarkerRefShared };
 }
 
-function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number; instanceCacheUsed: boolean } {
+function proveTileProjectionRefsReachPlayerCache(): {
+  sameSnapshotRef: boolean;
+  matrixRefReused: boolean;
+  byKeyRefReused: boolean;
+  cacheRefShared: boolean;
+  deltaPatchCount: number;
+  instanceCacheUsed: boolean;
+} {
   // mock instance：tileProjectionByCoord 现在挂在实例对象上，跟随实例 GC 释放。
   const fakeInstance: { tileProjectionByCoord?: Map<string, any> } = {};
   const snapshotService = new WorldSyncMapSnapshotService(
@@ -622,15 +629,26 @@ function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; 
   const secondTile = second.visibleTiles.byKey.get('1,1');
   const cachedTile = (staticAuxService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('tile_player').visibleTiles.get('1,1');
   const sameSnapshotRef = firstTile === secondTile;
+  const matrixRefReused = first.visibleTiles.matrix === second.visibleTiles.matrix;
+  const byKeyRefReused = first.visibleTiles.byKey === second.visibleTiles.byKey;
   const cacheRefShared = cachedTile === firstTile;
   // 验证 cache 真的写到了 instance 对象上，而不是 service 自己的 field。
   const instanceCacheUsed = fakeInstance.tileProjectionByCoord instanceof Map
     && fakeInstance.tileProjectionByCoord.size > 0;
   assert.equal(sameSnapshotRef, true);
+  assert.equal(matrixRefReused, true);
+  assert.equal(byKeyRefReused, true);
   assert.equal(cacheRefShared, true);
   assert.equal(second.tilePatches.length, 0);
   assert.equal(instanceCacheUsed, true);
-  return { sameSnapshotRef, cacheRefShared, deltaPatchCount: second.tilePatches.length, instanceCacheUsed };
+  return {
+    sameSnapshotRef,
+    matrixRefReused,
+    byKeyRefReused,
+    cacheRefShared,
+    deltaPatchCount: second.tilePatches.length,
+    instanceCacheUsed,
+  };
 }
 
 function provePanelSliceCacheReusedOnNoopDelta(): { panelRefReused: boolean; deltaIsNull: boolean } {

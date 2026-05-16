@@ -65,6 +65,8 @@ interface WorldSyncMinimapPort {
   buildMinimapSnapshotSync(template: unknown): any;
 }
 
+const visibleTilesSnapshotCacheByPlayer = new WeakMap<object, any>();
+
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
 @Injectable()
 export class WorldSyncMapSnapshotService {
@@ -105,35 +107,47 @@ export class WorldSyncMapSnapshotService {
     const originY = view.self.y - radius;
     const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
     const visibleTileKeys = new Set(Array.isArray(view.visibleTileKeys) ? view.visibleTileKeys : []);
-    const matrix = [];
-    const byKey = new Map();
-    for (let row = 0; row < radius * 2 + 1; row += 1) {
-      const y = originY + row;
-      const line = [];
-      for (let column = 0; column < radius * 2 + 1; column += 1) {
-        const x = originX + column;
-        const tileIndex = x >= 0 && y >= 0 && x < template.width && y < template.height
-          ? getTileIndex(x, y, template.width)
-          : -1;
-
-        const coordKey = buildCoordKey(x, y);
-        const tileVisible = visibleTileKeys.size > 0
-          ? visibleTileKeys.has(coordKey)
-          : (visibleTileIndices.size > 0 ? visibleTileIndices.has(tileIndex) : true);
-        const tile = !tileVisible
-          ? null
-          : this.buildCompositeTileSyncState(view, template, x, y, player);
-        line.push(tile);
-        if (tile) {
-          byKey.set(coordKey, tile);
-        }
-      }
-      matrix.push(line);
+    const cacheOwner = resolveVisibleTilesSnapshotCacheOwner(player);
+    const cached = cacheOwner ? visibleTilesSnapshotCacheByPlayer.get(cacheOwner) : null;
+    if (canReuseVisibleTilesSnapshotCache(cached, view, template, radius, originX, originY)) {
+      refreshVisibleTilesSnapshot(
+        this,
+        cached.snapshot,
+        view,
+        player,
+        template,
+        radius,
+        originX,
+        originY,
+        visibleTileIndices,
+        visibleTileKeys,
+      );
+      return cached.snapshot;
     }
-    return {
-      matrix,
-      byKey,
-    };
+    const snapshot = createVisibleTilesSnapshot(
+      this,
+      view,
+      player,
+      template,
+      radius,
+      originX,
+      originY,
+      visibleTileIndices,
+      visibleTileKeys,
+    );
+    if (cacheOwner) {
+      visibleTilesSnapshotCacheByPlayer.set(cacheOwner, {
+        templateId: view.instance?.templateId ?? template.id,
+        instanceId: view.instance?.instanceId ?? null,
+        templateWidth: template.width,
+        templateHeight: template.height,
+        radius,
+        originX,
+        originY,
+        snapshot,
+      });
+    }
+    return snapshot;
   }
 
   buildVisibleTileKeySet(view, player, template) {
@@ -688,8 +702,63 @@ function buildProjectedTileAura(rawAura, resources, player) {
   return getQiResourceDefaultLevel('aura.refined.neutral', effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
 }
 
+function resolveVisibleTilesSnapshotCacheOwner(player) {
+  return player && typeof player === 'object' ? player : null;
+}
+
+function canReuseVisibleTilesSnapshotCache(cached, view, template, radius, originX, originY) {
+  return Boolean(cached)
+    && cached.templateId === (view.instance?.templateId ?? template.id)
+    && cached.instanceId === (view.instance?.instanceId ?? null)
+    && cached.templateWidth === template.width
+    && cached.templateHeight === template.height
+    && cached.radius === radius
+    && cached.originX === originX
+    && cached.originY === originY
+    && cached.snapshot?.matrix?.length === radius * 2 + 1
+    && cached.snapshot?.byKey instanceof Map;
+}
+
+function createVisibleTilesSnapshot(service, view, player, template, radius, originX, originY, visibleTileIndices, visibleTileKeys) {
+  const matrix = [];
+  const byKey = new Map();
+  const snapshot = { matrix, byKey };
+  for (let row = 0; row < radius * 2 + 1; row += 1) {
+    matrix.push(new Array(radius * 2 + 1).fill(null));
+  }
+  refreshVisibleTilesSnapshot(service, snapshot, view, player, template, radius, originX, originY, visibleTileIndices, visibleTileKeys);
+  return snapshot;
+}
+
+function refreshVisibleTilesSnapshot(service, snapshot, view, player, template, radius, originX, originY, visibleTileIndices, visibleTileKeys) {
+  const size = radius * 2 + 1;
+  const { matrix, byKey } = snapshot;
+  byKey.clear();
+  for (let row = 0; row < size; row += 1) {
+    const y = originY + row;
+    const line = matrix[row];
+    for (let column = 0; column < size; column += 1) {
+      const x = originX + column;
+      const tileIndex = x >= 0 && y >= 0 && x < template.width && y < template.height
+        ? getTileIndex(x, y, template.width)
+        : -1;
+      const coordKey = buildCoordKey(x, y);
+      const tileVisible = visibleTileKeys.size > 0
+        ? visibleTileKeys.has(coordKey)
+        : (visibleTileIndices.size > 0 ? visibleTileIndices.has(tileIndex) : true);
+      const tile = !tileVisible
+        ? null
+        : service.buildCompositeTileSyncState(view, template, x, y, player);
+      line[column] = tile;
+      if (tile) {
+        byKey.set(coordKey, tile);
+      }
+    }
+  }
+}
+
 function buildCoordKey(x, y) {
-  return `${x},${y}`;
+    return `${x},${y}`;
 }
 
 function buildOverlayParentInstanceId(instance, parentTemplateId) {
