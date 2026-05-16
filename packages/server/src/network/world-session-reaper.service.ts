@@ -129,10 +129,19 @@ export class WorldSessionReaperService {
                     await this.playerSessionRouteService.clearLocalRoute(binding.playerId, routeSessionEpoch);
                     this.worldSyncService.clearDetachedPlayerCaches(binding.playerId);
                     this.unloadIdleDetachedRuntime(binding.playerId);
+                    // 这一轮 flush 整链路完成，重置该玩家的 requeue 计数；下次失败从 1 重新累计。
+                    if (typeof this.worldSessionService.resetExpiredBindingRetryCounter === 'function') {
+                        this.worldSessionService.resetExpiredBindingRetryCounter(binding.playerId);
+                    }
                 }
                 catch (error) {
-                    this.worldSessionService.requeueExpiredBinding(binding);
-                    this.logger.error(`回收玩家 ${binding.playerId} 的会话失败`, error instanceof Error ? error.stack : String(error));
+                    const requeued = this.worldSessionService.requeueExpiredBinding(binding, { lastError: error });
+                    if (requeued) {
+                        this.logger.error(`回收玩家 ${binding.playerId} 的会话失败，已重入等待下次重试`, error instanceof Error ? error.stack : String(error));
+                    }
+                    else {
+                        this.logger.error(`回收玩家 ${binding.playerId} 的会话连续失败超过上限，已转入死信队列`, error instanceof Error ? error.stack : String(error));
+                    }
                 }
             }
         }

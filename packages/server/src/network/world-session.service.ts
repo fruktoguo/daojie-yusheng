@@ -35,6 +35,15 @@ export interface WorldSessionBinding {
   expireAt: number | null;
 }
 
+/** 死信队列条目：保留 binding 与失败上下文供运维/GM 面板观察。 */
+export interface ExpiredBindingDeadLetterEntry {
+  binding: WorldSessionBinding;
+  firstFailedAt: number;
+  lastFailedAt: number;
+  attempts: number;
+  lastError: string | null;
+}
+
 interface RegisterSocketOptions {
   allowImplicitDetachedResume?: boolean;
   allowRequestedDetachedResume?: boolean;
@@ -51,6 +60,25 @@ function resolveSessionDetachExpireMs(): number {
   }
   return DEFAULT_SESSION_DETACH_EXPIRE_MS;
 }
+
+/**
+ * 过期 binding 重入次数上限：达到上限后 binding 会被移入死信队列，
+ * 防止 PlayerPersistenceFlushService.flushPlayer 持续失败时无限 requeue。
+ * 默认 10 次（约 10 秒，对应 reaper 1Hz），可通过 env 调整。
+ */
+function resolveExpiredBindingMaxRetries(): number {
+  const raw = process.env.SERVER_SESSION_REAPER_MAX_RETRIES;
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return 10;
+  }
+  const parsed = Number(raw.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 10;
+  }
+  return Math.max(1, Math.min(1000, Math.trunc(parsed)));
+}
+
+const EXPIRED_BINDING_MAX_RETRIES = resolveExpiredBindingMaxRetries();
 
 function sanitizeRequestedSessionId(rawSessionId: unknown): string {
   if (typeof rawSessionId !== 'string') {
@@ -75,6 +103,15 @@ export class WorldSessionService {
   private readonly bindingBySessionId = new Map<string, WorldSessionBinding>();
   private readonly expiryTimerByPlayerId = new Map<string, SessionTimer>();
   private readonly expiredBindings = new Map<string, WorldSessionBinding>();
+  /**
+   * 每个 playerId 当前 expired binding 的重入失败计数：每次 reaper 调用 requeueExpiredBinding 时 +1，
+   * 进入 expiredBindings 并被成功消费（consumeExpiredBindings + flush 成功不再 requeue）后由
+   * resetExpiredBindingRetryCounter 清零。达到 EXPIRED_BINDING_MAX_RETRIES 时 requeue 不再生效，
+   * binding 转入 expiredBindingDeadLetter。
+   */
+  private readonly requeueAttemptsByPlayerId = new Map<string, number>();
+  /** 持续失败的 binding 死信队列，供运维/GM 面板观察异常玩家。 */
+  private readonly expiredBindingDeadLetter = new Map<string, ExpiredBindingDeadLetterEntry>();
   private readonly purgedPlayerIds = new Set<string>();
   private nextSessionSequence = 1;
   private readonly sessionDetachExpireMs = resolveSessionDetachExpireMs();
@@ -234,23 +271,86 @@ export class WorldSessionService {
     return bindings;
   }
 
-  requeueExpiredBinding(binding: Partial<WorldSessionBinding> | null | undefined): boolean {
+  /**
+   * 重入过期 binding 到队列等待下一次 reaper 处理。
+   * 引入失败计数：每次重入 +1，达到 EXPIRED_BINDING_MAX_RETRIES 时不再回队，
+   * 改为登记到 expiredBindingDeadLetter，避免 flushPlayer 持续失败导致 expiredBindings 永久重排。
+   * 调用方可读取返回值：true=已重入，false=已进入死信队列（或 binding 字段非法被忽略）。
+   */
+  requeueExpiredBinding(
+    binding: Partial<WorldSessionBinding> | null | undefined,
+    options?: { lastError?: unknown },
+  ): boolean {
     const playerId = typeof binding?.playerId === 'string' ? binding.playerId.trim() : '';
     const sessionId = typeof binding?.sessionId === 'string' ? binding.sessionId.trim() : '';
     if (!playerId || !sessionId || binding?.connected) {
       return false;
     }
-    this.expiredBindings.set(playerId, {
+    const normalizedBinding: WorldSessionBinding = {
       playerId,
       sessionId,
       socketId: null,
       sessionEpoch: normalizeSessionEpoch(binding?.sessionEpoch),
       resumed: false,
       connected: false,
-      detachedAt: Number.isFinite(binding?.detachedAt) ? binding.detachedAt : Date.now(),
-      expireAt: Number.isFinite(binding?.expireAt) ? binding.expireAt : Date.now(),
-    });
+      detachedAt: Number.isFinite(binding?.detachedAt) ? (binding!.detachedAt as number) : Date.now(),
+      expireAt: Number.isFinite(binding?.expireAt) ? (binding!.expireAt as number) : Date.now(),
+    };
+    const previousAttempts = this.requeueAttemptsByPlayerId.get(playerId) ?? 0;
+    const nextAttempts = previousAttempts + 1;
+    if (nextAttempts > EXPIRED_BINDING_MAX_RETRIES) {
+      const lastError = formatRequeueLastError(options?.lastError);
+      const existingDeadLetter = this.expiredBindingDeadLetter.get(playerId);
+      const now = Date.now();
+      this.expiredBindingDeadLetter.set(playerId, {
+        binding: normalizedBinding,
+        firstFailedAt: existingDeadLetter?.firstFailedAt ?? now,
+        lastFailedAt: now,
+        attempts: nextAttempts,
+        lastError,
+      });
+      this.requeueAttemptsByPlayerId.delete(playerId);
+      return false;
+    }
+    this.requeueAttemptsByPlayerId.set(playerId, nextAttempts);
+    this.expiredBindings.set(playerId, normalizedBinding);
     return true;
+  }
+
+  /**
+   * 在 reaper 成功 flush 一次 binding 后调用，清掉 retry 计数；
+   * 后续若再次失败将从 1 重新累计，避免历史失败次数影响新一轮判断。
+   */
+  resetExpiredBindingRetryCounter(playerId: string): void {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId) {
+      return;
+    }
+    this.requeueAttemptsByPlayerId.delete(normalizedPlayerId);
+  }
+
+  /** 暴露死信队列内容，供 GM 面板/监控诊断玩家级 flush 长期失败问题。 */
+  listExpiredBindingDeadLetter(): ExpiredBindingDeadLetterEntry[] {
+    return Array.from(this.expiredBindingDeadLetter.values()).map((entry) => ({
+      ...entry,
+      binding: { ...entry.binding },
+    }));
+  }
+
+  /** 取出并清空死信队列：运维确认处理后调用。 */
+  drainExpiredBindingDeadLetter(): ExpiredBindingDeadLetterEntry[] {
+    const entries = this.listExpiredBindingDeadLetter();
+    this.expiredBindingDeadLetter.clear();
+    return entries;
+  }
+
+  /** 单玩家死信清理：运维手动确认或玩家重新上线时调用。 */
+  removeExpiredBindingDeadLetterEntry(playerId: string): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId) {
+      return false;
+    }
+    return this.expiredBindingDeadLetter.delete(normalizedPlayerId);
   }
 
   rememberSessionEpoch(playerId: string, sessionEpoch: number | null | undefined): void {
@@ -303,12 +403,16 @@ export class WorldSessionService {
     if (!binding) {
       this.clearExpiry(normalizedPlayerId);
       this.expiredBindings.delete(normalizedPlayerId);
+      this.requeueAttemptsByPlayerId.delete(normalizedPlayerId);
+      this.expiredBindingDeadLetter.delete(normalizedPlayerId);
       this.purgedPlayerIds.add(normalizedPlayerId);
       return false;
     }
     this.bindingByPlayerId.delete(normalizedPlayerId);
     this.clearExpiry(normalizedPlayerId);
     this.expiredBindings.delete(normalizedPlayerId);
+    this.requeueAttemptsByPlayerId.delete(normalizedPlayerId);
+    this.expiredBindingDeadLetter.delete(normalizedPlayerId);
     this.bindingBySessionId.delete(binding.sessionId);
     if (binding.socketId) {
       this.bindingBySocketId.delete(binding.socketId);
@@ -368,4 +472,22 @@ function normalizeSessionEpoch(sessionEpoch: unknown): number | null {
     return null;
   }
   return Math.max(1, Math.trunc(normalizedSessionEpoch));
+}
+
+function formatRequeueLastError(error: unknown): string | null {
+  if (error == null) {
+    return null;
+  }
+  if (error instanceof Error) {
+    return error.message || error.name || 'Error';
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  }
+  catch {
+    return String(error);
+  }
 }
