@@ -51,7 +51,7 @@ import {
   isSameActionEntry,
   isSameBuffEntry,
 } from './projector-compare';
-import { cloneSyncedItemStack, cloneTechniqueEntry, cloneVisibleBuff } from './projector-clone';
+import { cloneSyncedItemStack, cloneTechniqueEntry } from './projector-clone';
 
 /** 对比前后帧玩家实体，生成 add/remove/update patch 列表。 */
 export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, current: Map<string, ProjectedPlayerEntry>): WorldPlayerPatchView[] {
@@ -176,7 +176,7 @@ export function diffGroundPiles(previous: Map<string, ProjectedGroundPileEntry>,
             continue;
         }
         if (!isSameGroundPile(prev ?? null, entry)) {
-            result.push({ sourceId, x: entry.x, y: entry.y, items: entry.items.map((item) => ({ ...item })) });
+            result.push({ sourceId, x: entry.x, y: entry.y, items: entry.items });
         }
     }
     for (const [sourceId, entry] of previous) {
@@ -337,7 +337,7 @@ export function diffBuffEntries(previous: VisibleBuffState[], current: VisibleBu
     const previousById = new Map(previous.map((entry) => [entry.buffId, entry]));
     return current
         .filter((entry) => !isSameBuffEntry(previousById.get(entry.buffId) ?? null, entry))
-        .map((entry) => cloneVisibleBuff(entry));
+        .map((entry) => entry);
 }
 
 export function diffRemovedBuffIds(previous: VisibleBuffState[], current: VisibleBuffState[]): string[] {

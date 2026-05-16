@@ -109,6 +109,59 @@ const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedCo
 const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
 
+type SpecialStatsCacheEntry = {
+    attrsRevision: number;
+    techniquesRevision: number;
+    equipmentRevision: number;
+    foundation: number;
+    rootFoundation: number;
+    bodyTrainingLevel: number;
+    combatExp: number;
+    comprehension: number;
+    luck: number;
+    fengShuiLuck: number;
+    stats: PlayerSpecialStats;
+};
+
+const specialStatsCache = new WeakMap<ProjectorPlayerLike, SpecialStatsCacheEntry>();
+
+function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpecialStats {
+    const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
+    const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
+    const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0));
+    const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
+    const fengShuiLuck = Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
+    const cached = specialStatsCache.get(player);
+    if (cached
+        && cached.attrsRevision === player.attrs.revision
+        && cached.techniquesRevision === player.techniques.revision
+        && cached.equipmentRevision === player.equipment.revision
+        && cached.foundation === player.foundation
+        && cached.rootFoundation === rootFoundation
+        && cached.bodyTrainingLevel === bodyTrainingLevel
+        && cached.combatExp === player.combatExp
+        && cached.comprehension === comprehension
+        && cached.luck === luck
+        && cached.fengShuiLuck === fengShuiLuck) {
+        return cached.stats;
+    }
+    const stats = resolvePlayerSpecialStats(player);
+    specialStatsCache.set(player, {
+        attrsRevision: player.attrs.revision,
+        techniquesRevision: player.techniques.revision,
+        equipmentRevision: player.equipment.revision,
+        foundation: player.foundation,
+        rootFoundation,
+        bodyTrainingLevel,
+        combatExp: player.combatExp,
+        comprehension,
+        luck,
+        fengShuiLuck,
+        stats,
+    });
+    return stats;
+}
+
 function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
   const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
@@ -280,6 +333,114 @@ function buildActionOrder(actions: ProjectedActionEntry[]): string[] {
     return actions.map((entry) => entry.id);
 }
 
+function buildFullWorldDeltaFromState(
+    view: Pick<ProjectorViewLike, 'tick' | 'worldRevision' | 'selfRevision'>,
+    state: WorldStateSlice,
+): WorldDeltaView {
+    const players: WorldPlayerPatchView[] = Array.from(state.players, ([id, entry]) => ({
+        id,
+        n: entry.n,
+        ch: entry.ch,
+        x: entry.x,
+        y: entry.y,
+        sc: entry.sc ?? undefined,
+    }));
+    const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => ({
+        id,
+        mid: entry.mid,
+        x: entry.x,
+        y: entry.y,
+        hp: entry.hp,
+        maxHp: entry.maxHp,
+        qi: entry.qi,
+        maxQi: entry.maxQi,
+        n: entry.n,
+        c: entry.c,
+        tr: entry.tr,
+    }));
+    const npcs: WorldNpcPatchView[] = Array.from(state.npcs, ([id, entry]) => ({
+        id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.n,
+        ch: entry.ch,
+        c: entry.c,
+        sh: entry.sh === 1 ? 1 : undefined,
+        qm: entry.qm,
+    }));
+    const portals: WorldPortalPatchView[] = Array.from(state.portals, ([id, entry]) => ({
+        id,
+        n: entry.n,
+        ch: entry.ch,
+        x: entry.x,
+        y: entry.y,
+        tm: entry.tm,
+        tr: entry.tr,
+        d: entry.d,
+    }));
+    const ground: WorldGroundPatchView[] = Array.from(state.groundPiles, ([sourceId, entry]) => ({
+        sourceId,
+        x: entry.x,
+        y: entry.y,
+        items: entry.items,
+    }));
+    const containers: WorldContainerPatchView[] = Array.from(state.containers, ([id, entry]) => ({
+        id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.n,
+        ch: entry.ch,
+        c: entry.c,
+        rr: entry.rr,
+    }));
+    const buildings: WorldBuildingPatchView[] = Array.from(state.buildings, ([id, entry]) => ({
+        id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.n,
+        ch: entry.ch,
+        c: entry.c,
+        rt: entry.rt,
+        tt: entry.tt,
+    }));
+    const formations: WorldFormationPatchView[] = Array.from(state.formations, ([id, entry]) => ({
+        id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.n,
+        ch: entry.ch,
+        c: entry.c,
+        ac: entry.ac,
+        rs: entry.rs,
+        sh: entry.sh,
+        hl: entry.hl,
+        bch: entry.bch,
+        bc: entry.bc,
+        bhl: entry.bhl,
+        ev: entry.ev,
+        rv: entry.rv,
+        bv: entry.bv,
+        tx: entry.tx,
+        bd: entry.bd,
+        os: entry.os,
+        op: entry.op,
+        lt: entry.lt,
+    }));
+    return {
+        t: view.tick,
+        wr: view.worldRevision,
+        sr: view.selfRevision,
+        p: players.length > 0 ? players : undefined,
+        m: monsters.length > 0 ? monsters : undefined,
+        n: npcs.length > 0 ? npcs : undefined,
+        o: portals.length > 0 ? portals : undefined,
+        g: ground.length > 0 ? ground : undefined,
+        c: containers.length > 0 ? containers : undefined,
+        bd: buildings.length > 0 ? buildings : undefined,
+        fmn: formations.length > 0 ? formations : undefined,
+    };
+}
+
 /** 构造 MapEnter 视图：玩家进入/切换地图时的首包地图元信息。 */
 function buildMapEnter(view: ProjectorViewLike): MapEnterView {
     return {
@@ -299,165 +460,62 @@ function buildFullWorldDelta(
     view: ProjectorViewLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
 ): WorldDeltaView {
-    const players: WorldPlayerPatchView[] = [{
-            id: view.playerId,
-            n: resolvePlayerRenderLabel(view.self.name, view.self.displayName, view.playerId),
-            ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
-            x: view.self.x,
-            y: view.self.y,
-            sc: resolveBuffPresentationScale(view.self.buffs),
-        }, ...Array.from(view.visiblePlayers, (entry) => ({
-            id: entry.playerId,
-            n: resolvePlayerRenderLabel(entry.name, entry.displayName, entry.playerId),
-            ch: resolvePlayerRenderChar(entry.displayName, entry.name),
-            x: entry.x,
-            y: entry.y,
-            sc: resolveBuffPresentationScale(entry.buffs),
-        }))];
-    const monsters: WorldMonsterPatchView[] = Array.from(view.localMonsters, (entry) => ({
-        id: entry.runtimeId,
-        mid: entry.monsterId,
-        x: entry.x,
-        y: entry.y,
-        hp: entry.hp,
-        maxHp: entry.maxHp,
-        qi: entry.qi,
-        maxQi: entry.maxQi,
-        n: entry.name,
-        c: entry.color,
-        tr: entry.tier,
-    }));
-    const npcs: WorldNpcPatchView[] = Array.from(view.localNpcs, (entry) => ({
-        id: entry.npcId,
-        x: entry.x,
-        y: entry.y,
-        n: entry.name,
-        ch: entry.char,
-        c: entry.color,
-        sh: entry.hasShop ? 1 : undefined,
-        qm: entry.questMarker ?? null,
-    }));
-    const portals: WorldPortalPatchView[] = Array.from(view.localPortals, (entry) => ({
-        id: buildPortalId(entry),
-        n: resolvePortalDisplayName(entry, resolveMapName),
-        ch: resolvePortalRenderChar(entry),
-        x: entry.x,
-        y: entry.y,
-        tm: entry.targetMapId,
-        tr: entry.trigger === 'auto' ? 1 : 0,
-        d: entry.direction === 'one_way' ? 1 : 0,
-    }));
-    const ground: WorldGroundPatchView[] = Array.from(view.localGroundPiles, (entry) => ({
-        sourceId: entry.sourceId,
-        x: entry.x,
-        y: entry.y,
-        items: entry.items.map((item) => ({ ...item })),
-    }));
-    const containers: WorldContainerPatchView[] = Array.from(view.localContainers, (entry) => ({
-        id: `container:${entry.id}`,
-        x: entry.x,
-        y: entry.y,
-        n: entry.name,
-        ch: entry.char,
-        c: entry.color,
-        rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
-    }));
-    const buildings: WorldBuildingPatchView[] = Array.from(view.localBuildings ?? [], (entry) => ({
-        id: entry.id,
-        x: entry.x,
-        y: entry.y,
-        n: entry.name,
-        ch: entry.char,
-        c: entry.color,
-        rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks),
-        tt: normalizeOptionalNonNegativeInteger(entry.totalTicks),
-    }));
-    const formations: WorldFormationPatchView[] = Array.from(view.localFormations ?? [], (entry) => ({
-        id: entry.id,
-        x: entry.x,
-        y: entry.y,
-        n: entry.name,
-        ch: entry.char ?? '◎',
-        c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff',
-        ac: entry.active === false ? 0 : 1,
-        rs: normalizeOptionalNonNegativeInteger(entry.radius),
-        sh: entry.rangeShape,
-        hl: entry.rangeHighlightColor,
-        bch: entry.boundaryChar,
-        bc: entry.boundaryColor,
-        bhl: entry.boundaryRangeHighlightColor,
-        ev: entry.eyeVisibleWithoutSenseQi === true ? 1 : 0,
-        rv: entry.rangeVisibleWithoutSenseQi === true ? 1 : 0,
-        bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 : 0,
-        tx: entry.showText === false ? 0 : 1,
-        bd: entry.blocksBoundary === true ? 1 : 0,
-        os: entry.ownerSectId ?? null,
-        op: entry.ownerPlayerId ?? null,
-        lt: entry.lifecycle === 'persistent' ? 1 : 0,
-    }));
-    return {
-        t: view.tick,
-        wr: view.worldRevision,
-        sr: view.selfRevision,
-        p: players.length > 0 ? players : undefined,
-        m: monsters.length > 0 ? monsters : undefined,
-        n: npcs.length > 0 ? npcs : undefined,
-        o: portals.length > 0 ? portals : undefined,
-        g: ground.length > 0 ? ground : undefined,
-        c: containers.length > 0 ? containers : undefined,
-        bd: buildings.length > 0 ? buildings : undefined,
-        fmn: formations.length > 0 ? formations : undefined,
-    };
+    return buildFullWorldDeltaFromState(view, captureWorldState(view, resolveMapName));
 }
 
 /** 构造全量 SelfDelta：包含玩家自身的位置、HP、MP、经验等核心状态。 */
 function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
+    return buildFullSelfDeltaFromState(captureSelfState(player), player.selfRevision);
+}
+
+function buildFullSelfDeltaFromState(self: ProjectedSelfState, selfRevision: number): SelfDeltaView {
     return {
-        sr: player.selfRevision,
-        iid: player.instanceId,
-        mid: player.templateId,
-        x: player.x,
-        y: player.y,
-        f: player.facing,
-        hp: player.hp,
-        maxHp: player.maxHp,
-        qi: player.qi,
-        maxQi: player.maxQi,
-        wallet: cloneWalletState(player.wallet),
+        sr: selfRevision,
+        iid: self.instanceId,
+        mid: self.templateId,
+        x: self.x,
+        y: self.y,
+        f: self.f,
+        hp: self.hp,
+        maxHp: self.maxHp,
+        qi: self.qi,
+        maxQi: self.maxQi,
+        wallet: self.wallet,
     };
 }
 
 /** 构造全量 PanelDelta：包含背包、装备、功法、属性、动作和 buff 面板完整状态。 */
 function buildFullPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
+    return buildFullPanelDeltaFromState(capturePanelState(player));
+}
+
+function buildFullPanelDeltaFromState(panel: ProjectedPanelState): S2C_PanelDelta {
     return {
         inv: {
-            r: player.inventory.revision,
+            r: panel.inventory.revision,
             full: 1 as const,
-            capacity: player.inventory.capacity,
-            size: player.inventory.items.length,
-            slots: player.inventory.items.map((entry, slotIndex) => ({
+            capacity: panel.inventory.capacity,
+            size: panel.inventory.items.length,
+            slots: panel.inventory.items.map((entry, slotIndex) => ({
                 slotIndex,
-                item: { ...entry },
+                item: entry,
             })),
         },
         eq: {
-            r: player.equipment.revision,
+            r: panel.equipment.revision,
             full: 1 as const,
-            slots: player.equipment.slots.map((entry) => ({
-                slot: entry.slot,
-                item: entry.item ? { ...entry.item } : null,
-            })),
+            slots: panel.equipment.slots,
         },
         tech: {
-            r: player.techniques.revision,
+            r: panel.technique.revision,
             full: 1 as const,
-            techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
-            cultivatingTechId: player.techniques.cultivatingTechId,
-            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
+            techniques: panel.technique.techniques,
+            cultivatingTechId: panel.technique.cultivatingTechId,
+            bodyTraining: panel.technique.bodyTraining,
         },
-        attr: buildFullAttrDelta(player),
-        act: buildFullActionDelta(player),
-        buff: buildFullBuffDelta(player),
+        attr: buildFullAttrDeltaFromState(panel.attr),
+        act: buildFullActionDeltaFromState(panel.action),
+        buff: buildFullBuffDeltaFromState(panel.buff),
     };
 }
 
@@ -598,28 +656,78 @@ function freezeProjectedEntry<T extends object>(entry: T): T {
 /** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。
  *  previousPanel 非空时按 revision 短路：未变的 slice 直接复用前帧引用，避免无谓克隆。 */
 function capturePlayerState(player: ProjectorPlayerLike, previousPanel?: ProjectedPanelState | null): PlayerStateSlice {
-    const prev = previousPanel ?? null;
     return {
         selfRevision: player.selfRevision,
-        self: {
-            instanceId: player.instanceId,
-            templateId: player.templateId,
-            x: player.x, y: player.y, f: player.facing,
-            hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
-            wallet: cloneWalletState(player.wallet),
-        },
-        panel: {
-            inventory: prev && prev.inventory.revision === player.inventory.revision
-                ? prev.inventory : captureInventoryPanelSlice(player),
-            equipment: prev && prev.equipment.revision === player.equipment.revision
-                ? prev.equipment : captureEquipmentPanelSlice(player),
-            technique: prev && prev.technique.revision === player.techniques.revision
-                ? prev.technique : captureTechniquePanelSlice(player),
-            attr: captureAttrPanelSlice(player),
-            action: captureActionPanelSlice(player),
-            buff: captureBuffPanelSlice(player),
-        },
+        self: captureSelfState(player),
+        panel: capturePanelState(player, previousPanel),
     };
+}
+
+function captureSelfState(player: ProjectorPlayerLike): ProjectedSelfState {
+    return {
+        instanceId: player.instanceId,
+        templateId: player.templateId,
+        x: player.x, y: player.y, f: player.facing,
+        hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
+        wallet: cloneWalletState(player.wallet),
+    };
+}
+
+function capturePanelState(player: ProjectorPlayerLike, previousPanel?: ProjectedPanelState | null): ProjectedPanelState {
+    const prev = previousPanel ?? null;
+    return {
+        inventory: prev && prev.inventory.revision === player.inventory.revision
+            ? prev.inventory : captureInventoryPanelSlice(player),
+        equipment: prev && prev.equipment.revision === player.equipment.revision
+            ? prev.equipment : captureEquipmentPanelSlice(player),
+        technique: prev && prev.technique.revision === player.techniques.revision
+            ? prev.technique : captureTechniquePanelSlice(player),
+        attr: prev && canReuseAttrPanelSlice(prev.attr, player)
+            ? prev.attr : captureAttrPanelSlice(player),
+        action: prev && canReuseActionPanelSlice(prev.action, player)
+            ? prev.action : captureActionPanelSlice(player),
+        buff: prev && prev.buff.revision === player.buffs.revision
+            ? prev.buff : captureBuffPanelSlice(player),
+    };
+}
+
+function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): boolean {
+    return previousAttr.revision === player.attrs.revision
+        && previousAttr.stage === player.attrs.stage
+        && previousAttr.boneAgeBaseYears === player.boneAgeBaseYears
+        && previousAttr.lifeElapsedTicks === player.lifeElapsedTicks
+        && previousAttr.lifespanYears === player.lifespanYears
+        && previousAttr.realmProgress === player.realm?.progress
+        && previousAttr.realmProgressToNext === player.realm?.progressToNext
+        && previousAttr.realmBreakthroughReady === player.realm?.breakthroughReady
+        && isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill)
+        && isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill)
+        && isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
+        && isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
+        && isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
+        && isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill)
+        && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
+        && isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
+}
+
+function canReuseActionPanelSlice(previousAction: ProjectedActionPanelState, player: ProjectorPlayerLike): boolean {
+    return previousAction.revision === player.actions.revision
+        && previousAction.autoBattle === player.combat.autoBattle
+        && isSameAutoUsePillList(previousAction.autoUsePills ?? [], player.combat.autoUsePills ?? [])
+        && isSameCombatTargetingRules(previousAction.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
+        && previousAction.autoBattleTargetingMode === player.combat.autoBattleTargetingMode
+        && previousAction.retaliatePlayerTargetId === player.combat.retaliatePlayerTargetId
+        && previousAction.combatTargetId === player.combat.combatTargetId
+        && previousAction.combatTargetLocked === player.combat.combatTargetLocked
+        && previousAction.autoRetaliate === player.combat.autoRetaliate
+        && previousAction.autoBattleStationary === player.combat.autoBattleStationary
+        && previousAction.allowAoePlayerHit === player.combat.allowAoePlayerHit
+        && previousAction.autoIdleCultivation === player.combat.autoIdleCultivation
+        && previousAction.autoSwitchCultivation === player.combat.autoSwitchCultivation
+        && previousAction.autoRootFoundation === (player.combat.autoRootFoundation === true)
+        && previousAction.cultivationActive === player.combat.cultivationActive
+        && previousAction.senseQiActive === player.combat.senseQiActive
+        && previousAction.wangQiActive === (player.combat.wangQiActive === true);
 }
 
 function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['inventory'] {
@@ -643,7 +751,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         finalAttrs: cloneAttributes(player.attrs.finalAttrs),
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
-        specialStats: cloneSpecialStats(resolvePlayerSpecialStats(player)),
+        specialStats: cloneSpecialStats(resolvePlayerSpecialStatsCached(player)),
         boneAgeBaseYears: player.boneAgeBaseYears,
         lifeElapsedTicks: player.lifeElapsedTicks,
         lifespanYears: player.lifespanYears,
@@ -713,57 +821,70 @@ function captureProjectorState(
 }
 
 function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView {
+    return buildFullAttrDeltaFromState(captureAttrPanelSlice(player));
+}
+
+function buildFullAttrDeltaFromState(attr: ProjectedAttrPanelState): ProjectedAttrDeltaView {
     return {
-        r: player.attrs.revision,
+        r: attr.revision,
         full: 1 as const,
-        stage: player.attrs.stage,
-        baseAttrs: cloneAttributes(player.attrs.baseAttrs),
-        bonuses: buildAttrBonuses(player),
-        finalAttrs: cloneAttributes(player.attrs.finalAttrs),
-        numericStats: cloneNumericStats(player.attrs.numericStats),
-        ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
-        specialStats: cloneSpecialStats(resolvePlayerSpecialStats(player)),
-        boneAgeBaseYears: player.boneAgeBaseYears,
-        lifeElapsedTicks: player.lifeElapsedTicks,
-        lifespanYears: player.lifespanYears,
-        realmProgress: player.realm?.progress,
-        realmProgressToNext: player.realm?.progressToNext,
-        realmBreakthroughReady: player.realm?.breakthroughReady,
-        alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
-        forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
-        buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
-        gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
-        enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
-        miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
+        stage: attr.stage,
+        baseAttrs: attr.baseAttrs,
+        bonuses: attr.bonuses,
+        finalAttrs: attr.finalAttrs,
+        numericStats: attr.numericStats,
+        ratioDivisors: attr.ratioDivisors,
+        specialStats: attr.specialStats,
+        boneAgeBaseYears: attr.boneAgeBaseYears,
+        lifeElapsedTicks: attr.lifeElapsedTicks,
+        lifespanYears: attr.lifespanYears,
+        realmProgress: attr.realmProgress,
+        realmProgressToNext: attr.realmProgressToNext,
+        realmBreakthroughReady: attr.realmBreakthroughReady,
+        alchemySkill: attr.alchemySkill,
+        forgingSkill: attr.forgingSkill,
+        buildingSkill: attr.buildingSkill,
+        gatherSkill: attr.gatherSkill,
+        enhancementSkill: attr.enhancementSkill,
+        miningSkill: attr.miningSkill,
     };
 }
 
 function buildFullActionDelta(player: ProjectorPlayerLike): S2C_PanelActionDelta {
+    return buildFullActionDeltaFromState(captureActionPanelSlice(player));
+}
+
+function buildFullActionDeltaFromState(action: ProjectedActionPanelState): S2C_PanelActionDelta {
     return {
-        r: player.actions.revision,
+        r: action.revision,
         full: 1,
-        actions: player.actions.actions.map((entry) => ({ ...entry })),
-        actionOrder: buildActionOrder(player.actions.actions),
-        autoBattle: player.combat.autoBattle,
-        autoUsePills: cloneAutoUsePillList(player.combat.autoUsePills),
-        combatTargetingRules: cloneCombatTargetingRules(player.combat.combatTargetingRules),
-        autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
-        retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
-        combatTargetId: player.combat.combatTargetId,
-        combatTargetLocked: player.combat.combatTargetLocked,
-        autoRetaliate: player.combat.autoRetaliate,
-        autoBattleStationary: player.combat.autoBattleStationary,
-        allowAoePlayerHit: player.combat.allowAoePlayerHit,
-        autoIdleCultivation: player.combat.autoIdleCultivation,
-        autoSwitchCultivation: player.combat.autoSwitchCultivation,
-        autoRootFoundation: player.combat.autoRootFoundation === true,
-        cultivationActive: player.combat.cultivationActive,
-        senseQiActive: player.combat.senseQiActive,
+        actions: action.actions,
+        actionOrder: buildActionOrder(action.actions),
+        autoBattle: action.autoBattle,
+        autoUsePills: action.autoUsePills,
+        combatTargetingRules: action.combatTargetingRules,
+        autoBattleTargetingMode: action.autoBattleTargetingMode,
+        retaliatePlayerTargetId: action.retaliatePlayerTargetId,
+        combatTargetId: action.combatTargetId,
+        combatTargetLocked: action.combatTargetLocked,
+        autoRetaliate: action.autoRetaliate,
+        autoBattleStationary: action.autoBattleStationary,
+        allowAoePlayerHit: action.allowAoePlayerHit,
+        autoIdleCultivation: action.autoIdleCultivation,
+        autoSwitchCultivation: action.autoSwitchCultivation,
+        autoRootFoundation: action.autoRootFoundation,
+        cultivationActive: action.cultivationActive,
+        senseQiActive: action.senseQiActive,
+        wangQiActive: action.wangQiActive,
     };
 }
 
 function buildFullBuffDelta(player: ProjectorPlayerLike): S2C_PanelDelta['buff'] {
-    return { r: player.buffs.revision, full: 1, buffs: projectVisiblePlayerBuffs(player) };
+    return buildFullBuffDeltaFromState(captureBuffPanelSlice(player));
+}
+
+function buildFullBuffDeltaFromState(buff: ProjectedPanelState['buff']): S2C_PanelDelta['buff'] {
+    return { r: buff.revision, full: 1, buffs: buff.buffs };
 }
 
 function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): ProjectedAttrDeltaView {
@@ -774,7 +895,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
     const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, player.attrs.finalAttrs);
     const numericStatsPatch = diffNumericStats(previousAttr.numericStats, player.attrs.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, player.attrs.ratioDivisors);
-    const nextSpecialStats = resolvePlayerSpecialStats(player);
+    const nextSpecialStats = resolvePlayerSpecialStatsCached(player);
     const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
     const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears;
     const lifeElapsedTicksChanged = previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks;
@@ -893,7 +1014,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || !isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
         || !isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
         || !isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
-        || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStats(player))
+        || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         || !isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
     if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
         delta.attr = buildAttrDelta(previousAttr, player);
@@ -964,8 +1085,11 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
 export {
     buildBootstrapPanelDelta,
     buildFullPanelDelta,
+    buildFullPanelDeltaFromState,
     buildFullSelfDelta,
+    buildFullSelfDeltaFromState,
     buildFullWorldDelta,
+    buildFullWorldDeltaFromState,
     buildMapEnter,
     buildPanelDelta,
     buildSelfDelta,

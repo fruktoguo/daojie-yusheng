@@ -30,6 +30,7 @@ async function main(): Promise<void> {
   const playerCountersProof = provePlayerCountersSkipGmBots();
   const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
   const instanceProjectionProof = proveProjectorSharesStableInstanceEntryRefs();
+  const projectorFullEnvelopeRefProof = proveProjectorFullEnvelopeUsesCapturedRefs();
   const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
   const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
     playerCountersProof,
     projectorProof,
     instanceProjectionProof,
+    projectorFullEnvelopeRefProof,
     tileProjectionProof,
     panelSliceRefProof,
     combatEffectRefProof,
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 复用已捕获 world/panel 引用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -294,6 +296,67 @@ function proveProjectorSharesStableInstanceEntryRefs(): { monsterRefShared: bool
   assert.equal(npcRefShared, true);
   assert.equal(containerRefShared, true);
   return { monsterRefShared, npcRefShared, containerRefShared };
+}
+
+function proveProjectorFullEnvelopeUsesCapturedRefs(): {
+  groundItemsRefShared: boolean;
+  inventoryItemRefShared: boolean;
+  equipmentItemRefShared: boolean;
+  techniqueRefShared: boolean;
+  actionRefShared: boolean;
+  attrRefShared: boolean;
+} {
+  const service = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const groundItem = { itemId: 'ground_item', count: 1 };
+  const initial = service.createInitialEnvelope(
+    { playerId: 'projector_player', sessionId: 'projector_session' },
+    {
+      ...createProjectorView(),
+      localGroundPiles: [{ sourceId: 'ground_1', x: 2, y: 2, items: [groundItem] }],
+    },
+    createProjectorPlayer(),
+  );
+  const state = service as unknown as { cacheByPlayerId: Map<string, any> };
+  const initialCache = state.cacheByPlayerId.get('projector_player');
+  const groundItemsRefShared = initial.worldDelta.g?.[0]?.items === initialCache.groundPiles.get('ground_1')?.items;
+
+  const fullService = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const item = { itemId: 'full_item', count: 1 };
+  const technique = { techId: 'tech_ref', name: '引用功法', level: 1, exp: 0, expToNext: 1, realmLv: 1, realm: 0 };
+  const action = { id: 'action_ref', name: '引用行动', cooldownLeft: 0 };
+  const player = createProjectorPlayer();
+  player.inventory.items = [item];
+  player.equipment.slots = [{ slot: 'weapon', item }];
+  player.techniques.techniques = [technique];
+  player.actions.actions = [action];
+  const full = fullService.createDeltaEnvelope(createProjectorView(), player);
+  const fullCache = (fullService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('projector_player');
+  const inventoryItemRefShared = full?.panelDelta?.inv?.slots?.[0]?.item === fullCache.panel.inventory.items[0];
+  const equipmentItemRefShared = full?.panelDelta?.eq?.slots?.[0]?.item === fullCache.panel.equipment.slots[0].item;
+  const techniqueRefShared = full?.panelDelta?.tech?.techniques?.[0] === fullCache.panel.technique.techniques[0];
+  const actionRefShared = full?.panelDelta?.act?.actions?.[0] === fullCache.panel.action.actions[0];
+  const attrRefShared = full?.panelDelta?.attr?.baseAttrs === fullCache.panel.attr.baseAttrs;
+
+  assert.equal(groundItemsRefShared, true);
+  assert.equal(inventoryItemRefShared, true);
+  assert.equal(equipmentItemRefShared, true);
+  assert.equal(techniqueRefShared, true);
+  assert.equal(actionRefShared, true);
+  assert.equal(attrRefShared, true);
+  return {
+    groundItemsRefShared,
+    inventoryItemRefShared,
+    equipmentItemRefShared,
+    techniqueRefShared,
+    actionRefShared,
+    attrRefShared,
+  };
 }
 
 function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number; instanceCacheUsed: boolean } {

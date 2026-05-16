@@ -10,14 +10,13 @@ import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
 import {
     buildBootstrapPanelDelta,
-    buildFullPanelDelta,
-    buildFullSelfDelta,
-    buildFullWorldDelta,
+    buildFullPanelDeltaFromState,
+    buildFullSelfDeltaFromState,
+    buildFullWorldDeltaFromState,
     buildMapEnter,
     buildPanelDelta,
     buildSelfDelta,
     capturePlayerState,
-    captureProjectorState,
     captureWorldState,
     combineProjectorState,
     diffBuildingEntries,
@@ -72,7 +71,9 @@ export class WorldProjectorService {
     /** 为新进入的玩家构造全量初始 envelope（initSession + mapEnter + worldDelta + selfDelta + panelDelta）。 */
     createInitialEnvelope(binding: any, view: any, player: any) {
         const identityView = this.withAccountIdentityProjection(view);
-        this.cacheByPlayerId.set(binding.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
+        const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+        const playerState = capturePlayerState(player);
+        this.cacheByPlayerId.set(binding.playerId, combineProjectorState(worldState, playerState));
         return {
             initSession: {
                 sid: binding.sessionId,
@@ -81,8 +82,8 @@ export class WorldProjectorService {
                 resumed: binding.resumed || undefined,
             },
             mapEnter: buildMapEnter(identityView),
-            worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
-            selfDelta: buildFullSelfDelta(player),
+            worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
+            selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
             panelDelta: buildBootstrapPanelDelta(player),
         };
     }
@@ -92,21 +93,25 @@ export class WorldProjectorService {
         const identityView = this.withAccountIdentityProjection(view);
         const previous = this.cacheByPlayerId.get(identityView.playerId);
         if (!previous) {
-            this.cacheByPlayerId.set(identityView.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
+            const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+            const playerState = capturePlayerState(player);
+            this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
             return {
                 mapEnter: buildMapEnter(identityView),
-                worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
-                selfDelta: buildFullSelfDelta(player),
-                panelDelta: buildFullPanelDelta(player),
+                worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
+                selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
+                panelDelta: buildFullPanelDeltaFromState(playerState.panel),
             };
         }
         if (previous.instanceId !== identityView.instance.instanceId || previous.self?.templateId !== player.templateId) {
-            this.cacheByPlayerId.set(identityView.playerId, captureProjectorState(identityView, player, (mapId) => this.resolveMapName(mapId)));
+            const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+            const playerState = capturePlayerState(player);
+            this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
             return {
                 mapEnter: buildMapEnter(identityView),
-                worldDelta: buildFullWorldDelta(identityView, (mapId) => this.resolveMapName(mapId)),
-                selfDelta: buildFullSelfDelta(player),
-                panelDelta: buildFullPanelDelta(player),
+                worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
+                selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
+                panelDelta: buildFullPanelDeltaFromState(playerState.panel),
             };
         }
         const currentWorld = previous.worldRevision === identityView.worldRevision
