@@ -66,25 +66,58 @@ export interface HeapSnapshotSummaryOptions {
 }
 
 /**
- * 流式解析 V8 heap snapshot 文件，输出按 constructor 维度的统计摘要。
+ * 从已经存在的 .heapsnapshot 文件读取并解析。
+ * 适合 dev / 运维需要保留原始文件做深度分析的场景。
  */
 export async function summarizeHeapSnapshot(
   filePath: string,
+  options: HeapSnapshotSummaryOptions = {},
+): Promise<HeapSnapshotSummary> {
+  const stream = createReadStream(filePath, { highWaterMark: 1 << 20 });
+  const summary = await summarizeHeapSnapshotFromStream(stream, options);
+  const fileBytes = await getFileSize(stream).catch(() => 0);
+  return { ...summary, snapshotFileBytes: fileBytes };
+}
+
+/**
+ * 从任意可读流（如 v8.getHeapSnapshot()）解析 heap snapshot。
+ * 整个解析过程**完全不落盘**，适合容器/受限文件系统场景：
+ *   const { getHeapSnapshot } = require('node:v8');
+ *   const stream = getHeapSnapshot();
+ *   const summary = await summarizeHeapSnapshotFromStream(stream);
+ *
+ * 兼容 chunk 是 Buffer 或 string 两种形式（V8 的 ReadableStream 默认 string mode）。
+ */
+export async function summarizeHeapSnapshotFromStream(
+  stream: NodeJS.ReadableStream,
   options: HeapSnapshotSummaryOptions = {},
 ): Promise<HeapSnapshotSummary> {
   const topLimit = clampInt(options.topLimit, 60, 1, 500);
   const maxStringBytes = clampInt(options.maxStringBytes, 64, 8, 256);
 
   const startMs = Date.now();
-  const stream = createReadStream(filePath, { highWaterMark: 1 << 20 });
   const parser = new Parser({ maxStringBytes });
+  let totalBytesSeen = 0;
 
   await new Promise<void>((resolve, reject) => {
-    stream.on('data', (chunk) => {
+    stream.on('data', (chunk: unknown) => {
       try {
-        parser.feed(chunk as Buffer);
+        let buf: Buffer;
+        if (typeof chunk === 'string') {
+          buf = Buffer.from(chunk, 'utf8');
+        } else if (chunk instanceof Buffer) {
+          buf = chunk;
+        } else if (chunk instanceof Uint8Array) {
+          buf = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        } else {
+          throw new Error(`unexpected heap snapshot chunk type: ${typeof chunk}`);
+        }
+        totalBytesSeen += buf.length;
+        parser.feed(buf);
       } catch (err) {
-        stream.destroy(err as Error);
+        if (typeof (stream as NodeJS.ReadableStream & { destroy?: (err?: Error) => void }).destroy === 'function') {
+          (stream as NodeJS.ReadableStream & { destroy: (err: Error) => void }).destroy(err as Error);
+        }
         reject(err);
       }
     });
@@ -99,7 +132,6 @@ export async function summarizeHeapSnapshot(
     });
   });
 
-  const fileBytes = await getFileSize(stream).catch(() => 0);
   const parseDurationMs = Date.now() - startMs;
 
   const stats = parser.buildStats();
@@ -122,7 +154,7 @@ export async function summarizeHeapSnapshot(
   return {
     generatedAtMs: Date.now(),
     parseDurationMs,
-    snapshotFileBytes: fileBytes,
+    snapshotFileBytes: totalBytesSeen,
     declaredNodeCount: parser.declaredNodeCount,
     parsedNodeCount: parser.parsedNodeCount,
     parsedStringCount: parser.stringPool.length,

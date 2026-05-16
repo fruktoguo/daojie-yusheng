@@ -3,9 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { C2S, S2C } from '@mud/shared';
 import { cpus, loadavg, uptime } from 'os';
-import { getHeapSpaceStatistics, writeHeapSnapshot } from 'v8';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { getHeapSnapshot, getHeapSpaceStatistics } from 'v8';
 import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { WorldSessionService } from '../../network/world-session.service';
@@ -15,7 +13,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 import {
   diffHeapSnapshotSummaries,
-  summarizeHeapSnapshot,
+  summarizeHeapSnapshotFromStream,
   type HeapSnapshotSummary,
 } from '../../tools/heap-snapshot-summary';
 
@@ -49,12 +47,11 @@ function resolveNetworkPerfRollingResetIntervalMs() {
     }
     return Math.max(NETWORK_PERF_ROLLING_RESET_MIN_MS, Math.trunc(parsed));
 }
-const HEAP_SNAPSHOT_DIR = join(process.cwd(), '.runtime', 'heap-snapshots');
-/** 服务端默认仅保留最近 N 份 heap snapshot 文件，避免磁盘累积；GB 级文件 LRU 清理。 */
-const HEAP_SNAPSHOT_LRU_KEEP = Math.max(1, Math.trunc(Number(process.env.SERVER_HEAP_SNAPSHOT_LRU_KEEP) || 3));
-/** summary JSON 文件后缀，用于区分原始 .heapsnapshot 与解析后的小摘要。 */
-const HEAP_SNAPSHOT_SUMMARY_SUFFIX = '.summary.json';
-/** summary 解析输出的 top N。 */
+/**
+ * Heap snapshot 摘要解析的 top N 长度。
+ * 完全在进程内通过 v8.getHeapSnapshot() 读取流式 chunks 并解析，**不落盘**，
+ * 在容器/受限文件系统下也能用，对运行进程的内存压力仅是 stringPool（约 50~200 MB 临时）。
+ */
 const HEAP_SNAPSHOT_SUMMARY_TOP_LIMIT = Math.max(20, Math.min(120, Math.trunc(Number(process.env.SERVER_HEAP_SNAPSHOT_TOP_LIMIT) || 60)));
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
@@ -107,6 +104,10 @@ export class RuntimeGmStateService {
     lastMemoryEstimate = null;
     /** 运行态内存画像缓存过期时间。 */
     lastMemoryEstimateExpiresAt = 0;
+    /** 最近一次 heap snapshot 摘要（in-memory 保留，给 GET 端点直接读，避免落盘）。 */
+    lastHeapSnapshotSummary: HeapSnapshotSummary | null = null;
+    /** 最近一次 heap snapshot 摘要生成时间戳。 */
+    lastHeapSnapshotSummaryAt = 0;
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(
         mapTemplateRepository: MapTemplateRepository,
@@ -493,150 +494,68 @@ export class RuntimeGmStateService {
         return nextEstimate;
     }
     /**
-     * 生成 V8 Heap Snapshot 文件，并自动跑流式摘要解析。
+     * 在进程内通过 v8.getHeapSnapshot() 拿到 heap snapshot 流，直接边接收边解析；
+     * **完全不落盘**——容器/受限文件系统下零依赖、零权限要求。
      *
-     * 入参：
-     *   - options.deleteSnapshotAfterSummary：true 时摘要解析完毕后立刻删除原 .heapsnapshot 文件，
-     *     仅保留 .summary.json（≈ 50 KB）。默认 false，保留原文件给线下深度分析。
+     * 调用代价：
+     *   - V8 在调用瞬间会让 JS 主线程暂停（GB 级 heap 通常 5~30 秒）
+     *   - 解析期间内存峰值约 50~200 MB（stringPool）
      *
-     * 输出：
-     *   - 落盘 .heapsnapshot 与 .summary.json 到 .runtime/heap-snapshots/
-     *   - 自动按 LRU（默认 3 份）清理旧 snapshot + summary
-     *   - 返回 { ok, path, bytes, durationMs, generatedAt, summaryPath, summaryBytes, summary }
-     *     调用方可以直接消费 summary，无需再 GET summary 端点
+     * 返回：
+     *   - { ok, summary, durationMs, generatedAt }
+     *   - summary 同步存到 `lastHeapSnapshotSummary`，给 GET 端点直接读
+     *   - 失败时返回 { ok:false, reason, error } 而不是抛异常
      */
-    async writeHeapSnapshot(options: { deleteSnapshotAfterSummary?: boolean } = {}) {
+    async writeHeapSnapshot(_options: { deleteSnapshotAfterSummary?: boolean } = {}) {
         const startedAt = Date.now();
-        if (!existsSync(HEAP_SNAPSHOT_DIR)) {
-            mkdirSync(HEAP_SNAPSHOT_DIR, { recursive: true });
-        }
-        const fileName = `server-${startedAt}-${process.pid}.heapsnapshot`;
-        const path = writeHeapSnapshot(join(HEAP_SNAPSHOT_DIR, fileName));
-        const bytes = statSync(path).size;
-        const writeDurationMs = Date.now() - startedAt;
-
-        // 流式解析摘要：3 GB 文件预计 30~120 秒；解析期间峰值内存 ~200 MB（stringPool）。
-        let summary: HeapSnapshotSummary | null = null;
-        let summaryError: string | null = null;
-        const summaryPath = `${path}${HEAP_SNAPSHOT_SUMMARY_SUFFIX}`;
-        const summaryStart = Date.now();
+        let summary: HeapSnapshotSummary;
         try {
-            summary = await summarizeHeapSnapshot(path, { topLimit: HEAP_SNAPSHOT_SUMMARY_TOP_LIMIT });
-            const previousSummary = this.findPreviousHeapSnapshotSummary(path);
-            const finalSummary: HeapSnapshotSummary & { diffSincePrevious?: ReturnType<typeof diffHeapSnapshotSummaries> & { previousAtMs: number; previousFileName: string } } = { ...summary };
-            if (previousSummary) {
-                finalSummary.diffSincePrevious = {
-                    ...diffHeapSnapshotSummaries(previousSummary.summary, summary, 30),
-                    previousAtMs: previousSummary.summary.generatedAtMs,
-                    previousFileName: previousSummary.fileName,
-                };
-            }
-            writeFileSync(summaryPath, JSON.stringify(finalSummary, null, 2), 'utf8');
-            summary = finalSummary;
+            const stream = getHeapSnapshot();
+            summary = await summarizeHeapSnapshotFromStream(stream as unknown as NodeJS.ReadableStream, {
+                topLimit: HEAP_SNAPSHOT_SUMMARY_TOP_LIMIT,
+            });
         } catch (err) {
-            summaryError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-        }
-        const summaryDurationMs = Date.now() - summaryStart;
-
-        // 是否保留原始 .heapsnapshot 文件
-        if (options.deleteSnapshotAfterSummary === true && summary && !summaryError) {
-            try {
-                unlinkSync(path);
-            } catch {
-                // 删除失败不影响主路径返回
-            }
+            const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+            return {
+                ok: false as const,
+                reason: 'heap_snapshot_failed',
+                error: reason,
+                hint: 'V8 拒绝生成 heap snapshot；通常发生在内存吃紧或权限受限时，先重启进程或扩容 max-old-space-size 再试',
+            };
         }
 
-        // LRU 清理：保留最近 N 份（按文件名时间戳前缀排序），同时清理对应的 .summary.json
-        this.pruneHeapSnapshotsLru();
-
-        const summaryBytes = (() => {
-            try {
-                return statSync(summaryPath).size;
-            } catch {
-                return 0;
-            }
-        })();
+        // 与上一次 summary 计算 diff
+        const previousSummary = this.lastHeapSnapshotSummary;
+        const finalSummary: HeapSnapshotSummary & { diffSincePrevious?: ReturnType<typeof diffHeapSnapshotSummaries> & { previousAtMs: number } } = { ...summary };
+        if (previousSummary) {
+            finalSummary.diffSincePrevious = {
+                ...diffHeapSnapshotSummaries(previousSummary, summary, 30),
+                previousAtMs: previousSummary.generatedAtMs,
+            };
+        }
+        this.lastHeapSnapshotSummary = finalSummary;
+        this.lastHeapSnapshotSummaryAt = Date.now();
 
         return {
-            ok: true,
-            path,
-            bytes: roundMetric(bytes),
-            durationMs: roundMetric(writeDurationMs),
+            ok: true as const,
             generatedAt: startedAt,
-            summaryPath,
-            summaryBytes: roundMetric(summaryBytes),
-            summaryDurationMs: roundMetric(summaryDurationMs),
-            summary,
-            summaryError,
+            durationMs: roundMetric(Date.now() - startedAt),
+            summary: finalSummary,
         };
-    }
-
-    /** 找最近一次（除当前外）已生成的 summary，用于差异对比。 */
-    private findPreviousHeapSnapshotSummary(currentSnapshotPath: string): { fileName: string; summary: HeapSnapshotSummary } | null {
-        if (!existsSync(HEAP_SNAPSHOT_DIR)) {
-            return null;
-        }
-        const currentBaseName = currentSnapshotPath.split('/').pop() ?? '';
-        const summaryFileNames = readdirSync(HEAP_SNAPSHOT_DIR)
-            .filter((entry) => entry.endsWith(HEAP_SNAPSHOT_SUMMARY_SUFFIX) && entry !== `${currentBaseName}${HEAP_SNAPSHOT_SUMMARY_SUFFIX}`)
-            .sort();
-        if (summaryFileNames.length === 0) {
-            return null;
-        }
-        const latestSummaryName = summaryFileNames[summaryFileNames.length - 1];
-        try {
-            const text = readFileSync(join(HEAP_SNAPSHOT_DIR, latestSummaryName), 'utf8');
-            const parsed = JSON.parse(text) as HeapSnapshotSummary;
-            return { fileName: latestSummaryName, summary: parsed };
-        } catch {
-            return null;
-        }
-    }
-
-    /** 按 LRU 保留最近 N 份 .heapsnapshot + .summary.json。命名格式 server-<ms>-<pid>，前缀升序即时间升序。 */
-    private pruneHeapSnapshotsLru(): void {
-        if (!existsSync(HEAP_SNAPSHOT_DIR)) {
-            return;
-        }
-        const entries = readdirSync(HEAP_SNAPSHOT_DIR);
-        const snapshotFiles = entries
-            .filter((entry) => entry.endsWith('.heapsnapshot'))
-            .sort();
-        const removeCount = snapshotFiles.length - HEAP_SNAPSHOT_LRU_KEEP;
-        if (removeCount <= 0) {
-            return;
-        }
-        const toRemove = snapshotFiles.slice(0, removeCount);
-        for (const name of toRemove) {
-            const fullPath = join(HEAP_SNAPSHOT_DIR, name);
-            const summaryFullPath = join(HEAP_SNAPSHOT_DIR, `${name}${HEAP_SNAPSHOT_SUMMARY_SUFFIX}`);
-            try { unlinkSync(fullPath); } catch { /* 忽略 */ }
-            try { unlinkSync(summaryFullPath); } catch { /* 忽略 */ }
-        }
     }
 
     /** 读取最近一次 heap snapshot summary（GET 端点用），如果尚未生成返回 null。 */
     getLatestHeapSnapshotSummary(): { fileName: string; bytes: number; summary: HeapSnapshotSummary } | null {
-        if (!existsSync(HEAP_SNAPSHOT_DIR)) {
+        if (!this.lastHeapSnapshotSummary) {
             return null;
         }
-        const summaryFiles = readdirSync(HEAP_SNAPSHOT_DIR)
-            .filter((entry) => entry.endsWith(HEAP_SNAPSHOT_SUMMARY_SUFFIX))
-            .sort();
-        if (summaryFiles.length === 0) {
-            return null;
-        }
-        const latest = summaryFiles[summaryFiles.length - 1];
-        const fullPath = join(HEAP_SNAPSHOT_DIR, latest);
-        try {
-            const text = readFileSync(fullPath, 'utf8');
-            const summary = JSON.parse(text) as HeapSnapshotSummary;
-            const bytes = statSync(fullPath).size;
-            return { fileName: latest, bytes, summary };
-        } catch {
-            return null;
-        }
+        const summary = this.lastHeapSnapshotSummary;
+        const text = JSON.stringify(summary);
+        return {
+            fileName: `in-memory-${this.lastHeapSnapshotSummaryAt}.summary.json`,
+            bytes: text.length,
+            summary,
+        };
     }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {

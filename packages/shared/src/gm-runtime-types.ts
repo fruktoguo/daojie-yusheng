@@ -412,35 +412,50 @@ export interface GmMemoryEstimateSnapshot {
 /** GM 生成 Heap Snapshot 结果。 */
 export interface GmHeapSnapshotRes {
 /**
- * ok：操作是否成功。
+ * ok：操作是否成功；in-memory 失败时为 false 并附 reason。
  */
 
-  ok: true;
+  ok: boolean;
   /**
- * path：服务端生成的 heapsnapshot 文件路径。
+ * reason：失败原因（仅 ok=false 时存在）。
  */
 
-  path: string;
+  reason?: string;
   /**
- * bytes：文件大小。
+ * error：失败错误信息。
  */
 
-  bytes: number;
+  error?: string;
+  /**
+ * hint：失败时给运维的下一步提示。
+ */
+
+  hint?: string;
+  /**
+ * path：服务端生成的 heapsnapshot 文件路径（仅落盘模式有值；in-memory 模式不存在）。
+ */
+
+  path?: string;
+  /**
+ * bytes：文件大小（仅落盘模式）。
+ */
+
+  bytes?: number;
   /**
  * durationMs：生成耗时。
  */
 
-  durationMs: number;
+  durationMs?: number;
   /**
  * generatedAt：生成时间。
  */
 
-  generatedAt: number;
-  /** summaryPath：服务端生成的摘要 JSON 文件路径。 */
+  generatedAt?: number;
+  /** summaryPath：服务端生成的摘要 JSON 文件路径（仅落盘模式）。 */
   summaryPath?: string;
-  /** summaryBytes：摘要 JSON 文件大小（字节）。 */
+  /** summaryBytes：摘要 JSON 文件大小（字节，仅落盘模式）。 */
   summaryBytes?: number;
-  /** summaryDurationMs：摘要解析耗时（毫秒）。 */
+  /** summaryDurationMs：摘要解析耗时（毫秒，仅落盘模式）。 */
   summaryDurationMs?: number;
   /** summaryError：摘要解析失败时的错误信息；成功时为 null/undefined。 */
   summaryError?: string | null;

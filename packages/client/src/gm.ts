@@ -8045,8 +8045,23 @@ async function writeHeapSnapshot(): Promise<void> {
     const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
       method: 'POST',
     });
-    heapSnapshotMetaEl.textContent = `已生成：${result.path} · ${formatBytes(result.bytes)} · ${result.durationMs.toFixed(0)} ms`;
-    setStatus(`Heap Snapshot 已生成：${result.path}`);
+    if (!result.ok) {
+      const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
+      heapSnapshotMetaEl.textContent = message;
+      setStatus(message, true);
+      return;
+    }
+    const summary = result.summary ?? null;
+    const durationMs = typeof result.durationMs === 'number' ? result.durationMs : 0;
+    if (summary) {
+      const declared = summary.declaredNodeCount ?? 0;
+      const totalMb = summary.totalSelfSizeBytes ? formatBytes(summary.totalSelfSizeBytes) : '?';
+      heapSnapshotMetaEl.textContent = `Heap snapshot 已解析：节点 ${declared} 个 · 累计 ${totalMb} · 耗时 ${durationMs.toFixed(0)} ms（in-memory，未落盘）`;
+      setStatus('Heap Snapshot 已解析为摘要');
+    } else {
+      heapSnapshotMetaEl.textContent = `Heap Snapshot 已生成（耗时 ${durationMs.toFixed(0)} ms）`;
+      setStatus('Heap Snapshot 已生成');
+    }
     await loadState(true);
   } catch (error) {
     const message = error instanceof Error ? error.message : '生成 Heap Snapshot 失败';
@@ -8072,20 +8087,23 @@ async function writeAndCopyHeapSnapshotSummary(): Promise<void> {
     const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
       method: 'POST',
     });
+    if (!result.ok) {
+      const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
+      heapSnapshotMetaEl.textContent = message;
+      setStatus(message, true);
+      return;
+    }
     if (!result.summary) {
       const reason = result.summaryError ? `（${result.summaryError}）` : '';
-      const message = `已生成 ${result.path}，但摘要解析未完成${reason}，可点"复制最近摘要"重试`;
+      const message = `Heap Snapshot 已生成，但摘要解析未完成${reason}，可点"复制最近摘要"重试`;
       heapSnapshotMetaEl.textContent = message;
       setStatus(message, true);
       return;
     }
     const text = JSON.stringify(result.summary, null, 2);
     const ok = await copyTextToClipboard(text);
-    const summaryBytesLabel = typeof result.summaryBytes === 'number' && result.summaryBytes > 0
-      ? formatBytes(result.summaryBytes)
-      : `${text.length}`;
     if (ok) {
-      const detail = `已生成 ${formatBytes(result.bytes)} 原始文件 · 摘要 ${summaryBytesLabel} 已复制到剪贴板`;
+      const detail = `摘要已复制到剪贴板（${text.length} 字节，${(typeof result.durationMs === 'number' ? result.durationMs : 0).toFixed(0)} ms，未落盘）`;
       heapSnapshotMetaEl.textContent = detail;
       setStatus('Heap Snapshot 摘要已复制到剪贴板');
     } else {
