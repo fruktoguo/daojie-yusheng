@@ -3,12 +3,13 @@
  * 提供世界状态查询、玩家管理、地图实例操作、邮件、兑换码、建议系统、
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
-import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import { GmRuntimeFlagPersistenceService, GM_RUNTIME_MAINTENANCE_FLAG_KEY } from '../../persistence/gm-runtime-flag-persistence.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
+import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmMailService } from './native-gm-mail.service';
 import { NativeGmMarketTradeService } from './native-gm-market-trade.service';
@@ -663,8 +664,8 @@ export class NativeGmController {
 
 
   @Put('players/:playerId')
-  async updatePlayer(@Param('playerId') playerId: string, @Body() body: UpdatePlayerBody) {
-    await this.nextGmPlayerService.updatePlayer(playerId, body ?? {});
+  async updatePlayer(@Param('playerId') playerId: string, @Body() body: UpdatePlayerBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.updatePlayer(playerId, body ?? {}, extractGmActor(request));
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
@@ -676,13 +677,13 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/reset')
-  async resetPlayer(@Param('playerId') playerId: string) {
+  async resetPlayer(@Param('playerId') playerId: string, @Req() request: unknown) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.nextGmPlayerService.hasRuntimePlayer(playerId)) {
       this.nextGmPlayerService.resetPlayer(playerId);
     } else {
-      await this.nextGmPlayerService.resetPersistedPlayer(playerId);
+      await this.nextGmPlayerService.resetPersistedPlayer(playerId, extractGmActor(request));
     }
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
@@ -696,8 +697,8 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/body-training/level')
-  async setPlayerBodyTrainingLevel(@Param('playerId') playerId: string, @Body() body: SetPlayerBodyTrainingLevelBody) {
-    await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level);
+  async setPlayerBodyTrainingLevel(@Param('playerId') playerId: string, @Body() body: SetPlayerBodyTrainingLevelBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level, extractGmActor(request));
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
@@ -710,8 +711,8 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/foundation/add')
-  async addPlayerFoundation(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
-    await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount);
+  async addPlayerFoundation(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount, extractGmActor(request));
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
@@ -724,8 +725,8 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/combat-exp/add')
-  async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
-    await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount);
+  async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount, extractGmActor(request));
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
@@ -737,8 +738,8 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/heaven-gate/reset')
-  async resetHeavenGate(@Param('playerId') playerId: string) {
-    await this.nextGmPlayerService.resetHeavenGate(playerId);
+  async resetHeavenGate(@Param('playerId') playerId: string, @Req() request: unknown) {
+    await this.nextGmPlayerService.resetHeavenGate(playerId, extractGmActor(request));
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
@@ -845,8 +846,24 @@ export class NativeGmController {
 
 
   @Post('perf/memory/heap-snapshot')
-  writeHeapSnapshot() {
-    return this.nextGmWorldService.writeHeapSnapshot();
+  async writeHeapSnapshot(@Query('deleteAfterSummary') deleteAfterSummary?: string) {
+    const shouldDelete = typeof deleteAfterSummary === 'string'
+      && (deleteAfterSummary === '1' || deleteAfterSummary.toLowerCase() === 'true');
+    return this.nextGmWorldService.writeHeapSnapshot({ deleteSnapshotAfterSummary: shouldDelete });
+  }
+
+  /**
+   * getHeapSnapshotSummary：读取最近一次生成的 heap snapshot 摘要 JSON。
+   * 摘要为 ~50 KB，包含 top N constructor by count / by self_size，以及与上一次摘要的 diff，
+   * 帮助在不下载 GB 级 .heapsnapshot 的前提下定位"哪类对象在涨"。
+   */
+  @Get('perf/memory/heap-snapshot/summary')
+  getHeapSnapshotSummary() {
+    const summary = this.nextGmWorldService.getLatestHeapSnapshotSummary();
+    if (!summary) {
+      return { ok: false, reason: 'no_summary_yet', hint: '先 POST /api/gm/perf/memory/heap-snapshot 生成一次' };
+    }
+    return { ok: true, ...(summary as Record<string, unknown>) };
   }
   /**
  * resetPathfindingPerf：读取resetPathfindingPerf并返回结果。

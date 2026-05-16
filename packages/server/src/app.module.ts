@@ -35,6 +35,9 @@ import { WorldSyncEnvelopeService } from './network/world-sync-envelope.service'
 import { WorldSyncPlayerStateService } from './network/world-sync-player-state.service';
 import { WorldSyncService } from './network/world-sync.service';
 import { ContentTemplateRepository } from './content/content-template.repository';
+import { ActorBlueprintRegistryService } from './runtime/actor/actor-blueprint-registry.service';
+import { ActorPersistencePolicyService } from './runtime/actor/actor-persistence-policy.service';
+import { EphemeralActorIdentityService } from './runtime/actor/ephemeral-actor-identity.service';
 import { HealthController } from './health.controller';
 import { HealthReadinessService } from './health/health-readiness.service';
 import { ServerReadinessDependenciesService } from './health/server-readiness-dependencies.service';
@@ -132,6 +135,7 @@ import { PlayerPersistenceFlushService } from './persistence/player-persistence-
 import { NodeRegistryService } from './persistence/node-registry.service';
 import { GmMapConfigPersistenceService } from './persistence/gm-map-config-persistence.service';
 import { GmRuntimeFlagPersistenceService } from './persistence/gm-runtime-flag-persistence.service';
+import { GmAuditLogPersistenceService } from './persistence/gm-audit-log-persistence.service';
 import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
 import { PlayerSessionRouteService } from './persistence/player-session-route.service';
 import { OutboxDispatcherService } from './persistence/outbox-dispatcher.service';
@@ -178,6 +182,9 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
   providers: [
     ...NATIVE_HTTP_PROVIDERS,
     ContentTemplateRepository,
+    EphemeralActorIdentityService,
+    ActorPersistencePolicyService,
+    ActorBlueprintRegistryService,
     ServerReadinessDependenciesService,
     HealthReadinessService,
     MapTemplateRepository,
@@ -264,6 +271,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     NodeRegistryService,
     GmMapConfigPersistenceService,
     GmRuntimeFlagPersistenceService,
+    GmAuditLogPersistenceService,
     NodeRegistryRuntimeService,
     PlayerSessionRouteService,
     OutboxDispatcherService,

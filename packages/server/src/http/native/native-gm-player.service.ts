@@ -16,6 +16,7 @@ import {
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+import { GmAuditLogPersistenceService, type GmAuditLogEntry } from '../../persistence/gm-audit-log-persistence.service';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
@@ -25,6 +26,7 @@ import { NativeManagedAccountService } from './native-managed-account.service';
 import { NATIVE_GM_PLAYER_MUTATION_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
+import type { GmActorContext } from './native-gm-actor-context';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
@@ -111,6 +113,35 @@ interface PersistedPlayerEntryLike {
 interface GmPlayerScopeOptions {
   playerIds?: unknown;
   targetPlayerIds?: unknown;
+}
+
+/**
+ * GmMutationAuditOptions：调用方传入的 audit hook，落 gm_audit_log。
+ *
+ * - op：操作类型 key（点分命名）：gm.player.update / gm.player.add_combat_exp 等；
+ * - actor：当前请求 actor 上下文，由 controller 从 request.gmActor 提取；
+ * - describeBefore / describeAfter：从 persisted snapshot 提取关键字段摘要的纯函数；
+ *   不要直接传 persisted 整个对象 —— 只取与本次操作语义相关的字段；
+ * - describeDelta：可选，用于把 before/after 比对成 delta 摘要；缺省则不写 delta_jsonb。
+ */
+interface GmMutationAuditOptions {
+  op: string;
+  actor?: GmActorContext | null;
+  describeBefore?: (persisted: any) => unknown;
+  describeAfter?: (persisted: any) => unknown;
+  describeDelta?: (snapshot: { before: unknown; after: unknown }) => unknown;
+}
+
+/** 安全调用 describe 函数：异常时返回 { describeError } 占位，不抛。 */
+function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown {
+  if (typeof fn !== 'function') {
+    return undefined;
+  }
+  try {
+    return fn(arg);
+  } catch (error) {
+    return { describeError: error instanceof Error ? error.message : String(error) };
+  }
 }
 /**
  * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -271,6 +302,8 @@ export class NativeGmPlayerService {
     private readonly nextManagedAccountService: NativeManagedAccountServiceLike,
     @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+    @Inject(GmAuditLogPersistenceService)
+    private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
   ) {}  
   /**
  * hasRuntimePlayer：判断运行态玩家是否满足条件。
@@ -324,7 +357,7 @@ export class NativeGmPlayerService {
  */
 
 
-  async updatePlayer(playerId: string, body) {
+  async updatePlayer(playerId: string, body, actor?: GmActorContext | null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const section = body?.section ?? null;
@@ -342,6 +375,26 @@ export class NativeGmPlayerService {
           hp: Number.isFinite(snapshot.hp) ? snapshot.hp : runtime.hp,
           autoBattle: typeof snapshot.autoBattle === 'boolean' ? snapshot.autoBattle : runtime.combat.autoBattle === true,
         });
+        // N45：runtime queue 路径只是排队意图，真正落库会异步发生；这里记录 enqueue 事件本身，
+        // 让 audit 链可观测到"GM 触发的 runtime queue update"，便于 GM 操作复盘。
+        await this.recordGmAuditEntry({
+          op: 'gm.player.update',
+          targetType: 'player',
+          targetId: playerId,
+          actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+          before: { section: 'runtime-queue-enqueue' },
+          after: {
+            instanceId: typeof snapshot.instanceId === 'string' ? snapshot.instanceId : null,
+            mapId: typeof snapshot.mapId === 'string' ? snapshot.mapId : runtime.templateId,
+            x: Number.isFinite(snapshot.x) ? snapshot.x : runtime.x,
+            y: Number.isFinite(snapshot.y) ? snapshot.y : runtime.y,
+            hp: Number.isFinite(snapshot.hp) ? snapshot.hp : runtime.hp,
+            autoBattle: typeof snapshot.autoBattle === 'boolean' ? snapshot.autoBattle : runtime.combat.autoBattle === true,
+          },
+          delta: { section, async: true },
+          success: true,
+          errorMessage: null,
+        });
         return;
       }
     }
@@ -350,8 +403,26 @@ export class NativeGmPlayerService {
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
       : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.update',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: undefined,
+        after: undefined,
+        delta: { section, snapshot },
+        success: false,
+        errorMessage: '目标玩家不存在',
+      });
       throw new NotFoundException('目标玩家不存在');
     }
+
+    // 仅记录 section + 修改字段名，避免把整份 persisted 复制进 audit_log（payload 过大且含敏感字段）。
+    const beforeSummary = {
+      section,
+      placement: { ...(persisted?.placement ?? {}) },
+      vitals: { ...(persisted?.vitals ?? {}) },
+    };
 
     if (section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
       this.applyPositionToPersistenceSnapshot(persisted, snapshot);
@@ -361,11 +432,36 @@ export class NativeGmPlayerService {
 
     await this.savePlayerPersistenceSnapshot(playerId, persisted);
     if (!runtime || section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.update',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: beforeSummary,
+        after: {
+          section,
+          placement: { ...(persisted?.placement ?? {}) },
+          vitals: { ...(persisted?.vitals ?? {}) },
+        },
+        delta: { section, snapshotKeys: Object.keys(snapshot ?? {}) },
+        success: true,
+        errorMessage: null,
+      });
       return;
     }
 
     const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
     if (!refreshedRuntime) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.update',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: beforeSummary,
+        after: { section },
+        success: true,
+        errorMessage: null,
+      });
       return;
     }
 
@@ -374,6 +470,22 @@ export class NativeGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+
+    await this.recordGmAuditEntry({
+      op: 'gm.player.update',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: beforeSummary,
+      after: {
+        section,
+        placement: { ...(persisted?.placement ?? {}) },
+        vitals: { ...(persisted?.vitals ?? {}) },
+      },
+      delta: { section, snapshotKeys: Object.keys(snapshot ?? {}) },
+      success: true,
+      errorMessage: null,
+    });
   }
   /**
  * resetPlayer：执行reset玩家相关逻辑。
@@ -392,15 +504,30 @@ export class NativeGmPlayerService {
  */
 
 
-  async resetPersistedPlayer(playerId: string) {
+  async resetPersistedPlayer(playerId: string, actor?: GmActorContext | null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const persisted = await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.reset_persisted',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        success: false,
+        errorMessage: '目标玩家不存在',
+      });
       throw new NotFoundException('目标玩家不存在');
     }
 
     const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
+    const beforeSummary = {
+      placement: { ...(persisted?.placement ?? {}) },
+      vitals: { ...(persisted?.vitals ?? {}) },
+      buffsRevision: persisted?.buffs?.revision ?? null,
+      autoBattle: persisted?.combat?.autoBattle ?? null,
+    };
+
     persisted.placement.templateId = template.id;
     persisted.placement.x = template.spawnX;
     persisted.placement.y = template.spawnY;
@@ -413,6 +540,22 @@ export class NativeGmPlayerService {
     persisted.combat.combatTargetId = null;
     persisted.combat.combatTargetLocked = false;
     await this.savePlayerPersistenceSnapshot(playerId, persisted);
+
+    await this.recordGmAuditEntry({
+      op: 'gm.player.reset_persisted',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: beforeSummary,
+      after: {
+        placement: { ...(persisted?.placement ?? {}) },
+        vitals: { ...(persisted?.vitals ?? {}) },
+        buffsRevision: persisted?.buffs?.revision ?? null,
+        autoBattle: persisted?.combat?.autoBattle ?? null,
+      },
+      success: true,
+      errorMessage: null,
+    });
   }  
   /**
  * resetHeavenGate：执行resetHeavenGate相关逻辑。
@@ -421,7 +564,7 @@ export class NativeGmPlayerService {
  */
 
 
-  async resetHeavenGate(playerId: string) {
+  async resetHeavenGate(playerId: string, actor?: GmActorContext | null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const runtime = this.playerRuntimeService.snapshot(playerId);
@@ -429,18 +572,50 @@ export class NativeGmPlayerService {
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
       : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.reset_heaven_gate',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        success: false,
+        errorMessage: '目标玩家不存在',
+      });
       throw new NotFoundException('目标玩家不存在');
     }
+    const beforeSummary = {
+      heavenGate: persisted?.progression?.heavenGate ?? null,
+      spiritualRoots: persisted?.progression?.spiritualRoots ?? null,
+    };
 
     persisted.progression.heavenGate = null;
     persisted.progression.spiritualRoots = null;
     await this.savePlayerPersistenceSnapshot(playerId, persisted);
     if (!runtime) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.reset_heaven_gate',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: beforeSummary,
+        after: { heavenGate: null, spiritualRoots: null },
+        success: true,
+        errorMessage: null,
+      });
       return;
     }
 
     const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
     if (!refreshedRuntime) {
+      await this.recordGmAuditEntry({
+        op: 'gm.player.reset_heaven_gate',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: beforeSummary,
+        after: { heavenGate: null, spiritualRoots: null },
+        success: true,
+        errorMessage: null,
+      });
       return;
     }
 
@@ -453,6 +628,17 @@ export class NativeGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+
+    await this.recordGmAuditEntry({
+      op: 'gm.player.reset_heaven_gate',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: beforeSummary,
+      after: { heavenGate: null, spiritualRoots: null },
+      success: true,
+      errorMessage: null,
+    });
   }  
   /**
  * setPlayerBodyTrainingLevel：设置玩家炼体等级。
@@ -462,7 +648,7 @@ export class NativeGmPlayerService {
  */
 
 
-  async setPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown) {
+  async setPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown, actor?: GmActorContext | null) {
     const level = this.parseBodyTrainingLevel(requestedLevel);
     if (level === null) {
       throw new BadRequestException('炼体等级必须是非负整数');
@@ -472,12 +658,38 @@ export class NativeGmPlayerService {
     if (!runtime) {
       const persisted = await this.loadPlayerPersistenceSnapshot(playerId);
       if (!persisted) {
+        await this.recordGmAuditEntry({
+          op: 'gm.player.set_body_training_level',
+          targetType: 'player',
+          targetId: playerId,
+          actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+          before: undefined,
+          after: undefined,
+          delta: { requestedLevel: level },
+          success: false,
+          errorMessage: '目标玩家不存在',
+        });
         throw new NotFoundException('目标玩家不存在');
       }
+      const beforeLevel = persisted?.progression?.bodyTraining?.level ?? null;
       persisted.progression.bodyTraining = this.buildBodyTrainingState(persisted.progression.bodyTraining, level);
       await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      await this.recordGmAuditEntry({
+        op: 'gm.player.set_body_training_level',
+        targetType: 'player',
+        targetId: playerId,
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: { bodyTrainingLevel: beforeLevel },
+        after: { bodyTrainingLevel: level },
+        delta: { from: beforeLevel, to: level },
+        success: true,
+        errorMessage: null,
+      });
       return;
     }
+
+    const beforePersisted = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+    const beforeLevel = beforePersisted?.progression?.bodyTraining?.level ?? null;
 
     this.playerRuntimeService.setManagedBodyTrainingLevel(playerId, level);
     const persisted = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
@@ -486,6 +698,17 @@ export class NativeGmPlayerService {
     }
     await this.savePlayerPersistenceSnapshot(playerId, persisted);
     this.playerRuntimeService.markPersisted(playerId);
+    await this.recordGmAuditEntry({
+      op: 'gm.player.set_body_training_level',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: { bodyTrainingLevel: beforeLevel },
+      after: { bodyTrainingLevel: persisted?.progression?.bodyTraining?.level ?? level },
+      delta: { from: beforeLevel, to: level },
+      success: true,
+      errorMessage: null,
+    });
   }  
   /**
  * addPlayerFoundation：调整玩家底蕴。
@@ -495,7 +718,7 @@ export class NativeGmPlayerService {
  */
 
 
-  async addPlayerFoundation(playerId: string, requestedAmount: unknown) {
+  async addPlayerFoundation(playerId: string, requestedAmount: unknown, actor?: GmActorContext | null) {
     const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
 
     await this.mutateManagedPlayer(playerId, {
@@ -504,6 +727,13 @@ export class NativeGmPlayerService {
       },
       mutateRuntime: (runtime, persisted) => {
         runtime.foundation = persisted.progression.foundation;
+      },
+      audit: {
+        op: 'gm.player.add_foundation',
+        actor: actor ?? null,
+        describeBefore: (persisted) => ({ foundation: persisted?.progression?.foundation ?? null }),
+        describeAfter: (persisted) => ({ foundation: persisted?.progression?.foundation ?? null }),
+        describeDelta: () => ({ amount }),
       },
     });
   }  
@@ -515,7 +745,7 @@ export class NativeGmPlayerService {
  */
 
 
-  async addPlayerCombatExp(playerId: string, requestedAmount: unknown) {
+  async addPlayerCombatExp(playerId: string, requestedAmount: unknown, actor?: GmActorContext | null) {
     const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
 
     await this.mutateManagedPlayer(playerId, {
@@ -524,6 +754,13 @@ export class NativeGmPlayerService {
       },
       mutateRuntime: (runtime, persisted) => {
         runtime.combatExp = persisted.progression.combatExp;
+      },
+      audit: {
+        op: 'gm.player.add_combat_exp',
+        actor: actor ?? null,
+        describeBefore: (persisted) => ({ combatExp: persisted?.progression?.combatExp ?? null }),
+        describeAfter: (persisted) => ({ combatExp: persisted?.progression?.combatExp ?? null }),
+        describeDelta: () => ({ amount }),
       },
     });
   }  
@@ -1324,9 +1561,10 @@ export class NativeGmPlayerService {
   }
   /**
  * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。
- * @param playerId string 玩家 ID。
- * @param input 参数说明。
- * @returns 无返回值，直接更新玩家快照变更相关状态。
+ *
+ * N45：增加可选 audit hook —— 调用方传入 actor + op + describeBefore/After/Delta
+ * 时，本方法会在落库前后自动落 gm_audit_log。describeBefore/After 失败、audit 落库
+ * 失败都不抛出 / 不阻断主操作（gm_audit_log service 内部已做错误吞没）。
  */
 
 
@@ -1335,6 +1573,7 @@ export class NativeGmPlayerService {
     input: {
       mutatePersisted: (persisted: any) => void;
       mutateRuntime?: (runtime: any, persisted: any) => void;
+      audit?: GmMutationAuditOptions;
     },
   ) {
     const runtime = this.playerRuntimeService.snapshot(playerId);
@@ -1342,17 +1581,48 @@ export class NativeGmPlayerService {
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
       : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
+      const auditEntry = input.audit
+        ? this.buildPlayerAuditEntry(playerId, input.audit, undefined, undefined, false, '目标玩家不存在')
+        : null;
+      if (auditEntry) {
+        await this.recordGmAuditEntry(auditEntry);
+      }
       throw new NotFoundException('目标玩家不存在');
     }
 
-    input.mutatePersisted(persisted);
-    await this.savePlayerPersistenceSnapshot(playerId, persisted);
+    let beforeSummary: unknown = undefined;
+    if (input.audit) {
+      beforeSummary = safeDescribe(input.audit.describeBefore, persisted);
+    }
+
+    let auditError: string | null = null;
+    try {
+      input.mutatePersisted(persisted);
+      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+    } catch (error) {
+      auditError = error instanceof Error ? error.message : String(error);
+      if (input.audit) {
+        const failed = this.buildPlayerAuditEntry(playerId, input.audit, beforeSummary, undefined, false, auditError);
+        await this.recordGmAuditEntry(failed);
+      }
+      throw error;
+    }
     if (!runtime) {
+      if (input.audit) {
+        const afterSummary = safeDescribe(input.audit.describeAfter, persisted);
+        const entry = this.buildPlayerAuditEntry(playerId, input.audit, beforeSummary, afterSummary, true, null);
+        await this.recordGmAuditEntry(entry);
+      }
       return;
     }
 
     const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
     if (!refreshedRuntime) {
+      if (input.audit) {
+        const afterSummary = safeDescribe(input.audit.describeAfter, persisted);
+        const entry = this.buildPlayerAuditEntry(playerId, input.audit, beforeSummary, afterSummary, true, null);
+        await this.recordGmAuditEntry(entry);
+      }
       return;
     }
 
@@ -1363,6 +1633,47 @@ export class NativeGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+
+    if (input.audit) {
+      const afterSummary = safeDescribe(input.audit.describeAfter, persisted);
+      const entry = this.buildPlayerAuditEntry(playerId, input.audit, beforeSummary, afterSummary, true, null);
+      await this.recordGmAuditEntry(entry);
+    }
+  }
+
+  /** 构建针对玩家的 GM 审计条目；统一 target_type=player。 */
+  private buildPlayerAuditEntry(
+    playerId: string,
+    audit: GmMutationAuditOptions,
+    before: unknown,
+    after: unknown,
+    success: boolean,
+    errorMessage: string | null,
+  ): GmAuditLogEntry {
+    const delta = audit.describeDelta ? safeDescribe(audit.describeDelta, { before, after }) : undefined;
+    return {
+      op: audit.op,
+      targetType: 'player',
+      targetId: playerId,
+      actor: audit.actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before,
+      after,
+      delta,
+      success,
+      errorMessage,
+    };
+  }
+
+  /** 落 gm_audit_log；service 不可用时仅打 warn 不抛。 */
+  private async recordGmAuditEntry(entry: GmAuditLogEntry): Promise<void> {
+    if (!this.gmAuditLogPersistenceService) {
+      return;
+    }
+    try {
+      await this.gmAuditLogPersistenceService.recordEntry(entry);
+    } catch {
+      // service 内部已 catch 并打日志；额外保护一层避免 audit 异常冒泡破坏 GM 写流程。
+    }
   }  
   /**
  * cleanupManagedPlayerInvalidItems：清理单个玩家的无效物品与托管仓。

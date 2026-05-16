@@ -1,10 +1,38 @@
 import { Injectable, BadRequestException, Logger, UnauthorizedException, Inject } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { Pool } from 'pg';
 import { GM_AUTH_CONTRACT } from '../../http/native/native-gm-contract';
 import { resolveServerAllowInsecureLocalGmPassword, resolveServerDatabaseUrl, resolveServerGmPassword, resolveServerGmPasswordEnvSource } from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+
+/**
+ * 异步 scrypt：在 libuv 线程池中计算，不阻塞 Node.js 事件循环。
+ * GM 登录、改密、初始化都是高延迟敏感路径，必须避免主线程同步阻塞。
+ * 与玩家侧 auth/password-hash.ts 同套机制，但 GM 记录维持独立 salt + hex hash 存储格式。
+ */
+const scryptAsync = promisify(scryptCallback) as (
+    password: string,
+    salt: string,
+    keyLength: number,
+) => Promise<Buffer>;
+
+/** GM 密码记录字段。 */
+interface GmPasswordRecord {
+    salt: string;
+    hash: string;
+    updatedAt: string;
+}
+
+/**
+ * GM token 校验完整结果。
+ * - ok=true 时携带 payload.rev / exp 供 Guard 落 audit actor.tokenRev；
+ * - ok=false 时携带 reason 供 Guard / 监控 / 限流分级使用。
+ */
+export type GmAuthValidationResult =
+    | { ok: true; rev: string | null; exp: number }
+    | { ok: false; reason: 'empty_token' | 'malformed_token' | 'role_mismatch' | 'expired' | 'rev_mismatch' | 'signature_mismatch' };
 
 /** GM 密码记录 key。 */
 const GM_AUTH_KEY = GM_AUTH_CONTRACT.passwordRecordKey;
@@ -116,44 +144,62 @@ export class RuntimeGmAuthService {
             throw new BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
         }
 
-        const nextRecord = buildPasswordRecord(normalizedPassword);
+        const nextRecord = await buildPasswordRecord(normalizedPassword);
         await this.savePasswordRecordToDb(nextRecord);
     }
     /** 校验签名 token 是否仍然有效。 */
     validateAccessToken(token) {
+        return this.validateAndExtractAccessToken(token).ok;
+    }
+
+    /**
+     * 校验 token 并返回完整结果，供 Guard 抽取 actor.tokenRev。
+     * N45：boolean 兼容 API 上面保留；本方法用于挂 audit actor 上下文。
+     */
+    validateAndExtractAccessToken(token: unknown): GmAuthValidationResult {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const normalizedToken = typeof token === 'string' ? token.trim() : '';
         if (!normalizedToken) {
-            return false;
+            return { ok: false, reason: 'empty_token' };
         }
 
         const parts = normalizedToken.split('.');
         if (parts.length !== 3 || parts[0] !== 'v1') {
-            return false;
+            return { ok: false, reason: 'malformed_token' };
         }
 
         const payloadJson = decodeBase64Url(parts[1]);
         if (!payloadJson) {
-            return false;
+            return { ok: false, reason: 'malformed_token' };
         }
 
-        let payload;
+        let payload: { role?: unknown; exp?: unknown; rev?: unknown } | null = null;
         try {
             payload = JSON.parse(payloadJson);
         }
         catch {
-            return false;
+            return { ok: false, reason: 'malformed_token' };
         }
-        if (payload?.role !== 'gm' || !Number.isFinite(payload?.exp) || payload.exp <= Date.now()) {
-            return false;
+        if (!payload || payload.role !== 'gm') {
+            return { ok: false, reason: 'role_mismatch' };
         }
-        if (typeof payload?.rev === 'string' && this.memoryRecord && payload.rev !== this.memoryRecord.updatedAt) {
-            return false;
+        if (!Number.isFinite(payload.exp) || (payload.exp as number) <= Date.now()) {
+            return { ok: false, reason: 'expired' };
+        }
+        if (typeof payload.rev === 'string' && this.memoryRecord && payload.rev !== this.memoryRecord.updatedAt) {
+            return { ok: false, reason: 'rev_mismatch' };
         }
 
         const expectedSignature = signTokenPayload(parts[1], this.getSigningSecret());
-        return safeEqual(parts[2], expectedSignature);
+        if (!safeEqual(parts[2], expectedSignature)) {
+            return { ok: false, reason: 'signature_mismatch' };
+        }
+        return {
+            ok: true,
+            rev: typeof payload.rev === 'string' ? payload.rev : null,
+            exp: payload.exp as number,
+        };
     }
     /** 从持久化层重新载入密码记录。 */
     async reloadPasswordRecordFromPersistence() {
@@ -216,13 +262,13 @@ export class RuntimeGmAuthService {
                 return loaded;
             }
 
-            const created = buildPasswordRecord(this.getInitialPassword());
+            const created = await buildPasswordRecord(this.getInitialPassword());
             await this.savePasswordRecordToDb(created);
             this.memoryRecord = created;
             return created;
         }
         if (!this.memoryRecord) {
-            this.memoryRecord = buildPasswordRecord(this.getInitialPassword());
+            this.memoryRecord = await buildPasswordRecord(this.getInitialPassword());
         }
         return this.memoryRecord;
     }
@@ -374,29 +420,31 @@ function normalizePasswordRecord(raw) {
     };
 }
 /**
- * buildPasswordRecord：构建并返回目标对象。
- * @param password 参数说明。
- * @returns 无返回值，直接更新PasswordRecord相关状态。
+ * buildPasswordRecord：构建并返回 GM 密码记录。
+ * @param password GM 明文密码。
+ * @returns 包含 salt / hash / updatedAt 的密码记录；hash 通过异步 scrypt 派生。
  */
 
-function buildPasswordRecord(password) {
+async function buildPasswordRecord(password: string): Promise<GmPasswordRecord> {
 
     const salt = randomBytes(16).toString('hex');
     return {
         salt,
-        hash: hashPassword(password, salt),
+        hash: await hashPassword(password, salt),
         updatedAt: new Date().toISOString(),
     };
 }
 /**
- * hashPassword：判断hashPassword是否满足条件。
- * @param password 参数说明。
- * @param salt 参数说明。
- * @returns 无返回值，完成hashPassword的条件判断。
+ * hashPassword：使用异步 scrypt 派生 64 字节密钥并以 hex 表达。
+ * @param password 明文密码（非 string 时按空串处理）。
+ * @param salt 与记录绑定的 hex 字符串 salt。
+ * @returns hex 编码的 64 字节派生密钥。
  */
 
-function hashPassword(password, salt) {
-    return scryptSync(password, salt, 64).toString('hex');
+async function hashPassword(password: unknown, salt: string): Promise<string> {
+    const normalizedPassword = typeof password === 'string' ? password : '';
+    const derived = await scryptAsync(normalizedPassword, salt, 64);
+    return derived.toString('hex');
 }
 /**
  * verifyPassword：执行verifyPassword相关逻辑。
@@ -405,18 +453,19 @@ function hashPassword(password, salt) {
  * @returns 无返回值，直接更新verifyPassword相关状态。
  */
 
-async function verifyPassword(password, record) {
+async function verifyPassword(password: unknown, record: GmPasswordRecord): Promise<boolean> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const normalizedPassword = typeof password === 'string' ? password : '';
     if (record.salt === LEGACY_BCRYPT_SENTINEL_SALT) {
         try {
-            return bcrypt.compareSync(password, record.hash);
+            return bcrypt.compareSync(normalizedPassword, record.hash);
         }
         catch {
             return false;
         }
     }
-    return safeEqual(hashPassword(password, record.salt), record.hash);
+    return safeEqual(await hashPassword(normalizedPassword, record.salt), record.hash);
 }
 /**
  * signTokenPayload：读取signToken载荷并返回结果。
