@@ -24,6 +24,26 @@ const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
 const EMPTY_HEAP_SPACE_SNAPSHOTS = [];
 const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
 const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
+/**
+ * 网络诊断 bucket label 的数量硬上限，防止 resolveNetworkPacketLabel 漏网或新协议事件
+ * 接入时让 networkInBucketByKey/networkOutBucketByKey 无限增长。已收敛到 unknown 后
+ * 正常情况下不会超过协议枚举大小，这里的上限只作为兜底。
+ */
+const MAX_NETWORK_PERF_BUCKET_LABELS = 256;
+/** 默认 5 分钟滚动一次网络诊断 bucket，最小 60 秒，避免频繁清零影响诊断窗口。 */
+const NETWORK_PERF_ROLLING_RESET_DEFAULT_MS = 5 * 60 * 1000;
+const NETWORK_PERF_ROLLING_RESET_MIN_MS = 60 * 1000;
+function resolveNetworkPerfRollingResetIntervalMs() {
+    const raw = process.env.SERVER_GM_NETWORK_PERF_RESET_INTERVAL_MS;
+    if (typeof raw !== 'string' || raw.trim().length === 0) {
+        return NETWORK_PERF_ROLLING_RESET_DEFAULT_MS;
+    }
+    const parsed = Number(raw.trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return NETWORK_PERF_ROLLING_RESET_DEFAULT_MS;
+    }
+    return Math.max(NETWORK_PERF_ROLLING_RESET_MIN_MS, Math.trunc(parsed));
+}
 const HEAP_SNAPSHOT_DIR = join(process.cwd(), '.runtime', 'heap-snapshots');
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
@@ -60,6 +80,12 @@ export class RuntimeGmStateService {
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
     networkOutBucketByKey = new Map();
+    /** GM 手动启动的网络诊断开关；环境变量开启时不依赖此状态。 */
+    networkPerfManuallyEnabled = false;
+    /** 滚动 reset 调度计时器，避免长期诊断累积；onModuleDestroy 清理。 */
+    networkPerfRollingResetTimer = null;
+    /** 上一次 reset 时间戳，供监控/GM 面板观察当前窗口起点。 */
+    lastNetworkPerfResetAt = Date.now();
     /** 最近一次 CPU 百分比采样的进程用时基线。 */
     lastCpuUsage = process.cpuUsage();
     /** 最近一次 CPU 百分比采样的单调时钟基线。 */
@@ -166,12 +192,60 @@ export class RuntimeGmStateService {
     }
     /** GM 网络性能统计是热路径诊断能力，生产默认关闭，需要显式开关。 */
     shouldRecordNetworkPerf() {
-        return isNetworkPerfRecordingEnabled();
+        return this.networkPerfManuallyEnabled || isNetworkPerfRecordingEnabled();
+    }
+    /** 由 GM 面板显式启动网络性能统计。 */
+    enableNetworkPerfCounters() {
+        this.networkPerfManuallyEnabled = true;
+        this.ensureNetworkPerfRollingReset();
     }
     /** 清空累计网络统计。 */
     resetNetworkPerfCounters() {
         this.networkInBucketByKey.clear();
         this.networkOutBucketByKey.clear();
+        this.lastNetworkPerfResetAt = Date.now();
+    }
+    /**
+     * 启动按时间窗滚动 reset 调度，避免 networkInBucketByKey/networkOutBucketByKey 长期累积：
+     * 默认 5 分钟轮转一次，可通过 SERVER_GM_NETWORK_PERF_RESET_INTERVAL_MS 调整（最小 60 秒）。
+     * 仅当 GM 面板手动启用或 env 强制启用时才创建定时器；定时器 unref 不阻塞进程退出。
+     * onModuleDestroy / 重复调用时通过 clearInterval 防止泄漏。
+     */
+    ensureNetworkPerfRollingReset() {
+        if (this.networkPerfRollingResetTimer) {
+            return;
+        }
+        if (!this.shouldRecordNetworkPerf()) {
+            return;
+        }
+        const intervalMs = resolveNetworkPerfRollingResetIntervalMs();
+        if (intervalMs <= 0) {
+            return;
+        }
+        this.networkPerfRollingResetTimer = setInterval(() => {
+            try {
+                this.resetNetworkPerfCounters();
+            }
+            catch {
+                // ignore: 监控诊断路径异常不影响主线
+            }
+        }, intervalMs);
+        if (typeof this.networkPerfRollingResetTimer?.unref === 'function') {
+            this.networkPerfRollingResetTimer.unref();
+        }
+    }
+    /** NestJS 启动钩子：env 显式开启网络诊断时自动起 rolling reset。 */
+    onModuleInit() {
+        if (isNetworkPerfRecordingEnabled()) {
+            this.ensureNetworkPerfRollingReset();
+        }
+    }
+    /** NestJS 销毁钩子：清掉 rolling reset 定时器，避免热重启泄漏。 */
+    onModuleDestroy() {
+        if (this.networkPerfRollingResetTimer) {
+            clearInterval(this.networkPerfRollingResetTimer);
+            this.networkPerfRollingResetTimer = null;
+        }
     }
     /** 重置 CPU 百分比采样基线，供 GM 面板重新起算。 */
     resetCpuPerfCounters() {
@@ -473,6 +547,7 @@ export class RuntimeGmStateService {
                 maxExpandedNodes: 0,
                 failureReasons: EMPTY_PATHFINDING_FAILURES,
             },
+            networkStatsEnabled: this.shouldRecordNetworkPerf(),
             networkStatsStartedAt: now,
             networkStatsElapsedSec: 0,
             networkInBytes,
@@ -512,6 +587,12 @@ export class RuntimeGmStateService {
             current.bytes += measurement.packetBytes;
             current.count += 1;
             appendNetworkLargePayloadSample(current, sample);
+            return;
+        }
+        // 新 label 首次出现：先做硬上限保护，避免恶意/异常事件让 bucket 无界增长。
+        // resolveNetworkPacketLabel 已经收敛到协议枚举 + WorldDelta tag 组合 + unknown，
+        // 这里再加一道兜底防线，确保任何遗漏路径都不会撑爆 GM 状态。
+        if (bucketByKey.size >= MAX_NETWORK_PERF_BUCKET_LABELS) {
             return;
         }
         const next = {
@@ -717,7 +798,10 @@ function resolveNetworkPacketLabel(direction, event, payload) {
         }
         return direction + "_" + protocolName;
     }
-    return direction + "_" + eventKey.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    // 拒绝把未识别事件的 raw key 作为 label 写入 bucket：
+    // 客户端可以通过 socket 发任意自定义事件名，未做收敛会导致 bucket 标签 cardinality 无界增长。
+    // 统一收敛到 `<direction>_unknown` 防止恶意/误用事件名撑爆诊断状态。
+    return direction + "_unknown";
 }
 
 function resolveWorldDeltaPacketLabel(protocolName, payload) {

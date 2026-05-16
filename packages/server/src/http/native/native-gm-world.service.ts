@@ -46,6 +46,7 @@ interface ContentTemplateRepositoryLike {
 
 interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): Record<string, unknown>;
+  enableNetworkPerfCounters(): void;
   resetNetworkPerfCounters(): void;
   resetCpuPerfCounters(): void;
   writeHeapSnapshot(): unknown;
@@ -1001,6 +1002,7 @@ export class NativeGmWorldService {
 
   resetNetworkPerf() {
     this.networkPerfStartedAt = Date.now();
+    this.runtimeGmStateService.enableNetworkPerfCounters();
     this.runtimeGmStateService.resetNetworkPerfCounters();
   }  
   /**

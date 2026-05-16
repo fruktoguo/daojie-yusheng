@@ -23,6 +23,14 @@ async function main(): Promise<void> {
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
     assert.equal(service.networkOutBucketByKey.size, 0);
 
+    service.enableNetworkPerfCounters();
+    assert.equal(service.shouldRecordNetworkPerf(), true);
+    service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
+    assert.equal(service.networkOutBucketByKey.size, 1);
+    service.resetNetworkPerfCounters();
+    assert.equal(service.shouldRecordNetworkPerf(), true);
+    assert.equal(service.networkOutBucketByKey.size, 0);
+
     process.env.SERVER_GM_NETWORK_PERF_ENABLED = 'true';
     assert.equal(service.shouldRecordNetworkPerf(), true);
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());

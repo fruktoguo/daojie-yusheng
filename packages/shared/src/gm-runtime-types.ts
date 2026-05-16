@@ -653,6 +653,11 @@ export interface GmPerformanceSnapshot {
 
   pathfinding: GmPathfindingSnapshot;
   /**
+ * networkStatsEnabled：网络统计是否已启用。
+ */
+
+  networkStatsEnabled?: boolean;
+  /**
  * networkStatsStartedAt：networkStatStartedAt相关字段。
  */
 
