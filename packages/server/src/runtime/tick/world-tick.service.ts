@@ -38,13 +38,31 @@ interface WorldSyncPort {
   flushConnectedPlayers(): void;
 }
 
+/** 世界 Tick 性能指标：跳过帧数、上一帧耗时、最近一次实际间隔。 */
+export interface WorldTickMetrics {
+  /** 累计被跳过（错过期望调度）的帧数；递归 setTimeout 路径上由慢帧追溯计算。 */
+  skippedFrameCount: number;
+  /** 上一帧 advanceFrame + sync + 事件总线 flush 总耗时（ms）。 */
+  lastTickDurationMs: number;
+  /** 上一次实际 tick 间隔（ms）；理想值 = WORLD_TICK_INTERVAL_MS。 */
+  lastIntervalMs: number;
+  /** 累计 tick 次数。 */
+  totalTicks: number;
+}
+
 /** 世界 Tick 调度器：以固定间隔循环驱动世界帧推进、同步和事件总线 flush。 */
 @Injectable()
 export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
   private readonly logger = new Logger(WorldTickService.name);
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private tickInFlight = false;
   private shuttingDown = false;
+  /** N9：跳帧观测。慢于目标 1.5 倍即视为跳帧，便于 GM 性能页与 readiness 降级。 */
+  private skippedFrameCount = 0;
+  private lastTickStartedAt = 0;
+  private lastTickDurationMs = 0;
+  private lastIntervalMs = gameplayConstants.WORLD_TICK_INTERVAL_MS;
+  private totalTicks = 0;
 
   constructor(
     @Inject(RuntimeEventBusService)
@@ -66,13 +84,21 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
   /** 执行一次完整 tick：推进世界帧 → 同步玩家 → 事件总线 flush 收尾。 */
   private async runTickOnce(): Promise<void> {
     if (this.shuttingDown) {
+      // 关停期间不再触发新 tick；不再调度后续。
       return;
     }
     if (this.tickInFlight) {
+      // 递归 setTimeout 路径上理论不会重入，保留 guard 防御并发误触发。
       return;
     }
 
     this.tickInFlight = true;
+    const startedAt = performance.now();
+    // N9：与上一次 tick 的实际间隔；首次设为目标间隔避免误报。
+    this.lastIntervalMs = this.lastTickStartedAt === 0
+      ? gameplayConstants.WORLD_TICK_INTERVAL_MS
+      : startedAt - this.lastTickStartedAt;
+    this.lastTickStartedAt = startedAt;
 
     try {
       if (this.runtimeMaintenanceService.isRuntimeMaintenanceActive()) {
@@ -94,18 +120,50 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
         error instanceof Error ? error.stack : String(error),
       );
     } finally {
+      this.lastTickDurationMs = performance.now() - startedAt;
+      this.totalTicks += 1;
+      // N9：跳帧追溯 —— 实际间隔超过目标 1.5 倍视为慢帧，记入 skippedFrameCount，
+      // 让 readiness 降级 / 监控指标可见，避免静默 0.66Hz 退化。
+      const targetIntervalMs = gameplayConstants.WORLD_TICK_INTERVAL_MS;
+      if (this.totalTicks > 1 && this.lastIntervalMs > targetIntervalMs * 1.5) {
+        const dropped = Math.max(1, Math.floor(this.lastIntervalMs / targetIntervalMs) - 1);
+        this.skippedFrameCount += dropped;
+        this.logger.warn(
+          `世界 Tick 慢帧：实际间隔 ${this.lastIntervalMs.toFixed(0)}ms，目标 ${targetIntervalMs}ms，估计跳过 ${dropped} 帧（累计 ${this.skippedFrameCount}）`,
+        );
+      }
       this.tickInFlight = false;
+      this.scheduleNextTick();
     }
+  }
+
+  /** 递归 setTimeout 调度：按目标间隔与上一帧耗时差值动态决定下一次延迟。 */
+  private scheduleNextTick(): void {
+    if (this.shuttingDown) {
+      return;
+    }
+    const targetIntervalMs = gameplayConstants.WORLD_TICK_INTERVAL_MS;
+    // 上一帧耗时已经计入；理想下次延迟 = 目标 - 已耗，最低 0 表示立刻进下一帧但仍让出 event loop。
+    const delay = Math.max(0, targetIntervalMs - this.lastTickDurationMs);
+    this.timer = setTimeout(() => void this.runTickOnce(), delay);
+    this.timer.unref();
+  }
+
+  /** 暴露 tick 性能指标供诊断 / readiness / GM 性能页消费。 */
+  getTickMetrics(): WorldTickMetrics {
+    return {
+      skippedFrameCount: this.skippedFrameCount,
+      lastTickDurationMs: this.lastTickDurationMs,
+      lastIntervalMs: this.lastIntervalMs,
+      totalTicks: this.totalTicks,
+    };
   }
 
   onModuleInit(): void {
     this.shuttingDown = false;
-    this.timer = setInterval(() => {
-      void this.runTickOnce();
-    }, gameplayConstants.WORLD_TICK_INTERVAL_MS);
-
-    this.timer.unref();
-    this.logger.log(`世界 Tick 已启动，间隔 ${gameplayConstants.WORLD_TICK_INTERVAL_MS}ms`);
+    this.lastTickStartedAt = 0;
+    this.scheduleNextTick();
+    this.logger.log(`世界 Tick 已启动（递归 setTimeout 自调度），目标间隔 ${gameplayConstants.WORLD_TICK_INTERVAL_MS}ms`);
   }
 
   onModuleDestroy(): void {
@@ -124,8 +182,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
     if (!this.timer) {
       return;
     }
-
-    clearInterval(this.timer);
+    clearTimeout(this.timer);
     this.timer = null;
   }
 }
