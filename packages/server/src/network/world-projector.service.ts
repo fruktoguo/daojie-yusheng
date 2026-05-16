@@ -184,6 +184,10 @@ export class WorldProjectorService {
         this.cacheByPlayerId.delete(playerId);
     }
 
+    getCachedProjectorState(playerId: string): any | null {
+        return this.cacheByPlayerId.get(playerId) ?? null;
+    }
+
     getEventNames() {
         return S2C;
     }

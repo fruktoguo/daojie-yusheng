@@ -10,6 +10,7 @@ import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limi
 import { WorldProjectorService } from '../network/world-projector.service';
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { WorldSyncMapStaticAuxService } from '../network/world-sync-map-static-aux.service';
+import { WorldSyncPlayerStateService } from '../network/world-sync-player-state.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
   const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
   const instanceProjectionProof = proveProjectorSharesStableInstanceEntryRefs();
   const projectorFullEnvelopeRefProof = proveProjectorFullEnvelopeUsesCapturedRefs();
+  const bootstrapPlayerStateRefProof = proveBootstrapPlayerStateUsesProjectorCache();
   const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
   const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
@@ -53,6 +55,7 @@ async function main(): Promise<void> {
     projectorProof,
     instanceProjectionProof,
     projectorFullEnvelopeRefProof,
+    bootstrapPlayerStateRefProof,
     tileProjectionProof,
     panelSliceRefProof,
     combatEffectRefProof,
@@ -62,7 +65,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -389,6 +392,47 @@ function proveProjectorFullEnvelopeUsesCapturedRefs(): {
     techniqueDiffRefShared,
     actionDiffRefShared,
   };
+}
+
+function proveBootstrapPlayerStateUsesProjectorCache(): {
+  baseAttrsRefShared: boolean;
+  temporaryBuffsRefShared: boolean;
+  autoUsePillsRefShared: boolean;
+  autoBattleSkillsCloneReused: boolean;
+} {
+  const projector = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const player = createProjectorPlayer();
+  player.name = '缓存修士';
+  player.displayName = '缓存修士';
+  player.quests = { quests: [] };
+  player.realm = { ...player.realm, breakthroughItems: [], breakthrough: null, heavenGate: null };
+  player.heavenGate = null;
+  player.spiritualRoots = null;
+  player.combat.autoUsePills = [{
+    itemId: 'pill_ref',
+    enabled: true,
+    threshold: 50,
+    conditions: [{ type: 'hp_ratio', op: '<=', value: 50 }],
+  }];
+  player.combat.autoBattleSkills = [{ skillId: 'skill_ref', enabled: true, skillEnabled: true, order: 1 }];
+  projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+  const state = (projector as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get(player.playerId);
+  const playerStateService = new WorldSyncPlayerStateService(projector as never);
+  const bootstrap = playerStateService.buildPlayerSyncState(player, createProjectorView(), ['yunlai_town']);
+  const secondBootstrap = playerStateService.buildPlayerSyncState(player, createProjectorView(), ['yunlai_town']);
+  const baseAttrsRefShared = bootstrap.baseAttrs === state.panel.attr.baseAttrs;
+  const temporaryBuffsRefShared = bootstrap.temporaryBuffs === state.panel.buff.buffs;
+  const autoUsePillsRefShared = bootstrap.autoUsePills === state.panel.action.autoUsePills;
+  const autoBattleSkillsCloneReused = bootstrap.autoBattleSkills === secondBootstrap.autoBattleSkills;
+
+  assert.equal(baseAttrsRefShared, true);
+  assert.equal(temporaryBuffsRefShared, true);
+  assert.equal(autoUsePillsRefShared, true);
+  assert.equal(autoBattleSkillsCloneReused, true);
+  return { baseAttrsRefShared, temporaryBuffsRefShared, autoUsePillsRefShared, autoBattleSkillsCloneReused };
 }
 
 function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number; instanceCacheUsed: boolean } {
