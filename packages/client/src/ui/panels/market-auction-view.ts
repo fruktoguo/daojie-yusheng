@@ -164,7 +164,7 @@ export class MarketAuctionView {
               : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.participate', undefined))}</div>`}
           </div>
         </div>
-        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
+        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel data-auction-detail-lot="${escapeHtmlAttr(selected?.id ?? '')}" data-auction-detail-tab="participate">
           ${this.renderAuctionDetailPanel(selected, update, 'participate')}
         </div>
       </div>
@@ -209,7 +209,7 @@ export class MarketAuctionView {
               : `<div class="empty-hint">${escapeHtml(t('market.auction.empty.mine', undefined))}</div>`}
           </div>
         </div>
-        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel>
+        <div class="auction-detail-panel ui-surface-pane ui-surface-pane--stack" data-auction-detail-panel data-auction-detail-lot="${escapeHtmlAttr(selected?.id ?? '')}" data-auction-detail-tab="mine">
           ${this.renderAuctionDetailPanel(selected, update, 'mine')}
         </div>
       </div>
@@ -297,17 +297,17 @@ export class MarketAuctionView {
       <div class="auction-price-grid">
         <div class="auction-price-card ui-surface-card ui-surface-card--compact">
           <span>当前价</span>
-          <strong>${this.panel.formatMarketUnitPrice(lot.currentPrice)}</strong>
-          <small>${formatDisplayInteger(lot.bidCount)} 次出价</small>
+          <strong data-auction-detail-current-price>${this.panel.formatMarketUnitPrice(lot.currentPrice)}</strong>
+          <small data-auction-detail-bid-count>${formatDisplayInteger(lot.bidCount)} 次出价</small>
         </div>
         <div class="auction-price-card ui-surface-card ui-surface-card--compact">
           <span>${escapeHtml(t('market.trade.buyout-confirm.price', undefined))}</span>
-          <strong>${lot.buyoutPrice === null ? '--' : this.panel.formatMarketUnitPrice(lot.buyoutPrice)}</strong>
+          <strong data-auction-detail-buyout-price>${lot.buyoutPrice === null ? '--' : this.panel.formatMarketUnitPrice(lot.buyoutPrice)}</strong>
           <small>${escapeHtml(update.currencyItemName)}</small>
         </div>
         <div class="auction-price-card ui-surface-card ui-surface-card--compact">
           <span>我的灵石</span>
-          <strong>${formatDisplayInteger(ownedCurrency)}</strong>
+          <strong data-auction-detail-owned-currency>${formatDisplayInteger(ownedCurrency)}</strong>
           <small>${escapeHtml(update.currencyItemName)}</small>
         </div>
       </div>
@@ -332,31 +332,35 @@ export class MarketAuctionView {
   }
 
   renderAuctionBidHistory(lot: AuctionLotView, currencyName: string): string {
+    return `<div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted" data-auction-bid-history>${this.renderAuctionBidHistoryContent(lot, currencyName)}</div>`;
+  }
+
+  renderAuctionBidHistoryContent(lot: AuctionLotView, currencyName: string): string {
     const rows = Array.isArray(lot.bids) ? lot.bids.slice(0, 6) : [];
     return `
-      <div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-        <div class="market-book-column-title">${escapeHtml(t('auction.bid-history.title', undefined))}</div>
-        ${rows.length > 0
-            ? rows.map((level, index) => `
-              <div class="auction-bid-row">
-                <span>${escapeHtml(level.bidderLabel || t('auction.bidder.anonymous', { index: formatDisplayInteger(index + 1) }))}</span>
-                <strong>${this.panel.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</strong>
-                <small>${escapeHtml(this.formatAuctionBidTime(level.createdAtMs))}</small>
-              </div>
-            `).join('')
-            : `<div class="empty-hint">${escapeHtml(t('auction.bid-history.empty', undefined))}</div>`}
-      </div>
+      <div class="market-book-column-title">${escapeHtml(t('auction.bid-history.title', undefined))}</div>
+      ${rows.length > 0
+          ? rows.map((level, index) => `
+            <div class="auction-bid-row">
+              <span>${escapeHtml(level.bidderLabel || t('auction.bidder.anonymous', { index: formatDisplayInteger(index + 1) }))}</span>
+              <strong>${this.panel.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</strong>
+              <small>${escapeHtml(this.formatAuctionBidTime(level.createdAtMs))}</small>
+            </div>
+          `).join('')
+          : `<div class="empty-hint">${escapeHtml(t('auction.bid-history.empty', undefined))}</div>`}
     `;
   }
 
   renderAuctionTradeHistory(currencyName: string): string {
+    return `<div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted" data-auction-trade-history>${this.renderAuctionTradeHistoryContent(currencyName)}</div>`;
+  }
+
+  renderAuctionTradeHistoryContent(currencyName: string): string {
     const history = this.panel.tradeHistory?.source === 'auction' ? this.panel.tradeHistory : null;
     if (this.panel.tradeHistoryLoading && !history) {
       return `
-        <div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-          <div class="market-book-column-title">成交记录</div>
-          <div class="empty-hint">${escapeHtml(t('market.history.loading', undefined))}</div>
-        </div>
+        <div class="market-book-column-title">成交记录</div>
+        <div class="empty-hint">${escapeHtml(t('market.history.loading', undefined))}</div>
       `;
     }
     const records = history?.records ?? [];
@@ -365,24 +369,22 @@ export class MarketAuctionView {
     const totalVisible = history?.totalVisible ?? 0;
     const totalPages = Math.max(1, Math.ceil(totalVisible / Math.max(1, pageSize)));
     return `
-      <div class="auction-bid-history ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-        <div class="market-list-toolbar ui-action-row">
-          <div class="market-book-column-title">成交记录</div>
-          <div class="market-list-toolbar-actions">
-            <button class="small-btn ghost" data-auction-history-page="${page - 1}" type="button" ${page <= 1 ? 'disabled' : ''}>上一页</button>
-            <button class="small-btn ghost" data-auction-history-page="${page + 1}" type="button" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
-          </div>
+      <div class="market-list-toolbar ui-action-row">
+        <div class="market-book-column-title">成交记录</div>
+        <div class="market-list-toolbar-actions">
+          <button class="small-btn ghost" data-auction-history-page="${page - 1}" type="button" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+          <button class="small-btn ghost" data-auction-history-page="${page + 1}" type="button" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
         </div>
-        ${records.length > 0
-          ? records.slice(0, 6).map((record) => `
-            <div class="auction-bid-row">
-              <span>${escapeHtml(record.itemName)}</span>
-              <strong>${escapeHtml(record.side === 'buy' ? t('market.history.side.buy', undefined) : t('market.history.side.sell', undefined))} ${formatDisplayInteger(record.quantity)} 件</strong>
-              <small>${this.panel.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</small>
-            </div>
-          `).join('')
-          : `<div class="empty-hint">${escapeHtml(this.panel.tradeHistoryLoading ? t('market.history.loading', undefined) : t('market.history.empty', undefined))}</div>`}
       </div>
+      ${records.length > 0
+        ? records.slice(0, 6).map((record) => `
+          <div class="auction-bid-row">
+            <span>${escapeHtml(record.itemName)}</span>
+            <strong>${escapeHtml(record.side === 'buy' ? t('market.history.side.buy', undefined) : t('market.history.side.sell', undefined))} ${formatDisplayInteger(record.quantity)} 件</strong>
+            <small>${this.panel.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</small>
+          </div>
+        `).join('')
+        : `<div class="empty-hint">${escapeHtml(this.panel.tradeHistoryLoading ? t('market.history.loading', undefined) : t('market.history.empty', undefined))}</div>`}
     `;
   }
 
@@ -647,10 +649,7 @@ export class MarketAuctionView {
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-history-page]').forEach((button) => button.addEventListener('click', () => {
-      const nextPage = Number.parseInt(button.dataset.auctionHistoryPage ?? '1', 10);
-      if (!Number.isFinite(nextPage) || nextPage === p.tradeHistoryPage) return;
-      p.requestTradeHistory(Math.max(1, Math.floor(nextPage)), 'auction');
-      this.renderAuctionModal();
+      this.handleAuctionHistoryPageClick(button);
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => button.addEventListener('click', () => {
@@ -669,31 +668,63 @@ export class MarketAuctionView {
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-action]').forEach((button) => button.addEventListener('click', () => {
-      const action = button.dataset.auctionAction;
-      const itemKey = button.dataset.auctionActionItem;
-      const lot = this.resolveAuctionLotByKey(itemKey, p.marketUpdate, 'participate');
-      const entry = lot ? (p.findListingVariantByKey(lot.itemKey, p.marketUpdate) ?? p.buildMarketListingFromAuctionLot(lot)) : null;
-      if (!action || !lot || !entry) return;
-      p.selectedAuctionItemKey = entry.itemKey;
-      p.selectedItemKey = entry.itemKey;
-      if (action === 'buyout') {
-        // Delegate buyout confirm to trade dialog sub-view via panel
-        (p as any).tradeDialogView.openAuctionBuyoutConfirm(entry, lot);
-        return;
-      }
-      (p as any).tradeDialogView.openAuctionBidDialog(entry, lot);
+      this.handleAuctionActionClick(button);
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-cancel]').forEach((button) => button.addEventListener('click', () => {
-      const orderId = button.dataset.auctionCancel;
-      if (!orderId) return;
-      p.callbacks?.onCancelOrder(orderId);
+      this.handleAuctionCancelClick(button);
     }, { signal }));
 
     body.querySelector<HTMLElement>('[data-auction-refresh]')?.addEventListener('click', () => {
       p.requestAuctionListings(p.auctionPage);
       p.requestTradeHistory(p.tradeHistoryPage, 'auction');
     }, { signal });
+  }
+
+  private bindAuctionDetailActionEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-auction-history-page]').forEach((button) => button.addEventListener('click', () => {
+      this.handleAuctionHistoryPageClick(button);
+    }));
+    root.querySelectorAll<HTMLElement>('[data-auction-action]').forEach((button) => button.addEventListener('click', () => {
+      this.handleAuctionActionClick(button);
+    }));
+    root.querySelectorAll<HTMLElement>('[data-auction-cancel]').forEach((button) => button.addEventListener('click', () => {
+      this.handleAuctionCancelClick(button);
+    }));
+  }
+
+  private bindAuctionHistoryPageEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-auction-history-page]').forEach((button) => button.addEventListener('click', () => {
+      this.handleAuctionHistoryPageClick(button);
+    }));
+  }
+
+  private handleAuctionHistoryPageClick(button: HTMLElement): void {
+    const nextPage = Number.parseInt(button.dataset.auctionHistoryPage ?? '1', 10);
+    if (!Number.isFinite(nextPage) || nextPage === this.panel.tradeHistoryPage) return;
+    this.panel.requestTradeHistory(Math.max(1, Math.floor(nextPage)), 'auction');
+    this.patchAuctionDetailLiveState();
+  }
+
+  private handleAuctionActionClick(button: HTMLElement): void {
+    const action = button.dataset.auctionAction;
+    const itemKey = button.dataset.auctionActionItem;
+    const lot = this.resolveAuctionLotByKey(itemKey, this.panel.marketUpdate, 'participate');
+    const entry = lot ? (this.panel.findListingVariantByKey(lot.itemKey, this.panel.marketUpdate) ?? this.panel.buildMarketListingFromAuctionLot(lot)) : null;
+    if (!action || !lot || !entry) return;
+    this.panel.selectedAuctionItemKey = entry.itemKey;
+    this.panel.selectedItemKey = entry.itemKey;
+    if (action === 'buyout') {
+      (this.panel as any).tradeDialogView.openAuctionBuyoutConfirm(entry, lot);
+      return;
+    }
+    (this.panel as any).tradeDialogView.openAuctionBidDialog(entry, lot);
+  }
+
+  private handleAuctionCancelClick(button: HTMLElement): void {
+    const orderId = button.dataset.auctionCancel;
+    if (!orderId) return;
+    this.panel.callbacks?.onCancelOrder(orderId);
   }
 
   bindAuctionConsignModalEvents(body: HTMLElement, signal: AbortSignal): void {
@@ -1005,6 +1036,53 @@ export class MarketAuctionView {
     if (!detail) return;
     const lot = this.resolveAuctionLotByKey(this.panel.selectedAuctionItemKey, update, this.panel.auctionTab);
     replaceElementHtml(detail, this.renderAuctionDetailPanel(lot, update, this.panel.auctionTab));
+    detail.dataset.auctionDetailLot = lot?.id ?? '';
+    detail.dataset.auctionDetailTab = this.panel.auctionTab;
+    this.bindAuctionDetailActionEvents(detail);
+  }
+
+  patchAuctionDetailLiveState(): boolean {
+    const body = this.panel.getOpenAuctionModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body || !update) return false;
+    const detail = body.querySelector<HTMLElement>('[data-auction-detail-panel]');
+    if (!detail) return false;
+    const lot = this.resolveAuctionLotByKey(this.panel.selectedAuctionItemKey, update, this.panel.auctionTab);
+    if (!lot || detail.dataset.auctionDetailLot !== lot.id || detail.dataset.auctionDetailTab !== this.panel.auctionTab) {
+      return false;
+    }
+
+    const listedEntry = this.panel.findListingVariantByKey(lot.itemKey, update) ?? this.panel.buildMarketListingFromAuctionLot(lot);
+    const buyConflict = this.panel.findConflictingOwnOrder(lot.itemKey, 'buy');
+    const canBid = this.panel.auctionTab === 'participate' && Boolean(listedEntry) && !buyConflict;
+    const canBuyout = canBid && lot.buyoutPrice !== null;
+    const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
+
+    const currentPriceNode = detail.querySelector<HTMLElement>('[data-auction-detail-current-price]');
+    if (currentPriceNode) currentPriceNode.textContent = this.panel.formatMarketUnitPrice(lot.currentPrice);
+    const bidCountNode = detail.querySelector<HTMLElement>('[data-auction-detail-bid-count]');
+    if (bidCountNode) bidCountNode.textContent = `${formatDisplayInteger(lot.bidCount)} 次出价`;
+    const buyoutPriceNode = detail.querySelector<HTMLElement>('[data-auction-detail-buyout-price]');
+    if (buyoutPriceNode) buyoutPriceNode.textContent = lot.buyoutPrice === null ? '--' : this.panel.formatMarketUnitPrice(lot.buyoutPrice);
+    const ownedCurrencyNode = detail.querySelector<HTMLElement>('[data-auction-detail-owned-currency]');
+    if (ownedCurrencyNode) ownedCurrencyNode.textContent = formatDisplayInteger(ownedCurrency);
+
+    const bidButton = detail.querySelector<HTMLButtonElement>('[data-auction-action="bid"]');
+    if (bidButton) bidButton.disabled = !canBid;
+    const buyoutButton = detail.querySelector<HTMLButtonElement>('[data-auction-action="buyout"]');
+    if (buyoutButton) buyoutButton.disabled = !canBuyout;
+
+    const bidHistory = detail.querySelector<HTMLElement>('[data-auction-bid-history]');
+    if (bidHistory) {
+      replaceElementHtml(bidHistory, this.renderAuctionBidHistoryContent(lot, update.currencyItemName));
+    }
+    const tradeHistory = detail.querySelector<HTMLElement>('[data-auction-trade-history]');
+    if (tradeHistory) {
+      replaceElementHtml(tradeHistory, this.renderAuctionTradeHistoryContent(update.currencyItemName));
+      this.bindAuctionHistoryPageEvents(tradeHistory);
+    }
+    this.patchAuctionCountdowns();
+    return true;
   }
 
   syncAuctionSelection(): void {

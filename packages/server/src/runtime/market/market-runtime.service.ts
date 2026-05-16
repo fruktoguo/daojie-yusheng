@@ -485,6 +485,9 @@ export class MarketRuntimeService {
             const orderItem = this.toOrderItem(item);
 
             const itemKey = this.buildItemKey(orderItem);
+            if (this.hasOpenOrder(playerId, itemKey, 'buy')) {
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.buy-order-duplicate', '同一种物品已有求购挂单，不能重复求购。', {});
+            }
             if (this.hasConflictingOpenOrder(playerId, itemKey, 'buy')) {
                 return this.singleMessage(playerId, '同一种物品已在挂售中，不能同时求购。');
             }
@@ -2091,9 +2094,13 @@ export class MarketRuntimeService {
     hasConflictingOpenOrder(ownerId, itemKey, nextSide) {
 
         const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
+        return this.hasOpenOrder(ownerId, itemKey, oppositeSide);
+    }
+    /** 判断玩家是否已有指定方向的同物品普通坊市挂单。 */
+    hasOpenOrder(ownerId, itemKey, side) {
         return this.openOrders.some((order) => order.ownerId === ownerId
             && this.getOrderItemKey(order) === itemKey
-            && order.side === oppositeSide
+            && order.side === side
             && order.status === 'open'
             && !this.isAuctionOrder(order)
             && order.remainingQuantity > 0);
@@ -2340,6 +2347,11 @@ export class MarketRuntimeService {
             return structuredItem;
         }
 
+        const stackSignatureItem = this.resolveStackSignatureMarketItemKey(payload?.itemKey);
+        if (stackSignatureItem) {
+            return stackSignatureItem;
+        }
+
         const itemId = typeof payload?.itemId === 'string' ? payload.itemId.trim() : '';
         return itemId ? this.contentTemplateRepository.createItem(itemId, 1) : null;
     }
@@ -2379,6 +2391,35 @@ export class MarketRuntimeService {
         catch {
             return null;
         }
+    }
+    /** 从客户端本地补齐行的 itemId#enhanceLevel 签名还原求购物品。 */
+    resolveStackSignatureMarketItemKey(itemKey) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
+        const separatorIndex = normalizedItemKey.lastIndexOf('#');
+        if (separatorIndex <= 0 || separatorIndex === normalizedItemKey.length - 1) {
+            return null;
+        }
+        const itemId = normalizedItemKey.slice(0, separatorIndex).trim();
+        const rawEnhanceLevel = normalizedItemKey.slice(separatorIndex + 1).trim();
+        if (!itemId || !/^\d+$/.test(rawEnhanceLevel)) {
+            return null;
+        }
+        const baseItem = this.contentTemplateRepository.createItem(itemId, 1);
+        if (!baseItem) {
+            return null;
+        }
+        const enhanceLevel = Math.max(0, Math.trunc(Number(rawEnhanceLevel)));
+        const mergedItem = {
+            ...baseItem,
+            itemId,
+            count: 1,
+        };
+        if (enhanceLevel > 0 || baseItem.type === 'equipment') {
+            mergedItem.enhanceLevel = enhanceLevel;
+        }
+        return this.toFullItem(mergedItem);
     }
     /**
  * toOrderItem：执行to订单道具相关逻辑。
@@ -2752,6 +2793,14 @@ export class MarketRuntimeService {
         return {
             affectedPlayerIds: [playerId],
             notices: [{ playerId, text, kind }],
+        };
+    }
+    /** 构造单条结构化坊市提示，fallback text 仅用于旧客户端和日志。 */
+    singleStructuredMessage(playerId, kind, key, text, opts = undefined) {
+        const notice = buildStructuredNotice(kind, key, text, opts);
+        return {
+            affectedPlayerIds: [playerId],
+            notices: [{ playerId, text: notice.text, kind: notice.kind, structured: notice.structured }],
         };
     }
     /**

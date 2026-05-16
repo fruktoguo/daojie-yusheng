@@ -30,9 +30,25 @@ async function main(): Promise<void> {
         return { ...item, count: Number.isFinite(Number(item?.count ?? 0)) ? Math.max(1, Math.trunc(Number(item.count))) : 1 };
       },
       getItemName(itemId: string) {
-        return itemId === 'rat_tail' ? '鼠尾' : itemId;
+        if (itemId === 'rat_tail') {
+          return '鼠尾';
+        }
+        if (itemId === 'iron_sword') {
+          return '铁剑';
+        }
+        return itemId;
       },
       createItem(itemId: string, count = 1) {
+        if (itemId === 'iron_sword') {
+          return {
+            itemId,
+            count,
+            name: '铁剑',
+            type: 'equipment',
+            equipSlot: 'weapon',
+            enhanceLevel: 0,
+          };
+        }
         return {
           itemId,
           count,
@@ -228,6 +244,26 @@ async function main(): Promise<void> {
   sellerPlayer.wallet.balances[0].balance = 30;
   await service.createBuyOrder(sellerId, { itemKey, quantity: 1, unitPrice: 6 });
   assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.side === 'buy' && order.ownerId === sellerId), true);
+
+  buyerPlayer.wallet.balances[0].balance = 100;
+  const enhancedBuyOrderResult = await service.createBuyOrder(buyerId, { itemKey: 'iron_sword#5', quantity: 1, unitPrice: 8 });
+  assert.equal(enhancedBuyOrderResult.notices.some((entry) => String(entry.text ?? '').includes('求购的物品不存在')), false);
+  const enhancedBuyOrder = (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.find((order) =>
+    order.side === 'buy'
+    && order.ownerId === buyerId
+    && (order.item as Record<string, unknown> | undefined)?.itemId === 'iron_sword'
+    && Number((order.item as Record<string, unknown> | undefined)?.enhanceLevel ?? 0) === 5
+  );
+  assert.ok(enhancedBuyOrder);
+  const duplicateEnhancedBuyOrderResult = await service.createBuyOrder(buyerId, { itemKey: 'iron_sword#5', quantity: 1, unitPrice: 8 });
+  assert.equal(duplicateEnhancedBuyOrderResult.notices.some((entry) => String(entry.text ?? '').includes('不能重复求购')), true);
+  const enhancedBuyOrders = (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.filter((order) =>
+    order.side === 'buy'
+    && order.ownerId === buyerId
+    && (order.item as Record<string, unknown> | undefined)?.itemId === 'iron_sword'
+    && Number((order.item as Record<string, unknown> | undefined)?.enhanceLevel ?? 0) === 5
+  );
+  assert.equal(enhancedBuyOrders.length, 1);
 
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-buy-now' }, null, 2));
 }

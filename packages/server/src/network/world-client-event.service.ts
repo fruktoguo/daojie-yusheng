@@ -486,7 +486,8 @@ export class WorldClientEventService {
             this.emitMarketOrders(socket, this.marketRuntimeService.buildMarketOrders(affectedPlayerId));
             this.emitMarketStorage(socket, this.marketRuntimeService.buildMarketStorage(affectedPlayerId));
         }
-        for (const subscriberPlayerId of Array.from(subscriberPlayerIds)) {
+        const updatePlayerIds = new Set([...Array.from(subscriberPlayerIds), ...affectedPlayerIds]);
+        for (const subscriberPlayerId of Array.from(updatePlayerIds)) {
             const socket = this.worldSessionService.getSocketByPlayerId(subscriberPlayerId);
             if (!socket) {
                 subscriberPlayerIds.delete(subscriberPlayerId);

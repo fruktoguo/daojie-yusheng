@@ -1202,16 +1202,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoUsePills = player?.autoUsePills ?? [];
       const previousCombatTargetingRules = player?.combatTargetingRules;
       const previousAutoBattleTargetingMode = player?.autoBattleTargetingMode ?? 'auto';
-      const previousAutoRetaliate = player?.autoRetaliate ?? true;
-      const previousAutoBattleStationary = player?.autoBattleStationary ?? false;
       const previousAllowAoePlayerHit = player?.allowAoePlayerHit ?? false;
       const previousRetaliatePlayerTargetId = player?.retaliatePlayerTargetId ?? null;
-      const previousAutoIdleCultivation = player?.autoIdleCultivation ?? true;
-      const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
       const previousAutoRootFoundation = player?.autoRootFoundation ?? false;
-      const previousCultivationActive = player?.cultivationActive ?? false;
-      const previousSenseQiActive = player?.senseQiActive ?? false;
-      const previousWangQiActive = player?.wangQiActive ?? false;
       const nextAutoBattle = data.autoBattle ?? player?.autoBattle ?? false;
       const nextAutoUsePills = data.autoUsePills ?? player?.autoUsePills ?? [];
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
@@ -1236,7 +1229,6 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || !isPlainEqual(previousAutoUsePills, nextAutoUsePills)
         || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules)
         || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
-        || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId
         || previousAutoRootFoundation !== nextAutoRootFoundation
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {

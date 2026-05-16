@@ -449,7 +449,9 @@ export class MarketPanel {
       this.syncVisibleMarketInventoryState();
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.patchAuctionDetailPanel();
+      if (!this.patchAuctionDetailLiveState()) {
+        this.patchAuctionDetailPanel();
+      }
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
@@ -465,7 +467,9 @@ export class MarketPanel {
       this.syncVisibleMarketInventoryState();
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.patchAuctionDetailPanel();
+      if (!this.patchAuctionDetailLiveState()) {
+        this.patchAuctionDetailPanel();
+      }
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
@@ -529,6 +533,10 @@ export class MarketPanel {
   updateAuctionListings(data: S2C_AuctionListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const previousListings = this.auctionListings;
+    const previousSelectedAuctionItemKey = this.selectedAuctionItemKey;
+    const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
+      && this.canPatchAuctionListingsInPlace(previousListings, data);
     this.auctionListings = data;
     this.auctionTab = data.tab;
     this.auctionCategory = data.category;
@@ -537,6 +545,17 @@ export class MarketPanel {
     this.syncAuctionSelection();
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      if (canPatchOpenModal) {
+        this.patchAuctionActiveSelection();
+        this.patchAuctionCountdowns();
+        if (previousSelectedAuctionItemKey !== this.selectedAuctionItemKey) {
+          this.patchAuctionDetailPanel();
+        } else if (!this.patchAuctionDetailLiveState()) {
+          this.patchAuctionDetailPanel();
+        }
+        this.syncTradeDialogOverlay();
+        return;
+      }
       this.renderAuctionModal();
     }
   }
@@ -618,7 +637,9 @@ export class MarketPanel {
         this.patchSelectedBookPanel();
       }
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      this.patchAuctionDetailPanel();
+      if (!this.patchAuctionDetailLiveState()) {
+        this.patchAuctionDetailPanel();
+      }
     } else {
       this.syncTradeDialogOverlay();
     }
@@ -1097,6 +1118,10 @@ export class MarketPanel {
     this.auctionView.patchAuctionDetailPanel();
   }
 
+  private patchAuctionDetailLiveState(): boolean {
+    return this.auctionView.patchAuctionDetailLiveState();
+  }
+
   /** 拍卖行打开时只同步动态子区域，避免 1Hz 市场摘要回包重建整个弹层。 */
   private patchAuctionModalLiveState(options: { patchDetail?: boolean } = {}): void {
     this.syncAuctionSelection();
@@ -1106,9 +1131,37 @@ export class MarketPanel {
       this.requestItemBook(selectedAuctionLot.itemKey);
     }
     if (options.patchDetail !== false) {
-      this.patchAuctionDetailPanel();
+      if (!this.patchAuctionDetailLiveState()) {
+        this.patchAuctionDetailPanel();
+      }
     }
     this.syncTradeDialogOverlay();
+  }
+
+  /** 同一拍卖分页的行情回包只更新状态，不重建弹层 DOM。 */
+  private canPatchAuctionListingsInPlace(previous: S2C_AuctionListings | null, next: S2C_AuctionListings): boolean {
+    if (!previous) {
+      return false;
+    }
+    if (
+      previous.tab !== next.tab
+      || previous.page !== next.page
+      || previous.pageSize !== next.pageSize
+      || previous.total !== next.total
+      || previous.category !== next.category
+      || (previous.query ?? '') !== (next.query ?? '')
+      || previous.items.length !== next.items.length
+    ) {
+      return false;
+    }
+    for (let index = 0; index < previous.items.length; index += 1) {
+      const previousItem = previous.items[index]!;
+      const nextItem = next.items[index]!;
+      if (previousItem.id !== nextItem.id || previousItem.itemKey !== nextItem.itemKey) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** 渲染市场弹层主体和右侧分栏。 */

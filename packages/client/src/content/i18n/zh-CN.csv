@@ -2135,6 +2135,7 @@ notice.equip.equipped,通知,装备 {itemName},装备穿戴通知
 notice.equip.unequipped,通知,卸下 {itemName},装备卸下通知
 notice.loot.tile-drop-inventory,通知,获得 {itemLabel},通用可拆地块掉落通知
 notice.market.auction.bid-placed,通知,你在拍卖行出价 {itemName}，当前总价 {totalPrice} {currencyName}{extensionText}。,
+notice.market.buy-order-duplicate,通知,同一种物品已有求购挂单，不能重复求购。,
 notice.market.auction.buyout-buyer,通知,你在拍卖行一口价竞得了 {itemName} x{quantity}，一口价支付 {currencyName} x{totalPrice}。,
 notice.market.auction.buyout-seller,通知,你的寄拍已被一口价拍下：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。,
 notice.market.auction.consigned,通知,已寄拍 {itemName} x{quantity}，整包总价 {totalPrice} {currencyName}，已收上架费 {listingFee} {currencyName}。,
