@@ -21,6 +21,8 @@ export class ContentTemplateRepository {
     itemTemplates = new Map();
     /** 功法模板表，按 techniqueId 查找。 */
     techniqueTemplates = new Map();
+    /** N44：技能模板按 skillId 反向索引。loadAll 内 technique 填充完成后立即建索引；getSkill 走 O(1) 查询。 */
+    skillTemplatesById = new Map();
     /** 共享功法 buff 表，供多个技能复用。 */
     sharedTechniqueBuffs = new Map();
     /** 阵法模板表，按 formationId 查找。 */
@@ -647,14 +649,9 @@ export class ContentTemplateRepository {
     }
     
     getSkill(skillId) {
-
-        for (const technique of this.techniqueTemplates.values()) {
-            const skill = technique.skills.find((entry) => entry.id === skillId);
-            if (skill) {
-                return cloneSkill(skill);
-            }
-        }
-        return null;
+        // N44：走 skillTemplatesById O(1) 索引；旧版嵌套循环（外 technique × 内 skills.find）已废弃。
+        const skill = this.skillTemplatesById.get(skillId);
+        return skill ? cloneSkill(skill) : null;
     }
     
     loadSharedTechniqueBuffs() {
@@ -680,6 +677,7 @@ export class ContentTemplateRepository {
 
         this.itemTemplates.clear();
         this.techniqueTemplates.clear();
+        this.skillTemplatesById.clear();
         this.sharedTechniqueBuffs.clear();
         this.formationTemplates.clear();
         this.monsterDropsByMonsterId.clear();
@@ -730,6 +728,24 @@ export class ContentTemplateRepository {
                     continue;
                 }
                 this.techniqueTemplates.set(normalized.id, normalized);
+            }
+        }
+        // N44：technique 填充完成后立即建 skillTemplatesById 反向索引；
+        // 后续 loadMonsterDrops -> normalizeMonsterSkills -> getSkill 直接走 O(1) 查询。
+        this.skillTemplatesById.clear();
+        for (const technique of this.techniqueTemplates.values()) {
+            if (!technique || !Array.isArray(technique.skills)) {
+                continue;
+            }
+            for (const skill of technique.skills) {
+                if (!skill || typeof skill.id !== 'string' || !skill.id) {
+                    continue;
+                }
+                // 同一 skillId 在多个 technique 中重复定义时按先到先得策略，
+                // 与旧版 for-of + skills.find 一致：返回第一次匹配。
+                if (!this.skillTemplatesById.has(skill.id)) {
+                    this.skillTemplatesById.set(skill.id, skill);
+                }
             }
         }
 
