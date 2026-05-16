@@ -3302,6 +3302,23 @@ async function ensurePlayerDomainDoubleColumnsWithClient(client: PoolClient): Pr
   await ensureDoubleColumnsWithClient(client, PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE);
 }
 
+/** 把 inventory entry 安全地序列化成日志字符串，处理循环引用与超长输出，避免 throw 时再炸。 */
+function safeStringifyInventoryEntry(value: unknown): string {
+  const MAX_DIGEST_LENGTH = 240;
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    serialized = '[unserializable]';
+  }
+  if (typeof serialized !== 'string') {
+    return '[non-string]';
+  }
+  return serialized.length > MAX_DIGEST_LENGTH
+    ? `${serialized.slice(0, MAX_DIGEST_LENGTH)}...`
+    : serialized;
+}
+
 async function replacePlayerInventoryItems(
   client: PoolClient,
   playerId: string,
@@ -3319,7 +3336,13 @@ async function replacePlayerInventoryItems(
     const entry = asRecord(items[index]);
     const itemId = normalizeRequiredString(entry?.itemId);
     if (!itemId) {
-      continue;
+      // 静默 continue 是商业级 MMO 资产丢失的隐藏通道：玩家会无声丢东西，运维事后无法定位。
+      // 这里改为抛错，让外层 withTransaction 整体 rollback（DELETE 也一起撤销），DB 维持
+      // 上一次成功 flush 的状态；同时错误信息携带 playerId/index/原始 entry 摘要，便于排障。
+      const entryDigest = safeStringifyInventoryEntry(items[index]);
+      throw new Error(
+        `replacePlayerInventoryItems: 非法 inventory entry 拒绝写入 playerId=${playerId} index=${index} entry=${entryDigest}`,
+      );
     }
     const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
     const itemInstanceId =
