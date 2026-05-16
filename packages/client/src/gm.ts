@@ -8042,9 +8042,12 @@ async function writeHeapSnapshot(): Promise<void> {
   writeHeapSnapshotBtn.disabled = true;
   heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot，服务端会短暂停顿...';
   try {
-    const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
-      method: 'POST',
-    });
+    // GB 级 heap 在服务端流式解析需要 60~180 秒；客户端默认 30 秒超时不够，这里放宽到 5 分钟。
+    const result = await request<GmHeapSnapshotRes>(
+      `${GM_API_BASE_PATH}/perf/memory/heap-snapshot`,
+      { method: 'POST' },
+      300_000,
+    );
     if (!result.ok) {
       const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
       heapSnapshotMetaEl.textContent = message;
@@ -8082,11 +8085,14 @@ async function writeAndCopyHeapSnapshotSummary(): Promise<void> {
   }
   copyHeapSnapshotSummaryBtn.disabled = true;
   writeHeapSnapshotBtn.disabled = true;
-  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot 并解析摘要，服务端会短暂停顿...';
+  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot 并解析摘要，服务端会短暂停顿（GB 级 heap 通常 60~180 秒）...';
   try {
-    const result = await request<GmHeapSnapshotRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot`, {
-      method: 'POST',
-    });
+    // 与 writeHeapSnapshot 同步：放宽到 5 分钟，以容纳 3+ GB heap 的解析时间。
+    const result = await request<GmHeapSnapshotRes>(
+      `${GM_API_BASE_PATH}/perf/memory/heap-snapshot`,
+      { method: 'POST' },
+      300_000,
+    );
     if (!result.ok) {
       const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
       heapSnapshotMetaEl.textContent = message;
