@@ -95,6 +95,30 @@ export class RuntimeGmAuthService {
     async onModuleDestroy() {
         this.releasePoolReference();
     }
+
+    /**
+     * N48：若校验通过的记录仍是旧 bcrypt 哨兵盐格式，则在登录成功后异步迁移到 scrypt 真盐格式。
+     * 迁移失败不阻断登录主路径（避免 DB 抖动连带影响 GM 登录）；下次登录还会重试。
+     * 持久化禁用时直接返回原记录。
+     */
+    private async maybeMigrateLegacyRecord(password: string, record: GmPasswordRecord): Promise<GmPasswordRecord> {
+        if (record.salt !== LEGACY_BCRYPT_SENTINEL_SALT) {
+            return record;
+        }
+        if (!this.persistenceEnabled || !this.pool) {
+            return record;
+        }
+        try {
+            const migrated = await buildPasswordRecord(password);
+            await this.savePasswordRecordToDb(migrated);
+            this.logger.log('GM 密码记录已从 legacy bcrypt 迁移到 scrypt 格式');
+            return migrated;
+        }
+        catch (error) {
+            this.logger.warn(`GM 密码 legacy 迁移失败，下次登录会重试：${error instanceof Error ? error.message : String(error)}`);
+            return record;
+        }
+    }
     /** 校验 GM 密码并签发访问 token。 */
     async login(password) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -102,20 +126,16 @@ export class RuntimeGmAuthService {
         const normalizedPassword = typeof password === 'string' ? password : '';
 
         const record = await this.getOrCreatePasswordRecord();
-        if (await verifyPassword(normalizedPassword, record)) {
-            this.memoryRecord = record;
-            return {
-                accessToken: this.issueToken(record),
-                expiresInSec: this.getTokenTtlSec(),
-            };
-        }
-
         if (!(await verifyPassword(normalizedPassword, record))) {
             throw new UnauthorizedException('GM 密码错误');
         }
-        this.memoryRecord = record;
+
+        // N48：登录成功且当前记录是旧 bcrypt 哨兵格式时，自动迁移到 scrypt；
+        // 失败不阻断登录主路径，下次登录还会再尝试一次。
+        const effectiveRecord = await this.maybeMigrateLegacyRecord(normalizedPassword, record);
+        this.memoryRecord = effectiveRecord;
         return {
-            accessToken: this.issueToken(record),
+            accessToken: this.issueToken(effectiveRecord),
             expiresInSec: this.getTokenTtlSec(),
         };
     }
@@ -458,8 +478,10 @@ async function verifyPassword(password: unknown, record: GmPasswordRecord): Prom
 
     const normalizedPassword = typeof password === 'string' ? password : '';
     if (record.salt === LEGACY_BCRYPT_SENTINEL_SALT) {
+        // N48：旧 bcrypt 记录改走异步 bcrypt.compare，避免一次性 100ms 主线程阻塞；
+        // 单进程登录风暴下，60 个登录请求会被错峰摊到 libuv 线程池，而不是同步串成 6 秒事件循环冻结。
         try {
-            return bcrypt.compareSync(normalizedPassword, record.hash);
+            return await bcrypt.compare(normalizedPassword, record.hash);
         }
         catch {
             return false;
