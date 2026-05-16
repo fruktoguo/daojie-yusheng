@@ -74,11 +74,9 @@ export class WorldSyncMapStaticAuxService {
 
         const visibleTiles = this.worldSyncMapSnapshotService.buildVisibleTilesSnapshot(view, player, template);
 
-        const currentVisibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
-
         const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
 
-        const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
+        const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
 
         const previous = this.cacheByPlayerId.get(playerId) ?? null;
         const mapChanged = !previous
@@ -137,7 +135,7 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
         tilesOriginX: resolveVisibleTilesOriginX(view, visibleTiles.matrix),
         tilesOriginY: resolveVisibleTilesOriginY(view, visibleTiles.matrix),
         visibleTiles: new Map(visibleTiles.byKey),
-        visibleMinimapMarkers: visibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
+        visibleMinimapMarkers,
     };
 }
 
@@ -277,22 +275,6 @@ function parseCoordKey(key) {
         Number(key.slice(0, separatorIndex)),
         Number(key.slice(separatorIndex + 1)),
     ];
-}
-/**
- * cloneMinimapMarker：构建MinimapMarker。
- * @param source 来源对象。
- * @returns 无返回值，直接更新MinimapMarker相关状态。
- */
-
-function cloneMinimapMarker(source) {
-    return {
-        id: source.id,
-        kind: source.kind,
-        x: source.x,
-        y: source.y,
-        label: source.label,
-        detail: source.detail,
-    };
 }
 /**
  * cloneTile：构建Tile。

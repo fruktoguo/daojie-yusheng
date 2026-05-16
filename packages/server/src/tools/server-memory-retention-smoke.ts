@@ -8,8 +8,10 @@ import { resolve } from 'node:path';
 
 import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limit.service';
 import { WorldProjectorService } from '../network/world-projector.service';
+import { WorldSyncAuxStateService } from '../network/world-sync-aux-state.service';
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { WorldSyncMapStaticAuxService } from '../network/world-sync-map-static-aux.service';
+import { WorldSyncMinimapService } from '../network/world-sync-minimap.service';
 import { WorldSyncPlayerStateService } from '../network/world-sync-player-state.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
@@ -33,6 +35,8 @@ async function main(): Promise<void> {
   const instanceProjectionProof = proveProjectorSharesStableInstanceEntryRefs();
   const projectorFullEnvelopeRefProof = proveProjectorFullEnvelopeUsesCapturedRefs();
   const bootstrapPlayerStateRefProof = proveBootstrapPlayerStateUsesProjectorCache();
+  const auxStateRefProof = proveAuxStateReusesStableProjectionRefs();
+  const minimapAuxRefProof = proveMinimapAuxReusesStaticMarkerRefs();
   const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
   const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
@@ -56,6 +60,8 @@ async function main(): Promise<void> {
     instanceProjectionProof,
     projectorFullEnvelopeRefProof,
     bootstrapPlayerStateRefProof,
+    auxStateRefProof,
+    minimapAuxRefProof,
     tileProjectionProof,
     panelSliceRefProof,
     combatEffectRefProof,
@@ -65,7 +71,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -435,6 +441,154 @@ function proveBootstrapPlayerStateUsesProjectorCache(): {
   return { baseAttrsRefShared, temporaryBuffsRefShared, autoUsePillsRefShared, autoBattleSkillsCloneReused };
 }
 
+function proveAuxStateReusesStableProjectionRefs(): {
+  bootstrapTimeRefShared: boolean;
+  initialRealmRefShared: boolean;
+  stableTimeCacheRefReused: boolean;
+  stableRealmCacheRefReused: boolean;
+  stableLootCacheRefReused: boolean;
+  stableLootSourceRefStored: boolean;
+} {
+  const log: any[] = [];
+  const player = createAuxPlayer();
+  const lootWindow = { tileX: 1, tileY: 1, title: '稳定拾取', sources: [] };
+  const service = new WorldSyncAuxStateService(
+    {
+      getOrThrow: (mapId: string) => ({
+        id: mapId,
+        width: 4,
+        height: 4,
+      }),
+    } as never,
+    {
+      buildMinimapLibrarySync: () => [],
+      buildGameTimeState: (_template: any, view: any) => ({
+        totalTicks: view.tick,
+        localTicks: view.tick,
+        dayLength: 120,
+        timeScale: 1,
+        phase: 'day',
+        phaseLabel: '白昼',
+        darknessStacks: 0,
+        visionMultiplier: 1,
+        lightPercent: 100,
+        effectiveViewRange: 2,
+        tint: null,
+        overlayAlpha: 0,
+      }),
+      buildMapTickIntervalMs: () => 1000,
+      buildMapMetaSync: (template: any) => ({ id: template.id }),
+    } as never,
+    {
+      buildInitialMapStaticState: () => ({
+        visibleTiles: { matrix: [[]], byKey: new Map() },
+        visibleMinimapMarkers: [],
+        cacheState: { marker: 'initial' },
+      }),
+      buildDeltaMapStaticPlan: () => ({
+        mapChanged: false,
+        visibleTiles: { matrix: [[]], byKey: new Map() },
+        visibleMinimapMarkers: [],
+        tilePatches: [],
+        visibleMinimapMarkerAdds: [],
+        visibleMinimapMarkerRemoves: [],
+        cacheState: { marker: 'delta' },
+      }),
+      commitPlayerCache: () => undefined,
+      clearPlayerCache: () => undefined,
+    } as never,
+    { buildMinimapSnapshotSync: () => ({ markers: [] }) } as never,
+    {
+      sendBootstrap: (_socket: any, payload: any) => log.push(['bootstrapTime', payload.time]),
+      sendMapStatic: () => undefined,
+      sendWorldDelta: (_socket: any, payload: any) => log.push(['deltaTime', payload.time]),
+      sendRealm: (_socket: any, payload: any) => log.push(['realm', payload.realm]),
+      sendLootWindow: () => undefined,
+    } as never,
+    { buildLootWindowSyncState: () => lootWindow } as never,
+    {
+      buildThreatArrows: () => [],
+      emitInitialThreatSync: () => undefined,
+      emitDeltaThreatSync: (_socket: any, _view: any, previous: any) => previous,
+    } as never,
+    {
+      buildPlayerSyncState: (_player: any, _view: any, unlockedMinimapIds: string[]) => ({ unlockedMinimapIds }),
+    } as never,
+  );
+  service.emitAuxInitialSync('aux_player', { emit: () => undefined }, createAuxView(10), player as never);
+  const cache = service as unknown as { protocolAuxStateByPlayerId: Map<string, any> };
+  const first = cache.protocolAuxStateByPlayerId.get('aux_player');
+  service.emitAuxDeltaSync('aux_player', { emit: () => undefined }, createAuxView(11), player as never);
+  const second = cache.protocolAuxStateByPlayerId.get('aux_player');
+  const bootstrapTimeRefShared = log.find((entry) => entry[0] === 'bootstrapTime')?.[1] === first.time.time;
+  const initialRealmRefShared = log.find((entry) => entry[0] === 'realm')?.[1] === first.realm;
+  const stableTimeCacheRefReused = second.time === first.time;
+  const stableRealmCacheRefReused = second.realm === first.realm;
+  const stableLootCacheRefReused = second.lootWindow === first.lootWindow;
+  const stableLootSourceRefStored = second.lootWindowSource === lootWindow;
+
+  assert.equal(bootstrapTimeRefShared, true);
+  assert.equal(initialRealmRefShared, true);
+  assert.equal(stableTimeCacheRefReused, true);
+  assert.equal(stableRealmCacheRefReused, true);
+  assert.equal(stableLootCacheRefReused, true);
+  assert.equal(stableLootSourceRefStored, true);
+  return {
+    bootstrapTimeRefShared,
+    initialRealmRefShared,
+    stableTimeCacheRefReused,
+    stableRealmCacheRefReused,
+    stableLootCacheRefReused,
+    stableLootSourceRefStored,
+  };
+}
+
+function proveMinimapAuxReusesStaticMarkerRefs(): {
+  visibleMarkerRefShared: boolean;
+  diffAddRefShared: boolean;
+  mapStaticUsesVisibleTileByKey: boolean;
+  cacheMarkerRefShared: boolean;
+} {
+  const marker = { id: 'marker.ref', kind: 'npc', x: 1, y: 1, label: '静态点', detail: 'ref' };
+  const minimapService = new WorldSyncMinimapService();
+  const visible = minimapService.buildVisibleMinimapMarkers([marker], new Map([['1,1', { type: 'floor' }]]));
+  const diff = minimapService.diffVisibleMinimapMarkers([], visible);
+  let buildVisibleTileKeySetCalls = 0;
+  let receivedVisibleTiles: any = null;
+  const visibleTiles = {
+    matrix: [[{ type: 'floor' }]],
+    byKey: new Map([['1,1', { type: 'floor' }]]),
+  };
+  const staticAuxService = new WorldSyncMapStaticAuxService(
+    {
+      buildVisibleTilesSnapshot: () => visibleTiles,
+      buildVisibleTileKeySet: () => {
+        buildVisibleTileKeySetCalls += 1;
+        return new Set();
+      },
+    } as never,
+    {
+      buildMinimapMarkers: () => [marker],
+      buildVisibleMinimapMarkers: (_markers: any, visibleTileKeys: any) => {
+        receivedVisibleTiles = visibleTileKeys;
+        return visible;
+      },
+      diffVisibleMinimapMarkers: () => ({ adds: diff.adds, removes: [] }),
+    } as never,
+  );
+  const plan = staticAuxService.buildDeltaMapStaticPlan('minimap_aux_player', createAuxView(1), createAuxPlayer(), { id: 'map.a' });
+  const visibleMarkerRefShared = visible[0] === marker;
+  const diffAddRefShared = diff.adds[0] === marker;
+  const mapStaticUsesVisibleTileByKey = buildVisibleTileKeySetCalls === 0 && receivedVisibleTiles === visibleTiles.byKey;
+  const cacheMarkerRefShared = plan.cacheState.visibleMinimapMarkers[0] === marker;
+
+  assert.equal(visibleMarkerRefShared, true);
+  assert.equal(diffAddRefShared, true);
+  assert.equal(mapStaticUsesVisibleTileByKey, true);
+  assert.equal(cacheMarkerRefShared, true);
+  return { visibleMarkerRefShared, diffAddRefShared, mapStaticUsesVisibleTileByKey, cacheMarkerRefShared };
+}
+
 function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number; instanceCacheUsed: boolean } {
   // mock instance：tileProjectionByCoord 现在挂在实例对象上，跟随实例 GC 释放。
   const fakeInstance: { tileProjectionByCoord?: Map<string, any> } = {};
@@ -521,6 +675,46 @@ function provePersistenceDirtyDomainProjectionPresent(): { dirtyDomainsForwarded
   assert.equal(dirtyDomainsForwarded, true);
   assert.equal(snapshotUsesDomainGate, true);
   return { dirtyDomainsForwarded, snapshotUsesDomainGate };
+}
+
+function createAuxView(tick: number): any {
+  return {
+    tick,
+    worldRevision: tick,
+    selfRevision: tick,
+    instance: {
+      instanceId: 'aux_instance',
+      templateId: 'map.a',
+    },
+    self: { x: 1, y: 1 },
+  };
+}
+
+function createAuxPlayer(): any {
+  return {
+    unlockedMapIds: [],
+    attrs: { numericStats: { viewRange: 1 } },
+    realm: {
+      stage: '炼气',
+      realmLv: 1,
+      displayName: '炼气一层',
+      name: '炼气',
+      shortName: '炼气',
+      path: 'qi',
+      narrative: 'narrative',
+      review: 'review',
+      lifespanYears: 60,
+      progress: 10,
+      progressToNext: 100,
+      breakthroughReady: false,
+      nextStage: '炼气二层',
+      minTechniqueLevel: 1,
+      minTechniqueRealm: 1,
+      breakthroughItems: [],
+      breakthrough: null,
+      heavenGate: null,
+    },
+  };
 }
 
 function createProjectorView(): any {

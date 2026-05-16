@@ -99,9 +99,11 @@ interface WorldSyncPlayerStateServicePort {
 
 interface ProtocolAuxState {
   realm: PlayerRealmState | null;
+  realmSource: PlayerRealmState | null;
   time: TimeSyncState;
   threatArrows: ThreatArrow;
   lootWindow: LootWindowState;
+  lootWindowSource: LootWindowState;
 }
 
 interface TimeSyncState {
@@ -176,6 +178,7 @@ export class WorldSyncAuxStateService {
     const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
     const timeSyncState = this.buildTimeSyncState(template.id, timeState);
+    const realmState = cloneRealmState(player.realm);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
     const bootstrapPayload = this.buildBootstrapSyncPayload(
       this.worldSyncPlayerStateService.buildPlayerSyncState(
@@ -203,22 +206,24 @@ export class WorldSyncAuxStateService {
       this.worldSyncProtocolService.sendWorldDelta(
         socket,
         this.buildWorldDeltaMapPatchPayload(view, {
-          time: cloneGameTimeState(timeSyncState.time),
+          time: timeSyncState.time,
           tickIntervalMs: timeSyncState.tickIntervalMs,
         }),
       );
     }
-    this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
+    this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, realmState));
 
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
     this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     this.worldSyncThreatService.emitInitialThreatSync(socket, view, threatArrows);
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticState.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {
-      realm: cloneRealmState(player.realm),
-      time: cloneTimeSyncState(timeSyncState),
+      realm: realmState,
+      realmSource: player.realm ?? null,
+      time: timeSyncState,
       threatArrows: cloneThreatArrows(threatArrows),
       lootWindow: cloneLootWindow(lootWindow),
+      lootWindowSource: lootWindow,
     });
   }
 
@@ -283,7 +288,7 @@ export class WorldSyncAuxStateService {
         socket,
         this.buildWorldDeltaMapPatchPayload(view, {
           tilePatches: hasMapPatch && mapStaticPlan.tilePatches.length > 0 ? mapStaticPlan.tilePatches : undefined,
-          time: shouldEmitTimeSync ? cloneGameTimeState(currentTimeSyncState.time) : undefined,
+          time: shouldEmitTimeSync ? currentTimeSyncState.time : undefined,
           tickIntervalMs: shouldEmitTimeSync ? currentTimeSyncState.tickIntervalMs : undefined,
           visibleMinimapMarkerAdds:
             hasMapPatch && mapStaticPlan.visibleMinimapMarkerAdds.length > 0
@@ -298,12 +303,14 @@ export class WorldSyncAuxStateService {
     }
 
     const currentRealm = player.realm ?? null;
-    if (!isSameRealmState(previous.realm, currentRealm)) {
-      this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, cloneRealmState(currentRealm)));
+    const realmChanged = !isCachedRealmCurrent(previous, currentRealm);
+    const nextRealm = realmChanged ? cloneRealmState(currentRealm) : previous.realm;
+    if (realmChanged) {
+      this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, nextRealm));
     }
 
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
-    const lootWindowChanged = !isSameLootWindow(previous.lootWindow, lootWindow);
+    const lootWindowChanged = !isCachedLootWindowCurrent(previous, lootWindow);
     if (lootWindowChanged) {
       this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     }
@@ -317,10 +324,12 @@ export class WorldSyncAuxStateService {
 
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {
-      realm: isSameRealmState(previous.realm, currentRealm) ? previous.realm : cloneRealmState(currentRealm),
-      time: cloneTimeSyncState(currentTimeSyncState),
+      realm: nextRealm,
+      realmSource: currentRealm,
+      time: shouldEmitTimeSync ? currentTimeSyncState : previous.time,
       threatArrows: cloneThreatArrows(currentThreatArrows),
       lootWindow: lootWindowChanged ? cloneLootWindow(lootWindow) : previous.lootWindow,
+      lootWindowSource: lootWindow,
     });
     return true;
   }
@@ -329,7 +338,7 @@ export class WorldSyncAuxStateService {
     return {
       mapId,
       tickIntervalMs: this.worldSyncMapSnapshotService.buildMapTickIntervalMs(mapId),
-      time: cloneGameTimeState(time),
+      time,
     };
   }
 
@@ -339,7 +348,7 @@ export class WorldSyncAuxStateService {
   ): BootstrapView {
     return {
       self,
-      time: cloneGameTimeState(timeState),
+      time: timeState,
       auraLevelBaseValue: DEFAULT_AURA_LEVEL_BASE_VALUE,
     };
   }
@@ -392,18 +401,6 @@ function resolveVisibleTilesOriginY(view: PlayerView, player: RuntimePlayer): nu
   return view.self.y - Math.max(1, Math.round(player.attrs.numericStats.viewRange));
 }
 
-function cloneGameTimeState(source: GameTimeState): GameTimeState {
-  return { ...source };
-}
-
-function cloneTimeSyncState(source: TimeSyncState): TimeSyncState {
-  return {
-    mapId: source.mapId,
-    tickIntervalMs: source.tickIntervalMs,
-    time: cloneGameTimeState(source.time),
-  };
-}
-
 function isSameTimeSyncState(left: TimeSyncState | null | undefined, right: TimeSyncState): boolean {
   if (!left) {
     return false;
@@ -449,6 +446,20 @@ function hasExpectedLocalTimeProgression(left: GameTimeState, right: GameTimeSta
 
 function wrapLocalTicks(value: number, dayLength: number): number {
   return ((value % dayLength) + dayLength) % dayLength;
+}
+
+function isCachedRealmCurrent(previous: ProtocolAuxState, currentRealm: PlayerRealmState | null): boolean {
+  if (previous.realmSource === currentRealm) {
+    return true;
+  }
+  return isSameRealmState(previous.realm, currentRealm);
+}
+
+function isCachedLootWindowCurrent(previous: ProtocolAuxState, currentLootWindow: LootWindowState): boolean {
+  if (previous.lootWindowSource === currentLootWindow) {
+    return true;
+  }
+  return isSameLootWindow(previous.lootWindow, currentLootWindow);
 }
 
 function cloneThreatArrows(source: ThreatArrow): ThreatArrow {

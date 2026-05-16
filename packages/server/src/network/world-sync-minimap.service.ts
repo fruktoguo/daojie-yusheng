@@ -144,7 +144,7 @@ function buildVisibleMinimapMarkers(markers, visibleTiles) {
         if (!visibleTiles.has(buildCoordKey(marker.x, marker.y))) {
             continue;
         }
-        visible.push(cloneMinimapMarker(marker));
+        visible.push(marker);
     }
     return visible;
 }
@@ -168,7 +168,7 @@ function diffVisibleMinimapMarkers(previous, current) {
     for (const [markerId, marker] of currentById.entries()) {
         const previousMarker = previousById.get(markerId);
         if (!previousMarker || !isSameMinimapMarker(previousMarker, marker)) {
-            adds.push(cloneMinimapMarker(marker));
+            adds.push(marker);
         }
     }
     for (const markerId of previousById.keys()) {
@@ -179,22 +179,6 @@ function diffVisibleMinimapMarkers(previous, current) {
     return {
         adds,
         removes,
-    };
-}
-/**
- * cloneMinimapMarker：构建MinimapMarker。
- * @param source 来源对象。
- * @returns 无返回值，直接更新MinimapMarker相关状态。
- */
-
-function cloneMinimapMarker(source) {
-    return {
-        id: source.id,
-        kind: source.kind,
-        x: source.x,
-        y: source.y,
-        label: source.label,
-        detail: source.detail,
     };
 }
 /**
