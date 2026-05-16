@@ -10,16 +10,6 @@
 4. 标题简短（≤ 70 字符），中文优先。正文写：做了什么、为什么、跑了哪些验证、验证结果。
 5. **不要 `--amend` 已推送的 commit、不 force push、不 reset --hard、不 git clean -f、不 branch -D**。本次只做新建 commit。
 6. **不要主动 `git push`、不建 PR**，除非我明确要求。
-7. 默认跑 hooks，不要 `--no-verify`，除非我明确要求。
-
-## 执行流程
-
-1. 先 `git status` + `git diff --stat` 看清全部待提交内容（含 untracked）。
-2. 按文件粒度分组，规划 commit 顺序，**先把分组方案告诉我**：每个 commit 的标题、包含的完整文件清单、目的。
-3. 等我确认分组没问题后再开始落 commit；如果我说"直接做"再不等确认。
-4. 每个 commit 落之前，按 `AGENTS.md` 第 18 节"Codex 默认门禁选择"挑最小验证门禁跑一次（例如服务端小改用 `pnpm verify:quick`，客户端 UI 改用 `pnpm verify:client`，shared/protocol 改用 `pnpm build:shared && pnpm audit:protocol`），把命令和结果写进 commit body。
-5. 若发现某个 commit 涉及 `.env`、密钥、token、credentials、私钥等疑似秘密文件，**先停下来提醒我**，等我确认再提交。
-6. 全部落完后用 `git log --oneline -n <数量>` 复述结果。
 
 ## 边界
 
