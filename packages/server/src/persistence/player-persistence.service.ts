@@ -3,11 +3,12 @@
  * 管理 server_player_snapshot 表，提供玩家完整快照的加载、保存和列表，
  * 包含快照数据的规范化、来源标记和旧格式兼容。
  */
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared';
 import { Pool, type PoolClient } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 
 const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
 
@@ -245,6 +246,11 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
   private enabled = false;
 
+  constructor(
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+  ) {}
+
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
@@ -252,9 +258,12 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-    });
+    const sharedPool = this.databasePoolProvider?.getPool('player-snapshot') ?? null;
+    if (!sharedPool) {
+      this.logger.warn('玩家快照持久化已禁用：DatabasePoolProvider 未提供连接池');
+      return;
+    }
+    this.pool = sharedPool;
 
     try {
       await ensurePlayerSnapshotTable(this.pool);
@@ -265,12 +274,12 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
         '玩家快照持久化初始化失败，已回退为禁用模式',
         error instanceof Error ? error.stack : String(error),
       );
-      await this.safeClosePool();
+      this.releasePoolReference();
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.safeClosePool();
+    this.releasePoolReference();
   }
 
   isEnabled(): boolean {
@@ -414,13 +423,9 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private async safeClosePool(): Promise<void> {
-    const pool = this.pool;
+  private releasePoolReference(): void {
     this.pool = null;
     this.enabled = false;
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
   }
 }
 

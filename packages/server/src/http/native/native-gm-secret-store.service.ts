@@ -3,10 +3,11 @@
  * 使用 AES-256-GCM 对密钥值进行加密，持久化到 PostgreSQL 专表。
  * 主密钥通过环境变量 SERVER_SECRET_ENCRYPTION_KEY 派生。
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, BadRequestException, Inject } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl, readTrimmedEnv } from '../../config/env-alias';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 
 const SECRET_TABLE = 'server_gm_secrets';
 const AES_ALGORITHM = 'aes-256-gcm';
@@ -36,6 +37,11 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
   private pool: Pool | null = null;
   private encryptionKey: Buffer | null = null;
 
+  constructor(
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+  ) {}
+
   async onModuleInit(): Promise<void> {
     const masterKey = readTrimmedEnv('SERVER_SECRET_ENCRYPTION_KEY', 'SECRET_ENCRYPTION_KEY');
     if (!masterKey) {
@@ -48,17 +54,22 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
     if (!databaseUrl.trim()) {
       return;
     }
-    this.pool = new Pool({ connectionString: databaseUrl });
+    const sharedPool = this.databasePoolProvider?.getPool('gm-secret-store') ?? null;
+    if (!sharedPool) {
+      this.logger.warn('密钥管理模块不可用：DatabasePoolProvider 未提供连接池');
+      return;
+    }
+    this.pool = sharedPool;
     try {
       await this.ensureTable();
     } catch (error) {
       this.logger.error('密钥存储表初始化失败', error instanceof Error ? error.stack : String(error));
-      await this.closePool();
+      this.pool = null;
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.closePool();
+    this.pool = null;
   }
 
   isAvailable(): boolean {
@@ -176,11 +187,5 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
     } finally {
       client.release();
     }
-  }
-
-  private async closePool(): Promise<void> {
-    const pool = this.pool;
-    this.pool = null;
-    if (pool) await pool.end().catch(() => undefined);
   }
 }

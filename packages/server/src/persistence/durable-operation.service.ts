@@ -9,6 +9,7 @@ import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 import { buildPersistedInventoryItemRawPayload } from './inventory-item-persistence';
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
@@ -377,7 +378,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
   private enabled = false;
 
-  constructor(@Inject(NodeRegistryService) private readonly nodeRegistryService: NodeRegistryService | null = null) {}
+  constructor(
+    @Inject(NodeRegistryService) private readonly nodeRegistryService: NodeRegistryService | null = null,
+    @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
@@ -386,9 +390,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-    });
+    const sharedPool = this.databasePoolProvider?.getPool('durable-operation') ?? null;
+    if (!sharedPool) {
+      this.logger.warn('强持久化事务服务已禁用：DatabasePoolProvider 未提供连接池');
+      return;
+    }
+    this.pool = sharedPool;
 
     try {
       await ensureDurableOperationTables(this.pool);
@@ -399,12 +406,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         '强持久化事务服务初始化失败，已回退为禁用模式',
         error instanceof Error ? error.stack : String(error),
       );
-      await this.safeClosePool();
+      this.releasePoolReference();
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.safeClosePool();
+    this.releasePoolReference();
   }
 
   isEnabled(): boolean {
@@ -2786,13 +2793,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async safeClosePool(): Promise<void> {
-    const pool = this.pool;
+  private releasePoolReference(): void {
     this.pool = null;
     this.enabled = false;
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
   }
 
   private async executeAssetMutation<TResult>(input: {

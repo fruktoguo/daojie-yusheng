@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, UnauthorizedException, Inject } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Pool } from 'pg';
 import { GM_AUTH_CONTRACT } from '../../http/native/native-gm-contract';
 import { resolveServerAllowInsecureLocalGmPassword, resolveServerDatabaseUrl, resolveServerGmPassword, resolveServerGmPasswordEnvSource } from '../../config/env-alias';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 
 /** GM 密码记录 key。 */
 const GM_AUTH_KEY = GM_AUTH_CONTRACT.passwordRecordKey;
@@ -29,6 +30,13 @@ export class RuntimeGmAuthService {
     persistenceEnabled = false;
     /** 当前驻留在内存里的密码记录。 */
     memoryRecord = null;
+
+    databasePoolProvider;
+
+    constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
+        this.databasePoolProvider = databasePoolProvider;
+    }
+
     /** 初始化鉴权持久化连接。 */
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -40,21 +48,24 @@ export class RuntimeGmAuthService {
         if (!databaseUrl.trim()) {
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool?.('gm-auth');
+        if (!sharedPool) {
+            this.logger.warn('运行时 GM 鉴权持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensureGmAuthTable(this.pool);
             this.persistenceEnabled = true;
         }
         catch (error) {
             this.logger.error('运行时 GM 鉴权持久化初始化失败', error instanceof Error ? error.stack : String(error));
-            await this.closePool();
+            this.releasePoolReference();
         }
     }
-    /** 销毁时关闭数据库连接池。 */
+    /** 销毁时释放连接池引用，由 DatabasePoolProvider 统一关闭。 */
     async onModuleDestroy() {
-        await this.closePool();
+        this.releasePoolReference();
     }
     /** 校验 GM 密码并签发访问 token。 */
     async login(password) {
@@ -301,19 +312,13 @@ export class RuntimeGmAuthService {
         this.logger.warn('GM 鉴权当前显式启用了本地不安全降级：使用默认密码 admin123。该模式仅允许 development/dev/local/test，且不得用于 shadow、acceptance、full 或生产环境。');
     }
     /**
- * closePool：执行closePool相关逻辑。
- * @returns 无返回值，直接更新closePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async closePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const pool = this.pool;
+    releasePoolReference() {
         this.pool = null;
         this.persistenceEnabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 };
 

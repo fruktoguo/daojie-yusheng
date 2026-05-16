@@ -18,6 +18,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { URL } from 'node:url';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { ensurePersistentDocumentsTable } from '../../persistence/persistent-document-table';
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
 import { GM_AUTH_CONTRACT, NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
@@ -339,6 +340,7 @@ export class NativeGmAdminService {
     constructor(
         @Inject(NativeDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator,
         @Inject(WorldRuntimeService) private readonly worldRuntimeService = null,
+        @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null,
     ) {
     }
     /**
@@ -355,9 +357,12 @@ export class NativeGmAdminService {
         if (!databaseUrl.trim()) {
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool('gm-admin') ?? null;
+        if (!sharedPool) {
+            this.logger.warn('旧 GM 管理兼容持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensureNativeGmAdminTables(this.pool);
             this.persistenceEnabled = true;
@@ -367,7 +372,7 @@ export class NativeGmAdminService {
         }
         catch (error) {
             this.logger.error('旧 GM 管理兼容持久化初始化失败', error instanceof Error ? error.stack : String(error));
-            await this.closePool();
+            this.releasePoolReference();
         }
     }
     /**
@@ -376,7 +381,7 @@ export class NativeGmAdminService {
  */
 
     async onModuleDestroy() {
-        await this.closePool();
+        this.releasePoolReference();
     }
     /**
  * getDatabaseState：读取Database状态。
@@ -1756,21 +1761,16 @@ export class NativeGmAdminService {
         }
     }
     /**
- * closePool：执行closePool相关逻辑。
- * @returns 无返回值，直接更新closePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async closePool() {
+    releasePoolReference() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const pool = this.pool;
         this.pool = null;
         this.persistenceEnabled = false;
         this.memoryOrdersByTradeNo.clear();
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
     /**
  * loadDatabaseJobStatePayload：读取数据库任务状态专表载荷。

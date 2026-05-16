@@ -4,10 +4,11 @@
  * 管理 userId/username/playerId/playerNo 映射、显示名规范化和来源标签，
  * 支持触发器自动同步镜像和 playerNo 回填。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { containsInvisibleOnlyNameGrapheme, getGraphemeCount, hasVisibleNameGrapheme, resolveDefaultVisibleDisplayName } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 
 const PLAYER_IDENTITY_SCOPE = 'server_player_identities_v1';
 
@@ -175,6 +176,13 @@ export class PlayerIdentityPersistenceService {
  */
 
     enabled = false;
+
+    databasePoolProvider;
+
+    constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
+        this.databasePoolProvider = databasePoolProvider;
+    }
+
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -188,9 +196,12 @@ export class PlayerIdentityPersistenceService {
             this.logger.log('玩家身份持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool?.('player-identity');
+        if (!sharedPool) {
+            this.logger.warn('玩家身份持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensurePlayerIdentityTable(this.pool);
             this.enabled = true;
@@ -198,7 +209,7 @@ export class PlayerIdentityPersistenceService {
         }
         catch (error) {
             this.logger.error('玩家身份持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
+            this.releasePoolReference();
         }
     }
     /**
@@ -207,7 +218,7 @@ export class PlayerIdentityPersistenceService {
  */
 
     async onModuleDestroy() {
-        await this.safeClosePool();
+        this.releasePoolReference();
     }
 
     /** 判断身份持久化是否生效（数据库连接已就绪）。 */
@@ -365,19 +376,13 @@ export class PlayerIdentityPersistenceService {
         return normalized;
     }
     /**
- * safeClosePool：执行safeClosePool相关逻辑。
- * @returns 无返回值，直接更新safeClosePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async safeClosePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const pool = this.pool;
+    releasePoolReference() {
         this.pool = null;
         this.enabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 }
 /**

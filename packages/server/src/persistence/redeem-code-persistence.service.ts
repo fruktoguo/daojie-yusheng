@@ -3,9 +3,10 @@
  * 管理 server_redeem_code_group 和 server_redeem_code 表，
  * 支持兑换码组的创建、兑换码使用/销毁状态的事务性落库和全量加载。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 
 const REDEEM_CODE_STATE_TABLE = 'server_redeem_code_state';
 const REDEEM_CODE_GROUP_TABLE = 'server_redeem_code_group';
@@ -30,6 +31,13 @@ export class RedeemCodePersistenceService {
  */
 
     enabled = false;
+
+    databasePoolProvider;
+
+    constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
+        this.databasePoolProvider = databasePoolProvider;
+    }
+
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -43,9 +51,12 @@ export class RedeemCodePersistenceService {
             this.logger.log('兑换码持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool?.('redeem-code');
+        if (!sharedPool) {
+            this.logger.warn('兑换码持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensureRedeemCodeTables(this.pool);
             this.enabled = true;
@@ -53,7 +64,7 @@ export class RedeemCodePersistenceService {
         }
         catch (error) {
             this.logger.error('兑换码持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
+            this.releasePoolReference();
         }
     }
     /**
@@ -62,7 +73,7 @@ export class RedeemCodePersistenceService {
  */
 
     async onModuleDestroy() {
-        await this.safeClosePool();
+        this.releasePoolReference();
     }
     /**
  * loadDocument：读取Document并返回结果。
@@ -234,19 +245,13 @@ export class RedeemCodePersistenceService {
         }
     }
     /**
- * safeClosePool：执行safeClosePool相关逻辑。
- * @returns 无返回值，直接更新safeClosePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async safeClosePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const pool = this.pool;
+    releasePoolReference() {
         this.pool = null;
         this.enabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 }
 

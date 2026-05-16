@@ -3,9 +3,10 @@
  * 管理 server_suggestion 表，支持建议条目的全量加载和事务性保存，
  * 包含投票、回复、分类和 GM 回复已读标记的持久化。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 
 const SUGGESTION_STATE_TABLE = 'server_suggestion_state';
 const SUGGESTION_TABLE = 'server_suggestion';
@@ -29,6 +30,13 @@ export class SuggestionPersistenceService {
  */
 
     enabled = false;
+
+    databasePoolProvider;
+
+    constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
+        this.databasePoolProvider = databasePoolProvider;
+    }
+
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -42,9 +50,12 @@ export class SuggestionPersistenceService {
             this.logger.log('建议持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
-        this.pool = new Pool({
-            connectionString: databaseUrl,
-        });
+        const sharedPool = this.databasePoolProvider?.getPool?.('suggestion');
+        if (!sharedPool) {
+            this.logger.warn('建议持久化已禁用：DatabasePoolProvider 未提供连接池');
+            return;
+        }
+        this.pool = sharedPool;
         try {
             await ensureSuggestionTables(this.pool);
             this.enabled = true;
@@ -52,7 +63,7 @@ export class SuggestionPersistenceService {
         }
         catch (error) {
             this.logger.error('建议持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
+            this.releasePoolReference();
         }
     }
     /**
@@ -61,7 +72,7 @@ export class SuggestionPersistenceService {
  */
 
     async onModuleDestroy() {
-        await this.safeClosePool();
+        this.releasePoolReference();
     }
     /**
  * loadSuggestions：读取Suggestion并返回结果。
@@ -183,19 +194,13 @@ export class SuggestionPersistenceService {
         }
     }
     /**
- * safeClosePool：执行safeClosePool相关逻辑。
- * @returns 无返回值，直接更新safeClosePool相关状态。
+ * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+ * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
-    async safeClosePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const pool = this.pool;
+    releasePoolReference() {
         this.pool = null;
         this.enabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
     }
 }
 

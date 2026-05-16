@@ -60,18 +60,13 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(
         `初始化 player flush ledger 失败：${error instanceof Error ? error.stack || error.message : String(error)}`,
       );
-      await this.pool.end().catch(() => undefined);
       this.pool = null;
     }
   }
 
   async onModuleDestroy(): Promise<void> {
     this.enabled = false;
-    if (this.pool) {
-      const pool = this.pool;
-      this.pool = null;
-      await pool.end().catch(() => undefined);
-    }
+    this.pool = null;
   }
 
   isEnabled(): boolean {

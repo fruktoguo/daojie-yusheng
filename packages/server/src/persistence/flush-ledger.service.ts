@@ -370,14 +370,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async safeClosePool(): Promise<void> {
-    if (!this.pool) {
-      this.enabled = false;
-      return;
-    }
-    const pool = this.pool;
+    // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
     this.pool = null;
     this.enabled = false;
-    await pool.end().catch(() => undefined);
   }
 }
 

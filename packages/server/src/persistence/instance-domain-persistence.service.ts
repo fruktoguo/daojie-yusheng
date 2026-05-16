@@ -2870,12 +2870,9 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
   }
 
   private async safeClosePool(): Promise<void> {
-    const pool = this.pool;
+    // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
     this.pool = null;
     this.enabled = false;
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
   }
 }
 

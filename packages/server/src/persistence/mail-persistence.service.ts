@@ -4,10 +4,11 @@
  * 支持结构化邮件的全量/增量写入、过期清理、软删归档和恢复水位推进。
  * 使用 advisory lock 保证同一玩家邮箱的并发写入安全。
  */
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -98,6 +99,11 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
   private enabled = false;
 
+  constructor(
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+  ) {}
+
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
@@ -105,13 +111,15 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const pool = new Pool({
-      connectionString: databaseUrl,
-    });
+    const sharedPool = this.databasePoolProvider?.getPool('mail') ?? null;
+    if (!sharedPool) {
+      this.logger.warn('邮件持久化已禁用：DatabasePoolProvider 未提供连接池');
+      return;
+    }
 
     try {
-      await ensureStructuredMailTables(pool);
-      this.pool = pool;
+      await ensureStructuredMailTables(sharedPool);
+      this.pool = sharedPool;
       this.enabled = true;
       this.logger.log('邮件持久化已启用（player_mail + player_mail_attachment + player_mail_counter + player_recovery_watermark）');
     } catch (error: unknown) {
@@ -119,14 +127,13 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         '邮件持久化初始化失败，已回退为禁用模式',
         error instanceof Error ? error.stack : String(error),
       );
-      await pool.end().catch(() => undefined);
       this.pool = null;
       this.enabled = false;
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.safeClosePool();
+    this.releasePoolReference();
   }
 
   isEnabled(): boolean {
@@ -518,13 +525,9 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     return processed;
   }
 
-  private async safeClosePool(): Promise<void> {
-    const pool = this.pool;
+  private releasePoolReference(): void {
     this.pool = null;
     this.enabled = false;
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
   }
 }
 
