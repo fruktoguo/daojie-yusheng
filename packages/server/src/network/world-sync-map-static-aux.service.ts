@@ -136,7 +136,7 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
         instanceId: view.instance.instanceId,
         tilesOriginX: resolveVisibleTilesOriginX(view, visibleTiles.matrix),
         tilesOriginY: resolveVisibleTilesOriginY(view, visibleTiles.matrix),
-        visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
+        visibleTiles: new Map(visibleTiles.byKey),
         visibleMinimapMarkers: visibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
     };
 }
@@ -177,6 +177,9 @@ function diffVisibleTiles(previous, current) {
     const patches = [];
     for (const [key, tile] of current) {
         const prev = previous?.get(key) ?? null;
+        if (prev === tile) {
+            continue;
+        }
         if (!prev || !isSameTile(prev, tile)) {
             const [x, y] = parseCoordKey(key);
             patches.push({ x, y, tile: cloneTilePatch(tile) });

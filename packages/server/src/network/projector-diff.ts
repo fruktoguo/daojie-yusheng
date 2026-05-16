@@ -62,6 +62,9 @@ export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, c
             result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, sc: entry.sc });
             continue;
         }
+        if (prev === entry) {
+            continue;
+        }
         const delta: WorldPlayerPatchView = { id: playerId };
         let changed = false;
         if (prev.n !== entry.n) { delta.n = entry.n; changed = true; }
@@ -83,6 +86,9 @@ export function diffNpcEntries(previous: Map<string, ProjectedNpcEntry>, current
         const prev = previous.get(npcId);
         if (!prev) {
             result.push({ id: npcId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, sh: entry.sh === 1 ? 1 : undefined, qm: entry.qm });
+            continue;
+        }
+        if (prev === entry) {
             continue;
         }
         const delta: WorldNpcPatchView = { id: npcId };
@@ -108,6 +114,9 @@ export function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, c
         const prev = previous.get(portalId);
         if (!prev) {
             result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr, d: entry.d });
+            continue;
+        }
+        if (prev === entry) {
             continue;
         }
         const delta: WorldPortalPatchView = { id: portalId };
@@ -136,6 +145,9 @@ export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>,
             result.push({ id: runtimeId, mid: entry.mid, x: entry.x, y: entry.y, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.n, c: entry.c, tr: entry.tr });
             continue;
         }
+        if (prev === entry) {
+            continue;
+        }
         const delta: WorldMonsterPatchView = { id: runtimeId };
         let changed = false;
         if (prev.mid !== entry.mid) { delta.mid = entry.mid; changed = true; }
@@ -160,6 +172,9 @@ export function diffGroundPiles(previous: Map<string, ProjectedGroundPileEntry>,
     const result: WorldGroundPatchView[] = [];
     for (const [sourceId, entry] of current) {
         const prev = previous.get(sourceId);
+        if (prev === entry) {
+            continue;
+        }
         if (!isSameGroundPile(prev ?? null, entry)) {
             result.push({ sourceId, x: entry.x, y: entry.y, items: entry.items.map((item) => ({ ...item })) });
         }
@@ -178,6 +193,9 @@ export function diffContainerEntries(previous: Map<string, ProjectedContainerEnt
         const prev = previous.get(containerId);
         if (!prev) {
             result.push({ id: containerId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, rr: entry.rr });
+            continue;
+        }
+        if (prev === entry) {
             continue;
         }
         const delta: WorldContainerPatchView = { id: containerId };
@@ -204,6 +222,9 @@ export function diffBuildingEntries(previous: Map<string, ProjectedBuildingEntry
             result.push({ id: buildingId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, rt: entry.rt, tt: entry.tt });
             continue;
         }
+        if (prev === entry) {
+            continue;
+        }
         const delta: WorldBuildingPatchView = { id: buildingId };
         let changed = false;
         if (prev.x !== entry.x) { delta.x = entry.x; changed = true; }
@@ -227,6 +248,9 @@ export function diffFormationEntries(previous: Map<string, ProjectedFormationEnt
         const prev = previous.get(formationId);
         if (!prev) {
             result.push({ id: formationId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, ac: entry.ac, rs: entry.rs, sh: entry.sh, hl: entry.hl, bch: entry.bch, bc: entry.bc, bhl: entry.bhl, ev: entry.ev, rv: entry.rv, bv: entry.bv, tx: entry.tx, bd: entry.bd, os: entry.os, op: entry.op, lt: entry.lt });
+            continue;
+        }
+        if (prev === entry) {
             continue;
         }
         const delta: WorldFormationPatchView = { id: formationId };

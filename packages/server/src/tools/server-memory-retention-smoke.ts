@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
 
 import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limit.service';
 import { WorldProjectorService } from '../network/world-projector.service';
+import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
+import { WorldSyncMapStaticAuxService } from '../network/world-sync-map-static-aux.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
@@ -27,6 +29,11 @@ async function main(): Promise<void> {
   const eventBusProof = proveEventBusReleasesQueues();
   const playerCountersProof = provePlayerCountersSkipGmBots();
   const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
+  const instanceProjectionProof = proveProjectorSharesStableInstanceEntryRefs();
+  const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
+  const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
+  const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
+  const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
   const viewHotpathProof = proveViewHotpathOptimizationsPresent();
   const suggestionProof = await proveSuggestionTextBounds();
   const gmObserverProof = proveGmWorldObserverIdsRemoved();
@@ -42,11 +49,16 @@ async function main(): Promise<void> {
     eventBusProof,
     playerCountersProof,
     projectorProof,
+    instanceProjectionProof,
+    tileProjectionProof,
+    panelSliceRefProof,
+    combatEffectRefProof,
+    persistenceDirtyDomainProjectionProof,
     viewHotpathProof,
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；tile projection ref 会进入玩家 map static cache；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -222,6 +234,145 @@ function proveProjectorKeepsCacheOnNoopDelta(): { deltaIsNull: boolean; cacheReu
   return { deltaIsNull: delta === null, cacheReused: after === before };
 }
 
+function proveProjectorSharesStableInstanceEntryRefs(): { monsterRefShared: boolean; npcRefShared: boolean; containerRefShared: boolean } {
+  const service = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const sharedMonster = {
+    runtimeId: 'shared_monster',
+    monsterId: 'm_shared',
+    x: 2,
+    y: 2,
+    hp: 10,
+    maxHp: 10,
+    qi: 5,
+    maxQi: 5,
+    name: '共享妖兽',
+    char: '妖',
+    color: '#f00',
+    tier: 'common',
+  };
+  const sharedNpc = {
+    npcId: 'shared_npc',
+    x: 3,
+    y: 3,
+    name: '共享 NPC',
+    char: '人',
+    color: '#fff',
+    hasShop: false,
+  };
+  const sharedContainer = {
+    id: 'shared_container',
+    x: 4,
+    y: 4,
+    name: '共享容器',
+    char: '箱',
+    color: '#c18b46',
+  };
+  const playerA = createProjectorPlayerWithId('projection_player_a');
+  const playerB = createProjectorPlayerWithId('projection_player_b');
+  service.createInitialEnvelope(
+    { playerId: playerA.playerId, sessionId: 'projection_session_a' },
+    createProjectorViewWithEntries(playerA.playerId, [sharedMonster], [sharedNpc], [sharedContainer]),
+    playerA,
+  );
+  service.createInitialEnvelope(
+    { playerId: playerB.playerId, sessionId: 'projection_session_b' },
+    createProjectorViewWithEntries(playerB.playerId, [sharedMonster], [sharedNpc], [sharedContainer]),
+    playerB,
+  );
+  const state = service as unknown as { cacheByPlayerId: Map<string, any> };
+  const cacheA = state.cacheByPlayerId.get(playerA.playerId);
+  const cacheB = state.cacheByPlayerId.get(playerB.playerId);
+  const monsterRefShared = cacheA.monsters.get(sharedMonster.runtimeId) === cacheB.monsters.get(sharedMonster.runtimeId);
+  const npcRefShared = cacheA.npcs.get(sharedNpc.npcId) === cacheB.npcs.get(sharedNpc.npcId);
+  const containerRefShared = cacheA.containers.get(`container:${sharedContainer.id}`) === cacheB.containers.get(`container:${sharedContainer.id}`);
+  assert.equal(monsterRefShared, true);
+  assert.equal(npcRefShared, true);
+  assert.equal(containerRefShared, true);
+  return { monsterRefShared, npcRefShared, containerRefShared };
+}
+
+function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number } {
+  const snapshotService = new WorldSyncMapSnapshotService(
+    { getInstanceTileState: () => null },
+    { getPlayer: () => null },
+    { has: () => true, getOrThrow: () => createTileTemplate() },
+    { getMapTimeConfig: () => null, getMapTickSpeed: () => 1 },
+    {},
+    null,
+  );
+  const staticAuxService = new WorldSyncMapStaticAuxService(
+    snapshotService as never,
+    {
+      buildMinimapMarkers: () => [],
+      buildVisibleMinimapMarkers: () => [],
+      diffVisibleMinimapMarkers: () => ({ adds: [], removes: [] }),
+    } as never,
+  );
+  const template = createTileTemplate();
+  const player = createProjectorPlayer();
+  player.attrs.numericStats.viewRange = 1;
+  const view = createTileView();
+  const first = staticAuxService.buildInitialMapStaticState(view, player, template);
+  staticAuxService.commitPlayerCache('tile_player', first.cacheState);
+  const second = staticAuxService.buildDeltaMapStaticPlan('tile_player', view, player, template);
+  const firstTile = first.visibleTiles.byKey.get('1,1');
+  const secondTile = second.visibleTiles.byKey.get('1,1');
+  const cachedTile = (staticAuxService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('tile_player').visibleTiles.get('1,1');
+  const sameSnapshotRef = firstTile === secondTile;
+  const cacheRefShared = cachedTile === firstTile;
+  assert.equal(sameSnapshotRef, true);
+  assert.equal(cacheRefShared, true);
+  assert.equal(second.tilePatches.length, 0);
+  return { sameSnapshotRef, cacheRefShared, deltaPatchCount: second.tilePatches.length };
+}
+
+function provePanelSliceCacheReusedOnNoopDelta(): { panelRefReused: boolean; deltaIsNull: boolean } {
+  const service = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const view = createProjectorView();
+  const player = createProjectorPlayer();
+  service.createInitialEnvelope({ playerId: 'projector_player', sessionId: 'projector_session' }, view, player);
+  const state = service as unknown as { cacheByPlayerId: Map<string, any> };
+  const before = state.cacheByPlayerId.get('projector_player')?.panel;
+  const delta = service.createDeltaEnvelope({ ...view, tick: 2 }, player);
+  const after = state.cacheByPlayerId.get('projector_player')?.panel;
+  const panelRefReused = before === after;
+  assert.equal(delta, null);
+  assert.equal(panelRefReused, true);
+  return { panelRefReused, deltaIsNull: delta === null };
+}
+
+function proveCombatEffectRefsPassThroughEventBus(): { queuedRefShared: boolean; drainedRefShared: boolean } {
+  const service = new RuntimeEventBusService();
+  const effect = { type: 'float', x: 1, y: 1, text: 'ref' } as const;
+  service.queueCombatEffect('combat_ref_instance', effect);
+  const queued = service.getCombatEffects('combat_ref_instance');
+  const queuedRefShared = queued[0] === effect;
+  const drained = service.drainInstance('combat_ref_instance');
+  const drainedRefShared = drained?.combatEffects?.[0] === effect;
+  assert.equal(queuedRefShared, true);
+  assert.equal(drainedRefShared, true);
+  return { queuedRefShared, drainedRefShared };
+}
+
+function provePersistenceDirtyDomainProjectionPresent(): { dirtyDomainsForwarded: boolean; snapshotUsesDomainGate: boolean } {
+  const flushSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence-flush.service.ts'), 'utf8');
+  const runtimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+  const dirtyDomainsForwarded = flushSource.includes('buildPersistenceSnapshot(playerId, dirtyDomains)');
+  const snapshotUsesDomainGate = runtimeSource.includes('function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = null, dirtyDomains = null)')
+    && runtimeSource.includes('const needsDomain = (...domains)')
+    && runtimeSource.includes("inventory: needsDomain('inventory')")
+    && runtimeSource.includes("runtimeBonuses: needsDomain('attr')");
+  assert.equal(dirtyDomainsForwarded, true);
+  assert.equal(snapshotUsesDomainGate, true);
+  return { dirtyDomainsForwarded, snapshotUsesDomainGate };
+}
+
 function createProjectorView(): any {
   return {
     playerId: 'projector_player',
@@ -245,6 +396,74 @@ function createProjectorView(): any {
     localContainers: [],
     localBuildings: [],
     localFormations: [],
+  };
+}
+
+function createProjectorViewWithEntries(playerId: string, localMonsters: any[], localNpcs: any[], localContainers: any[]): any {
+  return {
+    ...createProjectorView(),
+    playerId,
+    self: { x: 1, y: 1, name: playerId, displayName: playerId, buffs: [] },
+    localMonsters,
+    localNpcs,
+    localContainers,
+  };
+}
+
+function createProjectorPlayerWithId(playerId: string): any {
+  return {
+    ...createProjectorPlayer(),
+    playerId,
+  };
+}
+
+function createTileView(): any {
+  return {
+    playerId: 'tile_player',
+    tick: 1,
+    worldRevision: 1,
+    selfRevision: 1,
+    instance: {
+      instanceId: 'public:tile',
+      templateId: 'tile_template',
+      name: 'tile',
+      kind: 'public',
+      width: 3,
+      height: 3,
+    },
+    self: { x: 1, y: 1, name: 'tile', displayName: 'tile', buffs: [] },
+    visibleTileKeys: ['0,0', '1,0', '2,0', '0,1', '1,1', '2,1', '0,2', '1,2', '2,2'],
+    visibleTileIndices: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  };
+}
+
+function createTileTemplate(): any {
+  return {
+    id: 'tile_template',
+    name: 'tile',
+    width: 3,
+    height: 3,
+    source: {},
+    terrainRows: [
+      ['grass', 'grass', 'grass'],
+      ['grass', 'grass', 'grass'],
+      ['grass', 'grass', 'grass'],
+    ],
+    surfaceRows: [
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ],
+    structureRows: [
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ],
+    interactableRows: [
+      [[], [], []],
+      [[], [], []],
+      [[], [], []],
+    ],
   };
 }
 
@@ -383,6 +602,7 @@ function proveViewHotpathOptimizationsPresent(): {
   overlayAvoidsConcatMap: boolean;
   projectorSkipsUnchangedPanelCapture: boolean;
   contentTemplateAvoidsDuplicateMonsterClone: boolean;
+  playerViewCacheHitReusesViewRef: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const viewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
@@ -403,12 +623,27 @@ function proveViewHotpathOptimizationsPresent(): {
     && contentTemplateSource.includes('statFormula: template.statFormula')
     && contentTemplateSource.includes('skills: template.skills')
     && !contentTemplateSource.includes('baseAttrs: cloneMonsterAttributes(resolvedStats.attrs)');
+  // P0-8：cache hit 路径不应再 spread cached.view，而是直接复用引用并就地刷新 tick/session/worldRevision/selfRevision。
+  const playerViewCacheHitReusesViewRef = mapInstanceSource.includes('const view = cached.view;')
+    && mapInstanceSource.includes('view.sessionId = player.sessionId;')
+    && mapInstanceSource.includes('view.tick = this.tick;')
+    && mapInstanceSource.includes('view.worldRevision = this.worldRevision;')
+    && mapInstanceSource.includes('view.selfRevision = player.selfRevision;')
+    && !mapInstanceSource.includes('...cached.view,');
   assert.equal(playerViewCache, true);
   assert.equal(localMonsterEntryCache, true);
   assert.equal(overlayAvoidsConcatMap, true);
   assert.equal(projectorSkipsUnchangedPanelCapture, true);
   assert.equal(contentTemplateAvoidsDuplicateMonsterClone, true);
-  return { playerViewCache, localMonsterEntryCache, overlayAvoidsConcatMap, projectorSkipsUnchangedPanelCapture, contentTemplateAvoidsDuplicateMonsterClone };
+  assert.equal(playerViewCacheHitReusesViewRef, true);
+  return {
+    playerViewCache,
+    localMonsterEntryCache,
+    overlayAvoidsConcatMap,
+    projectorSkipsUnchangedPanelCapture,
+    contentTemplateAvoidsDuplicateMonsterClone,
+    playerViewCacheHitReusesViewRef,
+  };
 }
 
 async function proveSuggestionTextBounds(): Promise<{ titleLength: number; descriptionLength: number; replyLength: number }> {

@@ -10,6 +10,11 @@ import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '.
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
 @Injectable()
 export class PlayerAttributesService {
+    percentBonusAccumulatorScratch = createPercentBonusAccumulator();
+    buffStatPercentBonusAccumulatorScratch = createNumericStatPercentBonusAccumulator();
+    attrPercentBonusAccumulatorScratch = createAttributePercentBonusAccumulator();
+    flatBuffAttrsScratch = createEmptyAttributes();
+
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
 
@@ -109,7 +114,7 @@ export class PlayerAttributesService {
             }
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
-        const attrPercentBonuses = createAttributePercentBonusAccumulator();
+        const attrPercentBonuses = resetAttributePercentBonusAccumulator(this.attrPercentBonusAccumulatorScratch);
         const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
         if (rootFoundation > 0) {
             accumulateUniformAttributePercentBonus(attrPercentBonuses.realm, rootFoundation);
@@ -118,7 +123,7 @@ export class PlayerAttributesService {
             accumulateAttributePercentBonus(attrPercentBonuses.bodyTraining, calcBodyTrainingAttrPercentBonus(bodyTrainingLevel));
         }
         accumulateAttributePercentBonus(attrPercentBonuses.techniqueMax, techniqueMaxAttrPercentBonus);
-        const flatBuffAttrs = createEmptyAttributes();
+        const flatBuffAttrs = resetAttributes(this.flatBuffAttrsScratch);
         for (const buff of getActiveBuffs(player.buffs.buffs)) {
             const effectFactor = getBuffEffectFactor(buff, realmLv);
             if (effectFactor === 0 || !buff.attrs) {
@@ -143,8 +148,8 @@ export class PlayerAttributesService {
 
         const numericStats = cloneNumericStats(template.stats);
 
-        const percentBonuses = createPercentBonusAccumulator();
-        const buffStatPercentBonuses = createNumericStatPercentBonusAccumulator();
+        const percentBonuses = resetNumericStats(this.percentBonusAccumulatorScratch);
+        const buffStatPercentBonuses = resetNumericStatPercentBonusAccumulator(this.buffStatPercentBonusAccumulatorScratch);
         for (const key of ATTR_KEYS) {
             const value = finalAttrs[key];
             if (value === 0) {
@@ -316,6 +321,21 @@ function createAttributePercentBonusAccumulator() {
     };
 }
 
+function resetAttributePercentBonusAccumulator(target) {
+    resetAttributes(target.bodyTraining);
+    resetAttributes(target.techniqueMax);
+    resetAttributes(target.realm);
+    resetAttributes(target.pill);
+    resetAttributes(target.buff);
+    return target;
+}
+
+function resetNumericStatPercentBonusAccumulator(target) {
+    resetNumericStats(target.buff);
+    resetNumericStats(target.pill);
+    return target;
+}
+
 function createEmptyAttributes() {
     return {
         constitution: 0,
@@ -325,6 +345,31 @@ function createEmptyAttributes() {
         strength: 0,
         meridians: 0,
     };
+}
+
+function resetAttributes(target) {
+    for (const key of ATTR_KEYS) {
+        target[key] = 0;
+    }
+    return target;
+}
+
+function resetNumericStats(target) {
+    for (const key of Object.keys(target)) {
+        const value = target[key];
+        if (typeof value === 'number') {
+            target[key] = 0;
+            continue;
+        }
+        if (value && typeof value === 'object') {
+            for (const element of ELEMENT_KEYS) {
+                if (typeof value[element] === 'number') {
+                    value[element] = 0;
+                }
+            }
+        }
+    }
+    return target;
 }
 
 const REALM_EXPONENTIAL_NUMERIC_KEYS = [

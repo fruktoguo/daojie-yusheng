@@ -11,6 +11,8 @@ import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldProjectorService } from './world-projector.service';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 
+const containerRespawnProjectionCache = new WeakMap<object, Map<number, unknown>>();
+
 /** world envelope 服务：承接 envelope 生成、战斗特效附加与移动调试日志。 */
 @Injectable()
 export class WorldSyncEnvelopeService {
@@ -139,7 +141,7 @@ export class WorldSyncEnvelopeService {
                 return entry;
             }
             changed = true;
-            return { ...entry, respawnRemainingTicks };
+            return projectContainerRespawnEntry(entry, respawnRemainingTicks);
         });
         return changed ? { ...view, localContainers } : view;
     }
@@ -164,7 +166,7 @@ export class WorldSyncEnvelopeService {
         const nextEnvelope = envelope ?? {};
         const eventBus = {
             ...(playerDrain?.payload ?? {}),
-            ...(effects.length > 0 ? { combatEffects: effects.map((entry) => cloneCombatEffect(entry)) } : {}),
+            ...(effects.length > 0 ? { combatEffects: effects } : {}),
             ...(aoiEffects.length > 0 ? { aoiEffects } : {}),
         };
         nextEnvelope.worldDelta = {
@@ -172,7 +174,7 @@ export class WorldSyncEnvelopeService {
             wr: view.worldRevision,
             sr: view.selfRevision,
             ...(nextEnvelope.worldDelta ?? {}),
-            ...(effects.length > 0 ? { fx: effects.map((entry) => cloneCombatEffect(entry)) } : {}),
+            ...(effects.length > 0 ? { fx: effects } : {}),
             eventBus,
         };
         if (playerDrain?.gmStatePush) {
@@ -298,14 +300,30 @@ export class WorldSyncEnvelopeService {
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
-/**
- * cloneCombatEffect：构建战斗Effect。
- * @param source 来源对象。
- * @returns 无返回值，直接更新战斗Effect相关状态。
- */
 
-function cloneCombatEffect(source) {
-    return { ...source };
+function projectContainerRespawnEntry(entry, respawnRemainingTicks) {
+    if (!entry || typeof entry !== 'object') {
+        return entry;
+    }
+    const cacheKey = Number.isFinite(respawnRemainingTicks) ? Math.max(0, Math.trunc(respawnRemainingTicks)) : -1;
+    let byTicks = containerRespawnProjectionCache.get(entry);
+    if (!byTicks) {
+        byTicks = new Map();
+        containerRespawnProjectionCache.set(entry, byTicks);
+    }
+    const cached = byTicks.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    const projected = {
+        ...entry,
+        respawnRemainingTicks,
+    };
+    if (process.env.NODE_ENV !== 'production') {
+        Object.freeze(projected);
+    }
+    byTicks.set(cacheKey, projected);
+    return projected;
 }
 /**
  * filterCombatEffects：执行filter战斗Effect相关逻辑。
@@ -329,8 +347,7 @@ function filterCombatEffects(effects, visibleTiles) {
                 return effect.cells.some((cell) => visibleTiles.has(buildCoordKey(cell.x, cell.y)));
             }
             return visibleTiles.has(buildCoordKey(effect.x, effect.y));
-        })
-        .map((entry) => cloneCombatEffect(entry));
+        });
 }
 
 function filterAoiPresentations(effects, visibleTiles) {
@@ -338,6 +355,5 @@ function filterAoiPresentations(effects, visibleTiles) {
         return [];
     }
     return effects
-        .filter((effect) => visibleTiles.has(buildCoordKey(effect.x, effect.y)))
-        .map((entry) => ({ ...entry }));
+        .filter((effect) => visibleTiles.has(buildCoordKey(effect.x, effect.y)));
 }

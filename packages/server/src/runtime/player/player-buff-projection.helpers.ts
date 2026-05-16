@@ -49,6 +49,11 @@ type ProjectablePlayerBuffState = {
   worldTimeBaseViewRange?: number | null;
 };
 
+const visibleBuffProjectionCache = new WeakMap<VisibleBuffState, VisibleBuffState>();
+const cultivationBuffProjectionCache = new Map<string, VisibleBuffState>();
+const buildingBuffProjectionCache = new Map<string, VisibleBuffState>();
+const darknessBuffProjectionCache = new Map<string, VisibleBuffState>();
+
 /** 返回客户端可见的玩家 Buff 投影；修炼状态只在投影层合成，不写回运行时 Buff 真源。 */
 export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): VisibleBuffState[] {
   const realBuffs = Array.isArray(player.buffs?.buffs)
@@ -71,12 +76,26 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
 
 /** 深拷贝单条可见 buff 投影。 */
 export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuffState {
-  return {
+  const cached = visibleBuffProjectionCache.get(source);
+  if (cached) {
+    return cached;
+  }
+  const projected: VisibleBuffState = freezeVisibleBuffProjection({
     ...source,
     attrs: source.attrs ? { ...source.attrs } : undefined,
     stats: source.stats ? { ...source.stats } : undefined,
     qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
-  };
+  });
+  if (projected.attrs) { freezeVisibleBuffProjection(projected.attrs); }
+  if (projected.stats) { freezeVisibleBuffProjection(projected.stats); }
+  if (projected.qiProjection) {
+    for (const entry of projected.qiProjection) {
+      freezeVisibleBuffProjection(entry);
+    }
+    freezeVisibleBuffProjection(projected.qiProjection);
+  }
+  visibleBuffProjectionCache.set(source, projected);
+  return projected;
 }
 
 /** 构建修炼状态的虚拟 buff 投影（不写回运行时 buff 真源）。 */
@@ -85,7 +104,12 @@ function buildCultivationBuffProjection(player: ProjectablePlayerBuffState): Vis
     return null;
   }
   const techniqueName = resolveCultivatingTechniqueName(player);
-  return {
+  const cacheKey = techniqueName ?? '';
+  const cached = cultivationBuffProjectionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const projected: VisibleBuffState = freezeVisibleBuffProjection({
     buffId: CULTIVATION_BUFF_ID,
     name: '修炼中',
     desc: buildCultivationBuffDescription(techniqueName),
@@ -102,7 +126,10 @@ function buildCultivationBuffProjection(player: ProjectablePlayerBuffState): Vis
       realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
       techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
     },
-  };
+  });
+  if (projected.stats) { freezeVisibleBuffProjection(projected.stats); }
+  cultivationBuffProjectionCache.set(cacheKey, projected);
+  return projected;
 }
 
 function resolveCultivatingTechniqueName(player: ProjectablePlayerBuffState): string | null {
@@ -136,7 +163,12 @@ function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): Visibl
     ? job.buildingName.trim()
     : '建筑';
   const paused = job?.phase === 'paused';
-  return {
+  const cacheKey = `${buildingName}|${paused ? 1 : 0}|${remainingTicks}|${totalTicks}`;
+  const cached = buildingBuffProjectionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const projected: VisibleBuffState = freezeVisibleBuffProjection({
     buffId: 'activity.building',
     name: paused ? '营造暂停' : '营造中',
     desc: paused
@@ -151,11 +183,31 @@ function buildBuildingBuffProjection(player: ProjectablePlayerBuffState): Visibl
     maxStacks: 1,
     sourceSkillId: 'building:construct',
     sourceSkillName: '营造',
-  };
+  });
+  buildingBuffProjectionCache.set(cacheKey, projected);
+  return projected;
 }
 
 /** 构建世界时间黑暗效果的虚拟 buff 投影。 */
 function buildDarknessBuffProjection(player: ProjectablePlayerBuffState): VisibleBuffState | null {
   const baseViewRange = Number(player.worldTimeBaseViewRange ?? player.attrs?.numericStats?.viewRange ?? player.viewRange ?? 1);
-  return buildWorldDarknessBuffState(player.worldTime, baseViewRange);
+  const projected = buildWorldDarknessBuffState(player.worldTime, baseViewRange);
+  if (!projected) {
+    return null;
+  }
+  const cacheKey = `${projected.remainingTicks ?? ''}|${projected.duration ?? ''}|${projected.stacks ?? ''}|${projected.desc}|${baseViewRange}`;
+  const cached = darknessBuffProjectionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  freezeVisibleBuffProjection(projected);
+  darknessBuffProjectionCache.set(cacheKey, projected);
+  return projected;
+}
+
+function freezeVisibleBuffProjection<T extends object>(entry: T): T {
+  if (entry && process.env.NODE_ENV !== 'production') {
+    Object.freeze(entry);
+  }
+  return entry;
 }

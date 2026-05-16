@@ -265,7 +265,7 @@ export class RuntimeEventBusService {
       queue.combatEffects.shift();
       this.metrics?.recordDropped('combatEffect');
     }
-    queue.combatEffects.push(effect);
+    queue.combatEffects.push(freezeEventBusProjection(effect));
     this.metrics?.recordQueued('combatEffect');
   }
 
@@ -299,7 +299,7 @@ export class RuntimeEventBusService {
       }
       this.metrics?.recordDropped('aoiPresentation');
     }
-    queue.aoiEffects.set(key, event);
+    queue.aoiEffects.set(key, freezeEventBusProjection(event));
     if (hadExisting) {
       this.metrics?.recordMerged('aoiPresentation');
     } else {
@@ -666,6 +666,13 @@ function shallowEqualNoticeVars(
     if (left[key] !== right[key]) return false;
   }
   return true;
+}
+
+function freezeEventBusProjection<T extends object>(entry: T): T {
+  if (entry && process.env.NODE_ENV !== 'production') {
+    Object.freeze(entry);
+  }
+  return entry;
 }
 
 function hasTickEventBusPayload(payload: TickEventBusPayload): boolean {

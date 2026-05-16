@@ -329,6 +329,9 @@ export class WorldRuntimeBasicAttackService {
         if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
             throw new BadRequestException('目标超出攻击距离');
         }
+        if (typeof instance.canSeeTileFrom === 'function' && instance.canSeeTileFrom(attacker.x, attacker.y, target.x, target.y, 1) === false) {
+            throw new BadRequestException('目标被遮挡');
+        }
         const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind);
         const effectColor = getDamageTrailColor(damageKind);
         emitCombatPresentation({

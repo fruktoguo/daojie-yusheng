@@ -208,6 +208,22 @@ class MapInstanceRuntime {
     worldRevision = 0;    
     /** 玩家视野快照缓存；同一玩家在世界/自身 revision 未变时复用视野数组，降低空 tick 分配。 */
     playerViewCacheByPlayerId = new Map();
+    /** 可见玩家视野条目缓存；同一玩家展示字段未变时复用条目对象。 */
+    localPlayerViewCacheByPlayerId = new Map();
+    /** NPC 视野条目缓存；静态 NPC 不再为每个玩家重复创建条目对象。 */
+    localNpcViewCacheById = new Map();
+    /** 传送点视野条目缓存；静态传送点不再为每个玩家重复创建条目对象。 */
+    localPortalViewCacheById = new Map();
+    /** 容器视野条目缓存；静态容器不再为每个玩家重复创建条目对象。 */
+    localContainerViewCacheById = new Map();
+    /** 地标视野条目缓存；静态地标不再为每个玩家重复创建条目对象。 */
+    localLandmarkViewCacheById = new Map();
+    /** 安全区视野条目缓存；模板安全区不再为每个玩家重复创建条目对象。 */
+    localSafeZoneViewCacheByKey = new Map();
+    /** 地面物品堆视野条目缓存；同一 sourceId 内容未变时复用条目对象。 */
+    localGroundPileViewCacheBySourceId = new Map();
+    /** 建筑视野条目缓存；未完工建筑展示字段未变时复用条目对象。 */
+    localBuildingViewCacheById = new Map();
     /** 妖兽视野条目缓存；同一 runtimeId 字段未变时复用条目对象，降低 collectLocalMonsters 高频分配。 */
     localMonsterViewCacheByRuntimeId = new Map();
     /**
@@ -2094,13 +2110,14 @@ class MapInstanceRuntime {
             && cached.x === player.x
             && cached.y === player.y
             && cached.radius === normalizedRadius) {
-            return {
-                ...cached.view,
-                sessionId: player.sessionId,
-                tick: this.tick,
-                worldRevision: this.worldRevision,
-                selfRevision: player.selfRevision,
-            };
+            // P0-8：cache hit 路径直接复用 cached.view 引用，仅就地刷新 tick/session/worldRevision/selfRevision 四个 ephemeral 字段；
+            // 其余子结构（self/instance/localXxx/visibleTileXxx/visiblePlayers）保持稳定 ref，避免每帧 200 个外层 view spread。
+            const view = cached.view;
+            view.sessionId = player.sessionId;
+            view.tick = this.tick;
+            view.worldRevision = this.worldRevision;
+            view.selfRevision = player.selfRevision;
+            return view;
         }
 
         const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius);
@@ -4545,41 +4562,23 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(player.x, player.y, visibility)) {
                 continue;
             }
-            visiblePlayers.push({
-                playerId: player.playerId,
-                name: player.name,
-                displayName: player.displayName,
-                x: player.x,
-                y: player.y,
-                buffs: player.buffs,
-            });
+            visiblePlayers.push(this.getLocalPlayerViewEntry(player));
         }
         return visiblePlayers;
     }
     /** collectLocalPortals：收集当前视野内可见传送点。 */
     collectLocalPortals(centerX, centerY, radius, visibleTileVisibility = null) {
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
-        return this.listAllPortals()
-            .filter((portal) => !portal.hidden
-            && this.isTileInsideViewRadius(centerX, centerY, radius, portal.x, portal.y)
-            && this.isTileVisibleByFilter(portal.x, portal.y, visibility))
-            .map((portal) => ({
-            x: portal.x,
-            y: portal.y,
-            id: portal.id,
-            kind: portal.kind,
-            trigger: portal.trigger,
-            direction: portal.direction ?? 'two_way',
-            targetMapId: portal.targetMapId,
-            targetInstanceId: portal.targetInstanceId ?? null,
-            targetPortalId: portal.targetPortalId,
-            targetX: portal.targetX,
-            targetY: portal.targetY,
-            name: portal.name,
-            char: portal.char,
-            color: portal.color,
-            sectId: portal.sectId,
-        }));
+        const portals = [];
+        for (const portal of this.listAllPortals()) {
+            if (portal.hidden
+                || !this.isTileInsideViewRadius(centerX, centerY, radius, portal.x, portal.y)
+                || !this.isTileVisibleByFilter(portal.x, portal.y, visibility)) {
+                continue;
+            }
+            portals.push(this.getLocalPortalViewEntry(portal));
+        }
+        return portals;
     }
     /** collectLocalGroundPiles：收集当前视野内可见地面物品堆。 */
     collectLocalGroundPiles(centerX, centerY, radius, visibleTileVisibility = null) {
@@ -4595,7 +4594,7 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            const view = toGroundPileView(pile);
+            const view = this.getLocalGroundPileViewEntry(pile);
             if (view) {
                 piles.push(view);
             }
@@ -4616,15 +4615,7 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(container.x, container.y, visibility)) {
                 continue;
             }
-            containers.push({
-                id: container.id,
-                name: container.name,
-                x: container.x,
-                y: container.y,
-                char: container.char ?? '箱',
-                color: container.color ?? '#c18b46',
-                grade: container.grade,
-            });
+            containers.push(this.getLocalContainerViewEntry(container));
         }
         containers.sort(compareLocalContainers);
         return containers;
@@ -4644,20 +4635,7 @@ class MapInstanceRuntime {
                 continue;
             }
             const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
-            buildings.push({
-                id: building.id,
-                x: building.x,
-                y: building.y,
-                name: compiled?.name ?? building.defId,
-                char: typeof compiled?.glyph === 'string' && compiled.glyph.trim()
-                    ? compiled.glyph.trim()[0] ?? '筑'
-                    : (compiled?.name?.trim()?.[0] ?? '筑'),
-                color: typeof compiled?.color === 'string' && compiled.color.trim()
-                    ? compiled.color.trim()
-                    : '#cbd5e1',
-                remainingTicks: resolveBuildingRemainingTicks(building),
-                totalTicks: Math.max(resolveBuildingRemainingTicks(building), Math.trunc(Number(building.buildStrength) || 1), 1),
-            });
+            buildings.push(this.getLocalBuildingViewEntry(building, compiled));
         }
         buildings.sort((left, right) => left.id.localeCompare(right.id, 'zh-CN'));
         return buildings;
@@ -4675,14 +4653,7 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(landmark.x, landmark.y, visibility)) {
                 continue;
             }
-            landmarks.push({
-                id: landmark.id,
-                name: landmark.name,
-                x: landmark.x,
-                y: landmark.y,
-
-                hasContainer: landmark.container !== undefined,
-            });
+            landmarks.push(this.getLocalLandmarkViewEntry(landmark));
         }
         landmarks.sort(compareLocalLandmarks);
         return landmarks;
@@ -4700,7 +4671,7 @@ class MapInstanceRuntime {
             if (!this.isAnyTileVisibleInCircle(zone.x, zone.y, zone.radius, visibility)) {
                 continue;
             }
-            safeZones.push(snapshotSafeZone(zone));
+            safeZones.push(this.getLocalSafeZoneViewEntry(zone));
         }
         safeZones.sort(compareLocalSafeZones);
         return safeZones;
@@ -4718,18 +4689,206 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(npc.x, npc.y, visibility)) {
                 continue;
             }
-            npcs.push({
-                npcId: npc.npcId,
-                name: npc.name,
-                char: npc.char,
-                color: npc.color,
-                x: npc.x,
-                y: npc.y,
-                hasShop: npc.hasShop,
-            });
+            npcs.push(this.getLocalNpcViewEntry(npc));
         }
         npcs.sort(compareLocalNpcs);
         return npcs;
+    }
+    /** getLocalPlayerViewEntry：复用未变化的可见玩家视野条目。 */
+    getLocalPlayerViewEntry(player) {
+        const cached = this.localPlayerViewCacheByPlayerId.get(player.playerId);
+        if (cached
+            && cached.name === player.name
+            && cached.displayName === player.displayName
+            && cached.x === player.x
+            && cached.y === player.y
+            && cached.buffs === player.buffs) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            playerId: player.playerId,
+            name: player.name,
+            displayName: player.displayName,
+            x: player.x,
+            y: player.y,
+            buffs: player.buffs,
+        });
+        this.localPlayerViewCacheByPlayerId.set(player.playerId, entry);
+        return entry;
+    }
+    /** getLocalPortalViewEntry：复用未变化的传送点视野条目。 */
+    getLocalPortalViewEntry(portal) {
+        const cacheKey = portal.id ?? `${portal.kind}:${portal.x},${portal.y}:${portal.targetMapId ?? ''}:${portal.targetPortalId ?? ''}`;
+        const cached = this.localPortalViewCacheById.get(cacheKey);
+        if (cached
+            && cached.x === portal.x
+            && cached.y === portal.y
+            && cached.id === portal.id
+            && cached.kind === portal.kind
+            && cached.trigger === portal.trigger
+            && cached.direction === (portal.direction ?? 'two_way')
+            && cached.targetMapId === portal.targetMapId
+            && cached.targetInstanceId === (portal.targetInstanceId ?? null)
+            && cached.targetPortalId === portal.targetPortalId
+            && cached.targetX === portal.targetX
+            && cached.targetY === portal.targetY
+            && cached.name === portal.name
+            && cached.char === portal.char
+            && cached.color === portal.color
+            && cached.sectId === portal.sectId) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            x: portal.x,
+            y: portal.y,
+            id: portal.id,
+            kind: portal.kind,
+            trigger: portal.trigger,
+            direction: portal.direction ?? 'two_way',
+            targetMapId: portal.targetMapId,
+            targetInstanceId: portal.targetInstanceId ?? null,
+            targetPortalId: portal.targetPortalId,
+            targetX: portal.targetX,
+            targetY: portal.targetY,
+            name: portal.name,
+            char: portal.char,
+            color: portal.color,
+            sectId: portal.sectId,
+        });
+        this.localPortalViewCacheById.set(cacheKey, entry);
+        return entry;
+    }
+    /** getLocalGroundPileViewEntry：复用未变化的地面物品堆视野条目。 */
+    getLocalGroundPileViewEntry(pile) {
+        const view = toGroundPileView(pile);
+        if (!view) {
+            return null;
+        }
+        const cached = this.localGroundPileViewCacheBySourceId.get(view.sourceId);
+        if (cached && isSameGroundPileView(cached, view)) {
+            return cached;
+        }
+        freezeRuntimeProjection(view.items);
+        const entry = freezeRuntimeProjection(view);
+        this.localGroundPileViewCacheBySourceId.set(view.sourceId, entry);
+        return entry;
+    }
+    /** getLocalContainerViewEntry：复用未变化的容器视野条目。 */
+    getLocalContainerViewEntry(container) {
+        const cached = this.localContainerViewCacheById.get(container.id);
+        const char = container.char ?? '箱';
+        const color = container.color ?? '#c18b46';
+        if (cached
+            && cached.name === container.name
+            && cached.x === container.x
+            && cached.y === container.y
+            && cached.char === char
+            && cached.color === color
+            && cached.grade === container.grade) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            id: container.id,
+            name: container.name,
+            x: container.x,
+            y: container.y,
+            char,
+            color,
+            grade: container.grade,
+        });
+        this.localContainerViewCacheById.set(container.id, entry);
+        return entry;
+    }
+    /** getLocalBuildingViewEntry：复用未变化的建筑视野条目。 */
+    getLocalBuildingViewEntry(building, compiled) {
+        const remainingTicks = resolveBuildingRemainingTicks(building);
+        const totalTicks = Math.max(remainingTicks, Math.trunc(Number(building.buildStrength) || 1), 1);
+        const char = typeof compiled?.glyph === 'string' && compiled.glyph.trim()
+            ? compiled.glyph.trim()[0] ?? '筑'
+            : (compiled?.name?.trim()?.[0] ?? '筑');
+        const color = typeof compiled?.color === 'string' && compiled.color.trim()
+            ? compiled.color.trim()
+            : '#cbd5e1';
+        const name = compiled?.name ?? building.defId;
+        const cached = this.localBuildingViewCacheById.get(building.id);
+        if (cached
+            && cached.x === building.x
+            && cached.y === building.y
+            && cached.name === name
+            && cached.char === char
+            && cached.color === color
+            && cached.remainingTicks === remainingTicks
+            && cached.totalTicks === totalTicks) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            id: building.id,
+            x: building.x,
+            y: building.y,
+            name,
+            char,
+            color,
+            remainingTicks,
+            totalTicks,
+        });
+        this.localBuildingViewCacheById.set(building.id, entry);
+        return entry;
+    }
+    /** getLocalLandmarkViewEntry：复用未变化的地标视野条目。 */
+    getLocalLandmarkViewEntry(landmark) {
+        const cached = this.localLandmarkViewCacheById.get(landmark.id);
+        const hasContainer = landmark.container !== undefined;
+        if (cached
+            && cached.name === landmark.name
+            && cached.x === landmark.x
+            && cached.y === landmark.y
+            && cached.hasContainer === hasContainer) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            id: landmark.id,
+            name: landmark.name,
+            x: landmark.x,
+            y: landmark.y,
+            hasContainer,
+        });
+        this.localLandmarkViewCacheById.set(landmark.id, entry);
+        return entry;
+    }
+    /** getLocalSafeZoneViewEntry：复用未变化的安全区视野条目。 */
+    getLocalSafeZoneViewEntry(zone) {
+        const cacheKey = `${zone.x},${zone.y},${zone.radius}`;
+        const cached = this.localSafeZoneViewCacheByKey.get(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection(snapshotSafeZone(zone));
+        this.localSafeZoneViewCacheByKey.set(cacheKey, entry);
+        return entry;
+    }
+    /** getLocalNpcViewEntry：复用未变化的 NPC 视野条目。 */
+    getLocalNpcViewEntry(npc) {
+        const cached = this.localNpcViewCacheById.get(npc.npcId);
+        if (cached
+            && cached.name === npc.name
+            && cached.char === npc.char
+            && cached.color === npc.color
+            && cached.x === npc.x
+            && cached.y === npc.y
+            && cached.hasShop === npc.hasShop) {
+            return cached;
+        }
+        const entry = freezeRuntimeProjection({
+            npcId: npc.npcId,
+            name: npc.name,
+            char: npc.char,
+            color: npc.color,
+            x: npc.x,
+            y: npc.y,
+            hasShop: npc.hasShop,
+        });
+        this.localNpcViewCacheById.set(npc.npcId, entry);
+        return entry;
     }
     /** collectLocalMonsters：收集当前视野内可见妖兽。 */
     collectLocalMonsters(centerX, centerY, radius, visibleTileVisibility = null) {
@@ -4784,6 +4943,7 @@ class MapInstanceRuntime {
             qi: monster.qi,
             maxQi: monster.maxQi,
         };
+        freezeRuntimeProjection(entry);
         this.localMonsterViewCacheByRuntimeId.set(monster.runtimeId, entry);
         return entry;
     }
@@ -6014,6 +6174,34 @@ function toGroundPileView(pile) {
             groundLabel: entry.item.groundLabel,
         })),
     };
+}
+function freezeRuntimeProjection(entry) {
+    if (entry && process.env.NODE_ENV !== 'production') {
+        Object.freeze(entry);
+    }
+    return entry;
+}
+function isSameGroundPileView(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right || left.x !== right.x || left.y !== right.y || left.items.length !== right.items.length) {
+        return false;
+    }
+    for (let index = 0; index < left.items.length; index += 1) {
+        const leftItem = left.items[index];
+        const rightItem = right.items[index];
+        if (leftItem.itemKey !== rightItem.itemKey
+            || leftItem.itemId !== rightItem.itemId
+            || leftItem.name !== rightItem.name
+            || leftItem.type !== rightItem.type
+            || leftItem.count !== rightItem.count
+            || leftItem.grade !== rightItem.grade
+            || leftItem.groundLabel !== rightItem.groundLabel) {
+            return false;
+        }
+    }
+    return true;
 }
 /** normalizePersistedGroundItem：规范化持久化地面物品条目。 */
 function normalizePersistedGroundItem(item) {

@@ -26,6 +26,7 @@ const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
 const PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS = FORMATION_TICKS_PER_DAY * 3;
 const PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR = 10;
 const PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS);
+const runtimeFormationProjectionCache = new WeakMap();
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
@@ -650,7 +651,7 @@ class WorldRuntimeFormationService {
     listRuntimeFormations(instanceId) {
         const normalizedInstanceId = normalizeInstanceId(instanceId);
         const result = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
-            .map((formation) => buildRuntimeFormationProjection(formation, 'effect'));
+            .map((formation) => getRuntimeFormationProjection(formation, 'effect'));
         for (const [sourceInstanceId, formations] of this.formationsByInstanceId.entries()) {
             if (sourceInstanceId === normalizedInstanceId) {
                 continue;
@@ -659,7 +660,7 @@ class WorldRuntimeFormationService {
                 if (!isPersistentFormation(formation) || normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
                     continue;
                 }
-                result.push(buildRuntimeFormationProjection(formation, 'eye'));
+                result.push(getRuntimeFormationProjection(formation, 'eye'));
             }
         }
         return result;
@@ -1432,6 +1433,65 @@ function buildRuntimeFormationProjection(formation, role = 'effect') {
         damagePerAura: resolveFormationDamagePerAura(formation.template),
         remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
     };
+}
+
+function getRuntimeFormationProjection(formation, role = 'effect') {
+    const cacheKey = role === 'eye' ? 'eye' : 'effect';
+    const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
+    const isEyeProjection = role === 'eye';
+    const x = isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
+    const y = isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
+    const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
+    const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
+    const remainingAuraBudget = Math.max(0, Math.floor(formation.remainingAuraBudget));
+    const cachedByRole = runtimeFormationProjectionCache.get(formation);
+    const cached = cachedByRole?.[cacheKey];
+    if (cached
+        && cached.lifecycle === lifecycle
+        && cached.name === formation.name
+        && cached.ownerPlayerId === formation.ownerPlayerId
+        && cached.ownerSectId === (formation.ownerSectId ?? null)
+        && cached.formationId === formation.formationId
+        && cached.x === x
+        && cached.y === y
+        && cached.eyeInstanceId === (formation.eyeInstanceId ?? formation.instanceId)
+        && cached.eyeX === eyeX
+        && cached.eyeY === eyeY
+        && cached.radius === (isEyeProjection ? 1 : formation.stats.radius)
+        && cached.rangeShape === formation.template.range.shape
+        && cached.active === formation.active
+        && cached.remainingAuraBudget === remainingAuraBudget) {
+        return cached.projection;
+    }
+    const projection = freezeRuntimeProjection(buildRuntimeFormationProjection(formation, role));
+    runtimeFormationProjectionCache.set(formation, {
+        ...(cachedByRole ?? {}),
+        [cacheKey]: {
+            lifecycle,
+            name: formation.name,
+            ownerPlayerId: formation.ownerPlayerId,
+            ownerSectId: formation.ownerSectId ?? null,
+            formationId: formation.formationId,
+            x,
+            y,
+            eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
+            eyeX,
+            eyeY,
+            radius: isEyeProjection ? 1 : formation.stats.radius,
+            rangeShape: formation.template.range.shape,
+            active: formation.active,
+            remainingAuraBudget,
+            projection,
+        },
+    });
+    return projection;
+}
+
+function freezeRuntimeProjection(projection) {
+    if (process.env.NODE_ENV !== 'production') {
+        return Object.freeze(projection);
+    }
+    return projection;
 }
 
 function resolveFormationRuntimeVisual(template) {

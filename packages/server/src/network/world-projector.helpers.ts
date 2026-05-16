@@ -35,7 +35,13 @@ import {
   ATTR_DELTA_PATCH_THRESHOLD,
   type ProjectorViewLike,
   type ProjectorPlayerLike,
+  type ProjectorNpcLike,
+  type ProjectorMonsterLike,
   type ProjectorPortalLike,
+  type ProjectorGroundPileLike,
+  type ProjectorContainerLike,
+  type ProjectorBuildingLike,
+  type ProjectorFormationLike,
   type ProjectedPlayerEntry,
   type ProjectedNpcEntry,
   type ProjectedMonsterEntry,
@@ -94,6 +100,14 @@ import {
   diffNumericStats,
   diffRatioDivisors,
 } from './projector-diff';
+
+const npcProjectionCache = new WeakMap<ProjectorNpcLike, ProjectedNpcEntry>();
+const monsterProjectionCache = new WeakMap<ProjectorMonsterLike, ProjectedMonsterEntry>();
+const portalProjectionCache = new WeakMap<ProjectorPortalLike, ProjectedPortalEntry>();
+const groundPileProjectionCache = new WeakMap<ProjectorGroundPileLike, ProjectedGroundPileEntry>();
+const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedContainerEntry>();
+const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
+const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
 
 function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
@@ -465,27 +479,13 @@ function captureWorldState(
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
 ): WorldStateSlice {
     const players = new Map<string, ProjectedPlayerEntry>();
-    const npcs: Array<[string, ProjectedNpcEntry]> = view.localNpcs.map((entry): [string, ProjectedNpcEntry] => [entry.npcId, {
-        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, sh: entry.hasShop ? 1 : 0, qm: entry.questMarker ?? null,
-    }]);
-    const monsters: Array<[string, ProjectedMonsterEntry]> = view.localMonsters.map((entry): [string, ProjectedMonsterEntry] => [entry.runtimeId, {
-        mid: entry.monsterId, x: entry.x, y: entry.y, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
-    }]);
-    const portals: Array<[string, ProjectedPortalEntry]> = view.localPortals.map((entry): [string, ProjectedPortalEntry] => [buildPortalId(entry), {
-        n: resolvePortalDisplayName(entry, resolveMapName), ch: resolvePortalRenderChar(entry), x: entry.x, y: entry.y, tm: entry.targetMapId, tr: entry.trigger === 'auto' ? 1 : 0, d: entry.direction === 'one_way' ? 1 : 0,
-    }]);
-    const groundPiles: Array<[string, ProjectedGroundPileEntry]> = view.localGroundPiles.map((entry): [string, ProjectedGroundPileEntry] => [entry.sourceId, {
-        x: entry.x, y: entry.y, items: entry.items.map((item) => ({ ...item })),
-    }]);
-    const containers: Array<[string, ProjectedContainerEntry]> = view.localContainers.map((entry): [string, ProjectedContainerEntry] => [`container:${entry.id}`, {
-        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
-    }]);
-    const buildings: Array<[string, ProjectedBuildingEntry]> = (view.localBuildings ?? []).map((entry): [string, ProjectedBuildingEntry] => [entry.id, {
-        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks), tt: normalizeOptionalNonNegativeInteger(entry.totalTicks),
-    }]);
-    const formations: Array<[string, ProjectedFormationEntry]> = (view.localFormations ?? []).map((entry): [string, ProjectedFormationEntry] => [entry.id, {
-        x: entry.x, y: entry.y, n: entry.name, ch: entry.char ?? '◎', c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff', ac: entry.active === false ? 0 : 1, rs: normalizeOptionalNonNegativeInteger(entry.radius), sh: entry.rangeShape, hl: entry.rangeHighlightColor, bch: entry.boundaryChar, bc: entry.boundaryColor, bhl: entry.boundaryRangeHighlightColor, ev: entry.eyeVisibleWithoutSenseQi === true ? 1 : 0, rv: entry.rangeVisibleWithoutSenseQi === true ? 1 : 0, bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 : 0, tx: entry.showText === false ? 0 : 1, bd: entry.blocksBoundary === true ? 1 : 0, os: entry.ownerSectId ?? null, op: entry.ownerPlayerId ?? null, lt: entry.lifecycle === 'persistent' ? 1 : 0,
-    }]);
+    const npcs: Array<[string, ProjectedNpcEntry]> = view.localNpcs.map((entry): [string, ProjectedNpcEntry] => [entry.npcId, projectNpcEntry(entry)]);
+    const monsters: Array<[string, ProjectedMonsterEntry]> = view.localMonsters.map((entry): [string, ProjectedMonsterEntry] => [entry.runtimeId, projectMonsterEntry(entry)]);
+    const portals: Array<[string, ProjectedPortalEntry]> = view.localPortals.map((entry): [string, ProjectedPortalEntry] => [buildPortalId(entry), projectPortalEntry(entry, resolveMapName)]);
+    const groundPiles: Array<[string, ProjectedGroundPileEntry]> = view.localGroundPiles.map((entry): [string, ProjectedGroundPileEntry] => [entry.sourceId, projectGroundPileEntry(entry)]);
+    const containers: Array<[string, ProjectedContainerEntry]> = view.localContainers.map((entry): [string, ProjectedContainerEntry] => [`container:${entry.id}`, projectContainerEntry(entry)]);
+    const buildings: Array<[string, ProjectedBuildingEntry]> = (view.localBuildings ?? []).map((entry): [string, ProjectedBuildingEntry] => [entry.id, projectBuildingEntry(entry)]);
+    const formations: Array<[string, ProjectedFormationEntry]> = (view.localFormations ?? []).map((entry): [string, ProjectedFormationEntry] => [entry.id, projectFormationEntry(entry)]);
     players.set(view.playerId, {
         n: resolvePlayerRenderLabel(view.self.name, view.self.displayName, view.playerId),
         ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
@@ -512,6 +512,87 @@ function captureWorldState(
         buildings: new Map(buildings),
         formations: new Map(formations),
     };
+}
+
+function projectNpcEntry(entry: ProjectorNpcLike): ProjectedNpcEntry {
+    const cached = npcProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, sh: entry.hasShop ? 1 as const : 0 as const, qm: entry.questMarker ?? null,
+    });
+    npcProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry {
+    const cached = monsterProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        mid: entry.monsterId, x: entry.x, y: entry.y, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
+    });
+    monsterProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectPortalEntry(
+    entry: ProjectorPortalLike,
+    resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
+): ProjectedPortalEntry {
+    const cached = portalProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        n: resolvePortalDisplayName(entry, resolveMapName), ch: resolvePortalRenderChar(entry), x: entry.x, y: entry.y, tm: entry.targetMapId, tr: entry.trigger === 'auto' ? 1 as const : 0 as const, d: entry.direction === 'one_way' ? 1 as const : 0 as const,
+    });
+    portalProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectGroundPileEntry(entry: ProjectorGroundPileLike): ProjectedGroundPileEntry {
+    const cached = groundPileProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        x: entry.x, y: entry.y, items: entry.items.map((item) => ({ ...item })),
+    });
+    freezeProjectedEntry(projected.items);
+    groundPileProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectContainerEntry(entry: ProjectorContainerLike): ProjectedContainerEntry {
+    const cached = containerProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
+    });
+    containerProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectBuildingEntry(entry: ProjectorBuildingLike): ProjectedBuildingEntry {
+    const cached = buildingProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        x: entry.x, y: entry.y, n: entry.name, ch: entry.char, c: entry.color, rt: normalizeOptionalNonNegativeInteger(entry.remainingTicks), tt: normalizeOptionalNonNegativeInteger(entry.totalTicks),
+    });
+    buildingProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectFormationEntry(entry: ProjectorFormationLike): ProjectedFormationEntry {
+    const cached = formationProjectionCache.get(entry);
+    if (cached) { return cached; }
+    const projected = freezeProjectedEntry({
+        x: entry.x, y: entry.y, n: entry.name, ch: entry.char ?? '◎', c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff', ac: entry.active === false ? 0 as const : 1 as const, rs: normalizeOptionalNonNegativeInteger(entry.radius), sh: entry.rangeShape, hl: entry.rangeHighlightColor, bch: entry.boundaryChar, bc: entry.boundaryColor, bhl: entry.boundaryRangeHighlightColor, ev: entry.eyeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, rv: entry.rangeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 as const : 0 as const, tx: entry.showText === false ? 0 as const : 1 as const, bd: entry.blocksBoundary === true ? 1 as const : 0 as const, os: entry.ownerSectId ?? null, op: entry.ownerPlayerId ?? null, lt: entry.lifecycle === 'persistent' ? 1 as const : 0 as const,
+    });
+    formationProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function freezeProjectedEntry<T extends object>(entry: T): T {
+    if (process.env.NODE_ENV !== 'production') {
+        Object.freeze(entry);
+    }
+    return entry;
 }
 
 /** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。 */

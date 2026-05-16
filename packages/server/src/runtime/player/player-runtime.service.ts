@@ -3250,14 +3250,14 @@ export class PlayerRuntimeService {
  * @returns 无返回值，直接更新Persistence快照相关状态。
  */
 
-    buildPersistenceSnapshot(playerId) {
+    buildPersistenceSnapshot(playerId, dirtyDomains = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.players.get(playerId);
         if (!player || !player.templateId || isNativeGmBotPlayerId(playerId)) {
             return null;
         }
-        return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
+        return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository, dirtyDomains);
     }
     /**
  * markPersisted：判断Persisted是否满足条件。
@@ -5294,7 +5294,13 @@ function isWalkableTemplatePoint(template, x, y) {
  * @returns 无返回值，直接更新运行态玩家Persistence快照相关状态。
  */
 
-function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = null) {
+function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = null, dirtyDomains = null) {
+    const dirtyDomainSet = normalizeSnapshotDirtyDomains(dirtyDomains);
+    const includeAllDomains = dirtyDomainSet.size === 0;
+    const needsDomain = (...domains) => includeAllDomains || domains.some((domain) => dirtyDomainSet.has(domain));
+    const needsProgression = needsDomain('progression', 'body_training', 'profession', 'alchemy_preset', 'active_job', 'enhancement_record', 'attr');
+    const needsCombat = needsDomain('combat_pref', 'auto_battle_skill', 'auto_use_item_rule');
+    const needsTechnique = needsDomain('technique', 'combat_pref');
     const templateId = typeof player.templateId === 'string' ? player.templateId.trim() : '';
     const respawnTemplateId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
         ? player.respawnTemplateId.trim()
@@ -5335,7 +5341,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             qi: player.qi,
             maxQi: player.maxQi,
         },
-        progression: {
+        progression: needsProgression ? {
             foundation: player.foundation,
             rootFoundation: normalizeCounter(player.rootFoundation),
             combatExp: player.combatExp,
@@ -5362,42 +5368,59 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             enhancementJob: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
             enhancementRecords: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
-        },
-        attrState: {
+        } : {},
+        attrState: needsDomain('attr') ? {
             baseAttrs: player.attrs?.rawBaseAttrs ? encodePersistedRawBaseAttrs(player.attrs.rawBaseAttrs) : null,
             revealedBreakthroughRequirementIds: resolveRevealedBreakthroughRequirementIds(player.realm),
-        },
-        unlockedMapIds: player.unlockedMapIds.slice(),
-        inventory: {
+        } : {},
+        unlockedMapIds: needsDomain('map_unlock') ? player.unlockedMapIds.slice() : [],
+        inventory: needsDomain('inventory') ? {
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
             items: player.inventory.items.map((entry) => ({ ...entry })),
+        } : {
+            revision: player.inventory.revision,
+            capacity: player.inventory.capacity,
+            items: [],
         },
-        equipment: {
+        equipment: needsDomain('equipment') ? {
             revision: player.equipment.revision,
             slots: player.equipment.slots.map((entry) => ({
                 slot: entry.slot,
                 item: entry.item ? { ...entry.item } : null,
             })),
+        } : {
+            revision: player.equipment.revision,
+            slots: [],
         },
-        techniques: {
+        techniques: needsTechnique ? {
             revision: player.techniques.revision,
-            techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
+            techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => ({ ...entry })) : [],
+            cultivatingTechId: player.techniques.cultivatingTechId,
+        } : {
+            revision: player.techniques.revision,
+            techniques: [],
             cultivatingTechId: player.techniques.cultivatingTechId,
         },
-        buffs: {
+        buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
             buffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+        } : {
+            revision: player.buffs.revision,
+            buffs: [],
         },
-        quests: {
+        quests: needsDomain('quest') ? {
             revision: player.quests.revision,
             entries: player.quests.quests.map((entry) => ({
                 ...entry,
                 rewardItemIds: entry.rewardItemIds.slice(),
                 rewards: entry.rewards.map((reward) => ({ ...reward })),
             })),
+        } : {
+            revision: player.quests.revision,
+            entries: [],
         },
-        combat: {
+        combat: needsCombat ? {
             autoBattle: player.combat.autoBattle,
             autoRetaliate: player.combat.autoRetaliate,
             autoBattleStationary: player.combat.autoBattleStationary,
@@ -5414,10 +5437,12 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             autoRootFoundation: player.combat.autoRootFoundation === true,
             senseQiActive: player.combat.senseQiActive,
             wangQiActive: player.combat.wangQiActive === true,
-            autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
+            autoBattleSkills: needsDomain('auto_battle_skill') ? player.combat.autoBattleSkills.map((entry) => ({ ...entry })) : [],
+        } : {
+            autoBattleSkills: [],
         },
-        pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
-        runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
+        pendingLogbookMessages: needsDomain('logbook') ? player.pendingLogbookMessages.map((entry) => ({ ...entry })) : [],
+        runtimeBonuses: needsDomain('attr') ? player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)) : [],
     };
 }
 
@@ -5427,6 +5452,19 @@ function normalizePlayerPlacementInstanceId(value) {
     }
     const normalized = value.trim();
     return normalized ? normalized : null;
+}
+
+function normalizeSnapshotDirtyDomains(dirtyDomains) {
+    const normalized = new Set();
+    if (!dirtyDomains || typeof dirtyDomains[Symbol.iterator] !== 'function') {
+        return normalized;
+    }
+    for (const domain of dirtyDomains) {
+        if (typeof domain === 'string' && domain.trim()) {
+            normalized.add(domain.trim());
+        }
+    }
+    return normalized;
 }
 
 function normalizePlayerWorldPreferenceLinePreset(value) {

@@ -297,13 +297,14 @@ export class WorldSyncAuxStateService {
       );
     }
 
-    const currentRealm = cloneRealmState(player.realm);
+    const currentRealm = player.realm ?? null;
     if (!isSameRealmState(previous.realm, currentRealm)) {
-      this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, currentRealm));
+      this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, cloneRealmState(currentRealm)));
     }
 
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
-    if (!isSameLootWindow(previous.lootWindow, lootWindow)) {
+    const lootWindowChanged = !isSameLootWindow(previous.lootWindow, lootWindow);
+    if (lootWindowChanged) {
       this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     }
 
@@ -316,10 +317,10 @@ export class WorldSyncAuxStateService {
 
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {
-      realm: currentRealm,
+      realm: isSameRealmState(previous.realm, currentRealm) ? previous.realm : cloneRealmState(currentRealm),
       time: cloneTimeSyncState(currentTimeSyncState),
       threatArrows: cloneThreatArrows(currentThreatArrows),
-      lootWindow: cloneLootWindow(lootWindow),
+      lootWindow: lootWindowChanged ? cloneLootWindow(lootWindow) : previous.lootWindow,
     });
     return true;
   }

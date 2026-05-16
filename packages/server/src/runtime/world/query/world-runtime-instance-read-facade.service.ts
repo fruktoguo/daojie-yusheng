@@ -90,7 +90,7 @@ export class WorldRuntimeInstanceReadFacadeService {
  */
 
     getCombatEffects(instanceId, deps) {
-        return deps.worldRuntimeCombatEffectsService.getCombatEffects(instanceId).map((entry) => (0, world_runtime_normalization_helpers_1.cloneCombatEffect)(entry));
+        return deps.worldRuntimeCombatEffectsService.getCombatEffects(instanceId);
     }    
     /**
  * createInstance：构建并返回目标对象。

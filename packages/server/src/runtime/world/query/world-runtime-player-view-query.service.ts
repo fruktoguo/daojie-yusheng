@@ -26,6 +26,8 @@ export class WorldRuntimePlayerViewQueryService {
  */
 
     worldRuntimeNpcQuestInteractionQueryService;    
+    /** NPC quest marker 叠加条目缓存；同一玩家同一 NPC marker 未变时复用条目对象。 */
+    npcQuestMarkerViewCacheByPlayerId = new Map();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -141,17 +143,55 @@ export class WorldRuntimePlayerViewQueryService {
             ? runtime.worldRuntimeFormationService.listRuntimeFormations(view.instance.instanceId)
                 .filter((entry) => isFormationVisibleInView(view, entry))
             : [];
-        const decorated = {
-            ...view,
-            localNpcs: view.localNpcs.map((entry) => ({
-                ...entry,
-                questMarker: this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, entry.npcId, runtime),
-            })),
-            localFormations,
-        };
+        const localNpcs = this.decorateLocalNpcQuestMarkers(runtime, playerId, view.localNpcs);
+        const decorated = localNpcs === view.localNpcs && localFormations.length === 0
+            ? view
+            : {
+                ...view,
+                localNpcs,
+                localFormations,
+            };
         return decorateOverlayParentView(runtime, decorated);
     }
+    /** decorateLocalNpcQuestMarkers：只在 marker 非空或变化时创建 NPC 叠加条目。 */
+    decorateLocalNpcQuestMarkers(runtime, playerId, localNpcs) {
+        if (!Array.isArray(localNpcs) || localNpcs.length === 0) {
+            return localNpcs;
+        }
+        let changed = false;
+        const decorated = [];
+        for (const entry of localNpcs) {
+            const questMarker = this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, entry.npcId, runtime);
+            if (!questMarker && !entry.questMarker) {
+                decorated.push(entry);
+                continue;
+            }
+            const nextEntry = this.getNpcQuestMarkerEntry(playerId, entry, questMarker ?? null);
+            changed ||= nextEntry !== entry;
+            decorated.push(nextEntry);
+        }
+        return changed ? decorated : localNpcs;
+    }
+    /** getNpcQuestMarkerEntry：复用玩家维度 NPC marker 投影。 */
+    getNpcQuestMarkerEntry(playerId, entry, questMarker) {
+        let playerCache = this.npcQuestMarkerViewCacheByPlayerId.get(playerId);
+        if (!playerCache) {
+            playerCache = new Map();
+            this.npcQuestMarkerViewCacheByPlayerId.set(playerId, playerCache);
+        }
+        const cached = playerCache.get(entry.npcId);
+        if (cached
+            && cached.source === entry
+            && isSameNpcQuestMarkerProjection(cached.questMarker, questMarker)) {
+            return cached.entry;
+        }
+        const nextEntry = freezeViewProjection({ ...entry, questMarker });
+        playerCache.set(entry.npcId, { source: entry, questMarker, entry: nextEntry });
+        return nextEntry;
+    }
 };
+
+const overlayProjectionCache = new WeakMap<object, Map<string, unknown>>();
 
 function isFormationVisibleInView(view, formation) {
     const x = Math.trunc(Number(formation?.x));
@@ -286,16 +326,54 @@ function appendProjectedParentEntries(baseEntries, parentEntries, projection) {
         ? baseEntries.slice()
         : [];
     for (const entry of parentEntries) {
-        result.push({
-            ...entry,
-            x: Math.trunc(Number(entry.x)) - projection.originX,
-            y: Math.trunc(Number(entry.y)) - projection.originY,
-            instanceId: projection.instanceId,
-            templateId: projection.templateId,
-            projectedFromParentMap: true,
-        });
+        result.push(projectOverlayParentEntry(entry, projection));
     }
     return result;
+}
+
+function projectOverlayParentEntry(entry, projection) {
+    if (!entry || typeof entry !== 'object') {
+        return entry;
+    }
+    const cacheKey = `${projection.instanceId}|${projection.templateId}|${projection.originX}|${projection.originY}`;
+    let byProjection = overlayProjectionCache.get(entry);
+    if (!byProjection) {
+        byProjection = new Map();
+        overlayProjectionCache.set(entry, byProjection);
+    }
+    const cached = byProjection.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    const projected = freezeViewProjection({
+        ...entry,
+        x: Math.trunc(Number(entry.x)) - projection.originX,
+        y: Math.trunc(Number(entry.y)) - projection.originY,
+        instanceId: projection.instanceId,
+        templateId: projection.templateId,
+        projectedFromParentMap: true,
+    });
+    byProjection.set(cacheKey, projected);
+    return projected;
+}
+
+function isSameNpcQuestMarkerProjection(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right) {
+        return false;
+    }
+    return left.kind === right.kind
+        && left.line === right.line
+        && left.state === right.state
+}
+
+function freezeViewProjection(entry) {
+    if (entry && process.env.NODE_ENV !== 'production') {
+        Object.freeze(entry);
+    }
+    return entry;
 }
 
 function buildOverlayParentContext(runtime, sourceInstance, view) {

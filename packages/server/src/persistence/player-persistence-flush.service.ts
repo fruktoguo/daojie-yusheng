@@ -40,7 +40,7 @@ const PLAYER_PERSISTENCE_SNAPSHOT_PROJECTABLE_DOMAIN_SET = new Set<string>(
 interface PlayerRuntimeFlushPort {
   listDirtyPlayers(): string[];
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
-  buildPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
+  buildPersistenceSnapshot(playerId: string, dirtyDomains?: ReadonlySet<string>): PersistedPlayerSnapshot | null;
   markPersisted(playerId: string): void;
   describePersistencePresence(playerId: string): {
     online: boolean;
@@ -124,7 +124,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       return;
     }
 
-    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
     if (!snapshot) {
       return;
     }
@@ -198,7 +198,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               this.playerRuntimeService.markPersisted(playerId);
               return;
             }
-            const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+            const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
             if (!snapshot) {
               return;
             }

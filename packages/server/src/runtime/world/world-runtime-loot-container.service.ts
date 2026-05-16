@@ -787,6 +787,7 @@ export class WorldRuntimeLootContainerService {
                     text: `${container.name} 当前没有可收取的草药。`,
                 }]);
         }
+        const stateEntriesBeforeHarvest = state.entries.map(cloneContainerEntryForRestore);
         const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow);
         if (!harvestedItem) {
             state.activeSearch = undefined;
@@ -798,7 +799,49 @@ export class WorldRuntimeLootContainerService {
                 }]);
         }
         state.activeSearch = undefined;
-        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
+        if (this.canUseDurableInventoryGrant(player, deps)) {
+            const rollbackState = captureInventoryGrantRollbackState(player);
+            player.suppressImmediateDomainPersistence = true;
+            try {
+                this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
+                const leaseContext = await resolveLootInstanceLeaseContext(location.instanceId, deps);
+                await deps.durableOperationService.grantInventoryItems({
+                    operationId: buildLootInventoryGrantOperationId(playerId, 'gather_completion', `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`, [harvestedItem]),
+                    playerId,
+                    expectedRuntimeOwnerId: player.runtimeOwnerId,
+                    expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 1))),
+                    expectedInstanceId: player.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    sourceType: 'gather_completion',
+                    sourceRefId: `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`,
+                    grantedItems: buildGrantedInventorySnapshots([harvestedItem]),
+                    nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+                });
+            }
+            catch {
+                restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
+                state.entries.length = 0;
+                state.entries.push(...stateEntriesBeforeHarvest.map(cloneContainerEntryForRestore));
+                state.activeSearch = {
+                    itemKey: harvestedRow.itemKey,
+                    totalTicks: job.totalTicks,
+                    remainingTicks: 1,
+                };
+                job.remainingTicks = 1;
+                this.markContainerPersistenceDirty(location.instanceId);
+                return buildContainerTickResult(false, [{
+                        kind: 'warn',
+                        text: '采集失败，草药仍保留在原处。',
+                    }], false, false, false);
+            }
+            finally {
+                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+            }
+        }
+        else {
+            this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
+        }
         const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, player.gatherSkill, harvestedItem.level, computeHerbNativeGatherTicks(container, harvestedRow));
         const skillChanged = skillExpResult.changed;
         const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
@@ -859,6 +902,29 @@ export class WorldRuntimeLootContainerService {
             }
         }
         if (buildIsContainerSourceId(sourceId)) {
+            if (this.canUseDurableInventoryGrant(player, deps)) {
+                const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+                const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
+                const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
+                const removedEntries = visibleEntriesBeforeTake
+                    .filter((entry) => !resolved.state.entries.includes(entry))
+                    .map(cloneContainerEntryForRestore);
+                await this.grantLootItemsDurably({
+                    playerId,
+                    player,
+                    items: [item],
+                    deps,
+                    sourceType: 'container_take',
+                    sourceRefId: `${sourceId}:${itemKey}`,
+                    successNotice: `获得 ${formatItemStackLabel(item)}`,
+                    failureNotice: '拿取失败，物品已留在容器内。',
+                    restoreOnFailure: () => {
+                        resolved.state.entries.push(...removedEntries.map(cloneContainerEntryForRestore));
+                        this.markContainerPersistenceDirty(location.instanceId);
+                    },
+                });
+                return;
+            }
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             deps.refreshQuestStates(playerId);
@@ -915,9 +981,31 @@ export class WorldRuntimeLootContainerService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (buildIsContainerSourceId(sourceId)) {
+            const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+            const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
             const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
             if (takenItems.length === 0) {
                 throw new BadRequestException('当前没有可拿取的物品');
+            }
+            if (this.canUseDurableInventoryGrant(player, deps)) {
+                const removedEntries = visibleEntriesBeforeTake
+                    .filter((entry) => !resolved.state.entries.includes(entry))
+                    .map(cloneContainerEntryForRestore);
+                await this.grantLootItemsDurably({
+                    playerId,
+                    player,
+                    items: takenItems,
+                    deps,
+                    sourceType: 'container_take_all',
+                    sourceRefId: sourceId,
+                    successNotice: `获得 ${formatItemListSummary(takenItems)}`,
+                    failureNotice: '拿取失败，物品已留在容器内。',
+                    restoreOnFailure: () => {
+                        resolved.state.entries.push(...removedEntries.map(cloneContainerEntryForRestore));
+                        this.markContainerPersistenceDirty(location.instanceId);
+                    },
+                });
+                return;
             }
             for (const item of takenItems) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -1319,6 +1407,15 @@ function buildGrantedInventorySnapshots(items) {
             rawPayload: item ? { ...item } : {},
         })).filter((entry) => entry.itemId)
         : [];
+}
+
+function cloneContainerEntryForRestore(entry) {
+    return {
+        ...entry,
+        item: {
+            ...(entry?.item ?? {}),
+        },
+    };
 }
 
 function captureInventoryGrantRollbackState(player) {

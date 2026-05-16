@@ -1601,6 +1601,28 @@ export class WorldRuntimeCombatActionService {
           details: { distance, range },
         };
       }
+      const canSeeTileFrom = typeof input.canSeeTileFrom === 'function'
+        ? input.canSeeTileFrom
+        : typeof input.instance?.canSeeTileFrom === 'function'
+          ? input.instance.canSeeTileFrom.bind(input.instance)
+          : null;
+      if (input.requiresLineOfSight !== false && canSeeTileFrom) {
+        const visible = canSeeTileFrom(
+          input.actorPosition.x,
+          input.actorPosition.y,
+          Number(target.x),
+          Number(target.y),
+          range,
+        );
+        if (visible === false) {
+          return {
+            ok: false,
+            reason: CombatRejectReason.LineOfSightBlocked,
+            target,
+            details: { distance, range },
+          };
+        }
+      }
     }
     return {
       ok: true,
@@ -2173,6 +2195,20 @@ export class WorldRuntimeCombatActionService {
       return {
         ok: false,
         reason: CombatRejectReason.OutOfRange,
+        details: {
+          distance,
+          attackRange: monster.attackRange,
+        },
+        severity: 'debug',
+      };
+    }
+    if (
+      typeof instance.canSeeTileFrom === 'function'
+      && instance.canSeeTileFrom(monster.x, monster.y, normalizedPosition.x, normalizedPosition.y, monster.attackRange) === false
+    ) {
+      return {
+        ok: false,
+        reason: CombatRejectReason.LineOfSightBlocked,
         details: {
           distance,
           attackRange: monster.attackRange,
