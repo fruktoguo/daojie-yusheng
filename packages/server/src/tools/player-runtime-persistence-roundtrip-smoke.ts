@@ -325,6 +325,39 @@ function testReplaceInventoryItemsKeepsTemplateOnPrototype() {
     assert.equal(JSON.parse(JSON.stringify(replaced)).name, undefined);
 }
 
+function testReplaceEquipmentSlotsKeepsTemplateOnPrototype() {
+    const contentTemplateRepository = new ContentTemplateRepository();
+    const template = {
+        itemId: 'equip:roundtrip-prototype',
+        name: 'Roundtrip Prototype Sword',
+        type: 'equipment',
+        equipSlot: 'weapon',
+        desc: 'template-only weapon description',
+        equipAttrs: { strength: 3 },
+    };
+    contentTemplateRepository.itemTemplates.set(template.itemId, template);
+
+    const service = createPlayerRuntimeService(contentTemplateRepository);
+    const player = service.hydrateFromSnapshot('player:replace-equipment', 'session:replace-equipment', createSnapshot(null));
+    service.players.set(player.playerId, player);
+
+    service.replaceEquipmentSlots(player.playerId, [{
+        slot: 'weapon',
+        item: {
+            itemId: template.itemId,
+            count: 1,
+            enhanceLevel: 1,
+        },
+    }]);
+
+    const weapon = player.equipment.slots.find((entry) => entry.slot === 'weapon')?.item;
+    assert.equal(weapon.name, template.name);
+    assert.equal(weapon.equipSlot, template.equipSlot);
+    assert.equal(weapon.equipAttrs, template.equipAttrs);
+    assert.deepEqual(Object.keys(weapon).sort(), ['count', 'enhanceLevel', 'itemId']);
+    assert.equal(JSON.parse(JSON.stringify(weapon)).equipAttrs, undefined);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -334,5 +367,6 @@ testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();
 testSectIdRoundtrip();
 testPendingSkillCastIsRuntimeOnly();
 testReplaceInventoryItemsKeepsTemplateOnPrototype();
+testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
