@@ -1564,7 +1564,7 @@ class MapInstanceRuntime {
             y,
             tileIndex,
             buildingIds,
-            buildings: buildingIds.map((buildingId) => this.buildingById.get(buildingId)).filter(Boolean).map((building) => ({ ...building })),
+            buildings: buildingIds.map((buildingId) => this.buildingById.get(buildingId)).filter(Boolean),
             room: roomId ? this.roomsById.get(roomId) ?? null : null,
             fengShui: roomId ? this.fengShuiByRoomId.get(roomId) ?? null : null,
         };
@@ -1726,10 +1726,10 @@ class MapInstanceRuntime {
         return null;
     }
     listBuildingSummaries() {
-        return Array.from(this.buildingById.values()).map((building) => ({ ...building }));
+        return Array.from(this.buildingById.values());
     }
     listRoomSummaries() {
-        return Array.from(this.roomsById.values()).map((room) => ({ ...room }));
+        return Array.from(this.roomsById.values());
     }
     getFengShuiSnapshot(roomId) {
         const normalized = typeof roomId === 'string' ? roomId.trim() : '';
@@ -1878,7 +1878,8 @@ class MapInstanceRuntime {
             if (!id) {
                 continue;
             }
-            this.roomsById.set(id, { ...room, instanceId: this.meta.instanceId });
+            room.instanceId = this.meta.instanceId;
+            this.roomsById.set(id, room);
             this.roomIdsByHandle[index + 1] = id;
         }
         if (Array.isArray(state?.roomCells)) {
@@ -1906,7 +1907,8 @@ class MapInstanceRuntime {
         for (const snapshot of Array.isArray(state?.fengShui) ? state.fengShui : []) {
             const roomId = typeof snapshot?.roomId === 'string' && snapshot.roomId.trim() ? snapshot.roomId.trim() : '';
             if (roomId) {
-                this.fengShuiByRoomId.set(roomId, { ...snapshot, instanceId: this.meta.instanceId });
+                snapshot.instanceId = this.meta.instanceId;
+                this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
         return { buildingCount: this.buildingById.size, rebuilt: false };
