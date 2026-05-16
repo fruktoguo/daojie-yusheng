@@ -17,7 +17,9 @@ import { ContentTemplateRepository } from '../content/content-template.repositor
 import { DatabasePoolProvider } from './database-pool.provider';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import {
+  buildPersistedEquipmentItemRawPayload,
   buildPersistedInventoryItemRawPayload,
+  hydratePersistedEquipmentItem,
   hydratePersistedInventoryItem,
   type InventoryItemTemplateRepository,
 } from './inventory-item-persistence';
@@ -3596,6 +3598,12 @@ async function replacePlayerEquipmentSlots(
       normalizeOptionalString(entry?.itemInstanceId)
       ?? normalizeOptionalString(item?.itemInstanceId)
       ?? `equip:${playerId}:${slotType}`;
+    const persistedPayload = buildPersistedEquipmentItemRawPayload({
+      itemId,
+      slot: slotType,
+      enhanceLevel: item?.enhanceLevel,
+      rawPayload: item,
+    });
     placeholders.push(
       `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, now())`,
     );
@@ -3604,7 +3612,7 @@ async function replacePlayerEquipmentSlots(
       slotType,
       itemInstanceId,
       itemId,
-      JSON.stringify(item),
+      JSON.stringify(persistedPayload),
     );
     parameterIndex += 5;
   }
@@ -4893,7 +4901,7 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedBodyTraining(snapshot, domains.bodyTraining);
   applyProjectedInventory(snapshot, domains.inventoryItems, contentTemplateRepository);
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
-  applyProjectedEquipment(snapshot, domains.equipmentSlots);
+  applyProjectedEquipment(snapshot, domains.equipmentSlots, contentTemplateRepository);
   applyProjectedTechniques(snapshot, domains.techniqueStates);
   applyProjectedPersistentBuffs(snapshot, domains.persistentBuffStates);
   applyProjectedQuestProgress(snapshot, domains.questProgressRows);
@@ -5055,6 +5063,7 @@ function applyProjectedMapUnlocks(
 function applyProjectedEquipment(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerEquipmentSlotLoadRow[],
+  contentTemplateRepository?: InventoryItemTemplateRepository | null,
 ): void {
   if (rows.length === 0) {
     return;
@@ -5083,17 +5092,14 @@ function applyProjectedEquipment(
     }
     const normalizedSlotType = slotType as (typeof EQUIP_SLOTS)[number];
     const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
-    const itemId = normalizeOptionalString(rawPayload?.itemId) ?? normalizeOptionalString(row.item_id);
+    const item = hydratePersistedEquipmentItem({
+      itemId: row.item_id,
+      slot: normalizedSlotType,
+      rawPayload,
+    }, contentTemplateRepository);
     slotMap.set(normalizedSlotType, {
       slot: normalizedSlotType,
-      item: itemId
-        ? {
-            ...(rawPayload ?? {}),
-            itemId,
-            count: normalizeMinimumInteger(rawPayload?.count, 1, 1),
-            equipSlot: normalizeOptionalString(rawPayload?.equipSlot) ?? normalizedSlotType,
-          }
-        : null,
+      item,
     });
   }
   snapshot.equipment = {

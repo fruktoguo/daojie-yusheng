@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   PlayerDomainPersistenceService,
@@ -37,7 +38,8 @@ async function main(): Promise<void> {
   const directPlayerId = `${playerId}_direct`;
   const walletOnlyPlayerId = `${playerId}_wallet`;
   const now = Date.now();
-  const service = new PlayerDomainPersistenceService();
+  const databasePoolProvider = new DatabasePoolProvider();
+  const service = new PlayerDomainPersistenceService(null, databasePoolProvider);
   const pool = new Pool({ connectionString: databaseUrl });
 
   await service.onModuleInit();
@@ -545,6 +547,8 @@ async function main(): Promise<void> {
             count: 1,
             equipSlot: 'weapon',
             name: '直写长刃',
+            enhanceLevel: 4,
+            equipStats: { physAtk: 999 },
           },
         },
       ],
@@ -716,7 +720,7 @@ async function main(): Promise<void> {
     );
     const directEquipmentRows = await fetchRows(
       pool,
-      'SELECT slot_type, item_instance_id, item_id FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type ASC',
+      'SELECT slot_type, item_instance_id, item_id, raw_payload FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type ASC',
       [directPlayerId],
     );
     const directCombatPreferenceRow = await fetchSingleRow(
@@ -811,6 +815,8 @@ async function main(): Promise<void> {
       || directEquipmentRows[0]?.slot_type !== 'weapon'
       || directEquipmentRows[0]?.item_instance_id !== `equip:${directPlayerId}:weapon`
       || directEquipmentRows[0]?.item_id !== 'weapon.direct_blade'
+      || Number((directEquipmentRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 4
+      || Object.prototype.hasOwnProperty.call(directEquipmentRows[0]?.raw_payload ?? {}, 'equipStats')
     ) {
       throw new Error(`unexpected direct player_equipment_slot rows: ${JSON.stringify(directEquipmentRows)}`);
     }
@@ -931,6 +937,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, walletOnlyPlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
   }
 }
 

@@ -10,7 +10,10 @@ import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
-import { buildPersistedInventoryItemRawPayload } from './inventory-item-persistence';
+import {
+  buildPersistedEquipmentItemRawPayload,
+  buildPersistedInventoryItemRawPayload,
+} from './inventory-item-persistence';
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
@@ -3468,6 +3471,12 @@ async function replacePlayerEquipmentSlots(
       normalizeRequiredString(slotEntry?.itemInstanceId)
       || normalizeRequiredString(item?.itemInstanceId)
       || `equip:${playerId}:${slotType}`;
+    const rawPayload = buildPersistedEquipmentItemRawPayload({
+      itemId,
+      slot: slotType,
+      enhanceLevel: item?.enhanceLevel,
+      rawPayload: item,
+    });
     placeholders.push(
       `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, now())`,
     );
@@ -3476,7 +3485,7 @@ async function replacePlayerEquipmentSlots(
       slotType,
       itemInstanceId,
       itemId,
-      JSON.stringify(item),
+      JSON.stringify(rawPayload),
     );
     parameterIndex += 5;
   }

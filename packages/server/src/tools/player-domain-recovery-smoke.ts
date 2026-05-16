@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { PlayerDomainPersistenceService, PLAYER_DOMAIN_PROJECTED_TABLES } from '../persistence/player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { PlayerPersistenceService } from '../persistence/player-persistence.service';
@@ -42,8 +43,9 @@ async function main(): Promise<void> {
   const playerId = `pdr_${now.toString(36)}`;
   const presenceOnlyPlayerId = `${playerId}_presence`;
   const pool = new Pool({ connectionString: databaseUrl });
-  const snapshotPersistence = new PlayerPersistenceService();
-  const domainPersistence = new PlayerDomainPersistenceService();
+  const databasePoolProvider = new DatabasePoolProvider();
+  const snapshotPersistence = new PlayerPersistenceService(databasePoolProvider);
+  const domainPersistence = new PlayerDomainPersistenceService(null, databasePoolProvider);
 
   await snapshotPersistence.onModuleInit();
   await domainPersistence.onModuleInit();
@@ -287,6 +289,7 @@ async function main(): Promise<void> {
     await pool.end().catch(() => undefined);
     await snapshotPersistence.onModuleDestroy().catch(() => undefined);
     await domainPersistence.onModuleDestroy().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
   }
 }
 

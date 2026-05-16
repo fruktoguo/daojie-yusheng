@@ -12,6 +12,14 @@ export interface InventoryItemPersistenceSource {
   enhanceLevel?: unknown;
 }
 
+/** 装备槽持久化来源数据结构 */
+export interface EquipmentItemPersistenceSource {
+  itemId?: unknown;
+  slot?: unknown;
+  rawPayload?: unknown;
+  enhanceLevel?: unknown;
+}
+
 /** 物品模板仓储接口，用于水合时规范化物品 */
 export interface InventoryItemTemplateRepository {
   createItem(itemId: string, count?: number): unknown;
@@ -109,6 +117,20 @@ export function buildPersistedInventoryItemRawPayload(
   return enhanceLevel == null ? {} : { enhanceLevel };
 }
 
+/** 构建装备槽持久化 rawPayload：itemId 存列字段，rawPayload 只保留实例态强化等级。 */
+export function buildPersistedEquipmentItemRawPayload(
+  source: EquipmentItemPersistenceSource,
+): Record<string, unknown> {
+  const rawPayload = asRecord(source?.rawPayload);
+  const enhanceLevel = normalizeEnhanceLevel(
+    source?.enhanceLevel,
+    rawPayload?.enhanceLevel,
+    rawPayload?.enhancementLevel,
+  );
+
+  return enhanceLevel == null ? {} : { enhanceLevel };
+}
+
 /** 从持久化来源水合完整物品对象，兼容旧格式并通过模板仓储规范化 */
 export function hydratePersistedInventoryItem(
   source: InventoryItemPersistenceSource,
@@ -119,10 +141,11 @@ export function hydratePersistedInventoryItem(
     normalizeOptionalString(rawPayload?.itemId, source?.itemId)
     ?? 'unknown_item';
   const count = normalizeMinimumInteger(rawPayload?.count ?? source?.count, 1, 1);
-  const enhanceLevel = normalizeEnhanceLevel(rawPayload?.enhanceLevel, rawPayload?.enhancementLevel);
+  const enhanceLevel = normalizeEnhanceLevel(source?.enhanceLevel, rawPayload?.enhanceLevel, rawPayload?.enhancementLevel);
   const legacyOverrides = buildLegacyInventoryOverrides(rawPayload);
 
-  if (contentTemplateRepository?.createItem(itemId, count)) {
+  const templateItem = contentTemplateRepository?.createItem(itemId, count);
+  if (templateItem) {
     const hydrated = asRecord(
       contentTemplateRepository.normalizeItem({
         itemId,
@@ -133,7 +156,6 @@ export function hydratePersistedInventoryItem(
     if (hydrated) {
       return {
         ...hydrated,
-        ...legacyOverrides,
         itemId,
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
@@ -153,6 +175,42 @@ export function hydratePersistedInventoryItem(
   return {
     itemId,
     count,
+    ...(enhanceLevel == null ? {} : { enhanceLevel }),
+  };
+}
+
+/** 从装备槽持久化行水合完整装备，模板命中时旧属性快照不再覆盖配置模板。 */
+export function hydratePersistedEquipmentItem(
+  source: EquipmentItemPersistenceSource,
+  contentTemplateRepository?: InventoryItemTemplateRepository | null,
+): Record<string, unknown> | null {
+  const rawPayload = asRecord(source?.rawPayload);
+  const itemId = normalizeOptionalString(rawPayload?.itemId, source?.itemId);
+  if (!itemId) {
+    return null;
+  }
+
+  const slot = normalizeOptionalString(source?.slot);
+  const enhanceLevel = normalizeEnhanceLevel(
+    source?.enhanceLevel,
+    rawPayload?.enhanceLevel,
+    rawPayload?.enhancementLevel,
+  );
+  const hydrated = hydratePersistedInventoryItem(
+    {
+      itemId,
+      count: 1,
+      rawPayload,
+      ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    },
+    contentTemplateRepository,
+  );
+
+  return {
+    ...hydrated,
+    itemId,
+    count: 1,
+    equipSlot: normalizeOptionalString(hydrated.equipSlot) ?? slot ?? undefined,
     ...(enhanceLevel == null ? {} : { enhanceLevel }),
   };
 }

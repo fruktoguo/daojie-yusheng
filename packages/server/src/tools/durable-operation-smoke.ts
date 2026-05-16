@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
 import { MailPersistenceService } from '../persistence/mail-persistence.service';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
@@ -101,13 +102,14 @@ async function main(): Promise<void> {
   const leasedMarketCancelInstanceId = `instance:${marketCancelPlayerId}:lease`;
   const leasedActiveJobCancelInstanceId = `instance:${activeJobCancelPlayerId}:lease`;
   const leasedActiveJobCompleteInstanceId = `instance:${activeJobCompletePlayerId}:lease`;
-  const service = new DurableOperationService();
+  const databasePoolProvider = new DatabasePoolProvider();
+  const service = new DurableOperationService(null, databasePoolProvider);
   const leaseAwareService = new DurableOperationService({
     getNodeId() {
       return 'node:durable-operation-smoke';
     },
-  } as never);
-  const mailPersistence = new MailPersistenceService();
+  } as never, databasePoolProvider);
+  const mailPersistence = new MailPersistenceService(databasePoolProvider);
   const contentTemplateRepository = new ContentTemplateRepository();
   const pool = new Pool({ connectionString: databaseUrl });
   const runtimePlayerState = {
@@ -2030,7 +2032,7 @@ async function main(): Promise<void> {
     );
     const equipEquipmentRows = await fetchRows(
       pool,
-      'SELECT slot_type, item_id FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type ASC',
+      'SELECT slot_type, item_id, raw_payload FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type ASC',
       [equipPlayerId],
     );
     const equipOperationRow = await fetchSingleRow(
@@ -2063,6 +2065,8 @@ async function main(): Promise<void> {
       equipEquipmentRows.length !== 1
       || equipEquipmentRows[0]?.slot_type !== 'weapon'
       || equipEquipmentRows[0]?.item_id !== 'iron_sword'
+      || Number((equipEquipmentRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 4
+      || Object.prototype.hasOwnProperty.call(equipEquipmentRows[0]?.raw_payload ?? {}, 'itemId')
     ) {
       throw new Error(`unexpected equipment slot rows: ${JSON.stringify(equipEquipmentRows)}`);
     }
@@ -3290,6 +3294,7 @@ async function main(): Promise<void> {
     await mailPersistence.onModuleDestroy().catch(() => undefined);
     await leaseAwareService.onModuleDestroy().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
   }
 }
 
