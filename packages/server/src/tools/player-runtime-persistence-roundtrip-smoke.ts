@@ -358,6 +358,33 @@ function testReplaceEquipmentSlotsKeepsTemplateOnPrototype() {
     assert.equal(JSON.parse(JSON.stringify(weapon)).equipAttrs, undefined);
 }
 
+function testHydrateInventoryItemsKeepTemplateOnPrototype() {
+    const contentTemplateRepository = new ContentTemplateRepository();
+    const template = {
+        itemId: 'item:hydrate-prototype',
+        name: 'Hydrate Prototype Item',
+        type: 'material',
+        desc: 'template-only hydrate description',
+        effects: [{ type: 'proof' }],
+    };
+    contentTemplateRepository.itemTemplates.set(template.itemId, template);
+
+    const service = createPlayerRuntimeService(contentTemplateRepository);
+    const snapshot = createSnapshot(null);
+    snapshot.inventory.items = [{
+        itemId: template.itemId,
+        count: 7,
+        enhanceLevel: 3,
+    }];
+
+    const player = service.hydrateFromSnapshot('player:hydrate-inventory', 'session:hydrate-inventory', snapshot);
+    const item = player.inventory.items[0];
+    assert.equal(item.name, template.name);
+    assert.equal(item.effects, template.effects);
+    assert.deepEqual(Object.keys(item).sort(), ['count', 'enhanceLevel', 'itemId']);
+    assert.equal(JSON.parse(JSON.stringify(item)).effects, undefined);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -368,5 +395,6 @@ testSectIdRoundtrip();
 testPendingSkillCastIsRuntimeOnly();
 testReplaceInventoryItemsKeepsTemplateOnPrototype();
 testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
+testHydrateInventoryItemsKeepTemplateOnPrototype();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
