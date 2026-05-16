@@ -329,6 +329,8 @@ export class PlayerRuntimeService {
             vitalRecoveryDeferredUntilTick: -1,
             runtimeBonuses: [],
             dirtyDomains: createPlayerDirtyDomainSet(),
+            // 玩家维度 NPC quest marker 投影缓存；挂在 player 对象上跟随 removePlayerRuntime/runtime GC 释放，避免 service-level Map 泄漏。
+            npcQuestMarkerCache: new Map(),
         };
         this.playerProgressionService.initializePlayer(player);
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
@@ -3537,6 +3539,8 @@ export class PlayerRuntimeService {
                 .map((entry) => cloneRuntimeBonus(entry))
                 .filter((entry) => Boolean(entry)),
             dirtyDomains: createPlayerDirtyDomainSet(),
+            // 玩家维度 NPC quest marker 投影缓存；hydrate 路径同样初始化，跟随玩家运行态生命周期。
+            npcQuestMarkerCache: new Map(),
         };
         player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
@@ -4069,6 +4073,8 @@ function cloneRuntimePlayerState(player) {
         vitalRecoveryDeferredUntilTick: player.vitalRecoveryDeferredUntilTick,
         runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
         dirtyDomains: createPlayerDirtyDomainSet(),
+        // cloneRuntimePlayerState 用于快照/旁路读取，不应共享 quest marker cache 引用；新副本起一个空 Map。
+        npcQuestMarkerCache: new Map(),
     };
 }
 function normalizeWalletType(walletType) {

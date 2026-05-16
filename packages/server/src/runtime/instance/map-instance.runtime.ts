@@ -226,6 +226,8 @@ class MapInstanceRuntime {
     localBuildingViewCacheById = new Map();
     /** 妖兽视野条目缓存；同一 runtimeId 字段未变时复用条目对象，降低 collectLocalMonsters 高频分配。 */
     localMonsterViewCacheByRuntimeId = new Map();
+    /** Tile 共享投影缓存（per-instance）；按 coordKey="${x},${y}" 索引；实例 GC 时随之释放，避免 service-level 累积。 */
+    tileProjectionByCoord = new Map();
     /**
  * persistentRevision：persistentRevision相关字段。
  */
@@ -587,6 +589,8 @@ class MapInstanceRuntime {
         this.playersByHandle.delete(player.handle);
         this.pendingCommands.delete(playerId);
         this.playerViewCacheByPlayerId.delete(playerId);
+        // P0-4 entry cache 跟随 entity lifecycle 释放：玩家从实例移除时清理 view 条目，避免单实例 cache 累积曾路过玩家。
+        this.localPlayerViewCacheByPlayerId.delete(playerId);
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
         this.freeHandles.push(player.handle);
         this.worldRevision += 1;
@@ -1148,6 +1152,8 @@ class MapInstanceRuntime {
         }
         this.buildingPreviousTileTypeById.delete(buildingId);
         this.buildingById.delete(buildingId);
+        // P0-4 entry cache 跟随 entity lifecycle 释放：建筑拆除/完工时清理 view 条目。
+        this.localBuildingViewCacheById.delete(buildingId);
         this.buildingCellsById.delete(buildingId);
         this.rebuildBuildingTopologyCells(changedCells);
         const shouldRecalculateRooms = compiled
@@ -3595,6 +3601,8 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.groundPilesByTile.clear();
+        // P0-4 entry cache 跟随 entity lifecycle 释放：hydrate 重置 ground pile 索引时同步清空 view 条目缓存。
+        this.localGroundPileViewCacheBySourceId.clear();
         for (const entry of entries) {
             if (!Number.isFinite(entry.tileIndex) || !Array.isArray(entry.items)) {
                 continue;
@@ -4337,6 +4345,8 @@ class MapInstanceRuntime {
         }
         if (pile.items.length === 0) {
             this.groundPilesByTile.delete(tileIndex);
+            // P0-4 entry cache 跟随 entity lifecycle 释放：地面物品堆被拾光时清理 view 条目，避免长期累积 frozen entry。
+            this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(tileIndex));
         }
         this.markGroundItemPersistenceDirty(tileIndex);
         this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_taken');

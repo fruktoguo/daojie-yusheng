@@ -26,8 +26,6 @@ export class WorldRuntimePlayerViewQueryService {
  */
 
     worldRuntimeNpcQuestInteractionQueryService;    
-    /** NPC quest marker 叠加条目缓存；同一玩家同一 NPC marker 未变时复用条目对象。 */
-    npcQuestMarkerViewCacheByPlayerId = new Map();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -174,10 +172,19 @@ export class WorldRuntimePlayerViewQueryService {
     }
     /** getNpcQuestMarkerEntry：复用玩家维度 NPC marker 投影。 */
     getNpcQuestMarkerEntry(playerId, entry, questMarker) {
-        let playerCache = this.npcQuestMarkerViewCacheByPlayerId.get(playerId);
-        if (!playerCache) {
+        // 把 cache 挂在 player runtime 对象上，玩家从 PlayerRuntimeService 移除时整张 Map 跟随 GC，
+        // 避免 service-level Map<playerId, ...> 在断线/迁移玩家积累后无法回收。
+        const player: any = typeof this.playerRuntimeService.getPlayer === 'function'
+            ? this.playerRuntimeService.getPlayer(playerId)
+            : null;
+        if (!player) {
+            // 没有 runtime 玩家时不缓存，仅当次返回 spread 副本（保证语义）。
+            return freezeViewProjection({ ...entry, questMarker });
+        }
+        let playerCache: Map<string, { source: any; questMarker: any; entry: any }> | undefined = player.npcQuestMarkerCache;
+        if (!(playerCache instanceof Map)) {
             playerCache = new Map();
-            this.npcQuestMarkerViewCacheByPlayerId.set(playerId, playerCache);
+            player.npcQuestMarkerCache = playerCache;
         }
         const cached = playerCache.get(entry.npcId);
         if (cached

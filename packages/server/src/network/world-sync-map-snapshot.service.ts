@@ -74,7 +74,6 @@ export class WorldSyncMapSnapshotService {
   private readonly mapRuntimeConfigService: RuntimeMapConfigPort;
   private readonly worldSyncMinimapService: WorldSyncMinimapPort;
   private readonly playerAuthStore: NativePlayerAuthStorePort | null;
-  private readonly tileProjectionByCoord = new Map<string, any>();
 
   constructor(
     @Inject(forwardRef(() => WorldRuntimeService))
@@ -421,13 +420,25 @@ export class WorldSyncMapSnapshotService {
   }
 
   private getSharedTileProjection(instanceId: string, x: number, y: number, tile: any): any {
-    const cacheKey = `${instanceId}:${x},${y}`;
-    const cached = this.tileProjectionByCoord.get(cacheKey);
+    // 把 cache 挂在实例对象上，实例销毁时整张 Map 跟着 GC，避免 service-level Map<instanceId:x,y> 累积导致泄漏。
+    const instance: any = typeof this.worldRuntimeService.getInstanceRuntime === 'function'
+      ? this.worldRuntimeService.getInstanceRuntime(instanceId)
+      : null;
+    if (!instance) {
+      return tile;
+    }
+    let projectionByCoord: Map<string, any> | undefined = instance.tileProjectionByCoord;
+    if (!(projectionByCoord instanceof Map)) {
+      projectionByCoord = new Map();
+      instance.tileProjectionByCoord = projectionByCoord;
+    }
+    const cacheKey = `${x},${y}`;
+    const cached = projectionByCoord.get(cacheKey);
     if (cached && isSameTileProjection(cached, tile)) {
       return cached;
     }
     freezeTileProjection(tile);
-    this.tileProjectionByCoord.set(cacheKey, tile);
+    projectionByCoord.set(cacheKey, tile);
     return tile;
   }
 

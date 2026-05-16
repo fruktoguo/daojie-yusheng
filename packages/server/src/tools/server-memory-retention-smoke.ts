@@ -35,6 +35,7 @@ async function main(): Promise<void> {
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
   const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
   const viewHotpathProof = proveViewHotpathOptimizationsPresent();
+  const cacheLifecycleProof = proveEntryCachesFollowLifecycle();
   const suggestionProof = await proveSuggestionTextBounds();
   const gmObserverProof = proveGmWorldObserverIdsRemoved();
 
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
     combatEffectRefProof,
     persistenceDirtyDomainProjectionProof,
     viewHotpathProof,
+    cacheLifecycleProof,
     suggestionProof,
     gmObserverProof,
     answers:
@@ -294,9 +296,14 @@ function proveProjectorSharesStableInstanceEntryRefs(): { monsterRefShared: bool
   return { monsterRefShared, npcRefShared, containerRefShared };
 }
 
-function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number } {
+function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; cacheRefShared: boolean; deltaPatchCount: number; instanceCacheUsed: boolean } {
+  // mock instance：tileProjectionByCoord 现在挂在实例对象上，跟随实例 GC 释放。
+  const fakeInstance: { tileProjectionByCoord?: Map<string, any> } = {};
   const snapshotService = new WorldSyncMapSnapshotService(
-    { getInstanceTileState: () => null },
+    {
+      getInstanceTileState: () => null,
+      getInstanceRuntime: () => fakeInstance,
+    },
     { getPlayer: () => null },
     { has: () => true, getOrThrow: () => createTileTemplate() },
     { getMapTimeConfig: () => null, getMapTickSpeed: () => 1 },
@@ -323,10 +330,14 @@ function proveTileProjectionRefsReachPlayerCache(): { sameSnapshotRef: boolean; 
   const cachedTile = (staticAuxService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('tile_player').visibleTiles.get('1,1');
   const sameSnapshotRef = firstTile === secondTile;
   const cacheRefShared = cachedTile === firstTile;
+  // 验证 cache 真的写到了 instance 对象上，而不是 service 自己的 field。
+  const instanceCacheUsed = fakeInstance.tileProjectionByCoord instanceof Map
+    && fakeInstance.tileProjectionByCoord.size > 0;
   assert.equal(sameSnapshotRef, true);
   assert.equal(cacheRefShared, true);
   assert.equal(second.tilePatches.length, 0);
-  return { sameSnapshotRef, cacheRefShared, deltaPatchCount: second.tilePatches.length };
+  assert.equal(instanceCacheUsed, true);
+  return { sameSnapshotRef, cacheRefShared, deltaPatchCount: second.tilePatches.length, instanceCacheUsed };
 }
 
 function provePanelSliceCacheReusedOnNoopDelta(): { panelRefReused: boolean; deltaIsNull: boolean } {
@@ -643,6 +654,57 @@ function proveViewHotpathOptimizationsPresent(): {
     projectorSkipsUnchangedPanelCapture,
     contentTemplateAvoidsDuplicateMonsterClone,
     playerViewCacheHitReusesViewRef,
+  };
+}
+
+function proveEntryCachesFollowLifecycle(): {
+  tileProjectionOnInstance: boolean;
+  npcQuestMarkerCacheOnPlayer: boolean;
+  removePlayerClearsLocalPlayerView: boolean;
+  buildingDeconstructClearsCache: boolean;
+  groundPilePickupClearsCache: boolean;
+  hydrateGroundPilesClearsCache: boolean;
+} {
+  const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
+  const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
+  const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
+  const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+
+  // tileProjectionByCoord 必须挂在 MapInstanceRuntime 上，且 service 内不再持有 service-level 字段。
+  const tileProjectionOnInstance = mapInstanceSource.includes('tileProjectionByCoord = new Map()')
+    && mapSnapshotSource.includes('instance.tileProjectionByCoord = projectionByCoord')
+    && !mapSnapshotSource.includes('private readonly tileProjectionByCoord = new Map');
+
+  // npcQuestMarkerCache 必须挂在 player runtime 对象上，且 service 内不再持有 service-level 字段。
+  const npcQuestMarkerCacheOnPlayer = playerRuntimeSource.includes('npcQuestMarkerCache: new Map()')
+    && playerViewQuerySource.includes('player.npcQuestMarkerCache = playerCache')
+    && !playerViewQuerySource.includes('npcQuestMarkerViewCacheByPlayerId = new Map()');
+
+  // removePlayer 必须清理 localPlayerViewCacheByPlayerId。
+  const removePlayerClearsLocalPlayerView = mapInstanceSource.includes('this.localPlayerViewCacheByPlayerId.delete(playerId)');
+
+  // building deconstruct 必须清理 localBuildingViewCacheById。
+  const buildingDeconstructClearsCache = mapInstanceSource.includes('this.localBuildingViewCacheById.delete(buildingId)');
+
+  // groundPile 拾取空必须清理 localGroundPileViewCacheBySourceId。
+  const groundPilePickupClearsCache = mapInstanceSource.includes('this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(tileIndex))');
+
+  // hydrateGroundPiles 重置时也要清理 view cache。
+  const hydrateGroundPilesClearsCache = mapInstanceSource.includes('this.localGroundPileViewCacheBySourceId.clear()');
+
+  assert.equal(tileProjectionOnInstance, true);
+  assert.equal(npcQuestMarkerCacheOnPlayer, true);
+  assert.equal(removePlayerClearsLocalPlayerView, true);
+  assert.equal(buildingDeconstructClearsCache, true);
+  assert.equal(groundPilePickupClearsCache, true);
+  assert.equal(hydrateGroundPilesClearsCache, true);
+  return {
+    tileProjectionOnInstance,
+    npcQuestMarkerCacheOnPlayer,
+    removePlayerClearsLocalPlayerView,
+    buildingDeconstructClearsCache,
+    groundPilePickupClearsCache,
+    hydrateGroundPilesClearsCache,
   };
 }
 
