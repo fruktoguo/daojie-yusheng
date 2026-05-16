@@ -8,6 +8,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';
 
+const compactTileResourcesBySource = new WeakMap<any[], any[]>();
+
 /** map/static aux cache 服务：承接 player 级 map cache 与 tile/minimap patch 规划。 */
 @Injectable()
 export class WorldSyncMapStaticAuxService {
@@ -245,6 +247,10 @@ function cloneCompactTileResources(resources) {
     if (!Array.isArray(resources) || resources.length === 0) {
         return undefined;
     }
+    const cached = compactTileResourcesBySource.get(resources);
+    if (cached) {
+        return cached.length > 0 ? cached : undefined;
+    }
     const compact = [];
     for (const resource of resources) {
         if (!resource || typeof resource.key !== 'string' || resource.key === 'aura.refined.neutral') {
@@ -256,6 +262,7 @@ function cloneCompactTileResources(resources) {
             ...(Number.isFinite(level) ? { level } : {}),
         });
     }
+    compactTileResourcesBySource.set(resources, compact);
     return compact.length > 0 ? compact : undefined;
 }
 /**
@@ -275,19 +282,6 @@ function parseCoordKey(key) {
         Number(key.slice(0, separatorIndex)),
         Number(key.slice(separatorIndex + 1)),
     ];
-}
-/**
- * cloneTile：构建Tile。
- * @param source 来源对象。
- * @returns 无返回值，直接更新Tile相关状态。
- */
-
-function cloneTile(source) {
-    return {
-        ...source,
-        resources: source.resources?.map((entry) => ({ ...entry })),
-        hiddenEntrance: source.hiddenEntrance ? { ...source.hiddenEntrance } : undefined,
-    };
 }
 /**
  * isSameTile：判断SameTile是否满足条件。
