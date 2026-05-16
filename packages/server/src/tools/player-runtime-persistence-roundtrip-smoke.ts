@@ -10,9 +10,10 @@ const {
     Direction,
 } = require("@mud/shared");
 const { PlayerRuntimeService } = require("../runtime/player/player-runtime.service");
+const { ContentTemplateRepository } = require("../content/content-template.repository");
 
-function createPlayerRuntimeService() {
-    return new PlayerRuntimeService({
+function createPlayerRuntimeService(contentTemplateRepository) {
+    const repository = contentTemplateRepository ?? {
         createStarterInventory() {
             return {
                 capacity: DEFAULT_INVENTORY_CAPACITY,
@@ -28,7 +29,8 @@ function createPlayerRuntimeService() {
         hydrateTechniqueState(entry) {
             return entry;
         },
-    }, {
+    };
+    return new PlayerRuntimeService(repository, {
         has(mapId) {
             return mapId === 'yunlai_town';
         },
@@ -69,6 +71,9 @@ function createPlayerRuntimeService() {
         },
     }, {
         initializePlayer() {
+            return undefined;
+        },
+        refreshPreview() {
             return undefined;
         },
     });
@@ -292,6 +297,34 @@ function testPendingSkillCastIsRuntimeOnly() {
     assert.equal(persisted.combat.pendingSkillCast, undefined);
 }
 
+function testReplaceInventoryItemsKeepsTemplateOnPrototype() {
+    const contentTemplateRepository = new ContentTemplateRepository();
+    const template = {
+        itemId: 'item:roundtrip-prototype',
+        name: 'Roundtrip Prototype Item',
+        type: 'material',
+        desc: 'template-only description',
+        tags: ['proof'],
+    };
+    contentTemplateRepository.itemTemplates.set(template.itemId, template);
+
+    const service = createPlayerRuntimeService(contentTemplateRepository);
+    const player = service.hydrateFromSnapshot('player:replace-inventory', 'session:replace-inventory', createSnapshot(null));
+    service.players.set(player.playerId, player);
+
+    service.replaceInventoryItems(player.playerId, [{
+        itemId: template.itemId,
+        count: 5,
+        enhanceLevel: 2,
+    }]);
+
+    const replaced = player.inventory.items[0];
+    assert.equal(replaced.name, template.name);
+    assert.equal(replaced.tags, template.tags);
+    assert.deepEqual(Object.keys(replaced).sort(), ['count', 'enhanceLevel', 'itemId']);
+    assert.equal(JSON.parse(JSON.stringify(replaced)).name, undefined);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testInvalidGatherJobFallsBackToNull();
@@ -300,5 +333,6 @@ testMissingRespawnFallsBackToStarterMap();
 testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();
 testSectIdRoundtrip();
 testPendingSkillCastIsRuntimeOnly();
+testReplaceInventoryItemsKeepsTemplateOnPrototype();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
