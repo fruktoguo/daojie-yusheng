@@ -14,6 +14,7 @@ import type { PoolClient } from 'pg';
 import { Pool } from 'pg';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import { DatabasePoolProvider } from './database-pool.provider';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import {
   buildPersistedInventoryItemRawPayload,
@@ -683,6 +684,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     @Optional()
     @Inject(ContentTemplateRepository)
     private readonly contentTemplateRepository: InventoryItemTemplateRepository | null = null,
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -692,9 +695,12 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return;
     }
 
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-    });
+    const sharedPool = this.databasePoolProvider?.getPool('player-domain') ?? null;
+    if (!sharedPool) {
+      this.logger.warn('玩家分域持久化已禁用：DatabasePoolProvider 未提供连接池');
+      return;
+    }
+    this.pool = sharedPool;
 
     try {
       await ensurePlayerDomainTables(this.pool);
@@ -706,12 +712,12 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         '玩家分域持久化初始化失败，已回退为禁用模式',
         error instanceof Error ? error.stack : String(error),
       );
-      await this.safeClosePool();
+      this.releasePoolReference();
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.safeClosePool();
+    this.releasePoolReference();
   }
 
   isEnabled(): boolean {
@@ -2078,13 +2084,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
-  private async safeClosePool(): Promise<void> {
-    const pool = this.pool;
+  private releasePoolReference(): void {
     this.pool = null;
     this.enabled = false;
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
   }
 }
 
@@ -4341,6 +4343,19 @@ function buildQuestProgressRows(snapshot: PersistedPlayerSnapshot): QuestProgres
 function buildEnhancementRecordRows(playerId: string, snapshot: PersistedPlayerSnapshot): EnhancementRecordRow[] {
   const progression = asRecord(snapshot.progression);
   const entries = Array.isArray(progression?.enhancementRecords) ? progression.enhancementRecords : [];
+  return buildEnhancementRecordRowsFromEntries(playerId, entries);
+}
+
+/**
+ * 将运行时形态的强化记录条目归一为 DB 行形态。
+ * 运行时记录字段为 `levels`，DB 列名为 `levels_payload`；这里统一负责字段映射、类型清洗和 recordId 兜底。
+ * 直接调用 `savePlayerEnhancementRecords` 的链路（如 `CraftPanelRuntimeService.persistEnhancementRecords`）必须先经过此归一，
+ * 否则 `levels_payload` 会因 undefined → null 触发 `player_enhancement_record.levels_payload` NOT NULL 约束违反。
+ */
+export function buildEnhancementRecordRowsFromEntries(
+  playerId: string,
+  entries: readonly unknown[],
+): EnhancementRecordRow[] {
   const rows: EnhancementRecordRow[] = [];
   for (let index = 0; index < entries.length; index += 1) {
     const normalized = asRecord(entries[index]);

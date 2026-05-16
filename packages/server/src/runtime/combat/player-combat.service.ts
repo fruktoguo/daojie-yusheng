@@ -234,6 +234,13 @@ export class PlayerCombatService {
                 continue;
             }
 
+            // 仅 buff 类型才走 buff 应用分支；
+            // heal / cleanse / temporary_tile 等其他 effect 类型在此处不应被当作 buff 处理，
+            // 否则 toTemporaryBuff 会生成 buffId=undefined 的条目，进入 buff 集合后排序时
+            // 在 String.prototype.localeCompare 上崩溃（见 player_runtime / map_instance buff 排序）。
+            if (effect.type !== 'buff') {
+                continue;
+            }
             // buff 效果：生成临时 buff 并应用到自身或目标
             const buff = toTemporaryBuff(effect, resolved.skill);
             if (effect.target === 'self') {

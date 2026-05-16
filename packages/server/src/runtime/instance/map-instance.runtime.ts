@@ -3147,7 +3147,7 @@ class MapInstanceRuntime {
         else {
             monster.buffs.push(cloneTemporaryBuff(buff));
         }
-        monster.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+        monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         if (recalculateMonsterDerivedState(monster)) {
             this.worldRevision += 1;
         }

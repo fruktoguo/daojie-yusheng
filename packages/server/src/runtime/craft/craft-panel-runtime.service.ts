@@ -8,7 +8,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
@@ -1874,7 +1874,10 @@ export class CraftPanelRuntimeService {
         if (!playerId) {
             return;
         }
-        await this.playerDomainPersistenceService.savePlayerEnhancementRecords(playerId, [...(player.enhancementRecords ?? [])], {
+        // 运行时记录使用 `levels` 字段，DB 列为 `levels_payload` 且 NOT NULL；
+        // 必须先归一为 EnhancementRecordRow 形态，否则 levels_payload undefined 会触发非空约束违反。
+        const rows = buildEnhancementRecordRowsFromEntries(playerId, player.enhancementRecords ?? []);
+        await this.playerDomainPersistenceService.savePlayerEnhancementRecords(playerId, rows, {
             versionSeed: player.persistentRevision,
         });
     }

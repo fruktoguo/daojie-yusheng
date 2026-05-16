@@ -526,6 +526,10 @@ export class PlayerRuntimeService {
         this.scheduledPlayerStatisticLedgerFlushes.delete(playerId);
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(playerId);
         this.pendingOfflineGainReportsByPlayerId.delete(playerId);
+        // 同步清理事件总线上该玩家的待发队列，避免历史 playerId 在 playerQueues 中持续残留。
+        if (typeof this.runtimeEventBusService?.discardPlayer === 'function') {
+            this.runtimeEventBusService.discardPlayer(playerId);
+        }
     }
     /** 判断断线窗口过期后是否可以卸载完整玩家运行态，避免空闲离线玩家长期常驻。 */
     canUnloadDetachedPlayerRuntime(playerId) {
@@ -2646,7 +2650,7 @@ export class PlayerRuntimeService {
         else {
             player.buffs.buffs.push(cloneTemporaryBuff(buff));
         }
-        player.buffs.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+        player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['buff', 'attr']);
@@ -2763,7 +2767,7 @@ export class PlayerRuntimeService {
             created.stacks = Math.max(1, Math.round(stackDelta || buff.stacks || 1));
             player.buffs.buffs.push(created);
         }
-        player.buffs.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+        player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['buff', 'attr']);
