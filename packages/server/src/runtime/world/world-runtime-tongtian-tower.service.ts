@@ -119,6 +119,10 @@ export class WorldRuntimeTongtianTowerService {
   }
 
   executeAction(playerId: string, actionId: string, deps: any): any {
+    const player = deps.playerRuntimeService?.getPlayer?.(playerId);
+    if (player && Number.isFinite(player.hp) && Number(player.hp) <= 0) {
+      throw new BadRequestException('重伤倒地时不能操作通天塔');
+    }
     if (actionId === 'tower:tongtian:enter') {
       return this.enterTower(playerId, deps);
     }

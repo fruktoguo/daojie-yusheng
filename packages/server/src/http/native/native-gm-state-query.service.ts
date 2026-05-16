@@ -506,8 +506,8 @@ export class NativeGmStateQueryService {
         COALESCE(combat.auto_battle, false) AS auto_battle,
         COALESCE(combat.auto_battle_stationary, false) AS auto_battle_stationary,
         COALESCE(combat.auto_retaliate, true) AS auto_retaliate,
-        false AS online,
-        false AS in_world,
+        COALESCE(presence.online, false) AS online,
+        COALESCE(presence.in_world, position.player_id IS NOT NULL) AS in_world,
         (EXTRACT(EPOCH FROM rw.updated_at) * 1000)::bigint AS updated_at_ms
       FROM player_recovery_watermark rw
       LEFT JOIN server_player_auth auth ON auth.player_id = rw.player_id
@@ -517,6 +517,7 @@ export class NativeGmStateQueryService {
       LEFT JOIN player_vitals vitals ON vitals.player_id = rw.player_id
       LEFT JOIN player_attr_state attrs ON attrs.player_id = rw.player_id
       LEFT JOIN player_combat_preferences combat ON combat.player_id = rw.player_id
+      LEFT JOIN player_presence presence ON presence.player_id = rw.player_id
       ORDER BY rw.player_id ASC
     `);
 

@@ -154,10 +154,27 @@ async function main() {
         entry.snapshot,
         PLAYER_DOMAIN_PROJECTION_TARGETS,
       );
+      const existingPresence = typeof domainService.loadPlayerPresence === 'function'
+        ? await domainService.loadPlayerPresence(entry.playerId)
+        : null;
+      if (!existingPresence) {
+        await domainService.savePlayerPresence(entry.playerId, {
+          online: false,
+          inWorld: Boolean(entry.snapshot.placement?.templateId),
+          lastHeartbeatAt: null,
+          offlineSinceAt: normalizeTimestampMs(entry.snapshot.savedAt, Date.now()),
+          runtimeOwnerId: null,
+          sessionEpoch: 1,
+          transferState: null,
+          transferTargetNodeId: null,
+          versionSeed: normalizeTimestampMs(entry.snapshot.savedAt, Date.now()),
+        });
+      }
       migrated.push({
         playerId: entry.playerId,
         templateId: entry.snapshot.placement?.templateId ?? null,
         snapshotSavedAt: entry.snapshot.savedAt ?? null,
+        presenceSeeded: !existingPresence,
       });
     }
     if (domains.includes('instance-domain')) {
@@ -231,6 +248,17 @@ function applyLimit(entries, limit) {
     return entries;
   }
   return entries.slice(0, Math.max(0, Math.trunc(Number(limit))));
+}
+
+function normalizeTimestampMs(value, fallback) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return Math.trunc(numeric);
+  }
+  const fallbackNumeric = Number(fallback);
+  return Number.isFinite(fallbackNumeric) && fallbackNumeric > 0
+    ? Math.trunc(fallbackNumeric)
+    : Date.now();
 }
 
 async function listMailboxSnapshots(pool, mailboxIds) {

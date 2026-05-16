@@ -49,6 +49,7 @@ interface PlayerRuntimeLike {
       moveSpeed: number;
     };
   };
+  readonly hp?: number;
 }
 
 interface RuntimeSessionLogger {
@@ -164,7 +165,10 @@ export class WorldRuntimePlayerSessionService {
       sessionId: runtimePlayer.sessionId,
     });
     deps.worldRuntimeTongtianTowerService?.onPlayerSessionAttachedToLayer?.(targetInstance, deps);
-    deps.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
+    const connectedPlayer = deps.playerRuntimeService.getPlayer(playerId) as PlayerRuntimeLike | null;
+    if (!isDeadPlayerRuntime(connectedPlayer)) {
+      deps.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
+    }
     deps.logger.debug(`玩家 ${playerId} 已附着到实例 ${targetInstance.meta.instanceId}`);
     const view = this.worldRuntimeWorldAccessService.getPlayerViewOrThrow(playerId, deps);
     if (typeof deps.refreshPlayerContextActions === 'function') {
@@ -307,6 +311,10 @@ export class WorldRuntimePlayerSessionService {
       deps,
     );
   }
+}
+
+function isDeadPlayerRuntime(player: PlayerRuntimeLike | null | undefined): boolean {
+  return Number.isFinite(player?.hp) && Number(player?.hp) <= 0;
 }
 
 function normalizeInstanceId(value: string | null | undefined): string {

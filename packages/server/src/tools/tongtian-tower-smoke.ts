@@ -134,6 +134,39 @@ async function main(): Promise<void> {
     ['tower:tongtian:previous', 'tower:tongtian:exit'],
     '第二层任意位置都可上一层或退出，未通关时不显示下一层',
   );
+
+  persistence.updateCurrentLayer('player:dead', 99);
+  persistence.promoteHighestLayer('player:dead', 99);
+  connectToPublicMap(deps, 'player:dead', 31, 15);
+  const deadLayerView = tower.executeAction('player:dead', 'tower:tongtian:enter', deps);
+  assert.equal(deadLayerView.instance.instanceId, 'tower:tongtian:layer:99');
+  const deadPlayer = deps.playerRuntimeService.getPlayer('player:dead');
+  assert.ok(deadPlayer, '死亡传送回归用例需要玩家运行态');
+  deadPlayer.hp = 0;
+  deps.worldRuntimeGmQueueService.markPendingRespawn('player:dead');
+  assert.throws(
+    () => tower.executeAction('player:dead', 'tower:tongtian:exit', deps),
+    /重伤倒地时不能操作通天塔/,
+    '死亡时不能通过通天塔动作换层或退出',
+  );
+  assert.equal(
+    deps.worldRuntimeGmQueueService.hasPendingRespawn('player:dead'),
+    true,
+    '死亡后的通天塔动作不能清掉待复活标记',
+  );
+  deps.worldRuntimePlayerSessionService.connectPlayer({
+    playerId: 'player:dead',
+    sessionId: 'session:player:dead',
+    instanceId: 'tower:tongtian:layer:99',
+    preferredX: 10,
+    preferredY: 10,
+  }, deps);
+  assert.equal(
+    deps.worldRuntimeGmQueueService.hasPendingRespawn('player:dead'),
+    true,
+    '死亡态会话附着不能清掉待复活标记',
+  );
+
   deps.worldRuntimeInstanceStateService.deleteInstanceRuntime('tower:tongtian:layer:2');
   deps.playerLocations.delete('player:1');
   const restoreSession = new WorldRuntimePlayerSessionService(createWorldAccessForSessionRestore(), null);
@@ -235,6 +268,7 @@ function createDeps(
   const notices: Array<{ playerId: string; text: string; kind: string }> = [];
   const contextActionsByPlayerId = new Map<string, any[]>();
   const instanceTickProgressById = new Map<string, number>();
+  const pendingRespawnPlayerIds = new Set<string>();
   const tickProgressClears: string[] = [];
   const lootStateClears: string[] = [];
   const catalogWrites: any[] = [];
@@ -330,6 +364,8 @@ function createDeps(
             playerId,
             sessionId,
             attrs: { numericStats: { moveSpeed: 100, viewRange: 20 } },
+            hp: 100,
+            maxHp: 100,
             lifeElapsedTicks: 0,
             combat: { cooldownReadyTickBySkillId: {} },
             actions: { actions: [], contextActions: [], revision: 1 },
@@ -345,7 +381,15 @@ function createDeps(
       syncFromWorldView() {},
     },
     worldRuntimeGmQueueService: {
-      clearPendingRespawn() {},
+      markPendingRespawn(playerId: string) {
+        pendingRespawnPlayerIds.add(playerId);
+      },
+      clearPendingRespawn(playerId: string) {
+        pendingRespawnPlayerIds.delete(playerId);
+      },
+      hasPendingRespawn(playerId: string) {
+        return pendingRespawnPlayerIds.has(playerId);
+      },
     },
     worldRuntimePlayerSessionService: {
       connectPlayer(input: any, runtime: any) {

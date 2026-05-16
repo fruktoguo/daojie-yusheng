@@ -161,7 +161,12 @@ function createService(log = [], overrides = {}) {
     },
     { markCompleted() { return false; }, addReply() { return false; }, remove() { return false; } },
     { updateMapTick() {}, updateMapTime() {}, pruneMapConfigs() {} },
-    { getState() { return {}; } },
+    {
+      getState() { return {}; },
+      invalidatePlayerListCaches() {
+        log.push(['invalidatePlayerListCaches']);
+      },
+    },
     { getEditorCatalog() { return {}; } },
     { getMaps() { return {}; } },
     {
@@ -184,13 +189,14 @@ function createService(log = [], overrides = {}) {
     { getOperationReplay() { return {}; } },
     { flushPlayer() {} },
     { flushInstance() {} },
+    null,
     worldRuntimeService,
   );
 }
 
-function testGetWorldInstancesSortsByPresetAndIndex() {
+async function testGetWorldInstancesSortsByPresetAndIndex() {
   const service = createService([]);
-  const result = service.getWorldInstances();
+  const result = await service.getWorldInstances();
   assert.deepEqual(
     result.instances.map((entry) => entry.instanceId),
     [
@@ -202,10 +208,10 @@ function testGetWorldInstancesSortsByPresetAndIndex() {
   );
 }
 
-function testGetWorldInstanceRuntimeDelegatesToInstanceQuery() {
+async function testGetWorldInstanceRuntimeDelegatesToInstanceQuery() {
   const log = [];
   const service = createService(log);
-  const result = service.getWorldInstanceRuntime('line:yunlai_town:real:2', '1', '2', '3', '4', 'viewer:gm');
+  const result = await service.getWorldInstanceRuntime('line:yunlai_town:real:2', '1', '2', '3', '4', 'viewer:gm');
   assert.equal(result.instanceId, 'line:yunlai_town:real:2');
   assert.deepEqual(log, [
     ['getInstanceRuntime', 'line:yunlai_town:real:2', '1', '2', '3', '4'],
@@ -291,6 +297,7 @@ function testTransferPlayerToInstanceEnqueuesExplicitInstanceId() {
       x: 18,
       y: 7,
     }],
+    ['invalidatePlayerListCaches'],
   ]);
 }
 
@@ -311,12 +318,13 @@ function testTransferPlayerToInstanceRejectsOfflinePlayer() {
   }, /目标玩家未在线/);
 }
 
-testGetWorldInstancesSortsByPresetAndIndex();
-testGetWorldInstanceRuntimeDelegatesToInstanceQuery();
-testCreateWorldInstanceBuildsNextManualLine();
-testCreateWorldInstanceSupportsLifecycleOptions();
-testTransferPlayerToInstanceEnqueuesExplicitInstanceId();
-testCreateWorldInstanceRejectsInvalidInput();
-testTransferPlayerToInstanceRejectsOfflinePlayer();
-
-console.log(JSON.stringify({ ok: true, case: 'gm-world-instance' }, null, 2));
+void (async () => {
+  await testGetWorldInstancesSortsByPresetAndIndex();
+  await testGetWorldInstanceRuntimeDelegatesToInstanceQuery();
+  testCreateWorldInstanceBuildsNextManualLine();
+  testCreateWorldInstanceSupportsLifecycleOptions();
+  testTransferPlayerToInstanceEnqueuesExplicitInstanceId();
+  testCreateWorldInstanceRejectsInvalidInput();
+  testTransferPlayerToInstanceRejectsOfflinePlayer();
+  console.log(JSON.stringify({ ok: true, case: 'gm-world-instance' }, null, 2));
+})();

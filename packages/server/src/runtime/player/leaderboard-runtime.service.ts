@@ -251,6 +251,12 @@ export class LeaderboardRuntimeService {
             }
             const player = this.createOfflineRuntimePlayerFromSnapshot(playerId, entry.snapshot);
             if (player) {
+                const presence = typeof persistence.loadPlayerPresence === 'function'
+                    ? await persistence.loadPlayerPresence(playerId)
+                    : null;
+                player.__leaderboardInWorld = presence
+                    ? presence.inWorld === true
+                    : Boolean(player.instanceId || player.templateId);
                 players.push(player);
             }
         }
@@ -294,6 +300,7 @@ export class LeaderboardRuntimeService {
             x: Math.trunc(Number.isFinite(player.x) ? player.x : 0),
             y: Math.trunc(Number.isFinite(player.y) ? player.y : 0),
             online: typeof player.sessionId === 'string' && player.sessionId.length > 0,
+            inWorld: resolveLeaderboardSnapshotInWorld(player),
             realmLv: Math.max(1, toNonNegativeInteger(player.realm?.realmLv, 1)),
             realmName: typeof player.realm?.displayName === 'string' && player.realm.displayName.trim()
                 ? player.realm.displayName.trim()
@@ -454,13 +461,14 @@ export class LeaderboardRuntimeService {
         const bossMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.bossMonsterKillCount, 0);
 
         const totalMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.monsterKillCount, 0);
+        const actionSnapshots = snapshots.filter((snapshot) => snapshot.online === true || snapshot.inWorld === true);
         return {
             totalSpiritStones,
             actionCounts: {
-                cultivation: snapshots.reduce((total, snapshot) => total + (snapshot.flags.cultivation ? 1 : 0), 0),
-                combat: snapshots.reduce((total, snapshot) => total + (snapshot.flags.combat ? 1 : 0), 0),
-                alchemy: snapshots.reduce((total, snapshot) => total + (snapshot.flags.alchemy ? 1 : 0), 0),
-                enhancement: snapshots.reduce((total, snapshot) => total + (snapshot.flags.enhancement ? 1 : 0), 0),
+                cultivation: actionSnapshots.reduce((total, snapshot) => total + (snapshot.flags.cultivation ? 1 : 0), 0),
+                combat: actionSnapshots.reduce((total, snapshot) => total + (snapshot.flags.combat ? 1 : 0), 0),
+                alchemy: actionSnapshots.reduce((total, snapshot) => total + (snapshot.flags.alchemy ? 1 : 0), 0),
+                enhancement: actionSnapshots.reduce((total, snapshot) => total + (snapshot.flags.enhancement ? 1 : 0), 0),
             },
             realmCounts: {
                 initial: snapshots.filter((snapshot) => snapshot.realmLv <= 1).length,
@@ -576,6 +584,20 @@ function normalizePlayerName(player, identity = null) {
     }
     return player.playerId;
 }
+
+function resolveLeaderboardSnapshotInWorld(player) {
+    if (player?.__leaderboardInWorld === true) {
+        return true;
+    }
+    if (player?.__leaderboardInWorld === false) {
+        return false;
+    }
+    if (typeof player?.sessionId === 'string' && player.sessionId.length > 0) {
+        return true;
+    }
+    return Boolean(player?.instanceId || player?.templateId);
+}
+
 function readInventoryItemCount(items, itemId) {
     if (!Array.isArray(items) || typeof itemId !== 'string' || !itemId) {
         return 0;

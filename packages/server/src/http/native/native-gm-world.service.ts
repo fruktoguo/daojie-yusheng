@@ -15,7 +15,9 @@ import { DurableOperationService } from '../../persistence/durable-operation.ser
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import {
+  buildPublicInstanceId,
   buildManualLineInstanceId,
   buildRuntimeInstancePresetMeta,
   isRuntimeInstanceLinePreset,
@@ -275,11 +277,6 @@ export class NativeGmWorldService {
 
   private pathfindingPerfStartedAt = Date.now();  
   /**
- * worldObserverIds：世界ObserverID相关字段。
- */
-
-  private worldObserverIds = new Set<string>();  
-  /**
  * outboxDispatcherService：outbox dispatcher service 引用。
  */
 
@@ -353,6 +350,8 @@ export class NativeGmWorldService {
     playerPersistenceFlushService: PlayerPersistenceFlushServiceLike,
     @Inject(MapPersistenceFlushService)
     mapPersistenceFlushService: MapPersistenceFlushServiceLike,
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider | null,
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
   ) {
@@ -601,14 +600,18 @@ export class NativeGmWorldService {
  */
 
 
-  getMapRuntime(mapId: string, x, y, w, h, viewerId) {
+  async getMapRuntime(mapId: string, x, y, w, h, viewerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof viewerId === 'string' && viewerId.trim()) {
-      this.worldObserverIds.add(viewerId.trim());
-    }
-
-    return this.nextGmMapRuntimeQueryService.getMapRuntime(mapId, x, y, w, h);
+    const payload = this.nextGmMapRuntimeQueryService.getMapRuntime(mapId, x, y, w, h);
+    return this.enrichRuntimePayloadWithOfflineHangingPlayers(
+      payload,
+      buildPublicInstanceId(mapId),
+      x,
+      y,
+      w,
+      h,
+    );
   }
   /**
  * getWorldInstances：读取世界实例列表。
@@ -616,11 +619,27 @@ export class NativeGmWorldService {
  */
 
 
-  getWorldInstances() {
+  async getWorldInstances() {
+    const runtimeInstances = this.worldRuntimeService
+      .listInstances()
+      .filter((instance) => !isNonSectRuntimeLineForSectTemplate(instance));
+    const runtimePlayerIds = new Set<string>();
+    for (const instance of runtimeInstances) {
+      for (const player of Array.isArray((instance as { players?: unknown }).players) ? (instance as { players?: Array<{ playerId?: unknown }> }).players ?? [] : []) {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (playerId) {
+          runtimePlayerIds.add(playerId);
+        }
+      }
+    }
+    const offlineHangingCounts = await this.loadOfflineHangingCountsByInstance(runtimePlayerIds);
     return {
-      instances: this.worldRuntimeService
-        .listInstances()
-        .filter((instance) => !isNonSectRuntimeLineForSectTemplate(instance))
+      instances: runtimeInstances
+        .map((instance) => ({
+          ...instance,
+          playerCount: Math.max(0, Math.trunc(Number(instance.playerCount) || 0))
+            + (offlineHangingCounts.get(instance.instanceId) ?? 0),
+        }))
         .slice()
         .sort(compareWorldInstanceSummary),
     };
@@ -637,14 +656,169 @@ export class NativeGmWorldService {
  */
 
 
-  getWorldInstanceRuntime(instanceId: string, x, y, w, h, viewerId) {
+  async getWorldInstanceRuntime(instanceId: string, x, y, w, h, viewerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof viewerId === 'string' && viewerId.trim()) {
-      this.worldObserverIds.add(viewerId.trim());
-    }
+    const payload = this.nextGmMapRuntimeQueryService.getInstanceRuntime(instanceId, x, y, w, h);
+    return this.enrichRuntimePayloadWithOfflineHangingPlayers(payload, instanceId, x, y, w, h);
+  }
 
-    return this.nextGmMapRuntimeQueryService.getInstanceRuntime(instanceId, x, y, w, h);
+  private async loadOfflineHangingCountsByInstance(runtimePlayerIds: ReadonlySet<string>): Promise<Map<string, number>> {
+    const pool = this.databasePoolProvider?.getPool('gm-world-offline-hanging-counts');
+    if (!pool) {
+      return new Map();
+    }
+    const excludedPlayerIds = Array.from(runtimePlayerIds).filter((playerId) => playerId.length > 0);
+    const result = await pool.query<{ instance_id?: unknown; count?: unknown }>(
+      `
+        SELECT
+          position.instance_id,
+          count(*)::bigint AS count
+        FROM player_position_checkpoint position
+        LEFT JOIN player_presence presence ON presence.player_id = position.player_id
+        WHERE position.instance_id IS NOT NULL
+          AND position.instance_id <> ''
+          AND COALESCE(presence.online, false) IS FALSE
+          AND COALESCE(presence.in_world, true) IS TRUE
+          AND NOT (position.player_id = ANY($1::varchar[]))
+          AND position.player_id NOT LIKE 'gm_bot_%'
+        GROUP BY position.instance_id
+      `,
+      [excludedPlayerIds],
+    ).catch(() => ({ rows: [] }));
+    const counts = new Map<string, number>();
+    for (const row of result.rows) {
+      const instanceId = typeof row.instance_id === 'string' ? row.instance_id.trim() : '';
+      const count = Number(row.count);
+      if (instanceId && Number.isFinite(count) && count > 0) {
+        counts.set(instanceId, Math.trunc(count));
+      }
+    }
+    return counts;
+  }
+
+  private async enrichRuntimePayloadWithOfflineHangingPlayers(
+    payload: unknown,
+    instanceId: string,
+    xInput: unknown,
+    yInput: unknown,
+    wInput: unknown,
+    hInput: unknown,
+  ): Promise<unknown> {
+    if (!payload || typeof payload !== 'object') {
+      return payload;
+    }
+    const record = payload as {
+      entities?: Array<Record<string, unknown>>;
+      playerCount?: unknown;
+      width?: unknown;
+      height?: unknown;
+    };
+    const entities = Array.isArray(record.entities) ? record.entities : [];
+    const runtimePlayerIds = new Set(
+      entities
+        .filter((entry) => entry?.kind === 'player')
+        .map((entry) => (typeof entry?.id === 'string' ? entry.id.trim() : ''))
+        .filter((playerId) => playerId.length > 0),
+    );
+    const viewport = resolveGmRuntimeViewport(xInput, yInput, wInput, hInput, record.width, record.height);
+    const offlinePlayers = await this.loadOfflineHangingPlayersInViewport(instanceId, runtimePlayerIds, viewport);
+    if (offlinePlayers.length === 0) {
+      return payload;
+    }
+    return {
+      ...record,
+      playerCount: Math.max(0, Math.trunc(Number(record.playerCount) || 0)) + offlinePlayers.length,
+      entities: [...entities, ...offlinePlayers],
+    };
+  }
+
+  private async loadOfflineHangingPlayersInViewport(
+    instanceId: string,
+    runtimePlayerIds: ReadonlySet<string>,
+    viewport: { startX: number; startY: number; endX: number; endY: number },
+  ): Promise<Array<Record<string, unknown>>> {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    const pool = this.databasePoolProvider?.getPool('gm-world-offline-hanging-players');
+    if (!pool || !normalizedInstanceId) {
+      return [];
+    }
+    const excludedPlayerIds = Array.from(runtimePlayerIds).filter((playerId) => playerId.length > 0);
+    const result = await pool.query<{
+      player_id?: unknown;
+      x?: unknown;
+      y?: unknown;
+      player_name?: unknown;
+      display_name?: unknown;
+      hp?: unknown;
+      max_hp?: unknown;
+    }>(
+      `
+        SELECT
+          position.player_id,
+          position.x,
+          position.y,
+          COALESCE(identity.player_name, auth.pending_role_name, position.player_id) AS player_name,
+          COALESCE(identity.display_name, auth.display_name, identity.player_name, auth.pending_role_name, position.player_id) AS display_name,
+          vitals.hp,
+          vitals.max_hp
+        FROM player_position_checkpoint position
+        LEFT JOIN player_presence presence ON presence.player_id = position.player_id
+        LEFT JOIN server_player_identity identity ON identity.player_id = position.player_id
+        LEFT JOIN server_player_auth auth ON auth.player_id = position.player_id
+        LEFT JOIN player_vitals vitals ON vitals.player_id = position.player_id
+        WHERE position.instance_id = $1
+          AND COALESCE(presence.online, false) IS FALSE
+          AND COALESCE(presence.in_world, true) IS TRUE
+          AND position.x >= $2::bigint
+          AND position.x < $3::bigint
+          AND position.y >= $4::bigint
+          AND position.y < $5::bigint
+          AND NOT (position.player_id = ANY($6::varchar[]))
+          AND position.player_id NOT LIKE 'gm_bot_%'
+        ORDER BY position.player_id ASC
+        LIMIT 500
+      `,
+      [
+        normalizedInstanceId,
+        viewport.startX,
+        viewport.endX,
+        viewport.startY,
+        viewport.endY,
+        excludedPlayerIds,
+      ],
+    ).catch(() => ({ rows: [] }));
+
+    return result.rows
+      .map((row) => {
+        const playerId = typeof row.player_id === 'string' ? row.player_id.trim() : '';
+        const x = Math.trunc(Number(row.x));
+        const y = Math.trunc(Number(row.y));
+        if (!playerId || !Number.isFinite(x) || !Number.isFinite(y)) {
+          return null;
+        }
+        const displayName = typeof row.display_name === 'string' && row.display_name.trim()
+          ? row.display_name.trim()
+          : (typeof row.player_name === 'string' && row.player_name.trim() ? row.player_name.trim() : playerId);
+        const hp = Number(row.hp);
+        const maxHp = Number(row.max_hp);
+        return {
+          id: playerId,
+          x,
+          y,
+          char: displayName[0] ?? '人',
+          color: '#888',
+          name: displayName,
+          kind: 'player',
+          hp: Number.isFinite(hp) ? hp : undefined,
+          maxHp: Number.isFinite(maxHp) ? maxHp : undefined,
+          dead: Number.isFinite(hp) ? hp <= 0 : false,
+          online: false,
+          autoBattle: false,
+          isBot: false,
+        };
+      })
+      .filter((entry) => entry !== null);
   }
 
   getWorldInstanceBuildingState(instanceId: string) {
@@ -814,15 +988,10 @@ export class NativeGmWorldService {
  */
 
 
-  clearWorldObservation(viewerId) {
+  clearWorldObservation(_viewerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const normalized = typeof viewerId === 'string' ? viewerId.trim() : '';
-    if (!normalized) {
-      return;
-    }
-
-    this.worldObserverIds.delete(normalized);
+    return;
   }  
   /**
  * resetNetworkPerf：执行resetNetworkPerf相关逻辑。
@@ -948,6 +1117,28 @@ function normalizeOptionalFutureTimestamp(input: unknown): number | null {
     throw new BadRequestException('过期时间必须是未来时间戳');
   }
   return timestamp;
+}
+
+function resolveGmRuntimeViewport(
+  xInput: unknown,
+  yInput: unknown,
+  wInput: unknown,
+  hInput: unknown,
+  widthInput: unknown,
+  heightInput: unknown,
+): { startX: number; startY: number; endX: number; endY: number } {
+  const width = Math.max(1, Math.trunc(Number(widthInput) || 1));
+  const height = Math.max(1, Math.trunc(Number(heightInput) || 1));
+  const viewWidth = Math.min(20, Math.max(1, Math.trunc(Number(wInput) || 20)));
+  const viewHeight = Math.min(20, Math.max(1, Math.trunc(Number(hInput) || 20)));
+  const startX = Math.min(Math.max(0, Math.trunc(Number(xInput) || 0)), Math.max(0, width - 1));
+  const startY = Math.min(Math.max(0, Math.trunc(Number(yInput) || 0)), Math.max(0, height - 1));
+  return {
+    startX,
+    startY,
+    endX: Math.min(width, startX + viewWidth),
+    endY: Math.min(height, startY + viewHeight),
+  };
 }
 
 function compareWorldInstanceSummary(

@@ -28,6 +28,9 @@ function createRuntimePlayer(input: {
   bossMonsterKillCount?: number;
   deathCount?: number;
   cultivationActive?: boolean;
+  autoBattle?: boolean;
+  alchemyJob?: Record<string, unknown> | null;
+  enhancementJob?: Record<string, unknown> | null;
 }) {
   return {
     playerId: input.playerId,
@@ -56,9 +59,11 @@ function createRuntimePlayer(input: {
     marketStorage: { items: [] },
     combat: {
       cultivationActive: input.cultivationActive === true,
-      autoBattle: false,
+      autoBattle: input.autoBattle === true,
       combatTargetId: null,
     },
+    alchemyJob: input.alchemyJob ?? null,
+    enhancementJob: input.enhancementJob ?? null,
     attrs: {
       finalAttrs: {
         constitution: input.realmLv,
@@ -85,6 +90,7 @@ async function main(): Promise<void> {
     playerKillCount: 1,
     monsterKillCount: 2,
     eliteMonsterKillCount: 1,
+    cultivationActive: true,
   });
   const offlinePlayer = createRuntimePlayer({
     playerId: 'player:offline',
@@ -98,6 +104,10 @@ async function main(): Promise<void> {
     playerKillCount: 7,
     monsterKillCount: 3,
     bossMonsterKillCount: 1,
+    cultivationActive: true,
+    autoBattle: true,
+    alchemyJob: { jobRunId: 'job:ordinary-offline:alchemy' },
+    enhancementJob: { jobRunId: 'job:ordinary-offline:enhancement' },
   });
   const offlineIdlePlayer = createRuntimePlayer({
     playerId: 'player:offline-idle',
@@ -112,6 +122,8 @@ async function main(): Promise<void> {
     monsterKillCount: 4,
     deathCount: 2,
     cultivationActive: true,
+    alchemyJob: { jobRunId: 'job:hanging:alchemy' },
+    enhancementJob: { jobRunId: 'job:hanging:enhancement' },
   });
 
   const projectedEntries: SnapshotEntry[] = [
@@ -150,6 +162,15 @@ async function main(): Promise<void> {
     async listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => Record<string, unknown> | null) {
       assert.ok(buildStarterSnapshot('player:starter'), 'expected starter snapshot builder');
       return projectedEntries;
+    },
+    async loadPlayerPresence(playerId: string) {
+      if (playerId === 'player:offline-idle') {
+        return { playerId, online: false, inWorld: true };
+      }
+      if (playerId === 'player:offline') {
+        return { playerId, online: false, inWorld: false };
+      }
+      return null;
     },
   };
   const playerIdentityPersistenceService = {
@@ -279,7 +300,10 @@ async function main(): Promise<void> {
     playerKills: 17,
     playerDeaths: 2,
   });
-  assert.equal(worldSummary.summary.actionCounts.cultivation, 1);
+  assert.equal(worldSummary.summary.actionCounts.cultivation, 2);
+  assert.equal(worldSummary.summary.actionCounts.combat, 0);
+  assert.equal(worldSummary.summary.actionCounts.alchemy, 1);
+  assert.equal(worldSummary.summary.actionCounts.enhancement, 1);
 
   console.log('leaderboard-offline-snapshots-smoke passed');
 }

@@ -195,6 +195,7 @@ async function verifyNativeWritePath(): Promise<void> {
     {} as never,
     {} as never,
     {} as never,
+    null as never,
     {} as never,
   );
 
