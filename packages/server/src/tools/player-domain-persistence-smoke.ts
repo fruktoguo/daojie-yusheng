@@ -664,6 +664,7 @@ async function main(): Promise<void> {
             itemId: 'spirit_stone',
             count: 9,
             label: '托管灵石',
+            equipStats: { physAtk: 999 },
           },
         },
       ],
@@ -755,7 +756,7 @@ async function main(): Promise<void> {
     );
     const directMarketStorageRows = await fetchRows(
       pool,
-      'SELECT storage_item_id, slot_index, item_id, count FROM player_market_storage_item WHERE player_id = $1 ORDER BY slot_index ASC, storage_item_id ASC',
+      'SELECT storage_item_id, slot_index, item_id, count, raw_payload FROM player_market_storage_item WHERE player_id = $1 ORDER BY slot_index ASC, storage_item_id ASC',
       [directPlayerId],
     );
     const directWatermarkRow = await fetchSingleRow(
@@ -855,6 +856,7 @@ async function main(): Promise<void> {
       || Number(directMarketStorageRows[0]?.slot_index ?? -1) !== 0
       || directMarketStorageRows[0]?.item_id !== 'spirit_stone'
       || Number(directMarketStorageRows[0]?.count ?? 0) !== 9
+      || Object.keys(directMarketStorageRows[0]?.raw_payload ?? {}).length !== 0
     ) {
       throw new Error(`unexpected direct player_market_storage_item rows: ${JSON.stringify(directMarketStorageRows)}`);
     }

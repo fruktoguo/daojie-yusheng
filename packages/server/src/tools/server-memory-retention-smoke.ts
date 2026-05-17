@@ -1406,6 +1406,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerDomainCloneJsonValueDecodesOnly: boolean;
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
   playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
+  playerItemDomainRawPayloadsAreMinimal: boolean;
   instancePersistenceNormalizesItemPayloads: boolean;
   instancePersistenceNormalizesObjectPayloads: boolean;
   instanceOverlayPortalPersistenceUsesWhitelist: boolean;
@@ -1584,6 +1585,12 @@ function proveEntryCachesFollowLifecycle(): {
     && playerDomainPersistenceSource.includes('function applyProjectedEquipment(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerEquipmentSlotLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
     && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
 
+  const playerItemDomainRawPayloadsAreMinimal = playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      enhanceLevel: entry?.enhanceLevel,\n      rawPayload,\n    })')
+    && playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      enhanceLevel,\n      rawPayload,\n    })')
+    && playerDomainPersistenceSource.includes('buildPersistedEquipmentItemRawPayload({\n      itemId,\n      slot: slotType,\n      enhanceLevel: item?.enhanceLevel,\n      rawPayload: item,\n    })')
+    && !playerDomainPersistenceSource.includes('...(rawPayload ?? entry ?? {})')
+    && !playerDomainPersistenceSource.includes('JSON.stringify(row.rawPayload),\n    );\n    parameterIndex += 7;');
+
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
@@ -1645,6 +1652,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
   assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
+  assert.equal(playerItemDomainRawPayloadsAreMinimal, true);
   assert.equal(instancePersistenceNormalizesItemPayloads, true);
   assert.equal(instancePersistenceNormalizesObjectPayloads, true);
   assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
@@ -1675,6 +1683,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerDomainCloneJsonValueDecodesOnly,
     playerProjectedSnapshotHydratesStarterInPlace,
     playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
+    playerItemDomainRawPayloadsAreMinimal,
     instancePersistenceNormalizesItemPayloads,
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,

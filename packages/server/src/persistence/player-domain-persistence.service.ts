@@ -3527,12 +3527,12 @@ async function replacePlayerMarketStorageItems(
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
     const enhanceLevel = normalizeOptionalInteger(entry?.enhanceLevel ?? rawPayload?.enhanceLevel ?? rawPayload?.enhancementLevel ?? rawPayload?.level);
-    const persistedPayload = {
-      ...(rawPayload ?? entry ?? {}),
+    const persistedPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
-      ...(enhanceLevel == null ? {} : { enhanceLevel }),
-    };
+      enhanceLevel,
+      rawPayload,
+    });
     placeholders.push(
       `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}::jsonb, now())`,
     );
