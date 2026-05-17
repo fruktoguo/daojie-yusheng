@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeCommandIntakeFacadeService } = require("../runtime/world/world-runtime-command-intake-facade.service");
+const { WorldRuntimeCommandIntakeFacadeService } = require("../runtime/world/command/world-runtime-command-intake-facade.service");
 /**
  * testCommandIntakeFacade：执行testCommandIntakeFacade相关逻辑。
  * @returns 无返回值，直接更新testCommandIntakeFacade相关状态。

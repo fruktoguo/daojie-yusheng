@@ -3,25 +3,24 @@
  * 收敛 moveTo、方向移动和任务导航等移动相关入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
-
+import { Injectable, Logger } from '@nestjs/common';
+import type { Socket } from 'socket.io';
 import { logServerNextMovement } from '../debug/movement-debug';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 世界 socket 移动/导航 helper：只收敛移动相关入口。 */
+@Injectable()
 class WorldGatewayMovementHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    private readonly logger = new Logger(WorldGatewayMovementHelper.name);
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }    
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly worldRuntimeService: WorldRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
+
     /**
  * handleMoveTo：处理 MoveTo 并更新相关状态。
  * @param client 参数说明。
@@ -29,14 +28,14 @@ class WorldGatewayMovementHelper {
  * @returns 无返回值，直接更新 MoveTo 相关状态。
  */
 
-    handleMoveTo(client, payload) {
+    handleMoveTo(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        logServerNextMovement(this.gateway.logger, 'gateway.recv.moveTo', {
+        logServerNextMovement(this.logger, 'gateway.recv.moveTo', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
@@ -52,10 +51,10 @@ class WorldGatewayMovementHelper {
             },
         });
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY, this.gateway.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
         }
     }    
     /**
@@ -65,30 +64,30 @@ class WorldGatewayMovementHelper {
  * @returns 无返回值，直接更新任务导航相关状态。
  */
 
-    handleNavigateQuest(client, payload) {
+    handleNavigateQuest(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         const questId = typeof payload?.questId === 'string' ? payload.questId.trim() : '';
-        logServerNextMovement(this.gateway.logger, 'gateway.recv.navigateQuest', {
+        logServerNextMovement(this.logger, 'gateway.recv.navigateQuest', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
             questId,
         });
         if (!questId) {
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, '', false, '任务 ID 不能为空', undefined);
+            this.worldClientEventService.emitQuestNavigateResult(client, '', false, '任务 ID 不能为空', undefined);
             return;
         }
         try {
-            const result = this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.navigateQuest(playerId, questId, this.gateway.worldRuntimeService);
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, true, undefined, result?.path);
+            const result = this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.navigateQuest(playerId, questId, this.worldRuntimeService);
+            this.worldClientEventService.emitQuestNavigateResult(client, questId, true, undefined, result?.path);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error), undefined);
+            this.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error), undefined);
         }
     }    
     /**
@@ -98,24 +97,24 @@ class WorldGatewayMovementHelper {
  * @returns 无返回值，直接更新Move相关状态。
  */
 
-    handleMove(client, payload) {
+    handleMove(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        logServerNextMovement(this.gateway.logger, 'gateway.recv.move', {
+        logServerNextMovement(this.logger, 'gateway.recv.move', {
             playerId,
             socketId: client.id,
             protocol: 'mainline',
             direction: payload?.d ?? null,
         });
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMove(playerId, payload?.d, this.gateway.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMove(playerId, payload?.d, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'MOVE_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'MOVE_FAILED', error);
         }
     }
 }
