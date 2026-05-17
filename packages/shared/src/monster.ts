@@ -669,12 +669,15 @@ function roundConfigValue(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** 预计算反转的境界顺序（从高到低），避免每次调用都创建新数组。 */
+const PLAYER_REALM_ORDER_REVERSED: readonly PlayerRealmStage[] = [...PLAYER_REALM_ORDER].reverse();
+
 /** 根据怪物等级反推其基础境界模板。 */
 function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalizedLevel = normalizeMonsterLevel(level);
-  for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
+  for (const stage of PLAYER_REALM_ORDER_REVERSED) {
     const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
     if (normalizedLevel >= range.levelFrom) {
       return stage;
