@@ -33,6 +33,7 @@ export class WorldSyncService {
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) return;
+        this.syncPlayerInstanceRoom(binding.playerId, view);
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
@@ -58,6 +59,7 @@ export class WorldSyncService {
             const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
             const view = this.worldRuntimeService.getPlayerView(binding.playerId);
             if (!socket || !view) continue;
+            this.syncPlayerInstanceRoom(binding.playerId, view);
             this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view);
         }
     }
@@ -100,6 +102,7 @@ export class WorldSyncService {
     }
 
     private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any) {
+        this.syncPlayerInstanceRoom(playerId, view);
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
@@ -170,5 +173,12 @@ export class WorldSyncService {
             reports: Array.isArray(records) ? records : [],
             ...(totals ? { totals } : {}),
         });
+    }
+
+    private syncPlayerInstanceRoom(playerId: string, view: any) {
+        const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId : null;
+        if (typeof this.worldSessionService?.syncPlayerInstanceRoom === 'function') {
+            this.worldSessionService.syncPlayerInstanceRoom(playerId, instanceId);
+        }
     }
 }

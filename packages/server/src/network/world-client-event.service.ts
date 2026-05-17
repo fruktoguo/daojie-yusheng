@@ -286,16 +286,28 @@ export class WorldClientEventService {
             kind: 'chat',
             from: chatLabel,
         };
-        for (const binding of this.worldSessionService.listBindings()) {
-            const target = this.playerRuntimeService.getPlayer(binding.playerId);
-            if (!target || target.instanceId !== player.instanceId) {
-                continue;
-            }
-
-            const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
-            if (socket) {
-                this.emitChatMessage(socket, chatMsg);
-            }
+        const instanceId = typeof player.instanceId === 'string' && player.instanceId.trim()
+            ? player.instanceId.trim()
+            : '';
+        if (!instanceId) {
+            return;
+        }
+        if (typeof this.worldSessionService.syncPlayerInstanceRoom === 'function') {
+            this.worldSessionService.syncPlayerInstanceRoom(playerId, instanceId);
+        }
+        if (typeof this.worldSessionService.emitToInstance === 'function'
+            && this.worldSessionService.emitToInstance(instanceId, S2C.Notice, {
+                items: [{
+                    kind: 'chat',
+                    text: chatMsg.text,
+                    from: chatMsg.from,
+                }],
+            })) {
+            return;
+        }
+        for (const targetPlayerId of this.worldSessionService.listInstancePlayerIds?.(instanceId) ?? []) {
+            const socket = this.worldSessionService.getSocketByPlayerId(targetPlayerId);
+            if (socket) this.emitChatMessage(socket, chatMsg);
         }
     }
     /** 标记指定日志消息已被玩家确认。 */

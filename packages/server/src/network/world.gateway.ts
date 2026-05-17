@@ -120,6 +120,7 @@ class WorldGateway {
     }
     /** 新 socket 连接建立：挂载性能观测、频率限制，然后委托 bootstrap helper 处理鉴权。 */
     async handleConnection(client: Socket) {
+        this.worldSessionService.attachSocketServer(this.server);
         this.attachPerfObservers(client);
         this.attachRateLimitGuard(client);
         return this.gatewayBootstrapHelper.handleConnection(client);

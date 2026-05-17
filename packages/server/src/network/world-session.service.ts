@@ -22,12 +22,23 @@ interface SocketPort {
   id: string;
   emit(event: string, payload: unknown): void;
   disconnect(close?: boolean): void;
+  join?(room: string): void | Promise<void>;
+  leave?(room: string): void | Promise<void>;
+}
+
+interface SocketRoomEmitterPort {
+  emit(event: string, payload: unknown): void;
+}
+
+interface SocketServerPort {
+  to(room: string): SocketRoomEmitterPort;
 }
 
 export interface WorldSessionBinding {
   playerId: string;
   sessionId: string;
   socketId: string | null;
+  instanceId: string | null;
   sessionEpoch: number | null;
   resumed: boolean;
   connected: boolean;
@@ -80,6 +91,10 @@ function resolveExpiredBindingMaxRetries(): number {
 
 const EXPIRED_BINDING_MAX_RETRIES = resolveExpiredBindingMaxRetries();
 
+export function buildWorldInstanceRoomId(instanceId: string): string {
+  return `world:instance:${instanceId}`;
+}
+
 function sanitizeRequestedSessionId(rawSessionId: unknown): string {
   if (typeof rawSessionId !== 'string') {
     return '';
@@ -101,6 +116,8 @@ export class WorldSessionService {
   private readonly bindingBySocketId = new Map<string, WorldSessionBinding>();
   private readonly bindingByPlayerId = new Map<string, WorldSessionBinding>();
   private readonly bindingBySessionId = new Map<string, WorldSessionBinding>();
+  private readonly playerIdsByInstanceId = new Map<string, Set<string>>();
+  private socketServer: SocketServerPort | null = null;
   private readonly expiryTimerByPlayerId = new Map<string, SessionTimer>();
   private readonly expiredBindings = new Map<string, WorldSessionBinding>();
   /**
@@ -154,6 +171,7 @@ export class WorldSessionService {
       playerId,
       sessionId,
       socketId: client.id,
+      instanceId: previous?.instanceId ?? null,
       sessionEpoch: previous?.sessionEpoch ?? null,
       resumed: resumeMatched,
       connected: true,
@@ -169,9 +187,16 @@ export class WorldSessionService {
     this.bindingBySocketId.set(client.id, binding);
     this.bindingByPlayerId.set(playerId, binding);
     this.bindingBySessionId.set(sessionId, binding);
+    if (binding.instanceId) {
+      this.addPlayerToInstanceIndex(playerId, binding.instanceId);
+      this.joinSocketInstanceRoom(client.id, binding.instanceId);
+    }
 
     if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
       this.bindingBySocketId.delete(previous.socketId);
+      if (previous.instanceId) {
+        this.leaveSocketInstanceRoom(previous.socketId, previous.instanceId);
+      }
       const previousSocket = this.socketsById.get(previous.socketId);
       if (previousSocket) {
         previousSocket.emit(S2C.Kick, { reason: 'replaced' });
@@ -186,24 +211,33 @@ export class WorldSessionService {
   }
 
   unregisterSocket(socketId: string): WorldSessionBinding | null {
-    this.socketsById.delete(socketId);
-
     const binding = this.bindingBySocketId.get(socketId);
     if (!binding) {
+      this.socketsById.delete(socketId);
       return null;
     }
     this.bindingBySocketId.delete(socketId);
 
     const current = this.bindingByPlayerId.get(binding.playerId);
     if (!current || current.socketId !== socketId) {
+      if (binding.instanceId) {
+        this.leaveSocketInstanceRoom(socketId, binding.instanceId);
+      }
+      this.socketsById.delete(socketId);
       return null;
     }
+    this.removePlayerFromInstanceIndex(binding.playerId, binding.instanceId);
+    if (binding.instanceId) {
+      this.leaveSocketInstanceRoom(socketId, binding.instanceId);
+    }
+    this.socketsById.delete(socketId);
 
     const detachedAt = Date.now();
     const detachedBinding: WorldSessionBinding = {
       playerId: binding.playerId,
       sessionId: binding.sessionId,
       socketId: null,
+      instanceId: binding.instanceId,
       sessionEpoch: binding.sessionEpoch ?? null,
       resumed: false,
       connected: false,
@@ -265,6 +299,68 @@ export class WorldSessionService {
     return Array.from(this.bindingByPlayerId.values()).filter((binding) => binding.connected);
   }
 
+  attachSocketServer(server: SocketServerPort | null | undefined): void {
+    if (!server || typeof server.to !== 'function') {
+      return;
+    }
+    this.socketServer = server;
+  }
+
+  syncPlayerInstanceRoom(playerId: string, instanceId: unknown): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const nextInstanceId = normalizeInstanceId(instanceId);
+    if (!normalizedPlayerId) {
+      return false;
+    }
+    const binding = this.bindingByPlayerId.get(normalizedPlayerId);
+    if (!binding) {
+      return false;
+    }
+    const previousInstanceId = normalizeInstanceId(binding.instanceId);
+    if (previousInstanceId === nextInstanceId) {
+      return false;
+    }
+    if (previousInstanceId) {
+      this.removePlayerFromInstanceIndex(normalizedPlayerId, previousInstanceId);
+      if (binding.connected && binding.socketId) {
+        this.leaveSocketInstanceRoom(binding.socketId, previousInstanceId);
+      }
+    }
+    binding.instanceId = nextInstanceId;
+    if (binding.sessionId) {
+      const sessionBinding = this.bindingBySessionId.get(binding.sessionId);
+      if (sessionBinding) {
+        sessionBinding.instanceId = nextInstanceId;
+      }
+    }
+    if (binding.connected && binding.socketId && nextInstanceId) {
+      this.addPlayerToInstanceIndex(normalizedPlayerId, nextInstanceId);
+      this.joinSocketInstanceRoom(binding.socketId, nextInstanceId);
+    }
+    return true;
+  }
+
+  listInstancePlayerIds(instanceId: unknown): string[] {
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!normalizedInstanceId) {
+      return [];
+    }
+    return Array.from(this.playerIdsByInstanceId.get(normalizedInstanceId) ?? []);
+  }
+
+  emitToInstance(instanceId: unknown, event: string, payload: unknown): boolean {
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!normalizedInstanceId || !event || !this.socketServer) {
+      return false;
+    }
+    const emitter = this.socketServer.to(buildWorldInstanceRoomId(normalizedInstanceId));
+    if (!emitter || typeof emitter.emit !== 'function') {
+      return false;
+    }
+    emitter.emit(event, payload);
+    return true;
+  }
+
   consumeExpiredBindings(): WorldSessionBinding[] {
     const bindings = Array.from(this.expiredBindings.values());
     this.expiredBindings.clear();
@@ -290,6 +386,7 @@ export class WorldSessionService {
       playerId,
       sessionId,
       socketId: null,
+      instanceId: normalizeInstanceId(binding?.instanceId),
       sessionEpoch: normalizeSessionEpoch(binding?.sessionEpoch),
       resumed: false,
       connected: false,
@@ -409,6 +506,7 @@ export class WorldSessionService {
       return false;
     }
     this.bindingByPlayerId.delete(normalizedPlayerId);
+    this.removePlayerFromInstanceIndex(normalizedPlayerId, binding.instanceId);
     this.clearExpiry(normalizedPlayerId);
     this.expiredBindings.delete(normalizedPlayerId);
     this.requeueAttemptsByPlayerId.delete(normalizedPlayerId);
@@ -416,6 +514,9 @@ export class WorldSessionService {
     this.bindingBySessionId.delete(binding.sessionId);
     if (binding.socketId) {
       this.bindingBySocketId.delete(binding.socketId);
+      if (binding.instanceId) {
+        this.leaveSocketInstanceRoom(binding.socketId, binding.instanceId);
+      }
       const socket = this.socketsById.get(binding.socketId) ?? null;
       this.socketsById.delete(binding.socketId);
       if (socket) {
@@ -464,6 +565,60 @@ export class WorldSessionService {
       this.expiryTimerByPlayerId.delete(playerId);
     }
   }
+
+  private addPlayerToInstanceIndex(playerId: string, instanceId: string | null | undefined): void {
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!playerId || !normalizedInstanceId) {
+      return;
+    }
+    let playerIds = this.playerIdsByInstanceId.get(normalizedInstanceId);
+    if (!playerIds) {
+      playerIds = new Set<string>();
+      this.playerIdsByInstanceId.set(normalizedInstanceId, playerIds);
+    }
+    playerIds.add(playerId);
+  }
+
+  private removePlayerFromInstanceIndex(playerId: string, instanceId: string | null | undefined): void {
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!playerId || !normalizedInstanceId) {
+      return;
+    }
+    const playerIds = this.playerIdsByInstanceId.get(normalizedInstanceId);
+    if (!playerIds) {
+      return;
+    }
+    playerIds.delete(playerId);
+    if (playerIds.size <= 0) {
+      this.playerIdsByInstanceId.delete(normalizedInstanceId);
+    }
+  }
+
+  private joinSocketInstanceRoom(socketId: string, instanceId: string | null | undefined): void {
+    const socket = this.socketsById.get(socketId);
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!socket || !normalizedInstanceId || typeof socket.join !== 'function') {
+      return;
+    }
+    void socket.join(buildWorldInstanceRoomId(normalizedInstanceId));
+  }
+
+  private leaveSocketInstanceRoom(socketId: string, instanceId: string | null | undefined): void {
+    const socket = this.socketsById.get(socketId);
+    const normalizedInstanceId = normalizeInstanceId(instanceId);
+    if (!socket || !normalizedInstanceId || typeof socket.leave !== 'function') {
+      return;
+    }
+    void socket.leave(buildWorldInstanceRoomId(normalizedInstanceId));
+  }
+}
+
+function normalizeInstanceId(instanceId: unknown): string | null {
+  if (typeof instanceId !== 'string') {
+    return null;
+  }
+  const normalized = instanceId.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function normalizeSessionEpoch(sessionEpoch: unknown): number | null {
