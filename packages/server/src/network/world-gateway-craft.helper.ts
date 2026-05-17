@@ -3,6 +3,8 @@
  * 收敛炼丹、锻造、强化面板请求和活动开始/取消/预设管理入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { emitTechniqueActivityPanel, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
 
 /** 世界 socket 采集/锻造 helper：只收敛 craft 相关入口。 */
@@ -10,15 +12,14 @@ class WorldGatewayCraftHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

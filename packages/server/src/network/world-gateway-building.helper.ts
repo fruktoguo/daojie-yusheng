@@ -3,13 +3,14 @@
  * 收敛建筑放置、拆除、房间角色设置和风水观察等入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { S2C } from '@mud/shared';
 
 /** 建筑系统 helper：收敛放置、拆除、房间角色和风水观察入口 */
 class WorldGatewayBuildingHelper {
-    gateway;
-
-    constructor(gateway) {
+    private readonly gateway: WorldGatewayHelperContext;
+constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }
 

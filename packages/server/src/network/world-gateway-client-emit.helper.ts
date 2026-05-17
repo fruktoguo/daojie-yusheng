@@ -4,20 +4,21 @@
  * 统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket 客户端发包 helper：统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。 */
 class WorldGatewayClientEmitHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }
     /**

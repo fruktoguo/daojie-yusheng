@@ -3,6 +3,8 @@
  * 收敛物品使用、销毁、丢弃、装备、卸下、整理、采集和拾取等入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { S2C } from '@mud/shared';
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
@@ -10,15 +12,14 @@ class WorldGatewayInventoryHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

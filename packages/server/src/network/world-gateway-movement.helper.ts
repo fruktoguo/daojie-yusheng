@@ -3,6 +3,8 @@
  * 收敛 moveTo、方向移动和任务导航等移动相关入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { logServerNextMovement } from '../debug/movement-debug';
 
 /** 世界 socket 移动/导航 helper：只收敛移动相关入口。 */
@@ -10,15 +12,14 @@ class WorldGatewayMovementHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**
@@ -79,7 +80,7 @@ class WorldGatewayMovementHelper {
             questId,
         });
         if (!questId) {
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, '', false, '任务 ID 不能为空');
+            this.gateway.worldClientEventService.emitQuestNavigateResult(client, '', false, '任务 ID 不能为空', undefined);
             return;
         }
         try {
@@ -87,7 +88,7 @@ class WorldGatewayMovementHelper {
             this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, true, undefined, result?.path);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error));
+            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error), undefined);
         }
     }    
     /**

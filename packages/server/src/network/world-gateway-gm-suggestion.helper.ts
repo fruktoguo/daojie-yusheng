@@ -4,20 +4,21 @@
  * 收敛 GM 对建议的标记完成和删除操作入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket GM 建议 helper：只收敛 suggestion 的 GM 维护写路径。 */
 class WorldGatewayGmSuggestionHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

@@ -16,7 +16,7 @@ interface WorldGatewayPlayerControlsDeps {
     emitGatewayError(client: Socket, code: string, error: unknown): void;
   };
   worldRuntimeService: {
-    buildQuestListView(playerId: string): unknown;
+    buildQuestListView(playerId: string, input?: unknown): unknown;
     worldRuntimeCommandIntakeFacadeService: {
       enqueueResetPlayerSpawn(playerId: string, deps: unknown): void;
       enqueueHeavenGateAction(

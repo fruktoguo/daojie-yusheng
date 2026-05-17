@@ -3,6 +3,8 @@
  * 收敛 NPC 商店、NPC 任务接取/提交和商店购买等入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { S2C } from '@mud/shared';
 
 /** NPC 交互 helper：收敛商店浏览、任务接取/提交和商品购买入口 */
@@ -10,15 +12,14 @@ class WorldGatewayNpcHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

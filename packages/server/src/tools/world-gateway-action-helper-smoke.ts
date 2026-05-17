@@ -62,6 +62,9 @@ function createGateway(log = [], playerId = 'player:1') {
             requirePlayerId() {
                 return playerId;
             },
+            requireActivePlayerId() {
+                return playerId;
+            },
         },
         worldClientEventService: {
             markProtocol(client, protocol) {

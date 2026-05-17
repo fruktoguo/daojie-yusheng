@@ -4,14 +4,16 @@
  * 收敛心跳节流、在线态持久化和断线态 presence 刷新。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
 
 /** 世界 socket presence helper：收敛心跳节流、在线态和断线态持久化。 */
 class WorldGatewayPresenceHelper {
-    gateway;
-    presenceHeartbeatPersistedAtByPlayerId = new Map();
+    private readonly gateway: WorldGatewayHelperContext;
+presenceHeartbeatPersistedAtByPlayerId = new Map();
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }
 

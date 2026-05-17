@@ -4,6 +4,8 @@
  * 区分主线鉴权、GM 鉴权和 legacy 协议拒绝等场景。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { S2C } from '@mud/shared';
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
@@ -29,15 +31,14 @@ class WorldGatewayBootstrapHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**
@@ -345,10 +346,10 @@ class WorldGatewayBootstrapHelper {
         if (protocol === 'mainline' && identity.authSource !== 'mainline' && identity.authSource !== 'token') {
             return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, 'mainline 协议仅允许 主线真源身份');
         }
-        const authenticatedBootstrapContractViolation = this.gateway.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(client, {
-            authSource: this.resolveAuthenticatedIdentitySource(client, identity),
-            persistedSource: this.resolveAuthenticatedIdentityPersistedSource(client, identity),
-        });
+        const authenticatedBootstrapContractViolation = this.gateway.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(
+            client,
+            this.buildAuthenticatedBootstrapInput(client, identity),
+        );
         if (authenticatedBootstrapContractViolation) {
             return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, authenticatedBootstrapContractViolation.message);
         }

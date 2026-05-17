@@ -4,20 +4,21 @@
  * 收敛 GM 状态查询、机器人管理和玩家数据修改等维护命令入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket GM 命令 helper：收敛维护命令。 */
 class WorldGatewayGmCommandHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

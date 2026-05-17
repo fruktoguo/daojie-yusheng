@@ -4,20 +4,21 @@
  * 收敛玩家建议的查看、创建、投票、回复和标记已读入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket suggestion helper：只收敛玩家建议写路径。 */
 class WorldGatewaySuggestionHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

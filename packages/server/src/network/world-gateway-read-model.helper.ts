@@ -3,6 +3,8 @@
  * 收敛属性详情、排行榜、世界摘要、实体详情和地块详情等只读请求入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 import { S2C, cloneNumericRatioDivisors, cloneNumericStats } from '@mud/shared';
 import { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } from './world-gateway-attr-detail.helper';
 
@@ -11,15 +13,14 @@ class WorldGatewayReadModelHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

@@ -4,20 +4,21 @@
  * 收敛邮件摘要、分页、详情、标记已读、领取附件和删除等入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket 邮件 helper：只收敛 mail 相关入口。 */
 class WorldGatewayMailHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;    
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }    
     /**

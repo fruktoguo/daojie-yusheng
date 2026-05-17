@@ -44,7 +44,7 @@ interface WorldGatewayActionDeps {
   };
   worldRuntimeService: {
     buildTileDetail(playerId: string, tile: GridPoint): TileDetailPayload;
-    buildQuestListView(playerId: string): unknown;
+    buildQuestListView(playerId: string, input?: unknown): unknown;
     worldRuntimeCommandIntakeFacadeService: {
       enqueueResetPlayerSpawn(playerId: string, deps: unknown): void;
       enqueueReturnToSpawn(playerId: string, deps: unknown): void;

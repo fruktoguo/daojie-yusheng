@@ -9,6 +9,8 @@
  * @returns 无返回值，完成BooleanEnv的读取/组装。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 function readBooleanEnv(key) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -23,15 +25,14 @@ class WorldGatewayGuardHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }
     /**

@@ -4,20 +4,21 @@
  * 收敛坊市/拍卖行的浏览、挂单、购买、取消、领取和成交历史等入口。
  */
 
+import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+
 /** 世界 socket 坊市 helper：只收敛 market 相关入口。 */
 class WorldGatewayMarketHelper {
 /**
  * gateway：gateway相关字段。
  */
-
-    gateway;
-    /**
+    private readonly gateway: WorldGatewayHelperContext;
+/**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway) {
+    constructor(gateway: WorldGatewayHelperContext) {
         this.gateway = gateway;
     }
     /**
