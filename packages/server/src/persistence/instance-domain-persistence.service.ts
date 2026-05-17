@@ -151,7 +151,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return this.enabled && this.pool !== null;
   }
 
-  /** 事务性保存建筑/房间/风水状态：全量替换指定实例的建筑、房间、房间格子和风水记录 */
+  /** 事务性保存建筑/房间/风水状态：批量 upsert 当前快照，并删除快照外的 stale key。 */
   async saveBuildingRoomFengShuiState(
     instanceId: string,
     state: {
@@ -168,20 +168,16 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const buildings = Array.isArray(state?.buildings) ? state.buildings : [];
-    const rooms = Array.isArray(state?.rooms) ? state.rooms : [];
-    const buildingCells = buildings.flatMap(normalizeBuildingCellPersistenceRows);
+    const rawBuildings = Array.isArray(state?.buildings) ? state.buildings : [];
+    const buildings = rawBuildings.map(normalizeBuildingPersistenceRow);
+    const rooms = Array.isArray(state?.rooms) ? state.rooms.map(normalizeRoomPersistenceRow) : [];
+    const buildingCells = rawBuildings.flatMap(normalizeBuildingCellPersistenceRows);
     const roomCells = Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow).filter((row) => normalizeRequiredString(row.room_id)) : [];
-    const fengShui = Array.isArray(state?.fengShui) ? state.fengShui : [];
+    const fengShui = Array.isArray(state?.fengShui) ? state.fengShui.map(normalizeFengShuiPersistenceRow) : [];
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_BUILDING_CELL_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_BUILDING_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_ROOM_CELL_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_ROOM_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_FENGSHUI_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
       if (buildings.length > 0) {
         await client.query(
           `
@@ -229,9 +225,25 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               payload = EXCLUDED.payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(buildings.map(normalizeBuildingPersistenceRow))],
+          [normalizedInstanceId, JSON.stringify(buildings)],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT building_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(building_id varchar(160))
+          )
+          DELETE FROM ${INSTANCE_BUILDING_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.building_id = target.building_id
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(buildings.map(({ building_id }) => ({ building_id })))],
+      );
       if (buildingCells.length > 0) {
         await client.query(
           `
@@ -278,6 +290,22 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           [normalizedInstanceId, JSON.stringify(buildingCells)],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT tile_index
+            FROM jsonb_to_recordset($2::jsonb) AS entry(tile_index bigint)
+          )
+          DELETE FROM ${INSTANCE_BUILDING_CELL_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.tile_index = target.tile_index
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(buildingCells.map(({ tile_index }) => ({ tile_index })))],
+      );
       if (rooms.length > 0) {
         await client.query(
           `
@@ -331,9 +359,25 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               payload = EXCLUDED.payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(rooms.map(normalizeRoomPersistenceRow))],
+          [normalizedInstanceId, JSON.stringify(rooms)],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT room_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(room_id varchar(160))
+          )
+          DELETE FROM ${INSTANCE_ROOM_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.room_id = target.room_id
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(rooms.map(({ room_id }) => ({ room_id })))],
+      );
       if (roomCells.length > 0) {
         await client.query(
           `
@@ -362,6 +406,22 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           [normalizedInstanceId, JSON.stringify(roomCells)],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT tile_index
+            FROM jsonb_to_recordset($2::jsonb) AS entry(tile_index bigint)
+          )
+          DELETE FROM ${INSTANCE_ROOM_CELL_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.tile_index = target.tile_index
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(roomCells.map(({ tile_index }) => ({ tile_index })))],
+      );
       if (fengShui.length > 0) {
         await client.query(
           `
@@ -413,9 +473,25 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               detail_json = EXCLUDED.detail_json,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(fengShui.map(normalizeFengShuiPersistenceRow))],
+          [normalizedInstanceId, JSON.stringify(fengShui)],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT room_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(room_id varchar(160))
+          )
+          DELETE FROM ${INSTANCE_FENGSHUI_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.room_id = target.room_id
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(fengShui.map(({ room_id }) => ({ room_id })))],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);

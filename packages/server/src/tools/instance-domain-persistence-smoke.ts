@@ -19,6 +19,8 @@ function createPrototypePayload<T extends Record<string, unknown>>(
 }
 
 async function main(): Promise<void> {
+  await assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning();
+
   if (!databaseUrl.trim()) {
     console.log(
       JSON.stringify(
@@ -26,8 +28,8 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
-          excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
+          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
+          excludes: '无 DB 时不证明真实 PostgreSQL 回读、完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
         null,
@@ -687,6 +689,58 @@ async function main(): Promise<void> {
     assert.deepEqual(loadedBuildingRoomFengShuiState.fengShui[0]?.reasons, [
       { code: 'element.generates_function', delta: 45, severity: 'good' },
     ]);
+    await service.saveBuildingRoomFengShuiState(instanceId, {
+      buildings: [
+        {
+          id: 'building:stone_wall:1',
+          defId: 'stone_wall',
+          x: 6,
+          y: 8,
+          hp: 66,
+          maxHp: 100,
+          cells: [{ tileIndex: 88, x: 6, y: 8, blocksMove: true }],
+        },
+        {
+          id: 'building:wood_wall:2',
+          defId: 'wood_wall',
+          x: 7,
+          y: 8,
+          hp: 20,
+          maxHp: 40,
+          cells: [{ tileIndex: 89, x: 7, y: 8 }],
+        },
+      ],
+      rooms: [
+        {
+          id: 'room:alchemy:1',
+          role: 'alchemy',
+          enclosed: true,
+          minX: 5,
+          minY: 7,
+          maxX: 9,
+          maxY: 11,
+          area: 10,
+          roomHash: 'hash:alchemy:2',
+          revision: 32,
+        },
+      ],
+      fengShui: [],
+    });
+    const loadedBuildingRoomFengShuiStateAfterPrune = await service.loadBuildingRoomFengShuiState(instanceId) as {
+      buildings: Array<Record<string, unknown>>;
+      rooms: Array<Record<string, unknown>>;
+      roomCells: Array<Record<string, unknown>>;
+      fengShui: Array<Record<string, unknown>>;
+    };
+    assert.deepEqual(loadedBuildingRoomFengShuiStateAfterPrune.buildings.map((entry) => entry.id), [
+      'building:stone_wall:1',
+      'building:wood_wall:2',
+    ]);
+    assert.equal(loadedBuildingRoomFengShuiStateAfterPrune.buildings[0]?.hp, 66);
+    assert.equal(loadedBuildingRoomFengShuiStateAfterPrune.rooms.length, 1);
+    assert.equal(loadedBuildingRoomFengShuiStateAfterPrune.rooms[0]?.roomHash, 'hash:alchemy:2');
+    assert.equal(loadedBuildingRoomFengShuiStateAfterPrune.roomCells.length, 0);
+    assert.equal(loadedBuildingRoomFengShuiStateAfterPrune.fengShui.length, 0);
 
     const legacySnapshot = {
       version: 1,
@@ -752,7 +806,7 @@ async function main(): Promise<void> {
           ok: true,
           instanceId,
           rowCount: rows.length,
-          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地、delta upsert/delete 并回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、delta upsert/delete、按 x/y 回读动态地块坐标、清空并回读地块损坏状态，instance_temporary_tile_state 可按 instance_id/tile_index 落地、回读并清空技能生成临时地块，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除、按 tile delta 替换并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入、delta upsert/delete 并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除，instance_building_state/instance_room_state/instance_fengshui_state 能按 instance_id 分域落地和回读建筑真源、房间快照与风水解释',
+          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地、delta upsert/delete 并回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、delta upsert/delete、按 x/y 回读动态地块坐标、清空并回读地块损坏状态，instance_temporary_tile_state 可按 instance_id/tile_index 落地、回读并清空技能生成临时地块，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除、按 tile delta 替换并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入、delta upsert/delete 并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除，instance_building_state/instance_building_cell/instance_room_state/instance_room_cell/instance_fengshui_state 能按 instance_id 分域 upsert 当前快照、删除快照外 stale key，并回读建筑真源、房间快照与风水解释',
           excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
@@ -775,7 +829,9 @@ async function cleanupRows(pool: Pool, instanceId: string): Promise<void> {
   await pool.query('DELETE FROM instance_event_state WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_overlay_chunk WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_fengshui_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_room_cell WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_room_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_building_cell WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_building_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_container_entry WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_container_timer WHERE instance_id = $1', [instanceId]).catch(() => undefined);
@@ -790,6 +846,82 @@ async function cleanupRows(pool: Pool, instanceId: string): Promise<void> {
   await pool.query('DELETE FROM instance_container_state WHERE instance_id = $1', [`${instanceId}:legacy`]);
   await pool.query('DELETE FROM instance_checkpoint WHERE instance_id = $1', [`${instanceId}:legacy`]);
   await pool.query('DELETE FROM instance_recovery_watermark WHERE instance_id = $1', [`${instanceId}:legacy`]);
+}
+
+async function assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[] }> {
+      queries.push(sql);
+      return { rows: [] };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new InstanceDomainPersistenceService(null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.saveBuildingRoomFengShuiState('instance:fake', {
+    buildings: [
+      {
+        id: 'building:guard:1',
+        defId: 'stone_wall',
+        x: 1,
+        y: 2,
+        cells: [{ tileIndex: 12, x: 1, y: 2 }],
+      },
+    ],
+    rooms: [
+      {
+        id: 'room:guard:1',
+        minX: 0,
+        minY: 0,
+        maxX: 2,
+        maxY: 2,
+      },
+    ],
+    roomCells: [{ roomId: 'room:guard:1', tileIndex: 12, x: 1, y: 2 }],
+    fengShui: [{ roomId: 'room:guard:1', score: 1 }],
+  });
+
+  const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  const forbiddenDeletes = [
+    'DELETE FROM instance_building_cell WHERE instance_id = $1',
+    'DELETE FROM instance_building_state WHERE instance_id = $1',
+    'DELETE FROM instance_room_cell WHERE instance_id = $1',
+    'DELETE FROM instance_room_state WHERE instance_id = $1',
+    'DELETE FROM instance_fengshui_state WHERE instance_id = $1',
+  ];
+  for (const forbidden of forbiddenDeletes) {
+    assert.equal(
+      normalizedQueries.some((query) => query === forbidden),
+      false,
+      `building/room/fengshui snapshot emitted forbidden whole-domain delete: ${forbidden}`,
+    );
+  }
+  for (const tableName of [
+    'instance_building_state',
+    'instance_building_cell',
+    'instance_room_state',
+    'instance_room_cell',
+    'instance_fengshui_state',
+  ]) {
+    assert.equal(
+      normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+        && query.includes('jsonb_to_recordset')
+        && query.includes('NOT EXISTS')),
+      true,
+      `building/room/fengshui snapshot missing stale-key delete guard for ${tableName}`,
+    );
+  }
 }
 
 function projectLegacyInstanceSnapshot(snapshot, instanceId) {
