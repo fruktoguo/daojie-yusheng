@@ -24,7 +24,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -602,6 +602,49 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 6 },
     );
+    await service.savePlayerEquipmentSlots(
+      directPlayerId,
+      [
+        {
+          slot: 'weapon',
+          itemInstanceId: `equip:${directPlayerId}:weapon`,
+          item: {
+            itemId: 'weapon.direct_blade',
+            count: 1,
+            equipSlot: 'weapon',
+            enhanceLevel: 4,
+          },
+        },
+        {
+          slot: 'body',
+          itemInstanceId: `equip:${directPlayerId}:stale_body`,
+          item: {
+            itemId: 'armor.stale_robe',
+            count: 1,
+            equipSlot: 'body',
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 6 },
+    );
+    await service.savePlayerEquipmentSlots(
+      directPlayerId,
+      [
+        {
+          slot: 'weapon',
+          itemInstanceId: `equip:${directPlayerId}:weapon`,
+          item: {
+            itemId: 'weapon.direct_blade',
+            count: 1,
+            equipSlot: 'weapon',
+            name: '直写长刃',
+            enhanceLevel: 4,
+            equipStats: { physAtk: 999 },
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 6 },
+    );
     await service.savePlayerCombatPreferences(
       directPlayerId,
       {
@@ -1021,7 +1064,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/market storage 二次快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/market storage 二次快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1102,18 +1145,34 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
     ],
     { versionSeed: 1 },
   );
+  await service.savePlayerEquipmentSlots(
+    'player:fake',
+    [
+      {
+        slot: 'weapon',
+        itemInstanceId: 'equip:player:fake:weapon',
+        item: {
+          itemId: 'weapon.fake_sword',
+          count: 1,
+          equipSlot: 'weapon',
+        },
+      },
+    ],
+    { versionSeed: 1 },
+  );
 
   const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
   const forbiddenDeletes = [
     'DELETE FROM player_inventory_item WHERE player_id = $1',
     'DELETE FROM player_wallet WHERE player_id = $1',
+    'DELETE FROM player_equipment_slot WHERE player_id = $1',
   ];
   for (const forbidden of forbiddenDeletes) {
     if (normalizedQueries.some((query) => query === forbidden)) {
       throw new Error(`player snapshot emitted forbidden whole-player delete: ${forbidden}`);
     }
   }
-  for (const tableName of ['player_inventory_item', 'player_wallet']) {
+  for (const tableName of ['player_inventory_item', 'player_wallet', 'player_equipment_slot']) {
     if (!normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
       && query.includes('jsonb_to_recordset')
       && query.includes('NOT EXISTS'))) {

@@ -3722,15 +3722,13 @@ async function replacePlayerEquipmentSlots(
   playerId: string,
   slots: unknown[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(slots) || slots.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const slotEntry of slots) {
+  const rows: Array<{
+    slot_type: string;
+    item_instance_id: string;
+    item_id: string;
+    raw_payload: Record<string, unknown>;
+  }> = [];
+  for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const entry = asRecord(slotEntry);
     const slotType = normalizeRequiredString(entry?.slot);
     if (!EQUIP_SLOTS.includes(slotType as (typeof EQUIP_SLOTS)[number])) {
@@ -3751,36 +3749,61 @@ async function replacePlayerEquipmentSlots(
       enhanceLevel: item?.enhanceLevel,
       rawPayload: item,
     });
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, now())`,
-    );
-    values.push(
-      playerId,
-      slotType,
-      itemInstanceId,
-      itemId,
-      JSON.stringify(persistedPayload),
-    );
-    parameterIndex += 5;
+    rows.push({
+      slot_type: slotType,
+      item_instance_id: itemInstanceId,
+      item_id: itemId,
+      raw_payload: persistedPayload,
+    });
   }
 
-  if (placeholders.length === 0) {
-    return;
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            slot_type varchar(40),
+            item_instance_id varchar(180),
+            item_id varchar(160),
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
+          player_id,
+          slot_type,
+          item_instance_id,
+          item_id,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, slot_type)
+        DO UPDATE SET
+          item_instance_id = EXCLUDED.item_instance_id,
+          item_id = EXCLUDED.item_id,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
   }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
-        player_id,
-        slot_type,
-        item_instance_id,
-        item_id,
-        raw_payload,
-        updated_at
+      WITH incoming AS (
+        SELECT slot_type
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_type = target.slot_type
+        )
     `,
-    values,
+    [playerId, JSON.stringify(rows.map(({ slot_type }) => ({ slot_type })))],
   );
 }
 
