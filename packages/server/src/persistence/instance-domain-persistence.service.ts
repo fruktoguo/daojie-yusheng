@@ -727,7 +727,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
-  /** 全量替换指定实例的运行时地块格子（地形变更） */
+  /** 保存指定实例的运行时地块格子快照：批量 upsert 当前地块，并删除快照外 stale 坐标。 */
   async replaceRuntimeTileCells(
     instanceId: string,
     entries: Array<{
@@ -768,10 +768,21 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_TILE_CELL_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                x bigint,
+                y bigint,
+                tile_type varchar(64),
+                terrain_type varchar(64),
+                surface_type varchar(64),
+                structure_type varchar(64),
+                interactable_kinds text[]
+              )
+            )
             INSERT INTO ${INSTANCE_TILE_CELL_TABLE}(
               instance_id,
               x,
@@ -783,7 +794,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               interactable_kinds,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+            SELECT $1, x, y, tile_type, terrain_type, surface_type, structure_type, COALESCE(interactable_kinds, '{}'::text[]), now()
+            FROM incoming
             ON CONFLICT (instance_id, x, y)
             DO UPDATE SET
               tile_type = EXCLUDED.tile_type,
@@ -795,16 +807,35 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           `,
           [
             normalizedInstanceId,
-            entry.x,
-            entry.y,
-            entry.tileType,
-            entry.terrainType,
-            entry.surfaceType,
-            entry.structureType,
-            entry.interactableKinds,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              x: entry.x,
+              y: entry.y,
+              tile_type: entry.tileType,
+              terrain_type: entry.terrainType,
+              surface_type: entry.surfaceType,
+              structure_type: entry.structureType,
+              interactable_kinds: entry.interactableKinds,
+            }))),
           ],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT x, y
+            FROM jsonb_to_recordset($2::jsonb) AS entry(x bigint, y bigint)
+          )
+          DELETE FROM ${INSTANCE_TILE_CELL_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.x = target.x
+                AND incoming.y = target.y
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(normalizedEntries.map(({ x, y }) => ({ x, y })))],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);

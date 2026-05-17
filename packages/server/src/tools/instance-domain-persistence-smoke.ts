@@ -82,6 +82,13 @@ async function main(): Promise<void> {
       { x: 3, y: 4, tileType: 'floor', terrainType: 'floor', surfaceType: 'floor', structureType: null, interactableKinds: [] },
       { x: -2, y: 7, tileType: 'stone', terrainType: 'stone_ground', surfaceType: null, structureType: 'stone', interactableKinds: [] },
     ]);
+    await service.replaceRuntimeTileCells(instanceId, [
+      { x: 3, y: 4, tileType: 'forest', terrainType: 'grass', surfaceType: 'moss', structureType: null, interactableKinds: ['forage'] },
+    ]);
+    const runtimeTileCellsAfterPrune = await service.loadRuntimeTileCells(instanceId);
+    assert.deepEqual(runtimeTileCellsAfterPrune, [
+      { x: 3, y: 4, tileType: 'forest', terrainType: 'grass', surfaceType: 'moss', structureType: null, interactableKinds: ['forage'] },
+    ]);
     await service.saveTileDamageStates(instanceId, [
       {
         tileIndex: 7,
