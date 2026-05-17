@@ -1,4 +1,3 @@
-// @ts-nocheck
 import assert from 'node:assert/strict';
 
 import {
@@ -19,6 +18,7 @@ function createPlayerRuntimeService(domainPersistence: {
     playerId: string,
     buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
   ): Promise<PersistedPlayerSnapshot | null>;
+  loadPlayerOfflineGainSession?(playerId: string): Promise<null>;
 }) {
   return new PlayerRuntimeService(
     {
@@ -138,6 +138,9 @@ async function main(): Promise<void> {
     ) {
       logs.push(`projection:load:${playerId}`);
       return projectedSnapshotResult ?? buildStarterSnapshot(playerId);
+    },
+    async loadPlayerOfflineGainSession() {
+      return null;
     },
   };
   const runtime = createPlayerRuntimeService(domainPersistence);

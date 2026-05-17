@@ -1402,12 +1402,16 @@ function proveEntryCachesFollowLifecycle(): {
   playerEquipmentSnapshotReusesSlotItemRefs: boolean;
   playerContextActionsAvoidEntrySpread: boolean;
   playerProgressionConfigViewsReuseRefs: boolean;
+  playerDomainPayloadColumnsAreJsonb: boolean;
+  playerDomainCloneJsonValueDecodesOnly: boolean;
+  playerProjectedSnapshotHydratesStarterInPlace: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
+  const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1539,6 +1543,31 @@ function proveEntryCachesFollowLifecycle(): {
     && !playerProgressionSource.includes('(realm.breakthroughItems ?? []).map((item) => ({ ...item }))')
     && !playerProgressionSource.includes('return (transition.rootFoundationItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count }));');
 
+  const playerDomainPayloadColumnsAreJsonb = [
+    'raw_payload jsonb',
+    'targeting_rules_payload jsonb',
+    'condition_payload jsonb',
+    'base_attrs_payload jsonb',
+    'bonus_entries_payload jsonb',
+    'realm_payload jsonb',
+    'heaven_gate_payload jsonb',
+    'spiritual_roots_payload jsonb',
+    'ingredients_payload jsonb',
+    'detail_jsonb jsonb',
+    'levels_payload jsonb',
+  ].every((needle) => playerDomainPersistenceSource.includes(needle));
+
+  const playerDomainCloneJsonValueDecodesOnly = playerDomainPersistenceSource.includes('function cloneJsonValue<T>(value: T): T {\n  return decodeJsonValue(value) as T;\n}')
+    && !playerDomainPersistenceSource.includes('return decoded.map((entry) => cloneJsonValue(entry)) as T;')
+    && !playerDomainPersistenceSource.includes('Object.entries(normalized).map(([key, entry]) => [key, cloneJsonValue(entry)])');
+
+  const playerProjectedSnapshotHydratesStarterInPlace = playerDomainPersistenceSource.includes('const snapshot = starterSnapshot;')
+    && playerDomainPersistenceSource.includes('snapshot.wallet = {\n    balances: normalizeProjectedWalletRows(domains.walletRows) ?? [],\n  };')
+    && playerDomainPersistenceSource.includes('snapshot.marketStorage = {\n    items: normalizeProjectedMarketStorageRows(domains.marketStorageItems) ?? [],\n  };')
+    && !playerDomainPersistenceSource.includes('const snapshot = {\n    ...starterSnapshot,')
+    && !playerDomainPersistenceSource.includes('enhancementRecords: Array.isArray(starterSnapshot.progression.enhancementRecords)\n        ? starterSnapshot.progression.enhancementRecords.map((entry) => cloneJsonValue(entry))')
+    && !playerDomainPersistenceSource.includes('buffs: Array.isArray(starterSnapshot.buffs?.buffs)\n        ? starterSnapshot.buffs.buffs.map((entry) => cloneJsonValue(entry))');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
@@ -1561,6 +1590,9 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerEquipmentSnapshotReusesSlotItemRefs, true);
   assert.equal(playerContextActionsAvoidEntrySpread, true);
   assert.equal(playerProgressionConfigViewsReuseRefs, true);
+  assert.equal(playerDomainPayloadColumnsAreJsonb, true);
+  assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
+  assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1584,6 +1616,9 @@ function proveEntryCachesFollowLifecycle(): {
     playerEquipmentSnapshotReusesSlotItemRefs,
     playerContextActionsAvoidEntrySpread,
     playerProgressionConfigViewsReuseRefs,
+    playerDomainPayloadColumnsAreJsonb,
+    playerDomainCloneJsonValueDecodesOnly,
+    playerProjectedSnapshotHydratesStarterInPlace,
   };
 }
 

@@ -4812,94 +4812,31 @@ function buildProjectedSnapshotFromDomains(
   domains: LoadedPlayerDomains,
   contentTemplateRepository?: InventoryItemTemplateRepository | null,
 ): PersistedPlayerSnapshot {
-  const snapshot = {
-    ...starterSnapshot,
-    placement: {
-      ...starterSnapshot.placement,
-    },
-    worldPreference: {
-      ...(starterSnapshot.worldPreference ?? { linePreset: 'peaceful' }),
-    },
-    progression: {
-      ...starterSnapshot.progression,
-      bodyTraining: starterSnapshot.progression.bodyTraining
-        ? { ...starterSnapshot.progression.bodyTraining }
-        : null,
-      alchemyPresets: [...starterSnapshot.progression.alchemyPresets],
-      alchemyJob: starterSnapshot.progression.alchemyJob ? { ...starterSnapshot.progression.alchemyJob } : null,
-      forgingJob: starterSnapshot.progression.forgingJob ? { ...starterSnapshot.progression.forgingJob } : null,
-      enhancementJob: starterSnapshot.progression.enhancementJob
-        ? { ...starterSnapshot.progression.enhancementJob }
-        : null,
-      enhancementRecords: Array.isArray(starterSnapshot.progression.enhancementRecords)
-        ? starterSnapshot.progression.enhancementRecords.map((entry) => cloneJsonValue(entry))
-        : [],
-    },
-    attrState: starterSnapshot.attrState
-      ? {
-          baseAttrs: asRecord(starterSnapshot.attrState.baseAttrs)
-            ? { ...(starterSnapshot.attrState.baseAttrs as Record<string, unknown>) }
-            : null,
-          revealedBreakthroughRequirementIds: normalizeStringArray(
-            starterSnapshot.attrState.revealedBreakthroughRequirementIds,
-          ),
-        }
-      : undefined,
-    inventory: {
-      ...starterSnapshot.inventory,
-      items: [...starterSnapshot.inventory.items],
-    },
-    equipment: {
-      ...starterSnapshot.equipment,
-      slots: Array.isArray(starterSnapshot.equipment?.slots)
-        ? starterSnapshot.equipment.slots.map((entry) => ({
-            ...(typeof entry === 'object' && entry !== null ? entry : {}),
-          }))
-        : [],
-    },
-    techniques: {
-      ...starterSnapshot.techniques,
-      techniques: Array.isArray(starterSnapshot.techniques?.techniques)
-        ? starterSnapshot.techniques.techniques.map((entry) => ({
-            ...(typeof entry === 'object' && entry !== null ? entry : {}),
-          }))
-        : [],
-    },
-    buffs: {
-      ...starterSnapshot.buffs,
-      buffs: Array.isArray(starterSnapshot.buffs?.buffs)
-        ? starterSnapshot.buffs.buffs.map((entry) => cloneJsonValue(entry))
-        : [],
-    },
-    quests: {
-      ...starterSnapshot.quests,
-      entries: Array.isArray(starterSnapshot.quests?.entries)
-        ? starterSnapshot.quests.entries.map((entry) => ({
-            ...(typeof entry === 'object' && entry !== null ? entry : {}),
-          }))
-        : [],
-    },
-    combat: {
-      ...starterSnapshot.combat,
-      autoUsePills: normalizeJsonArray(starterSnapshot.combat?.autoUsePills),
-      combatTargetingRules: asRecord(starterSnapshot.combat?.combatTargetingRules)
-        ? { ...(starterSnapshot.combat?.combatTargetingRules as Record<string, unknown>) }
-        : undefined,
-      autoBattleSkills: Array.isArray(starterSnapshot.combat?.autoBattleSkills)
-        ? starterSnapshot.combat.autoBattleSkills.map((entry) => ({
-            ...(typeof entry === 'object' && entry !== null ? entry : {}),
-          }))
-        : [],
-    },
-    pendingLogbookMessages: [...starterSnapshot.pendingLogbookMessages],
-    runtimeBonuses: normalizeRuntimeBonuses(starterSnapshot.runtimeBonuses),
-    unlockedMapIds: [...starterSnapshot.unlockedMapIds],
-    wallet: {
-      balances: normalizeProjectedWalletRows(domains.walletRows) ?? [],
-    },
-    marketStorage: {
-      items: normalizeProjectedMarketStorageRows(domains.marketStorageItems) ?? [],
-    },
+  const snapshot = starterSnapshot;
+  snapshot.worldPreference ??= { linePreset: 'peaceful' };
+  snapshot.attrState ??= {
+    baseAttrs: null,
+    revealedBreakthroughRequirementIds: [],
+  };
+  snapshot.inventory.items = Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items : [];
+  snapshot.equipment.slots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
+  snapshot.techniques.techniques = Array.isArray(snapshot.techniques?.techniques) ? snapshot.techniques.techniques : [];
+  snapshot.buffs.buffs = Array.isArray(snapshot.buffs?.buffs) ? snapshot.buffs.buffs : [];
+  snapshot.quests.entries = Array.isArray(snapshot.quests?.entries) ? snapshot.quests.entries : [];
+  snapshot.combat.autoUsePills = normalizeJsonArray(snapshot.combat?.autoUsePills);
+  snapshot.combat.autoBattleSkills = Array.isArray(snapshot.combat?.autoBattleSkills)
+    ? snapshot.combat.autoBattleSkills
+    : [];
+  snapshot.pendingLogbookMessages = Array.isArray(snapshot.pendingLogbookMessages)
+    ? snapshot.pendingLogbookMessages
+    : [];
+  snapshot.runtimeBonuses = normalizeRuntimeBonuses(snapshot.runtimeBonuses);
+  snapshot.unlockedMapIds = Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [];
+  snapshot.wallet = {
+    balances: normalizeProjectedWalletRows(domains.walletRows) ?? [],
+  };
+  snapshot.marketStorage = {
+    items: normalizeProjectedMarketStorageRows(domains.marketStorageItems) ?? [],
   };
   if (domains.worldAnchor) {
     snapshot.respawn = {
@@ -5582,17 +5519,7 @@ function normalizeRuntimeBonusEntry(
 }
 
 function cloneJsonValue<T>(value: T): T {
-  const decoded = decodeJsonValue(value);
-  if (Array.isArray(decoded)) {
-    return decoded.map((entry) => cloneJsonValue(entry)) as T;
-  }
-  const normalized = asRecord(decoded);
-  if (normalized) {
-    return Object.fromEntries(
-      Object.entries(normalized).map(([key, entry]) => [key, cloneJsonValue(entry)]),
-    ) as T;
-  }
-  return decoded as T;
+  return decodeJsonValue(value) as T;
 }
 
 function normalizeQuestProgressPayload(value: unknown): Record<string, unknown> | unknown[] | null {
