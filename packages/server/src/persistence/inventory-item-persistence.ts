@@ -224,23 +224,43 @@ export function hydratePersistedEquipmentItem(
   // 这里必须就地写 own properties，而不是 `{...hydrated, ...}`：浅展开会把
   // name/type/equipAttrs/equipStats 等模板字段全部丢失，下游 applyEnhancement*
   // 链路会读到 undefined 名字并直接拉爆世界 tick。
+  //
+  // 同时不能用直接赋值 `hydrated.xxx = ...`：模板被 freezeTemplateMap 冻结，
+  // 像 equipSlot 这种没在 createItemInstanceFromTemplate 的 ITEM_INSTANCE_FIELD_KEYS
+  // 白名单里的字段，赋值会沿原型链找到模板上 readonly 的 equipSlot 描述符，
+  // 在严格模式下抛 `Cannot assign to read only property 'equipSlot'`。
+  // 改用 Object.defineProperty 强制写 own property，绕过原型链查找。
   const equipSlot = normalizeOptionalString(hydrated.equipSlot) ?? slot ?? undefined;
-  hydrated.itemId = itemId;
-  hydrated.count = 1;
+  const writeOwn = (key: string, value: unknown): void => {
+    Object.defineProperty(hydrated, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  };
+  writeOwn('itemId', itemId);
+  writeOwn('count', 1);
   if (equipSlot === undefined) {
-    delete (hydrated as Record<string, unknown>).equipSlot;
+    if (Object.prototype.hasOwnProperty.call(hydrated, 'equipSlot')) {
+      delete (hydrated as Record<string, unknown>).equipSlot;
+    }
   } else {
-    hydrated.equipSlot = equipSlot;
+    writeOwn('equipSlot', equipSlot);
   }
   if (enhanceLevel == null) {
-    delete (hydrated as Record<string, unknown>).enhanceLevel;
+    if (Object.prototype.hasOwnProperty.call(hydrated, 'enhanceLevel')) {
+      delete (hydrated as Record<string, unknown>).enhanceLevel;
+    }
   } else {
-    hydrated.enhanceLevel = enhanceLevel;
+    writeOwn('enhanceLevel', enhanceLevel);
   }
   if (itemInstanceId == null) {
-    delete (hydrated as Record<string, unknown>).itemInstanceId;
+    if (Object.prototype.hasOwnProperty.call(hydrated, 'itemInstanceId')) {
+      delete (hydrated as Record<string, unknown>).itemInstanceId;
+    }
   } else {
-    hydrated.itemInstanceId = itemInstanceId;
+    writeOwn('itemInstanceId', itemInstanceId);
   }
   return hydrated;
 }
