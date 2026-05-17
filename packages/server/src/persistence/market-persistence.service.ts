@@ -353,9 +353,6 @@ export class MarketPersistenceService {
  * 记录affectedplayerids。
  */
         const affectedPlayerIds = Array.from(new Set([...upsertPlayerIds, ...deletions.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)]));
-        if (upsertPlayerIds.length > 0) {
-            await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = ANY($1::varchar[])`, [upsertPlayerIds]);
-        }
         if (deletions.length > 0) {
             await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = ANY($1::varchar[])`, [deletions]);
         }
@@ -388,6 +385,15 @@ export class MarketPersistenceService {
                     updated_at
                   )
                   VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+                  ON CONFLICT (storage_item_id)
+                  DO UPDATE SET
+                    player_id = EXCLUDED.player_id,
+                    slot_index = EXCLUDED.slot_index,
+                    item_id = EXCLUDED.item_id,
+                    count = EXCLUDED.count,
+                    enhance_level = EXCLUDED.enhance_level,
+                    raw_payload = EXCLUDED.raw_payload,
+                    updated_at = now()
                 `, [
                     buildMarketStorageItemId(playerId, slotIndex),
                     playerId,
@@ -398,6 +404,22 @@ export class MarketPersistenceService {
                     JSON.stringify(item),
                 ]);
             }
+            await client.query(`
+              WITH incoming AS (
+                SELECT slot_index
+                FROM jsonb_to_recordset($2::jsonb) AS entry(slot_index bigint)
+              )
+              DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
+              WHERE target.player_id = $1
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM incoming
+                  WHERE incoming.slot_index = target.slot_index
+                )
+            `, [
+                playerId,
+                JSON.stringify(items.map((_, slotIndex) => ({ slot_index: slotIndex }))),
+            ]);
         }
         if (affectedPlayerIds.length > 0) {
             await upsertMarketStorageWatermarks(client, affectedPlayerIds);
