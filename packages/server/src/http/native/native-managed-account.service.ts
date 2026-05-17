@@ -100,16 +100,7 @@ interface PlayerIdentityPersistencePort {
   isEnabled(): boolean;
   savePlayerIdentity(identity: Record<string, unknown>): Promise<unknown>;
 }
-/**
- * PlayerRuntimeSnapshot：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface PlayerRuntimeSnapshot {
-/**
- * displayName：显示名称名称或显示文本。
- */
-
+interface PlayerRuntimeIdentityProjection {
   displayName?: string;
 }
 /**
@@ -118,7 +109,7 @@ interface PlayerRuntimeSnapshot {
 
 
 interface PlayerRuntimePort {
-  snapshot(playerId: string): PlayerRuntimeSnapshot | null;
+  getPlayerIdentityProjection(playerId: string): PlayerRuntimeIdentityProjection | null;
   setIdentity(playerId: string, input: {  
   /**
  * displayName：显示名称名称或显示文本。
@@ -370,7 +361,7 @@ export class NativeManagedAccountService {
   private syncRuntimeDisplayName(user: NativePlayerAuthUser): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.playerRuntimeService.snapshot(user.playerId)) {
+    if (!this.playerRuntimeService.getPlayerIdentityProjection(user.playerId)) {
       return;
     }
 

@@ -1410,6 +1410,7 @@ function proveEntryCachesFollowLifecycle(): {
   marketBuySellSnapshotsLazyDurableOnly: boolean;
   gmPlayerListUsesLightSummaries: boolean;
   leaderboardUsesLightRuntimeProjections: boolean;
+  authRuntimeSyncUsesIdentityProjection: boolean;
   instancePersistenceNormalizesItemPayloads: boolean;
   instancePersistenceNormalizesObjectPayloads: boolean;
   instanceOverlayPortalPersistenceUsesWhitelist: boolean;
@@ -1425,6 +1426,8 @@ function proveEntryCachesFollowLifecycle(): {
   const marketRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/market/market-runtime.service.ts'), 'utf8');
   const leaderboardRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/leaderboard-runtime.service.ts'), 'utf8');
   const nativeGmStateQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-gm-state-query.service.ts'), 'utf8');
+  const nativePlayerAuthSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-player-auth.service.ts'), 'utf8');
+  const nativeManagedAccountSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-managed-account.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1614,6 +1617,16 @@ function proveEntryCachesFollowLifecycle(): {
     && leaderboardRuntimeSource.includes('typeof this.playerRuntimeService.listLeaderboardPlayerProjections === \'function\'\n            ? this.playerRuntimeService.listLeaderboardPlayerProjections()\n            : this.playerRuntimeService.listPlayerSnapshots();')
     && !leaderboardRuntimeSource.includes('const players = this.playerRuntimeService.listPlayerSnapshots()');
 
+  const authRuntimeSyncUsesIdentityProjection = playerRuntimeSource.includes('getPlayerIdentityProjection(playerId)')
+    && playerRuntimeSource.includes('displayName: player.displayName,')
+    && nativePlayerAuthSource.includes('getPlayerIdentityProjection(playerId: string): PlayerRuntimeIdentityProjection | null;')
+    && nativePlayerAuthSource.includes('if (!this.playerRuntimeService.getPlayerIdentityProjection(user.playerId))')
+    && nativePlayerAuthSource.includes('const runtime = this.playerRuntimeService.getPlayerIdentityProjection(user.playerId);')
+    && nativeManagedAccountSource.includes('getPlayerIdentityProjection(playerId: string): PlayerRuntimeIdentityProjection | null;')
+    && nativeManagedAccountSource.includes('if (!this.playerRuntimeService.getPlayerIdentityProjection(user.playerId))')
+    && !nativePlayerAuthSource.includes('this.playerRuntimeService.snapshot(user.playerId)')
+    && !nativeManagedAccountSource.includes('this.playerRuntimeService.snapshot(user.playerId)');
+
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
@@ -1679,6 +1692,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(marketBuySellSnapshotsLazyDurableOnly, true);
   assert.equal(gmPlayerListUsesLightSummaries, true);
   assert.equal(leaderboardUsesLightRuntimeProjections, true);
+  assert.equal(authRuntimeSyncUsesIdentityProjection, true);
   assert.equal(instancePersistenceNormalizesItemPayloads, true);
   assert.equal(instancePersistenceNormalizesObjectPayloads, true);
   assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
@@ -1713,6 +1727,7 @@ function proveEntryCachesFollowLifecycle(): {
     marketBuySellSnapshotsLazyDurableOnly,
     gmPlayerListUsesLightSummaries,
     leaderboardUsesLightRuntimeProjections,
+    authRuntimeSyncUsesIdentityProjection,
     instancePersistenceNormalizesItemPayloads,
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,

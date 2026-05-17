@@ -3262,6 +3262,18 @@ export class PlayerRuntimeService {
         }
         return cloneRuntimePlayerState(player);
     }
+    /** 读取在线玩家身份轻量投影，供鉴权/账号链路避免完整玩家深拷贝。 */
+    getPlayerIdentityProjection(playerId) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return null;
+        }
+        return {
+            playerId: player.playerId,
+            name: player.name,
+            displayName: player.displayName,
+        };
+    }
     /**
  * listPlayerSnapshots：读取玩家快照并返回结果。
  * @returns 无返回值，完成玩家快照的读取/组装。
