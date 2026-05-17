@@ -1640,6 +1640,8 @@ function proveEntryCachesFollowLifecycle(): {
     && questQuerySource.includes('quest = this.materializeQuestView(\'\', quest);')
     && questQuerySource.includes('resolveAvailableNpcQuestMarker(playerId, npc)')
     && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
+    && npcQuestWriteSource.includes('player.quests.quests.push(cloneQuestState(questView, \'active\'));')
+    && !npcQuestWriteSource.includes('player.quests.quests.push(cloneQuestState(quest, \'active\'));')
     && npcQuestInteractionSource.includes('return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarker(playerId, npc);')
     && !npcQuestInteractionSource.includes('collectNpcQuestViews(playerId, npc)')
     && playerRuntimeSource.includes('return player.quests.quests;')
