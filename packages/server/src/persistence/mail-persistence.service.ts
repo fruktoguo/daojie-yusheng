@@ -228,14 +228,13 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       try {
         await client.query('BEGIN');
         await acquirePlayerMailLock(client, normalizedPlayerId);
-        await client.query(`DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} WHERE player_id = $1`, [normalizedPlayerId]);
-        await client.query(`DELETE FROM ${PLAYER_MAIL_TABLE} WHERE player_id = $1`, [normalizedPlayerId]);
 
         const stableMailboxMails = sortMailsByStableKey(normalizedMailbox.mails);
         if (stableMailboxMails.length > 0) {
-          await insertStructuredMails(client, normalizedPlayerId, stableMailboxMails);
-          await insertStructuredAttachments(client, normalizedPlayerId, stableMailboxMails);
+          await upsertStructuredMails(client, normalizedPlayerId, stableMailboxMails);
+          await upsertStructuredAttachments(client, normalizedPlayerId, stableMailboxMails);
         }
+        await pruneStructuredMailboxSnapshot(client, normalizedPlayerId, stableMailboxMails);
 
         await upsertStructuredMailCounter(client, normalizedPlayerId, normalizedMailbox.revision, summary);
         await upsertMailRecoveryWatermark(
@@ -1080,6 +1079,142 @@ async function insertStructuredAttachments(
   );
 }
 
+async function upsertStructuredAttachments(
+  client: import('pg').PoolClient,
+  playerId: string,
+  mails: MailEntryPayload[],
+): Promise<void> {
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+  let parameterIndex = 1;
+
+  for (const mail of mails) {
+    for (let index = 0; index < mail.attachments.length; index += 1) {
+      const attachment = mail.attachments[index];
+      const itemId = normalizeRequiredString(attachment.itemId);
+      if (!itemId) {
+        continue;
+      }
+      placeholders.push(
+        `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, 'item', $${parameterIndex + 3}, $${parameterIndex + 4}, NULL, NULL, $${parameterIndex + 5}::jsonb, NULL, $${parameterIndex + 6}, now())`,
+      );
+      values.push(
+        buildMailAttachmentId(mail.mailId, index),
+        mail.mailId,
+        playerId,
+        itemId,
+        Math.max(1, Math.trunc(Number(attachment.count ?? 1))),
+        JSON.stringify(attachment),
+        normalizeOptionalInteger(mail.claimedAt),
+      );
+      parameterIndex += 7;
+    }
+  }
+
+  if (placeholders.length === 0) {
+    return;
+  }
+
+  if (parameterIndex - 1 !== values.length) {
+    throw new Error(`structured_mail_attachment_upsert_placeholder_mismatch:${parameterIndex - 1}:${values.length}`);
+  }
+
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_MAIL_ATTACHMENT_TABLE}(
+        attachment_id,
+        mail_id,
+        player_id,
+        attachment_kind,
+        item_id,
+        count,
+        currency_type,
+        amount,
+        item_payload_jsonb,
+        claim_operation_id,
+        claimed_at,
+        created_at
+      )
+      VALUES ${placeholders.join(',\n')}
+      ON CONFLICT (attachment_id)
+      DO UPDATE SET
+        mail_id = EXCLUDED.mail_id,
+        player_id = EXCLUDED.player_id,
+        attachment_kind = EXCLUDED.attachment_kind,
+        item_id = EXCLUDED.item_id,
+        count = EXCLUDED.count,
+        currency_type = EXCLUDED.currency_type,
+        amount = EXCLUDED.amount,
+        item_payload_jsonb = EXCLUDED.item_payload_jsonb,
+        claim_operation_id = EXCLUDED.claim_operation_id,
+        claimed_at = EXCLUDED.claimed_at
+    `,
+    values,
+  );
+}
+
+async function pruneStructuredMailboxSnapshot(
+  client: import('pg').PoolClient,
+  playerId: string,
+  mails: MailEntryPayload[],
+): Promise<void> {
+  const mailIds = mails.map((mail) => mail.mailId);
+  const attachmentIds = mails.flatMap((mail) => mail.attachments
+    .map((attachment, index) => (normalizeRequiredString(attachment.itemId) ? buildMailAttachmentId(mail.mailId, index) : ''))
+    .filter(Boolean));
+
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT mail_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(mail_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.mail_id = target.mail_id
+        )
+    `,
+    [playerId, JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })))],
+  );
+
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT attachment_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(attachment_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.attachment_id = target.attachment_id
+        )
+    `,
+    [playerId, JSON.stringify(attachmentIds.map((attachmentId) => ({ attachment_id: attachmentId })))],
+  );
+
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT mail_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(mail_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_MAIL_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.mail_id = target.mail_id
+        )
+    `,
+    [playerId, JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })))],
+  );
+}
+
 async function replaceStructuredAttachmentsForMailIds(
   client: import('pg').PoolClient,
   playerId: string,
@@ -1105,6 +1240,10 @@ async function replaceStructuredAttachmentsForMailIds(
     return;
   }
   await insertStructuredAttachments(client, playerId, affectedMails);
+}
+
+function buildMailAttachmentId(mailId: string, index: number): string {
+  return `mail_attachment:${mailId}:${index}`;
 }
 
 function sortMailsByStableKey(mails: MailEntryPayload[]): MailEntryPayload[] {
