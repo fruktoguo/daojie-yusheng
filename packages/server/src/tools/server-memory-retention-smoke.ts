@@ -1680,9 +1680,15 @@ function proveEntryCachesFollowLifecycle(): {
     && playerRuntimeSource.includes('function cloneQuestRuntimeEntry(entry)')
     && playerRuntimeSource.includes('id: typeof entry.id === \'string\' ? entry.id : \'\',')
     && playerRuntimeSource.includes('targetMonsterId: typeof entry.targetMonsterId === \'string\' ? entry.targetMonsterId : \'\',')
+    && playerRuntimeSource.includes('function cloneRuntimeBonusesForSnapshot(source)')
+    && playerRuntimeSource.includes('if (!shouldKeepRuntimeBonusSource(entry))')
+    && playerRuntimeSource.includes('runtimeBonuses: cloneRuntimeBonusesForSnapshot(player.runtimeBonuses)')
+    && playerRuntimeSource.includes('runtimeBonuses: needsDomain(\'attr\') ? cloneRuntimeBonusesForSnapshot(player.runtimeBonuses) : []')
     && !playerRuntimeSource.includes('const cloned: any = {\n        ...entry,')
     && !playerRuntimeSource.includes('rewardItemIds: entry.rewardItemIds.slice()')
     && !playerRuntimeSource.includes('rewards: entry.rewards.map((reward) => ({ ...reward }))')
+    && !playerRuntimeSource.includes('.map((entry) => cloneRuntimeBonus(entry))\n                .filter((entry) => shouldKeepRuntimeBonus(entry))')
+    && !playerRuntimeSource.includes('player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)).filter((entry) => shouldKeepRuntimeBonus(entry))')
     && !playerRuntimeSource.includes('return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));');
 
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')

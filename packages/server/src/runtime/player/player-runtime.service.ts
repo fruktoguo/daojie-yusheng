@@ -3547,9 +3547,7 @@ export class PlayerRuntimeService {
             lootWindowTarget: null,
             pendingLogbookMessages: normalizePendingLogbookMessages(snapshot.pendingLogbookMessages),
             vitalRecoveryDeferredUntilTick: -1,
-            runtimeBonuses: (Array.isArray(snapshot.runtimeBonuses) ? snapshot.runtimeBonuses : [])
-                .map((entry) => cloneRuntimeBonus(entry))
-                .filter((entry) => shouldKeepRuntimeBonus(entry)),
+            runtimeBonuses: cloneRuntimeBonusesForSnapshot(snapshot.runtimeBonuses),
             dirtyDomains: createPlayerDirtyDomainSet(),
             // 玩家维度 NPC quest marker 投影缓存；hydrate 路径同样初始化，跟随玩家运行态生命周期。
             npcQuestMarkerCache: new Map(),
@@ -4132,9 +4130,7 @@ function cloneRuntimePlayerState(player) {
             : null,
         pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
         vitalRecoveryDeferredUntilTick: player.vitalRecoveryDeferredUntilTick,
-        runtimeBonuses: player.runtimeBonuses
-            .map((entry) => cloneRuntimeBonus(entry))
-            .filter((entry) => shouldKeepRuntimeBonus(entry)),
+        runtimeBonuses: cloneRuntimeBonusesForSnapshot(player.runtimeBonuses),
         dirtyDomains: createPlayerDirtyDomainSet(),
         // cloneRuntimePlayerState 用于快照/旁路读取，不应共享 quest marker cache 引用；新副本起一个空 Map。
         npcQuestMarkerCache: new Map(),
@@ -5481,9 +5477,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             autoBattleSkills: [],
         },
         pendingLogbookMessages: needsDomain('logbook') ? player.pendingLogbookMessages.map((entry) => ({ ...entry })) : [],
-        runtimeBonuses: needsDomain('attr')
-            ? player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)).filter((entry) => shouldKeepRuntimeBonus(entry))
-            : [],
+        runtimeBonuses: needsDomain('attr') ? cloneRuntimeBonusesForSnapshot(player.runtimeBonuses) : [],
     };
 }
 
@@ -7115,8 +7109,33 @@ function cloneRuntimeBonus(source) {
     };
 }
 
+function cloneRuntimeBonusesForSnapshot(source) {
+    if (!Array.isArray(source) || source.length === 0) {
+        return [];
+    }
+    const bonuses = [];
+    for (const entry of source) {
+        if (!shouldKeepRuntimeBonusSource(entry)) {
+            continue;
+        }
+        const cloned = cloneRuntimeBonus(entry);
+        if (cloned) {
+            bonuses.push(cloned);
+        }
+    }
+    return bonuses;
+}
+
+function shouldKeepRuntimeBonusSource(entry) {
+    return Boolean(entry && typeof entry === 'object' && shouldKeepRuntimeBonusSourceId(entry.source));
+}
+
 function shouldKeepRuntimeBonus(entry) {
-    return Boolean(entry?.source && !isDerivedPersistentRuntimeBonusSource(entry.source));
+    return Boolean(entry?.source && shouldKeepRuntimeBonusSourceId(entry.source));
+}
+
+function shouldKeepRuntimeBonusSourceId(source) {
+    return typeof source === 'string' && source.trim().length > 0 && !isDerivedPersistentRuntimeBonusSource(canonicalizeRuntimeBonusSource(source));
 }
 
 function isDerivedPersistentRuntimeBonusSource(source) {
