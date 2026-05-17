@@ -3,25 +3,24 @@
  * 收敛 NPC 商店、NPC 任务接取/提交和商店购买等入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
-
+import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
+import type { Socket } from 'socket.io';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** NPC 交互 helper：收敛商店浏览、任务接取/提交和商品购买入口 */
+@Injectable()
 class WorldGatewayNpcHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly gatewayClientEmitHelper: WorldGatewayClientEmitHelper,
+        private readonly worldRuntimeService: WorldRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }    
     /**
  * handleRequestNpcShop：处理NextRequestNPCShop并更新相关状态。
  * @param client 参数说明。
@@ -29,18 +28,18 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新NextRequestNPCShop相关状态。
  */
 
-    handleRequestNpcShop(client, payload) {
+    handleRequestNpcShop(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.gatewayClientEmitHelper.emitNpcShop(client, this.gateway.worldRuntimeService.buildNpcShopView(playerId, payload?.npcId));
+            this.gatewayClientEmitHelper.emitNpcShop(client, this.worldRuntimeService.buildNpcShopView(playerId, payload?.npcId));
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_REQUEST_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_REQUEST_FAILED', error);
         }
     }    
     /**
@@ -50,18 +49,18 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新RequestNPC任务相关状态。
  */
 
-    handleRequestNpcQuests(client, payload) {
+    handleRequestNpcQuests(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            client.emit(S2C.NpcQuests, toNpcQuestsSyncPayload(this.gateway.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId)));
+            client.emit(S2C.NpcQuests, toNpcQuestsSyncPayload(this.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId)));
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_REQUEST_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_REQUEST_FAILED', error);
         }
     }    
     /**
@@ -71,18 +70,18 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
-    handleAcceptNpcQuest(client, payload) {
+    handleAcceptNpcQuest(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueAcceptNpcQuest(playerId, payload?.npcId, payload?.questId, this.gateway.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueAcceptNpcQuest(playerId, payload?.npcId, payload?.questId, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_ACCEPT_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_ACCEPT_FAILED', error);
         }
     }    
     /**
@@ -92,18 +91,18 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
-    handleSubmitNpcQuest(client, payload) {
+    handleSubmitNpcQuest(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSubmitNpcQuest(playerId, payload?.npcId, payload?.questId, this.gateway.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSubmitNpcQuest(playerId, payload?.npcId, payload?.questId, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_SUBMIT_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_SUBMIT_FAILED', error);
         }
     }    
     /**
@@ -113,18 +112,18 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新executeBuyNPCShop道具相关状态。
  */
 
-    executeBuyNpcShopItem(client, payload) {
+    executeBuyNpcShopItem(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBuyNpcShopItem(playerId, payload?.npcId, payload?.itemId, payload?.quantity, this.gateway.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBuyNpcShopItem(playerId, payload?.npcId, payload?.itemId, payload?.quantity, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_BUY_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_BUY_FAILED', error);
         }
     }    
     /**
@@ -134,12 +133,12 @@ class WorldGatewayNpcHelper {
  * @returns 无返回值，直接更新NextBuyNPCShop道具相关状态。
  */
 
-    handleBuyNpcShopItem(client, payload) {
+    handleBuyNpcShopItem(client: Socket, payload: any) {
         this.executeBuyNpcShopItem(client, payload);
     }
 }
 
-function toNpcQuestsSyncPayload(payload) {
+function toNpcQuestsSyncPayload(payload: any) {
     return {
         ...payload,
         quests: Array.isArray(payload?.quests)
@@ -148,7 +147,7 @@ function toNpcQuestsSyncPayload(payload) {
     };
 }
 
-function toQuestRuntimeState(source) {
+function toQuestRuntimeState(source: any) {
     return {
         id: source.id,
         status: source.status,

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 const assert = require("node:assert/strict");
-const { WorldRuntimeNpcShopQueryService } = require("../runtime/world/world-runtime-npc-shop-query.service");
+const { WorldRuntimeNpcShopQueryService } = require("../runtime/world/query/world-runtime-npc-shop-query.service");
 const { WorldRuntimeNpcShopService } = require("../runtime/world/world-runtime-npc-shop.service");
 /**
  * testQueryBuildNpcShopView：读取testQueryBuildNPCShop视图并返回结果。
