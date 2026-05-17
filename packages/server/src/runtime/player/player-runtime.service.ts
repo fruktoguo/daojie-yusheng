@@ -1519,8 +1519,8 @@ export class PlayerRuntimeService {
             return [];
         }
 
-        const queue = player.notices.queue.map((entry) => ({ ...entry }));
-        player.notices.queue.length = 0;
+        const queue = player.notices.queue;
+        player.notices.queue = [];
         return queue;
     }
     /**

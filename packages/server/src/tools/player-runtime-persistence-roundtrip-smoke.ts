@@ -502,6 +502,26 @@ function testTemporaryBuffRuntimeUsesPrototypeAndMaterializesJson() {
     assert.deepEqual(Object.keys(restoredBuff).sort(), ['duration', 'maxStacks', 'remainingTicks', 'stacks']);
 }
 
+function testDrainNoticesReturnsQueueReferenceAndResetsQueue() {
+    const service = createPlayerRuntimeService();
+    const player = service.hydrateFromSnapshot('player:notice-drain-ref', 'session:notice-drain-ref', createSnapshot(null));
+    service.players.set(player.playerId, player);
+    player.notices.queue = [{
+        id: 1,
+        kind: 'info',
+        text: 'notice-drain-ref',
+        structured: { key: 'notice.test' },
+    }];
+    const originalQueue = player.notices.queue;
+    const originalNotice = originalQueue[0];
+
+    const drained = service.drainNotices(player.playerId);
+    assert.equal(drained, originalQueue);
+    assert.equal(drained[0], originalNotice);
+    assert.notEqual(player.notices.queue, originalQueue);
+    assert.deepEqual(player.notices.queue, []);
+}
+
 function testPendingStatisticRecordsReuseReadonlyReferences() {
     const service = createPlayerRuntimeService();
     const report = {
@@ -538,6 +558,7 @@ testReplaceEquipmentSlotsKeepsTemplateOnPrototype();
 testHydrateInventoryItemsKeepTemplateOnPrototype();
 testSnapshotAndRestoreKeepItemPrototypes();
 testTemporaryBuffRuntimeUsesPrototypeAndMaterializesJson();
+testDrainNoticesReturnsQueueReferenceAndResetsQueue();
 testPendingStatisticRecordsReuseReadonlyReferences();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));
