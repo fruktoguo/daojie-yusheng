@@ -11,8 +11,7 @@ const { WorldGatewayGuardHelper } = require("../network/world-gateway-guard.help
 
 function testGuardHelper() {
     const log = [];
-    const gateway = {
-        healthReadinessService: {        
+    const healthReadinessService = {
         /**
  * build：构建并返回目标对象。
  * @returns 无返回值，直接更新结果相关状态。
@@ -21,8 +20,8 @@ function testGuardHelper() {
             build() {
                 return { readiness: { ok: false, maintenance: { active: true } } };
             },
-        },
-        worldClientEventService: {        
+        };
+    const worldClientEventService = {
         /**
  * emitError：处理Error并更新相关状态。
  * @param client 参数说明。
@@ -43,8 +42,8 @@ function testGuardHelper() {
             emitNotReady(client) {
                 log.push(['emitNotReady', client.id]);
             },
-        },
-        worldSessionService: {
+        };
+    const worldSessionService = {
             getBinding(playerId) {
                 if (playerId === 'player:active') {
                     return {
@@ -62,9 +61,8 @@ function testGuardHelper() {
                 }
                 return null;
             },
-        },
-    };
-    const helper = new WorldGatewayGuardHelper(gateway);
+        };
+    const helper = new WorldGatewayGuardHelper(healthReadinessService, worldClientEventService, worldSessionService);
     const client = {
         id: 'socket:1',
         data: {},        

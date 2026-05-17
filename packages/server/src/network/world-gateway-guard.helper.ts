@@ -3,15 +3,12 @@
  * 收敛服务就绪检查、玩家身份校验、GM 权限校验和频率限制。
  */
 
-/**
- * readBooleanEnv：读取BooleanEnv并返回结果。
- * @param key 参数说明。
- * @returns 无返回值，完成BooleanEnv的读取/组装。
- */
+import { Injectable } from '@nestjs/common';
+import { HealthReadinessService } from '../health/health-readiness.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldSessionService } from './world-session.service';
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
-
-function readBooleanEnv(key) {
+function readBooleanEnv(key: string): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const value = process.env[key];
@@ -21,20 +18,13 @@ function readBooleanEnv(key) {
     return value === '1' || value.toLowerCase() === 'true';
 }
 /** 世界 socket 守卫 helper：收敛 readiness、玩家身份和 GM 身份检查。 */
+@Injectable()
 class WorldGatewayGuardHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }
+    constructor(
+        private readonly healthReadinessService: HealthReadinessService,
+        private readonly worldClientEventService: WorldClientEventService,
+        private readonly worldSessionService: WorldSessionService,
+    ) {}
     /**
  * rejectWhenNotReady：读取rejectWhenNotReady并返回结果。
  * @param client 参数说明。
@@ -47,12 +37,12 @@ class WorldGatewayGuardHelper {
         if (readBooleanEnv('SERVER_ALLOW_UNREADY_TRAFFIC') || readBooleanEnv('SERVER_SMOKE_ALLOW_UNREADY')) {
             return false;
         }
-        const health = this.gateway.healthReadinessService.build();
+        const health = this.healthReadinessService.build();
         if (health.readiness.ok) {
             return false;
         }
         const isMaintenance = health.readiness.maintenance?.active === true;
-        this.gateway.worldClientEventService.emitError(client, isMaintenance ? 'SERVER_BUSY' : 'SERVER_NOT_READY', isMaintenance ? '数据库维护中，请稍后重连' : '服务未就绪，请稍后重连');
+        this.worldClientEventService.emitError(client, isMaintenance ? 'SERVER_BUSY' : 'SERVER_NOT_READY', isMaintenance ? '数据库维护中，请稍后重连' : '服务未就绪，请稍后重连');
         client.disconnect(true);
         return true;
     }
@@ -69,7 +59,7 @@ class WorldGatewayGuardHelper {
         if (playerId) {
             return playerId;
         }
-        this.gateway.worldClientEventService.emitNotReady(client);
+        this.worldClientEventService.emitNotReady(client);
         return null;
     }
     /**
@@ -85,11 +75,11 @@ class WorldGatewayGuardHelper {
         if (!playerId) {
             return null;
         }
-        const binding = this.gateway.worldSessionService?.getBinding?.(playerId) ?? null;
+        const binding = this.worldSessionService?.getBinding?.(playerId) ?? null;
         if (binding?.connected === true && binding.socketId === client.id) {
             return playerId;
         }
-        this.gateway.worldClientEventService.emitError(client, 'SESSION_EXPIRED', '当前会话已失效，请重新连接。');
+        this.worldClientEventService.emitError(client, 'SESSION_EXPIRED', '当前会话已失效，请重新连接。');
         if (typeof client?.disconnect === 'function') {
             client.disconnect(true);
         }
@@ -111,7 +101,7 @@ class WorldGatewayGuardHelper {
         if (client.data?.isGm === true) {
             return playerId;
         }
-        this.gateway.worldClientEventService.emitError(client, 'GM_FORBIDDEN', 'GM 权限不足');
+        this.worldClientEventService.emitError(client, 'GM_FORBIDDEN', 'GM 权限不足');
         return null;
     }
     checkRateLimit(client, eventCategory = 'default', maxPerWindow = 30, windowMs = 1000) {

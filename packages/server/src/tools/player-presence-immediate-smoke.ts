@@ -179,6 +179,16 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
       },
     } as never,
     {} as never,
+    {
+      requirePlayerId(client: { data?: { playerId?: string } }) {
+        const playerId = typeof client.data?.playerId === 'string' ? client.data.playerId : '';
+        if (!playerId) {
+          notReadyCount += 1;
+          return null;
+        }
+        return playerId;
+      },
+    } as never,
   );
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);
