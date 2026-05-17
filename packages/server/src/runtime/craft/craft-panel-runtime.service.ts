@@ -835,7 +835,7 @@ export class CraftPanelRuntimeService {
         });
         this.finalizeMutation(player, {
             inventoryChanged: true,
-            equipmentChanged: false,
+            equipmentChanged: target.ref.source === 'equipment',
             persistentOnly: true,
             dirtyDomains: ['active_job', 'enhancement_record'],
         });
@@ -1689,8 +1689,17 @@ export class CraftPanelRuntimeService {
             : null;
         if (!lockedRaw) {
             // 极端兜底：锁定空间已不存在该工件（异常恢复 / 老存档），仍要清掉 job 防止卡死
+            // 同时清理可能残留的同 jobRunId 孤儿锁定项
+            const jobRunId = job.jobRunId;
+            const orphanKey = `enhancement:${jobRunId}`;
+            const before = player.inventory.lockedItems.length;
+            player.inventory.lockedItems = player.inventory.lockedItems.filter(
+                (e) => e.lockedBy !== orphanKey,
+            );
+            const cleaned = before !== player.inventory.lockedItems.length;
             player.enhancementJob = null;
             this.finalizeMutation(player, {
+                inventoryChanged: cleaned,
                 persistentOnly: true,
                 dirtyDomains: [
                     'active_job',
@@ -1698,7 +1707,7 @@ export class CraftPanelRuntimeService {
                 ],
             });
             return {
-                inventoryChanged: false,
+                inventoryChanged: cleaned,
                 equipmentChanged: false,
                 attrChanged: false,
                 groundDrops: [],
@@ -1714,7 +1723,8 @@ export class CraftPanelRuntimeService {
         });
         // normalize 后兜底分配 instanceId（理论上 locked 物必然已带）
         assignItemInstanceIdIfNeeded(resolvedItem);
-        let inventoryChanged = false;
+        // unlockItem 已移除 lockedItems 条目 → inventory 域必然脏
+        let inventoryChanged = true;
         let equipmentChanged = false;
         let attrChanged = false;
         const groundDrops = [];

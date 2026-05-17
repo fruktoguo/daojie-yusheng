@@ -3709,10 +3709,12 @@ export class PlayerRuntimeService {
                         lockedAt: Date.now(),
                     });
                     player.enhancementJob.itemInstanceId = legacyInstanceId;
+                    // 迁移成功：清理旧字段并标脏，确保下次 flush 落库
+                    delete player.enhancementJob.item;
+                    markPlayerDirtyDomains(player, ['inventory', 'active_job']);
+                    this.bumpPersistentRevision(player);
                 }
             }
-            // 新格式不再保留 job.item；迁移后清理掉冗余字段
-            delete player.enhancementJob.item;
         }
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
