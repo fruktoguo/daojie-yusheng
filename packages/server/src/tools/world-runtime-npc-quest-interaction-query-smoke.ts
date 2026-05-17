@@ -2,18 +2,18 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeNpcQuestInteractionQueryService } = require("../runtime/world/world-runtime-npc-quest-interaction-query.service");
+const { WorldRuntimeNpcQuestInteractionQueryService } = require("../runtime/world/query/world-runtime-npc-quest-interaction-query.service");
 /**
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
- * @param collectNpcQuestViews 参数说明。
+ * @param resolveAvailableNpcQuestMarker 参数说明。
  * @returns 无返回值，直接更新服务相关状态。
  */
 
 
-function createService(player, collectNpcQuestViews) {
+function createService(player, resolveAvailableNpcQuestMarker) {
     return new WorldRuntimeNpcQuestInteractionQueryService({
-        collectNpcQuestViews,
+        resolveAvailableNpcQuestMarker,
     }, {    
     /**
  * getPlayer：读取玩家。
@@ -94,8 +94,8 @@ function testResolveNpcQuestMarkerAvailable() {
             quests: [],
         },
     }, (playerId, receivedNpc) => {
-        log.push(['collectNpcQuestViews', playerId, receivedNpc.npcId]);
-        return [{ status: 'available', line: 'side' }];
+        log.push(['resolveAvailableNpcQuestMarker', playerId, receivedNpc.npcId]);
+        return { state: 'available', line: 'side' };
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
@@ -113,7 +113,7 @@ function testResolveNpcQuestMarkerAvailable() {
     assert.deepEqual(marker, { line: 'side', state: 'available' });
     assert.deepEqual(log, [
         ['getNpcForPlayerMap', 'player:1', 'npc_a'],
-        ['collectNpcQuestViews', 'player:1', 'npc_a'],
+        ['resolveAvailableNpcQuestMarker', 'player:1', 'npc_a'],
     ]);
 }
 /**

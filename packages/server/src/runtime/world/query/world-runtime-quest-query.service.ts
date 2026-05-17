@@ -146,6 +146,29 @@ export class WorldRuntimeQuestQueryService {
         }
         return result.sort(compareQuestViews);
     }    
+    resolveAvailableNpcQuestMarker(playerId, npc) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const byQuestId = new Map<string, any>(player.quests.quests.map((entry) => [entry.id, entry]));
+        for (let index = 0; index < npc.quests.length; index += 1) {
+            const rawQuest = npc.quests[index];
+            const existing = byQuestId.get(rawQuest.id);
+            if (existing && existing.status !== 'completed') {
+                return undefined;
+            }
+            if (existing?.status === 'completed') {
+                continue;
+            }
+            const blockedByPrevious = npc.quests
+                .slice(0, index)
+                .some((candidate) => byQuestId.get(candidate.id)?.status !== 'completed');
+            if (blockedByPrevious) {
+                return undefined;
+            }
+            const source = this.templateRepository.getQuestSource(rawQuest.id);
+            return { line: normalizeQuestLine(source?.quest?.line ?? rawQuest.line), state: 'available' };
+        }
+        return undefined;
+    }
     /**
  * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。

@@ -62,9 +62,7 @@ export class WorldRuntimeNpcQuestInteractionQueryService {
         if (!npc) {
             return undefined;
         }
-        const npcViews = this.worldRuntimeQuestQueryService.collectNpcQuestViews(playerId, npc);
-        const available = npcViews.find((entry) => entry.status === 'available');
-        return available ? { line: available.line, state: 'available' } : undefined;
+        return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarker(playerId, npc);
     }
     /**
  * buildNpcQuestContextAction：构建并返回目标对象。

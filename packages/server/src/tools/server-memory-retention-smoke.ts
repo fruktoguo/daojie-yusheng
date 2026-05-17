@@ -1430,6 +1430,7 @@ function proveEntryCachesFollowLifecycle(): {
   const nativePlayerAuthSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-player-auth.service.ts'), 'utf8');
   const nativeManagedAccountSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-managed-account.service.ts'), 'utf8');
   const questQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-quest-query.service.ts'), 'utf8');
+  const npcQuestInteractionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-npc-quest-interaction-query.service.ts'), 'utf8');
   const questNormalizationSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime.normalization.helpers.ts'), 'utf8');
   const npcQuestWriteSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
@@ -1637,11 +1638,14 @@ function proveEntryCachesFollowLifecycle(): {
     && questQuerySource.includes('const built = cloneQuestState({')
     && questQuerySource.includes('materializeQuestView(playerId, quest)')
     && questQuerySource.includes('quest = this.materializeQuestView(\'\', quest);')
+    && questQuerySource.includes('resolveAvailableNpcQuestMarker(playerId, npc)')
+    && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
+    && npcQuestInteractionSource.includes('return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarker(playerId, npc);')
+    && !npcQuestInteractionSource.includes('collectNpcQuestViews(playerId, npc)')
     && playerRuntimeSource.includes('return player.quests.quests;')
     && playerRuntimeSource.includes('function cloneQuestRuntimeEntry(entry)')
     && playerRuntimeSource.includes('id: typeof entry.id === \'string\' ? entry.id : \'\',')
     && playerRuntimeSource.includes('targetMonsterId: typeof entry.targetMonsterId === \'string\' ? entry.targetMonsterId : \'\',')
-    && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
     && !playerRuntimeSource.includes('const cloned: any = {\n        ...entry,')
     && !playerRuntimeSource.includes('rewardItemIds: entry.rewardItemIds.slice()')
     && !playerRuntimeSource.includes('rewards: entry.rewards.map((reward) => ({ ...reward }))')
