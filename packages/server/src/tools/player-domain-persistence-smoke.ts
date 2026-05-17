@@ -24,7 +24,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -1064,7 +1064,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/market storage 二次快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1104,7 +1104,10 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   const fakeClient = {
     async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
       queries.push(sql);
-      return { rows: [], rowCount: sql.includes('INSERT INTO player_inventory_item') ? 1 : 0 };
+      const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_enhancement_record')
+        || sql.includes('INSERT INTO player_logbook_message');
+      return { rows: [], rowCount: isCheckedInsert ? 1 : 0 };
     },
     release() {
       return undefined;
@@ -1160,19 +1163,112 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
     ],
     { versionSeed: 1 },
   );
+  await service.savePlayerMapUnlocks('player:fake', [{ mapId: 'fake_map', unlockedAt: 1 }], { versionSeed: 1 });
+  await service.savePlayerTechniques(
+    'player:fake',
+    [{ techId: 'tech_fake', level: 1, exp: 0, expToNext: 1, realmLv: 1, skillsEnabled: true, rawPayload: {} }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerBuffs(
+    'player:fake',
+    [{
+      buffId: 'buff_fake',
+      sourceSkillId: 'skill_fake',
+      sourceCasterId: 'player:fake',
+      realmLv: 1,
+      remainingTicks: 1,
+      duration: 1,
+      stacks: 1,
+      maxStacks: 1,
+      sustainTicksElapsed: 0,
+      rawPayload: {},
+    }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerQuests(
+    'player:fake',
+    [{ questId: 'quest_fake', status: 'active', progressPayload: {}, rawPayload: {} }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerAutoBattleSkills(
+    'player:fake',
+    [{ skillId: 'skill_fake', enabled: true, skillEnabled: true, autoBattleOrder: 1 }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerAutoUseItemRules(
+    'player:fake',
+    [{ itemId: 'pill_fake', conditionPayload: [] }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerProfessionState(
+    'player:fake',
+    [{ professionType: 'alchemy', level: 1, exp: 0, expToNext: 1 }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerAlchemyPresets(
+    'player:fake',
+    [{ presetId: 'preset_fake', recipeId: 'recipe_fake', name: 'fake', ingredients: [] }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerEnhancementRecords(
+    'player:fake',
+    [{
+      recordId: 'enhancement:fake:1',
+      itemId: 'weapon_fake',
+      highestLevel: 1,
+      levelsPayload: [],
+      actionStartedAt: 1,
+      actionEndedAt: 2,
+      startLevel: 0,
+      initialTargetLevel: 1,
+      desiredTargetLevel: 1,
+      protectionStartLevel: null,
+      status: 'completed',
+    }],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerLogbookMessages(
+    'player:fake',
+    [{ id: 'log_fake_1', kind: 'system', text: 'fake', at: 1, ackedAt: null }],
+    { versionSeed: 1 },
+  );
 
   const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
   const forbiddenDeletes = [
     'DELETE FROM player_inventory_item WHERE player_id = $1',
     'DELETE FROM player_wallet WHERE player_id = $1',
     'DELETE FROM player_equipment_slot WHERE player_id = $1',
+    'DELETE FROM player_map_unlock WHERE player_id = $1',
+    'DELETE FROM player_technique_state WHERE player_id = $1',
+    'DELETE FROM player_persistent_buff_state WHERE player_id = $1',
+    'DELETE FROM player_quest_progress WHERE player_id = $1',
+    'DELETE FROM player_auto_battle_skill WHERE player_id = $1',
+    'DELETE FROM player_auto_use_item_rule WHERE player_id = $1',
+    'DELETE FROM player_profession_state WHERE player_id = $1',
+    'DELETE FROM player_alchemy_preset WHERE player_id = $1',
+    'DELETE FROM player_enhancement_record WHERE player_id = $1',
+    'DELETE FROM player_logbook_message WHERE player_id = $1',
   ];
   for (const forbidden of forbiddenDeletes) {
     if (normalizedQueries.some((query) => query === forbidden)) {
       throw new Error(`player snapshot emitted forbidden whole-player delete: ${forbidden}`);
     }
   }
-  for (const tableName of ['player_inventory_item', 'player_wallet', 'player_equipment_slot']) {
+  for (const tableName of [
+    'player_inventory_item',
+    'player_wallet',
+    'player_equipment_slot',
+    'player_map_unlock',
+    'player_technique_state',
+    'player_persistent_buff_state',
+    'player_quest_progress',
+    'player_auto_battle_skill',
+    'player_auto_use_item_rule',
+    'player_profession_state',
+    'player_alchemy_preset',
+    'player_enhancement_record',
+    'player_logbook_message',
+  ]) {
     if (!normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
       && query.includes('jsonb_to_recordset')
       && query.includes('NOT EXISTS'))) {

@@ -3536,13 +3536,8 @@ async function replacePlayerMapUnlockRows(
   mapUnlocks: readonly unknown[],
   unlockedAtSeed: number,
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_MAP_UNLOCK_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(mapUnlocks) || mapUnlocks.length === 0) {
-    return;
-  }
-
   const normalizedMapUnlocks = new Map<string, number>();
-  for (const entry of mapUnlocks) {
+  for (const entry of Array.isArray(mapUnlocks) ? mapUnlocks : []) {
     const record = asRecord(entry);
     const mapId = normalizeRequiredString(record?.mapId ?? entry);
     if (!mapId) {
@@ -3553,30 +3548,41 @@ async function replacePlayerMapUnlockRows(
       normalizedMapUnlocks.set(mapId, unlockedAt);
     }
   }
-  if (normalizedMapUnlocks.size === 0) {
-    return;
-  }
+  const rows = Array.from(normalizedMapUnlocks.entries()).map(([mapId, unlockedAt]) => ({
+    map_id: mapId,
+    unlocked_at: unlockedAt,
+  }));
 
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const [mapId, unlockedAt] of normalizedMapUnlocks.entries()) {
-    placeholders.push(`($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, now())`);
-    values.push(playerId, mapId, unlockedAt);
-    parameterIndex += 3;
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(map_id varchar(120), unlocked_at bigint)
+        )
+        INSERT INTO ${PLAYER_MAP_UNLOCK_TABLE}(
+          player_id,
+          map_id,
+          unlocked_at,
+          updated_at
+        )
+        SELECT $1, map_id, unlocked_at, now()
+        FROM incoming
+        ON CONFLICT (player_id, map_id)
+        DO UPDATE SET
+          unlocked_at = EXCLUDED.unlocked_at,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_MAP_UNLOCK_TABLE}(
-        player_id,
-        map_id,
-        unlocked_at,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_MAP_UNLOCK_TABLE,
+    playerId,
+    rows.map(({ map_id }) => ({ map_id })),
+    'map_id varchar(120)',
+    'incoming.map_id = target.map_id',
   );
 }
 
@@ -3717,6 +3723,32 @@ async function prunePlayerMarketStorageStaleSlots(
   );
 }
 
+async function prunePlayerRowsBySnapshotKeys(
+  client: PoolClient,
+  tableName: string,
+  playerId: string,
+  keys: readonly Record<string, unknown>[],
+  recordsetColumns: string,
+  matchPredicate: string,
+): Promise<void> {
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(${recordsetColumns})
+      )
+      DELETE FROM ${tableName} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE ${matchPredicate}
+        )
+    `,
+    [playerId, JSON.stringify(keys)],
+  );
+}
+
 async function replacePlayerEquipmentSlots(
   client: PoolClient,
   playerId: string,
@@ -3812,47 +3844,63 @@ async function replacePlayerTechniqueStates(
   playerId: string,
   rows: TechniqueStateRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_TECHNIQUE_STATE_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}, $${parameterIndex + 7}::jsonb, now())`,
+  const normalizedRows = rows.map((row) => ({
+    tech_id: row.techId,
+    level: row.level,
+    exp: row.exp,
+    exp_to_next: row.expToNext,
+    realm_lv: row.realmLv,
+    skills_enabled: row.skillsEnabled,
+    raw_payload: row.rawPayload,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            tech_id varchar(120),
+            level bigint,
+            exp double precision,
+            exp_to_next double precision,
+            realm_lv bigint,
+            skills_enabled boolean,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_TECHNIQUE_STATE_TABLE}(
+          player_id,
+          tech_id,
+          level,
+          exp,
+          exp_to_next,
+          realm_lv,
+          skills_enabled,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, tech_id, level, exp, exp_to_next, realm_lv, skills_enabled, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, tech_id)
+        DO UPDATE SET
+          level = EXCLUDED.level,
+          exp = EXCLUDED.exp,
+          exp_to_next = EXCLUDED.exp_to_next,
+          realm_lv = EXCLUDED.realm_lv,
+          skills_enabled = EXCLUDED.skills_enabled,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(
-      playerId,
-      row.techId,
-      row.level,
-      row.exp,
-      row.expToNext,
-      row.realmLv,
-      row.skillsEnabled,
-      JSON.stringify(row.rawPayload),
-    );
-    parameterIndex += 8;
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_TECHNIQUE_STATE_TABLE}(
-        player_id,
-        tech_id,
-        level,
-        exp,
-        exp_to_next,
-        realm_lv,
-        skills_enabled,
-        raw_payload,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_TECHNIQUE_STATE_TABLE,
+    playerId,
+    normalizedRows.map(({ tech_id }) => ({ tech_id })),
+    'tech_id varchar(120)',
+    'incoming.tech_id = target.tech_id',
   );
 }
 
@@ -3861,53 +3909,75 @@ async function replacePlayerPersistentBuffStates(
   playerId: string,
   rows: PersistentBuffStateRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_PERSISTENT_BUFF_STATE_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}, $${parameterIndex + 7}, $${parameterIndex + 8}, $${parameterIndex + 9}, $${parameterIndex + 10}::jsonb, now())`,
+  const normalizedRows = rows.map((row) => ({
+    buff_id: row.buffId,
+    source_skill_id: row.sourceSkillId,
+    source_caster_id: row.sourceCasterId,
+    realm_lv: row.realmLv,
+    remaining_ticks: row.remainingTicks,
+    duration: row.duration,
+    stacks: row.stacks,
+    max_stacks: row.maxStacks,
+    sustain_ticks_elapsed: row.sustainTicksElapsed,
+    raw_payload: row.rawPayload,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            buff_id varchar(120),
+            source_skill_id varchar(120),
+            source_caster_id varchar(120),
+            realm_lv bigint,
+            remaining_ticks bigint,
+            duration bigint,
+            stacks bigint,
+            max_stacks bigint,
+            sustain_ticks_elapsed bigint,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_PERSISTENT_BUFF_STATE_TABLE}(
+          player_id,
+          buff_id,
+          source_skill_id,
+          source_caster_id,
+          realm_lv,
+          remaining_ticks,
+          duration,
+          stacks,
+          max_stacks,
+          sustain_ticks_elapsed,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, buff_id, source_skill_id, source_caster_id, realm_lv, remaining_ticks, duration,
+          stacks, max_stacks, sustain_ticks_elapsed, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, buff_id, source_skill_id)
+        DO UPDATE SET
+          source_caster_id = EXCLUDED.source_caster_id,
+          realm_lv = EXCLUDED.realm_lv,
+          remaining_ticks = EXCLUDED.remaining_ticks,
+          duration = EXCLUDED.duration,
+          stacks = EXCLUDED.stacks,
+          max_stacks = EXCLUDED.max_stacks,
+          sustain_ticks_elapsed = EXCLUDED.sustain_ticks_elapsed,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(
-      playerId,
-      row.buffId,
-      row.sourceSkillId,
-      row.sourceCasterId,
-      row.realmLv,
-      row.remainingTicks,
-      row.duration,
-      row.stacks,
-      row.maxStacks,
-      row.sustainTicksElapsed,
-      JSON.stringify(row.rawPayload),
-    );
-    parameterIndex += 11;
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_PERSISTENT_BUFF_STATE_TABLE}(
-        player_id,
-        buff_id,
-        source_skill_id,
-        source_caster_id,
-        realm_lv,
-        remaining_ticks,
-        duration,
-        stacks,
-        max_stacks,
-        sustain_ticks_elapsed,
-        raw_payload,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_PERSISTENT_BUFF_STATE_TABLE,
+    playerId,
+    normalizedRows.map(({ buff_id, source_skill_id }) => ({ buff_id, source_skill_id })),
+    'buff_id varchar(120), source_skill_id varchar(120)',
+    'incoming.buff_id = target.buff_id AND incoming.source_skill_id = target.source_skill_id',
   );
 }
 
@@ -3916,41 +3986,51 @@ async function replacePlayerQuestProgressRows(
   playerId: string,
   rows: QuestProgressRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_QUEST_PROGRESS_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}::jsonb, $${parameterIndex + 4}::jsonb, now())`,
+  const normalizedRows = rows.map((row) => ({
+    quest_id: row.questId,
+    status: row.status,
+    progress_payload: row.progressPayload,
+    raw_payload: row.rawPayload,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            quest_id varchar(120),
+            status varchar(40),
+            progress_payload jsonb,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_QUEST_PROGRESS_TABLE}(
+          player_id,
+          quest_id,
+          status,
+          progress_payload,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, quest_id, status, COALESCE(progress_payload, '{}'::jsonb), COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, quest_id)
+        DO UPDATE SET
+          status = EXCLUDED.status,
+          progress_payload = EXCLUDED.progress_payload,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(
-      playerId,
-      row.questId,
-      row.status,
-      JSON.stringify(row.progressPayload),
-      JSON.stringify(row.rawPayload),
-    );
-    parameterIndex += 5;
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_QUEST_PROGRESS_TABLE}(
-        player_id,
-        quest_id,
-        status,
-        progress_payload,
-        raw_payload,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_QUEST_PROGRESS_TABLE,
+    playerId,
+    normalizedRows.map(({ quest_id }) => ({ quest_id })),
+    'quest_id varchar(120)',
+    'incoming.quest_id = target.quest_id',
   );
 }
 
@@ -4031,35 +4111,51 @@ async function replacePlayerAutoBattleSkills(
   playerId: string,
   rows: AutoBattleSkillRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_AUTO_BATTLE_SKILL_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, now())`,
+  const normalizedRows = rows.map((row) => ({
+    skill_id: row.skillId,
+    enabled: row.enabled,
+    skill_enabled: row.skillEnabled,
+    auto_battle_order: row.autoBattleOrder,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            skill_id varchar(120),
+            enabled boolean,
+            skill_enabled boolean,
+            auto_battle_order bigint
+          )
+        )
+        INSERT INTO ${PLAYER_AUTO_BATTLE_SKILL_TABLE}(
+          player_id,
+          skill_id,
+          enabled,
+          skill_enabled,
+          auto_battle_order,
+          updated_at
+        )
+        SELECT $1, skill_id, enabled, skill_enabled, auto_battle_order, now()
+        FROM incoming
+        ON CONFLICT (player_id, skill_id)
+        DO UPDATE SET
+          enabled = EXCLUDED.enabled,
+          skill_enabled = EXCLUDED.skill_enabled,
+          auto_battle_order = EXCLUDED.auto_battle_order,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(playerId, row.skillId, row.enabled, row.skillEnabled, row.autoBattleOrder);
-    parameterIndex += 5;
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_AUTO_BATTLE_SKILL_TABLE}(
-        player_id,
-        skill_id,
-        enabled,
-        skill_enabled,
-        auto_battle_order,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_AUTO_BATTLE_SKILL_TABLE,
+    playerId,
+    normalizedRows.map(({ skill_id }) => ({ skill_id })),
+    'skill_id varchar(120)',
+    'incoming.skill_id = target.skill_id',
   );
 }
 
@@ -4068,31 +4164,40 @@ async function replacePlayerAutoUseItemRules(
   playerId: string,
   rows: AutoUseItemRuleRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_AUTO_USE_ITEM_RULE_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
+  const normalizedRows = rows.map((row) => ({
+    item_id: row.itemId,
+    condition_payload: row.conditionPayload,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(item_id varchar(120), condition_payload jsonb)
+        )
+        INSERT INTO ${PLAYER_AUTO_USE_ITEM_RULE_TABLE}(
+          player_id,
+          item_id,
+          condition_payload,
+          updated_at
+        )
+        SELECT $1, item_id, COALESCE(condition_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, item_id)
+        DO UPDATE SET
+          condition_payload = EXCLUDED.condition_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
   }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(`($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}::jsonb, now())`);
-    values.push(playerId, row.itemId, JSON.stringify(row.conditionPayload));
-    parameterIndex += 3;
-  }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_AUTO_USE_ITEM_RULE_TABLE}(
-        player_id,
-        item_id,
-        condition_payload,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_AUTO_USE_ITEM_RULE_TABLE,
+    playerId,
+    normalizedRows.map(({ item_id }) => ({ item_id })),
+    'item_id varchar(120)',
+    'incoming.item_id = target.item_id',
   );
 }
 
@@ -4182,34 +4287,51 @@ async function replacePlayerProfessionStates(
   playerId: string,
   rows: ProfessionStateRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_PROFESSION_STATE_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, now())`,
+  const normalizedRows = rows.map((row) => ({
+    profession_type: row.professionType,
+    level: row.level,
+    exp: row.exp,
+    exp_to_next: row.expToNext,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            profession_type varchar(80),
+            level bigint,
+            exp double precision,
+            exp_to_next double precision
+          )
+        )
+        INSERT INTO ${PLAYER_PROFESSION_STATE_TABLE}(
+          player_id,
+          profession_type,
+          level,
+          exp,
+          exp_to_next,
+          updated_at
+        )
+        SELECT $1, profession_type, level, exp, exp_to_next, now()
+        FROM incoming
+        ON CONFLICT (player_id, profession_type)
+        DO UPDATE SET
+          level = EXCLUDED.level,
+          exp = EXCLUDED.exp,
+          exp_to_next = EXCLUDED.exp_to_next,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(playerId, row.professionType, row.level, row.exp, row.expToNext);
-    parameterIndex += 5;
   }
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_PROFESSION_STATE_TABLE}(
-        player_id,
-        profession_type,
-        level,
-        exp,
-        exp_to_next,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_PROFESSION_STATE_TABLE,
+    playerId,
+    normalizedRows.map(({ profession_type }) => ({ profession_type })),
+    'profession_type varchar(80)',
+    'incoming.profession_type = target.profession_type',
   );
 }
 
@@ -4218,34 +4340,51 @@ async function replacePlayerAlchemyPresets(
   playerId: string,
   rows: AlchemyPresetRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_ALCHEMY_PRESET_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, now())`,
+  const normalizedRows = rows.map((row) => ({
+    preset_id: row.presetId,
+    recipe_id: row.recipeId,
+    name: row.name,
+    ingredients_payload: row.ingredients,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            preset_id varchar(120),
+            recipe_id varchar(120),
+            name varchar(120),
+            ingredients_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_ALCHEMY_PRESET_TABLE}(
+          preset_id,
+          player_id,
+          recipe_id,
+          name,
+          ingredients_payload,
+          updated_at
+        )
+        SELECT preset_id, $1, recipe_id, name, COALESCE(ingredients_payload, '[]'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, preset_id)
+        DO UPDATE SET
+          recipe_id = EXCLUDED.recipe_id,
+          name = EXCLUDED.name,
+          ingredients_payload = EXCLUDED.ingredients_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(row.presetId, playerId, row.recipeId, row.name, JSON.stringify(row.ingredients));
-    parameterIndex += 5;
   }
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_ALCHEMY_PRESET_TABLE}(
-        preset_id,
-        player_id,
-        recipe_id,
-        name,
-        ingredients_payload,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_ALCHEMY_PRESET_TABLE,
+    playerId,
+    normalizedRows.map(({ preset_id }) => ({ preset_id })),
+    'preset_id varchar(120)',
+    'incoming.preset_id = target.preset_id',
   );
 }
 
@@ -4320,55 +4459,86 @@ async function replacePlayerEnhancementRecords(
   playerId: string,
   rows: EnhancementRecordRow[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} WHERE player_id = $1`, [playerId]);
-  if (rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, $${parameterIndex + 5}, $${parameterIndex + 6}, $${parameterIndex + 7}, $${parameterIndex + 8}, $${parameterIndex + 9}, $${parameterIndex + 10}, $${parameterIndex + 11}, now())`,
+  const normalizedRows = rows.map((row) => ({
+    record_id: row.recordId,
+    item_id: row.itemId,
+    highest_level: row.highestLevel,
+    levels_payload: row.levelsPayload,
+    action_started_at: row.actionStartedAt,
+    action_ended_at: row.actionEndedAt,
+    start_level: row.startLevel,
+    initial_target_level: row.initialTargetLevel,
+    desired_target_level: row.desiredTargetLevel,
+    protection_start_level: row.protectionStartLevel,
+    status: row.status,
+  }));
+  if (normalizedRows.length > 0) {
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            record_id varchar(180),
+            item_id varchar(160),
+            highest_level bigint,
+            levels_payload jsonb,
+            action_started_at bigint,
+            action_ended_at bigint,
+            start_level bigint,
+            initial_target_level bigint,
+            desired_target_level bigint,
+            protection_start_level bigint,
+            status varchar(40)
+          )
+        )
+        INSERT INTO ${PLAYER_ENHANCEMENT_RECORD_TABLE}(
+          record_id,
+          player_id,
+          item_id,
+          highest_level,
+          levels_payload,
+          action_started_at,
+          action_ended_at,
+          start_level,
+          initial_target_level,
+          desired_target_level,
+          protection_start_level,
+          status,
+          updated_at
+        )
+        SELECT record_id, $1, item_id, highest_level, COALESCE(levels_payload, '[]'::jsonb),
+          action_started_at, action_ended_at, start_level, initial_target_level,
+          desired_target_level, protection_start_level, status, now()
+        FROM incoming
+        ON CONFLICT (record_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          item_id = EXCLUDED.item_id,
+          highest_level = EXCLUDED.highest_level,
+          levels_payload = EXCLUDED.levels_payload,
+          action_started_at = EXCLUDED.action_started_at,
+          action_ended_at = EXCLUDED.action_ended_at,
+          start_level = EXCLUDED.start_level,
+          initial_target_level = EXCLUDED.initial_target_level,
+          desired_target_level = EXCLUDED.desired_target_level,
+          protection_start_level = EXCLUDED.protection_start_level,
+          status = EXCLUDED.status,
+          updated_at = now()
+        WHERE ${PLAYER_ENHANCEMENT_RECORD_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(
-      row.recordId,
-      playerId,
-      row.itemId,
-      row.highestLevel,
-      JSON.stringify(row.levelsPayload),
-      row.actionStartedAt,
-      row.actionEndedAt,
-      row.startLevel,
-      row.initialTargetLevel,
-      row.desiredTargetLevel,
-      row.protectionStartLevel,
-      row.status,
-    );
-    parameterIndex += 12;
+    if ((result.rowCount ?? 0) !== normalizedRows.length) {
+      throw new Error(`replacePlayerEnhancementRecords: record_id conflict outside player scope playerId=${playerId}`);
+    }
   }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_ENHANCEMENT_RECORD_TABLE}(
-        record_id,
-        player_id,
-        item_id,
-        highest_level,
-        levels_payload,
-        action_started_at,
-        action_ended_at,
-        start_level,
-        initial_target_level,
-        desired_target_level,
-        protection_start_level,
-        status,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_ENHANCEMENT_RECORD_TABLE,
+    playerId,
+    normalizedRows.map(({ record_id }) => ({ record_id })),
+    'record_id varchar(180)',
+    'incoming.record_id = target.record_id',
   );
 }
 
@@ -4377,15 +4547,15 @@ async function replacePlayerLogbookMessages(
   playerId: string,
   rows: unknown[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_LOGBOOK_MESSAGE_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
+  const normalizedRows: Array<{
+    message_id: string;
+    kind: string;
+    text: string;
+    from_name: string | null;
+    occurred_at: number;
+    acked_at: number | null;
+  }> = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
     const entry = asRecord(row);
     const messageId = normalizeRequiredString(entry?.id ?? entry?.messageId);
     const kind = normalizeRequiredString(entry?.kind);
@@ -4393,40 +4563,64 @@ async function replacePlayerLogbookMessages(
     if (!messageId || !kind || !text) {
       continue;
     }
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}, now())`,
-    );
-    values.push(
-      messageId,
-      playerId,
+    normalizedRows.push({
+      message_id: messageId,
       kind,
       text,
-      normalizeOptionalString(entry?.from ?? entry?.fromName),
-      normalizeOptionalInteger(entry?.at ?? entry?.occurredAt) ?? Date.now(),
-      normalizeOptionalInteger(entry?.ackedAt),
+      from_name: normalizeOptionalString(entry?.from ?? entry?.fromName),
+      occurred_at: normalizeOptionalInteger(entry?.at ?? entry?.occurredAt) ?? Date.now(),
+      acked_at: normalizeOptionalInteger(entry?.ackedAt),
+    });
+  }
+
+  if (normalizedRows.length > 0) {
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            message_id varchar(180),
+            kind varchar(40),
+            text text,
+            from_name varchar(120),
+            occurred_at bigint,
+            acked_at bigint
+          )
+        )
+        INSERT INTO ${PLAYER_LOGBOOK_MESSAGE_TABLE}(
+          message_id,
+          player_id,
+          kind,
+          text,
+          from_name,
+          occurred_at,
+          acked_at,
+          updated_at
+        )
+        SELECT message_id, $1, kind, text, from_name, occurred_at, acked_at, now()
+        FROM incoming
+        ON CONFLICT (player_id, message_id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          text = EXCLUDED.text,
+          from_name = EXCLUDED.from_name,
+          occurred_at = EXCLUDED.occurred_at,
+          acked_at = EXCLUDED.acked_at,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    parameterIndex += 7;
+    if ((result.rowCount ?? 0) !== normalizedRows.length) {
+      throw new Error(`replacePlayerLogbookMessages: message conflict outside player scope playerId=${playerId}`);
+    }
   }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_LOGBOOK_MESSAGE_TABLE}(
-        message_id,
-        player_id,
-        kind,
-        text,
-        from_name,
-        occurred_at,
-        acked_at,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_LOGBOOK_MESSAGE_TABLE,
+    playerId,
+    normalizedRows.map(({ message_id }) => ({ message_id })),
+    'message_id varchar(180)',
+    'incoming.message_id = target.message_id',
   );
 }
 
