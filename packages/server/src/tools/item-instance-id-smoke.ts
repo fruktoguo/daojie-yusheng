@@ -4,7 +4,8 @@
  * 覆盖方案 §15.1 中列出的 5 项：
  *   1. assignment：装备类生成入口分配 UUID；非装备类不分配；幂等
  *   2. enhancement：强化产物继承启动时的 instanceId（resolveEnhancementJobItem 模拟）
- *   3. equip：装备永远独立成 slot，不参与同签名合并（canMergeItemStack 行为）
+ *   3. equip：装备按 (itemId, enhanceLevel) 签名合并堆叠（canMergeItemStack 行为），
+ *      被拆出的克隆获得新 UUID 以避免持久化 PK 冲突
  *   4. market：toOrderItem 脱壳（模拟 spread + delete instanceId）
  *   5. grant：buildNextInventorySnapshots / buildGrantedInventorySnapshots 透传 itemInstanceId
  *
@@ -59,12 +60,15 @@ function testSharedHelpers(): void {
     assert.equal(isLegacyItemInstanceId(''), false);
     assert.equal(isLegacyItemInstanceId(undefined), false);
 
-    // canMergeItemStack：装备永远不可合并
-    assert.equal(canMergeItemStack(makeItem({ itemInstanceId: 'uuid-x' })), false);
-    assert.equal(canMergeItemStack(makeItem()), false); // 装备即使没 instanceId 也不可合并
-    assert.equal(canMergeItemStack(makeItem({ type: 'material', itemInstanceId: 'uuid-y' })), false); // 带 instanceId 的非装备
-    assert.equal(canMergeItemStack(makeItem({ type: 'material' })), true); // 普通材料可合并
+    // canMergeItemStack：装备允许按签名合并堆叠（与其他可堆叠物品一致）；
+    // null/undefined 等非法 ItemStack 仍被拒绝。
+    assert.equal(canMergeItemStack(makeItem({ itemInstanceId: 'uuid-x' })), true);
+    assert.equal(canMergeItemStack(makeItem()), true);
+    assert.equal(canMergeItemStack(makeItem({ type: 'material', itemInstanceId: 'uuid-y' })), true);
+    assert.equal(canMergeItemStack(makeItem({ type: 'material' })), true);
     assert.equal(canMergeItemStack(makeItem({ type: 'consumable' })), true);
+    assert.equal(canMergeItemStack(null), false);
+    assert.equal(canMergeItemStack(undefined), false);
 
     // 签名算法仍然只看 itemId + enhanceLevel（保留原有同质堆叠语义）
     assert.equal(createItemStackSignature({ itemId: 'foo', enhanceLevel: 0 }), 'foo#0');
@@ -148,30 +152,56 @@ function testEnhancementInheritance(): void {
     console.log('[smoke] enhancement inheritance passed');
 }
 
-function testEquipNoMerge(): void {
-    // 模拟 unequipItem 把装备返回背包：
-    // 即便背包里已经有同 (itemId, enhanceLevel) 的另一件装备，新装备也必须独立成 slot
-    const inventory: any[] = [];
-    const existing = makeItem({ itemInstanceId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' });
-    inventory.push(existing);
+function testEquipCanMergeBySignature(): void {
+    // 同 (itemId, enhanceLevel) 的装备按签名合并堆叠，行为与可堆叠物品一致。
+    // 现有堆叠的 itemInstanceId 胜出，新进入的 itemInstanceId 被丢弃。
+    {
+        const inventory: any[] = [];
+        const existing = makeItem({ itemInstanceId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' });
+        inventory.push(existing);
 
-    const unequipped = makeItem({ itemInstanceId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
-    // canMergeItemStack(装备) === false → 永远独立 push
-    if (canMergeItemStack(unequipped)) {
-        const sig = createItemStackSignature(unequipped);
-        const target = inventory.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
-        if (target) {
-            target.count += unequipped.count;
+        const incoming = makeItem({ itemInstanceId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+        if (canMergeItemStack(incoming)) {
+            const sig = createItemStackSignature(incoming);
+            const target = inventory.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
+            if (target) {
+                target.count += incoming.count;
+            } else {
+                inventory.push(incoming);
+            }
         } else {
-            inventory.push(unequipped);
+            inventory.push(incoming);
         }
-    } else {
-        inventory.push(unequipped);
+
+        assert.equal(inventory.length, 1, 'same (itemId, enhanceLevel) equipment must merge into a single slot');
+        assert.equal(inventory[0].count, 2, 'merged stack count must increment');
+        assert.equal(
+            inventory[0].itemInstanceId,
+            existing.itemInstanceId,
+            'merged stack keeps the existing itemInstanceId',
+        );
     }
 
-    assert.equal(inventory.length, 2, 'two distinct equipments must occupy two slots');
-    assert.equal(inventory[0].itemInstanceId, existing.itemInstanceId);
-    assert.equal(inventory[1].itemInstanceId, unequipped.itemInstanceId);
+    // 不同 enhanceLevel 的装备签名不同 → 不合并
+    {
+        const inventory: any[] = [];
+        inventory.push(makeItem({ itemInstanceId: '11111111-1111-4111-8111-111111111111', enhanceLevel: 0 }));
+        const plus5 = makeItem({ itemInstanceId: '22222222-2222-4222-8222-222222222222', enhanceLevel: 5 });
+        if (canMergeItemStack(plus5)) {
+            const sig = createItemStackSignature(plus5);
+            const target = inventory.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
+            if (target) {
+                target.count += plus5.count;
+            } else {
+                inventory.push(plus5);
+            }
+        } else {
+            inventory.push(plus5);
+        }
+        assert.equal(inventory.length, 2, 'different enhanceLevel must occupy distinct slots');
+        assert.equal(inventory[0].enhanceLevel, 0);
+        assert.equal(inventory[1].enhanceLevel, 5);
+    }
 
     // 对照：非装备同签名要合并
     const stackA = makeItem({ type: 'material', itemId: 'mat.iron', count: 3 });
@@ -191,7 +221,47 @@ function testEquipNoMerge(): void {
     assert.equal(matInv.length, 1, 'materials with same itemId must merge');
     assert.equal(matInv[0].count, 5);
 
-    console.log('[smoke] equip-no-merge passed');
+    console.log('[smoke] equip-merge-by-signature passed');
+}
+
+function testStackSplitGetsFreshInstanceId(): void {
+    // 模拟从 count > 1 的装备堆叠里拆 1 件出来（equip / 强化 / 挂单 / 掉落都会经过这一步）：
+    // 被拆出的克隆必须分配新的 itemInstanceId，否则会在
+    // player_inventory_item / player_equipment_slot 等表上与剩余堆叠共用 PK，
+    // 导致持久化层 ON CONFLICT (item_instance_id) 误覆盖或 UNIQUE 冲突。
+    const stackInstanceId = 'aaaaaaaa-1111-4111-8111-111111111111';
+    const original = makeItem({ itemInstanceId: stackInstanceId, count: 5, enhanceLevel: 0 });
+    const inventory: any[] = [original];
+
+    // 模拟 takeSingleInventoryItemForEquipment / extractInventoryItemAt 的 count > 1 分支：
+    //   - 原 slot 保持原 itemInstanceId，count -=1
+    //   - 克隆出 count=1，分配新的 itemInstanceId
+    const remaining = inventory[0];
+    remaining.count = 5 - 1;
+    const cloned = { ...remaining, count: 1 } as Record<string, unknown>;
+    if (isItemInstanceTracked(cloned as any)) {
+        // 真实代码使用 randomUUID()；smoke 用固定值便于断言
+        cloned.itemInstanceId = 'aaaaaaaa-2222-4222-8222-222222222222';
+    }
+
+    assert.equal(inventory[0].itemInstanceId, stackInstanceId, 'remaining stack keeps the original itemInstanceId');
+    assert.equal(inventory[0].count, 4);
+    assert.notEqual(
+        cloned.itemInstanceId,
+        stackInstanceId,
+        'cloned single item must get a fresh itemInstanceId distinct from the remaining stack',
+    );
+
+    // 非装备拆分：不分配 instanceId（保持 undefined）
+    const matStack = makeItem({ type: 'material', itemId: 'mat.iron', count: 5 });
+    delete matStack.itemInstanceId;
+    const matCloned = { ...matStack, count: 1 } as Record<string, unknown>;
+    if (isItemInstanceTracked(matCloned as any)) {
+        matCloned.itemInstanceId = 'should-not-happen';
+    }
+    assert.equal(matCloned.itemInstanceId, undefined, 'non-tracked items must not receive an itemInstanceId on split');
+
+    console.log('[smoke] stack-split-fresh-instance-id passed');
 }
 
 function testMarketShed(): void {
@@ -263,7 +333,8 @@ async function main(): Promise<void> {
     testSharedHelpers();
     testAssignment();
     testEnhancementInheritance();
-    testEquipNoMerge();
+    testEquipCanMergeBySignature();
+    testStackSplitGetsFreshInstanceId();
     testMarketShed();
     testGrantPassthrough();
     testCompareItemInstanceId();

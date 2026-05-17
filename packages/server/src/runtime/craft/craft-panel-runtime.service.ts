@@ -4,6 +4,7 @@
  * 同时管理管线策略注册和技艺活动的统一调度。
  */
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isItemInstanceTracked, isLegacyItemInstanceId } from '@mud/shared';
@@ -2545,7 +2546,7 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
         player.inventory.items.push(normalized);
         return normalized;
     }
-    // 装备 / 带 instanceId 的物品永远独立成 slot
+    // 极端兜底：canMergeItemStack 对合法物品恒为 true，理论不会到这里
     player.inventory.items.push(normalized);
     return normalized;
 }
@@ -2608,10 +2609,18 @@ function extractInventoryItemAt(player, slotIndex) {
     }
     const count = Math.max(0, Math.floor(Number(item.count) || 0));
     if (count <= 1) {
+        // 堆叠仅 1 件：原 slot 整体移除，被拆出的对象继承原 itemInstanceId 不会发生 PK 冲突。
         return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
     }
     item.count = count - 1;
-    return { ...item, count: 1 };
+    const extracted: Record<string, unknown> = { ...item, count: 1 };
+    // 从 count > 1 的堆叠里拆 1 件用于强化等单件流程：被拆出的那件必须分配新 itemInstanceId，
+    // 否则剩余堆叠（仍在背包）和被拆出的那件（进入 enhancementJob.item / 等装备槽 / 入库）
+    // 在持久化层会共用同一 PK（player_inventory_item.item_instance_id），导致冲突或互相覆盖。
+    if (isItemInstanceTracked(extracted as any)) {
+        extracted.itemInstanceId = randomUUID();
+    }
+    return extracted;
 }
 /**
  * setEquippedItem：写入Equipped道具。

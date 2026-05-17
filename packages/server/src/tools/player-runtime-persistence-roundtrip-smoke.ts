@@ -419,7 +419,8 @@ function testSnapshotAndRestoreKeepItemPrototypes() {
     const snapshotWeapon = runtimeSnapshot.equipment.slots.find((entry) => entry.slot === 'weapon')?.item;
     assert.equal(snapshotWeapon.name, equipmentTemplate.name);
     assert.equal(snapshotWeapon.equipAttrs, equipmentTemplate.equipAttrs);
-    assert.deepEqual(Object.keys(snapshotWeapon).sort(), ['count', 'enhanceLevel', 'itemId']);
+    // 装备类强制带 itemInstanceId（assignItemInstanceIdIfNeeded 兜底）
+    assert.deepEqual(Object.keys(snapshotWeapon).sort(), ['count', 'enhanceLevel', 'itemId', 'itemInstanceId']);
 
     service.restoreSnapshot(runtimeSnapshot);
     const restoredSnapshot = service.snapshot(player.playerId);

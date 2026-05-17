@@ -4,7 +4,7 @@
  * 战斗配置、移动、修炼、技能冷却、通知队列和持久化脏域追踪。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -1553,11 +1553,18 @@ export class PlayerRuntimeService {
         const normalizedCount = Math.max(1, Math.trunc(count));
 
         const nextCount = Math.min(normalizedCount, item.count);
+        const willKeepRemaining = nextCount < item.count;
 
         const extracted = {
             ...item,
             count: nextCount,
         };
+        // 若拆分后原 slot 仍保留剩余堆叠，且物品参与 instanceId 追踪（装备类），
+        // 则被拆出的那部分必须分配新 itemInstanceId，避免与剩余堆叠在
+        // player_inventory_item / market_listing / loot_container 等下游表上共用 PK。
+        if (willKeepRemaining && isItemInstanceTracked(extracted)) {
+            (extracted as { itemInstanceId?: string }).itemInstanceId = randomUUID();
+        }
         consumeInventoryItemAt(player.inventory.items, slotIndex, nextCount);
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, item.itemId);
@@ -1593,7 +1600,8 @@ export class PlayerRuntimeService {
                 player.inventory.items.push(normalized);
             }
         } else {
-            // 装备 / 任何带 itemInstanceId 的物品永远独立成 slot，count 恒为 1
+            // 极端兜底：canMergeItemStack 当前对所有合法 ItemStack 返回 true，理论上不会到这里。
+            // 仅当传入对象是 null/undefined 时才走这条分支（已在前置阶段过滤）。
             player.inventory.items.push(normalized);
         }
         player.inventory.revision += 1;
@@ -1989,8 +1997,9 @@ export class PlayerRuntimeService {
         // 装备 normalize 后再次确保 instanceId 没丢
         assignItemInstanceIdIfNeeded(equipmentEntry.item);
         if (previousEquipped) {
-            // 装备永远独立成 slot：不与背包同签名堆叠合并 count
-            // 极端情况：迁移期老装备没 instanceId，此处 lazy 升级再 push
+            // 卸下的旧装备回背包：与同 (itemId, enhanceLevel) 签名的现有堆叠合并 count；
+            // 找不到同签名堆叠时再独立成 slot。previousEquipped 的 itemInstanceId 在合并时
+            // 由现有堆叠胜出（直接 ++count，不写入新 instanceId）；独立成 slot 时保留原 id。
             assignItemInstanceIdIfNeeded(previousEquipped);
             if (canMergeItemStack(previousEquipped)) {
                 const previousSignature = createItemStackSignature(previousEquipped);
@@ -2048,7 +2057,7 @@ export class PlayerRuntimeService {
             }
         }
         if (canMergeItemStack(unequippedItem)) {
-            // 一般 unequip 不会走到此分支（装备类 canMergeItemStack 永远 false），保留现有合并逻辑兜底
+            // 卸下的装备回背包：优先与同 (itemId, enhanceLevel) 签名的现有堆叠合并 count
             const unequippedSignature = createItemStackSignature(unequippedItem);
             const mergeTarget = player.inventory.items.find((entry) =>
                 canMergeItemStack(entry) && createItemStackSignature(entry) === unequippedSignature,
@@ -2059,7 +2068,7 @@ export class PlayerRuntimeService {
                 player.inventory.items.push(unequippedItem);
             }
         } else {
-            // 装备永远独立成 slot
+            // 极端兜底：理论不会到这里（canMergeItemStack 对合法物品恒为 true）
             player.inventory.items.push(unequippedItem);
         }
         equipmentEntry.item = null;
@@ -3639,6 +3648,10 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['position_checkpoint']);
             this.bumpPersistentRevision(player);
         }
+        // 水合期合并：把旧版拆分开的同 (itemId, enhanceLevel) 签名堆叠重新合到同一 slot。
+        // 这解决 itemInstanceId 引入时 canMergeItemStack 过于严格导致的碎片化。
+        coalesceInventoryItems(player.inventory.items);
+
         // 水合期 lazy 升级：如果 inventory / equipment 里的装备携带迁移期 fallback
         // itemInstanceId（含":"，如 inv:p_xxx:0），就在此分配新 UUID 替换。
         // 升级后的 instanceId 会随下一次 flush 落回数据库，从此该装备拥有稳定身份。
@@ -6138,6 +6151,33 @@ function compareInventoryItems(left, right) {
  * @returns 无返回值，直接更新consume背包道具At相关状态。
  */
 
+/**
+ * coalesceInventoryItems：就地合并同 (itemId, enhanceLevel) 签名的堆叠。
+ *
+ * 水合期调用一次：把之前因 canMergeItemStack 过于严格而被拆成多个 slot
+ * 的同签名物品重新合到同一 slot（count 相加，后续 slot 被移除）。
+ * 合并后保留首个遇到的 slot 的 itemInstanceId（现有堆叠胜出）。
+ */
+function coalesceInventoryItems(items: any[]): void {
+    const signatureIndex = new Map<string, number>();
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+        const item = items[i];
+        if (!canMergeItemStack(item)) {
+            continue;
+        }
+        const sig = createItemStackSignature(item);
+        const existingIdx = signatureIndex.get(sig);
+        if (existingIdx !== undefined) {
+            // 合并到已有 slot（index 更小的那个）
+            items[existingIdx].count += Math.max(1, Math.trunc(Number(item.count) || 1));
+            items.splice(i, 1);
+            // 由于 splice 使 existingIdx 以上的 index 向下移动，但 existingIdx < i，不受影响
+        } else {
+            signatureIndex.set(sig, i);
+        }
+    }
+}
+
 function consumeInventoryItemAt(items, slotIndex, count) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -6159,11 +6199,19 @@ function takeSingleInventoryItemForEquipment(items, slotIndex) {
     }
     const itemCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
     if (itemCount <= 1) {
+        // 堆叠仅 1 件：原 slot 整体移除，克隆继承原 itemInstanceId（不会发生 PK 冲突）
         const [removed] = items.splice(slotIndex, 1);
         return cloneItemWithCountPreservingTemplate(removed, 1);
     }
     item.count = itemCount - 1;
-    return cloneItemWithCountPreservingTemplate(item, 1);
+    const cloned = cloneItemWithCountPreservingTemplate(item, 1);
+    // 从 count > 1 的堆叠里拆 1 件出来：被拆出的那件装备必须分配新 itemInstanceId，
+    // 否则剩余堆叠（仍在背包）和被拆出的那件（即将进入装备槽 / 强化 / 挂单 / 掉落）
+    // 会在 player_inventory_item / player_equipment_slot 等表上共用同一 PK。
+    if (isItemInstanceTracked(cloned)) {
+        (cloned as { itemInstanceId?: string }).itemInstanceId = randomUUID();
+    }
+    return cloned;
 }
 
 function cloneItemWithCountPreservingTemplate(item, count) {
