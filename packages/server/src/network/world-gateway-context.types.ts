@@ -56,6 +56,7 @@ export interface WorldGatewayHelperContext {
   worldSessionService: WorldSessionService;
   playerSessionRouteService: PlayerSessionRouteService;
   worldSyncService: WorldSyncService;
+  flushMarketResult(result: unknown): Promise<void>;
   gatewayBootstrapHelper: WorldGatewayBootstrapHelper;
   gatewayGmCommandHelper: WorldGatewayGmCommandHelper;
   gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper;

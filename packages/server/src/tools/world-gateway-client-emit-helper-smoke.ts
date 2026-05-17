@@ -10,9 +10,8 @@ const { WorldGatewayClientEmitHelper } = require("../network/world-gateway-clien
  */
 
 
-function createGateway(log = []) {
+function createSessionStateHelper() {
     return {
-        gatewaySessionStateHelper: {        
         /**
  * getMarketSubscribers：读取坊市Subscriber。
  * @returns 无返回值，完成坊市Subscriber的读取/组装。
@@ -40,8 +39,11 @@ function createGateway(log = []) {
             getMarketTradeHistoryRequests() {
                 return new Map([['player:1', 3]]);
             },
-        },
-        worldClientEventService: {        
+        };
+}
+
+function createWorldClientEventService(log = []) {
+    return {
         /**
  * markProtocol：处理Protocol并更新相关状态。
  * @param client 参数说明。
@@ -112,7 +114,6 @@ function createGateway(log = []) {
             broadcastSuggestionUpdate() {
                 log.push(['broadcastSuggestionUpdate']);
             },
-        },
     };
 }
 /**
@@ -123,13 +124,21 @@ function createGateway(log = []) {
 
 async function testClientEmitHelper() {
     const log = [];
-    const gateway = createGateway(log);
-    const helper = new WorldGatewayClientEmitHelper(gateway);
+    const sessionStateHelper = createSessionStateHelper();
+    const helper = new WorldGatewayClientEmitHelper(createWorldClientEventService(log));
     const client = { id: 'socket:1' };
     helper.emitQuests(client, { quests: [] });
     helper.emitProtocolMailSummary(client, { unread: 2 });
     helper.emitNpcShop(client, { npcId: 'npc.a' });
-    await helper.flushMarketResult({ ok: true });
+    await helper.flushMarketResult(
+        { ok: true },
+        sessionStateHelper.getMarketSubscribers(),
+        {
+            marketListingRequests: sessionStateHelper.getMarketListingRequests(),
+            auctionListingRequests: sessionStateHelper.getAuctionListingRequests(),
+            marketTradeHistoryRequests: sessionStateHelper.getMarketTradeHistoryRequests(),
+        },
+    );
     await helper.emitMailSummaryForPlayer(client, 'player:1');
     helper.broadcastSuggestions();
     assert.deepEqual(log, [

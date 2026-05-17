@@ -4,23 +4,19 @@
  * 统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { Injectable } from '@nestjs/common';
+import { WorldClientEventService } from './world-client-event.service';
+
+interface MarketFlushRequestSnapshot {
+    marketListingRequests: Map<string, unknown>;
+    auctionListingRequests: Map<string, unknown>;
+    marketTradeHistoryRequests: Map<string, unknown>;
+}
 
 /** 世界 socket 客户端发包 helper：统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。 */
+@Injectable()
 class WorldGatewayClientEmitHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }
+    constructor(private readonly worldClientEventService: WorldClientEventService) {}
     /**
  * markMainline：处理主线协议标记并更新相关状态。
  * @param client 参数说明。
@@ -28,7 +24,7 @@ class WorldGatewayClientEmitHelper {
  */
 
     markProtocolClient(client) {
-        this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+        this.worldClientEventService.markProtocol(client, 'mainline');
     }
     /**
  * emitMainlineQuests：处理主线任务并更新相关状态。
@@ -39,7 +35,7 @@ class WorldGatewayClientEmitHelper {
 
     emitQuests(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitQuests(client, toQuestSyncPayload(payload));
+        this.worldClientEventService.emitQuests(client, toQuestSyncPayload(payload));
     }
     /**
  * emitMainlineSuggestionUpdate：处理主线 SuggestionUpdate 并更新相关状态。
@@ -50,7 +46,7 @@ class WorldGatewayClientEmitHelper {
 
     emitSuggestionUpdate(client, suggestions) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitSuggestionUpdate(client, suggestions);
+        this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }
     /**
  * emitMainlineMailSummary：处理主线邮件摘要并更新相关状态。
@@ -61,7 +57,7 @@ class WorldGatewayClientEmitHelper {
 
     emitProtocolMailSummary(client, summary) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMailSummary(client, summary);
+        this.worldClientEventService.emitMailSummary(client, summary);
     }
     /**
  * emitMainlineMailSummaryForPlayer：处理主线邮件摘要并更新相关状态。
@@ -72,7 +68,7 @@ class WorldGatewayClientEmitHelper {
 
     async emitMailSummaryForPlayer(client, playerId) {
         this.markProtocolClient(client);
-        await this.gateway.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
+        await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }
     /**
  * emitMainlineMailPage：处理主线邮件分页并更新相关状态。
@@ -83,7 +79,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMailPage(client, page) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMailPage(client, page);
+        this.worldClientEventService.emitMailPage(client, page);
     }
     /**
  * emitMainlineMailDetail：处理主线邮件详情并更新相关状态。
@@ -94,7 +90,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMailDetail(client, detail) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMailDetail(client, detail);
+        this.worldClientEventService.emitMailDetail(client, detail);
     }
     /**
  * emitMainlineMailOperationResult：处理主线邮件操作结果并更新相关状态。
@@ -105,7 +101,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMailOperationResult(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMailOperationResult(client, payload);
+        this.worldClientEventService.emitMailOperationResult(client, payload);
     }
     /**
  * emitMainlineMarketUpdate：处理主线坊市更新并更新相关状态。
@@ -116,7 +112,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketUpdate(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketUpdate(client, payload);
+        this.worldClientEventService.emitMarketUpdate(client, payload);
     }
     /**
  * emitMainlineMarketListings：读取主线坊市列表并返回结果。
@@ -127,7 +123,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketListings(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketListings(client, payload);
+        this.worldClientEventService.emitMarketListings(client, payload);
     }
     /**
  * emitMainlineAuctionListings：读取主线拍卖行列表并返回结果。
@@ -138,7 +134,7 @@ class WorldGatewayClientEmitHelper {
 
     emitAuctionListings(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitAuctionListings(client, payload);
+        this.worldClientEventService.emitAuctionListings(client, payload);
     }
     /**
  * emitMainlineMarketOrders：处理主线坊市订单并更新相关状态。
@@ -149,7 +145,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketOrders(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketOrders(client, payload);
+        this.worldClientEventService.emitMarketOrders(client, payload);
     }
     /**
  * emitMainlineMarketStorage：处理主线坊市仓储并更新相关状态。
@@ -160,7 +156,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketStorage(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketStorage(client, payload);
+        this.worldClientEventService.emitMarketStorage(client, payload);
     }
     /**
  * emitMainlineMarketItemBook：处理主线坊市道具图鉴并更新相关状态。
@@ -171,7 +167,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketItemBook(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketItemBook(client, payload);
+        this.worldClientEventService.emitMarketItemBook(client, payload);
     }
     /**
  * emitMainlineMarketTradeHistory：处理主线坊市成交历史并更新相关状态。
@@ -182,7 +178,7 @@ class WorldGatewayClientEmitHelper {
 
     emitMarketTradeHistory(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitMarketTradeHistory(client, payload);
+        this.worldClientEventService.emitMarketTradeHistory(client, payload);
     }
     /**
  * emitMainlineNpcShop：处理主线 NPC 商店并更新相关状态。
@@ -193,7 +189,7 @@ class WorldGatewayClientEmitHelper {
 
     emitNpcShop(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitNpcShop(client, payload);
+        this.worldClientEventService.emitNpcShop(client, payload);
     }
     /**
  * flushMarketResult：处理刷新坊市结果并更新相关状态。
@@ -201,12 +197,12 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
-    async flushMarketResult(result) {
-        await this.gateway.worldClientEventService.flushMarketResult(this.gateway.gatewaySessionStateHelper.getMarketSubscribers(), result, {
-            marketListingRequests: this.gateway.gatewaySessionStateHelper.getMarketListingRequests(),
-            auctionListingRequests: this.gateway.gatewaySessionStateHelper.getAuctionListingRequests(),
-            marketTradeHistoryRequests: this.gateway.gatewaySessionStateHelper.getMarketTradeHistoryRequests(),
-        });
+    async flushMarketResult(
+        result,
+        subscribers,
+        requests: MarketFlushRequestSnapshot,
+    ) {
+        await this.worldClientEventService.flushMarketResult(subscribers, result, requests);
     }
     /**
  * emitMailSummary：处理邮件摘要并更新相关状态。
@@ -216,7 +212,7 @@ class WorldGatewayClientEmitHelper {
  */
 
     async emitMailSummary(client, playerId) {
-        await this.gateway.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
+        await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }
     /**
  * broadcastSuggestions：执行broadcastSuggestion相关逻辑。
@@ -224,7 +220,7 @@ class WorldGatewayClientEmitHelper {
  */
 
     broadcastSuggestions() {
-        this.gateway.worldClientEventService.broadcastSuggestionUpdate();
+        this.worldClientEventService.broadcastSuggestionUpdate();
     }
 }
 

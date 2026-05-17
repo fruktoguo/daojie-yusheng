@@ -34,6 +34,7 @@ import { WorldSyncAuxStateService } from './network/world-sync-aux-state.service
 import { WorldSyncEnvelopeService } from './network/world-sync-envelope.service';
 import { WorldSyncPlayerStateService } from './network/world-sync-player-state.service';
 import { WorldSyncService } from './network/world-sync.service';
+import { WorldGatewayClientEmitHelper } from './network/world-gateway-client-emit.helper';
 import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { ContentTemplateRepository } from './content/content-template.repository';
 import { ActorBlueprintRegistryService } from './runtime/actor/actor-blueprint-registry.service';
@@ -338,6 +339,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldSyncPlayerStateService,
     WorldSyncService,
     RuntimeMaintenanceService,
+    WorldGatewayClientEmitHelper,
     WorldGatewayGuardHelper,
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,

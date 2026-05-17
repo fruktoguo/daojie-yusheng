@@ -41,7 +41,7 @@ class WorldGatewayMarketHelper {
             this.gateway.gatewaySessionStateHelper.setAuctionListingsRequest(playerId, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' });
             const settlement = await this.gateway.marketRuntimeService.settleExpiredAuctionLots();
             if (settlement) {
-                await this.gateway.gatewayClientEmitHelper.flushMarketResult(settlement);
+                await this.gateway.flushMarketResult(settlement);
             }
             // 按需 hydrate：玩家首次打开坊市时把其仓库从持久化拉到内存缓存，
             // 避免之前的 lazy 设计在 sync 构造方法中读出空仓库。
@@ -101,7 +101,7 @@ class WorldGatewayMarketHelper {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             const settlement = await this.gateway.marketRuntimeService.settleExpiredAuctionLots();
             if (settlement) {
-                await this.gateway.gatewayClientEmitHelper.flushMarketResult(settlement);
+                await this.gateway.flushMarketResult(settlement);
             }
             this.gateway.worldClientEventService.emitAuctionListings(client, this.gateway.marketRuntimeService.buildAuctionListingsPage(playerId, payload));
         }
@@ -199,7 +199,7 @@ class WorldGatewayMarketHelper {
                 listingMode: payload?.listingMode,
                 buyoutPrice: payload?.buyoutPrice,
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_SELL_ORDER_FAILED', error);
@@ -236,7 +236,7 @@ class WorldGatewayMarketHelper {
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_BUY_ORDER_FAILED', error);
@@ -264,7 +264,7 @@ class WorldGatewayMarketHelper {
                 itemKey: payload?.itemKey ?? '',
                 unitPrice: payload?.unitPrice,
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'PLACE_AUCTION_BID_FAILED', error);
@@ -281,7 +281,7 @@ class WorldGatewayMarketHelper {
                 lotId: payload?.lotId ?? '',
                 itemKey: payload?.itemKey ?? '',
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'BUYOUT_AUCTION_LOT_FAILED', error);
@@ -306,7 +306,7 @@ class WorldGatewayMarketHelper {
                 itemKey: payload?.itemKey ?? '',
                 quantity: payload?.quantity,
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'BUY_MARKET_ITEM_FAILED', error);
@@ -341,7 +341,7 @@ class WorldGatewayMarketHelper {
                 slotIndex: payload?.slotIndex,
                 quantity: payload?.quantity,
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'SELL_MARKET_ITEM_FAILED', error);
@@ -375,7 +375,7 @@ class WorldGatewayMarketHelper {
             const result = await this.gateway.marketRuntimeService.cancelOrder(playerId, {
                 orderId: payload?.orderId ?? '',
             });
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CANCEL_MARKET_ORDER_FAILED', error);
@@ -406,7 +406,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             const result = await this.gateway.marketRuntimeService.claimStorage(playerId);
-            await this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
+            await this.gateway.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CLAIM_MARKET_STORAGE_FAILED', error);

@@ -81,7 +81,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper; gatewayPresenceHelper: WorldGatewayPresenceHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
-    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper) {
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -114,7 +114,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.gatewayReadModelHelper = new WorldGatewayReadModelHelper(this);
         this.gatewayActionHelper = new WorldGatewayActionHelper(this);
         this.gatewayBuildingHelper = new WorldGatewayBuildingHelper(this);
-        this.gatewayClientEmitHelper = new WorldGatewayClientEmitHelper(this);
+        this.gatewayClientEmitHelper = gatewayClientEmitHelper;
         this.gatewayGuardHelper = gatewayGuardHelper;
         this.gatewaySessionStateHelper = new WorldGatewaySessionStateHelper(this);
         this.gatewayPresenceHelper = new WorldGatewayPresenceHelper(this);
@@ -191,6 +191,17 @@ class WorldGateway implements WorldGatewayHelperContext {
     }
     clearHeartbeatPresencePersistThrottle(playerId: string) {
         this.gatewayPresenceHelper.clearHeartbeatPresencePersistThrottle(playerId);
+    }
+    async flushMarketResult(result: unknown) {
+        await this.gatewayClientEmitHelper.flushMarketResult(
+            result,
+            this.gatewaySessionStateHelper.getMarketSubscribers(),
+            {
+                marketListingRequests: this.gatewaySessionStateHelper.getMarketListingRequests(),
+                auctionListingRequests: this.gatewaySessionStateHelper.getAuctionListingRequests(),
+                marketTradeHistoryRequests: this.gatewaySessionStateHelper.getMarketTradeHistoryRequests(),
+            },
+        );
     }
     @SubscribeMessage(C2S.GmGetState)
     handleSocketGmGetState(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
