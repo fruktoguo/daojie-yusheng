@@ -762,11 +762,8 @@ export function clearAuthTrace(): AuthTraceClearResult {
   const trace = ensureAuthTraceState();
   trace.records.length = 0;
   if (trace.filePath) {
-    try {
-      fs.writeFileSync(trace.filePath, '', { encoding: 'utf8' });
-    } catch {
-      trace.fileErrored = true;
-    }
+    fs.promises.writeFile(trace.filePath, '', { encoding: 'utf8' })
+      .catch(() => { trace.fileErrored = true; });
   }
 
   return {
@@ -776,7 +773,7 @@ export function clearAuthTrace(): AuthTraceClearResult {
   };
 }
 
-/** 将单条 trace 同步写入文件。 */
+/** 将单条 trace 异步写入文件（fire-and-forget，不阻塞事件循环）。 */
 function appendTraceFile(trace: AuthTraceState, entry: AuthTraceRecord): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -787,7 +784,6 @@ function appendTraceFile(trace: AuthTraceState, entry: AuthTraceRecord): void {
   if (!trace.filePrepared) {
     try {
       fs.mkdirSync(path.dirname(trace.filePath), { recursive: true });
-      fs.writeFileSync(trace.filePath, '', { flag: 'a', encoding: 'utf8' });
       trace.filePrepared = true;
     } catch {
       trace.fileErrored = true;
@@ -795,11 +791,8 @@ function appendTraceFile(trace: AuthTraceState, entry: AuthTraceRecord): void {
     }
   }
 
-  try {
-    fs.appendFileSync(trace.filePath, `${JSON.stringify(entry)}\n`, { encoding: 'utf8' });
-  } catch {
-    trace.fileErrored = true;
-  }
+  fs.promises.appendFile(trace.filePath, `${JSON.stringify(entry)}\n`, { encoding: 'utf8' })
+    .catch(() => { trace.fileErrored = true; });
 }
 
 /** 汇总认证 trace 为可读统计。 */
