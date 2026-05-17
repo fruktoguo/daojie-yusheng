@@ -281,7 +281,10 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, shopPlayerId);
     await cleanupPlayer(pool, walletPlayerId);
     await cleanupPlayer(pool, equipPlayerId);
+    await cleanupPlayer(pool, activeJobStartPlayerId);
+    await cleanupPlayer(pool, activeJobCancelPlayerId);
     await cleanupPlayer(pool, activeJobPlayerId);
+    await cleanupPlayer(pool, activeJobCompletePlayerId);
     await seedClaimFixture(pool, {
       playerId,
       runtimeOwnerId,

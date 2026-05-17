@@ -3426,15 +3426,15 @@ async function replacePlayerMarketStorageItems(
   playerId: string,
   items: readonly DurableMarketStorageItemSnapshot[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(items) || items.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (let index = 0; index < items.length; index += 1) {
+  const rows: Array<{
+    storage_item_id: string;
+    slot_index: number;
+    item_id: string;
+    count: number;
+    enhance_level: number | null;
+    raw_payload: Record<string, unknown>;
+  }> = [];
+  for (let index = 0; index < (Array.isArray(items) ? items.length : 0); index += 1) {
     const entry = items[index];
     const itemId = normalizeRequiredString(entry?.itemId);
     if (!itemId) {
@@ -3452,45 +3452,96 @@ async function replacePlayerMarketStorageItems(
             count,
             ...(enhanceLevel == null ? {} : { enhanceLevel }),
           };
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}::jsonb, now())`,
-    );
-    values.push(
-      storageItemId,
-      playerId,
-      slotIndex,
-      itemId,
+    rows.push({
+      storage_item_id: storageItemId,
+      slot_index: slotIndex,
+      item_id: itemId,
       count,
-      enhanceLevel,
-      JSON.stringify({
+      enhance_level: enhanceLevel,
+      raw_payload: {
         ...(rawPayload as Record<string, unknown>),
         itemId,
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
-      }),
+      },
+    });
+  }
+
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT storage_item_id, slot_index
+          FROM jsonb_to_recordset($2::jsonb) AS entry(storage_item_id varchar(180), slot_index bigint)
+        )
+        DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_index = target.slot_index
+              AND incoming.storage_item_id <> target.storage_item_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ storage_item_id, slot_index }) => ({ storage_item_id, slot_index })))],
     );
-    parameterIndex += 7;
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            storage_item_id varchar(180),
+            slot_index bigint,
+            item_id varchar(120),
+            count bigint,
+            enhance_level bigint,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
+          storage_item_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          enhance_level,
+          raw_payload,
+          updated_at
+        )
+        SELECT storage_item_id, $1, slot_index, item_id, count, enhance_level, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (storage_item_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          slot_index = EXCLUDED.slot_index,
+          item_id = EXCLUDED.item_id,
+          count = EXCLUDED.count,
+          enhance_level = EXCLUDED.enhance_level,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    if (((result as { rowCount?: number }).rowCount ?? 0) !== rows.length) {
+      throw new Error(`replacePlayerMarketStorageItems: storage_item_id conflict outside player scope playerId=${playerId}`);
+    }
   }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
-        storage_item_id,
-        player_id,
-        slot_index,
-        item_id,
-        count,
-        enhance_level,
-        raw_payload,
-        updated_at
+      WITH incoming AS (
+        SELECT slot_index
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_index bigint)
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_index = target.slot_index
+        )
     `,
-    values,
+    [playerId, JSON.stringify(rows.map(({ slot_index }) => ({ slot_index })))],
   );
 }
 
@@ -3659,15 +3710,20 @@ async function replacePlayerEnhancementRecords(
   playerId: string,
   rows: readonly DurableEnhancementRecordSnapshot[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (let index = 0; index < rows.length; index += 1) {
+  const normalizedRows: Array<{
+    record_id: string;
+    item_id: string;
+    highest_level: number;
+    levels_payload: unknown[];
+    action_started_at: number | null;
+    action_ended_at: number | null;
+    start_level: number | null;
+    initial_target_level: number | null;
+    desired_target_level: number | null;
+    protection_start_level: number | null;
+    status: string | null;
+  }> = [];
+  for (let index = 0; index < (Array.isArray(rows) ? rows.length : 0); index += 1) {
     const row = rows[index];
     const itemId = normalizeRequiredString(row?.itemId);
     if (!itemId) {
@@ -3676,50 +3732,96 @@ async function replacePlayerEnhancementRecords(
     const recordId =
       normalizeRequiredString(row?.recordId)
       || `enhancement_record:${playerId}:${itemId}:${index}`;
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}::jsonb, $${parameterIndex + 5}, $${parameterIndex + 6}, $${parameterIndex + 7}, $${parameterIndex + 8}, $${parameterIndex + 9}, $${parameterIndex + 10}, $${parameterIndex + 11}, now())`,
-    );
-    values.push(
-      recordId,
-      playerId,
-      itemId,
-      Math.max(0, Math.trunc(Number(row?.highestLevel ?? 0))),
-      JSON.stringify(Array.isArray(row?.levels) ? row.levels : []),
-      normalizeOptionalInteger(row?.actionStartedAt),
-      normalizeOptionalInteger(row?.actionEndedAt),
-      normalizeOptionalInteger(row?.startLevel),
-      normalizeOptionalInteger(row?.initialTargetLevel),
-      normalizeOptionalInteger(row?.desiredTargetLevel),
-      normalizeOptionalInteger(row?.protectionStartLevel),
-      normalizeOptionalString(row?.status),
-    );
-    parameterIndex += 12;
+    normalizedRows.push({
+      record_id: recordId,
+      item_id: itemId,
+      highest_level: Math.max(0, Math.trunc(Number(row?.highestLevel ?? 0))),
+      levels_payload: Array.isArray(row?.levels) ? row.levels : [],
+      action_started_at: normalizeOptionalInteger(row?.actionStartedAt),
+      action_ended_at: normalizeOptionalInteger(row?.actionEndedAt),
+      start_level: normalizeOptionalInteger(row?.startLevel),
+      initial_target_level: normalizeOptionalInteger(row?.initialTargetLevel),
+      desired_target_level: normalizeOptionalInteger(row?.desiredTargetLevel),
+      protection_start_level: normalizeOptionalInteger(row?.protectionStartLevel),
+      status: normalizeOptionalString(row?.status),
+    });
   }
 
-  if (placeholders.length === 0) {
-    return;
+  if (normalizedRows.length > 0) {
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            record_id varchar(180),
+            item_id varchar(160),
+            highest_level bigint,
+            levels_payload jsonb,
+            action_started_at bigint,
+            action_ended_at bigint,
+            start_level bigint,
+            initial_target_level bigint,
+            desired_target_level bigint,
+            protection_start_level bigint,
+            status varchar(40)
+          )
+        )
+        INSERT INTO ${PLAYER_ENHANCEMENT_RECORD_TABLE}(
+          record_id,
+          player_id,
+          item_id,
+          highest_level,
+          levels_payload,
+          action_started_at,
+          action_ended_at,
+          start_level,
+          initial_target_level,
+          desired_target_level,
+          protection_start_level,
+          status,
+          updated_at
+        )
+        SELECT record_id, $1, item_id, highest_level, COALESCE(levels_payload, '[]'::jsonb),
+          action_started_at, action_ended_at, start_level, initial_target_level,
+          desired_target_level, protection_start_level, status, now()
+        FROM incoming
+        ON CONFLICT (record_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          item_id = EXCLUDED.item_id,
+          highest_level = EXCLUDED.highest_level,
+          levels_payload = EXCLUDED.levels_payload,
+          action_started_at = EXCLUDED.action_started_at,
+          action_ended_at = EXCLUDED.action_ended_at,
+          start_level = EXCLUDED.start_level,
+          initial_target_level = EXCLUDED.initial_target_level,
+          desired_target_level = EXCLUDED.desired_target_level,
+          protection_start_level = EXCLUDED.protection_start_level,
+          status = EXCLUDED.status,
+          updated_at = now()
+        WHERE ${PLAYER_ENHANCEMENT_RECORD_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
+    if (((result as { rowCount?: number }).rowCount ?? 0) !== normalizedRows.length) {
+      throw new Error(`replacePlayerEnhancementRecords: record_id conflict outside player scope playerId=${playerId}`);
+    }
   }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_ENHANCEMENT_RECORD_TABLE}(
-        record_id,
-        player_id,
-        item_id,
-        highest_level,
-        levels_payload,
-        action_started_at,
-        action_ended_at,
-        start_level,
-        initial_target_level,
-        desired_target_level,
-        protection_start_level,
-        status,
-        updated_at
+      WITH incoming AS (
+        SELECT record_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(record_id varchar(180))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.record_id = target.record_id
+        )
     `,
-    values,
+    [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
   );
 }
 
@@ -3728,49 +3830,72 @@ async function replacePlayerQuestProgressRows(
   playerId: string,
   rows: readonly DurableQuestProgressSnapshot[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_QUEST_PROGRESS_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
+  const normalizedRows: Array<{
+    quest_id: string;
+    status: string;
+    progress_payload: Record<string, unknown> | unknown[] | null;
+    raw_payload: Record<string, unknown>;
+  }> = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
     const questId = normalizeRequiredString(row?.questId);
     if (!questId) {
       continue;
     }
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}::jsonb, $${parameterIndex + 4}::jsonb, now())`,
-    );
-    values.push(
-      playerId,
-      questId,
-      normalizeOptionalString(row?.status) ?? 'active',
-      JSON.stringify(normalizeQuestProgressPayload(row?.progressPayload)),
-      JSON.stringify(normalizeQuestRawPayload(row?.rawPayload, questId, row?.status)),
-    );
-    parameterIndex += 5;
+    normalizedRows.push({
+      quest_id: questId,
+      status: normalizeOptionalString(row?.status) ?? 'active',
+      progress_payload: normalizeQuestProgressPayload(row?.progressPayload),
+      raw_payload: normalizeQuestRawPayload(row?.rawPayload, questId, row?.status),
+    });
   }
 
-  if (placeholders.length === 0) {
-    return;
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            quest_id varchar(120),
+            status varchar(40),
+            progress_payload jsonb,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_QUEST_PROGRESS_TABLE}(
+          player_id,
+          quest_id,
+          status,
+          progress_payload,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, quest_id, status, COALESCE(progress_payload, '{}'::jsonb), COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, quest_id)
+        DO UPDATE SET
+          status = EXCLUDED.status,
+          progress_payload = EXCLUDED.progress_payload,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
   }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_QUEST_PROGRESS_TABLE}(
-        player_id,
-        quest_id,
-        status,
-        progress_payload,
-        raw_payload,
-        updated_at
+      WITH incoming AS (
+        SELECT quest_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(quest_id varchar(120))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_QUEST_PROGRESS_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.quest_id = target.quest_id
+        )
     `,
-    values,
+    [playerId, JSON.stringify(normalizedRows.map(({ quest_id }) => ({ quest_id })))],
   );
 }
 
