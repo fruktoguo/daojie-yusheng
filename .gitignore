@@ -20,3 +20,5 @@ packages/server/data/backups/
 *.cpuprofile
 test-results/
 benchmarks/
+.narrafork/
+.worktrees/
