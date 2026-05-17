@@ -3542,7 +3542,7 @@ export class PlayerRuntimeService {
             },
             quests: {
                 revision: Math.max(1, snapshot.quests.revision),
-                quests: snapshot.quests.entries.map((entry) => cloneQuestRuntimeEntry(entry)),
+                quests: cloneQuestRuntimeEntries(snapshot.quests.entries),
             },
             lootWindowTarget: null,
             pendingLogbookMessages: normalizePendingLogbookMessages(snapshot.pendingLogbookMessages),
@@ -4017,6 +4017,18 @@ function cloneQuestRuntimeEntry(entry) {
     }
     return cloned;
 }
+
+function cloneQuestRuntimeEntries(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return [];
+    }
+    const clonedEntries = [];
+    for (const entry of entries) {
+        clonedEntries.push(cloneQuestRuntimeEntry(entry));
+    }
+    return clonedEntries;
+}
+
 /**
  * cloneRuntimePlayerState：构建运行态玩家状态。
  * @param player 玩家对象。
@@ -4109,7 +4121,7 @@ function cloneRuntimePlayerState(player) {
         },
         quests: {
             revision: player.quests.revision,
-            quests: player.quests.quests.map((entry) => cloneQuestRuntimeEntry(entry)),
+            quests: cloneQuestRuntimeEntries(player.quests.quests),
         },
         alchemySkill: cloneCraftSkillState(player.alchemySkill),
         forgingSkill: cloneCraftSkillState(player.forgingSkill),
@@ -5450,7 +5462,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         quests: needsDomain('quest') ? {
             revision: player.quests.revision,
-            entries: player.quests.quests.map((entry) => cloneQuestRuntimeEntry(entry)),
+            entries: cloneQuestRuntimeEntries(player.quests.quests),
         } : {
             revision: player.quests.revision,
             entries: [],
