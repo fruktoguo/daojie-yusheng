@@ -2514,6 +2514,12 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
     toOrderItem(item) {
 
         const normalized = this.toFullItem(item);
+        // 市场内同质化交易：卖家挂单后 itemInstanceId 不再有意义，
+        // 买家成交后由 deliverItemToPlayer → receiveInventoryItem 重新分配新 instanceId。
+        // 这里显式剥离，避免买家收到的物品继承卖家原 instanceId 造成身份串台。
+        if (normalized && typeof normalized === 'object' && 'itemInstanceId' in normalized) {
+            delete (normalized as { itemInstanceId?: unknown }).itemInstanceId;
+        }
         return {
             ...normalized,
             count: 1,

@@ -6,7 +6,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isItemInstanceTracked, isLegacyItemInstanceId } from '@mud/shared';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
@@ -2507,12 +2508,21 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalized = contentTemplateRepository.normalizeItem(item);
-    const signature = createItemStackSignature(normalized);
-    const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
-    if (existing) {
-        existing.count += normalized.count;
-        return existing;
+    // 装备类必须有稳定 itemInstanceId（炼器产物 / 强化产物 / 退还料 / 自动入手）
+    assignItemInstanceIdIfNeeded(normalized);
+    if (canMergeItemStack(normalized)) {
+        const signature = createItemStackSignature(normalized);
+        const existing = player.inventory.items.find((entry) =>
+            canMergeItemStack(entry) && createItemStackSignature(entry) === signature,
+        );
+        if (existing) {
+            existing.count += normalized.count;
+            return existing;
+        }
+        player.inventory.items.push(normalized);
+        return normalized;
     }
+    // 装备 / 带 instanceId 的物品永远独立成 slot
     player.inventory.items.push(normalized);
     return normalized;
 }
@@ -2595,7 +2605,15 @@ function setEquippedItem(player, slot, item) {
     if (!entry) {
         return;
     }
-    entry.item = item ? cloneItem(item) : null;
+    if (item) {
+        const cloned = cloneItem(item);
+        // 显式继承 instanceId（强化成功 / 失败 / 降级 / 取消 都走此路径）；
+        // 若来源 item 没带（极端：迁移期老装备），就此 lazy 升级
+        assignItemInstanceIdIfNeeded(cloned);
+        entry.item = cloned;
+    } else {
+        entry.item = null;
+    }
 }
 
 function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel) {
@@ -2617,6 +2635,13 @@ function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel)
         return null;
     }
     const count = Math.max(1, Math.floor(Number(source?.count) || 1));
+    // 强化产物必须继承启动时锁定的 itemInstanceId（来自 enhancementJob.item），
+    // 这是"成功 +1 / 失败 -1 / 保护降级 / 取消"四条路径上保持装备身份不变的关键。
+    const itemInstanceId = typeof source?.itemInstanceId === 'string' && source.itemInstanceId.length > 0
+        ? source.itemInstanceId
+        : (typeof job?.item?.itemInstanceId === 'string' && job.item.itemInstanceId.length > 0
+            ? job.item.itemInstanceId
+            : undefined);
     const normalized = contentTemplateRepository.normalizeItem({
         ...source,
         itemId,
@@ -2625,10 +2650,13 @@ function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel)
         name: source?.name ?? job?.targetItemName ?? itemId,
         level: source?.level ?? job?.targetItemLevel ?? 1,
         enhanceLevel,
+        ...(itemInstanceId ? { itemInstanceId } : {}),
     });
     if (!normalized || normalized.type !== 'equipment') {
         return null;
     }
+    // 若 normalize 后仍缺失（极端边界），lazy 升级一次以保证装备永远有 instanceId
+    assignItemInstanceIdIfNeeded(normalized);
     return normalized;
 }
 /**

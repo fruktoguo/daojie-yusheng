@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
+import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
 import { BuffTemplateRegistry } from './registries/buff-template.registry';
 import { DropTableRegistry } from './registries/drop-table.registry';
 import { FormationTemplateRegistry } from './registries/formation-template.registry';
@@ -89,7 +90,14 @@ export class ContentTemplateRepository {
     }
     /** 按物品模板生成一份可堆叠物品实例。 */
     createItem(itemId, count = 1) {
-        return this.itemRegistry.createItem(itemId, count);
+        const item = this.itemRegistry.createItem(itemId, count);
+        // createItem 是"新实例创建"瓶颈：starter 背包 / 掉落 / 合成产物 / 兑换码 /
+        // NPC 商店 / 市场货币 / 任务奖励 / 邮件附件 / 战斗 tile drop 等都走这里。
+        // 装备类必须在此分配稳定 itemInstanceId；非装备类不动。
+        if (item) {
+            assignItemInstanceIdIfNeeded(item);
+        }
+        return item;
     }
     /** 读取物品名称，供运行时和日志使用。 */
     getItemName(itemId) {

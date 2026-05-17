@@ -964,10 +964,10 @@ equip:p_xxx:weapon    ← 同上
 
 ### 21.3 持久化层（阶段 3）
 
-- [ ] **P1**：`packages/server/src/persistence/inventory-item-persistence.ts` 的 `hydratePersistedInventoryItem` / `hydratePersistedEquipmentItem` 把 source.itemInstanceId 注入返回的物品；`buildPersistedInventoryItemRawPayload` / `buildPersistedEquipmentItemRawPayload` 不写入 itemInstanceId（已经走列存储）
-- [ ] **P2**：`packages/server/src/persistence/player-domain-persistence.service.ts` 的 inventory 写入与水合：装备类必须带 `itemInstanceId`，否则抛错（保留非装备类 fallback）；hydrate 时把列值注入回 ItemStack
-- [ ] **P3**：`packages/server/src/persistence/player-domain-persistence.service.ts` 的 equipment 写入与水合：装备槽必须带 itemInstanceId
-- [ ] **P4**：`packages/server/src/persistence/durable-operation.service.ts` 的 `grantInventoryItems` / `claimMailAttachments` 等写入路径透传 sourceItem.itemInstanceId；移除 `inv:${playerId}:${index}` 兜底（装备类抛错；非装备类继续兜底）
+- [x] **P1**：`packages/server/src/persistence/inventory-item-persistence.ts` 的 `hydratePersistedInventoryItem` / `hydratePersistedEquipmentItem` 把 source.itemInstanceId 注入返回的物品；`buildPersistedInventoryItemRawPayload` / `buildPersistedEquipmentItemRawPayload` 不写入 itemInstanceId（已经走列存储）
+- [x] **P2**：`packages/server/src/persistence/player-domain-persistence.service.ts` inventory SELECT 增加 `item_instance_id` 列；hydrate 时把列值注入回 ItemStack；写入路径已支持 entry.itemInstanceId 优先
+- [x] **P3**：`packages/server/src/persistence/player-domain-persistence.service.ts` equipment 写入路径已经支持 entry/item.itemInstanceId 优先（既有逻辑），新增 hydrate 透传
+- [x] **P4**：`packages/server/src/persistence/durable-operation.service.ts` 的 `DurableInventoryItemSnapshot` 增加 `itemInstanceId?` 字段；`replacePlayerInventoryItems` 优先使用 sourceItem.itemInstanceId（fallback 保留）；inventory-grant.helpers `buildNextInventorySnapshots` / `buildGrantedInventorySnapshots` 透传 itemInstanceId
 
 ### 21.4 生成入口（阶段 4）
 

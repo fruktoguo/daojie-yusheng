@@ -5,7 +5,8 @@
  */
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -1574,12 +1575,22 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = this.contentTemplateRepository.normalizeItem(item);
-        const signature = createItemStackSignature(normalized);
-        const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
-        if (existing) {
-            existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
-        }
-        else {
+        // 装备类必须有稳定 itemInstanceId；缺失或处于迁移期 fallback 时分配新 UUID。
+        // 这覆盖所有"装备入手"路径：掉落、合成、强化产物、GM、邮件、兑换码、NPC 商店、
+        // 任务奖励、市场买家成交（市场内部已脱壳，到这里时 sourceItem 不带 instanceId）。
+        assignItemInstanceIdIfNeeded(normalized);
+        if (canMergeItemStack(normalized)) {
+            const signature = createItemStackSignature(normalized);
+            const existing = player.inventory.items.find((entry) =>
+                canMergeItemStack(entry) && createItemStackSignature(entry) === signature,
+            );
+            if (existing) {
+                existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
+            } else {
+                player.inventory.items.push(normalized);
+            }
+        } else {
+            // 装备 / 任何带 itemInstanceId 的物品永远独立成 slot，count 恒为 1
             player.inventory.items.push(normalized);
         }
         player.inventory.revision += 1;
@@ -1932,6 +1943,8 @@ export class PlayerRuntimeService {
         if (!normalizedItem.equipSlot) {
             throw new NotFoundException(`物品 ${normalizedItem.itemId} 不能装备`);
         }
+        // 装备类必须有稳定 instanceId；迁移期老装备此处 lazy 升级
+        assignItemInstanceIdIfNeeded(normalizedItem);
 
         const slot = normalizedItem.equipSlot;
 
@@ -1944,16 +1957,30 @@ export class PlayerRuntimeService {
         if (!equippedItem) {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
+        // 显式把 inventory 槽里物品的 instanceId 透传给装备槽（normalizeItem 会保留 source.itemInstanceId）
+        if (typeof normalizedItem.itemInstanceId === 'string' && !equippedItem.itemInstanceId) {
+            (equippedItem as any).itemInstanceId = normalizedItem.itemInstanceId;
+        }
 
         const previousEquipped = equipmentEntry.item ?? null;
         equipmentEntry.item = this.contentTemplateRepository.normalizeItem(equippedItem);
+        // 装备 normalize 后再次确保 instanceId 没丢
+        assignItemInstanceIdIfNeeded(equipmentEntry.item);
         if (previousEquipped) {
-            const previousSignature = createItemStackSignature(previousEquipped);
-            const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === previousSignature);
-            if (mergeTarget) {
-                mergeTarget.count += Math.max(1, Math.trunc(Number(previousEquipped.count ?? 1)));
-            }
-            else {
+            // 装备永远独立成 slot：不与背包同签名堆叠合并 count
+            // 极端情况：迁移期老装备没 instanceId，此处 lazy 升级再 push
+            assignItemInstanceIdIfNeeded(previousEquipped);
+            if (canMergeItemStack(previousEquipped)) {
+                const previousSignature = createItemStackSignature(previousEquipped);
+                const mergeTarget = player.inventory.items.find((entry) =>
+                    canMergeItemStack(entry) && createItemStackSignature(entry) === previousSignature,
+                );
+                if (mergeTarget) {
+                    mergeTarget.count += Math.max(1, Math.trunc(Number(previousEquipped.count ?? 1)));
+                } else {
+                    player.inventory.items.push(previousEquipped);
+                }
+            } else {
                 player.inventory.items.push(previousEquipped);
             }
         }
@@ -1981,12 +2008,21 @@ export class PlayerRuntimeService {
             throw new NotFoundException(`装备槽位为空：${slot}`);
         }
         const unequippedItem = equipmentEntry.item;
-        const unequippedSignature = createItemStackSignature(unequippedItem);
-        const mergeTarget = player.inventory.items.find((entry) => createItemStackSignature(entry) === unequippedSignature);
-        if (mergeTarget) {
-            mergeTarget.count += Math.max(1, Math.trunc(Number(unequippedItem.count ?? 1)));
-        }
-        else {
+        // 装备类必须有稳定 instanceId；迁移期老装备此处 lazy 升级
+        assignItemInstanceIdIfNeeded(unequippedItem);
+        if (canMergeItemStack(unequippedItem)) {
+            // 一般 unequip 不会走到此分支（装备类 canMergeItemStack 永远 false），保留现有合并逻辑兜底
+            const unequippedSignature = createItemStackSignature(unequippedItem);
+            const mergeTarget = player.inventory.items.find((entry) =>
+                canMergeItemStack(entry) && createItemStackSignature(entry) === unequippedSignature,
+            );
+            if (mergeTarget) {
+                mergeTarget.count += Math.max(1, Math.trunc(Number(unequippedItem.count ?? 1)));
+            } else {
+                player.inventory.items.push(unequippedItem);
+            }
+        } else {
+            // 装备永远独立成 slot
             player.inventory.items.push(unequippedItem);
         }
         equipmentEntry.item = null;

@@ -13,6 +13,7 @@ import {
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
 } from '@mud/shared';
+import { assignItemInstanceIdIfNeeded } from '../../runtime/world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
@@ -1199,13 +1200,16 @@ export class NativeGmPlayerService {
         if (Array.isArray(snapshot.inventory.items)) {
           next.inventory.items = snapshot.inventory.items
             .filter((entry) => Boolean(entry && typeof entry.itemId === 'string' && entry.itemId.trim()))
-            .map((entry) =>
-              this.contentTemplateRepository.normalizeItem({
+            .map((entry) => {
+              const normalized = this.contentTemplateRepository.normalizeItem({
                 ...entry,
                 itemId: entry.itemId.trim(),
                 count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(entry.count)) : 1,
-              }),
-            );
+              }) as { itemId?: string; type?: string; itemInstanceId?: string };
+              // GM 提交快照若不带 itemInstanceId（典型场景），装备类此处分配新 UUID
+              assignItemInstanceIdIfNeeded(normalized as any);
+              return normalized;
+            });
           next.inventory.revision += 1;
         }
       }
@@ -1221,13 +1225,17 @@ export class NativeGmPlayerService {
           }
 
           const item = snapshot.equipment[slot];
-          record.item = item && typeof item.itemId === 'string' && item.itemId.trim()
-            ? this.contentTemplateRepository.normalizeItem({
-                ...item,
-                itemId: item.itemId.trim(),
-                count: 1,
-              })
-            : null;
+          if (item && typeof item.itemId === 'string' && item.itemId.trim()) {
+            const normalized = this.contentTemplateRepository.normalizeItem({
+              ...item,
+              itemId: item.itemId.trim(),
+              count: 1,
+            }) as { itemId?: string; type?: string; itemInstanceId?: string };
+            assignItemInstanceIdIfNeeded(normalized as any);
+            record.item = normalized;
+          } else {
+            record.item = null;
+          }
         }
         next.equipment.revision += 1;
       }
