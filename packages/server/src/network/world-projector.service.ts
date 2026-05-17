@@ -16,6 +16,7 @@ import {
     buildMapEnter,
     buildPanelUpdate,
     buildSelfDelta,
+    capturePanelState,
     capturePlayerState,
     captureSelfState,
     captureWorldState,
@@ -41,6 +42,10 @@ type NativePlayerAuthStorePort = {
         displayName?: string | null;
     } | null;
 };
+
+function capturePlayerStateForFullPanel(player: any): any {
+    return capturePanelState(player);
+}
 
 /** 世界投影器服务：维护每个玩家的投影缓存，编排初始/增量 envelope 生成。 */
 @Injectable()
@@ -102,7 +107,7 @@ export class WorldProjectorService {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
                 selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
-                panelDelta: buildFullPanelDeltaFromState(playerState.panel),
+                panelDelta: buildFullPanelDeltaFromState(capturePlayerStateForFullPanel(player)),
             };
         }
         if (previous.instanceId !== identityView.instance.instanceId || previous.self?.templateId !== player.templateId) {
@@ -113,7 +118,7 @@ export class WorldProjectorService {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
                 selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
-                panelDelta: buildFullPanelDeltaFromState(playerState.panel),
+                panelDelta: buildFullPanelDeltaFromState(capturePlayerStateForFullPanel(player)),
             };
         }
         const currentWorld = previous.worldRevision === identityView.worldRevision
@@ -147,7 +152,7 @@ export class WorldProjectorService {
                 ? combineProjectorState(currentWorld, {
                     selfRevision: player.selfRevision,
                     self: captureSelfState(player),
-                    panel: panelUpdate.panel,
+                    panelCursor: panelUpdate.panelCursor,
                 })
                 : mergeWorldState(previous, currentWorld);
             this.cacheByPlayerId.set(identityView.playerId, current);

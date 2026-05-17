@@ -38,8 +38,8 @@ async function main(): Promise<void> {
   const playerCountersProof = provePlayerCountersSkipGmBots();
   const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
   const instanceProjectionProof = proveProjectorSharesStableInstanceEntryRefs();
-  const projectorFullEnvelopeRefProof = proveProjectorFullEnvelopeUsesCapturedRefs();
-  const bootstrapPlayerStateRefProof = proveBootstrapPlayerStateUsesProjectorCache();
+  const projectorFullEnvelopeRefProof = proveProjectorFullEnvelopeAvoidsPanelCache();
+  const bootstrapPlayerStateRefProof = proveBootstrapPlayerStateDoesNotDependOnProjectorPanelCache();
   const auxStateRefProof = proveAuxStateReusesStableProjectionRefs();
   const minimapAuxRefProof = proveMinimapAuxReusesStaticMarkerRefs();
   const tileProjectionProof = proveTileProjectionRefsReachPlayerCache();
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const envelopeThreatHotpathProof = proveEnvelopeThreatHotpathOptimizationsPresent();
   const playerSourceMigrationRefProof = provePlayerSourceMigrationRefsReused();
   const mapStaticAuxTilePatchProof = proveMapStaticAuxTilePatchResourceCachePresent();
-  const panelSliceRefProof = provePanelSliceCacheReusedOnNoopDelta();
+  const panelSliceRefProof = provePanelCursorCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
   const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
   const viewHotpathProof = proveViewHotpathOptimizationsPresent();
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存/不重捕获玩家 panel；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 与 panel diff patch 复用已捕获 world/panel 引用；Bootstrap 玩家状态复用 projector cache 的 attr/buff/action slice；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel slice 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；妖兽运行态 hydrate 和落盘投影复用 payload 子结构引用；地面物品 DB hydrate 直接接管 payload 引用并仅就地规范化 itemId/count；玩家临时 Buff clone 以 prototype 承载静态/加成字段，持久化和出网显式 materialize；fallback 通知 drain 直接摘走队列引用并重置为空队列；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存，玩家 panel 只常驻 revision/signature cursor，不再常驻完整 panel clone；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 和面板变更包只生成一次性 panel delta，不写回完整 panel cache；Bootstrap 玩家状态直接从玩家真源构造，不依赖 projector panel cache；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel cursor 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；妖兽运行态 hydrate 和落盘投影复用 payload 子结构引用；地面物品 DB hydrate 直接接管 payload 引用并仅就地规范化 itemId/count；玩家临时 Buff clone 以 prototype 承载静态/加成字段，持久化和出网显式 materialize；fallback 通知 drain 直接摘走队列引用并重置为空队列；建议文本服务端限长；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -389,17 +389,12 @@ function proveProjectorSharesStableInstanceEntryRefs(): { monsterRefShared: bool
   return { monsterRefShared, npcRefShared, containerRefShared };
 }
 
-function proveProjectorFullEnvelopeUsesCapturedRefs(): {
+function proveProjectorFullEnvelopeAvoidsPanelCache(): {
   groundItemsRefShared: boolean;
-  inventoryItemRefShared: boolean;
-  equipmentItemRefShared: boolean;
-  techniqueRefShared: boolean;
-  actionRefShared: boolean;
-  attrRefShared: boolean;
-  inventoryDiffRefShared: boolean;
-  equipmentDiffRefShared: boolean;
-  techniqueDiffRefShared: boolean;
-  actionDiffRefShared: boolean;
+  fullCacheHasNoPanel: boolean;
+  fullCacheHasPanelCursor: boolean;
+  diffCacheHasNoPanel: boolean;
+  diffCacheHasPanelCursor: boolean;
 } {
   const service = new WorldProjectorService({
     has: () => true,
@@ -432,11 +427,13 @@ function proveProjectorFullEnvelopeUsesCapturedRefs(): {
   player.actions.actions = [action];
   const full = fullService.createDeltaEnvelope(createProjectorView(), player);
   const fullCache = (fullService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('projector_player');
-  const inventoryItemRefShared = full?.panelDelta?.inv?.slots?.[0]?.item === fullCache.panel.inventory.items[0];
-  const equipmentItemRefShared = full?.panelDelta?.eq?.slots?.[0]?.item === fullCache.panel.equipment.slots[0].item;
-  const techniqueRefShared = full?.panelDelta?.tech?.techniques?.[0] === fullCache.panel.technique.techniques[0];
-  const actionRefShared = full?.panelDelta?.act?.actions?.[0] === fullCache.panel.action.actions[0];
-  const attrRefShared = full?.panelDelta?.attr?.baseAttrs === fullCache.panel.attr.baseAttrs;
+  assert.ok(full?.panelDelta?.inv?.slots?.[0]?.item);
+  assert.ok(full?.panelDelta?.eq?.slots?.[0]?.item);
+  assert.ok(full?.panelDelta?.tech?.techniques?.[0]);
+  assert.ok(full?.panelDelta?.act?.actions?.[0]);
+  const fullCacheHasNoPanel = fullCache.panel === undefined;
+  const fullCacheHasPanelCursor = typeof fullCache.panelCursor?.inventoryRevision === 'number'
+    && typeof fullCache.panelCursor?.attrSignature === 'string';
 
   const diffService = new WorldProjectorService({
     has: () => true,
@@ -453,39 +450,35 @@ function proveProjectorFullEnvelopeUsesCapturedRefs(): {
   diffPlayer.actions = { ...diffPlayer.actions, revision: 2, actions: [diffAction] };
   const diff = diffService.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, diffPlayer);
   const diffCache = (diffService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('projector_player');
-  const inventoryDiffRefShared = diff?.panelDelta?.inv?.slots?.[0]?.item === diffCache.panel.inventory.items[0];
-  const equipmentDiffRefShared = diff?.panelDelta?.eq?.slots?.[0]?.item === diffCache.panel.equipment.slots[0].item;
-  const techniqueDiffRefShared = diff?.panelDelta?.tech?.techniques?.[0] === diffCache.panel.technique.techniques[0];
-  const actionDiffRefShared = diff?.panelDelta?.act?.actions?.[0] === diffCache.panel.action.actions[0];
+  assert.equal(diff?.panelDelta?.inv?.full, 1);
+  assert.equal(diff?.panelDelta?.eq?.full, 1);
+  assert.equal(diff?.panelDelta?.tech?.full, 1);
+  assert.equal(diff?.panelDelta?.act?.full, 1);
+  const diffCacheHasNoPanel = diffCache.panel === undefined;
+  const diffCacheHasPanelCursor = diffCache.panelCursor?.inventoryRevision === 2
+    && diffCache.panelCursor?.equipmentRevision === 2
+    && diffCache.panelCursor?.techniqueRevision === 2
+    && diffCache.panelCursor?.actionRevision === 2;
 
   assert.equal(groundItemsRefShared, true);
-  assert.equal(inventoryItemRefShared, true);
-  assert.equal(equipmentItemRefShared, true);
-  assert.equal(techniqueRefShared, true);
-  assert.equal(actionRefShared, true);
-  assert.equal(attrRefShared, true);
-  assert.equal(inventoryDiffRefShared, true);
-  assert.equal(equipmentDiffRefShared, true);
-  assert.equal(techniqueDiffRefShared, true);
-  assert.equal(actionDiffRefShared, true);
+  assert.equal(fullCacheHasNoPanel, true);
+  assert.equal(fullCacheHasPanelCursor, true);
+  assert.equal(diffCacheHasNoPanel, true);
+  assert.equal(diffCacheHasPanelCursor, true);
   return {
     groundItemsRefShared,
-    inventoryItemRefShared,
-    equipmentItemRefShared,
-    techniqueRefShared,
-    actionRefShared,
-    attrRefShared,
-    inventoryDiffRefShared,
-    equipmentDiffRefShared,
-    techniqueDiffRefShared,
-    actionDiffRefShared,
+    fullCacheHasNoPanel,
+    fullCacheHasPanelCursor,
+    diffCacheHasNoPanel,
+    diffCacheHasPanelCursor,
   };
 }
 
-function proveBootstrapPlayerStateUsesProjectorCache(): {
-  baseAttrsRefShared: boolean;
-  temporaryBuffsRefShared: boolean;
-  autoUsePillsRefShared: boolean;
+function proveBootstrapPlayerStateDoesNotDependOnProjectorPanelCache(): {
+  cacheHasNoPanel: boolean;
+  baseAttrsBuilt: boolean;
+  temporaryBuffsBuilt: boolean;
+  autoUsePillsBuilt: boolean;
   autoBattleSkillsCloneReused: boolean;
 } {
   const projector = new WorldProjectorService({
@@ -508,19 +501,21 @@ function proveBootstrapPlayerStateUsesProjectorCache(): {
   player.combat.autoBattleSkills = [{ skillId: 'skill_ref', enabled: true, skillEnabled: true, order: 1 }];
   projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
   const state = (projector as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get(player.playerId);
-  const playerStateService = new WorldSyncPlayerStateService(projector as never);
+  const playerStateService = new WorldSyncPlayerStateService();
   const bootstrap = playerStateService.buildPlayerSyncState(player, createProjectorView(), ['yunlai_town']);
   const secondBootstrap = playerStateService.buildPlayerSyncState(player, createProjectorView(), ['yunlai_town']);
-  const baseAttrsRefShared = bootstrap.baseAttrs === state.panel.attr.baseAttrs;
-  const temporaryBuffsRefShared = bootstrap.temporaryBuffs === state.panel.buff.buffs;
-  const autoUsePillsRefShared = bootstrap.autoUsePills === state.panel.action.autoUsePills;
+  const cacheHasNoPanel = state.panel === undefined && state.panelCursor?.inventoryRevision === player.inventory.revision;
+  const baseAttrsBuilt = bootstrap.baseAttrs?.constitution === player.attrs.baseAttrs.constitution;
+  const temporaryBuffsBuilt = Array.isArray(bootstrap.temporaryBuffs);
+  const autoUsePillsBuilt = bootstrap.autoUsePills?.[0]?.itemId === 'pill_ref';
   const autoBattleSkillsCloneReused = bootstrap.autoBattleSkills === secondBootstrap.autoBattleSkills;
 
-  assert.equal(baseAttrsRefShared, true);
-  assert.equal(temporaryBuffsRefShared, true);
-  assert.equal(autoUsePillsRefShared, true);
+  assert.equal(cacheHasNoPanel, true);
+  assert.equal(baseAttrsBuilt, true);
+  assert.equal(temporaryBuffsBuilt, true);
+  assert.equal(autoUsePillsBuilt, true);
   assert.equal(autoBattleSkillsCloneReused, true);
-  return { baseAttrsRefShared, temporaryBuffsRefShared, autoUsePillsRefShared, autoBattleSkillsCloneReused };
+  return { cacheHasNoPanel, baseAttrsBuilt, temporaryBuffsBuilt, autoUsePillsBuilt, autoBattleSkillsCloneReused };
 }
 
 function proveAuxStateReusesStableProjectionRefs(): {
@@ -1014,7 +1009,7 @@ function proveMapStaticAuxTilePatchResourceCachePresent(): {
   };
 }
 
-function provePanelSliceCacheReusedOnNoopDelta(): { panelRefReused: boolean; deltaIsNull: boolean } {
+function provePanelCursorCacheReusedOnNoopDelta(): { panelCursorRefReused: boolean; panelCacheRemoved: boolean; deltaIsNull: boolean } {
   const service = new WorldProjectorService({
     has: () => true,
     getOrThrow: (mapId: string) => ({ name: mapId }),
@@ -1023,13 +1018,16 @@ function provePanelSliceCacheReusedOnNoopDelta(): { panelRefReused: boolean; del
   const player = createProjectorPlayer();
   service.createInitialEnvelope({ playerId: 'projector_player', sessionId: 'projector_session' }, view, player);
   const state = service as unknown as { cacheByPlayerId: Map<string, any> };
-  const before = state.cacheByPlayerId.get('projector_player')?.panel;
+  const before = state.cacheByPlayerId.get('projector_player')?.panelCursor;
   const delta = service.createDeltaEnvelope({ ...view, tick: 2 }, player);
-  const after = state.cacheByPlayerId.get('projector_player')?.panel;
-  const panelRefReused = before === after;
+  const afterState = state.cacheByPlayerId.get('projector_player');
+  const after = afterState?.panelCursor;
+  const panelCursorRefReused = before === after;
+  const panelCacheRemoved = afterState?.panel === undefined;
   assert.equal(delta, null);
-  assert.equal(panelRefReused, true);
-  return { panelRefReused, deltaIsNull: delta === null };
+  assert.equal(panelCursorRefReused, true);
+  assert.equal(panelCacheRemoved, true);
+  return { panelCursorRefReused, panelCacheRemoved, deltaIsNull: delta === null };
 }
 
 function proveCombatEffectRefsPassThroughEventBus(): { queuedRefShared: boolean; drainedRefShared: boolean } {
@@ -1346,7 +1344,8 @@ function proveViewHotpathOptimizationsPresent(): {
     && !viewQuerySource.includes('.map(project)');
   const projectorSkipsUnchangedPanelCapture = projectorSource.includes('const playerChanged = Boolean(selfDelta || panelDelta)')
     && projectorSource.includes('const panelUpdate = buildPanelUpdate(previous, player)')
-    && projectorSource.includes('panel: panelUpdate.panel');
+    && projectorSource.includes('panelCursor: panelUpdate.panelCursor')
+    && !projectorSource.includes('panel: panelUpdate.panel');
   const projectorCachesAttrBonusClones = projectorHelperSource.includes('const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>')
     && projectorHelperSource.includes('attrBonusCloneCache.get(source)')
     && projectorHelperSource.includes('attrBonusCloneCache.set(source, cloned)');

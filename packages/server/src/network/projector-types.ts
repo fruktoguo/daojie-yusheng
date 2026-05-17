@@ -465,6 +465,17 @@ export interface ProjectedPanelState {
     buffs: VisibleBuffState[];
   };
 }
+export interface ProjectedPanelCursor {
+  inventoryRevision: number;
+  equipmentRevision: number;
+  techniqueRevision: number;
+  attrRevision: number;
+  actionRevision: number;
+  buffRevision: number;
+  attrSignature: string;
+  actionSignature: string;
+  buffSignature: string;
+}
 export interface WorldStateSlice {
   instanceId: string;
   worldRevision: number;
@@ -480,7 +491,8 @@ export interface WorldStateSlice {
 export interface PlayerStateSlice {
   selfRevision: number;
   self: ProjectedSelfState;
-  panel: ProjectedPanelState;
+  panel?: ProjectedPanelState;
+  panelCursor: ProjectedPanelCursor;
 }
 export interface ProjectorState extends WorldStateSlice, PlayerStateSlice {}
 export interface InitialEnvelope {

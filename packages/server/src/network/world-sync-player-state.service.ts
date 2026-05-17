@@ -3,7 +3,7 @@
  * 负责将运行时玩家对象转换为 bootstrap 首包所需的完整 self 状态快照。
  */
 
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   EQUIP_SLOTS,
   applyEquipmentAttributeEffectivenessToItemStack,
@@ -13,7 +13,6 @@ import {
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
-import { WorldProjectorService } from './world-projector.service';
 
 const autoBattleSkillCloneCache = new WeakMap<any[], any[]>();
 const autoUsePillCloneCache = new WeakMap<any[], any[]>();
@@ -21,65 +20,13 @@ const autoUsePillCloneCache = new WeakMap<any[], any[]>();
 /** player sync state 服务：承接 bootstrap self 状态与相关只读转换。 */
 @Injectable()
 export class WorldSyncPlayerStateService {
-  constructor(
-    @Optional()
-    @Inject(WorldProjectorService)
-    private readonly worldProjectorService: { getCachedProjectorState?(playerId: string): any | null } | null = null,
-  ) {}
-
   buildPlayerSyncState(player, view, unlockedMinimapIds) {
-    const cachedProjectorState = typeof player?.playerId === 'string'
-      ? this.worldProjectorService?.getCachedProjectorState?.(player.playerId) ?? null
-      : null;
-    return buildPlayerSyncState(player, view, unlockedMinimapIds, cachedProjectorState);
+    return buildPlayerSyncState(player, view, unlockedMinimapIds);
   }
 }
 
-function resolveCachedAttrSlice(cachedPanel, player) {
-  const attr = cachedPanel?.attr;
-  if (!attr || attr.revision !== player.attrs?.revision) {
-    return null;
-  }
-  if (attr.lifeElapsedTicks !== player.lifeElapsedTicks || attr.boneAgeBaseYears !== player.boneAgeBaseYears) {
-    return null;
-  }
-  return attr;
-}
-
-function resolveCachedInventorySlice(cachedPanel, player) {
-  const inventory = cachedPanel?.inventory;
-  return inventory && inventory.revision === player.inventory?.revision ? inventory : null;
-}
-
-function resolveCachedEquipmentSlice(cachedPanel, player) {
-  const equipment = cachedPanel?.equipment;
-  return equipment && equipment.revision === player.equipment?.revision ? equipment : null;
-}
-
-function resolveCachedTechniqueSlice(cachedPanel, player) {
-  const technique = cachedPanel?.technique;
-  return technique && technique.revision === player.techniques?.revision ? technique : null;
-}
-
-function resolveCachedActionSlice(cachedPanel, player) {
-  const action = cachedPanel?.action;
-  return action && action.revision === player.actions?.revision ? action : null;
-}
-
-function resolveCachedBuffSlice(cachedPanel, player) {
-  const buff = cachedPanel?.buff;
-  return buff && buff.revision === player.buffs?.revision ? buff : null;
-}
-
-function buildPlayerSyncState(player, view, unlockedMinimapIds, cachedProjectorState = null) {
+function buildPlayerSyncState(player, view, unlockedMinimapIds) {
   const specialStats = resolvePlayerSpecialStats(player);
-  const cachedPanel = cachedProjectorState?.panel ?? null;
-  const attrSlice = resolveCachedAttrSlice(cachedPanel, player);
-  const inventorySlice = resolveCachedInventorySlice(cachedPanel, player);
-  const equipmentSlice = resolveCachedEquipmentSlice(cachedPanel, player);
-  const techniqueSlice = resolveCachedTechniqueSlice(cachedPanel, player);
-  const actionSlice = resolveCachedActionSlice(cachedPanel, player);
-  const buffSlice = resolveCachedBuffSlice(cachedPanel, player);
   return {
     id: player.playerId,
     name: player.name,
@@ -113,14 +60,14 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds, cachedProjectorS
     boneAgeBaseYears: player.boneAgeBaseYears,
     lifeElapsedTicks: player.lifeElapsedTicks,
     lifespanYears: player.lifespanYears,
-    baseAttrs: attrSlice?.baseAttrs ?? cloneAttributes(player.attrs.baseAttrs),
-    temporaryBuffs: buffSlice?.buffs ?? projectVisiblePlayerBuffs(player),
-    finalAttrs: attrSlice?.finalAttrs ?? cloneAttributes(player.attrs.finalAttrs),
-    numericStats: attrSlice?.numericStats ?? cloneNumericStats(player.attrs.numericStats),
-    ratioDivisors: attrSlice?.ratioDivisors ?? cloneNumericRatioDivisors(player.attrs.ratioDivisors),
+    baseAttrs: cloneAttributes(player.attrs.baseAttrs),
+    temporaryBuffs: projectVisiblePlayerBuffs(player),
+    finalAttrs: cloneAttributes(player.attrs.finalAttrs),
+    numericStats: cloneNumericStats(player.attrs.numericStats),
+    ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
     inventory: {
-      capacity: inventorySlice?.capacity ?? player.inventory.capacity,
-      items: (inventorySlice?.items ?? player.inventory.items).map((entry) => toItemStackState(entry)),
+      capacity: player.inventory.capacity,
+      items: player.inventory.items.map((entry) => toItemStackState(entry)),
     },
     wallet: {
       balances: Array.isArray(player.wallet?.balances)
@@ -135,17 +82,17 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds, cachedProjectorS
     marketStorage: {
       items: [],
     },
-    equipment: buildEquipmentRecord(equipmentSlice?.slots ?? player.equipment.slots),
-    techniques: (techniqueSlice?.techniques ?? player.techniques.techniques).map((entry) => toBootstrapTechniqueState(entry)),
-    bodyTraining: techniqueSlice?.bodyTraining ?? (player.bodyTraining ? { ...player.bodyTraining } : undefined),
-    alchemySkill: attrSlice?.alchemySkill ?? (player.alchemySkill ? { ...player.alchemySkill } : undefined),
-    forgingSkill: attrSlice?.forgingSkill ?? (player.forgingSkill ? { ...player.forgingSkill } : undefined),
-    buildingSkill: attrSlice?.buildingSkill ?? (player.buildingSkill ? { ...player.buildingSkill } : undefined),
-    gatherSkill: attrSlice?.gatherSkill ?? (player.gatherSkill ? { ...player.gatherSkill } : undefined),
-    enhancementSkill: attrSlice?.enhancementSkill ?? (player.enhancementSkill ? { ...player.enhancementSkill } : undefined),
-    miningSkill: attrSlice?.miningSkill ?? (player.miningSkill ? { ...player.miningSkill } : undefined),
+    equipment: buildEquipmentRecord(player.equipment.slots),
+    techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
+    bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
+    alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
+    forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
+    buildingSkill: player.buildingSkill ? { ...player.buildingSkill } : undefined,
+    gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
+    enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
+    miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
-    actions: (actionSlice?.actions ?? player.actions.actions).map((entry) => toActionDefinition(entry)),
+    actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
     quests: player.quests.quests.map((entry) => toQuestRuntimeState(entry)),
     realm: cloneRealmState(player.realm) ?? undefined,
     realmLv: player.realm?.realmLv,
@@ -157,11 +104,11 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds, cachedProjectorS
     spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots) ?? undefined,
     autoBattle: player.combat.autoBattle,
     autoBattleSkills: cloneAutoBattleSkills(player.combat.autoBattleSkills),
-    autoUsePills: actionSlice?.autoUsePills ?? cloneAutoUsePills(player.combat.autoUsePills),
-    combatTargetingRules: actionSlice?.combatTargetingRules ?? (player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined),
-    autoBattleTargetingMode: actionSlice?.autoBattleTargetingMode ?? player.combat.autoBattleTargetingMode,
-    combatTargetId: actionSlice?.combatTargetId ?? player.combat.combatTargetId ?? undefined,
-    combatTargetLocked: actionSlice?.combatTargetLocked ?? player.combat.combatTargetLocked,
+    autoUsePills: cloneAutoUsePills(player.combat.autoUsePills),
+    combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+    autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+    combatTargetId: player.combat.combatTargetId ?? undefined,
+    combatTargetLocked: player.combat.combatTargetLocked,
     cultivatingTechId: player.techniques.cultivatingTechId ?? undefined,
     unlockedMinimapIds,
   };

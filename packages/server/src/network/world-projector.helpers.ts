@@ -7,6 +7,8 @@
 import {
   type AttrBonus,
   type Attributes,
+  type AutoUsePillConfig,
+  type CombatTargetingRules,
   type MapEnterView,
   type PlayerSpecialStats,
   type S2C_PanelActionDelta,
@@ -54,6 +56,7 @@ import {
   type ProjectedAttrPanelState,
   type ProjectedActionPanelState,
   type ProjectedPanelState,
+  type ProjectedPanelCursor,
   type ProjectedAttrDeltaView,
   type ProjectedActionEntry,
   type WorldStateSlice,
@@ -126,7 +129,7 @@ type SpecialStatsCacheEntry = {
 
 type PanelDeltaBuildResult = {
     delta: S2C_PanelDelta | null;
-    panel: ProjectedPanelState;
+    panelCursor: ProjectedPanelCursor;
 };
 
 const specialStatsCache = new WeakMap<ProjectorPlayerLike, SpecialStatsCacheEntry>();
@@ -669,11 +672,11 @@ function freezeProjectedEntry<T extends object>(entry: T): T {
 
 /** 捕获当前帧的玩家自身状态快照，用于后续 self/panel diff。
  *  previousPanel 非空时按 revision 短路：未变的 slice 直接复用前帧引用，避免无谓克隆。 */
-function capturePlayerState(player: ProjectorPlayerLike, previousPanel?: ProjectedPanelState | null): PlayerStateSlice {
+function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
     return {
         selfRevision: player.selfRevision,
         self: captureSelfState(player),
-        panel: capturePanelState(player, previousPanel),
+        panelCursor: buildPanelCursor(player),
     };
 }
 
@@ -703,6 +706,144 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
         buff: prev && canReuseBuffPanelSlice(prev.buff, player)
             ? prev.buff : captureBuffPanelSlice(player),
     };
+}
+
+function buildPanelCursor(player: ProjectorPlayerLike): ProjectedPanelCursor {
+    return {
+        inventoryRevision: player.inventory.revision,
+        equipmentRevision: player.equipment.revision,
+        techniqueRevision: player.techniques.revision,
+        attrRevision: player.attrs.revision,
+        actionRevision: player.actions.revision,
+        buffRevision: player.buffs.revision,
+        attrSignature: buildAttrPanelSignature(player),
+        actionSignature: buildActionPanelSignature(player),
+        buffSignature: buildBuffPanelSignature(player),
+    };
+}
+
+function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
+    const attr = player.attrs;
+    const realm = player.realm ?? null;
+    return [
+        attr.revision,
+        attr.stage ?? '',
+        player.boneAgeBaseYears,
+        player.lifeElapsedTicks,
+        player.lifespanYears ?? '',
+        realm?.progress ?? '',
+        realm?.progressToNext ?? '',
+        realm?.breakthroughReady === true ? 1 : 0,
+        stableShallowSignature(attr.baseAttrs),
+        stableShallowSignature(attr.finalAttrs),
+        stableShallowSignature(attr.numericStats),
+        stableShallowSignature(attr.ratioDivisors),
+        resolvePlayerSpecialStatsSignature(resolvePlayerSpecialStatsCached(player)),
+        buildCraftSkillSignature(player.alchemySkill),
+        buildCraftSkillSignature(player.forgingSkill),
+        buildCraftSkillSignature(player.buildingSkill),
+        buildCraftSkillSignature(player.gatherSkill),
+        buildCraftSkillSignature(player.enhancementSkill),
+        buildCraftSkillSignature(player.miningSkill),
+        buildAttrBonusesSignature(getPlayerAttrBonusSource(player)),
+    ].join('|');
+}
+
+function resolvePlayerSpecialStatsSignature(stats: PlayerSpecialStats): string {
+    return [
+        stats.foundation,
+        stats.rootFoundation,
+        stats.bodyTrainingLevel,
+        stats.combatExp,
+        stats.comprehension,
+        stats.luck,
+    ].join(',');
+}
+
+function buildCraftSkillSignature(skill: unknown): string {
+    if (!skill || typeof skill !== 'object') {
+        return '';
+    }
+    const record = skill as Record<string, unknown>;
+    return [
+        record.level ?? '',
+        record.exp ?? '',
+        record.expToNext ?? '',
+        record.successBonus ?? '',
+        record.qualityBonus ?? '',
+    ].join(',');
+}
+
+function buildAttrBonusesSignature(bonuses: AttrBonus[]): string {
+    if (bonuses.length === 0) {
+        return '';
+    }
+    return bonuses.map((entry) => [
+        entry.source,
+        entry.attrMode ?? 'flat',
+        stableShallowSignature(entry.attrs),
+        stableShallowSignature(entry.stats),
+        stableShallowSignature(entry.qiProjection),
+        entry.label ?? '',
+    ].join(':')).join(';');
+}
+
+function buildActionPanelSignature(player: ProjectorPlayerLike): string {
+    return [
+        player.actions.revision,
+        player.combat.autoBattle === true ? 1 : 0,
+        player.combat.autoBattleTargetingMode ?? '',
+        player.combat.retaliatePlayerTargetId ?? '',
+        player.combat.combatTargetId ?? '',
+        player.combat.combatTargetLocked === true ? 1 : 0,
+        player.combat.autoRetaliate === true ? 1 : 0,
+        player.combat.autoBattleStationary === true ? 1 : 0,
+        player.combat.allowAoePlayerHit === true ? 1 : 0,
+        player.combat.autoIdleCultivation === true ? 1 : 0,
+        player.combat.autoSwitchCultivation === true ? 1 : 0,
+        player.combat.autoRootFoundation === true ? 1 : 0,
+        player.combat.cultivationActive === true ? 1 : 0,
+        player.combat.senseQiActive === true ? 1 : 0,
+        player.combat.wangQiActive === true ? 1 : 0,
+        buildAutoUsePillsSignature(player.combat.autoUsePills),
+        buildCombatTargetingRulesSignature(player.combat.combatTargetingRules),
+    ].join('|');
+}
+
+function buildAutoUsePillsSignature(configs: AutoUsePillConfig[] | null | undefined): string {
+    return Array.isArray(configs) ? stableShallowSignature(configs) : '';
+}
+
+function buildCombatTargetingRulesSignature(rules: CombatTargetingRules | null | undefined): string {
+    return rules ? stableShallowSignature(rules) : '';
+}
+
+function buildBuffPanelSignature(player: ProjectorPlayerLike): string {
+    const buffs = projectVisiblePlayerBuffs(player);
+    return `${player.buffs.revision}|${buffs.map((entry) => [
+        entry.buffId,
+        entry.name,
+        entry.remainingTicks,
+        entry.stacks,
+        entry.presentationScale ?? '',
+    ].join(':')).join(';')}`;
+}
+
+function stableShallowSignature(value: unknown): string {
+    if (value == null) {
+        return '';
+    }
+    if (Array.isArray(value)) {
+        return value.map((entry) => stableShallowSignature(entry)).join(',');
+    }
+    if (typeof value !== 'object') {
+        return String(value);
+    }
+    const record = value as Record<string, unknown>;
+    return Object.keys(record)
+        .sort()
+        .map((key) => `${key}=${stableShallowSignature(record[key])}`)
+        .join(',');
 }
 
 function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): boolean {
@@ -827,7 +968,7 @@ function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerS
         formations: worldState.formations,
         selfRevision: playerState.selfRevision,
         self: playerState.self,
-        panel: playerState.panel,
+        panelCursor: playerState.panelCursor,
     };
 }
 
@@ -992,13 +1133,51 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
 }
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
-    const panel = capturePanelState(player, previous.panel);
-    const delta = buildPanelDeltaFromState(previous.panel, panel);
-    return { delta, panel };
+    const panelCursor = buildPanelCursor(player);
+    const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player);
+    return { delta, panelCursor };
 }
 
 function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
     return buildPanelUpdate(previous, player).delta;
+}
+
+function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, currentCursor: ProjectedPanelCursor, player: ProjectorPlayerLike): S2C_PanelDelta | null {
+    const delta: S2C_PanelDelta = {};
+    if (previousCursor.inventoryRevision !== currentCursor.inventoryRevision) {
+        const inventory = captureInventoryPanelSlice(player);
+        delta.inv = {
+            r: inventory.revision,
+            full: 1,
+            capacity: inventory.capacity,
+            size: inventory.items.length,
+            slots: inventory.items.map((entry, slotIndex) => ({ slotIndex, item: entry })),
+        };
+    }
+    if (previousCursor.equipmentRevision !== currentCursor.equipmentRevision) {
+        const equipment = captureEquipmentPanelSlice(player);
+        delta.eq = { r: equipment.revision, full: 1, slots: equipment.slots };
+    }
+    if (previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
+        const technique = captureTechniquePanelSlice(player);
+        delta.tech = {
+            r: technique.revision,
+            full: 1,
+            techniques: technique.techniques,
+            cultivatingTechId: technique.cultivatingTechId,
+            bodyTraining: technique.bodyTraining,
+        };
+    }
+    if (previousCursor.attrSignature !== currentCursor.attrSignature) {
+        delta.attr = buildFullAttrDelta(player);
+    }
+    if (previousCursor.actionSignature !== currentCursor.actionSignature) {
+        delta.act = buildFullActionDelta(player);
+    }
+    if (previousCursor.buffSignature !== currentCursor.buffSignature) {
+        delta.buff = buildFullBuffDelta(player);
+    }
+    return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
 }
 
 function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {
@@ -1106,6 +1285,8 @@ export {
     capturePlayerState,
     captureSelfState,
     capturePanelState,
+    buildPanelCursor,
+    buildPanelDeltaFromCursor,
     captureProjectorState,
     captureWorldState,
     combineProjectorState,
