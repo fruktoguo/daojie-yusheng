@@ -62,6 +62,9 @@ export class WorldRuntimeNpcQuestInteractionQueryService {
         if (!npc) {
             return undefined;
         }
+        if (typeof this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarkerForPlayer === 'function') {
+            return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarkerForPlayer(player, npc);
+        }
         return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarker(playerId, npc);
     }
     /**

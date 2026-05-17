@@ -1448,6 +1448,9 @@ function proveEntryCachesFollowLifecycle(): {
   // npcQuestMarkerCache 必须挂在 player runtime 对象上，且 service 内不再持有 service-level 字段。
   const npcQuestMarkerCacheOnPlayer = playerRuntimeSource.includes('npcQuestMarkerCache: new Map()')
     && playerViewQuerySource.includes('player.npcQuestMarkerCache = playerCache')
+    && playerViewQuerySource.includes('playerCache.set(entry.npcId, nextEntry)')
+    && playerViewQuerySource.includes('function isSameNpcQuestMarkerEntry(cached, source, questMarker)')
+    && !playerViewQuerySource.includes('source: entry, questMarker, entry: nextEntry')
     && !playerViewQuerySource.includes('npcQuestMarkerViewCacheByPlayerId = new Map()');
 
   // removePlayer 必须清理 localPlayerViewCacheByPlayerId。
@@ -1671,10 +1674,13 @@ function proveEntryCachesFollowLifecycle(): {
     && questQuerySource.includes('materializeQuestView(playerId, quest)')
     && questQuerySource.includes('quest = this.materializeQuestView(\'\', quest);')
     && questQuerySource.includes('resolveAvailableNpcQuestMarker(playerId, npc)')
+    && questQuerySource.includes('resolveAvailableNpcQuestMarkerForPlayer(player, npc)')
+    && questQuerySource.includes('findPlayerQuestById(playerQuests, questId)')
+    && questQuerySource.includes('hasIncompletePreviousNpcQuest(playerQuests, npc.quests, index)')
     && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
     && npcQuestWriteSource.includes('player.quests.quests.push(cloneQuestState(questView, \'active\'));')
     && !npcQuestWriteSource.includes('player.quests.quests.push(cloneQuestState(quest, \'active\'));')
-    && npcQuestInteractionSource.includes('return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarker(playerId, npc);')
+    && npcQuestInteractionSource.includes('return this.worldRuntimeQuestQueryService.resolveAvailableNpcQuestMarkerForPlayer(player, npc);')
     && !npcQuestInteractionSource.includes('collectNpcQuestViews(playerId, npc)')
     && playerRuntimeSource.includes('return player.quests.quests;')
     && playerRuntimeSource.includes('function cloneQuestRuntimeEntry(entry)')

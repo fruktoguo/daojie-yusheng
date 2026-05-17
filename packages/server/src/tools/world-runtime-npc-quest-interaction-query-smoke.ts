@@ -11,9 +11,9 @@ const { WorldRuntimeNpcQuestInteractionQueryService } = require("../runtime/worl
  */
 
 
-function createService(player, resolveAvailableNpcQuestMarker) {
+function createService(player, questQuery) {
     return new WorldRuntimeNpcQuestInteractionQueryService({
-        resolveAvailableNpcQuestMarker,
+        ...questQuery,
     }, {    
     /**
  * getPlayer：读取玩家。
@@ -37,8 +37,13 @@ function testResolveNpcQuestMarkerReady() {
         quests: {
             quests: [{ status: 'ready', submitNpcId: 'npc_a', submitMapId: 'map_a', line: 'main' }],
         },
-    }, () => {
-        throw new Error('should not collect npc quests for ready');
+    }, {
+        resolveAvailableNpcQuestMarkerForPlayer() {
+            throw new Error('should not resolve available marker for ready');
+        },
+        resolveAvailableNpcQuestMarker() {
+            throw new Error('should not collect npc quests for ready');
+        },
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
@@ -64,8 +69,13 @@ function testResolveNpcQuestMarkerActive() {
         quests: {
             quests: [{ status: 'active', objectiveType: 'talk', targetNpcId: 'npc_a', targetMapId: 'map_a', line: 'branch' }],
         },
-    }, () => {
-        throw new Error('should not collect npc quests for active');
+    }, {
+        resolveAvailableNpcQuestMarkerForPlayer() {
+            throw new Error('should not resolve available marker for active');
+        },
+        resolveAvailableNpcQuestMarker() {
+            throw new Error('should not collect npc quests for active');
+        },
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
@@ -93,9 +103,14 @@ function testResolveNpcQuestMarkerAvailable() {
         quests: {
             quests: [],
         },
-    }, (playerId, receivedNpc) => {
-        log.push(['resolveAvailableNpcQuestMarker', playerId, receivedNpc.npcId]);
-        return { state: 'available', line: 'side' };
+    }, {
+        resolveAvailableNpcQuestMarkerForPlayer(player, receivedNpc) {
+            log.push(['resolveAvailableNpcQuestMarkerForPlayer', player.templateId, receivedNpc.npcId]);
+            return { state: 'available', line: 'side' };
+        },
+        resolveAvailableNpcQuestMarker() {
+            throw new Error('should not use playerId-based marker fallback');
+        },
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
@@ -113,7 +128,7 @@ function testResolveNpcQuestMarkerAvailable() {
     assert.deepEqual(marker, { line: 'side', state: 'available' });
     assert.deepEqual(log, [
         ['getNpcForPlayerMap', 'player:1', 'npc_a'],
-        ['resolveAvailableNpcQuestMarker', 'player:1', 'npc_a'],
+        ['resolveAvailableNpcQuestMarkerForPlayer', 'map_a', 'npc_a'],
     ]);
 }
 /**
@@ -123,8 +138,13 @@ function testResolveNpcQuestMarkerAvailable() {
 
 
 function testResolveNpcQuestMarkerReturnsUndefinedWithoutPlayer() {
-    const service = createService(null, () => {
-        throw new Error('should not collect without player');
+    const service = createService(null, {
+        resolveAvailableNpcQuestMarkerForPlayer() {
+            throw new Error('should not resolve available without player');
+        },
+        resolveAvailableNpcQuestMarker() {
+            throw new Error('should not collect without player');
+        },
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
@@ -150,8 +170,13 @@ function testResolveNpcQuestMarkerReturnsUndefinedWithoutNpc() {
         quests: {
             quests: [],
         },
-    }, () => {
-        throw new Error('should not collect npc quests without npc');
+    }, {
+        resolveAvailableNpcQuestMarkerForPlayer() {
+            throw new Error('should not resolve available without npc');
+        },
+        resolveAvailableNpcQuestMarker() {
+            throw new Error('should not collect npc quests without npc');
+        },
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**

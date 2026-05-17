@@ -30,6 +30,28 @@ function isRealmStageReached(currentStage, targetStage, strict) {
     return strict ? currentIndex > targetIndex : currentIndex >= targetIndex;
 }
 
+function findPlayerQuestById(playerQuests, questId) {
+    for (const quest of playerQuests) {
+        if (quest?.id === questId) {
+            return quest;
+        }
+    }
+    return undefined;
+}
+
+function hasIncompletePreviousNpcQuest(playerQuests, npcQuests, beforeIndex) {
+    for (let index = 0; index < beforeIndex; index += 1) {
+        const previousId = typeof npcQuests[index]?.id === 'string' ? npcQuests[index].id.trim() : '';
+        if (!previousId) {
+            continue;
+        }
+        if (findPlayerQuestById(playerQuests, previousId)?.status !== 'completed') {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** 任务只读查询服务：承接任务视图构造、奖励解析与导航目标解析。 */
 @Injectable()
 export class WorldRuntimeQuestQueryService {
@@ -148,23 +170,30 @@ export class WorldRuntimeQuestQueryService {
     }    
     resolveAvailableNpcQuestMarker(playerId, npc) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const byQuestId = new Map<string, any>(player.quests.quests.map((entry) => [entry.id, entry]));
+        return this.resolveAvailableNpcQuestMarkerForPlayer(player, npc);
+    }
+    resolveAvailableNpcQuestMarkerForPlayer(player, npc) {
+        const playerQuests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
         for (let index = 0; index < npc.quests.length; index += 1) {
             const rawQuest = npc.quests[index];
-            const existing = byQuestId.get(rawQuest.id);
+            const questId = typeof rawQuest?.id === 'string' ? rawQuest.id.trim() : '';
+            if (!questId) {
+                continue;
+            }
+            const existing = findPlayerQuestById(playerQuests, questId);
             if (existing && existing.status !== 'completed') {
                 return undefined;
             }
             if (existing?.status === 'completed') {
                 continue;
             }
-            const blockedByPrevious = npc.quests
-                .slice(0, index)
-                .some((candidate) => byQuestId.get(candidate.id)?.status !== 'completed');
-            if (blockedByPrevious) {
+            if (hasIncompletePreviousNpcQuest(playerQuests, npc.quests, index)) {
                 return undefined;
             }
-            const source = this.templateRepository.getQuestSource(rawQuest.id);
+            const source = this.templateRepository.getQuestSource(questId);
+            if (source?.giverNpcId && source.giverNpcId !== npc.npcId) {
+                return undefined;
+            }
             return { line: normalizeQuestLine(source?.quest?.line ?? rawQuest.line), state: 'available' };
         }
         return undefined;

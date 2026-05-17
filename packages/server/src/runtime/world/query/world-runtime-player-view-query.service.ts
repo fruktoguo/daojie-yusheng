@@ -181,19 +181,18 @@ export class WorldRuntimePlayerViewQueryService {
             // 没有 runtime 玩家时不缓存，仅当次返回 spread 副本（保证语义）。
             return freezeViewProjection({ ...entry, questMarker });
         }
-        let playerCache: Map<string, { source: any; questMarker: any; entry: any }> | undefined = player.npcQuestMarkerCache;
+        let playerCache: Map<string, any> | undefined = player.npcQuestMarkerCache;
         if (!(playerCache instanceof Map)) {
             playerCache = new Map();
             player.npcQuestMarkerCache = playerCache;
         }
         const cached = playerCache.get(entry.npcId);
         if (cached
-            && cached.source === entry
-            && isSameNpcQuestMarkerProjection(cached.questMarker, questMarker)) {
-            return cached.entry;
+            && isSameNpcQuestMarkerEntry(cached, entry, questMarker)) {
+            return cached;
         }
         const nextEntry = freezeViewProjection({ ...entry, questMarker });
-        playerCache.set(entry.npcId, { source: entry, questMarker, entry: nextEntry });
+        playerCache.set(entry.npcId, nextEntry);
         return nextEntry;
     }
 };
@@ -374,6 +373,20 @@ function isSameNpcQuestMarkerProjection(left, right) {
     return left.kind === right.kind
         && left.line === right.line
         && left.state === right.state
+}
+
+function isSameNpcQuestMarkerEntry(cached, source, questMarker) {
+    return cached.npcId === source.npcId
+        && cached.name === source.name
+        && cached.char === source.char
+        && cached.color === source.color
+        && cached.x === source.x
+        && cached.y === source.y
+        && cached.hasShop === source.hasShop
+        && cached.projectedFromParentMap === source.projectedFromParentMap
+        && cached.instanceId === source.instanceId
+        && cached.templateId === source.templateId
+        && isSameNpcQuestMarkerProjection(cached.questMarker, questMarker);
 }
 
 function freezeViewProjection(entry) {

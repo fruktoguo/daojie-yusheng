@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimePlayerViewQueryService } = require("../runtime/world/world-runtime-player-view-query.service");
+const { WorldRuntimePlayerViewQueryService } = require("../runtime/world/query/world-runtime-player-view-query.service");
 
 function testLootWindowUsesInstanceTickForContainerProjection() {
   const log = [];
@@ -270,9 +270,49 @@ function testPlayerViewUsesVisibleTileKeysForFormationRange() {
   assert.equal(view.localFormations[0].id, 'formation:real:sky_ruins:key');
 }
 
+function testNpcQuestMarkerCacheStoresProjectedEntryDirectly() {
+  const player = {
+    playerId: 'player:npc-marker-cache',
+    attrs: { numericStats: { viewRange: 6 } },
+    npcQuestMarkerCache: new Map(),
+  };
+  const service = new WorldRuntimePlayerViewQueryService({
+    getPlayer(playerId) {
+      return playerId === player.playerId ? player : null;
+    },
+  }, {
+    getPreparedContainerLootSource() {
+      return null;
+    },
+  }, {
+    resolveNpcQuestMarker() {
+      return { line: 'main', state: 'available' };
+    },
+  });
+  const npc = {
+    npcId: 'npc_marker',
+    name: '接引人',
+    char: '引',
+    color: '#ffffff',
+    x: 3,
+    y: 4,
+    hasShop: false,
+  };
+  const first = service.getNpcQuestMarkerEntry(player.playerId, npc, { line: 'main', state: 'available' });
+  const second = service.getNpcQuestMarkerEntry(player.playerId, npc, { line: 'main', state: 'available' });
+  const cached = player.npcQuestMarkerCache.get(npc.npcId);
+
+  assert.equal(first, second);
+  assert.equal(cached, first);
+  assert.equal(Object.prototype.hasOwnProperty.call(cached, 'source'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(cached, 'entry'), false);
+  assert.deepEqual(cached.questMarker, { line: 'main', state: 'available' });
+}
+
 testLootWindowUsesInstanceTickForContainerProjection();
 testLootWindowUsesSearchTitleForNonHerbSources();
 testPlayerViewKeepsFormationVisibleWhenRangeIntersectsView();
 testPlayerViewUsesVisibleTileKeysForFormationRange();
+testNpcQuestMarkerCacheStoresProjectedEntryDirectly();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-view-query' }, null, 2));
