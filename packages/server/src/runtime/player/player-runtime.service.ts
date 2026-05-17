@@ -3962,18 +3962,54 @@ function buildEquipmentSnapshot(equipment) {
     }));
 }
 function cloneQuestRuntimeEntry(entry) {
+    const objectiveType = entry.objectiveType === 'talk'
+        || entry.objectiveType === 'submit_item'
+        || entry.objectiveType === 'learn_technique'
+        || entry.objectiveType === 'realm_progress'
+        || entry.objectiveType === 'realm_stage'
+        ? entry.objectiveType
+        : 'kill';
     const cloned: any = {
-        ...entry,
+        id: typeof entry.id === 'string' ? entry.id : '',
+        line: entry.line === 'main' || entry.line === 'daily' || entry.line === 'encounter' ? entry.line : 'side',
+        status: entry.status === 'available' || entry.status === 'active' || entry.status === 'ready' || entry.status === 'completed' ? entry.status : 'active',
+        objectiveType,
+        progress: Math.max(0, Math.trunc(Number(entry.progress ?? 0))),
+        required: Math.max(1, Math.trunc(Number(entry.required ?? 1))),
+        targetMonsterId: typeof entry.targetMonsterId === 'string' ? entry.targetMonsterId : '',
     };
-    if (Array.isArray(entry.rewardItemIds)) {
-        cloned.rewardItemIds = entry.rewardItemIds.slice();
-    } else {
-        delete cloned.rewardItemIds;
+    if (typeof entry.targetName === 'string' && entry.targetName.trim() && entry.targetName !== cloned.targetMonsterId) {
+        cloned.targetName = entry.targetName.trim();
     }
-    if (Array.isArray(entry.rewards)) {
-        cloned.rewards = entry.rewards.map((reward) => ({ ...reward }));
-    } else {
-        delete cloned.rewards;
+    if (typeof entry.targetTechniqueId === 'string' && entry.targetTechniqueId.trim()) {
+        cloned.targetTechniqueId = entry.targetTechniqueId.trim();
+    }
+    if (entry.targetRealmStage !== undefined) {
+        cloned.targetRealmStage = entry.targetRealmStage;
+    }
+    if (typeof entry.nextQuestId === 'string' && entry.nextQuestId.trim()) {
+        cloned.nextQuestId = entry.nextQuestId.trim();
+    }
+    if (typeof entry.requiredItemId === 'string' && entry.requiredItemId.trim()) {
+        cloned.requiredItemId = entry.requiredItemId.trim();
+    }
+    if (Number.isInteger(entry.requiredItemCount)) {
+        cloned.requiredItemCount = Number(entry.requiredItemCount);
+    }
+    if (typeof entry.giverId === 'string' && entry.giverId.trim()) {
+        cloned.giverId = entry.giverId.trim();
+    }
+    if (typeof entry.targetMapId === 'string' && entry.targetMapId.trim()) {
+        cloned.targetMapId = entry.targetMapId.trim();
+    }
+    if (typeof entry.targetNpcId === 'string' && entry.targetNpcId.trim()) {
+        cloned.targetNpcId = entry.targetNpcId.trim();
+    }
+    if (typeof entry.submitNpcId === 'string' && entry.submitNpcId.trim()) {
+        cloned.submitNpcId = entry.submitNpcId.trim();
+    }
+    if (typeof entry.submitMapId === 'string' && entry.submitMapId.trim()) {
+        cloned.submitMapId = entry.submitMapId.trim();
     }
     return cloned;
 }

@@ -1639,8 +1639,12 @@ function proveEntryCachesFollowLifecycle(): {
     && questQuerySource.includes('quest = this.materializeQuestView(\'\', quest);')
     && playerRuntimeSource.includes('return player.quests.quests;')
     && playerRuntimeSource.includes('function cloneQuestRuntimeEntry(entry)')
-    && playerRuntimeSource.includes('if (Array.isArray(entry.rewards))')
+    && playerRuntimeSource.includes('id: typeof entry.id === \'string\' ? entry.id : \'\',')
+    && playerRuntimeSource.includes('targetMonsterId: typeof entry.targetMonsterId === \'string\' ? entry.targetMonsterId : \'\',')
     && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
+    && !playerRuntimeSource.includes('const cloned: any = {\n        ...entry,')
+    && !playerRuntimeSource.includes('rewardItemIds: entry.rewardItemIds.slice()')
+    && !playerRuntimeSource.includes('rewards: entry.rewards.map((reward) => ({ ...reward }))')
     && !playerRuntimeSource.includes('return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));');
 
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
