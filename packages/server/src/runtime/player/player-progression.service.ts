@@ -1028,7 +1028,7 @@ export class PlayerProgressionService {
     getRealmLevelEntry(realmLv) {
         const normalizedLevel = Math.max(1, Math.floor(Number(realmLv) || 1));
         const entry = this.realmLevels.get(normalizedLevel);
-        return entry ? { ...entry } : undefined;
+        return entry;
     }
     /** 按等级读取已展开的运行时升级经验，禁止业务层直接读取原始配置系数。 */
     getRealmRuntimeExpToNext(realmLv) {
@@ -1125,7 +1125,7 @@ export class PlayerProgressionService {
             breakthroughItems: breakthroughReady
                 ? (breakthroughTransition
                     ? getBreakthroughItemRequirements(breakthroughTransition)
-                    : config.breakthroughItems.map((item) => ({ ...item })))
+                    : config.breakthroughItems)
                 : [],
             minTechniqueLevel: breakthroughTransition ? 0 : config.minTechniqueLevel,
             minTechniqueRealm: breakthroughTransition ? undefined : config.minTechniqueRealm,
@@ -1329,7 +1329,7 @@ export class PlayerProgressionService {
         const transition = this.breakthroughTransitions.get(realm.realmLv);
         const items = transition
             ? getBreakthroughItemRequirements(transition)
-            : (realm.breakthroughItems ?? []).map((item) => ({ ...item }));
+            : (realm.breakthroughItems ?? []);
         const costProgress = Math.max(0, Math.floor(realm.progressToNext ?? 0));
         const progress = Math.max(0, Math.floor(realm.progress ?? 0));
         const missingItems = getMissingBreakthroughItemRequirements(player, items);
@@ -2700,7 +2700,7 @@ function normalizeBreakthroughRequirement(raw) {
 }
 
 function getBreakthroughItemRequirements(transition) {
-    return (transition.rootFoundationItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count }));
+    return transition.rootFoundationItems ?? [];
 }
 
 function isTechniqueRequirementCompleted(player, requirement) {

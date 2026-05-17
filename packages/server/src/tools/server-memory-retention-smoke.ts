@@ -1399,11 +1399,15 @@ function proveEntryCachesFollowLifecycle(): {
   groundHydrateReusesPayloadRefs: boolean;
   playerTemporaryBuffCloneUsesPrototypeRefs: boolean;
   playerNoticeDrainSwapsQueueRef: boolean;
+  playerEquipmentSnapshotReusesSlotItemRefs: boolean;
+  playerContextActionsAvoidEntrySpread: boolean;
+  playerProgressionConfigViewsReuseRefs: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+  const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1520,6 +1524,21 @@ function proveEntryCachesFollowLifecycle(): {
   const playerNoticeDrainSwapsQueueRef = playerRuntimeSource.includes('const queue = player.notices.queue;\n        player.notices.queue = [];')
     && !playerRuntimeSource.includes('const queue = player.notices.queue.map((entry) => ({ ...entry }));\n        player.notices.queue.length = 0;');
 
+  const playerEquipmentSnapshotReusesSlotItemRefs = playerRuntimeSource.includes('item: equipment[slot] ?? null')
+    && !playerRuntimeSource.includes('item: equipment[slot] ? { ...equipment[slot] } : null');
+
+  const playerContextActionsAvoidEntrySpread = playerRuntimeSource.includes('const normalized = actions\n            .slice()\n            .sort((left, right) => left.id.localeCompare(right.id, \'zh-Hans-CN\'));')
+    && !playerRuntimeSource.includes('const normalized = actions\n            .map((entry) => ({ ...entry }))\n            .sort((left, right) => left.id.localeCompare(right.id, \'zh-Hans-CN\'));');
+
+  const playerProgressionConfigViewsReuseRefs = playerProgressionSource.includes('return entry;')
+    && playerProgressionSource.includes('                    : config.breakthroughItems)')
+    && playerProgressionSource.includes(': (realm.breakthroughItems ?? []);')
+    && playerProgressionSource.includes('return transition.rootFoundationItems ?? [];')
+    && !playerProgressionSource.includes('return entry ? { ...entry } : undefined;')
+    && !playerProgressionSource.includes('config.breakthroughItems.map((item) => ({ ...item }))')
+    && !playerProgressionSource.includes('(realm.breakthroughItems ?? []).map((item) => ({ ...item }))')
+    && !playerProgressionSource.includes('return (transition.rootFoundationItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count }));');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
@@ -1539,6 +1558,9 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(groundHydrateReusesPayloadRefs, true);
   assert.equal(playerTemporaryBuffCloneUsesPrototypeRefs, true);
   assert.equal(playerNoticeDrainSwapsQueueRef, true);
+  assert.equal(playerEquipmentSnapshotReusesSlotItemRefs, true);
+  assert.equal(playerContextActionsAvoidEntrySpread, true);
+  assert.equal(playerProgressionConfigViewsReuseRefs, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1559,6 +1581,9 @@ function proveEntryCachesFollowLifecycle(): {
     groundHydrateReusesPayloadRefs,
     playerTemporaryBuffCloneUsesPrototypeRefs,
     playerNoticeDrainSwapsQueueRef,
+    playerEquipmentSnapshotReusesSlotItemRefs,
+    playerContextActionsAvoidEntrySpread,
+    playerProgressionConfigViewsReuseRefs,
   };
 }
 

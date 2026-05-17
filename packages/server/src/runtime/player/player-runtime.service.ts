@@ -975,7 +975,7 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = actions
-            .map((entry) => ({ ...entry }))
+            .slice()
             .sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
         if (isSameActionList(player.actions.contextActions, normalized)) {
             return player;
@@ -3921,7 +3921,7 @@ function isPlayerRuntimeDirty(player) {
 function buildEquipmentSnapshot(equipment) {
     return EQUIP_SLOTS.map((slot) => ({
         slot,
-        item: equipment[slot] ? { ...equipment[slot] } : null,
+        item: equipment[slot] ?? null,
     }));
 }
 /**
