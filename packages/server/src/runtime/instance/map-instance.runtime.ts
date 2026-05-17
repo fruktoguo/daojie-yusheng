@@ -4046,7 +4046,24 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const portals = this.runtimePortals
-            .map((portal) => ({ ...portal }))
+            .map((portal) => ({
+                id: portal.id,
+                x: portal.x,
+                y: portal.y,
+                targetMapId: portal.targetMapId,
+                targetInstanceId: portal.targetInstanceId ?? null,
+                targetX: portal.targetX,
+                targetY: portal.targetY,
+                targetPortalId: portal.targetPortalId,
+                direction: portal.direction,
+                kind: portal.kind,
+                trigger: portal.trigger,
+                hidden: portal.hidden === true,
+                name: portal.name,
+                char: portal.char,
+                color: portal.color,
+                sectId: portal.sectId,
+            }))
             .sort((left, right) => left.y - right.y || left.x - right.x);
         if (portals.length === 0) {
             return [];

@@ -10,6 +10,13 @@ import { InstanceOverlayFlushWorker } from '../runtime/world/worker/instance-ove
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+function createPrototypePayload<T extends Record<string, unknown>>(
+  payload: T,
+  prototypeFields: Record<string, unknown>,
+): T {
+  return Object.assign(Object.create(prototypeFields), payload);
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -48,10 +55,13 @@ async function main(): Promise<void> {
       patchKind: 'portal' as const,
       chunkKey: 'runtime_portals',
       patchVersion: instanceRevision,
-      patchPayload: {
-        version: 1,
-        portals: [{ x: 1, y: 2, targetMapId: 'sect_domain', targetInstanceId: 'sect:1', targetX: 0, targetY: 0 }],
-      },
+      patchPayload: createPrototypePayload(
+        {
+          version: 1,
+          portals: [{ x: 1, y: 2, targetMapId: 'sect_domain', targetInstanceId: 'sect:1', targetX: 0, targetY: 0 }],
+        },
+        { debugName: '不应落盘' },
+      ),
     },
   ];
   const worker = new InstanceOverlayFlushWorker(
@@ -97,6 +107,11 @@ async function main(): Promise<void> {
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.patchKind, 'portal');
     assert.equal(rows[0]?.chunkKey, 'runtime_portals');
+    assert.deepEqual(rows[0]?.patchPayload, {
+      version: 1,
+      portals: [{ x: 1, y: 2, targetMapId: 'sect_domain', targetInstanceId: 'sect:1', targetX: 0, targetY: 0 }],
+    });
+    assert.equal(Object.prototype.hasOwnProperty.call(rows[0]?.patchPayload ?? {}, 'debugName'), false);
 
     const ledgerRows = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-overlay-worker-smoke:probe-version',

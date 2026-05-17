@@ -1381,7 +1381,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           groundItemId,
           instanceId,
           Math.trunc(Number(input.tileIndex ?? 0)),
-          JSON.stringify(input.itemPayload ?? {}),
+          JSON.stringify(normalizePersistedItemPayload(input.itemPayload)),
           input.expireAt ?? null,
         ],
       );
@@ -1438,7 +1438,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             )
             VALUES ($1, $2, $3, $4::jsonb, NULL, now())
           `,
-          [entry.groundItemId, normalizedInstanceId, entry.tileIndex, JSON.stringify(entry.itemPayload ?? {})],
+          [entry.groundItemId, normalizedInstanceId, entry.tileIndex, JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))],
         );
       }
       await client.query('COMMIT');
@@ -1532,7 +1532,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             JSON.stringify(normalizedEntries.map((entry) => ({
               ground_item_id: entry.groundItemId,
               tile_index: entry.tileIndex,
-              item_instance_payload: entry.itemPayload ?? {},
+              item_instance_payload: normalizePersistedItemPayload(entry.itemPayload),
             }))),
           ],
         );
@@ -1669,7 +1669,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           containerId,
           generatedAtTick,
           refreshAtTick,
-          JSON.stringify(activeSearchPayload ?? {}),
+          JSON.stringify(normalizeJsonObjectPayload(activeSearchPayload)),
         ],
       );
       for (let entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
@@ -1693,7 +1693,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             instanceId,
             containerId,
             entryIndex,
-            JSON.stringify(entry.item ?? {}),
+            JSON.stringify(normalizePersistedItemPayload(entry.item)),
             normalizeNullableInteger(entry.createdTick),
             entry.visible === true,
           ],
@@ -1769,7 +1769,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             )
             VALUES ($1, $2, $3, $4::jsonb, now())
           `,
-          [normalizedInstanceId, state.containerId, state.sourceId, JSON.stringify(state.statePayload ?? {})],
+          [normalizedInstanceId, state.containerId, state.sourceId, JSON.stringify(normalizeJsonObjectPayload(state.statePayload))],
         );
         await client.query(
           `
@@ -1788,7 +1788,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             state.containerId,
             state.generatedAtTick,
             state.refreshAtTick,
-            JSON.stringify(state.activeSearchPayload ?? {}),
+            JSON.stringify(normalizeJsonObjectPayload(state.activeSearchPayload)),
           ],
         );
         for (let entryIndex = 0; entryIndex < state.entries.length; entryIndex += 1) {
@@ -1810,7 +1810,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               normalizedInstanceId,
               state.containerId,
               entryIndex,
-              JSON.stringify(entry?.item ?? {}),
+              JSON.stringify(normalizePersistedItemPayload(entry?.item)),
               normalizeNullableInteger(entry?.createdTick),
               entry?.visible === true,
             ],
@@ -2065,7 +2065,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           Number.isFinite(input.respawnLeft) ? Math.max(0, Math.trunc(Number(input.respawnLeft))) : null,
           Number.isFinite(input.respawnTicks) ? Math.max(0, Math.trunc(Number(input.respawnTicks))) : null,
           normalizeRequiredString(input.aggroTargetPlayerId),
-          JSON.stringify(input.statePayload ?? {}),
+          JSON.stringify(normalizeJsonObjectPayload(input.statePayload)),
         ],
       );
       await client.query('COMMIT');
@@ -2138,7 +2138,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             respawnLeft: Number.isFinite(Number(entry?.respawnLeft)) ? Math.max(0, Math.trunc(Number(entry.respawnLeft))) : null,
             respawnTicks: Number.isFinite(Number(entry?.respawnTicks)) ? Math.max(0, Math.trunc(Number(entry.respawnTicks))) : null,
             aggroTargetPlayerId: normalizeRequiredString(entry?.aggroTargetPlayerId),
-            statePayload: entry?.statePayload ?? {},
+            statePayload: normalizeJsonObjectPayload(entry?.statePayload),
           }))
           .filter((entry) => entry.monsterRuntimeId && entry.monsterId && entry.monsterName && entry.monsterTier !== 'mortal_blood')
       : [];
@@ -2267,7 +2267,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             respawn_left: entry.respawnLeft,
             respawn_ticks: entry.respawnTicks,
             aggro_target_player_id: entry.aggroTargetPlayerId || null,
-            state_payload: entry.statePayload ?? {},
+            state_payload: normalizeJsonObjectPayload(entry.statePayload),
           }))),
         ],
       );
@@ -2397,7 +2397,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             resolved_at = EXCLUDED.resolved_at,
             updated_at = now()
         `,
-        [eventId, instanceId, eventKind, eventKey, JSON.stringify(input.statePayload ?? {}), input.resolvedAt ?? null],
+        [eventId, instanceId, eventKind, eventKey, JSON.stringify(normalizeJsonObjectPayload(input.statePayload)), input.resolvedAt ?? null],
       );
       await client.query('COMMIT');
       return true;
@@ -2501,7 +2501,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             patch_payload = EXCLUDED.patch_payload,
             updated_at = now()
         `,
-        [instanceId, normalizedPatchKind, chunkKey, patchVersion, JSON.stringify(input.patchPayload ?? {})],
+        [instanceId, normalizedPatchKind, chunkKey, patchVersion, JSON.stringify(normalizeJsonObjectPayload(input.patchPayload))],
       );
       await client.query('COMMIT');
       return true;
@@ -2555,7 +2555,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               patchKind: ['tile', 'portal', 'npc', 'container', 'rule'].includes(patchKind) ? patchKind : '',
               chunkKey: normalizeRequiredString(entry?.chunkKey),
               patchVersion: Number.isFinite(Number(entry?.patchVersion)) ? Math.max(0, Math.trunc(Number(entry.patchVersion))) : 0,
-              patchPayload: entry?.patchPayload ?? {},
+              patchPayload: normalizeJsonObjectPayload(entry?.patchPayload),
             };
           })
           .filter((entry) => entry.patchKind && entry.chunkKey)
@@ -2588,7 +2588,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             entry.patchKind,
             entry.chunkKey,
             entry.patchVersion,
-            JSON.stringify(entry.patchPayload ?? {}),
+            JSON.stringify(normalizeJsonObjectPayload(entry.patchPayload)),
           ],
         );
       }
@@ -2649,7 +2649,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             respawnLeft: Number.isFinite(Number(entry?.respawnLeft)) ? Math.max(0, Math.trunc(Number(entry.respawnLeft))) : null,
             respawnTicks: Number.isFinite(Number(entry?.respawnTicks)) ? Math.max(0, Math.trunc(Number(entry.respawnTicks))) : null,
             aggroTargetPlayerId: normalizeRequiredString(entry?.aggroTargetPlayerId),
-            statePayload: entry?.statePayload ?? {},
+            statePayload: normalizeJsonObjectPayload(entry?.statePayload),
           }))
           .filter((entry) => entry.monsterRuntimeId && entry.monsterId && entry.monsterName && entry.monsterTier !== 'mortal_blood')
       : [];
@@ -2778,7 +2778,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               respawn_left: entry.respawnLeft,
               respawn_ticks: entry.respawnTicks,
               aggro_target_player_id: entry.aggroTargetPlayerId || null,
-              state_payload: entry.statePayload ?? {},
+              state_payload: normalizeJsonObjectPayload(entry.statePayload),
             }))),
           ],
         );
@@ -3672,6 +3672,42 @@ function buildContainerMetadataPayload(state: Record<string, unknown> | null | u
     payload[key] = value;
   }
   return payload;
+}
+
+function normalizePersistedItemPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized || serialized === 'null') {
+      return {};
+    }
+    const parsed = JSON.parse(serialized);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeJsonObjectPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized || serialized === 'null') {
+      return {};
+    }
+    const parsed = JSON.parse(serialized);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 function shouldReplaceContainerState(

@@ -11,6 +11,13 @@ import { InstanceDomainPersistenceService } from '../persistence/instance-domain
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+function createPrototypePayload<T extends Record<string, unknown>>(
+  payload: T,
+  prototypeFields: Record<string, unknown>,
+): T {
+  return Object.assign(Object.create(prototypeFields), payload);
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -213,7 +220,10 @@ async function main(): Promise<void> {
       groundItemId: `ground:${instanceId}:1`,
       instanceId,
       tileIndex: 18,
-      itemPayload: { itemId: 'rat_tail', count: 3 },
+      itemPayload: createPrototypePayload(
+        { itemId: 'rat_tail', count: 3 },
+        { name: '模板名不应落盘', desc: '模板描述不应落盘' },
+      ),
       expireAt: null,
     });
     const groundItems = await service.loadGroundItems(instanceId);
@@ -234,7 +244,10 @@ async function main(): Promise<void> {
       {
         tileIndex: 18,
         items: [
-          { itemId: 'rat_tail', count: 4 },
+          createPrototypePayload(
+            { itemId: 'rat_tail', count: 4 },
+            { name: '模板名不应落盘', desc: '模板描述不应落盘' },
+          ),
           { itemId: 'spirit_stone', count: 1 },
         ],
       },
@@ -279,11 +292,14 @@ async function main(): Promise<void> {
             visible: true,
           },
         ],
-        activeSearch: {
-          itemKey: 'spirit_grass',
-          totalTicks: 5,
-          remainingTicks: 3,
-        },
+        activeSearch: createPrototypePayload(
+          {
+            itemKey: 'spirit_grass',
+            totalTicks: 5,
+            remainingTicks: 3,
+          },
+          { debugName: '不应落盘' },
+        ),
       },
     });
     const containerStates = await service.loadContainerStates(instanceId);
@@ -306,11 +322,11 @@ async function main(): Promise<void> {
               visible: true,
             },
           ],
-          activeSearch: {
-            itemKey: 'spirit_grass',
-            totalTicks: 5,
-            remainingTicks: 3,
-          },
+        activeSearch: {
+          itemKey: 'spirit_grass',
+          totalTicks: 5,
+          remainingTicks: 3,
+        },
         },
       },
     ]);
@@ -326,7 +342,10 @@ async function main(): Promise<void> {
         refreshAtTick: 51,
         entries: [
           {
-            item: { itemId: 'old_grass', count: 1 },
+            item: createPrototypePayload(
+              { itemId: 'old_grass', count: 1 },
+              { name: '模板名不应落盘', desc: '模板描述不应落盘' },
+            ),
             createdTick: 41,
             visible: false,
           },
@@ -339,7 +358,10 @@ async function main(): Promise<void> {
         refreshAtTick: 52,
         entries: [
           {
-            item: { itemId: 'new_grass', count: 2 },
+            item: createPrototypePayload(
+              { itemId: 'new_grass', count: 2 },
+              { name: '模板名不应落盘', desc: '模板描述不应落盘' },
+            ),
             createdTick: 42,
             visible: true,
           },
@@ -373,10 +395,13 @@ async function main(): Promise<void> {
       respawnLeft: 0,
       respawnTicks: 0,
       aggroTargetPlayerId: 'player:target',
-      statePayload: {
-        buffs: [{ buffId: 'doom', remainingTicks: 12 }],
-        attackReadyTick: 77,
-      },
+      statePayload: createPrototypePayload(
+        {
+          buffs: [{ buffId: 'doom', remainingTicks: 12 }],
+          attackReadyTick: 77,
+        },
+        { debugName: '不应落盘' },
+      ),
     });
     assert.equal(savedMonster, true);
     const monsterRows = await service.loadMonsterRuntimeStates(monsterInstanceId);
@@ -419,10 +444,13 @@ async function main(): Promise<void> {
         respawnLeft: 0,
         respawnTicks: 0,
         aggroTargetPlayerId: 'player:target',
-        statePayload: {
-          buffs: [{ buffId: 'doom', remainingTicks: 9 }],
-          attackReadyTick: 88,
-        },
+        statePayload: createPrototypePayload(
+          {
+            buffs: [{ buffId: 'doom', remainingTicks: 9 }],
+            attackReadyTick: 88,
+          },
+          { debugName: '不应落盘' },
+        ),
       },
     ], []);
     const monsterRowsAfterDelta = await service.loadMonsterRuntimeStates(monsterInstanceId);
@@ -482,11 +510,14 @@ async function main(): Promise<void> {
       instanceId,
       eventKind: 'portal',
       eventKey: 'portal:spawn:manual',
-      statePayload: {
-        opened: true,
-        x: 7,
-        y: 11,
-      },
+      statePayload: createPrototypePayload(
+        {
+          opened: true,
+          x: 7,
+          y: 11,
+        },
+        { debugName: '不应落盘' },
+      ),
       resolvedAt: null,
     });
     assert.equal(savedEvent, true);
@@ -514,12 +545,15 @@ async function main(): Promise<void> {
       patchKind: 'tile',
       chunkKey: 'tile:0:0',
       patchVersion: 3,
-      patchPayload: {
-        tiles: [
-          { x: 0, y: 0, aura: 12 },
-          { x: 1, y: 0, aura: 8 },
-        ],
-      },
+      patchPayload: createPrototypePayload(
+        {
+          tiles: [
+            { x: 0, y: 0, aura: 12 },
+            { x: 1, y: 0, aura: 8 },
+          ],
+        },
+        { debugName: '不应落盘' },
+      ),
     });
     assert.equal(savedOverlay, true);
     const overlayChunks = await service.loadOverlayChunks(instanceId);

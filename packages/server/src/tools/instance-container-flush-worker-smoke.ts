@@ -10,6 +10,17 @@ import { InstanceContainerFlushWorker } from '../runtime/world/worker/instance-c
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+function createPrototypeItem(itemId: string, count: number): Record<string, unknown> {
+  const template = {
+    itemId,
+    name: '模板名不应落盘',
+    desc: '模板描述不应落盘',
+    type: 'material',
+    rarity: 'rare',
+  };
+  return Object.assign(Object.create(template), { itemId, count });
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -57,7 +68,7 @@ async function main(): Promise<void> {
         refreshAtTick: 2,
         entries: [
           {
-            item: { itemId: 'spirit_grass', count: 1 },
+            item: createPrototypeItem('spirit_grass', 1),
             createdTick: 1,
             visible: true,
           },
@@ -114,6 +125,11 @@ async function main(): Promise<void> {
 
     const containerStates = await instanceDomainPersistenceService.loadContainerStates(instanceId);
     assert.equal(containerStates.length > 0, true);
+    const loadedStatePayload = containerStates[0]?.statePayload as {
+      entries?: Array<{ item?: Record<string, unknown> }>;
+    } | undefined;
+    assert.equal(Object.prototype.hasOwnProperty.call(loadedStatePayload?.entries?.[0]?.item ?? {}, 'name'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(loadedStatePayload?.entries?.[0]?.item ?? {}, 'desc'), false);
     assert.deepEqual(containerStates[0]?.statePayload, {
       sourceId: 'legacy:container:1',
       containerId: 'legacy:container:1',

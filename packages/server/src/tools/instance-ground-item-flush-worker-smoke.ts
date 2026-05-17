@@ -10,6 +10,17 @@ import { InstanceGroundItemFlushWorker } from '../runtime/world/worker/instance-
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+function createPrototypeItem(itemId: string, count: number): Record<string, unknown> {
+  const template = {
+    itemId,
+    name: '模板名不应落盘',
+    desc: '模板描述不应落盘',
+    type: 'material',
+    rarity: 'rare',
+  };
+  return Object.assign(Object.create(template), { itemId, count });
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -51,7 +62,7 @@ async function main(): Promise<void> {
     groundPileEntries: [
       {
         tileIndex: 13,
-        items: [{ itemId: 'spirit_stone', count: 2 }],
+        items: [createPrototypeItem('spirit_stone', 2)],
       },
     ],
     containerStates: [],
@@ -100,6 +111,9 @@ async function main(): Promise<void> {
 
     const groundEntries = await instanceDomainPersistenceService.loadGroundItems(instanceId);
     assert.equal(groundEntries.length > 0, true);
+    assert.deepEqual(groundEntries[0]?.itemPayload, { itemId: 'spirit_stone', count: 2 });
+    assert.equal(Object.prototype.hasOwnProperty.call(groundEntries[0]?.itemPayload ?? {}, 'name'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(groundEntries[0]?.itemPayload ?? {}, 'desc'), false);
     const ledgerRows = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-ground-worker-smoke:probe-version',
       domain: 'ground_item',

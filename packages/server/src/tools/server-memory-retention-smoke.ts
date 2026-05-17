@@ -1406,8 +1406,12 @@ function proveEntryCachesFollowLifecycle(): {
   playerDomainCloneJsonValueDecodesOnly: boolean;
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
   playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
+  instancePersistenceNormalizesItemPayloads: boolean;
+  instancePersistenceNormalizesObjectPayloads: boolean;
+  instanceOverlayPortalPersistenceUsesWhitelist: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
+  const instanceDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/instance-domain-persistence.service.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
@@ -1580,6 +1584,41 @@ function proveEntryCachesFollowLifecycle(): {
     && playerDomainPersistenceSource.includes('function applyProjectedEquipment(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerEquipmentSlotLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
     && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
 
+  const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
+    && instanceDomainPersistenceSource.includes('item_instance_payload: normalizePersistedItemPayload(entry.itemPayload)')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.item))')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry?.item))')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(input.itemPayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(entry.itemPayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(entry.item ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(entry?.item ?? {})')
+    && !instanceDomainPersistenceSource.includes('item_instance_payload: entry.itemPayload ?? {}');
+
+  const instancePersistenceNormalizesObjectPayloads = instanceDomainPersistenceSource.includes('function normalizeJsonObjectPayload(value: unknown): Record<string, unknown>')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(activeSearchPayload))')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(state.statePayload))')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(state.activeSearchPayload))')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(input.statePayload))')
+    && instanceDomainPersistenceSource.includes('state_payload: normalizeJsonObjectPayload(entry.statePayload)')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(input.patchPayload))')
+    && instanceDomainPersistenceSource.includes('patchPayload: normalizeJsonObjectPayload(entry?.patchPayload)')
+    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(entry.patchPayload))')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(activeSearchPayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(state.statePayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(state.activeSearchPayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(input.statePayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('state_payload: entry.statePayload ?? {}')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(input.patchPayload ?? {})')
+    && !instanceDomainPersistenceSource.includes('patchPayload: entry?.patchPayload ?? {}')
+    && !instanceDomainPersistenceSource.includes('JSON.stringify(entry.patchPayload ?? {})');
+
+  const instanceOverlayPortalPersistenceUsesWhitelist = mapInstanceSource.includes('id: portal.id,')
+    && mapInstanceSource.includes('targetInstanceId: portal.targetInstanceId ?? null,')
+    && mapInstanceSource.includes('sectId: portal.sectId,')
+    && !mapInstanceSource.includes('.map((portal) => ({ ...portal }))');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
@@ -1606,6 +1645,9 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
   assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
+  assert.equal(instancePersistenceNormalizesItemPayloads, true);
+  assert.equal(instancePersistenceNormalizesObjectPayloads, true);
+  assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1633,6 +1675,9 @@ function proveEntryCachesFollowLifecycle(): {
     playerDomainCloneJsonValueDecodesOnly,
     playerProjectedSnapshotHydratesStarterInPlace,
     playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
+    instancePersistenceNormalizesItemPayloads,
+    instancePersistenceNormalizesObjectPayloads,
+    instanceOverlayPortalPersistenceUsesWhitelist,
   };
 }
 
