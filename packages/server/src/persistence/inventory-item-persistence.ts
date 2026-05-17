@@ -7,6 +7,7 @@
 /** 物品持久化来源数据结构 */
 export interface InventoryItemPersistenceSource {
   itemId?: unknown;
+  itemInstanceId?: unknown;
   count?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
@@ -15,6 +16,7 @@ export interface InventoryItemPersistenceSource {
 /** 装备槽持久化来源数据结构 */
 export interface EquipmentItemPersistenceSource {
   itemId?: unknown;
+  itemInstanceId?: unknown;
   slot?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
@@ -142,6 +144,8 @@ export function hydratePersistedInventoryItem(
     ?? 'unknown_item';
   const count = normalizeMinimumInteger(rawPayload?.count ?? source?.count, 1, 1);
   const enhanceLevel = normalizeEnhanceLevel(source?.enhanceLevel, rawPayload?.enhanceLevel, rawPayload?.enhancementLevel);
+  // 优先来自列存储 source.itemInstanceId；兼容历史 rawPayload 写过该字段的情况
+  const itemInstanceId = normalizeOptionalString(source?.itemInstanceId, rawPayload?.itemInstanceId);
   const legacyOverrides = buildLegacyInventoryOverrides(rawPayload);
 
   const templateItem = contentTemplateRepository?.createItem(itemId, count);
@@ -151,6 +155,7 @@ export function hydratePersistedInventoryItem(
         itemId,
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
+        ...(itemInstanceId == null ? {} : { itemInstanceId }),
       }),
     );
     if (hydrated) {
@@ -159,6 +164,7 @@ export function hydratePersistedInventoryItem(
         itemId,
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
+        ...(itemInstanceId == null ? {} : { itemInstanceId }),
       };
     }
   }
@@ -169,6 +175,7 @@ export function hydratePersistedInventoryItem(
       itemId,
       count,
       ...(enhanceLevel == null ? {} : { enhanceLevel }),
+      ...(itemInstanceId == null ? {} : { itemInstanceId }),
     };
   }
 
@@ -176,6 +183,7 @@ export function hydratePersistedInventoryItem(
     itemId,
     count,
     ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    ...(itemInstanceId == null ? {} : { itemInstanceId }),
   };
 }
 
@@ -196,12 +204,14 @@ export function hydratePersistedEquipmentItem(
     rawPayload?.enhanceLevel,
     rawPayload?.enhancementLevel,
   );
+  const itemInstanceId = normalizeOptionalString(source?.itemInstanceId, rawPayload?.itemInstanceId);
   const hydrated = hydratePersistedInventoryItem(
     {
       itemId,
       count: 1,
       rawPayload,
       ...(enhanceLevel == null ? {} : { enhanceLevel }),
+      ...(itemInstanceId == null ? {} : { itemInstanceId }),
     },
     contentTemplateRepository,
   );
@@ -212,5 +222,6 @@ export function hydratePersistedEquipmentItem(
     count: 1,
     equipSlot: normalizeOptionalString(hydrated.equipSlot) ?? slot ?? undefined,
     ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    ...(itemInstanceId == null ? {} : { itemInstanceId }),
   };
 }

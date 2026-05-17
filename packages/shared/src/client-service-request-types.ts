@@ -249,6 +249,12 @@ export interface CreateMarketSellOrderView {
 
   slotIndex: number;
   /**
+ * expectedItemInstanceId：客户端选中物品时看到的装备 instanceId。
+ * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 做乐观一致性校验。
+ */
+
+  expectedItemInstanceId?: string;
+  /**
  * quantity：quantity相关字段。
  */
 
@@ -343,6 +349,12 @@ export interface SellMarketItemView {
  */
 
   slotIndex: number;
+  /**
+ * expectedItemInstanceId：客户端选中物品时看到的装备 instanceId。
+ * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 做乐观一致性校验。
+ */
+
+  expectedItemInstanceId?: string;
   /**
  * quantity：quantity相关字段。
  */
@@ -587,6 +599,13 @@ export interface EquipView {
  */
 
   slotIndex: number;
+  /**
+ * expectedItemInstanceId：客户端选中目标时看到的装备 instanceId。
+ * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 配置做乐观一致性校验，
+ * 软模式只记 warn，硬模式 mismatch 直接拒绝。
+ */
+
+  expectedItemInstanceId?: string;
 }
 
 /** 卸下装备。 */
@@ -596,6 +615,12 @@ export interface UnequipView {
  */
 
   slot: EquipSlot;
+  /**
+ * expectedItemInstanceId：客户端看到当前装备槽内的装备 instanceId。
+ * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 配置做乐观一致性校验。
+ */
+
+  expectedItemInstanceId?: string;
 }
 
 /** 开始或停止修炼。 */

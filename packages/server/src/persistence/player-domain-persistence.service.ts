@@ -504,6 +504,7 @@ interface PlayerWalletLoadRow {
 }
 
 interface PlayerInventoryItemLoadRow {
+  item_instance_id?: unknown;
   item_id?: unknown;
   count?: unknown;
   slot_index?: unknown;
@@ -1657,6 +1658,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         client,
         `
           SELECT
+            item_instance_id,
             item_id,
             count,
             slot_index,
@@ -5359,6 +5361,7 @@ function applyProjectedInventory(
     ...snapshot.inventory,
     items: rows.map((row) => hydratePersistedInventoryItem({
       itemId: row.item_id,
+      itemInstanceId: row.item_instance_id,
       count: row.count,
       rawPayload: decodeJsonValue(row.raw_payload),
     }, contentTemplateRepository)),
@@ -5416,6 +5419,7 @@ function applyProjectedEquipment(
     const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
     const item = hydratePersistedEquipmentItem({
       itemId: row.item_id,
+      itemInstanceId: row.item_instance_id,
       slot: normalizedSlotType,
       rawPayload,
     }, contentTemplateRepository);

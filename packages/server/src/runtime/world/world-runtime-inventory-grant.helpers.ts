@@ -34,6 +34,9 @@ export function buildNextInventorySnapshots(items) {
     return Array.isArray(items)
         ? items.map((entry) => ({
             itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+            itemInstanceId: typeof entry?.itemInstanceId === 'string' && entry.itemInstanceId.length > 0
+                ? entry.itemInstanceId
+                : undefined,
             count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
             rawPayload: entry ? { ...entry } : {},
         })).filter((entry) => entry.itemId)
@@ -44,6 +47,9 @@ export function buildGrantedInventorySnapshots(items) {
     return Array.isArray(items)
         ? items.map((item) => ({
             itemId: typeof item?.itemId === 'string' ? item.itemId : '',
+            itemInstanceId: typeof item?.itemInstanceId === 'string' && item.itemInstanceId.length > 0
+                ? item.itemInstanceId
+                : undefined,
             count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
             rawPayload: item ? { ...item } : {},
         })).filter((entry) => entry.itemId)

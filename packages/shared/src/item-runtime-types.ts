@@ -594,6 +594,25 @@ export interface ItemStack {
 
   itemId: string;  
   /**
+ * itemInstanceId：装备稳定实例 ID。
+ *
+ * 仅装备类（type === 'equipment'）强制存在，由服务端在物品生成时刻分配
+ * （randomUUID v4），之后跟随物品全程不变：装备装/卸、强化（成功 / 失败 /
+ * 降级 / 取消）、掉落 → 拾取、邮件领取都保留同一个 itemInstanceId。
+ * 市场挂单脱壳后买家成交会**重新分配** ID（卖家资产视为已脱手）。
+ *
+ * 客户端只读；用于协议层乐观一致性校验（expectedItemInstanceId）、
+ * UI 列表稳定 key 与资产追溯审计。
+ *
+ * 与堆叠语义的关系：带 itemInstanceId 的物品永远独立成 slot，count 恒为 1，
+ * 不与同 (itemId, enhanceLevel) 签名的其它堆叠合并。
+ *
+ * 历史 fallback 值（`inv:{playerId}:{slot}` / `equip:{playerId}:{slot}`，含 ":" ）
+ * 视为"未稳定"，水合阶段会被 lazy 升级为新 UUID。
+ */
+
+  itemInstanceId?: string;
+  /**
  * name：名称名称或显示文本。
  */
 

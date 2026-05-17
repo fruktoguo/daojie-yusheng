@@ -53,6 +53,7 @@ const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
 
 export interface DurableInventoryItemSnapshot {
   itemId: string;
+  itemInstanceId?: string;
   count: number;
   enhanceLevel?: number | null;
   rawPayload: unknown;
@@ -3337,8 +3338,13 @@ async function replacePlayerInventoryItems(
       enhanceLevel: item.enhanceLevel,
       rawPayload: item.rawPayload,
     });
+    // 优先取 sourceItem 自带的稳定 instanceId（装备类必须有；非装备类回退到 inv:{playerId}:{index}
+    // 让 PG 主键稳定，行为与持久化层保持一致）。
+    const itemInstanceId = normalizeRequiredString(item?.itemInstanceId)
+      || normalizeRequiredString((item?.rawPayload as { itemInstanceId?: unknown })?.itemInstanceId)
+      || `inv:${playerId}:${index}`;
     rows.push({
-      item_instance_id: `inv:${playerId}:${index}`,
+      item_instance_id: itemInstanceId,
       slot_index: index,
       item_id: itemId,
       count,

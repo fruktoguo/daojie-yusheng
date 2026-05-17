@@ -3,7 +3,7 @@ import * as path from 'path';
 import { DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
-const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel']);
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel']);
 
 function createItemInstanceFromTemplate(template, source: any = {}) {
     const instance = Object.create(template);
@@ -23,6 +23,12 @@ function createItemInstanceFromTemplate(template, source: any = {}) {
     const enhanceLevel = normalizeItemInstanceEnhanceLevel(source?.enhanceLevel ?? source?.enhancementLevel ?? template.enhanceLevel);
     if (enhanceLevel > 0) {
         defineInstanceValue(instance, 'enhanceLevel', enhanceLevel);
+    }
+    const itemInstanceId = typeof source?.itemInstanceId === 'string' && source.itemInstanceId.length > 0
+        ? source.itemInstanceId
+        : undefined;
+    if (itemInstanceId) {
+        defineInstanceValue(instance, 'itemInstanceId', itemInstanceId);
     }
     return instance;
 }

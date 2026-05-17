@@ -15,6 +15,12 @@ export interface SyncedItemStack {
 
   itemId: string;
   /**
+ * itemInstanceId：装备稳定实例 ID（同 ItemStack.itemInstanceId）。
+ * 仅装备类携带；用于客户端协议透传 expectedItemInstanceId 与稳定 UI key。
+ */
+
+  itemInstanceId?: string;
+  /**
  * count：数量或计量字段。
  */
 

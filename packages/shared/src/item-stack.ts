@@ -28,3 +28,50 @@ export function createItemStackSignature(item: ItemStack | { itemId?: string; en
 export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
   return createItemStackSignature(left) === createItemStackSignature(right);
 }
+
+/**
+ * 是否需要为该物品分配稳定 itemInstanceId。
+ *
+ * 当前仅装备类（type === 'equipment'）强制需要：装备是单件资产，必须有
+ * 跨链路稳定的实例身份才能支持强化乐观一致性校验、装/卸不被错配、
+ * 资产追溯等能力。
+ *
+ * 非装备类（consumable / material / quest_item / skill_book）保留同质堆叠
+ * 语义，不分配 instanceId。
+ */
+export function isItemInstanceTracked(item: Pick<ItemStack, 'type'> | { type?: unknown } | null | undefined): boolean {
+  return Boolean(item) && (item as { type?: unknown }).type === 'equipment';
+}
+
+/**
+ * 是否是迁移期 fallback 形式的 itemInstanceId（含 ":" 的伪 ID，例如
+ * `inv:p_xxx:0` 或 `equip:p_xxx:weapon`）。
+ *
+ * 历史持久化层为了让 PG 行有稳定主键，会用这种格式兜底；新版改造后这类值
+ * 视为"未稳定"，水合时会被 lazy 升级为新 UUID。
+ */
+export function isLegacyItemInstanceId(id: string | undefined | null): boolean {
+  return typeof id === 'string' && id.length > 0 && id.includes(':');
+}
+
+/**
+ * 是否允许该物品参与"按签名找现有堆叠合并 count"的逻辑。
+ *
+ * 装备 / 任何带 itemInstanceId 的物品都必须独立成 slot：
+ *   - 装备每件 count 恒为 1
+ *   - 同 (itemId, enhanceLevel) 但 itemInstanceId 不同的两件装备应在不同 slot
+ *
+ * 非装备且未带 itemInstanceId 的物品继续走原有签名合并逻辑。
+ */
+export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId'> | null | undefined): boolean {
+  if (!item) {
+    return false;
+  }
+  if ((item as { itemInstanceId?: unknown }).itemInstanceId) {
+    return false;
+  }
+  if (isItemInstanceTracked(item)) {
+    return false;
+  }
+  return true;
+}
