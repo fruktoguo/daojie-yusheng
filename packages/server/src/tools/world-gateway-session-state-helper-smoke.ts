@@ -12,7 +12,6 @@ const { WorldGatewaySessionStateHelper } = require("../network/world-gateway-ses
 function testSessionStateHelper() {
     const log = [];
     const helper = new WorldGatewaySessionStateHelper({
-        playerRuntimeService: {        
         /**
  * detachSession：执行detachSession相关逻辑。
  * @param playerId 玩家 ID。
@@ -22,7 +21,6 @@ function testSessionStateHelper() {
             detachSession(playerId) {
                 log.push(['detachSession', playerId]);
             },
-        },
     });
     helper.subscribeMarket('player:1');
     helper.setMarketListingsRequest('player:1', { page: 2 });

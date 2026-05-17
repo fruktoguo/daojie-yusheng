@@ -52,6 +52,22 @@ async function verifyHookWiring(): Promise<{
   const clearCalls: string[] = [];
   const disconnectPresenceCalls: string[] = [];
   const flushCalls: string[] = [];
+  const playerRuntimeService = {
+    detachSession() {
+      return undefined;
+    },
+    describePersistencePresence() {
+      return {
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'runtime:route-smoke:1',
+        sessionEpoch: 7,
+        transferState: null,
+        transferTargetNodeId: null,
+        versionSeed: 123,
+      };
+    },
+  };
 
   const bootstrapService = new WorldSessionBootstrapPlayerInitService(
     {
@@ -128,22 +144,7 @@ async function verifyHookWiring(): Promise<{
         return undefined;
       },
     } as never,
-    {
-      detachSession() {
-        return undefined;
-      },
-      describePersistencePresence() {
-        return {
-          online: true,
-          inWorld: true,
-          runtimeOwnerId: 'runtime:route-smoke:1',
-          sessionEpoch: 7,
-          transferState: null,
-          transferTargetNodeId: null,
-          versionSeed: 123,
-        };
-      },
-    } as never,
+    playerRuntimeService as never,
     {} as never,
     {} as never,
     {} as never,
@@ -173,6 +174,13 @@ async function verifyHookWiring(): Promise<{
     {} as never,
     {} as never,
     {} as never,
+    {
+      async clearDisconnectedPlayerState(binding: { connected: boolean }) {
+        if (!binding.connected) {
+          playerRuntimeService.detachSession();
+        }
+      },
+    } as never,
   );
 
   await gateway.handleDisconnect({ id: 'socket:route-smoke' } as never);

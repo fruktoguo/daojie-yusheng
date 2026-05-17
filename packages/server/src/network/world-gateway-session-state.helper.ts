@@ -4,14 +4,12 @@
  * 收敛坊市订阅、请求缓存管理与断线后的会话侧状态清理。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { Injectable, Logger } from '@nestjs/common';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 /** 世界 socket 会话侧状态 helper：收敛坊市订阅、请求缓存与断线清理。 */
+@Injectable()
 class WorldGatewaySessionStateHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
 /**
  * marketSubscriberPlayerIds：坊市Subscriber玩家ID相关字段。
  */
@@ -38,9 +36,9 @@ class WorldGatewaySessionStateHelper {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }
+    private readonly logger = new Logger(WorldGatewaySessionStateHelper.name);
+
+    constructor(private readonly playerRuntimeService: PlayerRuntimeService) {}
     /**
  * clearDisconnectedPlayerState：判断clearDisconnected玩家状态是否满足条件。
  * @param binding 参数说明。
@@ -57,10 +55,10 @@ class WorldGatewaySessionStateHelper {
         this.marketListingRequestsByPlayerId.delete(binding.playerId);
         this.auctionListingRequestsByPlayerId.delete(binding.playerId);
         this.marketTradeHistoryRequestsByPlayerId.delete(binding.playerId);
-        this.gateway.playerRuntimeService.detachSession(binding.playerId);
-        if (typeof this.gateway.playerRuntimeService.beginOfflineGainSession === 'function') {
-            await this.gateway.playerRuntimeService.beginOfflineGainSession(binding.playerId).catch((error) => {
-                this.gateway.logger?.warn?.(
+        this.playerRuntimeService.detachSession(binding.playerId);
+        if (typeof this.playerRuntimeService.beginOfflineGainSession === 'function') {
+            await this.playerRuntimeService.beginOfflineGainSession(binding.playerId).catch((error) => {
+                this.logger.warn(
                     `记录离线收益基线失败：${binding.playerId} ${error instanceof Error ? error.message : String(error)}`,
                 );
             });

@@ -103,6 +103,28 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   const flushCalls: string[] = [];
   let heartbeatCount = 0;
   let notReadyCount = 0;
+  const playerRuntimeService = {
+    markHeartbeat() {
+      heartbeatCount += 1;
+    },
+    describePersistencePresence() {
+      return {
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'runtime:presence-heartbeat:2',
+        sessionEpoch: 7,
+        transferState: null,
+        transferTargetNodeId: null,
+        versionSeed: 1,
+      };
+    },
+    markPersisted(playerId: string) {
+      persisted.push(playerId);
+    },
+    detachSession() {
+      return undefined;
+    },
+  };
   const gateway = new WorldGateway(
     {} as never,
     {} as never,
@@ -126,28 +148,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
         flushCalls.push(playerId);
       },
     } as never,
-    {
-      markHeartbeat() {
-        heartbeatCount += 1;
-      },
-      describePersistencePresence() {
-        return {
-          online: true,
-          inWorld: true,
-          runtimeOwnerId: 'runtime:presence-heartbeat:2',
-          sessionEpoch: 7,
-          transferState: null,
-          transferTargetNodeId: null,
-          versionSeed: 1,
-        };
-      },
-      markPersisted(playerId: string) {
-        persisted.push(playerId);
-      },
-      detachSession() {
-        return undefined;
-      },
-    } as never,
+    playerRuntimeService as never,
     {} as never,
     {} as never,
     {} as never,
@@ -190,6 +191,13 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
       },
     } as never,
     {} as never,
+    {
+      async clearDisconnectedPlayerState(binding: { playerId: string; connected: boolean }) {
+        if (!binding.connected) {
+          playerRuntimeService.detachSession();
+        }
+      },
+    } as never,
   );
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);

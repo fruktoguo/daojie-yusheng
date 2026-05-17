@@ -81,7 +81,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper; gatewayPresenceHelper: WorldGatewayPresenceHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
-    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper) {
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -116,7 +116,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.gatewayBuildingHelper = new WorldGatewayBuildingHelper(this);
         this.gatewayClientEmitHelper = gatewayClientEmitHelper;
         this.gatewayGuardHelper = gatewayGuardHelper;
-        this.gatewaySessionStateHelper = new WorldGatewaySessionStateHelper(this);
+        this.gatewaySessionStateHelper = gatewaySessionStateHelper;
         this.gatewayPresenceHelper = new WorldGatewayPresenceHelper(this);
     }
     /** 新 socket 连接建立：挂载性能观测、频率限制，然后委托 bootstrap helper 处理鉴权。 */
