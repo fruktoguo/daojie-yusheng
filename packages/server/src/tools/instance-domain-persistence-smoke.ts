@@ -206,6 +206,61 @@ async function main(): Promise<void> {
         modifiedAt: 333,
       },
     ]);
+    await service.replaceTemporaryTileStates(instanceId, [
+      {
+        tileIndex: 9,
+        x: 12,
+        y: -4,
+        tileType: 'floor',
+        hp: 55,
+        maxHp: 90,
+        expiresAtTick: 1235,
+        ownerPlayerId: 'player:owner',
+        sourceSkillId: 'skill.yi_kunlun_point_stone',
+        createdAt: 222,
+        modifiedAt: 444,
+      },
+      {
+        tileIndex: 10,
+        x: 13,
+        y: -4,
+        tileType: 'stone',
+        hp: 12,
+        maxHp: 18,
+        expiresAtTick: 1500,
+      },
+    ]);
+    await service.replaceTemporaryTileStates(instanceId, [
+      {
+        tileIndex: 9,
+        x: 12,
+        y: -4,
+        tileType: 'floor',
+        hp: 44,
+        maxHp: 90,
+        expiresAtTick: 1236,
+        ownerPlayerId: 'player:owner',
+        sourceSkillId: 'skill.yi_kunlun_point_stone',
+        createdAt: 222,
+        modifiedAt: 555,
+      },
+    ]);
+    const temporaryTileRowsAfterPrune = await service.loadTemporaryTileStates(instanceId);
+    assert.deepEqual(temporaryTileRowsAfterPrune, [
+      {
+        tileIndex: 9,
+        x: 12,
+        y: -4,
+        tileType: 'floor',
+        hp: 44,
+        maxHp: 90,
+        expiresAtTick: 1236,
+        ownerPlayerId: 'player:owner',
+        sourceSkillId: 'skill.yi_kunlun_point_stone',
+        createdAt: 222,
+        modifiedAt: 555,
+      },
+    ]);
     await service.replaceTemporaryTileStates(instanceId, []);
     const temporaryTileRowsAfterClear = await service.loadTemporaryTileStates(instanceId);
     assert.equal(temporaryTileRowsAfterClear.length, 0);

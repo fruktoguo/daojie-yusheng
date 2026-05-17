@@ -1180,7 +1180,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
-  /** 全量替换指定实例的临时地块状态（技能生成地块等） */
+  /** 保存指定实例的临时地块快照：批量 upsert 当前临时地块，并删除快照外 stale tile。 */
   async replaceTemporaryTileStates(
     instanceId: string,
     entries: Array<{
@@ -1225,10 +1225,25 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                tile_index bigint,
+                x bigint,
+                y bigint,
+                tile_type varchar(64),
+                hp double precision,
+                max_hp double precision,
+                expires_at_tick bigint,
+                owner_player_id varchar(100),
+                source_skill_id varchar(160),
+                created_at_ms bigint,
+                modified_at_ms bigint
+              )
+            )
             INSERT INTO ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}(
               instance_id,
               tile_index,
@@ -1244,7 +1259,9 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               modified_at_ms,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+            SELECT $1, tile_index, x, y, tile_type, hp, max_hp, expires_at_tick,
+              owner_player_id, source_skill_id, created_at_ms, modified_at_ms, now()
+            FROM incoming
             ON CONFLICT (instance_id, tile_index)
             DO UPDATE SET
               x = EXCLUDED.x,
@@ -1261,20 +1278,38 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           `,
           [
             normalizedInstanceId,
-            entry.tileIndex,
-            entry.x,
-            entry.y,
-            entry.tileType,
-            entry.hp,
-            entry.maxHp,
-            entry.expiresAtTick,
-            entry.ownerPlayerId || null,
-            entry.sourceSkillId || null,
-            entry.createdAt,
-            entry.modifiedAt,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              tile_index: entry.tileIndex,
+              x: entry.x,
+              y: entry.y,
+              tile_type: entry.tileType,
+              hp: entry.hp,
+              max_hp: entry.maxHp,
+              expires_at_tick: entry.expiresAtTick,
+              owner_player_id: entry.ownerPlayerId || null,
+              source_skill_id: entry.sourceSkillId || null,
+              created_at_ms: entry.createdAt,
+              modified_at_ms: entry.modifiedAt,
+            }))),
           ],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT tile_index
+            FROM jsonb_to_recordset($2::jsonb) AS entry(tile_index bigint)
+          )
+          DELETE FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.tile_index = target.tile_index
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(normalizedEntries.map(({ tileIndex }) => ({ tile_index: tileIndex })))],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
