@@ -282,7 +282,9 @@ export class WorldRuntimeTongtianTowerService {
       preferredY: this.config.exitY,
     }, deps);
     deps.queuePlayerNotice?.(playerId, '你退出通天塔，回到栖真渡。', 'success');
-    void this.cleanupIdleInstances(deps);
+    void this.cleanupIdleInstances(deps).catch((error) => {
+      this.logger.warn(`通天塔空闲实例清理失败：${error instanceof Error ? error.message : String(error)}`);
+    });
     return view;
   }
 
