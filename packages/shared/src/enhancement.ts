@@ -411,7 +411,12 @@ export function scaleEnhancedNumericStats(
 ): PartialNumericStats | undefined {
   const normalizedLevel = normalizeEnhanceLevel(level);
   if (!stats || normalizedLevel <= 0) {
-    return stats ? JSON.parse(JSON.stringify(stats)) as PartialNumericStats : undefined;
+    if (!stats) return undefined;
+    // 浅拷贝 + 子对象展开，替代 JSON.parse(JSON.stringify) 深拷贝
+    const copy: PartialNumericStats = { ...stats };
+    if (stats.elementDamageBonus) copy.elementDamageBonus = { ...stats.elementDamageBonus };
+    if (stats.elementDamageReduce) copy.elementDamageReduce = { ...stats.elementDamageReduce };
+    return copy;
   }
   const scaled: PartialNumericStats = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
