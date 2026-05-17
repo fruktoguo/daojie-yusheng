@@ -79,10 +79,12 @@ function cloneQiProjectionSelector(
 }
 
 function buildQiProjectionModifierKey(modifier: QiProjectionModifier): string {
-  return JSON.stringify({
-    selector: cloneQiProjectionSelector(modifier.selector),
-    visibility: modifier.visibility,
-  });
+  const s = modifier.selector;
+  const rk = s?.resourceKeys ? s.resourceKeys.slice().sort().join(',') : '';
+  const fm = s?.families ? s.families.slice().sort().join(',') : '';
+  const fo = s?.forms ? s.forms.slice().sort().join(',') : '';
+  const el = s?.elements ? s.elements.slice().sort().join(',') : '';
+  return `${rk}|${fm}|${fo}|${el}|${modifier.visibility ?? ''}`;
 }
 
 function accumulateQiProjectionModifiers(
