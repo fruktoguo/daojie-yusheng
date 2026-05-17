@@ -248,6 +248,14 @@
 - Redis 用于在线态、实时态、缓存或短期索引，不在 tick 中做不必要外部往返
 - 只有热点明确成立时才引入复杂结构或 Rust 加速；Rust 边界不得直接持有数据库真源、socket 连接或复杂业务生命周期
 
+**模板与运行态实例边界**：
+- 模板源由统一 Registry 收口（`ItemTemplateRegistry / TechniqueTemplateRegistry / SkillTemplateRegistry / BuffTemplateRegistry / FormationTemplateRegistry / MonsterTemplateRegistry / DropTableRegistry / NpcTemplateRegistry / QuestTemplateRegistry / ContainerTemplateRegistry / LandmarkTemplateRegistry / TileTemplateRegistry`），启动期一次解析、`Object.freeze` 兜底，运行期只读
+- 运行态实例只能通过 Registry 的 `createInstance / hydrate / createRuntimeMonsterSpawn / shareProjection` 等显式工厂出口产出；禁止在运行时手工拼模板字段、手写 `{ ...template }` 复制 shell
+- 实例 own 字段限定为「实例可变 + 索引」白名单，模板字段（`name / desc / range / formula / equipAttrs / shopItems / quests / drops / lootPools / attrs / stats / qiProjection / 等`）一律走 prototype 链或按 id 查询，不进运行态 own 字段、不进持久化 jsonb
+- 不允许在 `runtime / network / persistence` 路径下使用 `{ ...xxxTemplate }` / `{ ...xxxRegistry.getRef(...) }` / `Object.assign({}, template, ...)` / `JSON.parse(JSON.stringify(template))` / `structuredClone(template)`；必要例外通过 `audit-runtime-template-spread.allowlist.json` 显式放行（带 reason，最多 30 条）
+- 任何按境界 / 等级 / 上下文动态构造的 buff（PVP / 丹药 / 妖兽 initial / 装备触发等）必须按 `(buffId, realmLv)` 复合 key 在 BuffTemplateRegistry 缓存 frozen 模板；不在运行时反复构造新模板对象
+- 防回退守护：`pnpm audit:boundaries` 串接 `audit-runtime-template-spread`（spread / clone 模式扫描）和 `audit-registry-frozen`（启动期断言 sample 模板 frozen），新增模板域时必须同步扩 `proveUnifiedTemplateRegistryGuards` 的 own keys 与引用共享断言
+
 ---
 
 ## 13. 持久化与运营数据红线
