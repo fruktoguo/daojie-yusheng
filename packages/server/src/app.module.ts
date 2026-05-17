@@ -36,6 +36,7 @@ import { WorldSyncPlayerStateService } from './network/world-sync-player-state.s
 import { WorldSyncService } from './network/world-sync.service';
 import { WorldGatewayBuildingHelper } from './network/world-gateway-building.helper';
 import { WorldGatewayClientEmitHelper } from './network/world-gateway-client-emit.helper';
+import { WorldGatewayCraftHelper } from './network/world-gateway-craft.helper';
 import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { WorldGatewayMovementHelper } from './network/world-gateway-movement.helper';
 import { WorldGatewayNpcHelper } from './network/world-gateway-npc.helper';
@@ -345,6 +346,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     RuntimeMaintenanceService,
     WorldGatewayBuildingHelper,
     WorldGatewayClientEmitHelper,
+    WorldGatewayCraftHelper,
     WorldGatewayGuardHelper,
     WorldGatewayMovementHelper,
     WorldGatewayNpcHelper,

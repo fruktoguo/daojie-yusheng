@@ -61,10 +61,20 @@ function createClient(log = [], id = 'socket:1') {
     };
 }
 
+function createHelper(gateway) {
+    return new WorldGatewayCraftHelper(
+        gateway.gatewayGuardHelper,
+        gateway.playerRuntimeService,
+        gateway.craftPanelRuntimeService,
+        gateway.worldRuntimeService,
+        gateway.worldClientEventService,
+    );
+}
+
 function testRequestAndCommandDelegation() {
     const log = [];
     const gateway = createGateway(log);
-    const helper = new WorldGatewayCraftHelper(gateway);
+    const helper = createHelper(gateway);
     const client = createClient(log);
 
     helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 7 }, 'alchemy');
@@ -97,7 +107,7 @@ function testRequestAndCommandDelegation() {
 function testGuardFailureSkipsWork() {
     const log = [];
     const gateway = createGateway(log, null);
-    const helper = new WorldGatewayCraftHelper(gateway);
+    const helper = createHelper(gateway);
     const client = createClient(log);
 
     helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 1 }, 'alchemy');
@@ -127,7 +137,7 @@ function testGatewayErrorCodes() {
         throw new Error('delete failed');
     };
 
-    const helper = new WorldGatewayCraftHelper(gateway);
+    const helper = createHelper(gateway);
     const client = createClient(log);
     helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 0 }, 'enhancement');
     helper.handleStartTechniqueActivity(client, { itemId: 'item:1' }, 'enhancement');

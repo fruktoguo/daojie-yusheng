@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimePlayerCommandEnqueueService } = require("../runtime/world/world-runtime-player-command-enqueue.service");
+const { WorldRuntimePlayerCommandEnqueueService } = require("../runtime/world/command/world-runtime-player-command-enqueue.service");
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。

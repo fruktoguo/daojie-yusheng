@@ -3,25 +3,26 @@
  * 收敛炼丹、锻造、强化面板请求和活动开始/取消/预设管理入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
-
+import { Injectable } from '@nestjs/common';
+import type { Socket } from 'socket.io';
 import { emitTechniqueActivityPanel, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
+import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 世界 socket 采集/锻造 helper：只收敛 craft 相关入口。 */
+@Injectable()
 class WorldGatewayCraftHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly playerRuntimeService: PlayerRuntimeService,
+        private readonly craftPanelRuntimeService: CraftPanelRuntimeService,
+        private readonly worldRuntimeService: WorldRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }    
     /**
  * handleRequestTechniqueActivityPanel：统一技艺面板请求入口。
  * @param client 参数说明。
@@ -30,24 +31,24 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新技艺面板请求相关状态。
  */
 
-    handleRequestTechniqueActivityPanel(client, payload, kind) {
+    handleRequestTechniqueActivityPanel(client: Socket, payload: any, kind: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            const player = this.gateway.playerRuntimeService.getPlayer(playerId);
+            const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 return;
             }
-            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            const panelPayload = this.gateway.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, kind, payload?.knownCatalogVersion);
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            const panelPayload = this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, kind, payload?.knownCatalogVersion);
             emitTechniqueActivityPanel(client, kind, panelPayload);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).requestPanelErrorCode, error);
+            this.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).requestPanelErrorCode, error);
         }
     }    
     /**
@@ -58,19 +59,19 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新技艺活动开始相关状态。
  */
 
-    handleStartTechniqueActivity(client, payload, kind) {
+    handleStartTechniqueActivity(client: Socket, payload: any, kind: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, kind, payload, this.gateway.worldRuntimeService);
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, kind, payload, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).startErrorCode, error);
+            this.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).startErrorCode, error);
         }
     }    
     /**
@@ -80,19 +81,19 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新技艺活动取消相关状态。
  */
 
-    handleCancelTechniqueActivity(client, kind) {
+    handleCancelTechniqueActivity(client: Socket, kind: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.gateway.worldRuntimeService);
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).cancelErrorCode, error);
+            this.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).cancelErrorCode, error);
         }
     }    
     /**
@@ -102,7 +103,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新炼丹面板请求相关状态。
  */
 
-    handleRequestAlchemyPanel(client, payload) {
+    handleRequestAlchemyPanel(client: Socket, payload: any) {
         this.handleRequestTechniqueActivityPanel(client, payload, payload?.kind === 'forging' ? 'forging' : 'alchemy');
     }    
     /**
@@ -112,7 +113,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新强化面板请求相关状态。
  */
 
-    handleRequestEnhancementPanel(client, _payload) {
+    handleRequestEnhancementPanel(client: Socket, _payload: any) {
         this.handleRequestTechniqueActivityPanel(client, _payload, 'enhancement');
     }    
     /**
@@ -122,7 +123,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新开始炼丹相关状态。
  */
 
-    handleStartAlchemy(client, payload) {
+    handleStartAlchemy(client: Socket, payload: any) {
         this.handleStartTechniqueActivity(client, payload, payload?.kind === 'forging' ? 'forging' : 'alchemy');
     }    
     /**
@@ -132,7 +133,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新取消炼丹相关状态。
  */
 
-    handleCancelAlchemy(client, _payload) {
+    handleCancelAlchemy(client: Socket, _payload: any) {
         void _payload;
         this.handleCancelTechniqueActivity(client, _payload?.kind === 'forging' ? 'forging' : 'alchemy');
     }    
@@ -143,19 +144,19 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新保存炼丹预设相关状态。
  */
 
-    handleSaveAlchemyPreset(client, payload) {
+    handleSaveAlchemyPreset(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSaveAlchemyPreset(playerId, payload, this.gateway.worldRuntimeService);
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSaveAlchemyPreset(playerId, payload, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'SAVE_ALCHEMY_PRESET_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'SAVE_ALCHEMY_PRESET_FAILED', error);
         }
     }    
     /**
@@ -165,19 +166,19 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新删除炼丹预设相关状态。
  */
 
-    handleDeleteAlchemyPreset(client, payload) {
+    handleDeleteAlchemyPreset(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDeleteAlchemyPreset(playerId, payload?.presetId, this.gateway.worldRuntimeService);
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDeleteAlchemyPreset(playerId, payload?.presetId, this.worldRuntimeService);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'DELETE_ALCHEMY_PRESET_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'DELETE_ALCHEMY_PRESET_FAILED', error);
         }
     }    
     /**
@@ -187,7 +188,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新开始强化相关状态。
  */
 
-    handleStartEnhancement(client, payload) {
+    handleStartEnhancement(client: Socket, payload: any) {
         this.handleStartTechniqueActivity(client, payload, 'enhancement');
     }    
     /**
@@ -197,7 +198,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新取消强化相关状态。
  */
 
-    handleCancelEnhancement(client, _payload) {
+    handleCancelEnhancement(client: Socket, _payload: any) {
         void _payload;
         this.handleCancelTechniqueActivity(client, 'enhancement');
     }
