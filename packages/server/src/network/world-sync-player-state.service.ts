@@ -12,6 +12,7 @@ import {
   cloneNumericStats,
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
+import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
 import { WorldProjectorService } from './world-projector.service';
 
 const autoBattleSkillCloneCache = new WeakMap<any[], any[]>();
@@ -371,33 +372,11 @@ function toQuestRuntimeState(source) {
 }
 
 function cloneRealmState(source) {
-  if (!source) {
-    return null;
-  }
-  return {
-    ...source,
-    breakthroughItems: source.breakthroughItems.map((entry) => ({ ...entry })),
-    breakthrough: source.breakthrough
-      ? {
-        ...source.breakthrough,
-        requirements: source.breakthrough.requirements.map((entry) => ({ ...entry })),
-      }
-      : undefined,
-    heavenGate: cloneHeavenGateState(source.heavenGate),
-  };
+  return projectRealmState(source);
 }
 
 function cloneHeavenGateState(source) {
-  if (!source) {
-    return null;
-  }
-  return {
-    unlocked: source.unlocked,
-    severed: source.severed.slice(),
-    roots: cloneHeavenGateRoots(source.roots),
-    entered: source.entered,
-    averageBonus: source.averageBonus,
-  };
+  return projectHeavenGateState(source);
 }
 
 function cloneHeavenGateRoots(source) {

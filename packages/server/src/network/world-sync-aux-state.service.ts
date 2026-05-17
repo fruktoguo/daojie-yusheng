@@ -23,6 +23,7 @@ import {
 } from '@mud/shared';
 
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 import { WorldSyncMapStaticAuxService } from './world-sync-map-static-aux.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';
@@ -496,21 +497,7 @@ function cloneLootWindow(source: LootWindowState): LootWindowState {
 }
 
 function cloneRealmState(source: PlayerRealmState | null | undefined): PlayerRealmState | null {
-  if (!source) {
-    return null;
-  }
-
-  return {
-    ...source,
-    breakthroughItems: source.breakthroughItems.map((entry) => ({ ...entry })),
-    breakthrough: source.breakthrough
-      ? {
-          ...source.breakthrough,
-          requirements: source.breakthrough.requirements.map((entry) => ({ ...entry })),
-        }
-      : undefined,
-    heavenGate: cloneHeavenGateState(source.heavenGate),
-  };
+  return projectRealmState(source) as PlayerRealmState | null;
 }
 
 function isSameRealmState(left: PlayerRealmState | null, right: PlayerRealmState | null): boolean {
@@ -644,33 +631,7 @@ function isSameStringArray(left: string[], right: string[]): boolean {
 }
 
 function cloneHeavenGateState(source: HeavenGateState | null | undefined): HeavenGateState | null {
-  if (!source) {
-    return null;
-  }
-
-  return {
-    unlocked: source.unlocked,
-    severed: source.severed.slice(),
-    roots: cloneHeavenGateRoots(source.roots),
-    entered: source.entered,
-    averageBonus: source.averageBonus,
-  };
-}
-
-function cloneHeavenGateRoots(
-  source: HeavenGateRootValues | null | undefined,
-): HeavenGateRootValues | null {
-  if (!source) {
-    return null;
-  }
-
-  return {
-    metal: source.metal,
-    wood: source.wood,
-    water: source.water,
-    fire: source.fire,
-    earth: source.earth,
-  };
+  return projectHeavenGateState(source) as HeavenGateState | null;
 }
 
 function isSameLootWindow(left: LootWindowState, right: LootWindowState): boolean {

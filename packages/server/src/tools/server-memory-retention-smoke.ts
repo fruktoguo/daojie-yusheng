@@ -1402,6 +1402,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerEquipmentSnapshotReusesSlotItemRefs: boolean;
   playerContextActionsAvoidEntrySpread: boolean;
   playerProgressionConfigViewsReuseRefs: boolean;
+  playerRealmProjectionReusesStableRefs: boolean;
   playerDomainPayloadColumnsAreJsonb: boolean;
   playerDomainCloneJsonValueDecodesOnly: boolean;
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
@@ -1421,6 +1422,7 @@ function proveEntryCachesFollowLifecycle(): {
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+  const playerRealmProjectionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-realm-projection.helpers.ts'), 'utf8');
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
   const playerPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence.service.ts'), 'utf8');
@@ -1569,6 +1571,14 @@ function proveEntryCachesFollowLifecycle(): {
     && !playerProgressionSource.includes('(realm.breakthroughItems ?? []).map((item) => ({ ...item }))')
     && !playerProgressionSource.includes('return (transition.rootFoundationItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count }));');
 
+  const playerRealmProjectionReusesStableRefs = playerRealmProjectionSource.includes('breakthroughItems: Array.isArray(source.breakthroughItems) ? source.breakthroughItems : []')
+    && playerRealmProjectionSource.includes('requirements: Array.isArray(source.breakthrough.requirements) ? source.breakthrough.requirements : []')
+    && playerRealmProjectionSource.includes('severed: Array.isArray(source.severed) ? source.severed : []')
+    && !playerRealmProjectionSource.includes('breakthroughItems.map((entry) => ({ ...entry }))')
+    && !playerRealmProjectionSource.includes('requirements.map((entry) => ({ ...entry }))')
+    && playerRuntimeSource.includes('return projectRealmState(realm);')
+    && playerRuntimeSource.includes('return projectHeavenGateState(state);');
+
   const playerDomainPayloadColumnsAreJsonb = [
     'raw_payload jsonb',
     'targeting_rules_payload jsonb',
@@ -1715,6 +1725,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerEquipmentSnapshotReusesSlotItemRefs, true);
   assert.equal(playerContextActionsAvoidEntrySpread, true);
   assert.equal(playerProgressionConfigViewsReuseRefs, true);
+  assert.equal(playerRealmProjectionReusesStableRefs, true);
   assert.equal(playerDomainPayloadColumnsAreJsonb, true);
   assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
@@ -1751,6 +1762,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerEquipmentSnapshotReusesSlotItemRefs,
     playerContextActionsAvoidEntrySpread,
     playerProgressionConfigViewsReuseRefs,
+    playerRealmProjectionReusesStableRefs,
     playerDomainPayloadColumnsAreJsonb,
     playerDomainCloneJsonValueDecodesOnly,
     playerProjectedSnapshotHydratesStarterInPlace,

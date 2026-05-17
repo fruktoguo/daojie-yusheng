@@ -16,6 +16,7 @@ import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
+import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from './runtime-buff-instance';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
@@ -5247,22 +5248,7 @@ function createDefaultRealmState() {
  */
 
 function cloneRealmState(realm) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!realm) {
-        return null;
-    }
-    return {
-        ...realm,
-        breakthroughItems: realm.breakthroughItems.map((entry) => ({ ...entry })),
-        breakthrough: realm.breakthrough
-            ? {
-                ...realm.breakthrough,
-                requirements: realm.breakthrough.requirements.map((entry) => ({ ...entry })),
-            }
-            : undefined,
-        heavenGate: cloneHeavenGateState(realm.heavenGate),
-    };
+    return projectRealmState(realm);
 }
 /**
  * cloneHeavenGateState：构建HeavenGate状态。
@@ -5271,18 +5257,7 @@ function cloneRealmState(realm) {
  */
 
 function cloneHeavenGateState(state) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!state) {
-        return null;
-    }
-    return {
-        unlocked: state.unlocked,
-        severed: state.severed.slice(),
-        roots: cloneHeavenGateRoots(state.roots),
-        entered: state.entered,
-        averageBonus: state.averageBonus,
-    };
+    return projectHeavenGateState(state);
 }
 /**
  * cloneHeavenGateRoots：构建HeavenGate根容器。
