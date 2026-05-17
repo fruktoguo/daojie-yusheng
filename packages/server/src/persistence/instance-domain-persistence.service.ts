@@ -4072,7 +4072,7 @@ async function ensureInstanceBuildingOperationIdempotencyTable(pool: Pool): Prom
 }
 
 async function acquireInstanceDomainLock(client: any, instanceId: string): Promise<void> {
-  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [instanceId]);
+  await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, instanceId]);
 }
 
 async function ensureBigintColumns(client: any, tableName: keyof typeof INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE): Promise<void> {
