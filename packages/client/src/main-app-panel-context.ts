@@ -246,7 +246,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
     sendDropItem: (slotIndex, count) => panelSender.sendDropItem(slotIndex, count),
     sendDestroyItem: (slotIndex, count) => panelSender.sendDestroyItem(slotIndex, count),
-    sendEquip: (slotIndex) => panelSender.sendEquip(slotIndex),
+    sendEquip: (slotIndex, expectedItemInstanceId) => panelSender.sendEquip(slotIndex, expectedItemInstanceId),
     sendSortInventory: () => panelSender.sendSortInventory(),
   });
   const settingsStateSource = createMainSettingsStateSource({

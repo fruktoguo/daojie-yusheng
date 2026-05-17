@@ -1564,7 +1564,14 @@ export class CraftWorkbenchModal {
     candidate: SyncedEnhancementCandidateView,
     useProtection: boolean,
   ): C2S_StartEnhancement | null {
-    const payload: C2S_StartEnhancement = { target: candidate.ref };
+    const targetExpectedInstanceId = typeof candidate.item?.itemInstanceId === 'string' && candidate.item.itemInstanceId.length > 0
+      ? candidate.item.itemInstanceId
+      : undefined;
+    const payload: C2S_StartEnhancement = {
+      target: targetExpectedInstanceId
+        ? { ...candidate.ref, expectedItemInstanceId: targetExpectedInstanceId }
+        : candidate.ref,
+    };
     const targetLevelInput = body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input]');
     const targetLevel = Number(targetLevelInput?.value ?? String(candidate.nextLevel));
     if (Number.isFinite(targetLevel)) {
@@ -1579,7 +1586,9 @@ export class CraftWorkbenchModal {
       return payload;
     }
     if (protectionValue === 'self') {
-      payload.protection = candidate.ref;
+      payload.protection = targetExpectedInstanceId
+        ? { ...candidate.ref, expectedItemInstanceId: targetExpectedInstanceId }
+        : candidate.ref;
     } else if (protectionValue.startsWith('inventory:')) {
       payload.protection = {
         source: 'inventory',

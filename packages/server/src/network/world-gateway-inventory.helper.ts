@@ -276,7 +276,12 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, payload?.slotIndex, this.gateway.worldRuntimeService);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(
+                playerId,
+                payload?.slotIndex,
+                this.gateway.worldRuntimeService,
+                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
+            );
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'EQUIP_FAILED', error);
@@ -307,7 +312,12 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUnequip(playerId, payload?.slot, this.gateway.worldRuntimeService);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUnequip(
+                playerId,
+                payload?.slot,
+                this.gateway.worldRuntimeService,
+                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
+            );
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'UNEQUIP_FAILED', error);

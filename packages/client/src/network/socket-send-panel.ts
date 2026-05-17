@@ -180,8 +180,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
 
-    sendEquip(slotIndex: number): void {
-      deps.emitEvent(C2S.Equip, { slotIndex });
+    sendEquip(slotIndex: number, expectedItemInstanceId?: string): void {
+      deps.emitEvent(C2S.Equip, expectedItemInstanceId ? { slotIndex, expectedItemInstanceId } : { slotIndex });
     },    
     /**
  * sendUnequip：执行sendUnequip相关逻辑。
@@ -190,8 +190,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
 
-    sendUnequip(slot: ClientToServerEventPayload<typeof C2S.Unequip>['slot']): void {
-      deps.emitEvent(C2S.Unequip, { slot });
+    sendUnequip(slot: ClientToServerEventPayload<typeof C2S.Unequip>['slot'], expectedItemInstanceId?: string): void {
+      deps.emitEvent(C2S.Unequip, expectedItemInstanceId ? { slot, expectedItemInstanceId } : { slot });
     },    
     /**
  * sendRequestAttrDetail：执行sendRequestAttr详情相关逻辑。

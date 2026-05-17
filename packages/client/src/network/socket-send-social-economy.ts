@@ -215,8 +215,16 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       unitPrice: number,
       listingMode?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['listingMode'],
       buyoutPrice?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['buyoutPrice'],
+      expectedItemInstanceId?: string,
     ): void {
-      deps.emitEvent(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice, listingMode, buyoutPrice });
+      deps.emitEvent(C2S.CreateMarketSellOrder, {
+        slotIndex,
+        quantity,
+        unitPrice,
+        listingMode,
+        buyoutPrice,
+        ...(expectedItemInstanceId ? { expectedItemInstanceId } : {}),
+      });
     },
     /**
  * sendCreateMarketBuyOrder：构建sendCreate坊市Buy订单。
@@ -272,8 +280,12 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
  */
 
 
-    sendSellMarketItem(slotIndex: number, quantity: number): void {
-      deps.emitEvent(C2S.SellMarketItem, { slotIndex, quantity });
+    sendSellMarketItem(slotIndex: number, quantity: number, expectedItemInstanceId?: string): void {
+      deps.emitEvent(C2S.SellMarketItem, {
+        slotIndex,
+        quantity,
+        ...(expectedItemInstanceId ? { expectedItemInstanceId } : {}),
+      });
     },
     /**
  * sendCancelMarketOrder：判断sendCancel坊市订单是否满足条件。

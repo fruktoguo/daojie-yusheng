@@ -33,7 +33,7 @@ export class WorldRuntimeEquipmentService {
  * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
-    async dispatchEquipItem(playerId, slotIndex, deps) {
+    async dispatchEquipItem(playerId, slotIndex, deps, expectedItemInstanceId?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
@@ -50,7 +50,7 @@ export class WorldRuntimeEquipmentService {
         if (lockReason) {
             throw new BadRequestException(lockReason);
         }
-        this.playerRuntimeService.equipItem(playerId, slotIndex);
+        this.playerRuntimeService.equipItem(playerId, slotIndex, expectedItemInstanceId);
         const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n1.text, n1.kind, undefined, undefined, n1.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
@@ -63,7 +63,7 @@ export class WorldRuntimeEquipmentService {
  * @returns 无返回值，直接更新Unequip道具相关状态。
  */
 
-    async dispatchUnequipItem(playerId, slot, deps) {
+    async dispatchUnequipItem(playerId, slot, deps, expectedItemInstanceId?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const item = this.playerRuntimeService.peekEquippedItem(playerId, slot);
@@ -75,7 +75,7 @@ export class WorldRuntimeEquipmentService {
         if (lockReason) {
             throw new BadRequestException(lockReason);
         }
-        this.playerRuntimeService.unequipItem(playerId, slot);
+        this.playerRuntimeService.unequipItem(playerId, slot, expectedItemInstanceId);
         const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);

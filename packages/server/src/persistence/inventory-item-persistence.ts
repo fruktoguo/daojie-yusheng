@@ -159,13 +159,17 @@ export function hydratePersistedInventoryItem(
       }),
     );
     if (hydrated) {
-      return {
-        ...hydrated,
-        itemId,
-        count,
-        ...(enhanceLevel == null ? {} : { enhanceLevel }),
-        ...(itemInstanceId == null ? {} : { itemInstanceId }),
-      };
+      // normalizeItem 通过 Object.create(template) 返回基于 prototype 的实例：
+      // 模板字段（name/type/desc/equipAttrs/equipStats/...）挂在 prototype 上，
+      // own keys 只保留运行态字段（itemId/count/enhanceLevel/itemInstanceId）。
+      // 这里必须直接把这个实例还给上层；如果再做一次 `{...hydrated, ...}` 浅展开，
+      // 会丢光所有模板 prototype 字段，后续 applyEnhancementToItemStack 读
+      // `item.name`、`item.equipAttrs` 全部 undefined，并在 enhanceLevel>0 时
+      // 直接把世界 tick 炸掉（formatEnhancedItemName 调用 name.replace）。
+      // createItemInstanceFromTemplate 已经在 hydrated 自身上 defineProperty 了
+      // itemId / count / enhanceLevel / itemInstanceId 这些 own 覆盖字段，
+      // 所以无需再用 spread "确保覆盖生效"。
+      return hydrated;
     }
   }
 
@@ -216,12 +220,27 @@ export function hydratePersistedEquipmentItem(
     contentTemplateRepository,
   );
 
-  return {
-    ...hydrated,
-    itemId,
-    count: 1,
-    equipSlot: normalizeOptionalString(hydrated.equipSlot) ?? slot ?? undefined,
-    ...(enhanceLevel == null ? {} : { enhanceLevel }),
-    ...(itemInstanceId == null ? {} : { itemInstanceId }),
-  };
+  // hydrated 在模板命中时是基于 Object.create(template) 的 prototype-shared 实例，
+  // 这里必须就地写 own properties，而不是 `{...hydrated, ...}`：浅展开会把
+  // name/type/equipAttrs/equipStats 等模板字段全部丢失，下游 applyEnhancement*
+  // 链路会读到 undefined 名字并直接拉爆世界 tick。
+  const equipSlot = normalizeOptionalString(hydrated.equipSlot) ?? slot ?? undefined;
+  hydrated.itemId = itemId;
+  hydrated.count = 1;
+  if (equipSlot === undefined) {
+    delete (hydrated as Record<string, unknown>).equipSlot;
+  } else {
+    hydrated.equipSlot = equipSlot;
+  }
+  if (enhanceLevel == null) {
+    delete (hydrated as Record<string, unknown>).enhanceLevel;
+  } else {
+    hydrated.enhanceLevel = enhanceLevel;
+  }
+  if (itemInstanceId == null) {
+    delete (hydrated as Record<string, unknown>).itemInstanceId;
+  } else {
+    hydrated.itemInstanceId = itemInstanceId;
+  }
+  return hydrated;
 }

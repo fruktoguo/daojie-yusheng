@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isItemInstanceTracked, isLegacyItemInstanceId } from '@mud/shared';
-import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
+import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
@@ -717,6 +717,9 @@ export class CraftPanelRuntimeService {
         if (!target) {
             return buildCraftMutationResult('强化目标不存在。');
         }
+        if ((target as any).mismatched) {
+            return buildCraftMutationResult('强化目标已变更，请重新选择。');
+        }
         if (target.item.type !== 'equipment') {
             return buildCraftMutationResult('当前仅支持强化装备。');
         }
@@ -1387,20 +1390,40 @@ export class CraftPanelRuntimeService {
         if (!ref || typeof ref !== 'object') {
             return null;
         }
+        let resolved: { ref: any; item: any } | null = null;
         if (ref.source === 'inventory') {
             const slotIndex = Number.isFinite(ref.slotIndex) ? Math.max(0, Math.trunc(ref.slotIndex)) : -1;
             const item = player.inventory.items[slotIndex] ?? null;
-            return item ? { ref: { source: 'inventory', slotIndex }, item } : null;
-        }
-        if (ref.source === 'equipment') {
+            resolved = item ? { ref: { source: 'inventory', slotIndex }, item } : null;
+        } else if (ref.source === 'equipment') {
             const slot = normalizeEquipSlot(ref.slot);
             if (!slot) {
                 return null;
             }
             const item = this.getEquippedItem(player, slot);
-            return item ? { ref: { source: 'equipment', slot }, item } : null;
+            resolved = item ? { ref: { source: 'equipment', slot }, item } : null;
         }
-        return null;
+        if (!resolved) {
+            return null;
+        }
+        // 乐观一致性校验：客户端选中目标时看到的 itemInstanceId
+        const expected = typeof ref?.expectedItemInstanceId === 'string' && ref.expectedItemInstanceId.trim().length > 0
+            ? ref.expectedItemInstanceId.trim()
+            : '';
+        const actual = typeof resolved.item.itemInstanceId === 'string' ? resolved.item.itemInstanceId : '';
+        const compare = compareItemInstanceId(actual, expected);
+        if (compare === 'mismatch') {
+            const hardCheck = isItemInstanceIdHardCheckEnabled();
+            this.logger.warn(
+                `enhancement target itemInstanceId mismatch player=${player.playerId} `
+                + `expected=${expected} actual=${actual} ref=${JSON.stringify(ref)} `
+                + `hardCheck=${hardCheck}`,
+            );
+            if (hardCheck) {
+                return { mismatched: true } as any;
+            }
+        }
+        return resolved;
     }
     /**
  * resolveEnhancementProtection：规范化或转换强化Protection。

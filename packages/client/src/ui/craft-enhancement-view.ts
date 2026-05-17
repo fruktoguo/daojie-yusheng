@@ -1097,9 +1097,23 @@ export class CraftEnhancementView {
       const selected = this.getSelectedEnhancementCandidate();
       if (!selected || this.getActiveEnhancementJob()) return;
       const protection = this.getSelectedEnhancementProtection(selected);
+      const targetExpectedInstanceId = typeof selected.item?.itemInstanceId === 'string' && selected.item.itemInstanceId.length > 0
+        ? selected.item.itemInstanceId
+        : undefined;
+      const protectionExpectedInstanceId = protection
+        ? (typeof protection.item?.itemInstanceId === 'string' && protection.item.itemInstanceId.length > 0
+          ? protection.item.itemInstanceId
+          : undefined)
+        : undefined;
       this.parent.callbacks?.onStartEnhancement?.({
-        target: selected.ref,
-        protection: protection?.ref ?? null,
+        target: targetExpectedInstanceId
+          ? { ...selected.ref, expectedItemInstanceId: targetExpectedInstanceId }
+          : selected.ref,
+        protection: protection
+          ? (protectionExpectedInstanceId
+            ? { ...protection.ref, expectedItemInstanceId: protectionExpectedInstanceId }
+            : protection.ref)
+          : null,
         targetLevel: this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel,
         protectionStartLevel: protection ? this.getSelectedEnhancementProtectionStartLevel(selected) : null,
       });

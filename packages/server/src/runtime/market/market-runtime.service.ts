@@ -6,6 +6,7 @@
 import { Inject, Injectable, Logger, Optional, type BeforeApplicationShutdown } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
@@ -412,6 +413,22 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
             if (!item) {
                 return this.singleMessage(playerId, '要挂售的物品不存在。');
             }
+            // 乐观一致性校验：客户端选中物品时看到的 itemInstanceId
+            const sellOrderCompare = compareItemInstanceId(
+                item.itemInstanceId,
+                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
+            );
+            if (sellOrderCompare === 'mismatch') {
+                const sellOrderHardCheck = isItemInstanceIdHardCheckEnabled();
+                console.warn(
+                    `[market-runtime] createSellOrder itemInstanceId mismatch player=${playerId} `
+                    + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
+                    + `actual=${item.itemInstanceId} hardCheck=${sellOrderHardCheck}`,
+                );
+                if (sellOrderHardCheck) {
+                    return this.singleMessage(playerId, '挂售目标已变更，请重新选择。');
+                }
+            }
 
             const quantity = this.normalizeQuantity(payload.quantity);
 
@@ -811,6 +828,22 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
             const item = this.playerRuntimeService.peekInventoryItem(playerId, payload.slotIndex);
             if (!item) {
                 return this.singleMessage(playerId, '要出售的物品不存在。');
+            }
+            // 乐观一致性校验：客户端选中物品时看到的 itemInstanceId
+            const sellNowCompare = compareItemInstanceId(
+                item.itemInstanceId,
+                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
+            );
+            if (sellNowCompare === 'mismatch') {
+                const sellNowHardCheck = isItemInstanceIdHardCheckEnabled();
+                console.warn(
+                    `[market-runtime] sellNow itemInstanceId mismatch player=${playerId} `
+                    + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
+                    + `actual=${item.itemInstanceId} hardCheck=${sellNowHardCheck}`,
+                );
+                if (sellNowHardCheck) {
+                    return this.singleMessage(playerId, '出售目标已变更，请重新选择。');
+                }
             }
 
             const quantity = this.normalizeQuantity(payload.quantity);

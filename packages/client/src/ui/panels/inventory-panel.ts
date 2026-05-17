@@ -244,7 +244,7 @@ export class InventoryPanel {
   /** onDestroyItem：on Destroy物品。 */
   private onDestroyItem: ((slotIndex: number, count: number) => void) | null = null;
   /** onEquipItem：on Equip物品。 */
-  private onEquipItem: ((slotIndex: number) => void) | null = null;
+  private onEquipItem: ((slotIndex: number, expectedItemInstanceId?: string) => void) | null = null;
   /** onSortInventory：on排序背包。 */
   private onSortInventory: (() => void) | null = null;
   /** onCreateFormation：on布阵。 */
@@ -400,7 +400,7 @@ export class InventoryPanel {
     onUse: (slotIndex: number, count?: number, options?: UseItemOptions) => void,
     onDrop: (slotIndex: number, count: number) => void,
     onDestroy: (slotIndex: number, count: number) => void,
-    onEquip: (slotIndex: number) => void,
+    onEquip: (slotIndex: number, expectedItemInstanceId?: string) => void,
     onSort: () => void,
     onCreateFormation?: (payload: FormationCreatePayload) => void,
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
@@ -700,7 +700,7 @@ export class InventoryPanel {
           return;
         }
         if (action.kind === 'equip') {
-          this.onEquipItem?.(slotIndex);
+          this.onEquipItem?.(slotIndex, typeof item?.itemInstanceId === 'string' ? item.itemInstanceId : undefined);
           return;
         }
         if (item && this.isFormationDiskItem(item)) {
@@ -1273,7 +1273,7 @@ export class InventoryPanel {
             return;
           }
           if (primaryAction.kind === 'equip') {
-            this.onEquipItem?.(slotIndex);
+            this.onEquipItem?.(slotIndex, typeof item?.itemInstanceId === 'string' ? item.itemInstanceId : undefined);
             this.closeModal();
             return;
           }

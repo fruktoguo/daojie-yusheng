@@ -183,10 +183,11 @@ export class WorldRuntimePlayerCommandEnqueueService {
  * @returns 无返回值，直接更新Equip相关状态。
  */
 
-    enqueueEquip(playerId, slotIndexInput, deps) {
+    enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId?: string) {
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'equip',
             slotIndex: normalizeSlotIndex(slotIndexInput),
+            expectedItemInstanceId,
         }, deps);
     }
     /**
@@ -197,10 +198,11 @@ export class WorldRuntimePlayerCommandEnqueueService {
  * @returns 无返回值，直接更新Unequip相关状态。
  */
 
-    enqueueUnequip(playerId, slotInput, deps) {
+    enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId?: string) {
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'unequip',
             slot: normalizeEquipSlot(slotInput),
+            expectedItemInstanceId,
         }, deps);
     }
     /**

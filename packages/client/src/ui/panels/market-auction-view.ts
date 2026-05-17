@@ -820,7 +820,11 @@ export class MarketAuctionView {
       }
       const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
       const resolvedBuyoutPrice = buyoutPrice >= price.unitPrice ? buyoutPrice : 0;
-      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice);
+      const auctionMatched = state.slotIndex !== null ? p.inventory.items[state.slotIndex] : null;
+      const auctionExpectedInstanceId = auctionMatched && typeof auctionMatched.itemInstanceId === 'string' && auctionMatched.itemInstanceId.length > 0
+        ? auctionMatched.itemInstanceId
+        : undefined;
+      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice, auctionExpectedInstanceId);
       p.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, query: '' };
       p.requestAuctionListings(1);
       detailModalHost.close('auction-consign-panel');

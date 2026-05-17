@@ -135,7 +135,7 @@ export class EquipmentPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-equipment')!;
   /** onUnequip：on Unequip。 */
-  private onUnequip: ((slot: EquipSlot) => void) | null = null;
+  private onUnequip: ((slot: EquipSlot, expectedItemInstanceId?: string) => void) | null = null;
   /** lastEquipment：last Equipment。 */
   private lastEquipment: EquipmentSlots | null = null;
   /** tooltip：提示。 */
@@ -189,7 +189,7 @@ export class EquipmentPanel {
  */
 
 
-  setCallbacks(onUnequip: (slot: EquipSlot) => void): void {
+  setCallbacks(onUnequip: (slot: EquipSlot, expectedItemInstanceId?: string) => void): void {
     this.onUnequip = onUnequip;
     setEquipmentPanelCallbacks({ onUnequip });
     if (this.useReactPanel()) {
@@ -394,7 +394,12 @@ export class EquipmentPanel {
       if (!button || !slot || button.disabled) {
         return;
       }
-      this.onUnequip?.(slot);
+      // 透传 itemInstanceId 给服务端做乐观一致性校验，防止"装备槽切换 + 卸下"竞争错配
+      const slotItem = this.lastEquipment?.[slot] ?? null;
+      const expectedItemInstanceId = slotItem && typeof slotItem.itemInstanceId === 'string'
+        ? slotItem.itemInstanceId
+        : undefined;
+      this.onUnequip?.(slot, expectedItemInstanceId);
     });
   }
 

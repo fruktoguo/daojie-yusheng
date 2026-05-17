@@ -971,28 +971,30 @@ equip:p_xxx:weapon    ← 同上
 
 ### 21.4 生成入口（阶段 4）
 
-- [ ] **G1**：怪物 / 容器掉落入口（`packages/server/src/runtime/world/world-runtime-loot-container.service.ts` 等）：装备入背包前调 `assignItemInstanceIdIfNeeded`
-- [ ] **G2**：炼器合成产物（`packages/server/src/runtime/craft/craft-panel-runtime.service.ts:finishCraftJob`）：装备产出分配
-- [ ] **G3**：强化产物继承（`resolveEnhancementJobItem`）：显式继承 `job.item.itemInstanceId`
-- [ ] **G4**：GM 给装备（`packages/server/src/http/native/native-gm-player.service.ts`）：分配
-- [ ] **G5**：邮件附件入库时分配（`packages/server/src/runtime/mail/mail-runtime.service.ts`）；领取时透传
-- [ ] **G6**：兑换码（`packages/server/src/runtime/redeem/redeem-code-runtime.service.ts`）分配
-- [ ] **G7**：NPC 商店（`packages/server/src/runtime/world/world-runtime-npc-shop.service.ts`）分配
-- [ ] **G8**：市场买家成交（`packages/server/src/runtime/market/market-runtime.service.ts:deliverItemToPlayer`）：装备类**重新分配** instanceId
-- [ ] **G9**：任务奖励（`packages/server/src/runtime/world/...quest-write...` 等）：装备类分配
-- [ ] **G10**：玩家初始装备（`packages/server/src/runtime/player/player-runtime.service.ts` 角色初始化）：分配
+> 核心策略：在 `ContentTemplateRepository.createItem` 这个"新实例创建"瓶颈统一调用 `assignItemInstanceIdIfNeeded`，覆盖大部分入口；强化产物路径 `resolveEnhancementJobItem` 显式继承；GM / 市场等特殊入口单点处理。
+
+- [x] **G1**：怪物 / 容器掉落（drop-table.registry / loot-container 调 createItem，自动覆盖）
+- [x] **G2**：炼器合成产物（receiveInventoryItem 已分配；craft-panel 内 createItem 自动）
+- [x] **G3**：强化产物继承（`resolveEnhancementJobItem` 显式继承 `job.item.itemInstanceId`）
+- [x] **G4**：GM 给装备（`native-gm-player.service.ts` 显式 `assignItemInstanceIdIfNeeded`）
+- [x] **G5**：邮件附件入库时分配（mail-runtime 调 receiveInventoryItem，自动覆盖）
+- [x] **G6**：兑换码（redeem-code-runtime 调 createItem / receiveInventoryItem，自动覆盖）
+- [x] **G7**：NPC 商店（npc-shop-query 调 createItem，自动覆盖）
+- [x] **G8**：市场买家成交（toOrderItem 显式剥离 instanceId；deliverItemToPlayer → receiveInventoryItem 重新分配）
+- [x] **G9**：任务奖励（quest-query 调 createItem / npc-quest-write 调 receiveInventoryItem，自动覆盖）
+- [x] **G10**：玩家初始装备（createStarterInventory 调 createItem，自动覆盖；当前 createDefaultEquipment 全 null，无需处理）
 
 ### 21.5 堆叠合并改造（阶段 5）
 
-- [ ] **M1**：`equipItem`：旧装备返回背包永远独立成 slot，不与同签名合并
-- [ ] **M2**：`unequipItem`：卸下装备永远独立成 slot
-- [ ] **M3**：`receiveInventoryItem`（多处实现）：接入 `canMergeItemStack`
-- [ ] **M4**：`world-runtime-inventory-grant.helpers.ts:buildNextInventorySnapshots` 与各处持久化快照构造路径：保留 itemInstanceId
+- [x] **M1**：`equipItem`：旧装备返回背包永远独立成 slot，不与同签名合并；同时 lazy 升级 instanceId
+- [x] **M2**：`unequipItem`：卸下装备永远独立成 slot；同时 lazy 升级
+- [x] **M3**：`receiveInventoryItem`（player-runtime / craft-panel-runtime 两处实现）：接入 `canMergeItemStack`
+- [x] **M4**：`world-runtime-inventory-grant.helpers.ts:buildNextInventorySnapshots` / `buildGrantedInventorySnapshots`：透传 itemInstanceId（已在阶段 3 一并完成）
 
 ### 21.6 水合 lazy 升级（阶段 6）
 
-- [ ] **H1**：`packages/server/src/runtime/player/player-runtime.service.ts` 的 player hydrate 入口（或专门的 hydrate 助手）：完成 inventory/equipment 水合后遍历调用 `assignItemInstanceIdIfNeeded`，若有升级则标 dirty
-- [ ] **H2**：装备槽水合回流路径同步处理
+- [x] **H1**：`packages/server/src/runtime/player/player-runtime.service.ts:hydrateFromSnapshot` 在末尾遍历 `inventory.items` 与 `equipment.slots`，对带 fallback ID 的装备调 `assignItemInstanceIdIfNeeded` 升级，并 markDirty + bumpPersistentRevision 触发下次 flush
+- [x] **H2**：装备槽水合回流路径同步处理（H1 一并覆盖 equipment.slots）
 
 ### 21.7 协议软校验 + 客户端透传（阶段 7）
 

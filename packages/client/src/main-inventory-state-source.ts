@@ -74,7 +74,7 @@ type MainInventoryStateSourceOptions = {
  * sendEquip：sendEquip相关字段。
  */
 
-  sendEquip: (slotIndex: number) => void;
+  sendEquip: (slotIndex: number, expectedItemInstanceId?: string) => void;
   /**
  * sendSortInventory：sendSort背包相关字段。
  */
@@ -105,7 +105,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     (slotIndex, count, useOptions) => options.sendUseItem(slotIndex, count, useOptions),
     (slotIndex, count) => options.sendDropItem(slotIndex, count),
     (slotIndex, count) => options.sendDestroyItem(slotIndex, count),
-    (slotIndex) => options.sendEquip(slotIndex),
+    (slotIndex, expectedItemInstanceId) => options.sendEquip(slotIndex, expectedItemInstanceId),
     () => options.sendSortInventory(),
     (payload) => options.sendCreateFormation(payload),
     (payload) => options.previewFormationRange?.(payload),

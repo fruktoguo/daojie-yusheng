@@ -112,7 +112,7 @@ type MainStartupBindingsOptions = {
  * setCallbacks：Callback相关字段。
  */
 
-    setCallbacks: (onUnequip: Parameters<SocketPanelSender['sendUnequip']>[0] extends infer T ? (slot: T) => void : never) => void;
+    setCallbacks: (onUnequip: (slot: Parameters<SocketPanelSender['sendUnequip']>[0], expectedItemInstanceId?: string) => void) => void;
   };
   /**
  * npcShopModal：NPCShop弹层相关字段。
@@ -426,8 +426,8 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     },
   );
 
-  options.equipmentPanel.setCallbacks((slot) => {
-    options.panelSender.sendUnequip(slot);
+  options.equipmentPanel.setCallbacks((slot, expectedItemInstanceId) => {
+    options.panelSender.sendUnequip(slot, expectedItemInstanceId);
   });
 
   options.npcShopModal.setCallbacks({

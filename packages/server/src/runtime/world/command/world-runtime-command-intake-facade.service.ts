@@ -173,8 +173,8 @@ export class WorldRuntimeCommandIntakeFacadeService {
  * @returns 无返回值，直接更新Equip相关状态。
  */
 
-    enqueueEquip(playerId, slotIndexInput, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueEquip(playerId, slotIndexInput, deps);
+    enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId?: string) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId);
     }
     /**
  * enqueueUnequip：处理Unequip并更新相关状态。
@@ -184,8 +184,8 @@ export class WorldRuntimeCommandIntakeFacadeService {
  * @returns 无返回值，直接更新Unequip相关状态。
  */
 
-    enqueueUnequip(playerId, slotInput, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueUnequip(playerId, slotInput, deps);
+    enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId?: string) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId);
     }
     /**
  * enqueueCultivate：处理Cultivate并更新相关状态。

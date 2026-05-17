@@ -6,7 +6,7 @@
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
-import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
+import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -1930,7 +1930,7 @@ export class PlayerRuntimeService {
  * @returns 无返回值，直接更新equip道具相关状态。
  */
 
-    equipItem(playerId, slotIndex) {
+    equipItem(playerId, slotIndex, expectedItemInstanceId?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
@@ -1945,6 +1945,21 @@ export class PlayerRuntimeService {
         }
         // 装备类必须有稳定 instanceId；迁移期老装备此处 lazy 升级
         assignItemInstanceIdIfNeeded(normalizedItem);
+        // 乐观一致性校验：客户端选中目标时看到的 itemInstanceId
+        const compare = compareItemInstanceId(
+            normalizedItem.itemInstanceId,
+            expectedItemInstanceId,
+        );
+        if (compare === 'mismatch') {
+            const hardCheck = isItemInstanceIdHardCheckEnabled();
+            console.warn(
+                `[player-runtime] equipItem itemInstanceId mismatch player=${playerId} slot=${slotIndex} `
+                + `expected=${expectedItemInstanceId} actual=${normalizedItem.itemInstanceId} hardCheck=${hardCheck}`,
+            );
+            if (hardCheck) {
+                throw new BadRequestException('装备目标已变更，请重新选择。');
+            }
+        }
 
         const slot = normalizedItem.equipSlot;
 
@@ -1998,7 +2013,7 @@ export class PlayerRuntimeService {
  * @returns 无返回值，直接更新unequip道具相关状态。
  */
 
-    unequipItem(playerId, slot) {
+    unequipItem(playerId, slot, expectedItemInstanceId?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
@@ -2010,6 +2025,21 @@ export class PlayerRuntimeService {
         const unequippedItem = equipmentEntry.item;
         // 装备类必须有稳定 instanceId；迁移期老装备此处 lazy 升级
         assignItemInstanceIdIfNeeded(unequippedItem);
+        // 乐观一致性校验
+        const compare = compareItemInstanceId(
+            unequippedItem.itemInstanceId,
+            expectedItemInstanceId,
+        );
+        if (compare === 'mismatch') {
+            const hardCheck = isItemInstanceIdHardCheckEnabled();
+            console.warn(
+                `[player-runtime] unequipItem itemInstanceId mismatch player=${playerId} slot=${slot} `
+                + `expected=${expectedItemInstanceId} actual=${unequippedItem.itemInstanceId} hardCheck=${hardCheck}`,
+            );
+            if (hardCheck) {
+                throw new BadRequestException('装备目标已变更，请重新选择。');
+            }
+        }
         if (canMergeItemStack(unequippedItem)) {
             // 一般 unequip 不会走到此分支（装备类 canMergeItemStack 永远 false），保留现有合并逻辑兜底
             const unequippedSignature = createItemStackSignature(unequippedItem);
@@ -3600,6 +3630,24 @@ export class PlayerRuntimeService {
         }
         if (snapshotRespawnRepaired) {
             markPlayerDirtyDomains(player, ['position_checkpoint']);
+            this.bumpPersistentRevision(player);
+        }
+        // 水合期 lazy 升级：如果 inventory / equipment 里的装备携带迁移期 fallback
+        // itemInstanceId（含":"，如 inv:p_xxx:0），就在此分配新 UUID 替换。
+        // 升级后的 instanceId 会随下一次 flush 落回数据库，从此该装备拥有稳定身份。
+        let upgradedAny = false;
+        for (const entry of player.inventory.items ?? []) {
+            if (assignItemInstanceIdIfNeeded(entry)) {
+                upgradedAny = true;
+            }
+        }
+        for (const slotEntry of player.equipment.slots ?? []) {
+            if (slotEntry?.item && assignItemInstanceIdIfNeeded(slotEntry.item)) {
+                upgradedAny = true;
+            }
+        }
+        if (upgradedAny) {
+            markPlayerDirtyDomains(player, ['inventory', 'equipment']);
             this.bumpPersistentRevision(player);
         }
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));

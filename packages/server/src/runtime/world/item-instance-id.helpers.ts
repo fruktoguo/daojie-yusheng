@@ -68,3 +68,55 @@ export function reassignItemInstanceId(item: ItemStack | null | undefined): stri
  *  服务端无需自己实现，统一从 shared 走以避免协议歧义）
  */
 export { isItemInstanceTracked, isLegacyItemInstanceId };
+
+/**
+ * 是否启用 itemInstanceId 硬校验模式。
+ *
+ * - false（默认，迁移期）：客户端 expectedItemInstanceId 与服务端实际 instanceId
+ *   不匹配时只记录 warn 日志，不拒绝请求。让旧客户端、迁移期老装备能继续工作。
+ * - true（迁移完成后）：mismatch 直接拒绝并返回明确文案给玩家。
+ *
+ * 通过环境变量 `ITEM_INSTANCE_ID_HARD_CHECK=true` / `=1` 启用。
+ *
+ * 上线节奏（参见方案 §14.3）：
+ *   1. 第 1 周：上线代码（HARD_CHECK=false）；新装备分配 UUID；旧装备 lazy 升级；客户端发送 expected。
+ *   2. 第 2 周：观察 warn 日志，确认 mismatch 频次 < 阈值。
+ *   3. 第 3 周：开 HARD_CHECK=true。
+ */
+export function isItemInstanceIdHardCheckEnabled(): boolean {
+    const raw = process.env.ITEM_INSTANCE_ID_HARD_CHECK;
+    if (typeof raw !== 'string') {
+        return false;
+    }
+    const trimmed = raw.trim().toLowerCase();
+    return trimmed === 'true' || trimmed === '1' || trimmed === 'yes' || trimmed === 'on';
+}
+
+/**
+ * 比对 expectedItemInstanceId 与服务端实际 instanceId。
+ *
+ * 返回值：
+ *   - 'match'：一致（包括 expected 缺失时的兼容路径）
+ *   - 'mismatch'：明确不匹配
+ *   - 'skip'：跳过校验（actual 是 legacy fallback 形式，迁移期容忍）
+ */
+export function compareItemInstanceId(
+    actualInstanceId: string | undefined | null,
+    expectedInstanceId: string | undefined | null,
+): 'match' | 'mismatch' | 'skip' {
+    const actual = typeof actualInstanceId === 'string' ? actualInstanceId.trim() : '';
+    const expected = typeof expectedInstanceId === 'string' ? expectedInstanceId.trim() : '';
+    if (!expected) {
+        // 旧客户端 / 非装备类目标 / 服务端不强制 → 兼容
+        return 'match';
+    }
+    if (!actual) {
+        // 服务端实际物品没有 instanceId（迁移期未升级），跳过校验
+        return 'skip';
+    }
+    if (isLegacyItemInstanceId(actual)) {
+        // 服务端是 fallback 形式，水合后才会升级，跳过校验
+        return 'skip';
+    }
+    return actual === expected ? 'match' : 'mismatch';
+}

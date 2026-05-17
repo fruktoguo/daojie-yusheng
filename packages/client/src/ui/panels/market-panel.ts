@@ -114,12 +114,12 @@ interface MarketPanelCallbacks {
  * onCreateSellOrder：onCreateSell订单相关字段。
  */
 
-  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
+  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number, expectedItemInstanceId?: string) => void;
   /**
  * onCreateAuctionSellOrder：onCreateAuctionSell订单相关字段。
  */
 
-  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number) => void;
+  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string) => void;
   /**
  * onCreateBuyOrder：onCreateBuy订单相关字段。
  */

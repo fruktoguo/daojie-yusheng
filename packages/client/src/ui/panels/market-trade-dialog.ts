@@ -403,7 +403,11 @@ export class MarketTradeDialog {
       }
       const slotIndex = p.findMatchingInventorySlot(selected.item);
       if (slotIndex === null) return;
-      p.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice);
+      const matchedInventory = p.inventory.items[slotIndex];
+      const expectedItemInstanceId = matchedInventory && typeof matchedInventory.itemInstanceId === 'string' && matchedInventory.itemInstanceId.length > 0
+        ? matchedInventory.itemInstanceId
+        : undefined;
+      p.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice, expectedItemInstanceId);
       p.tradeDialog = null;
       this.syncTradeDialogOverlay();
     }));

@@ -265,7 +265,7 @@ export class WorldRuntimePlayerCommandService {
                 deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
                 return;
             case 'equip':
-                return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps);
+                return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps, command.expectedItemInstanceId);
                 return;
             case 'dropItem':
                 this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.slotIndex, command.count, deps);
@@ -282,7 +282,7 @@ export class WorldRuntimePlayerCommandService {
             case 'takeGroundAll':
                 return this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
             case 'unequip':
-                return this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps);
+                return this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps, command.expectedItemInstanceId);
                 return;
             case 'cultivate':
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
