@@ -554,6 +554,7 @@ export class WorldRuntimeLootContainerService {
             phase: 'gathering',
         };
         this.playerRuntimeService.bumpPersistentRevision(player);
+        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         this.markContainerPersistenceDirty(location.instanceId);
         return buildContainerTickResult(false, [{
                 kind: 'info',
@@ -585,6 +586,7 @@ export class WorldRuntimeLootContainerService {
         }
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
+        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         return buildContainerTickResult(false, [{
                 kind: 'info',
                 text: `你停止了 ${job.resourceNodeName} 的采集。`,
@@ -706,6 +708,7 @@ export class WorldRuntimeLootContainerService {
         }
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
+        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         return buildContainerTickResult(false, [{
                 kind: 'system',
                 text: `${job.resourceNodeName} 的采集被${reason === 'move' ? '移动' : '出手'}打断。`,
@@ -732,6 +735,7 @@ export class WorldRuntimeLootContainerService {
         if (!container || container.variant !== 'herb') {
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             return buildContainerTickResult(false, [{
                     kind: 'warn',
                     text: '采集目标已经不存在。',
@@ -744,6 +748,7 @@ export class WorldRuntimeLootContainerService {
             || Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             return buildContainerTickResult(false, [{
                     kind: 'warn',
                     text: '你已离开草药采集范围。',
@@ -755,6 +760,7 @@ export class WorldRuntimeLootContainerService {
             if (!nextRow) {
                 player.gatherJob = null;
                 this.playerRuntimeService.bumpPersistentRevision(player);
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
                 return buildContainerTickResult(false, [{
                         kind: 'info',
                         text: `${container.name} 已经采尽。`,
@@ -774,6 +780,7 @@ export class WorldRuntimeLootContainerService {
         this.markContainerPersistenceDirty(location.instanceId);
         if (state.activeSearch.remainingTicks > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             return buildContainerTickResult();
         }
         const harvestedRow = groupContainerLootRows(state.entries)
@@ -782,6 +789,7 @@ export class WorldRuntimeLootContainerService {
             state.activeSearch = undefined;
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             return buildContainerTickResult(false, [{
                     kind: 'warn',
                     text: `${container.name} 当前没有可收取的草药。`,
@@ -793,6 +801,7 @@ export class WorldRuntimeLootContainerService {
             state.activeSearch = undefined;
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             return buildContainerTickResult(false, [{
                     kind: 'warn',
                     text: `${container.name} 当前没有可收取的草药。`,
@@ -866,7 +875,7 @@ export class WorldRuntimeLootContainerService {
         else {
             player.gatherJob = null;
         }
-        const dirtyDomains = ['inventory'];
+        const dirtyDomains = ['inventory', 'active_job'];
         if (skillChanged) {
             dirtyDomains.push('profession');
         }

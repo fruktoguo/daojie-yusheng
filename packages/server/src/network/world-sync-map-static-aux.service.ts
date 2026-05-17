@@ -57,10 +57,13 @@ export class WorldSyncMapStaticAuxService {
         const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
 
         const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+        const staticSyncRevision = typeof this.worldSyncMapSnapshotService.getInstanceStaticTileSyncRevision === 'function'
+            ? this.worldSyncMapSnapshotService.getInstanceStaticTileSyncRevision(view)
+            : normalizeRevision(view.worldRevision);
         return {
             visibleTiles,
             visibleMinimapMarkers,
-            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers),
+            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers, staticSyncRevision),
         };
     }    
     /**
@@ -74,13 +77,35 @@ export class WorldSyncMapStaticAuxService {
 
     buildDeltaMapStaticPlan(playerId, view, player, template) {
 
+        const previous = this.cacheByPlayerId.get(playerId) ?? null;
+        const instanceStaticPlan = typeof this.worldSyncMapSnapshotService.buildInstanceStaticTileDiffPlan === 'function'
+            ? this.worldSyncMapSnapshotService.buildInstanceStaticTileDiffPlan(view, template)
+            : null;
+        const staticSyncRevision = instanceStaticPlan
+            ? normalizeRevision(instanceStaticPlan.toRevision)
+            : normalizeRevision(view.worldRevision);
+        const unchangedPlan = buildUnchangedDeltaMapStaticPlan(previous, view, player, staticSyncRevision);
+        if (unchangedPlan) {
+            return unchangedPlan;
+        }
+        const instanceDirtyPlan = buildInstanceDirtyDeltaMapStaticPlan(
+            this.worldSyncMapSnapshotService,
+            previous,
+            view,
+            player,
+            template,
+            instanceStaticPlan,
+        );
+        if (instanceDirtyPlan) {
+            return instanceDirtyPlan;
+        }
+
         const visibleTiles = this.worldSyncMapSnapshotService.buildVisibleTilesSnapshot(view, player, template);
 
         const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
 
         const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
 
-        const previous = this.cacheByPlayerId.get(playerId) ?? null;
         const mapChanged = !previous
             || previous.mapId !== view.instance.templateId
             || previous.instanceId !== view.instance.instanceId;
@@ -99,7 +124,7 @@ export class WorldSyncMapStaticAuxService {
             tilePatches,
             visibleMinimapMarkerAdds: markerPatch.adds,
             visibleMinimapMarkerRemoves: markerPatch.removes,
-            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers),
+            cacheState: buildCacheState(view, visibleTiles, visibleMinimapMarkers, staticSyncRevision),
         };
     }    
     /**
@@ -130,10 +155,13 @@ export class WorldSyncMapStaticAuxService {
  * @returns 无返回值，直接更新缓存状态相关状态。
  */
 
-function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
+function buildCacheState(view, visibleTiles, visibleMinimapMarkers, staticSyncRevision = normalizeRevision(view.worldRevision)) {
     return {
         mapId: view.instance.templateId,
         instanceId: view.instance.instanceId,
+        worldRevision: normalizeRevision(view.worldRevision),
+        staticSyncRevision: normalizeRevision(staticSyncRevision),
+        viewRadius: resolveVisibleTilesRadius(visibleTiles.matrix, view),
         tilesOriginX: resolveVisibleTilesOriginX(view, visibleTiles.matrix),
         tilesOriginY: resolveVisibleTilesOriginY(view, visibleTiles.matrix),
         visibleTiles: new Map(visibleTiles.byKey),
@@ -141,17 +169,132 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
     };
 }
 
-function resolveVisibleTilesOriginX(view, matrix) {
-    const radius = Array.isArray(matrix) && matrix.length > 0
+function buildUnchangedDeltaMapStaticPlan(previous, view, player, staticSyncRevision = normalizeRevision(view.worldRevision)) {
+    if (!previous) {
+        return null;
+    }
+    const viewRadius = resolvePlayerViewRadius(player, view);
+    const tilesOriginX = view.self.x - viewRadius;
+    const tilesOriginY = view.self.y - viewRadius;
+    if (previous.mapId !== view.instance.templateId
+        || previous.instanceId !== view.instance.instanceId
+        || normalizeRevision(previous.staticSyncRevision ?? previous.worldRevision) !== normalizeRevision(staticSyncRevision)
+        || previous.viewRadius !== viewRadius
+        || previous.tilesOriginX !== tilesOriginX
+        || previous.tilesOriginY !== tilesOriginY) {
+        return null;
+    }
+    return {
+        mapChanged: false,
+        visibleTiles: { matrix: [], byKey: previous.visibleTiles },
+        visibleMinimapMarkers: previous.visibleMinimapMarkers,
+        tilePatches: [],
+        visibleMinimapMarkerAdds: [],
+        visibleMinimapMarkerRemoves: [],
+        cacheState: previous,
+        reusedCache: true,
+    };
+}
+
+function buildInstanceDirtyDeltaMapStaticPlan(snapshotService, previous, view, player, template, instanceStaticPlan) {
+    if (!previous || !instanceStaticPlan || !Array.isArray(instanceStaticPlan.dirtyTileKeys)) {
+        return null;
+    }
+    if (previous.mapId !== view.instance.templateId || previous.instanceId !== view.instance.instanceId) {
+        return null;
+    }
+    const previousRevision = normalizeRevision(previous.staticSyncRevision ?? previous.worldRevision);
+    const fromRevision = normalizeRevision(instanceStaticPlan.fromRevision);
+    const toRevision = normalizeRevision(instanceStaticPlan.toRevision);
+    if (previousRevision < fromRevision || previousRevision > toRevision) {
+        return null;
+    }
+    if (!isVisibleTileSetUnchanged(previous, view)) {
+        return null;
+    }
+    const nextVisibleTiles = new Map(previous.visibleTiles);
+    const tilePatches = [];
+    for (const key of instanceStaticPlan.dirtyTileKeys) {
+        if (!previous.visibleTiles?.has?.(key)) {
+            continue;
+        }
+        const [x, y] = parseCoordKey(key);
+        const tile = typeof snapshotService.buildCompositeTileSyncState === 'function'
+            ? snapshotService.buildCompositeTileSyncState(view, template, x, y, player)
+            : null;
+        const previousTile = previous.visibleTiles.get(key) ?? null;
+        if (tile) {
+            nextVisibleTiles.set(key, tile);
+            if (!previousTile || !isSameTile(previousTile, tile)) {
+                tilePatches.push({ x, y, tile: cloneTilePatch(tile) });
+            }
+            continue;
+        }
+        nextVisibleTiles.delete(key);
+        if (previousTile) {
+            tilePatches.push({ x, y, tile: null });
+        }
+    }
+    return {
+        mapChanged: false,
+        visibleTiles: { matrix: [], byKey: nextVisibleTiles },
+        visibleMinimapMarkers: previous.visibleMinimapMarkers,
+        tilePatches,
+        visibleMinimapMarkerAdds: [],
+        visibleMinimapMarkerRemoves: [],
+        cacheState: {
+            ...previous,
+            worldRevision: normalizeRevision(view.worldRevision),
+            staticSyncRevision: toRevision,
+            visibleTiles: nextVisibleTiles,
+            visibleMinimapMarkers: previous.visibleMinimapMarkers,
+        },
+        instanceDirtyDiff: true,
+    };
+}
+
+function isVisibleTileSetUnchanged(previous, view) {
+    const keys = Array.isArray(view?.visibleTileKeys) ? view.visibleTileKeys : null;
+    if (!keys || keys.length === 0) {
+        return false;
+    }
+    if (!(previous?.visibleTiles instanceof Map) || previous.visibleTiles.size !== keys.length) {
+        return false;
+    }
+    for (const key of keys) {
+        if (!previous.visibleTiles.has(String(key))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function resolvePlayerViewRadius(player, view) {
+    const numericRange = Number(player?.attrs?.numericStats?.viewRange);
+    if (Number.isFinite(numericRange)) {
+        return Math.max(1, Math.round(numericRange));
+    }
+    return resolveRadiusFromVisibleTileKeys(view);
+}
+
+function resolveVisibleTilesRadius(matrix, view) {
+    return Array.isArray(matrix) && matrix.length > 0
         ? Math.max(0, Math.floor((matrix.length - 1) / 2))
         : resolveRadiusFromVisibleTileKeys(view);
+}
+
+function normalizeRevision(value) {
+    const revision = Number(value);
+    return Number.isFinite(revision) ? Math.trunc(revision) : 0;
+}
+
+function resolveVisibleTilesOriginX(view, matrix) {
+    const radius = resolveVisibleTilesRadius(matrix, view);
     return view.self.x - radius;
 }
 
 function resolveVisibleTilesOriginY(view, matrix) {
-    const radius = Array.isArray(matrix) && matrix.length > 0
-        ? Math.max(0, Math.floor((matrix.length - 1) / 2))
-        : resolveRadiusFromVisibleTileKeys(view);
+    const radius = resolveVisibleTilesRadius(matrix, view);
     return view.self.y - radius;
 }
 

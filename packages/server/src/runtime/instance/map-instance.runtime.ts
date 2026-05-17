@@ -230,6 +230,12 @@ class MapInstanceRuntime {
     localMonsterViewCacheByRuntimeId = new Map();
     /** Tile 共享投影缓存（per-instance）；按 coordKey="${x},${y}" 索引；实例 GC 时随之释放，避免 service-level 累积。 */
     tileProjectionByCoord = new Map();
+    /** 地块静态同步 revision；只跟地块/结构/资源投影变化有关，不跟玩家/怪物移动混用。 */
+    staticTileSyncRevision = 0;
+    /** 尚未被网络层消费的实例级地块静态脏坐标。 */
+    staticTileSyncDirtyTileKeys = new Set();
+    /** 当前脏坐标批次开始前的地块静态同步 revision。 */
+    staticTileSyncDirtyFromRevision = 0;
     /**
  * persistentRevision：persistentRevision相关字段。
  */
@@ -971,6 +977,7 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
+                this.markStaticTileSyncDirtyByIndex(cellIndex);
             }
         }
         const building = {
@@ -1129,6 +1136,7 @@ class MapInstanceRuntime {
         const previousTileTypes = this.buildingPreviousTileTypeById.get(buildingId) ?? [];
         for (const [cellIndex, previousState] of previousTileTypes) {
             this.restoreBuildingPreviousTileState(cellIndex, previousState);
+            this.markStaticTileSyncDirtyByIndex(cellIndex);
         }
         this.buildingPreviousTileTypeById.delete(buildingId);
         this.buildingById.delete(buildingId);
@@ -2016,6 +2024,7 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
+                this.markStaticTileSyncDirtyByIndex(cellIndex);
             }
         }
         if (previousTileTypes.length > 0) {
@@ -2522,6 +2531,7 @@ class MapInstanceRuntime {
                 building.hp = nextHp;
                 building.updatedAtTick = this.tick;
                 building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                this.markStaticTileSyncDirtyByIndex(tileIndex);
                 this.worldRevision += 1;
                 this.persistentRevision += 1;
                 this.markPersistenceDirtyDomains(['building']);
@@ -2579,6 +2589,7 @@ class MapInstanceRuntime {
             respawnLeft: destroyed ? calculateTileRestoreTicks(current.tileType) : 0,
             modifiedAt: Date.now(),
         });
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
         this.worldRevision += 1;
         this.markTileDamagePersistenceDirty(tileIndex);
         if (affectsRoomTopology) {
@@ -2627,6 +2638,7 @@ class MapInstanceRuntime {
             createdAt: existingTemporary?.createdAt ?? now,
             modifiedAt: now,
         });
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
         this.worldRevision += 1;
         this.markPersistenceDirtyDomains(['temporary_tile']);
         if (this.shouldRecalculateRoomsForTileMutation(tileIndex, previousEffectiveTileType, this.getEffectiveTileTypeByCellIndex(tileIndex))) {
@@ -2673,6 +2685,7 @@ class MapInstanceRuntime {
         for (const [tileIndex, state] of Array.from(this.temporaryTileByTile.entries())) {
             if (!state || !Number.isFinite(Number(tileIndex))) {
                 this.temporaryTileByTile.delete(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(tileIndex);
                 changed = true;
                 continue;
             }
@@ -2687,6 +2700,7 @@ class MapInstanceRuntime {
                     topologyChangedCellCount += 1;
                 }
                 this.temporaryTileByTile.delete(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(tileIndex);
                 changed = true;
             }
         }
@@ -4178,6 +4192,7 @@ class MapInstanceRuntime {
     markTileResourcePersistenceDirty(resourceKey, tileIndex) {
         markMapInstanceDirtyDomains(this, ['tile_resource']);
         addTileResourceDirtyKey(this, resourceKey, tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
     }
     /** markTileDamagePersistenceDirty：记录地块损坏行级脏键。 */
     markTileDamagePersistenceDirty(tileIndex) {
@@ -4186,6 +4201,43 @@ class MapInstanceRuntime {
             this.dirtyTileDamageIndices = new Set();
         }
         addNumericDirtyKey(this.dirtyTileDamageIndices, tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
+    }
+    /** markStaticTileSyncDirtyByIndex：记录实例级地块静态同步脏坐标。 */
+    markStaticTileSyncDirtyByIndex(tileIndexInput) {
+        const tileIndex = Math.trunc(Number(tileIndexInput));
+        if (!Number.isFinite(tileIndex) || tileIndex < 0 || tileIndex >= this.tilePlane.getCellCount()) {
+            return false;
+        }
+        if (!(this.staticTileSyncDirtyTileKeys instanceof Set)) {
+            this.staticTileSyncDirtyTileKeys = new Set();
+        }
+        if (this.staticTileSyncDirtyTileKeys.size === 0) {
+            this.staticTileSyncDirtyFromRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0));
+        }
+        const key = `${this.tilePlane.getX(tileIndex)},${this.tilePlane.getY(tileIndex)}`;
+        if (this.staticTileSyncDirtyTileKeys.has(key)) {
+            return false;
+        }
+        this.staticTileSyncDirtyTileKeys.add(key);
+        this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
+        return true;
+    }
+    /** getStaticTileSyncRevision：读取地块静态同步 revision。 */
+    getStaticTileSyncRevision() {
+        return Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0));
+    }
+    /** consumeStaticTileSyncDirtyTiles：消费当前实例级地块静态脏坐标，由网络层缓存本轮 plan。 */
+    consumeStaticTileSyncDirtyTiles() {
+        const toRevision = this.getStaticTileSyncRevision();
+        if (!(this.staticTileSyncDirtyTileKeys instanceof Set) || this.staticTileSyncDirtyTileKeys.size === 0) {
+            return { fromRevision: toRevision, toRevision, tileKeys: [] };
+        }
+        const fromRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncDirtyFromRevision) || 0));
+        const tileKeys = Array.from(this.staticTileSyncDirtyTileKeys);
+        this.staticTileSyncDirtyTileKeys.clear();
+        this.staticTileSyncDirtyFromRevision = toRevision;
+        return { fromRevision, toRevision, tileKeys };
     }
     /** markGroundItemPersistenceDirty：记录地面物品按 tile 替换脏键。 */
     markGroundItemPersistenceDirty(tileIndex) {

@@ -148,6 +148,7 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
         phase: 'building',
     };
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
     runtime.refreshPlayerContextActions?.(playerId);
 }
 
@@ -165,6 +166,7 @@ export function interruptBuildingConstruction(runtime, playerId, reason = 'cance
     instance?.stopBuildingConstruction?.(job.buildingId, playerId);
     player.buildingJob = null;
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
     if (canQueueBuildingNotice(runtime)) {
         runtime.queuePlayerNotice(playerId, buildBuildingInterruptMessage(job.buildingName, reason), 'system');
     }
@@ -183,6 +185,7 @@ export function tickBuildingConstruction(runtime, playerId) {
     if (!instance || !building) {
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         if (canQueueBuildingNotice(runtime)) {
             runtime.queuePlayerNotice(playerId, '建造目标已经不存在。', 'warn');
         }

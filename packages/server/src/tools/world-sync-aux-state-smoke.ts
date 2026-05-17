@@ -90,6 +90,9 @@ function createService(
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
+            worldRevision: 1,
+            staticSyncRevision: 1,
+            viewRadius: 1,
             tilesOriginX: 3,
             tilesOriginY: 4,
             visibleTiles,
@@ -112,6 +115,9 @@ function createService(
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
+            worldRevision: 2,
+            staticSyncRevision: 2,
+            viewRadius: 1,
             tilesOriginX: 3,
             tilesOriginY: 4,
             visibleTiles,
@@ -144,14 +150,16 @@ function createService(
       },
       sendMapStatic(
         socket: { id: string },
-        payload: { tiles?: unknown; minimap?: unknown; minimapLibrary?: Array<{ mapId: string }> },
+        payload: { tiles?: unknown; minimap?: unknown; minimapLibrary?: Array<{ mapId: string }>; unlockedMapIds?: string[] },
       ) {
         log.push([
           'sendMapStatic',
           socket.id,
           Boolean(payload.tiles),
           Boolean(payload.minimap),
-          Array.isArray(payload.minimapLibrary) ? payload.minimapLibrary.map((entry) => entry.mapId) : [],
+          Array.isArray(payload.unlockedMapIds) ? payload.unlockedMapIds : (
+            Array.isArray(payload.minimapLibrary) ? payload.minimapLibrary.map((entry) => entry.mapId) : []
+          ),
         ]);
       },
       sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown; dt?: number; time?: unknown }) {

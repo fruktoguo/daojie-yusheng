@@ -9,6 +9,36 @@ import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
 import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
 
+interface SyncFlushBreakdownSample {
+    playerCount: number;
+    processedPlayerCount: number;
+    skippedPlayerCount: number;
+    getSocketMs: number;
+    getSocketCount: number;
+    getViewMs: number;
+    getViewCount: number;
+    roomSyncMs: number;
+    roomSyncCount: number;
+    contextActionsMs: number;
+    contextActionsCount: number;
+    playerStateMs: number;
+    playerStateCount: number;
+    envelopeMs: number;
+    envelopeCount: number;
+    auxSyncMs: number;
+    auxSyncCount: number;
+    emitEnvelopeMs: number;
+    emitEnvelopeCount: number;
+    questSyncMs: number;
+    questSyncCount: number;
+    runtimeEventsMs: number;
+    runtimeEventsCount: number;
+    statisticRecordsMs: number;
+    statisticRecordsCount: number;
+    clearCachesMs: number;
+    clearCachesCount: number;
+}
+
 @Injectable()
 export class WorldSyncService {
     constructor(
@@ -49,13 +79,35 @@ export class WorldSyncService {
     }
 
     flushConnectedPlayers() {
-        this.clearPurgedPlayerCaches();
-        for (const binding of this.worldSessionService.listBindings()) {
-            const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
-            const view = this.worldRuntimeService.getPlayerView(binding.playerId);
-            if (!socket || !view) continue;
-            this.syncPlayerInstanceRoom(binding.playerId, view);
-            this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view);
+        const breakdown = createSyncFlushBreakdownSample();
+        try {
+            const clearCachesStartedAt = performance.now();
+            this.clearPurgedPlayerCaches();
+            addSyncFlushDuration(breakdown, 'clearCachesMs', clearCachesStartedAt);
+            breakdown.clearCachesCount += 1;
+
+            const bindings = this.worldSessionService.listBindings();
+            breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
+            for (const binding of bindings) {
+                const getSocketStartedAt = performance.now();
+                const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
+                addSyncFlushDuration(breakdown, 'getSocketMs', getSocketStartedAt);
+                breakdown.getSocketCount += 1;
+
+                const getViewStartedAt = performance.now();
+                const view = this.worldRuntimeService.getPlayerView(binding.playerId);
+                addSyncFlushDuration(breakdown, 'getViewMs', getViewStartedAt);
+                breakdown.getViewCount += 1;
+
+                if (!socket || !view) {
+                    breakdown.skippedPlayerCount += 1;
+                    continue;
+                }
+                breakdown.processedPlayerCount += 1;
+                this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+            }
+        } finally {
+            this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);
         }
     }
 
@@ -96,19 +148,57 @@ export class WorldSyncService {
         return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
     }
 
-    private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any) {
+    private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
+        const roomStartedAt = performance.now();
         this.syncPlayerInstanceRoom(playerId, view);
+        addSyncFlushDuration(breakdown, 'roomSyncMs', roomStartedAt);
+        incrementSyncFlushCount(breakdown, 'roomSyncCount');
+
+        const contextStartedAt = performance.now();
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        addSyncFlushDuration(breakdown, 'contextActionsMs', contextStartedAt);
+        incrementSyncFlushCount(breakdown, 'contextActionsCount');
+
+        const playerStartedAt = performance.now();
         const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
+        addSyncFlushDuration(breakdown, 'playerStateMs', playerStartedAt);
+        incrementSyncFlushCount(breakdown, 'playerStateCount');
+
+        const envelopeStartedAt = performance.now();
         const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
+        addSyncFlushDuration(breakdown, 'envelopeMs', envelopeStartedAt);
+        incrementSyncFlushCount(breakdown, 'envelopeCount');
+
+        const firstAuxStartedAt = performance.now();
         const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true });
+        addSyncFlushDuration(breakdown, 'auxSyncMs', firstAuxStartedAt);
+        incrementSyncFlushCount(breakdown, 'auxSyncCount');
+
+        const emitStartedAt = performance.now();
         this.emitEnvelope(socket, envelope);
+        addSyncFlushDuration(breakdown, 'emitEnvelopeMs', emitStartedAt);
+        incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
+
         if (!auxEmittedBeforeEnvelope) {
+            const secondAuxStartedAt = performance.now();
             this.emitAuxDeltaSync(playerId, socket, view, player);
+            addSyncFlushDuration(breakdown, 'auxSyncMs', secondAuxStartedAt);
+            incrementSyncFlushCount(breakdown, 'auxSyncCount');
         }
+        const questStartedAt = performance.now();
         this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player.quests.revision);
+        addSyncFlushDuration(breakdown, 'questSyncMs', questStartedAt);
+        incrementSyncFlushCount(breakdown, 'questSyncCount');
+
+        const eventsStartedAt = performance.now();
         this.emitPendingRuntimeEvents(playerId, socket, envelope);
+        addSyncFlushDuration(breakdown, 'runtimeEventsMs', eventsStartedAt);
+        incrementSyncFlushCount(breakdown, 'runtimeEventsCount');
+
+        const recordsStartedAt = performance.now();
         this.emitPendingPlayerStatisticRecords(playerId, socket);
+        addSyncFlushDuration(breakdown, 'statisticRecordsMs', recordsStartedAt);
+        incrementSyncFlushCount(breakdown, 'statisticRecordsCount');
     }
 
     private clearPurgedPlayerCaches() {
@@ -174,4 +264,78 @@ export class WorldSyncService {
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (player) this.worldSyncAuxStateService.handleReportMinimapVersions(socket, player, clientVersions);
     }
+}
+
+function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
+    return {
+        playerCount: 0,
+        processedPlayerCount: 0,
+        skippedPlayerCount: 0,
+        getSocketMs: 0,
+        getSocketCount: 0,
+        getViewMs: 0,
+        getViewCount: 0,
+        roomSyncMs: 0,
+        roomSyncCount: 0,
+        contextActionsMs: 0,
+        contextActionsCount: 0,
+        playerStateMs: 0,
+        playerStateCount: 0,
+        envelopeMs: 0,
+        envelopeCount: 0,
+        auxSyncMs: 0,
+        auxSyncCount: 0,
+        emitEnvelopeMs: 0,
+        emitEnvelopeCount: 0,
+        questSyncMs: 0,
+        questSyncCount: 0,
+        runtimeEventsMs: 0,
+        runtimeEventsCount: 0,
+        statisticRecordsMs: 0,
+        statisticRecordsCount: 0,
+        clearCachesMs: 0,
+        clearCachesCount: 0,
+    };
+}
+
+function addSyncFlushDuration(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    key: keyof Pick<SyncFlushBreakdownSample,
+        | 'getSocketMs'
+        | 'getViewMs'
+        | 'roomSyncMs'
+        | 'contextActionsMs'
+        | 'playerStateMs'
+        | 'envelopeMs'
+        | 'auxSyncMs'
+        | 'emitEnvelopeMs'
+        | 'questSyncMs'
+        | 'runtimeEventsMs'
+        | 'statisticRecordsMs'
+        | 'clearCachesMs'>,
+    startedAt: number,
+): void {
+    if (!breakdown) {
+        return;
+    }
+    breakdown[key] += performance.now() - startedAt;
+}
+
+function incrementSyncFlushCount(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    key: keyof Pick<SyncFlushBreakdownSample,
+        | 'roomSyncCount'
+        | 'contextActionsCount'
+        | 'playerStateCount'
+        | 'envelopeCount'
+        | 'auxSyncCount'
+        | 'emitEnvelopeCount'
+        | 'questSyncCount'
+        | 'runtimeEventsCount'
+        | 'statisticRecordsCount'>,
+): void {
+    if (!breakdown) {
+        return;
+    }
+    breakdown[key] += 1;
 }

@@ -63,7 +63,7 @@ class WorldGatewayPresenceHelper {
             this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         });
         this.presenceHeartbeatPersistedAtByPlayerId.set(playerId, now);
-        this.playerRuntimeService.markPersisted?.(playerId);
+        this.playerRuntimeService.markPersisted?.(playerId, new Set(['presence']), null);
     }
 
     shouldPersistHeartbeatPresence(playerId, now = Date.now()) {

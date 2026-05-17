@@ -49,7 +49,7 @@ interface PlayerRuntimePort {
         transferTargetNodeId?: string | null;
         versionSeed?: number | null;
     } | null;
-    markPersisted?(playerId: string): void;
+    markPersisted?(playerId: string, persistedDomains?: ReadonlySet<string> | Iterable<string> | null, persistedRevision?: number | null): void;
 }
 
 interface MailRuntimePort {
@@ -170,7 +170,7 @@ export class WorldSessionBootstrapPlayerInitService {
                     versionSeed: Date.now(),
                 });
             }
-            this.playerRuntimeService.markPersisted?.(input.playerId);
+            this.playerRuntimeService.markPersisted?.(input.playerId, new Set(['presence']), null);
             const routeSessionEpoch = Number.isFinite(presence.sessionEpoch)
                 ? Math.max(1, Math.trunc(Number(presence.sessionEpoch)))
                 : 0;

@@ -388,6 +388,7 @@ export class WorldSyncAuxStateService {
       tilesOriginX: options.tilesOriginX,
       tilesOriginY: options.tilesOriginY,
       visibleMinimapMarkers: options.visibleMinimapMarkers,
+      unlockedMapIds: options.unlockedMapIds,
     };
   }
 

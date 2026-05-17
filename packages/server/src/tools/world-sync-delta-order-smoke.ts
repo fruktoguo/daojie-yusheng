@@ -1,10 +1,18 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
+import { WorldSyncService } from '../network/world-sync.service';
 
-const { WorldSyncService } = require("../network/world-sync.service");
+type LogEntry = unknown[];
 
-function createService(log = [], options = {}) {
+interface DeltaOrderSmokeOptions {
+    deferFirstAux?: boolean;
+    trackRoomSync?: boolean;
+    runtimeGmStateService?: {
+        recordSyncFlushBreakdown(sample: Record<string, number>): void;
+    };
+}
+
+function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {}) {
     const binding = { playerId: 'player:1', sessionId: 'session:1' };
     const socket = { id: 'socket:1', emit() {} };
     const view = {
@@ -17,16 +25,16 @@ function createService(log = [], options = {}) {
     const player = { id: 'player:1', quests: { revision: 12 } };
     const service = new WorldSyncService(
         {
-            getPlayerView(playerId) {
+            getPlayerView(playerId: string) {
                 log.push(['getPlayerView', playerId]);
                 return view;
             },
-            refreshPlayerContextActions(playerId, inputView) {
+            refreshPlayerContextActions(playerId: string, inputView: unknown) {
                 log.push(['refreshPlayerContextActions', playerId, inputView === view]);
             },
         },
         {
-            syncFromWorldView(playerId, sessionId, inputView) {
+            syncFromWorldView(playerId: string, sessionId: string, inputView: unknown) {
                 log.push(['syncFromWorldView', playerId, sessionId, inputView === view]);
                 return player;
             },
@@ -42,11 +50,11 @@ function createService(log = [], options = {}) {
             detachSession() {},
         },
         {
-            getBinding(playerId) {
+            getBinding(playerId: string) {
                 log.push(['getBinding', playerId]);
                 return binding;
             },
-            getSocketByPlayerId(playerId) {
+            getSocketByPlayerId(playerId: string) {
                 log.push(['getSocketByPlayerId', playerId]);
                 return socket;
             },
@@ -56,21 +64,26 @@ function createService(log = [], options = {}) {
             consumePurgedPlayerIds() {
                 return [];
             },
+            syncPlayerInstanceRoom(playerId: string, instanceId: string) {
+                if (options.trackRoomSync === true) {
+                    log.push(['syncPlayerInstanceRoom', playerId, instanceId]);
+                }
+            },
         },
         {
-            emitQuestSyncIfChanged(socketInput, playerId, revision) {
+            emitQuestSyncIfChanged(socketInput: { id: string }, playerId: string, revision?: number) {
                 log.push(['emitQuestSyncIfChanged', socketInput.id, playerId, revision ?? null]);
             },
             clearPlayerCache() {},
         },
         {
-            sendEnvelope(socketInput, envelope) {
+            sendEnvelope(socketInput: { id: string }, envelope: { worldDelta?: { p?: Array<{ x?: number }> } }) {
                 log.push(['sendEnvelope', socketInput.id, envelope?.worldDelta?.p?.[0]?.x ?? null]);
             },
             sendNotices() {},
         },
         {
-            emitAuxDeltaSync(playerId, socketInput, inputView, inputPlayer, emitOptions) {
+            emitAuxDeltaSync(playerId: string, socketInput: { id: string }, inputView: unknown, inputPlayer: unknown, emitOptions?: { deferMapChanged?: boolean }) {
                 log.push([
                     'emitAuxDeltaSync',
                     playerId,
@@ -84,12 +97,13 @@ function createService(log = [], options = {}) {
             clearPlayerCache() {},
         },
         {
-            createDeltaEnvelope(playerId, inputView, inputPlayer) {
+            createDeltaEnvelope(playerId: string, inputView: typeof view, inputPlayer: unknown) {
                 log.push(['createDeltaEnvelope', playerId, inputView === view, inputPlayer === player]);
                 return { worldDelta: { t: inputView.tick, p: [{ id: playerId, x: inputView.self.x, y: inputView.self.y }] } };
             },
             clearPlayerCache() {},
         },
+        options.runtimeGmStateService ?? {},
     );
     return { service };
 }
@@ -133,7 +147,41 @@ function testMapChangedAuxDeltaStaysAfterMovementEnvelope() {
     ]);
 }
 
+function testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce() {
+    const log = [];
+    const records: Record<string, number>[] = [];
+    const { service } = createService(log, {
+        trackRoomSync: true,
+        runtimeGmStateService: {
+            recordSyncFlushBreakdown(sample: Record<string, number>) {
+                records.push(sample);
+                log.push(['recordSyncFlushBreakdown', sample.processedPlayerCount, sample.roomSyncCount]);
+            },
+        },
+    });
+
+    service.flushConnectedPlayers();
+
+    assert.equal(log.filter((entry) => entry[0] === 'syncPlayerInstanceRoom').length, 1);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].playerCount, 1);
+    assert.equal(records[0].processedPlayerCount, 1);
+    assert.equal(records[0].skippedPlayerCount, 0);
+    assert.equal(records[0].getSocketCount, 1);
+    assert.equal(records[0].getViewCount, 1);
+    assert.equal(records[0].roomSyncCount, 1);
+    assert.equal(records[0].contextActionsCount, 1);
+    assert.equal(records[0].playerStateCount, 1);
+    assert.equal(records[0].envelopeCount, 1);
+    assert.equal(records[0].auxSyncCount, 1);
+    assert.equal(records[0].emitEnvelopeCount, 1);
+    assert.equal(records[0].questSyncCount, 1);
+    assert.equal(records[0].runtimeEventsCount, 1);
+    assert.equal(records[0].statisticRecordsCount, 1);
+}
+
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
+testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-delta-order' }, null, 2));

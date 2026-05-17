@@ -72,6 +72,7 @@ const npcRenderEntityCache = new WeakMap<object, any>();
 const containerRenderEntityCache = new WeakMap<object, any>();
 const formationRenderEntityCache = new WeakMap<object, any>();
 const monsterBuffProjectionCache = new WeakMap<any[], any[]>();
+const instanceStaticTileDiffPlanCache = new WeakMap<object, any>();
 
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
 @Injectable()
@@ -365,6 +366,45 @@ export class WorldSyncMapSnapshotService {
 
   buildMapTickIntervalMs(mapId: string): number {
     return resolveMapTickIntervalMs(this.mapRuntimeConfigService.getMapTickSpeed(mapId));
+  }
+
+  getInstanceStaticTileSyncRevision(view) {
+    const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId : '';
+    const instance: any = instanceId && typeof this.worldRuntimeService.getInstanceRuntime === 'function'
+      ? this.worldRuntimeService.getInstanceRuntime(instanceId)
+      : null;
+    return instance && typeof instance.getStaticTileSyncRevision === 'function'
+      ? normalizeStaticTileSyncRevision(instance.getStaticTileSyncRevision())
+      : normalizeStaticTileSyncRevision(view?.worldRevision);
+  }
+
+  /** 读取并缓存单个实例本轮地块静态 dirty 坐标；玩家侧再按视野过滤和投影。 */
+  buildInstanceStaticTileDiffPlan(view, template) {
+    if (template?.source?.spaceVisionMode === 'parent_overlay') {
+      return null;
+    }
+    const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId : '';
+    const instance: any = instanceId && typeof this.worldRuntimeService.getInstanceRuntime === 'function'
+      ? this.worldRuntimeService.getInstanceRuntime(instanceId)
+      : null;
+    if (!instance || typeof instance.getStaticTileSyncRevision !== 'function' || typeof instance.consumeStaticTileSyncDirtyTiles !== 'function') {
+      return null;
+    }
+    const toRevision = normalizeStaticTileSyncRevision(instance.getStaticTileSyncRevision());
+    const cached = instanceStaticTileDiffPlanCache.get(instance);
+    if (cached && cached.toRevision === toRevision) {
+      return cached;
+    }
+    const consumed = instance.consumeStaticTileSyncDirtyTiles();
+    const plan = {
+      fromRevision: normalizeStaticTileSyncRevision(consumed?.fromRevision ?? toRevision),
+      toRevision: normalizeStaticTileSyncRevision(consumed?.toRevision ?? toRevision),
+      dirtyTileKeys: Array.isArray(consumed?.tileKeys)
+        ? consumed.tileKeys.filter((entry) => typeof entry === 'string' && entry.length > 0)
+        : [],
+    };
+    instanceStaticTileDiffPlanCache.set(instance, plan);
+    return plan;
   }
 
   /** 构造单个 tile 的同步状态：合并模板、实例覆盖和运行时动态数据。 */
@@ -765,6 +805,11 @@ function refreshVisibleTilesSnapshot(service, snapshot, view, player, template, 
 
 function buildCoordKey(x, y) {
     return `${x},${y}`;
+}
+
+function normalizeStaticTileSyncRevision(value) {
+  const revision = Number(value);
+  return Number.isFinite(revision) ? Math.max(0, Math.trunc(revision)) : 0;
 }
 
 function buildOverlayParentInstanceId(instance, parentTemplateId) {

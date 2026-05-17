@@ -68,8 +68,34 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     monsterActionsMs: '怪物行为',
     playerAdvanceMs: '玩家推进',
     syncFlushMs: '同步广播',
+    'syncFlush.getSocketMs': '同步·取连接',
+    'syncFlush.getViewMs': '同步·取视野',
+    'syncFlush.roomSyncMs': '同步·房间归属',
+    'syncFlush.contextActionsMs': '同步·上下文动作',
+    'syncFlush.playerStateMs': '同步·玩家投影',
+    'syncFlush.envelopeMs': '同步·主包构造',
+    'syncFlush.auxSyncMs': '同步·辅助状态',
+    'syncFlush.emitEnvelopeMs': '同步·Socket 发包',
+    'syncFlush.questSyncMs': '同步·任务状态',
+    'syncFlush.runtimeEventsMs': '同步·运行时事件',
+    'syncFlush.statisticRecordsMs': '同步·统计记录',
+    'syncFlush.clearCachesMs': '同步·缓存清理',
     otherMs: '其余开销',
 });
+const SYNC_FLUSH_BREAKDOWN_DEFS = Object.freeze([
+    { key: 'getSocketMs', countKey: 'getSocketCount' },
+    { key: 'getViewMs', countKey: 'getViewCount' },
+    { key: 'roomSyncMs', countKey: 'roomSyncCount' },
+    { key: 'contextActionsMs', countKey: 'contextActionsCount' },
+    { key: 'playerStateMs', countKey: 'playerStateCount' },
+    { key: 'envelopeMs', countKey: 'envelopeCount' },
+    { key: 'auxSyncMs', countKey: 'auxSyncCount' },
+    { key: 'emitEnvelopeMs', countKey: 'emitEnvelopeCount' },
+    { key: 'questSyncMs', countKey: 'questSyncCount' },
+    { key: 'runtimeEventsMs', countKey: 'runtimeEventsCount' },
+    { key: 'statisticRecordsMs', countKey: 'statisticRecordsCount' },
+    { key: 'clearCachesMs', countKey: 'clearCachesCount' },
+]);
 const C2S_NAME_BY_EVENT = buildProtocolNameByEvent(C2S);
 const S2C_NAME_BY_EVENT = buildProtocolNameByEvent(S2C);
 
@@ -113,6 +139,8 @@ export class RuntimeGmStateService {
     lastManualGcAt = 0;
     /** 手动 GC 并发保护。 */
     manualGcInProgress = false;
+    /** 最近 60 次同步广播内部阶段耗时，用于拆出同步热点。 */
+    syncFlushBreakdownHistoryByKey = createSyncFlushBreakdownHistoryByKey();
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(
         mapTemplateRepository: MapTemplateRepository,
@@ -208,6 +236,20 @@ export class RuntimeGmStateService {
             return;
         }
         this.recordNetworkBucket(this.networkOutBucketByKey, 's2c', event, payload);
+    }
+    /** 记录一次 flushConnectedPlayers 内部耗时分布。 */
+    recordSyncFlushBreakdown(sample) {
+        for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+            const history = this.syncFlushBreakdownHistoryByKey.get(def.key);
+            if (!history) {
+                continue;
+            }
+            pushSyncFlushBreakdownMetric(
+                history,
+                Number(sample?.[def.key] ?? 0),
+                Number(sample?.[def.countKey] ?? 0),
+            );
+        }
     }
     /** GM 网络性能统计是热路径诊断能力，生产默认关闭，需要显式开关。 */
     shouldRecordNetworkPerf() {
@@ -705,7 +747,7 @@ export class RuntimeGmStateService {
         const networkOutBuckets = buildSortedNetworkBuckets(this.networkOutBucketByKey);
         const networkInBytes = sumBucketBytes(networkInBuckets);
         const networkOutBytes = sumBucketBytes(networkOutBuckets);
-        const cpuBreakdown = buildCpuBreakdown(summary);
+        const cpuBreakdown = buildCpuBreakdown(summary, this.syncFlushBreakdownHistoryByKey);
         const memoryEstimate = includeMemoryEstimate
             ? this.buildMemoryEstimate(summary, rssBytes)
             : buildSkippedMemoryEstimate(rssBytes);
@@ -1294,7 +1336,7 @@ function collectGarbageWithInspector(): Promise<void> {
     });
 }
 
-function buildCpuBreakdown(summary) {
+function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null) {
     const phaseSummaries = summary?.tickPerf?.phaseSummaries;
     const totalWindowMs = Number(summary?.tickPerf?.totalMs?.avg60 ?? 0) * Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0);
     const rows = [];
@@ -1335,6 +1377,7 @@ function buildCpuBreakdown(summary) {
             avgMs: roundMetric(Number(syncFlushSummary?.avg60 ?? 0)),
             percent: totalWindowMs > 0 ? roundMetric((syncFlushTotalMs / totalWindowMs) * 100) : 0,
         });
+        rows.push(...buildSyncFlushBreakdownRows(syncFlushBreakdownHistoryByKey, totalWindowMs));
     }
     const otherTotalMs = roundMetric(Math.max(0, totalWindowMs - coveredTotalMs));
     if (otherTotalMs > 0) {
@@ -1347,6 +1390,56 @@ function buildCpuBreakdown(summary) {
                 ? roundMetric(otherTotalMs / Number(phaseSummaries.pendingCommandsMs.sampleCount))
                 : 0,
             percent: totalWindowMs > 0 ? roundMetric((otherTotalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+    return rows;
+}
+
+function createSyncFlushBreakdownHistoryByKey() {
+    const result = new Map();
+    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+        result.set(def.key, []);
+    }
+    return result;
+}
+
+function pushSyncFlushBreakdownMetric(history, totalMs, count) {
+    history.push({
+        totalMs: roundMetric(Math.max(0, Number(totalMs) || 0)),
+        count: Math.max(0, Math.trunc(Number(count) || 0)),
+    });
+    if (history.length > 60) {
+        history.splice(0, history.length - 60);
+    }
+}
+
+function buildSyncFlushBreakdownRows(syncFlushBreakdownHistoryByKey, totalWindowMs) {
+    if (!(syncFlushBreakdownHistoryByKey instanceof Map)) {
+        return [];
+    }
+    const rows = [];
+    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+        const history = syncFlushBreakdownHistoryByKey.get(def.key);
+        if (!Array.isArray(history) || history.length === 0) {
+            continue;
+        }
+        let totalMs = 0;
+        let count = 0;
+        for (const entry of history) {
+            totalMs += Number(entry?.totalMs ?? 0);
+            count += Number(entry?.count ?? 0);
+        }
+        if (!(totalMs > 0) && count <= 0) {
+            continue;
+        }
+        const key = `syncFlush.${def.key}`;
+        rows.push({
+            key,
+            label: CPU_BREAKDOWN_LABELS[key] ?? key,
+            totalMs: roundMetric(totalMs),
+            count: Math.max(0, Math.trunc(count)),
+            avgMs: count > 0 ? roundMetric(totalMs / count) : 0,
+            percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
         });
     }
     return rows;
