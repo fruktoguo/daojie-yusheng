@@ -69,6 +69,17 @@ function run() {
     }
   }
 
+  const basicAttackSource = readSource(repoRoot, 'packages/server/src/runtime/world/combat/world-runtime-basic-attack.service.ts');
+  assert.equal(basicAttackSource.includes('function buildBasicAttackNoticeResolution(resolvedDamage, damageKind)'), true);
+  assert.equal(basicAttackSource.includes('resolution: { ...resolvedDamage, damageKind }'), false);
+  assert.equal(countOccurrences(basicAttackSource, 'resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind)'), 3);
+
+  const playerCombatSource = readSource(repoRoot, 'packages/server/src/runtime/world/combat/world-runtime-player-combat.service.ts');
+  assert.equal(playerCombatSource.includes('function buildNextInventorySnapshots'), false);
+  assert.equal(playerCombatSource.includes('function buildGrantedInventorySnapshot'), false);
+  assert.equal(playerCombatSource.includes('rawPayload: entry ? { ...entry } : {}'), false);
+  assert.equal(playerCombatSource.includes('rawPayload: item ? { ...item } : {}'), false);
+
   const serviceSource = readSource(repoRoot, 'packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts');
   assert.equal(serviceSource.includes('recordBoundedCombatRing'), true);
   assert.equal(serviceSource.includes('buildCombatEvents'), true);
@@ -132,6 +143,19 @@ function resolveRepoRoot() {
 
 function readSource(repoRoot, relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function countOccurrences(source, needle) {
+  let count = 0;
+  let offset = 0;
+  while (true) {
+    const index = source.indexOf(needle, offset);
+    if (index < 0) {
+      return count;
+    }
+    count += 1;
+    offset = index + needle.length;
+  }
 }
 
 run();

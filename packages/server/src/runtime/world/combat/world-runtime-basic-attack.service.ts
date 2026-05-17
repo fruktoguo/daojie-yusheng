@@ -61,6 +61,26 @@ function normalizeAppliedDamage(value, fallback = 0) {
     }
     return Math.max(0, Math.round(Number(fallback) || 0));
 }
+function buildBasicAttackNoticeResolution(resolvedDamage, damageKind) {
+    const resolution: Record<string, unknown> = {
+        rawDamage: resolvedDamage.rawDamage,
+        damage: resolvedDamage.damage,
+        damageKind,
+    };
+    if (resolvedDamage.dodged) {
+        resolution.dodged = true;
+    }
+    if (resolvedDamage.crit) {
+        resolution.crit = true;
+    }
+    if (resolvedDamage.broken) {
+        resolution.broken = true;
+    }
+    if (resolvedDamage.resolved) {
+        resolution.resolved = true;
+    }
+    return resolution;
+}
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
 @Injectable()
@@ -297,7 +317,7 @@ export class WorldRuntimeBasicAttackService {
             notices: [{
                 playerId: attacker.playerId,
                 text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name, outcome?.hp ?? monster.hp, monster.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                combat: buildCombatNoticePayload({ caster: '你', target: monster.name, targetHp: outcome?.hp ?? monster.hp, targetMaxHp: monster.maxHp, skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
+                combat: buildCombatNoticePayload({ caster: '你', target: monster.name, targetHp: outcome?.hp ?? monster.hp, targetMaxHp: monster.maxHp, skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
             }],
         });
     }
@@ -382,12 +402,12 @@ export class WorldRuntimeBasicAttackService {
                 {
                     playerId: attacker.playerId,
                     text: `${formatCombatActionClause('你', formatTargetLabelWithHp(target.name ?? target.playerId, updated.hp, updated.maxHp ?? target.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                    combat: buildCombatNoticePayload({ caster: '你', target: target.name ?? target.playerId, targetHp: updated.hp, targetMaxHp: updated.maxHp ?? target.maxHp, skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
+                    combat: buildCombatNoticePayload({ caster: '你', target: target.name ?? target.playerId, targetHp: updated.hp, targetMaxHp: updated.maxHp ?? target.maxHp, skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
                 },
                 {
                     playerId: target.playerId,
                     text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                    combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
+                    combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
                 },
             ],
         });

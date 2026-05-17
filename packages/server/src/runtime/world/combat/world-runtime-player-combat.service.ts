@@ -416,24 +416,6 @@ export class WorldRuntimePlayerCombatService {
     }
 };
 
-function buildNextInventorySnapshots(items: any[]) {
-    return Array.isArray(items)
-        ? items.map((entry) => ({
-            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
-            count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
-            rawPayload: entry ? { ...entry } : {},
-        })).filter((entry) => entry.itemId)
-        : [];
-}
-
-function buildGrantedInventorySnapshot(item: any) {
-    return {
-        itemId: typeof item?.itemId === 'string' ? item.itemId : '',
-        count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
-        rawPayload: item ? { ...item } : {},
-    };
-}
-
 function buildMonsterAuditTarget(monster: any) {
     return {
         kind: 'monster',
