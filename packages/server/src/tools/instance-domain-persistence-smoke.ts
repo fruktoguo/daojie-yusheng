@@ -21,6 +21,7 @@ function createPrototypePayload<T extends Record<string, unknown>>(
 async function main(): Promise<void> {
   await assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning();
   await assertContainerAndOverlaySnapshotsUseStaleKeyPruning();
+  await assertInstanceStateSnapshotsUseStaleKeyPruning();
 
   if (!databaseUrl.trim()) {
     console.log(
@@ -29,7 +30,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui、container、overlay 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
+          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui、container、overlay、tile_resource、tile_damage、runtime_tile、temporary_tile、ground_item 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
           excludes: '无 DB 时不证明真实 PostgreSQL 回读、完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
@@ -1142,6 +1143,75 @@ async function assertContainerAndOverlaySnapshotsUseStaleKeyPruning(): Promise<v
         && query.includes('NOT EXISTS')),
       true,
       `container/overlay snapshot missing stale-key delete guard for ${tableName}`,
+    );
+  }
+}
+
+async function assertInstanceStateSnapshotsUseStaleKeyPruning(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[] }> {
+      queries.push(sql);
+      return { rows: [] };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new InstanceDomainPersistenceService(null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.saveTileResourceDiffs('instance:fake', [
+    { resourceKey: 'qi', tileIndex: 1, value: 3 },
+  ]);
+  await service.saveTileDamageStates('instance:fake', [
+    { tileIndex: 2, x: 1, y: 1, hp: 7, maxHp: 10, destroyed: false },
+  ]);
+  await service.replaceRuntimeTileCells('instance:fake', [
+    { x: 1, y: 2, tileType: 'floor', terrainType: 'floor' },
+  ]);
+  await service.replaceTemporaryTileStates('instance:fake', [
+    { tileIndex: 3, x: 1, y: 3, tileType: 'stone', hp: 5, maxHp: 5, expiresAtTick: 10 },
+  ]);
+  await service.replaceGroundItems('instance:fake', [
+    { tileIndex: 4, items: [{ itemId: 'grass', count: 1 }] },
+  ]);
+
+  const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  const forbiddenDeletes = [
+    'DELETE FROM instance_tile_resource_state WHERE instance_id = $1',
+    'DELETE FROM instance_tile_damage_state WHERE instance_id = $1',
+    'DELETE FROM instance_tile_cell WHERE instance_id = $1',
+    'DELETE FROM instance_temporary_tile_state WHERE instance_id = $1',
+    'DELETE FROM instance_ground_item WHERE instance_id = $1',
+  ];
+  for (const forbidden of forbiddenDeletes) {
+    assert.equal(
+      normalizedQueries.some((query) => query === forbidden),
+      false,
+      `instance state snapshot emitted forbidden whole-domain delete: ${forbidden}`,
+    );
+  }
+  for (const tableName of [
+    'instance_tile_resource_state',
+    'instance_tile_damage_state',
+    'instance_tile_cell',
+    'instance_temporary_tile_state',
+    'instance_ground_item',
+  ]) {
+    assert.equal(
+      normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+        && query.includes('jsonb_to_recordset')
+        && query.includes('NOT EXISTS')),
+      true,
+      `instance state snapshot missing stale-key delete guard for ${tableName}`,
     );
   }
 }

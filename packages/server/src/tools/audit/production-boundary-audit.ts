@@ -167,6 +167,372 @@ const CHECKS = [
     file: "packages/server/src/runtime/world/world-runtime.service.ts",
     pattern: "JSON.stringify(",
   },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_inventory",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_inventory_item 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_wallet",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_wallet 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_WALLET_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_equipment",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_equipment_slot 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_market_storage",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_market_storage_item 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_map_unlock",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_map_unlock 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_MAP_UNLOCK_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_technique",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_technique_state 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_TECHNIQUE_STATE_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_buff",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_persistent_buff_state 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_PERSISTENT_BUFF_STATE_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_quest",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_quest_progress 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_QUEST_PROGRESS_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_auto_battle",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_auto_battle_skill 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_AUTO_BATTLE_SKILL_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_auto_use",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_auto_use_item_rule 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_AUTO_USE_ITEM_RULE_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_profession",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_profession_state 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_PROFESSION_STATE_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_alchemy",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_alchemy_preset 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_ALCHEMY_PRESET_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_enhancement",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_enhancement_record 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.player_domain_logbook",
+    category: "目标差距: 性能/扩展",
+    description: "禁止玩家分域快照回退为 player_logbook_message 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_LOGBOOK_MESSAGE_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.durable_market_storage",
+    category: "目标差距: 性能/扩展",
+    description: "禁止 durable 快照回退为 player_market_storage_item 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/durable-operation.service.ts",
+    pattern: "DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.durable_quest",
+    category: "目标差距: 性能/扩展",
+    description: "禁止 durable 快照回退为 player_quest_progress 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/durable-operation.service.ts",
+    pattern: "DELETE FROM ${PLAYER_QUEST_PROGRESS_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.durable_enhancement",
+    category: "目标差距: 性能/扩展",
+    description: "禁止 durable 快照回退为 player_enhancement_record 整玩家 DELETE 后全量重插",
+    file: "packages/server/src/persistence/durable-operation.service.ts",
+    pattern: "DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} WHERE player_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_building_cells",
+    category: "目标差距: 性能/扩展",
+    description: "禁止实例建筑格子快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_BUILDING_CELL_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_buildings",
+    category: "目标差距: 性能/扩展",
+    description: "禁止实例建筑状态快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_BUILDING_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_rooms",
+    category: "目标差距: 性能/扩展",
+    description: "禁止实例房间快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_ROOM_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_room_cells",
+    category: "目标差距: 性能/扩展",
+    description: "禁止实例房间格子快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_ROOM_CELL_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_feng_shui",
+    category: "目标差距: 性能/扩展",
+    description: "禁止实例风水快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_FENGSHUI_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_runtime_tiles",
+    category: "目标差距: 性能/扩展",
+    description: "禁止运行时地块快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_TILE_CELL_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_tile_resources",
+    category: "目标差距: 性能/扩展",
+    description: "禁止地块资源快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_tile_damage",
+    category: "目标差距: 性能/扩展",
+    description: "禁止地块破坏快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "deleteTileDamageStates",
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_temporary_tiles",
+    category: "目标差距: 性能/扩展",
+    description: "禁止临时地块快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_ground_items",
+    category: "目标差距: 性能/扩展",
+    description: "禁止地面物品快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_containers",
+    category: "目标差距: 性能/扩展",
+    description: "禁止容器状态快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_CONTAINER_STATE_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_container_entries",
+    category: "目标差距: 性能/扩展",
+    description: "禁止容器条目快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_container_timers",
+    category: "目标差距: 性能/扩展",
+    description: "禁止容器计时器快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_CONTAINER_TIMER_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
+  {
+    id: "persistence.snapshot_rewrite.instance_overlays",
+    category: "目标差距: 性能/扩展",
+    description: "禁止覆盖层快照回退为整实例 DELETE 后全量重插",
+    file: "packages/server/src/persistence/instance-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${INSTANCE_OVERLAY_CHUNK_TABLE} WHERE instance_id = $1",
+    forbidden: true,
+    exclude: [
+      " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
+  },
 ];
 
 /**
@@ -189,6 +555,10 @@ function main() {
   fs.writeFileSync(docOutput, markdown, "utf8");
   process.stdout.write(`[production boundary audit] report written to ${docOutput}\n`);
   process.stdout.write(`[production boundary audit] matched ${summary.matchedChecks}/${summary.totalChecks} checks, ${summary.totalHits} code hits across ${summary.categories.length} categories\n`);
+  if (summary.forbiddenHits > 0) {
+    process.stderr.write(`[production boundary audit] forbidden patterns matched ${summary.forbiddenHits} code hits\n`);
+    process.exitCode = 1;
+  }
 }
 
 /**
@@ -234,6 +604,9 @@ function runCheck(entry) {
     if (Array.isArray(entry.exclude) && entry.exclude.some((token) => line.includes(token))) {
       continue;
     }
+    if (isWithinAllowedFunction(lines, index, entry.allowedFunctions)) {
+      continue;
+    }
     hits.push({
       line: index + 1,
       excerpt: line.trim(),
@@ -244,6 +617,26 @@ function runCheck(entry) {
     hits,
     skippedReason: null,
   };
+}
+
+/**
+ * 判断命中是否位于显式允许的函数体内。
+ */
+function isWithinAllowedFunction(lines, lineIndex, allowedFunctions) {
+  if (!Array.isArray(allowedFunctions) || allowedFunctions.length === 0) {
+    return false;
+  }
+  for (let index = lineIndex; index >= 0; index -= 1) {
+/**
+ * 记录line。
+ */
+    const line = lines[index];
+    if (!line.includes("async ") && !line.includes("function ")) {
+      continue;
+    }
+    return allowedFunctions.some((functionName) => line.includes(`${functionName}(`));
+  }
+  return false;
 }
 
 /**
@@ -274,6 +667,7 @@ function buildSummary(results) {
     totalChecks: results.length,
     matchedChecks: results.filter((entry) => entry.hits.length > 0).length,
     skippedChecks: results.filter((entry) => typeof entry.skippedReason === "string" && entry.skippedReason.length > 0).length,
+    forbiddenHits: results.filter((entry) => entry.forbidden === true).reduce((sum, entry) => sum + entry.hits.length, 0),
     totalHits: results.reduce((sum, entry) => sum + entry.hits.length, 0),
     categories,
   };
@@ -297,6 +691,11 @@ function renderMarkdown(summary, results) {
   lines.push("");
   lines.push("- 这份报告只统计仓库里仍可见的旧数据边界、兼容边界与性能热点，不等于 release 失败，也不代表完整替换已完成。");
   lines.push(`- 当前自动审计命中 ${summary.matchedChecks} / ${summary.totalChecks} 个检查项，共 ${summary.totalHits} 处代码证据。`);
+  if (summary.forbiddenHits > 0) {
+    lines.push(`- 禁止模式命中 ${summary.forbiddenHits} 处；本次审计应视为失败。`);
+  } else {
+    lines.push("- 禁止模式命中 0 处。");
+  }
   if (summary.skippedChecks > 0) {
     lines.push(`- 另有 ${summary.skippedChecks} 个检查项因 inventory 文件路径漂移被 fail-soft 跳过，不影响其余检查继续产出。`);
   }
@@ -326,6 +725,9 @@ function renderMarkdown(summary, results) {
  */
       const firstHit = entry.hits[0];
       lines.push(`- ${entry.description}`);
+      if (entry.forbidden === true) {
+        lines.push("  - 级别：禁止模式");
+      }
       lines.push(`  - 文件：\`${entry.file}:${firstHit.line}\``);
       lines.push(`  - 命中次数：${entry.hits.length}`);
       lines.push(`  - 首个证据：\`${escapeBackticks(firstHit.excerpt)}\``);

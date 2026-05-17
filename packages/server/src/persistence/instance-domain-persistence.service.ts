@@ -541,7 +541,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     };
   }
 
-  /** 全量替换指定实例的地块资源状态（灵气等） */
+  /** 保存指定实例的地块资源快照：批量 upsert 当前资源，并删除快照外 stale 资源。 */
   async saveTileResourceDiffs(
     instanceId: string,
     entries: Array<{ resourceKey: string; tileIndex: number; value: number }>,
@@ -569,10 +569,13 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT resource_key, tile_index, value
+              FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint, value double precision)
+            )
             INSERT INTO ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(
               instance_id,
               resource_key,
@@ -580,15 +583,46 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               value,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, now())
+            SELECT $1, resource_key, tile_index, value, now()
+            FROM incoming
             ON CONFLICT (instance_id, resource_key, tile_index)
             DO UPDATE SET
               value = EXCLUDED.value,
               updated_at = now()
           `,
-          [normalizedInstanceId, entry.resourceKey, entry.tileIndex, entry.value],
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              resource_key: entry.resourceKey,
+              tile_index: entry.tileIndex,
+              value: entry.value,
+            }))),
+          ],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT resource_key, tile_index
+            FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint)
+          )
+          DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.resource_key = target.resource_key
+                AND incoming.tile_index = target.tile_index
+            )
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(normalizedEntries.map((entry) => ({
+            resource_key: entry.resourceKey,
+            tile_index: entry.tileIndex,
+          }))),
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
@@ -886,7 +920,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       : [];
   }
 
-  /** 全量替换指定实例的地块破坏状态 */
+  /** 保存指定实例的地块破坏快照：批量 upsert 当前状态，并删除快照外 stale 地块。 */
   async saveTileDamageStates(
     instanceId: string,
     entries: Array<{
@@ -925,10 +959,30 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT
+                tile_index,
+                x,
+                y,
+                hp,
+                max_hp,
+                destroyed,
+                respawn_left_ticks,
+                modified_at_ms
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                tile_index bigint,
+                x bigint,
+                y bigint,
+                hp double precision,
+                max_hp double precision,
+                destroyed boolean,
+                respawn_left_ticks bigint,
+                modified_at_ms bigint
+              )
+            )
             INSERT INTO ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(
               instance_id,
               tile_index,
@@ -941,7 +995,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               modified_at_ms,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+            SELECT $1, tile_index, x, y, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms, now()
+            FROM incoming
             ON CONFLICT (instance_id, tile_index)
             DO UPDATE SET
               x = EXCLUDED.x,
@@ -955,17 +1010,40 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           `,
           [
             normalizedInstanceId,
-            entry.tileIndex,
-            entry.x,
-            entry.y,
-            entry.hp,
-            entry.maxHp,
-            entry.destroyed,
-            entry.respawnLeft,
-            entry.modifiedAt,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              tile_index: entry.tileIndex,
+              x: entry.x,
+              y: entry.y,
+              hp: entry.hp,
+              max_hp: entry.maxHp,
+              destroyed: entry.destroyed,
+              respawn_left_ticks: entry.respawnLeft,
+              modified_at_ms: entry.modifiedAt,
+            }))),
           ],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT tile_index
+            FROM jsonb_to_recordset($2::jsonb) AS entry(tile_index bigint)
+          )
+          DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.tile_index = target.tile_index
+            )
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(normalizedEntries.map((entry) => ({
+            tile_index: entry.tileIndex,
+          }))),
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
@@ -1536,7 +1614,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
-  /** 全量替换指定实例的地面物品 */
+  /** 保存指定实例的地面物品快照：批量 upsert 当前物品，并删除快照外 stale 物品。 */
   async replaceGroundItems(
     instanceId: string,
     entries: Array<{ tileIndex: number; items: unknown[] }>,
@@ -1566,10 +1644,20 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT
+                ground_item_id,
+                tile_index,
+                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                ground_item_id varchar(100),
+                tile_index bigint,
+                item_instance_payload jsonb
+              )
+            )
             INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
               ground_item_id,
               instance_id,
@@ -1578,11 +1666,47 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expire_at,
               updated_at
             )
-            VALUES ($1, $2, $3, $4::jsonb, NULL, now())
+            SELECT ground_item_id, $1, tile_index, item_instance_payload, NULL, now()
+            FROM incoming
+            ON CONFLICT (ground_item_id)
+            DO UPDATE SET
+              instance_id = EXCLUDED.instance_id,
+              tile_index = EXCLUDED.tile_index,
+              item_instance_payload = EXCLUDED.item_instance_payload,
+              expire_at = EXCLUDED.expire_at,
+              updated_at = now()
           `,
-          [entry.groundItemId, normalizedInstanceId, entry.tileIndex, JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))],
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              ground_item_id: entry.groundItemId,
+              tile_index: entry.tileIndex,
+              item_instance_payload: normalizePersistedItemPayload(entry.itemPayload),
+            }))),
+          ],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT ground_item_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(ground_item_id varchar(100))
+          )
+          DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.ground_item_id = target.ground_item_id
+            )
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(normalizedEntries.map((entry) => ({
+            ground_item_id: entry.groundItemId,
+          }))),
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
