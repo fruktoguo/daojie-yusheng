@@ -1543,6 +1543,28 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  /**
+   * 检查玩家是否已经在 player_recovery_watermark 表中有任何 row。
+   *
+   * 用途：阻止"老玩家被 starter snapshot 覆盖"事故。watermark 行只在玩家任意一次分域 save 后产生，
+   * 因此 row 存在等价于"该玩家是已有数据的老玩家"。当 ensureNativeStarterSnapshot 因为 PG 读失败
+   * 误判为新玩家时，这个 helper 是最后一道纵深防御。
+   *
+   * - 持久化未启用 / 玩家 ID 非法 → 返回 false（让上层走默认安全分支）。
+   * - PG 错误会向上抛出，由调用方决定如何处理（默认应当拒绝写 starter）。
+   */
+  async hasRecoveryWatermark(playerId: string): Promise<boolean> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return false;
+    }
+    const result = await this.pool.query<{ exists: unknown }>(
+      `SELECT 1 AS exists FROM ${PLAYER_RECOVERY_WATERMARK_TABLE} WHERE player_id = $1 LIMIT 1`,
+      [normalizedPlayerId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   /** 一次性加载玩家全部分域数据（位置、钱包、背包、装备、功法、任务等） */
   async loadPlayerDomains(playerId: string): Promise<LoadedPlayerDomains | null> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
@@ -3323,6 +3345,43 @@ function safeStringifyInventoryEntry(value: unknown): string {
     : serialized;
 }
 
+/**
+ * 拒绝"用空 incoming 把整玩家分域表清空"的 SQL 层最终防御。
+ *
+ * 背景：玩家分域 replace 函数（inventory/wallet/equipment/market_storage/technique/buff/quest）末尾都有
+ * 一段 `WHERE player_id = $1 AND NOT EXISTS (SELECT 1 FROM <incoming> ...)` 形态的 cleanup DELETE。
+ * 当 incoming 为空数组时这条 SQL 退化为"无差别清空整玩家该域所有 row"，曾经被 ensureNativeStarterSnapshot
+ * 的 silent-rebirth fallback（PG 读失败 → catch null → fall through 写空 starter）触发过事故。
+ *
+ * 这个 helper 在每个 replace 函数末尾的 cleanup DELETE 之前调用：
+ * - incoming 不为空 → 正常进入 cleanup（合法 stale 删除）；
+ * - incoming 为空 + PG 中该玩家在该域有 N>0 行 → throw，让 withTransaction 整体 rollback；
+ * - incoming 为空 + PG 中本来也是空 → no-op 通过（合法零状态）。
+ *
+ * 玩家正常游戏中 inventory/wallet/equipment/market_storage 不会从有变成全空（至少有起步装备/初始铜钱），
+ * technique/buff/quest 同样不会一次清光。如果有合法 reset 场景，应该走显式专门 API，不能通过整快照 replace 触发。
+ */
+async function refuseEmptyOverwriteIfRowsExist(
+  client: PoolClient,
+  tableName: string,
+  playerId: string,
+  incomingCount: number,
+  domainTag: string,
+): Promise<void> {
+  if (incomingCount > 0) {
+    return;
+  }
+  const result = await client.query(
+    `SELECT 1 AS exists FROM ${tableName} WHERE player_id = $1 LIMIT 1`,
+    [playerId],
+  );
+  if ((result.rowCount ?? 0) > 0) {
+    throw new Error(
+      `replace_${domainTag}_refused_empty_overwrite:playerId=${playerId} table=${tableName}`,
+    );
+  }
+}
+
 async function replacePlayerInventoryItems(
   client: PoolClient,
   playerId: string,
@@ -3426,6 +3485,7 @@ async function replacePlayerInventoryItems(
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
   await client.query(
     `
       WITH incoming AS (
@@ -3505,6 +3565,7 @@ async function replacePlayerWalletRows(
       [playerId, JSON.stringify(normalizedRows)],
     );
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, normalizedRows.length, 'wallet');
   await client.query(
     `
       WITH incoming AS (
@@ -3704,6 +3765,13 @@ async function prunePlayerMarketStorageStaleSlots(
   playerId: string,
   slotIndices: readonly number[],
 ): Promise<void> {
+  await refuseEmptyOverwriteIfRowsExist(
+    client,
+    PLAYER_MARKET_STORAGE_ITEM_TABLE,
+    playerId,
+    slotIndices.length,
+    'market_storage',
+  );
   await client.query(
     `
       WITH incoming AS (
@@ -3733,6 +3801,12 @@ async function prunePlayerRowsBySnapshotKeys(
   recordsetColumns: string,
   matchPredicate: string,
 ): Promise<void> {
+  // 把 PG 表名 (e.g. 'player_inventory_item') 转成 domain tag (e.g. 'inventory_item') 用于错误日志。
+  // SQL 表名是稳定的常量，不会出现注入风险；这里只是给运维一个比 tableName 短的 tag。
+  const domainTag = typeof tableName === 'string'
+    ? tableName.replace(/^player_/u, '').replace(/_table$/u, '') || tableName
+    : 'unknown';
+  await refuseEmptyOverwriteIfRowsExist(client, tableName, playerId, keys.length, domainTag);
   await client.query(
     `
       WITH incoming AS (
@@ -3823,6 +3897,7 @@ async function replacePlayerEquipmentSlots(
       [playerId, JSON.stringify(rows)],
     );
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');
   await client.query(
     `
       WITH incoming AS (

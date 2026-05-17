@@ -577,6 +577,66 @@ const CHECKS = [
       " AND ",
     ],
   },
+  // ----------------------------------------------------------------------------------------------
+  // 玩家分域 NOT EXISTS 形态整快照 cleanup（事故级警示）。
+  //
+  // 这五条 audit 不设 forbidden:true。当前实现就是这种 SQL 形态：
+  //
+  //   DELETE FROM <table> target
+  //   WHERE target.player_id = $1
+  //     AND NOT EXISTS (SELECT 1 FROM incoming WHERE incoming.<key> = target.<key>)
+  //
+  // incoming 为空数组时 NOT EXISTS 永为 true，等价于无差别"清空整玩家该域所有 row"。
+  // 历史事故由此引发：silent-rebirth fallback（PG 读失败 → catch null → 写空 starter snapshot）
+  // 触发了这条 SQL，导致多名玩家资产被清空。
+  //
+  // 当前已经在 SQL 之前加了 refuseEmptyOverwriteIfRowsExist 守卫拒绝空覆盖整玩家行的场景，
+  // 但 SQL 形态本身仍属于"潜在结构性危险"，audit 把它显式列出来是给运维与未来重构者的明确提示：
+  // 这种"基于全快照对账"的 cleanup 模式应该长期向"基于 dirty diff 的精确 delete"演进。
+  //
+  // 已知忽略 false positive：`prunePlayerRowsBySnapshotKeys` helper 内部那条以
+  // `DELETE FROM ${tableName} target` 为模式的 SQL 同样会被命中，作为 helper 共用 audit。
+  // ----------------------------------------------------------------------------------------------
+  {
+    id: "persistence.snapshot_cleanup.player_domain_inventory_not_exists",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 inventory cleanup 仍使用 NOT EXISTS 全快照对账形态（incoming 为空时等价整玩家 DELETE，已加 refuseEmptyOverwriteIfRowsExist 守卫）",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target",
+    forbidden: false,
+  },
+  {
+    id: "persistence.snapshot_cleanup.player_domain_wallet_not_exists",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 wallet cleanup 仍使用 NOT EXISTS 全快照对账形态（incoming 为空时等价整玩家 DELETE，已加 refuseEmptyOverwriteIfRowsExist 守卫）",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_WALLET_TABLE} target",
+    forbidden: false,
+  },
+  {
+    id: "persistence.snapshot_cleanup.player_domain_equipment_not_exists",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 equipment cleanup 仍使用 NOT EXISTS 全快照对账形态（incoming 为空时等价整玩家 DELETE，已加 refuseEmptyOverwriteIfRowsExist 守卫）",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target",
+    forbidden: false,
+  },
+  {
+    id: "persistence.snapshot_cleanup.player_domain_market_storage_not_exists",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 market_storage cleanup 仍使用 NOT EXISTS 全快照对账形态（incoming 为空时等价整玩家 DELETE，已加 refuseEmptyOverwriteIfRowsExist 守卫）",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target",
+    forbidden: false,
+  },
+  {
+    id: "persistence.snapshot_cleanup.player_domain_generic_helper_not_exists",
+    category: "目标差距: 性能/扩展",
+    description: "prunePlayerRowsBySnapshotKeys helper 仍使用 NOT EXISTS 全快照对账形态（共用 helper 已加 refuseEmptyOverwriteIfRowsExist 守卫，覆盖 technique/buff/quest/map_unlock/auto_battle_skill/auto_use_item_rule/profession/alchemy_preset/enhancement_record/logbook 等域）",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "DELETE FROM ${tableName} target",
+    forbidden: false,
+  },
   {
     id: "persistence.snapshot_rewrite.durable_market_storage",
     category: "目标差距: 性能/扩展",

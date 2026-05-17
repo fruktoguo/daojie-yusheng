@@ -27,7 +27,9 @@ type NativeStarterFailureStage =
   | 'native_snapshot_recovery_persistence_disabled'
   | 'native_snapshot_recovery_load_failed'
   | 'native_snapshot_recovery_build_failed'
-  | 'native_snapshot_recovery_seed_failed';
+  | 'native_snapshot_recovery_seed_failed'
+  | 'native_snapshot_recovery_existing_watermark_block'
+  | 'native_snapshot_recovery_watermark_check_failed';
 
 interface NativeStarterSnapshotResult {
   ok: boolean;
@@ -60,6 +62,7 @@ interface PlayerDomainSnapshotPort {
     playerId: string,
     buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
   ): Promise<PersistedPlayerSnapshot | null>;
+  hasRecoveryWatermark?(playerId: string): Promise<boolean>;
 }
 
 const NATIVE_STARTER_PROJECTION_DOMAINS = Object.freeze([
@@ -148,13 +151,25 @@ export class WorldPlayerSnapshotService {
       };
     }
 
-    const existingSnapshot = await this.playerDomainPersistenceService!.loadProjectedSnapshot(
-      normalizedPlayerId,
-      (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
-    ).catch((error: unknown) => {
-      this.logger.warn(`原生新手分域快照读取失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    });
+    // 第一层防御：PG 读失败时绝不能 fall through 到写 starter 分支。
+    // 之前的实现把 .catch(error => null) 静默吞了任何 load 错误，会让连接池满 / advisory lock 抢占冲突 /
+    // 网络抖动等临时故障被错判为"该玩家不存在"，进而用空 starter snapshot 覆盖现有玩家所有资产域。
+    // 现在只把 throw 转化为明确的 failureStage 让上层 abort 玩家上线流程，宁可登录失败也不能清空资产。
+    let existingSnapshot: PersistedPlayerSnapshot | null;
+    try {
+      existingSnapshot = await this.playerDomainPersistenceService!.loadProjectedSnapshot(
+        normalizedPlayerId,
+        (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `原生新手分域快照读取失败，拒绝写入 starter 以避免覆盖现有玩家：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_load_failed',
+      };
+    }
     if (existingSnapshot) {
       return {
         ok: true,
@@ -162,6 +177,33 @@ export class WorldPlayerSnapshotService {
         snapshot: existingSnapshot,
         persistedSource: 'native',
       };
+    }
+
+    // 第二层防御：在写 starter 之前显式查 player_recovery_watermark 表。
+    // watermark 行只在玩家有过任何分域 save 后产生，因此 row 存在等价于"该玩家是已有数据的老玩家"。
+    // 即使第一层因为某种 race / 边界条件没 catch 到读失败，这里仍能挡住。
+    if (typeof this.playerDomainPersistenceService!.hasRecoveryWatermark === 'function') {
+      let hasExistingWatermark: boolean;
+      try {
+        hasExistingWatermark = await this.playerDomainPersistenceService!.hasRecoveryWatermark(normalizedPlayerId);
+      } catch (error: unknown) {
+        this.logger.error(
+          `原生新手分域快照 watermark 检查失败，拒绝写入 starter：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
+        );
+        return {
+          ok: false,
+          failureStage: 'native_snapshot_recovery_watermark_check_failed',
+        };
+      }
+      if (hasExistingWatermark) {
+        this.logger.error(
+          `拒绝用 starter snapshot 覆盖已有 watermark 的老玩家：playerId=${normalizedPlayerId}`,
+        );
+        return {
+          ok: false,
+          failureStage: 'native_snapshot_recovery_existing_watermark_block',
+        };
+      }
     }
 
     const starterSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(normalizedPlayerId);
