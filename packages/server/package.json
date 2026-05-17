@@ -144,7 +144,7 @@
     "proof:runtime-network-source": "pnpm compile && node dist/tools/prove-runtime-network-source.js",
     "proof:production-boundaries": "node dist/tools/check-production-boundaries.js",
     "proof:realm-exp-boundary": "node ../../scripts/check-runtime-realm-exp-boundary.cjs",
-    "audit:boundaries": "pnpm compile && node dist/tools/audit/production-boundary-audit.js"
+    "audit:boundaries": "pnpm compile && node dist/tools/audit/production-boundary-audit.js && node dist/tools/audit-runtime-template-spread.js && node dist/tools/audit-registry-frozen.js"
   },
   "dependencies": {
     "@mud/shared": "workspace:*",

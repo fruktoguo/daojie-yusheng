@@ -7,6 +7,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import { BuffTemplateRegistry } from '../content/registries/buff-template.registry';
+import { ContainerTemplateRegistry } from '../runtime/map/registries/container-template.registry';
+import { LandmarkTemplateRegistry } from '../runtime/map/registries/landmark-template.registry';
+import { NpcTemplateRegistry } from '../runtime/map/registries/npc-template.registry';
+import { QuestTemplateRegistry } from '../runtime/map/registries/quest-template.registry';
+import { TileTemplateRegistry } from '../runtime/map/registries/tile-template.registry';
 import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limit.service';
 import { hydratePersistedEquipmentItem, hydratePersistedInventoryItem } from '../persistence/inventory-item-persistence';
 import { WorldProjectorService } from '../network/world-projector.service';
@@ -34,6 +40,7 @@ async function main(): Promise<void> {
   const authRateProof = await proveAuthRateLimitPrune();
   const flushWakeupProof = proveFlushWakeupBound();
   const itemTemplatePrototypeProof = proveItemInstancesUseTemplatePrototype();
+  const unifiedTemplateRegistryProof = proveUnifiedTemplateRegistryGuards();
   const eventBusProof = proveEventBusReleasesQueues();
   const playerCountersProof = provePlayerCountersSkipGmBots();
   const projectorProof = proveProjectorKeepsCacheOnNoopDelta();
@@ -65,6 +72,7 @@ async function main(): Promise<void> {
     authRateProof,
     flushWakeupProof,
     itemTemplatePrototypeProof,
+    unifiedTemplateRegistryProof,
     eventBusProof,
     playerCountersProof,
     projectorProof,
@@ -264,6 +272,232 @@ function proveItemInstancesUseTemplatePrototype(): {
     hydrateInventoryOwnKeysMinimal,
     hydrateEquipmentOwnKeysMinimal,
     jsonPayloadOmitsTemplateFields,
+  };
+}
+
+function proveUnifiedTemplateRegistryGuards(): {
+  buffHydrateOwnKeysMinimal: boolean;
+  buffHydrateFallbackPreservesId: boolean;
+  npcRegistryFreezesAndShares: boolean;
+  containerRegistryFreezesAndShares: boolean;
+  landmarkRegistryFreezesAndShares: boolean;
+  questRegistrySharesNarrative: boolean;
+  tileRegistrySharesProjection: boolean;
+} {
+  // BuffTemplateRegistry：注册一个静态 buff 模板，hydrate 仅保留运行态 own keys，模板字段走 prototype。
+  const buffRegistry = new BuffTemplateRegistry();
+  buffRegistry.registerTemplate({
+    buffId: 'buff:registry-proof',
+    name: 'Registry Proof Buff',
+    desc: 'template fields stay on prototype',
+    category: 'buff',
+    visibility: 'public',
+    attrs: { strength: 5 },
+    stats: { physAtk: 1 },
+    qiProjection: [{ resourceKey: 'qi:default', value: 1 }],
+  });
+  const hydrated = buffRegistry.hydrate('buff:registry-proof', {
+    buffId: 'buff:registry-proof',
+    remainingTicks: 7,
+    duration: 7,
+    stacks: 2,
+    maxStacks: 5,
+    realmLv: 3,
+  });
+  const buffOwnKeys = Object.keys(hydrated).sort();
+  const buffHydrateOwnKeysMinimal = buffOwnKeys.every((key) => [
+    'buffId',
+    'remainingTicks',
+    'duration',
+    'stacks',
+    'maxStacks',
+    'realmLv',
+    'sourceRealmLv',
+    'infiniteDuration',
+    'sustainTicksElapsed',
+    'persistOnDeath',
+    'persistOnReturnToSpawn',
+  ].includes(key));
+
+  // 缺失静态模板时回退到 payload 自身重建 prototype；buffId 仍然是稳定字符串。
+  const fallbackBuff = buffRegistry.hydrate('buff:registry-proof-missing', {
+    buffId: 'buff:registry-proof-missing',
+    name: 'fallback',
+    remainingTicks: 1,
+    duration: 1,
+    stacks: 1,
+    maxStacks: 1,
+  });
+  const buffHydrateFallbackPreservesId = fallbackBuff?.buffId === 'buff:registry-proof-missing'
+    && fallbackBuff?.name === 'fallback';
+
+  // NpcTemplateRegistry：同 mapId 下两次 listInMap 返回相同 frozen npc 引用。
+  const npcRegistry = new NpcTemplateRegistry();
+  const npcMapTemplate = {
+    id: 'map:registry-proof',
+    name: 'Registry Proof Map',
+    npcs: [
+      {
+        id: 'npc:registry-proof-merchant',
+        npcId: 'npc:registry-proof-merchant',
+        name: '掌柜',
+        x: 1,
+        y: 2,
+        char: '商',
+        color: '#abcdef',
+        dialogue: '需要点什么？',
+        role: 'shop',
+        hasShop: true,
+        shopItems: [{ itemId: 'item:registry-proof-elixir', price: 100 }],
+        quests: [{ id: 'quest:registry-proof', title: '初次相遇', desc: '问候掌柜' }],
+      },
+    ],
+  };
+  npcRegistry.registerMapTemplate(npcMapTemplate);
+  const firstNpc = npcRegistry.getRef('npc:registry-proof-merchant');
+  const secondNpc = npcRegistry.tryGetRef('npc:registry-proof-merchant');
+  const npcRegistryFreezesAndShares = firstNpc === secondNpc
+    && Object.isFrozen(firstNpc)
+    && firstNpc.npcId === 'npc:registry-proof-merchant'
+    && firstNpc.name === '掌柜';
+
+  // ContainerTemplateRegistry：同样 frozen + 引用复用。
+  const containerRegistry = new ContainerTemplateRegistry();
+  const containerMapTemplate = {
+    id: 'map:registry-proof',
+    name: 'Registry Proof Map',
+    containers: [
+      {
+        id: 'container:registry-proof',
+        name: '宝箱',
+        x: 3,
+        y: 4,
+        drops: [{ itemId: 'item:registry-proof-elixir', count: 1 }],
+        lootPools: [],
+      },
+    ],
+  };
+  containerRegistry.registerMapTemplate(containerMapTemplate);
+  const firstContainer = containerRegistry.getRef('container:registry-proof');
+  const secondContainer = containerRegistry.tryGetRef('container:registry-proof');
+  const containerRegistryFreezesAndShares = firstContainer === secondContainer
+    && Object.isFrozen(firstContainer)
+    && firstContainer.id === 'container:registry-proof';
+
+  // LandmarkTemplateRegistry。
+  const landmarkRegistry = new LandmarkTemplateRegistry();
+  const landmarkMapTemplate = {
+    id: 'map:registry-proof',
+    name: 'Registry Proof Map',
+    landmarks: [
+      {
+        id: 'landmark:registry-proof',
+        name: '老树',
+        x: 5,
+        y: 6,
+      },
+    ],
+  };
+  landmarkRegistry.registerMapTemplate(landmarkMapTemplate);
+  const firstLandmark = landmarkRegistry.getRef('landmark:registry-proof');
+  const secondLandmark = landmarkRegistry.tryGetRef('landmark:registry-proof');
+  const landmarkRegistryFreezesAndShares = firstLandmark === secondLandmark
+    && Object.isFrozen(firstLandmark)
+    && firstLandmark.id === 'landmark:registry-proof';
+
+  // QuestTemplateRegistry：getRewards / getNarrative 暴露稳定模板引用。
+  const questRegistry = new QuestTemplateRegistry();
+  questRegistry.registerMapTemplate({
+    id: 'map:registry-proof',
+    name: 'Registry Proof Map',
+    npcs: [
+      {
+        id: 'npc:registry-proof-merchant',
+        name: '掌柜',
+        x: 1,
+        y: 2,
+        quests: [
+          {
+            id: 'quest:registry-proof',
+            title: '初次相遇',
+            desc: '问候掌柜',
+            rewards: [{ itemId: 'item:registry-proof-elixir', count: 1 }],
+          },
+        ],
+      },
+    ],
+  });
+  const narrative = questRegistry.getNarrative('quest:registry-proof');
+  const rewards = questRegistry.getRewards('quest:registry-proof');
+  const sourceQuest = questRegistry.getQuestSource('quest:registry-proof');
+  const questRegistrySharesNarrative = Boolean(sourceQuest)
+    && narrative?.title === '初次相遇'
+    && narrative?.desc === '问候掌柜'
+    && rewards.length === 1
+    && rewards[0]?.itemId === 'item:registry-proof-elixir'
+    && Object.isFrozen(sourceQuest)
+    && Object.isFrozen(sourceQuest.quest);
+
+  // TileTemplateRegistry：同实例同坐标 shareProjection 复用同一 frozen tile。
+  const tileRegistry = new TileTemplateRegistry();
+  const fakeInstance: { tileProjectionByCoord?: Map<string, any> } = {};
+  const tileA = tileRegistry.shareProjection(fakeInstance, 4, 5, {
+    type: 'walk',
+    walkable: true,
+    blocksSight: false,
+    aura: 0,
+    movementCost: 1,
+    qiDrainPerTick: 0,
+    occupiedBy: null,
+    modifiedAt: 0,
+    hp: 0,
+    maxHp: 0,
+    hpVisible: false,
+    terrainType: 'walk',
+    surfaceType: null,
+    structureType: null,
+    resources: [],
+    interactableKinds: [],
+    hiddenEntrance: null,
+  });
+  const tileB = tileRegistry.shareProjection(fakeInstance, 4, 5, {
+    type: 'walk',
+    walkable: true,
+    blocksSight: false,
+    aura: 0,
+    movementCost: 1,
+    qiDrainPerTick: 0,
+    occupiedBy: null,
+    modifiedAt: 0,
+    hp: 0,
+    maxHp: 0,
+    hpVisible: false,
+    terrainType: 'walk',
+    surfaceType: null,
+    structureType: null,
+    resources: [],
+    interactableKinds: [],
+    hiddenEntrance: null,
+  });
+  const tileRegistrySharesProjection = tileA === tileB
+    && fakeInstance.tileProjectionByCoord instanceof Map
+    && fakeInstance.tileProjectionByCoord.get('4,5') === tileA;
+
+  assert.equal(buffHydrateOwnKeysMinimal, true);
+  assert.equal(buffHydrateFallbackPreservesId, true);
+  assert.equal(npcRegistryFreezesAndShares, true);
+  assert.equal(containerRegistryFreezesAndShares, true);
+  assert.equal(landmarkRegistryFreezesAndShares, true);
+  assert.equal(questRegistrySharesNarrative, true);
+  assert.equal(tileRegistrySharesProjection, true);
+  return {
+    buffHydrateOwnKeysMinimal,
+    buffHydrateFallbackPreservesId,
+    npcRegistryFreezesAndShares,
+    containerRegistryFreezesAndShares,
+    landmarkRegistryFreezesAndShares,
+    questRegistrySharesNarrative,
+    tileRegistrySharesProjection,
   };
 }
 
