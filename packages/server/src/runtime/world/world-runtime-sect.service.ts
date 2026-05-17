@@ -1118,11 +1118,12 @@ class WorldRuntimeSectService {
         }
         const sects = Array.from(this.sectsById.values(), (sect) => ({ ...sect }))
             .sort((left, right) => left.sectId.localeCompare(right.sectId, 'zh-Hans-CN'));
-        await pool.query('BEGIN');
+        const client = await pool.connect();
         try {
-            await pool.query(`DELETE FROM ${SECT_TABLE}`);
+            await client.query('BEGIN');
+            await client.query(`DELETE FROM ${SECT_TABLE}`);
             for (const sect of sects) {
-                await pool.query(`
+                await client.query(`
                     INSERT INTO ${SECT_TABLE}(
                         sect_id,
                         name,
@@ -1160,10 +1161,12 @@ class WorldRuntimeSectService {
                     JSON.stringify(sect),
                 ]);
             }
-            await pool.query('COMMIT');
+            await client.query('COMMIT');
         } catch (error) {
-            await pool.query('ROLLBACK').catch(() => undefined);
+            await client.query('ROLLBACK').catch(() => undefined);
             throw error;
+        } finally {
+            client.release();
         }
     }
 
