@@ -131,6 +131,7 @@ const smokeCases = [
   { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
   { name: 'player-domain-persistence', scriptFile: 'player-domain-persistence-smoke.js', standalone: true },
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
+  { name: 'player-domain-empty-overwrite-guard', scriptFile: 'player-domain-empty-overwrite-guard-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
   { name: 'gm-map-config-persistence', scriptFile: 'gm-map-config-persistence-smoke.js', standalone: true },
