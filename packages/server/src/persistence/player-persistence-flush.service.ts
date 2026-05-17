@@ -14,7 +14,20 @@ import {
 } from './player-domain-persistence.service';
 import { type PersistedPlayerSnapshot } from './player-persistence.service';
 
-const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
+/**
+ * 玩家分域刷盘周期。
+ * - 默认 1500ms：把"主进程崩溃 -> 玩家最近一次 mutation 丢失"的窗口从原来的 5s 缩到 ~1.5s。
+ * - 5s 默认值之前是按"PG 写入压力优先"的取舍；当前数据库分域投影已经足够轻，且 flush 内部已有 slow flush
+ *   backoff(>120ms 单轮触发 5s 退避)和并发节流，缩短周期不会把 PG 压垮。
+ * - 通过 SERVER_PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS / PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS 可以
+ *   把它改回 5000ms 或更长，运维出现 IO 压力时可以热降级。
+ */
+const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = normalizePositiveInteger(
+  readTrimmedEnv('SERVER_PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS', 'PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS'),
+  1_500,
+  250,
+  60_000,
+);
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
 const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
 const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
@@ -41,7 +54,22 @@ interface PlayerRuntimeFlushPort {
   listDirtyPlayers(): string[];
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
   buildPersistenceSnapshot(playerId: string, dirtyDomains?: ReadonlySet<string>): PersistedPlayerSnapshot | null;
-  markPersisted(playerId: string): void;
+  /**
+   * 标记一次落库完成。
+   * - 不传 persistedDomains/persistedRevision：兼容旧链路（GM 全量、presence 心跳）的"全清"语义。
+   * - 传入 persistedDomains：只清除集合内 domain，避免误清并发期间新增的 dirty。
+   * - 传入 persistedRevision：把 persistedRevision 安全推进到 min(persistentRevision, snapshotRevision)。
+   */
+  markPersisted(
+    playerId: string,
+    persistedDomains?: ReadonlySet<string> | Iterable<string> | null,
+    persistedRevision?: number | null,
+  ): void;
+  /**
+   * 读取玩家当前 persistentRevision，用于 flush 前拍下"快照版本号"，让后续 markPersisted 只把 persistedRevision 推到该值，
+   * 避免把 buildSnapshot 之后产生的新 dirty 误标为已落库。
+   */
+  getPersistenceRevision?(playerId: string): number | null;
   describePersistencePresence(playerId: string): {
     online: boolean;
     inWorld: boolean;
@@ -57,6 +85,16 @@ interface PlayerRuntimeFlushPort {
 
 interface LeaseGuardPort {
   isPlayerPersistenceWritable(playerId: string): boolean;
+}
+
+/**
+ * flushPlayerDirtyDomains 的返回值，告诉调用方：
+ * - persistedDomains：本轮真正写入数据库的 domain 集合，作为 markPersisted 的精确清理目标。
+ * - leaseInvalidated：lease 检查失败需要调用方放弃 markPersisted（dirty 留给下一轮重试）。
+ */
+interface FlushDirtyDomainsResult {
+  persistedDomains: Set<string>;
+  leaseInvalidated: boolean;
 }
 
 /** 玩家状态刷盘服务：硬切后只写玩家分域表，旧整档快照不再作为运行时落点。 */
@@ -119,11 +157,18 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
         return;
       }
+      // 在 await IO 之前先拍 revision 快照，避免下面 markPersisted 误推到 IO 期间的新版本。
+      const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
       await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
-      this.playerRuntimeService.markPersisted(playerId);
+      this.playerRuntimeService.markPersisted(
+        playerId,
+        new Set([PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]),
+        snapshotRevision,
+      );
       return;
     }
 
+    const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
     const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
     if (!snapshot) {
       return;
@@ -133,14 +178,17 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       return;
     }
 
-    await this.flushPlayerDirtyDomains(
+    const result = await this.flushPlayerDirtyDomains(
       playerId,
       snapshot,
       dirtyDomains,
       'manual',
       domainEnabled,
     );
-    this.playerRuntimeService.markPersisted(playerId);
+    // lease 失效或没有 domain 真正落库时，不能 markPersisted，dirty 保留等下一轮重试。
+    if (!result.leaseInvalidated && result.persistedDomains.size > 0) {
+      this.playerRuntimeService.markPersisted(playerId, result.persistedDomains, snapshotRevision);
+    }
   }
 
   async flushAllNow(): Promise<void> {
@@ -192,12 +240,18 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                 this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
                 return;
               }
+              const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
               await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
                 await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
               });
-              this.playerRuntimeService.markPersisted(playerId);
+              this.playerRuntimeService.markPersisted(
+                playerId,
+                new Set([PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]),
+                presenceSnapshotRevision,
+              );
               return;
             }
+            const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
             const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
             if (!snapshot) {
               return;
@@ -206,8 +260,11 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               this.logger.warn(`跳过玩家快照刷盘：lease 已失效 playerId=${playerId}`);
               return;
             }
+            // retryFlush 内部把"真正写出去的 domain 集合"通过返回值传出来，
+            // lease 失效或抛错的情况都不会 markPersisted，dirty 保留等下一轮重试。
+            let lastResult: FlushDirtyDomainsResult | null = null;
             await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-              await this.flushPlayerDirtyDomains(
+              lastResult = await this.flushPlayerDirtyDomains(
                 playerId,
                 snapshot,
                 dirtyDomains,
@@ -215,7 +272,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                 domainEnabled,
               );
             });
-            this.playerRuntimeService.markPersisted(playerId);
+            if (lastResult && !lastResult.leaseInvalidated && lastResult.persistedDomains.size > 0) {
+              this.playerRuntimeService.markPersisted(playerId, lastResult.persistedDomains, snapshotRevision);
+            }
           },
           (playerId, error) => {
             this.logger.error(
@@ -247,8 +306,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     dirtyDomains: ReadonlySet<string>,
     reason: string,
     domainEnabled: boolean,
-  ): Promise<void> {
+  ): Promise<FlushDirtyDomainsResult> {
     void reason;
+    const persistedDomains = new Set<string>();
     const normalizedDirtyDomains = normalizeDirtyDomains(dirtyDomains);
     const nonPresenceDirtyDomains = new Set(
       Array.from(normalizedDirtyDomains).filter(
@@ -256,7 +316,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       ),
     );
     if (!domainEnabled) {
-      return;
+      return { persistedDomains, leaseInvalidated: false };
     }
 
     const projectedDomains = nonPresenceDirtyDomains;
@@ -272,13 +332,17 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     if (projectedDomains.size > 0) {
       if (!this.isPlayerPersistenceWritable(playerId)) {
         this.logger.warn(`跳过玩家分域增量提交：lease 已失效 playerId=${playerId}`);
-        return;
+        // 关键：lease 失效时显式上报，外层据此跳过 markPersisted，dirty 留给下一轮重试。
+        return { persistedDomains, leaseInvalidated: true };
       }
       await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
         playerId,
         snapshot,
         projectedDomains,
       );
+      for (const domain of projectedDomains) {
+        persistedDomains.add(domain);
+      }
     }
 
     if (normalizedDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
@@ -286,11 +350,15 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       if (presence) {
         if (!this.isPlayerPersistenceWritable(playerId)) {
           this.logger.warn(`跳过玩家 presence 提交：lease 已失效 playerId=${playerId}`);
-          return;
+          // presence 部分 lease 失效。projectedDomains 已写完的部分允许 markPersisted，
+          // 但 presence 留作 dirty 等下一轮；通过 leaseInvalidated 让外层放弃 markPersisted 整体。
+          return { persistedDomains, leaseInvalidated: true };
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+        persistedDomains.add(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN);
       }
     }
+    return { persistedDomains, leaseInvalidated: false };
   }
 
   private isPlayerPersistenceWritable(playerId: string): boolean {

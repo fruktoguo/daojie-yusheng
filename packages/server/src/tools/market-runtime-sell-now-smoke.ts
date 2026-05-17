@@ -108,8 +108,10 @@ async function main(): Promise<void> {
       },
     } as never,
     {
+      // 该 smoke 专门保护非原子 fallback 路径的正确性（durable 路径由 durable-operation-smoke 单独覆盖）。
+      // 启用 durable 后 sellNow 默认会走原子事务，如果这里 isEnabled 返回 true 会绕开 fallback assert。
       isEnabled() {
-        return true;
+        return false;
       },
       async settleMarketSellNow(input: Record<string, unknown>) {
         durableCalls.push({ ...input });

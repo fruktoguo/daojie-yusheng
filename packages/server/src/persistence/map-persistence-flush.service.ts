@@ -8,7 +8,20 @@ import { performance } from 'node:perf_hooks';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
 
-const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
+/**
+ * 地图分域刷盘周期。
+ * - 默认 1500ms：和 PlayerPersistenceFlushService 对齐，缩短"实例(掉落、地块伤害、容器、地表覆盖等)未及时落库 -> 主进程崩溃"
+ *   的丢数据窗口。
+ * - 通过 SERVER_MAP_PERSISTENCE_FLUSH_INTERVAL_MS / MAP_PERSISTENCE_FLUSH_INTERVAL_MS 可以热改回 5000ms。
+ * - 注意：本周期只决定 setInterval 的"驱动节奏"，慢 flush 退避(SLOW_FLUSH_BACKOFF_MS)和 deferred 时间锚点
+ *   会自行兜住 PG 压力，不会因为节奏变快而连发。
+ */
+const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = normalizePositiveInteger(
+  readTrimmedEnv('SERVER_MAP_PERSISTENCE_FLUSH_INTERVAL_MS', 'MAP_PERSISTENCE_FLUSH_INTERVAL_MS'),
+  1_500,
+  250,
+  60_000,
+);
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
 const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
