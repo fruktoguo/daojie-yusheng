@@ -2904,7 +2904,7 @@ function assertAfdianWebhookAuthorized(envelope, headers) {
 
     const secret = readAfdianWebhookSecret();
     if (secret === null) {
-        return;
+        throw new UnauthorizedException('爱发电 webhook secret 未配置，拒绝所有 webhook 请求');
     }
 
     const headerRecord = asRecord(headers) ?? {};
