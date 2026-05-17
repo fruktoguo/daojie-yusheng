@@ -1892,16 +1892,39 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       }
     }
     const normalizedStates = Array.from(normalizedStatesByContainerId.values());
+    const containerRows = normalizedStates.map((state) => ({
+      container_id: state.containerId,
+      source_id: state.sourceId,
+      state_payload: normalizeJsonObjectPayload(state.statePayload),
+    }));
+    const timerRows = normalizedStates.map((state) => ({
+      container_id: state.containerId,
+      generated_at_tick: state.generatedAtTick,
+      refresh_at_tick: state.refreshAtTick,
+      active_search_payload: normalizeJsonObjectPayload(state.activeSearchPayload),
+    }));
+    const entryRows = normalizedStates.flatMap((state) => state.entries.map((entry, entryIndex) => ({
+      container_id: state.containerId,
+      entry_index: entryIndex,
+      item_payload: normalizePersistedItemPayload(entry?.item),
+      created_tick: normalizeNullableInteger(entry?.createdTick),
+      visible: entry?.visible === true,
+    })));
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_CONTAINER_TIMER_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      await client.query(`DELETE FROM ${INSTANCE_CONTAINER_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const state of normalizedStates) {
+      if (containerRows.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                container_id varchar(100),
+                source_id varchar(100),
+                state_payload jsonb
+              )
+            )
             INSERT INTO ${INSTANCE_CONTAINER_STATE_TABLE}(
               instance_id,
               container_id,
@@ -1909,12 +1932,45 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               state_payload,
               updated_at
             )
-            VALUES ($1, $2, $3, $4::jsonb, now())
+            SELECT $1, container_id, source_id, COALESCE(state_payload, '{}'::jsonb), now()
+            FROM incoming
+            ON CONFLICT (instance_id, container_id)
+            DO UPDATE SET
+              source_id = EXCLUDED.source_id,
+              state_payload = EXCLUDED.state_payload,
+              updated_at = now()
           `,
-          [normalizedInstanceId, state.containerId, state.sourceId, JSON.stringify(normalizeJsonObjectPayload(state.statePayload))],
+          [normalizedInstanceId, JSON.stringify(containerRows)],
         );
+      }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT container_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(container_id varchar(100))
+          )
+          DELETE FROM ${INSTANCE_CONTAINER_STATE_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.container_id = target.container_id
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(containerRows.map(({ container_id }) => ({ container_id })))],
+      );
+      if (timerRows.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                container_id varchar(100),
+                generated_at_tick bigint,
+                refresh_at_tick bigint,
+                active_search_payload jsonb
+              )
+            )
             INSERT INTO ${INSTANCE_CONTAINER_TIMER_TABLE}(
               instance_id,
               container_id,
@@ -1923,42 +1979,117 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               active_search_payload,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5::jsonb, now())
+            SELECT $1, container_id, generated_at_tick, refresh_at_tick, COALESCE(active_search_payload, '{}'::jsonb), now()
+            FROM incoming
+            ON CONFLICT (instance_id, container_id)
+            DO UPDATE SET
+              generated_at_tick = EXCLUDED.generated_at_tick,
+              refresh_at_tick = EXCLUDED.refresh_at_tick,
+              active_search_payload = EXCLUDED.active_search_payload,
+              updated_at = now()
           `,
-          [
-            normalizedInstanceId,
-            state.containerId,
-            state.generatedAtTick,
-            state.refreshAtTick,
-            JSON.stringify(normalizeJsonObjectPayload(state.activeSearchPayload)),
-          ],
+          [normalizedInstanceId, JSON.stringify(timerRows)],
         );
-        for (let entryIndex = 0; entryIndex < state.entries.length; entryIndex += 1) {
-          const entry = state.entries[entryIndex];
-          await client.query(
-            `
-              INSERT INTO ${INSTANCE_CONTAINER_ENTRY_TABLE}(
-                instance_id,
-                container_id,
-                entry_index,
-                item_payload,
-                created_tick,
-                visible,
-                updated_at
-              )
-              VALUES ($1, $2, $3, $4::jsonb, $5, $6, now())
-            `,
-            [
-              normalizedInstanceId,
-              state.containerId,
-              entryIndex,
-              JSON.stringify(normalizePersistedItemPayload(entry?.item)),
-              normalizeNullableInteger(entry?.createdTick),
-              entry?.visible === true,
-            ],
-          );
-        }
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT container_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(container_id varchar(100))
+          )
+          DELETE FROM ${INSTANCE_CONTAINER_TIMER_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.container_id = target.container_id
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(containerRows.map(({ container_id }) => ({ container_id })))],
+      );
+      if (entryRows.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                container_id varchar(100),
+                entry_index bigint,
+                item_payload jsonb,
+                created_tick bigint,
+                visible boolean
+              )
+            )
+            INSERT INTO ${INSTANCE_CONTAINER_ENTRY_TABLE}(
+              instance_id,
+              container_id,
+              entry_index,
+              item_payload,
+              created_tick,
+              visible,
+              updated_at
+            )
+            SELECT $1, container_id, entry_index, COALESCE(item_payload, '{}'::jsonb), created_tick, COALESCE(visible, false), now()
+            FROM incoming
+            ON CONFLICT (instance_id, container_id, entry_index)
+            DO UPDATE SET
+              item_payload = EXCLUDED.item_payload,
+              created_tick = EXCLUDED.created_tick,
+              visible = EXCLUDED.visible,
+              updated_at = now()
+          `,
+          [normalizedInstanceId, JSON.stringify(entryRows)],
+        );
+      }
+      await client.query(
+        `
+          WITH incoming_containers AS (
+            SELECT container_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(container_id varchar(100))
+          )
+          DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming_containers
+              WHERE incoming_containers.container_id = target.container_id
+            )
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(containerRows.map(({ container_id }) => ({ container_id }))),
+        ],
+      );
+      await client.query(
+        `
+          WITH incoming_containers AS (
+            SELECT container_id
+            FROM jsonb_to_recordset($2::jsonb) AS entry(container_id varchar(100))
+          ),
+          incoming_entries AS (
+            SELECT container_id, entry_index
+            FROM jsonb_to_recordset($3::jsonb) AS entry(container_id varchar(100), entry_index bigint)
+          )
+          DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} target
+          WHERE target.instance_id = $1
+            AND EXISTS (
+              SELECT 1
+              FROM incoming_containers
+              WHERE incoming_containers.container_id = target.container_id
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming_entries
+              WHERE incoming_entries.container_id = target.container_id
+                AND incoming_entries.entry_index = target.entry_index
+            )
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(containerRows.map(({ container_id }) => ({ container_id }))),
+          JSON.stringify(entryRows.map(({ container_id, entry_index }) => ({ container_id, entry_index }))),
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
@@ -2689,27 +2820,43 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const normalizedEntries = Array.isArray(entries)
-      ? entries
-          .map((entry) => {
-            const patchKind = normalizeRequiredString(entry?.patchKind);
-            return {
-              patchKind: ['tile', 'portal', 'npc', 'container', 'rule'].includes(patchKind) ? patchKind : '',
-              chunkKey: normalizeRequiredString(entry?.chunkKey),
-              patchVersion: Number.isFinite(Number(entry?.patchVersion)) ? Math.max(0, Math.trunc(Number(entry.patchVersion))) : 0,
-              patchPayload: normalizeJsonObjectPayload(entry?.patchPayload),
-            };
-          })
-          .filter((entry) => entry.patchKind && entry.chunkKey)
-      : [];
+    const normalizedEntriesByKey = new Map<string, {
+      patchKind: string;
+      chunkKey: string;
+      patchVersion: number;
+      patchPayload: Record<string, unknown>;
+    }>();
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const patchKind = normalizeRequiredString(entry?.patchKind);
+      const normalizedPatchKind = ['tile', 'portal', 'npc', 'container', 'rule'].includes(patchKind) ? patchKind : '';
+      const chunkKey = normalizeRequiredString(entry?.chunkKey);
+      if (!normalizedPatchKind || !chunkKey) {
+        continue;
+      }
+      normalizedEntriesByKey.set(`${normalizedPatchKind}:${chunkKey}`, {
+        patchKind: normalizedPatchKind,
+        chunkKey,
+        patchVersion: Number.isFinite(Number(entry?.patchVersion)) ? Math.max(0, Math.trunc(Number(entry.patchVersion))) : 0,
+        patchPayload: normalizeJsonObjectPayload(entry?.patchPayload),
+      });
+    }
+    const normalizedEntries = Array.from(normalizedEntriesByKey.values());
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_OVERLAY_CHUNK_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
+      if (normalizedEntries.length > 0) {
         await client.query(
           `
+            WITH incoming AS (
+              SELECT *
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                patch_kind varchar(32),
+                chunk_key varchar(180),
+                patch_version bigint,
+                patch_payload jsonb
+              )
+            )
             INSERT INTO ${INSTANCE_OVERLAY_CHUNK_TABLE}(
               instance_id,
               patch_kind,
@@ -2718,22 +2865,42 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               patch_payload,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5::jsonb, now())
+            SELECT $1, patch_kind, chunk_key, patch_version, COALESCE(patch_payload, '{}'::jsonb), now()
+            FROM incoming
             ON CONFLICT (instance_id, patch_kind, chunk_key)
             DO UPDATE SET
               patch_version = EXCLUDED.patch_version,
               patch_payload = EXCLUDED.patch_payload,
               updated_at = now()
           `,
-          [
-            normalizedInstanceId,
-            entry.patchKind,
-            entry.chunkKey,
-            entry.patchVersion,
-            JSON.stringify(normalizeJsonObjectPayload(entry.patchPayload)),
-          ],
+          [normalizedInstanceId, JSON.stringify(normalizedEntries.map((entry) => ({
+            patch_kind: entry.patchKind,
+            chunk_key: entry.chunkKey,
+            patch_version: entry.patchVersion,
+            patch_payload: entry.patchPayload,
+          })))],
         );
       }
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT patch_kind, chunk_key
+            FROM jsonb_to_recordset($2::jsonb) AS entry(patch_kind varchar(32), chunk_key varchar(180))
+          )
+          DELETE FROM ${INSTANCE_OVERLAY_CHUNK_TABLE} target
+          WHERE target.instance_id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM incoming
+              WHERE incoming.patch_kind = target.patch_kind
+                AND incoming.chunk_key = target.chunk_key
+            )
+        `,
+        [normalizedInstanceId, JSON.stringify(normalizedEntries.map((entry) => ({
+          patch_kind: entry.patchKind,
+          chunk_key: entry.chunkKey,
+        })))],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);

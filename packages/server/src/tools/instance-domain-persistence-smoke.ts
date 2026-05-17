@@ -20,6 +20,7 @@ function createPrototypePayload<T extends Record<string, unknown>>(
 
 async function main(): Promise<void> {
   await assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning();
+  await assertContainerAndOverlaySnapshotsUseStaleKeyPruning();
 
   if (!databaseUrl.trim()) {
     console.log(
@@ -28,7 +29,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
+          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui、container、overlay 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
           excludes: '无 DB 时不证明真实 PostgreSQL 回读、完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
@@ -443,6 +444,73 @@ async function main(): Promise<void> {
         visible: true,
       },
     ]);
+    await service.replaceContainerStates(instanceId, [
+      {
+        containerId: 'lm_old_shrine',
+        sourceId: `container:${instanceId}:lm_old_shrine`,
+        generatedAtTick: 43,
+        refreshAtTick: 53,
+        activeSearch: { itemKey: 'new_grass', totalTicks: 10, remainingTicks: 6 },
+        entries: [
+          {
+            item: { itemId: 'new_grass', count: 3 },
+            createdTick: 43,
+            visible: true,
+          },
+          {
+            item: { itemId: 'stale_branch', count: 1 },
+            createdTick: 44,
+            visible: false,
+          },
+        ],
+      },
+      {
+        containerId: 'stale_cache_chest',
+        sourceId: 'container:stale_cache_chest',
+        generatedAtTick: 45,
+        refreshAtTick: 55,
+        entries: [
+          {
+            item: { itemId: 'stale_seed', count: 1 },
+            createdTick: 45,
+            visible: true,
+          },
+        ],
+      },
+    ]);
+    await service.replaceContainerStates(instanceId, [
+      {
+        containerId: 'lm_old_shrine',
+        sourceId: `container:${instanceId}:lm_old_shrine`,
+        generatedAtTick: 46,
+        refreshAtTick: 56,
+        activeSearch: { itemKey: 'new_grass', totalTicks: 10, remainingTicks: 2 },
+        entries: [
+          {
+            item: { itemId: 'new_grass', count: 4 },
+            createdTick: 46,
+            visible: true,
+          },
+        ],
+      },
+    ]);
+    const prunedContainerStates = await service.loadContainerStates(instanceId);
+    assert.equal(prunedContainerStates.length, 1);
+    assert.equal(prunedContainerStates[0]?.containerId, 'lm_old_shrine');
+    assert.deepEqual(prunedContainerStates[0]?.statePayload, {
+      sourceId: `container:${instanceId}:lm_old_shrine`,
+      containerId: 'lm_old_shrine',
+      generatedAtTick: 46,
+      refreshAtTick: 56,
+      entries: [
+        {
+          item: { itemId: 'new_grass', count: 4 },
+          createdTick: 46,
+          visible: true,
+        },
+      ],
+      activeSearch: { itemKey: 'new_grass', totalTicks: 10, remainingTicks: 2 },
+    });
     const savedMonster = await service.saveMonsterRuntimeState({
       monsterRuntimeId: `monster:${monsterInstanceId}:1`,
       instanceId: monsterInstanceId,
@@ -641,6 +709,12 @@ async function main(): Promise<void> {
     assert.equal(overlayChunksAfterRemove.length, 0);
     await service.replaceOverlayChunks(instanceId, [
       {
+        patchKind: 'tile',
+        chunkKey: 'tile:stale',
+        patchVersion: 1,
+        patchPayload: { tiles: [{ x: 9, y: 9, aura: 1 }] },
+      },
+      {
         patchKind: 'portal',
         chunkKey: 'runtime_portals',
         patchVersion: 4,
@@ -648,8 +722,25 @@ async function main(): Promise<void> {
       },
     ]);
     const overlayChunksAfterReplace = await service.loadOverlayChunks(instanceId);
-    assert.equal(overlayChunksAfterReplace.length, 1);
-    assert.equal(overlayChunksAfterReplace[0]?.patchKind, 'portal');
+    assert.equal(overlayChunksAfterReplace.length, 2);
+    await service.replaceOverlayChunks(instanceId, [
+      {
+        patchKind: 'portal',
+        chunkKey: 'runtime_portals',
+        patchVersion: 5,
+        patchPayload: { version: 2, portals: [{ x: 2, y: 2, targetMapId: 'market_square' }] },
+      },
+    ]);
+    const overlayChunksAfterPrune = await service.loadOverlayChunks(instanceId);
+    assert.deepEqual(overlayChunksAfterPrune, [
+      {
+        instanceId,
+        patchKind: 'portal',
+        chunkKey: 'runtime_portals',
+        patchVersion: 5,
+        patchPayload: { version: 2, portals: [{ x: 2, y: 2, targetMapId: 'market_square' }] },
+      },
+    ]);
     await service.replaceOverlayChunks(instanceId, []);
     const overlayChunksAfterReplaceClear = await service.loadOverlayChunks(instanceId);
     assert.equal(overlayChunksAfterReplaceClear.length, 0);
@@ -868,7 +959,7 @@ async function main(): Promise<void> {
           ok: true,
           instanceId,
           rowCount: rows.length,
-          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地、delta upsert/delete 并回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、delta upsert/delete、按 x/y 回读动态地块坐标、清空并回读地块损坏状态，instance_temporary_tile_state 可按 instance_id/tile_index 落地、回读并清空技能生成临时地块，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除、按 tile delta 替换并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入、delta upsert/delete 并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除，instance_building_state/instance_building_cell/instance_room_state/instance_room_cell/instance_fengshui_state 能按 instance_id 分域 upsert 当前快照、删除快照外 stale key，并回读建筑真源、房间快照与风水解释',
+          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地、delta upsert/delete 并回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、delta upsert/delete、按 x/y 回读动态地块坐标、清空并回读地块损坏状态，instance_temporary_tile_state 可按 instance_id/tile_index 落地、回读并清空技能生成临时地块，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除、按 tile delta 替换并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读、二次快照更新并清理 stale container/entry/timer，instance_monster_runtime_state 也能只给高价值怪物写入、delta upsert/delete 并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、二次快照更新并清理 stale chunk，instance_building_state/instance_building_cell/instance_room_state/instance_room_cell/instance_fengshui_state 能按 instance_id 分域 upsert 当前快照、删除快照外 stale key，并回读建筑真源、房间快照与风水解释',
           excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
@@ -982,6 +1073,75 @@ async function assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning(): Promise<
         && query.includes('NOT EXISTS')),
       true,
       `building/room/fengshui snapshot missing stale-key delete guard for ${tableName}`,
+    );
+  }
+}
+
+async function assertContainerAndOverlaySnapshotsUseStaleKeyPruning(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[] }> {
+      queries.push(sql);
+      return { rows: [] };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new InstanceDomainPersistenceService(null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.replaceContainerStates('instance:fake', [
+    {
+      containerId: 'container:fake:1',
+      sourceId: 'container:instance:fake:container:fake:1',
+      generatedAtTick: 1,
+      refreshAtTick: 2,
+      entries: [{ item: { itemId: 'grass', count: 1 }, createdTick: 1, visible: true }],
+    },
+  ]);
+  await service.replaceOverlayChunks('instance:fake', [
+    {
+      patchKind: 'tile',
+      chunkKey: 'tile:0:0',
+      patchVersion: 1,
+      patchPayload: { tiles: [{ x: 0, y: 0 }] },
+    },
+  ]);
+
+  const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  const forbiddenDeletes = [
+    'DELETE FROM instance_container_entry WHERE instance_id = $1',
+    'DELETE FROM instance_container_timer WHERE instance_id = $1',
+    'DELETE FROM instance_container_state WHERE instance_id = $1',
+    'DELETE FROM instance_overlay_chunk WHERE instance_id = $1',
+  ];
+  for (const forbidden of forbiddenDeletes) {
+    assert.equal(
+      normalizedQueries.some((query) => query === forbidden),
+      false,
+      `container/overlay snapshot emitted forbidden whole-domain delete: ${forbidden}`,
+    );
+  }
+  for (const tableName of [
+    'instance_container_state',
+    'instance_container_timer',
+    'instance_container_entry',
+    'instance_overlay_chunk',
+  ]) {
+    assert.equal(
+      normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+        && query.includes('jsonb_to_recordset')
+        && query.includes('NOT EXISTS')),
+      true,
+      `container/overlay snapshot missing stale-key delete guard for ${tableName}`,
     );
   }
 }
