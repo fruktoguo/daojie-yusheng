@@ -3824,13 +3824,14 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerTick = resolvePlayerRuntimeTick(player, currentTick);
-        const nextActions = buildActionEntries(player, playerTick);
+        const nextActionResult = buildActionEntries(player, playerTick);
+        const nextActions = nextActionResult.actions;
 
         const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
-        if (isSameActionList(player.actions.actions, nextActions) && !techniqueFlagsChanged) {
+        if (!nextActionResult.changed && !techniqueFlagsChanged) {
             return;
         }
-        if (!isSameActionList(player.actions.actions, nextActions)) {
+        if (nextActionResult.changed) {
             player.actions.actions = nextActions;
             player.actions.revision += 1;
         }
@@ -6137,6 +6138,8 @@ function buildActionEntries(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const actions = [];
+    const previousById = new Map((player.actions.actions ?? []).map((entry) => [entry.id, entry]));
+    let changed = false;
 
     const autoBattleSkills: any[] = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
 
@@ -6158,7 +6161,7 @@ function buildActionEntries(player, currentTick) {
                 currentTick,
                 resolvePlayerSkillActionCooldownTicks(player, skill.cooldown),
             );
-            actions.push({
+            const nextAction = reuseActionEntry(previousById.get(skill.id), {
                 id: skill.id,
                 name: skill.name,
                 type: 'skill',
@@ -6171,6 +6174,10 @@ function buildActionEntries(player, currentTick) {
                 autoBattleOrder: skillOrder.get(skill.id),
                 skillEnabled: skillEnabledMap.get(skill.id) ?? true,
             });
+            if (nextAction.changed) {
+                changed = true;
+            }
+            actions.push(nextAction.entry);
         }
     }
     player.combat.autoBattleSkills = autoBattleSkills;
@@ -6181,10 +6188,14 @@ function buildActionEntries(player, currentTick) {
             currentTick,
             resolveContextActionCooldownTicks(entry),
         );
-        actions.push({
+        const nextAction = reuseActionEntry(previousById.get(entry.id), {
             ...entry,
             cooldownLeft: readyTick > 0 ? Math.max(0, readyTick - currentTick) : Math.max(0, Number(entry.cooldownLeft ?? 0)),
         });
+        if (nextAction.changed) {
+            changed = true;
+        }
+        actions.push(nextAction.entry);
     }
     actions.sort((left, right) => {
         const leftId = typeof left.id === 'string' ? left.id : '';
@@ -6192,7 +6203,17 @@ function buildActionEntries(player, currentTick) {
         return ((skillOrder.get(leftId) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(rightId) ?? Number.MAX_SAFE_INTEGER))
             || leftId.localeCompare(rightId, 'zh-Hans-CN');
     });
-    return actions;
+    if (!isSameActionIdOrder(player.actions.actions, actions)) {
+        changed = true;
+    }
+    return { actions, changed };
+}
+
+function reuseActionEntry(previous, next) {
+    if (previous && isSameActionEntry(previous, next)) {
+        return { entry: previous, changed: false };
+    }
+    return { entry: next, changed: true };
 }
 
 function resolvePlayerSkillActionCooldownTicks(player, cooldown) {
@@ -6266,6 +6287,32 @@ function isSameActionList(previous, current) {
         }
     }
     return true;
+}
+
+function isSameActionIdOrder(previous, current) {
+    if (previous.length !== current.length) {
+        return false;
+    }
+    for (let index = 0; index < previous.length; index += 1) {
+        if (previous[index]?.id !== current[index]?.id) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isSameActionEntry(left, right) {
+    return left.id === right.id
+        && left.name === right.name
+        && left.type === right.type
+        && left.desc === right.desc
+        && left.cooldownLeft === right.cooldownLeft
+        && left.range === right.range
+        && left.requiresTarget === right.requiresTarget
+        && left.targetMode === right.targetMode
+        && left.autoBattleEnabled === right.autoBattleEnabled
+        && left.autoBattleOrder === right.autoBattleOrder
+        && left.skillEnabled === right.skillEnabled;
 }
 /**
  * normalizePersistedAutoBattleSkills：判断PersistedAutoBattle技能是否满足条件。

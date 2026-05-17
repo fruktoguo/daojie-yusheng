@@ -635,6 +635,11 @@ export class ContentTemplateRepository {
         const skill = this.skillTemplatesById.get(skillId);
         return skill ? cloneSkill(skill) : null;
     }
+
+    getSkillRef(skillId) {
+        // 运行时只读路径直接复用启动期技能模板，避免每次查询深拷 targeting/effects。
+        return this.skillTemplatesById.get(skillId) ?? null;
+    }
     
     loadSharedTechniqueBuffs() {
 
@@ -1137,7 +1142,7 @@ export class ContentTemplateRepository {
                 continue;
             }
 
-            const skill = this.getSkill(skillId);
+            const skill = this.getSkillRef(skillId);
             if (!skill) {
                 this.logger.warn(`妖兽 ${monsterId} 配置了不存在的技能 ${skillId}，已忽略`);
                 continue;
