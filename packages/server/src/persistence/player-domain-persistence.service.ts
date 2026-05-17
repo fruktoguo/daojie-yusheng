@@ -3506,13 +3506,14 @@ async function replacePlayerMarketStorageItems(
   playerId: string,
   items: readonly PlayerMarketStorageItemUpsertInput[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
   if (!Array.isArray(items) || items.length === 0) {
+    await prunePlayerMarketStorageStaleSlots(client, playerId, []);
     return;
   }
 
   const values: unknown[] = [];
   const placeholders: string[] = [];
+  const writtenEntries: Array<{ storageItemId: string; slotIndex: number }> = [];
   let parameterIndex = 1;
   for (let index = 0; index < items.length; index += 1) {
     const entry = items[index];
@@ -3545,12 +3546,16 @@ async function replacePlayerMarketStorageItems(
       enhanceLevel,
       JSON.stringify(persistedPayload),
     );
+    writtenEntries.push({ storageItemId, slotIndex });
     parameterIndex += 7;
   }
 
   if (placeholders.length === 0) {
+    await prunePlayerMarketStorageStaleSlots(client, playerId, []);
     return;
   }
+
+  await prunePlayerMarketStorageConflictingSlotRows(client, playerId, writtenEntries);
 
   await client.query(
     `
@@ -3565,8 +3570,71 @@ async function replacePlayerMarketStorageItems(
         updated_at
       )
       VALUES ${placeholders.join(',\n')}
+      ON CONFLICT (storage_item_id)
+      DO UPDATE SET
+        player_id = EXCLUDED.player_id,
+        slot_index = EXCLUDED.slot_index,
+        item_id = EXCLUDED.item_id,
+        count = EXCLUDED.count,
+        enhance_level = EXCLUDED.enhance_level,
+        raw_payload = EXCLUDED.raw_payload,
+        updated_at = now()
     `,
     values,
+  );
+  await prunePlayerMarketStorageStaleSlots(client, playerId, writtenEntries.map((entry) => entry.slotIndex));
+}
+
+async function prunePlayerMarketStorageConflictingSlotRows(
+  client: PoolClient,
+  playerId: string,
+  entries: ReadonlyArray<{ storageItemId: string; slotIndex: number }>,
+): Promise<void> {
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT storage_item_id, slot_index
+        FROM jsonb_to_recordset($2::jsonb) AS entry(storage_item_id varchar(160), slot_index bigint)
+      )
+      DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
+      USING incoming
+      WHERE target.player_id = $1
+        AND target.slot_index = incoming.slot_index
+        AND target.storage_item_id <> incoming.storage_item_id
+    `,
+    [
+      playerId,
+      JSON.stringify(entries.map((entry) => ({
+        storage_item_id: entry.storageItemId,
+        slot_index: Math.max(0, Math.trunc(Number(entry.slotIndex))),
+      }))),
+    ],
+  );
+}
+
+async function prunePlayerMarketStorageStaleSlots(
+  client: PoolClient,
+  playerId: string,
+  slotIndices: readonly number[],
+): Promise<void> {
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT slot_index
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_index bigint)
+      )
+      DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_index = target.slot_index
+        )
+    `,
+    [
+      playerId,
+      JSON.stringify(slotIndices.map((slotIndex) => ({ slot_index: Math.max(0, Math.trunc(Number(slotIndex))) }))),
+    ],
   );
 }
 

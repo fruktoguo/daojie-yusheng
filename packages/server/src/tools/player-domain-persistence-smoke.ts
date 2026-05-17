@@ -670,6 +670,52 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 14 },
     );
+    await service.savePlayerMarketStorageItems(
+      directPlayerId,
+      [
+        {
+          storageItemId: `market:${directPlayerId}:0`,
+          slotIndex: 0,
+          itemId: 'spirit_stone',
+          count: 10,
+          enhanceLevel: null,
+          rawPayload: {
+            itemId: 'spirit_stone',
+            count: 10,
+          },
+        },
+        {
+          storageItemId: `market:${directPlayerId}:1`,
+          slotIndex: 1,
+          itemId: 'iron_sword',
+          count: 1,
+          enhanceLevel: 2,
+          rawPayload: {
+            itemId: 'iron_sword',
+            count: 1,
+            enhanceLevel: 2,
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 18 },
+    );
+    await service.savePlayerMarketStorageItems(
+      directPlayerId,
+      [
+        {
+          storageItemId: `market:${directPlayerId}:0-rekeyed`,
+          slotIndex: 0,
+          itemId: 'spirit_stone',
+          count: 11,
+          enhanceLevel: null,
+          rawPayload: {
+            itemId: 'spirit_stone',
+            count: 11,
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 19 },
+    );
     await service.savePlayerCombatPreferences(directPlayerId, null, {
       versionSeed: directBaseVersion + 15,
     });
@@ -853,9 +899,10 @@ async function main(): Promise<void> {
     }
     if (
       directMarketStorageRows.length !== 1
+      || directMarketStorageRows[0]?.storage_item_id !== `market:${directPlayerId}:0-rekeyed`
       || Number(directMarketStorageRows[0]?.slot_index ?? -1) !== 0
       || directMarketStorageRows[0]?.item_id !== 'spirit_stone'
-      || Number(directMarketStorageRows[0]?.count ?? 0) !== 9
+      || Number(directMarketStorageRows[0]?.count ?? 0) !== 11
       || Object.keys(directMarketStorageRows[0]?.raw_payload ?? {}).length !== 0
     ) {
       throw new Error(`unexpected direct player_market_storage_item rows: ${JSON.stringify(directMarketStorageRows)}`);
@@ -867,7 +914,7 @@ async function main(): Promise<void> {
       || Number(directWatermarkRow.vitals_version) !== directBaseVersion + 2
       || Number(directWatermarkRow.progression_version) !== directBaseVersion + 3
       || Number(directWatermarkRow.inventory_version) !== directBaseVersion + 4
-      || Number(directWatermarkRow.market_storage_version) !== directBaseVersion + 14
+      || Number(directWatermarkRow.market_storage_version) !== directBaseVersion + 19
       || Number(directWatermarkRow.map_unlock_version) !== directBaseVersion + 5
       || Number(directWatermarkRow.equipment_version) !== directBaseVersion + 6
       || Number(directWatermarkRow.combat_pref_version) !== directBaseVersion + 15
