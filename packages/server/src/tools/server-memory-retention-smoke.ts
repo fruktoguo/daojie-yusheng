@@ -1407,6 +1407,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
   playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
   playerItemDomainRawPayloadsAreMinimal: boolean;
+  marketBuySellSnapshotsLazyDurableOnly: boolean;
   instancePersistenceNormalizesItemPayloads: boolean;
   instancePersistenceNormalizesObjectPayloads: boolean;
   instanceOverlayPortalPersistenceUsesWhitelist: boolean;
@@ -1419,6 +1420,7 @@ function proveEntryCachesFollowLifecycle(): {
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
   const playerPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence.service.ts'), 'utf8');
+  const marketRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/market/market-runtime.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1591,6 +1593,11 @@ function proveEntryCachesFollowLifecycle(): {
     && !playerDomainPersistenceSource.includes('...(rawPayload ?? entry ?? {})')
     && !playerDomainPersistenceSource.includes('JSON.stringify(row.rawPayload),\n    );\n    parameterIndex += 7;');
 
+  const marketBuySellSnapshotsLazyDurableOnly = marketRuntimeSource.includes('const canUseDurableBuyNow = false;\n            let buyerSnapshot = null;\n            const matchedSellerPlans = [];\n            if (canUseDurableBuyNow) {\n                buyerSnapshot = this.playerRuntimeService.snapshot(playerId);')
+    && marketRuntimeSource.includes('const canUseDurableSellNow = false;\n            let sellerSnapshot = null;\n            const matchedBuyerPlans = [];\n            if (canUseDurableSellNow) {\n                sellerSnapshot = this.playerRuntimeService.snapshot(playerId);')
+    && !marketRuntimeSource.includes('const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableBuyNow = false;')
+    && !marketRuntimeSource.includes('const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableSellNow = false;');
+
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
@@ -1653,6 +1660,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
   assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
   assert.equal(playerItemDomainRawPayloadsAreMinimal, true);
+  assert.equal(marketBuySellSnapshotsLazyDurableOnly, true);
   assert.equal(instancePersistenceNormalizesItemPayloads, true);
   assert.equal(instancePersistenceNormalizesObjectPayloads, true);
   assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
@@ -1684,6 +1692,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerProjectedSnapshotHydratesStarterInPlace,
     playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
     playerItemDomainRawPayloadsAreMinimal,
+    marketBuySellSnapshotsLazyDurableOnly,
     instancePersistenceNormalizesItemPayloads,
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,

@@ -672,11 +672,12 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
             }
 
-            const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);
             const durableOperationService = this.durableOperationService;
             const canUseDurableBuyNow = false;
+            let buyerSnapshot = null;
             const matchedSellerPlans = [];
             if (canUseDurableBuyNow) {
+                buyerSnapshot = this.playerRuntimeService.snapshot(playerId);
                 for (const match of plan.matches) {
                     const sellOrder = match.order;
                     const sellerSnapshot = this.playerRuntimeService.snapshot(sellOrder.ownerId);
@@ -835,11 +836,12 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
                 return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
 
-            const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);
             const durableOperationService = this.durableOperationService;
             const canUseDurableSellNow = false;
+            let sellerSnapshot = null;
             const matchedBuyerPlans = [];
             if (canUseDurableSellNow) {
+                sellerSnapshot = this.playerRuntimeService.snapshot(playerId);
                 for (const match of plan.matches) {
                     const buyOrder = match.order;
                     const buyerSnapshot = this.playerRuntimeService.snapshot(buyOrder.ownerId);
