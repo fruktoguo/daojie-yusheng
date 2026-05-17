@@ -40,6 +40,7 @@
     "convert:main-dump": "pnpm compile && node dist/tools/convert-main-dump-to-current-db.js",
     "deploy:database-preflight": "pnpm compile && node dist/tools/deploy-database-preflight.js --ensure-current-schema",
     "smoke:durable-operation": "pnpm compile && node dist/tools/durable-operation-smoke.js",
+    "smoke:item-instance-id": "pnpm compile && node dist/tools/item-instance-id-smoke.js",
     "smoke:combat-audit-outbox": "pnpm compile && node dist/tools/combat-audit-outbox-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",

@@ -998,27 +998,31 @@ equip:p_xxx:weapon    ← 同上
 
 ### 21.7 协议软校验 + 客户端透传（阶段 7）
 
-- [ ] **C1**：`packages/server/src/config` 增加 `ITEM_INSTANCE_ID_HARD_CHECK` 布尔配置（默认 false）
-- [ ] **C2**：`craft-panel-runtime.service.ts:resolveEnhancementTarget` / `startEnhancement`：实施 expectedItemInstanceId 软校验
-- [ ] **C3**：`player-runtime.service.ts:equipItem` / `unequipItem` 接受并校验 `expectedItemInstanceId`；网络入口 `world-runtime-equipment.service.ts` 透传
-- [ ] **C4**：`market-runtime.service.ts:createSellOrder` / `sellNow`：实施 expectedItemInstanceId 软校验
-- [ ] **C5**：客户端 `craft-enhancement-view.ts` / `craft-workbench-modal.ts`：payload 透传 expectedItemInstanceId
-- [ ] **C6**：客户端 `inventory-panel.ts` / `equipment-panel.ts`：装/卸/上架 payload 透传
-- [ ] **C7**：客户端 `market-panel.ts`：挂售 payload 透传
+- [x] **C1**：`packages/server/src/runtime/world/item-instance-id.helpers.ts` 增加 `ITEM_INSTANCE_ID_HARD_CHECK` 环境变量配置（`isItemInstanceIdHardCheckEnabled` 函数）+ `compareItemInstanceId` 工具
+- [x] **C2**：`craft-panel-runtime.service.ts:resolveEnhancementTarget` / `startEnhancement`：实施 expectedItemInstanceId 软校验
+- [x] **C3**：`player-runtime.service.ts:equipItem` / `unequipItem` 接受并校验 `expectedItemInstanceId`；`world-runtime-equipment.service.ts` / 命令链 / 网络入口透传
+- [x] **C4**：`market-runtime.service.ts:createSellOrder` / `sellNow`：实施 expectedItemInstanceId 软校验
+- [x] **C5**：客户端 `craft-enhancement-view.ts` / `craft-workbench-modal.ts`：payload 透传 expectedItemInstanceId（target + protection）
+- [x] **C6**：客户端 `inventory-panel.ts` / `equipment-panel.ts`：装/卸 payload 透传 itemInstanceId
+- [x] **C7**：客户端 `market-panel.ts`（含 `market-trade-dialog.ts` / `market-auction-view.ts`）：挂售 payload 透传
 
 ### 21.8 测试与验证（阶段 8）
 
-- [ ] **V1**：新增 `packages/server/src/tools/item-instance-id-assignment-smoke.ts`
-- [ ] **V2**：新增 `packages/server/src/tools/world-runtime-enhancement-instance-id-smoke.ts`
-- [ ] **V3**：新增 `packages/server/src/tools/equipment-equip-instance-id-smoke.ts`
-- [ ] **V4**：新增 `packages/server/src/tools/market-instance-id-smoke.ts`
-- [ ] **V5**：新增 `packages/server/src/tools/inventory-grant-instance-id-smoke.ts`
-- [ ] **V6**：现有 smoke 适配（`world-runtime-enhancement-smoke` / `durable-operation-smoke` / `player-domain-persistence-smoke` / `inventory-grant-durable-smoke` / `world-runtime-loot-container-smoke` / `world-runtime-npc-shop-smoke` / `world-runtime-craft-smoke` / `redeem-code-runtime-durable-smoke` / `market-runtime-buy-now-smoke` / `market-runtime-sell-now-smoke` / `world-runtime-player-combat-smoke`）
-- [ ] **V7**：`pnpm build:shared` / `pnpm build:server` 通过
-- [ ] **V8**：`pnpm audit:protocol` 通过
-- [ ] **V9**：`pnpm verify:quick` 通过
+> 实施时合并为综合 smoke `item-instance-id-smoke.ts`（更易维护、依赖小），覆盖 V1–V5 全部 7 项纯函数 / 数据流验证。
+
+- [x] **V1**：综合 smoke 覆盖 assignment（`packages/server/src/tools/item-instance-id-smoke.ts` testAssignment）
+- [x] **V2**：综合 smoke 覆盖 enhancement-instance-id 继承（testEnhancementInheritance；4 条路径成功 / 失败 / 降级 / 取消都验证）
+- [x] **V3**：综合 smoke 覆盖 equipment-equip-instance-id（testEquipNoMerge；装备永远独立成 slot）
+- [x] **V4**：综合 smoke 覆盖 market-instance-id（testMarketShed；卖家脱壳 + 买家重分配）
+- [x] **V5**：综合 smoke 覆盖 inventory-grant-instance-id（testGrantPassthrough；buildNext/buildGranted 透传）
+- [~] **V6**：现有 smoke 适配 —— `world-runtime-loot-container-smoke` / `world-runtime-npc-shop-smoke` / `market-runtime-buy-now-smoke` / `market-runtime-sell-now-smoke` 在本方案改动后仍 pass。`world-runtime-enhancement-smoke` / `world-runtime-craft-smoke` / `world-runtime-equipment-smoke` / `world-runtime-player-combat-smoke` / `inventory-grant-durable-smoke` / `redeem-code-runtime-durable-smoke` 在当前主线 baseline 已有失败（与本方案改动正交：缺 `persistTechniqueActivitySnapshot` mock、equip durable 路径与本方案无关、依赖数据库等）；通过 git stash 验证不属于本次改动责任范围
+- [x] **V7**：`pnpm build:shared` / `pnpm build:server` / `pnpm build:client` 通过
+- [~] **V8**：`pnpm audit:protocol` —— baseline 已有失败（cloneItemPreservingTemplate 与冻结模板的 itemId 写入冲突，与本方案改动正交）
+- [x] **V9**：`pnpm verify:quick` 通过（readiness-gate / session / runtime 全 pass）；`pnpm verify:client` 通过
+
+**已知 baseline 风险**：当前分支主线在本方案改造前就存在 `cloneItemPreservingTemplate` 写入冻结模板的失败链路，会让 `audit:protocol` 与少数 runtime smoke 抛 `Cannot assign to read only property 'itemId'`。本方案的字段添加只是 optional 属性，不会触发该路径，已通过 `git stash` 验证为 pre-existing。修复属于另一个工作面。
 
 ### 21.9 最终审计
 
-- [ ] **F1**：方案文档 §21 所有勾选项确认完成
-- [ ] **F2**：交付说明：完成内容、修改文件、验证结果、未覆盖项
+- [x] **F1**：方案文档 §21 所有勾选项确认完成（含部分项的 baseline 风险注记）
+- [x] **F2**：交付说明：完成内容、修改文件、验证结果、未覆盖项见下文最终报告
