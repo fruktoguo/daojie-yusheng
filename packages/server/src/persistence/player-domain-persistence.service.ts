@@ -3326,22 +3326,22 @@ async function replacePlayerInventoryItems(
   playerId: string,
   items: unknown[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(items) || items.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (let index = 0; index < items.length; index += 1) {
-    const entry = asRecord(items[index]);
+  const sourceItems = Array.isArray(items) ? items : [];
+  const rows: Array<{
+    item_instance_id: string;
+    slot_index: number;
+    item_id: string;
+    count: number;
+    raw_payload: Record<string, unknown>;
+  }> = [];
+  for (let index = 0; index < sourceItems.length; index += 1) {
+    const entry = asRecord(sourceItems[index]);
     const itemId = normalizeRequiredString(entry?.itemId);
     if (!itemId) {
       // 静默 continue 是商业级 MMO 资产丢失的隐藏通道：玩家会无声丢东西，运维事后无法定位。
       // 这里改为抛错，让外层 withTransaction 整体 rollback（DELETE 也一起撤销），DB 维持
       // 上一次成功 flush 的状态；同时错误信息携带 playerId/index/原始 entry 摘要，便于排障。
-      const entryDigest = safeStringifyInventoryEntry(items[index]);
+      const entryDigest = safeStringifyInventoryEntry(sourceItems[index]);
       throw new Error(
         `replacePlayerInventoryItems: 非法 inventory entry 拒绝写入 playerId=${playerId} index=${index} entry=${entryDigest}`,
       );
@@ -3358,38 +3358,87 @@ async function replacePlayerInventoryItems(
       enhanceLevel: entry?.enhanceLevel,
       rawPayload,
     });
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}::jsonb, now())`,
-    );
-    values.push(
-      itemInstanceId,
-      playerId,
-      slotIndex,
-      itemId,
+    rows.push({
+      item_instance_id: itemInstanceId,
+      slot_index: slotIndex,
+      item_id: itemId,
       count,
-      JSON.stringify(persistedPayload),
+      raw_payload: persistedPayload,
+    });
+  }
+
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT item_instance_id, slot_index
+          FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180), slot_index bigint)
+        )
+        DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_index = target.slot_index
+              AND incoming.item_instance_id <> target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ item_instance_id, slot_index }) => ({ item_instance_id, slot_index })))],
     );
-    parameterIndex += 6;
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            slot_index bigint,
+            item_id varchar(160),
+            count bigint,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
+          item_instance_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          raw_payload,
+          updated_at
+        )
+        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (item_instance_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          slot_index = EXCLUDED.slot_index,
+          item_id = EXCLUDED.item_id,
+          count = EXCLUDED.count,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    if ((result.rowCount ?? 0) !== rows.length) {
+      throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
+    }
   }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
-        item_instance_id,
-        player_id,
-        slot_index,
-        item_id,
-        count,
-        raw_payload,
-        updated_at
+      WITH incoming AS (
+        SELECT item_instance_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.item_instance_id = target.item_instance_id
+        )
     `,
-    values,
+    [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
   );
 }
 
@@ -3399,15 +3448,14 @@ async function replacePlayerWalletRows(
   rows: readonly PlayerWalletUpsertInput[],
   versionSeed: number,
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_WALLET_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (const row of rows) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const normalizedRows: Array<{
+    wallet_type: string;
+    balance: number;
+    frozen_balance: number;
+    version: number;
+  }> = [];
+  for (const row of sourceRows) {
     const walletType = normalizeRequiredString(row?.walletType);
     if (!walletType) {
       continue;
@@ -3415,30 +3463,61 @@ async function replacePlayerWalletRows(
     const balance = normalizeMinimumInteger(row?.balance, 0, 0);
     const frozenBalance = normalizeMinimumInteger(row?.frozenBalance, 0, 0);
     const version = normalizeMinimumInteger(row?.version, versionSeed, 1);
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, now())`,
+    normalizedRows.push({
+      wallet_type: walletType,
+      balance,
+      frozen_balance: frozenBalance,
+      version,
+    });
+  }
+
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            wallet_type varchar(64),
+            balance bigint,
+            frozen_balance bigint,
+            version bigint
+          )
+        )
+        INSERT INTO ${PLAYER_WALLET_TABLE}(
+          player_id,
+          wallet_type,
+          balance,
+          frozen_balance,
+          version,
+          updated_at
+        )
+        SELECT $1, wallet_type, balance, frozen_balance, version, now()
+        FROM incoming
+        ON CONFLICT (player_id, wallet_type)
+        DO UPDATE SET
+          balance = EXCLUDED.balance,
+          frozen_balance = EXCLUDED.frozen_balance,
+          version = EXCLUDED.version,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
     );
-    values.push(playerId, walletType, balance, frozenBalance, version);
-    parameterIndex += 5;
   }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_WALLET_TABLE}(
-        player_id,
-        wallet_type,
-        balance,
-        frozen_balance,
-        version,
-        updated_at
+      WITH incoming AS (
+        SELECT wallet_type
+        FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_WALLET_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.wallet_type = target.wallet_type
+        )
     `,
-    values,
+    [playerId, JSON.stringify(normalizedRows.map(({ wallet_type }) => ({ wallet_type })))],
   );
 }
 

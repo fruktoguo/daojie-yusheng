@@ -3316,16 +3316,16 @@ async function replacePlayerInventoryItems(
   playerId: string,
   items: DurableInventoryItemSnapshot[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(items) || items.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
+  const sourceItems = Array.isArray(items) ? items : [];
+  const rows: Array<{
+    item_instance_id: string;
+    slot_index: number;
+    item_id: string;
+    count: number;
+    raw_payload: Record<string, unknown>;
+  }> = [];
+  for (let index = 0; index < sourceItems.length; index += 1) {
+    const item = sourceItems[index];
     const itemId = normalizeRequiredString(item?.itemId);
     if (!itemId) {
       continue;
@@ -3337,38 +3337,87 @@ async function replacePlayerInventoryItems(
       enhanceLevel: item.enhanceLevel,
       rawPayload: item.rawPayload,
     });
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}::jsonb, now())`,
-    );
-    values.push(
-      `inv:${playerId}:${index}`,
-      playerId,
-      index,
-      itemId,
+    rows.push({
+      item_instance_id: `inv:${playerId}:${index}`,
+      slot_index: index,
+      item_id: itemId,
       count,
-      JSON.stringify(rawPayload),
+      raw_payload: rawPayload,
+    });
+  }
+
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT item_instance_id, slot_index
+          FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180), slot_index bigint)
+        )
+        DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_index = target.slot_index
+              AND incoming.item_instance_id <> target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ item_instance_id, slot_index }) => ({ item_instance_id, slot_index })))],
     );
-    parameterIndex += 6;
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            slot_index bigint,
+            item_id varchar(120),
+            count bigint,
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
+          item_instance_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          raw_payload,
+          updated_at
+        )
+        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (item_instance_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          slot_index = EXCLUDED.slot_index,
+          item_id = EXCLUDED.item_id,
+          count = EXCLUDED.count,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    if (((result as { rowCount?: number }).rowCount ?? 0) !== rows.length) {
+      throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
+    }
   }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
-        item_instance_id,
-        player_id,
-        slot_index,
-        item_id,
-        count,
-        raw_payload,
-        updated_at
+      WITH incoming AS (
+        SELECT item_instance_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.item_instance_id = target.item_instance_id
+        )
     `,
-    values,
+    [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
   );
 }
 
@@ -3916,15 +3965,14 @@ async function replacePlayerWalletRows(
   playerId: string,
   balances: readonly unknown[],
 ): Promise<void> {
-  await client.query(`DELETE FROM ${PLAYER_WALLET_TABLE} WHERE player_id = $1`, [playerId]);
-  if (!Array.isArray(balances) || balances.length === 0) {
-    return;
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let index = 1;
-  for (const row of balances) {
+  const sourceBalances = Array.isArray(balances) ? balances : [];
+  const rows: Array<{
+    wallet_type: string;
+    balance: number;
+    frozen_balance: number;
+    version: number;
+  }> = [];
+  for (const row of sourceBalances) {
     const walletType = normalizeRequiredString((row as { walletType?: unknown })?.walletType);
     if (!walletType) {
       continue;
@@ -3932,28 +3980,61 @@ async function replacePlayerWalletRows(
     const balance = Math.max(0, Math.trunc(Number((row as { balance?: unknown })?.balance ?? 0)));
     const frozenBalance = Math.max(0, Math.trunc(Number((row as { frozenBalance?: unknown })?.frozenBalance ?? 0)));
     const version = Math.max(1, Math.trunc(Number((row as { version?: unknown })?.version ?? 1)));
-    placeholders.push(`($${index}, $${index + 1}, $${index + 2}, $${index + 3}, $${index + 4}, now())`);
-    values.push(playerId, walletType, balance, frozenBalance, version);
-    index += 5;
+    rows.push({
+      wallet_type: walletType,
+      balance,
+      frozen_balance: frozenBalance,
+      version,
+    });
   }
 
-  if (placeholders.length === 0) {
-    return;
+  if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            wallet_type varchar(64),
+            balance bigint,
+            frozen_balance bigint,
+            version bigint
+          )
+        )
+        INSERT INTO ${PLAYER_WALLET_TABLE}(
+          player_id,
+          wallet_type,
+          balance,
+          frozen_balance,
+          version,
+          updated_at
+        )
+        SELECT $1, wallet_type, balance, frozen_balance, version, now()
+        FROM incoming
+        ON CONFLICT (player_id, wallet_type)
+        DO UPDATE SET
+          balance = EXCLUDED.balance,
+          frozen_balance = EXCLUDED.frozen_balance,
+          version = EXCLUDED.version,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
   }
-
   await client.query(
     `
-      INSERT INTO ${PLAYER_WALLET_TABLE}(
-        player_id,
-        wallet_type,
-        balance,
-        frozen_balance,
-        version,
-        updated_at
+      WITH incoming AS (
+        SELECT wallet_type
+        FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
       )
-      VALUES ${placeholders.join(',\n')}
+      DELETE FROM ${PLAYER_WALLET_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.wallet_type = target.wallet_type
+        )
     `,
-    values,
+    [playerId, JSON.stringify(rows.map(({ wallet_type }) => ({ wallet_type })))],
   );
 }
 

@@ -15,6 +15,8 @@ import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.
 const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
+  await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
+
   if (!databaseUrl.trim()) {
     console.log(
       JSON.stringify(
@@ -22,7 +24,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -528,6 +530,52 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 4 },
     );
+    await service.savePlayerInventoryItems(
+      directPlayerId,
+      [
+        {
+          itemId: 'direct_ore',
+          count: 3,
+          enhanceLevel: 3,
+          slotIndex: 5,
+          itemInstanceId: `inv:${directPlayerId}:ore`,
+          rawPayload: {
+            itemId: 'direct_ore',
+            count: 3,
+            enhanceLevel: 3,
+          },
+        },
+        {
+          itemId: 'direct_stale_relic',
+          count: 1,
+          slotIndex: 6,
+          itemInstanceId: `inv:${directPlayerId}:stale_relic`,
+          rawPayload: {
+            itemId: 'direct_stale_relic',
+            count: 1,
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 4 },
+    );
+    await service.savePlayerInventoryItems(
+      directPlayerId,
+      [
+        {
+          itemId: 'direct_ore',
+          count: 2,
+          enhanceLevel: 3,
+          slotIndex: 5,
+          itemInstanceId: `inv:${directPlayerId}:ore`,
+          rawPayload: {
+            itemId: 'direct_ore',
+            count: 2,
+            enhanceLevel: 3,
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 4 },
+    );
     await service.savePlayerMapUnlocks(
       directPlayerId,
       [
@@ -632,6 +680,24 @@ async function main(): Promise<void> {
         },
       ],
       { versionSeed: directBaseVersion + 11 },
+    );
+    await service.savePlayerWallet(
+      directPlayerId,
+      [
+        {
+          walletType: 'spirit_stone',
+          balance: 99,
+          frozenBalance: 1,
+          version: directBaseVersion + 12,
+        },
+        {
+          walletType: 'stale_coin',
+          balance: 7,
+          frozenBalance: 0,
+          version: directBaseVersion + 12,
+        },
+      ],
+      { versionSeed: directBaseVersion + 12 },
     );
     await service.savePlayerWallet(
       directPlayerId,
@@ -955,7 +1021,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/market storage 二次快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -987,6 +1053,72 @@ async function main(): Promise<void> {
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
+  }
+}
+
+async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push(sql);
+      return { rows: [], rowCount: sql.includes('INSERT INTO player_inventory_item') ? 1 : 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerInventoryItems(
+    'player:fake',
+    [
+      {
+        itemId: 'spirit_grass',
+        count: 1,
+        slotIndex: 0,
+        itemInstanceId: 'inv:player:fake:0',
+        rawPayload: { itemId: 'spirit_grass', count: 1 },
+      },
+    ],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerWallet(
+    'player:fake',
+    [
+      {
+        walletType: 'spirit_stone',
+        balance: 1,
+        frozenBalance: 0,
+        version: 1,
+      },
+    ],
+    { versionSeed: 1 },
+  );
+
+  const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  const forbiddenDeletes = [
+    'DELETE FROM player_inventory_item WHERE player_id = $1',
+    'DELETE FROM player_wallet WHERE player_id = $1',
+  ];
+  for (const forbidden of forbiddenDeletes) {
+    if (normalizedQueries.some((query) => query === forbidden)) {
+      throw new Error(`player snapshot emitted forbidden whole-player delete: ${forbidden}`);
+    }
+  }
+  for (const tableName of ['player_inventory_item', 'player_wallet']) {
+    if (!normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+      && query.includes('jsonb_to_recordset')
+      && query.includes('NOT EXISTS'))) {
+      throw new Error(`player snapshot missing stale-key delete guard for ${tableName}`);
+    }
   }
 }
 
