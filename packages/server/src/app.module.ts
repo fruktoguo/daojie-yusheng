@@ -46,6 +46,13 @@ import { WorldGatewayReadModelHelper } from './network/world-gateway-read-model.
 import { WorldGatewaySessionStateHelper } from './network/world-gateway-session-state.helper';
 import { WorldGatewaySuggestionHelper } from './network/world-gateway-suggestion.helper';
 import { ContentTemplateRepository } from './content/content-template.repository';
+import { BuffTemplateRegistry } from './content/registries/buff-template.registry';
+import { DropTableRegistry } from './content/registries/drop-table.registry';
+import { FormationTemplateRegistry } from './content/registries/formation-template.registry';
+import { ItemTemplateRegistry } from './content/registries/item-template.registry';
+import { MonsterTemplateRegistry } from './content/registries/monster-template.registry';
+import { SkillTemplateRegistry } from './content/registries/skill-template.registry';
+import { TechniqueTemplateRegistry } from './content/registries/technique-template.registry';
 import { ActorBlueprintRegistryService } from './runtime/actor/actor-blueprint-registry.service';
 import { ActorPersistencePolicyService } from './runtime/actor/actor-persistence-policy.service';
 import { EphemeralActorIdentityService } from './runtime/actor/ephemeral-actor-identity.service';
@@ -193,6 +200,13 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
   providers: [
     ...NATIVE_HTTP_PROVIDERS,
     ContentTemplateRepository,
+    ItemTemplateRegistry,
+    TechniqueTemplateRegistry,
+    SkillTemplateRegistry,
+    BuffTemplateRegistry,
+    FormationTemplateRegistry,
+    MonsterTemplateRegistry,
+    DropTableRegistry,
     EphemeralActorIdentityService,
     ActorPersistencePolicyService,
     ActorBlueprintRegistryService,

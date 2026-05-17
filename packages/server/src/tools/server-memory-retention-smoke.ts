@@ -1332,7 +1332,10 @@ function proveViewHotpathOptimizationsPresent(): {
   const viewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const projectorSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-projector.service.ts'), 'utf8');
   const projectorHelperSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-projector.helpers.ts'), 'utf8');
-  const contentTemplateSource = readFileSync(resolve(process.cwd(), 'packages/server/src/content/content-template.repository.ts'), 'utf8');
+  const contentTemplateSource = [
+    readFileSync(resolve(process.cwd(), 'packages/server/src/content/content-template.repository.ts'), 'utf8'),
+    readFileSync(resolve(process.cwd(), 'packages/server/src/content/registries/monster-template.registry.ts'), 'utf8'),
+  ].join('\n');
   const playerViewCache = mapInstanceSource.includes('playerViewCacheByPlayerId')
     && mapInstanceSource.includes('cached.worldRevision === this.worldRevision')
     && mapInstanceSource.includes('this.playerViewCacheByPlayerId.delete(playerId)');
@@ -1702,10 +1705,9 @@ function proveEntryCachesFollowLifecycle(): {
 
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
-    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
     && instanceDomainPersistenceSource.includes('item_instance_payload: normalizePersistedItemPayload(entry.itemPayload)')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.item))')
-    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry?.item))')
+    && instanceDomainPersistenceSource.includes('item_payload: normalizePersistedItemPayload(entry?.item)')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(input.itemPayload ?? {})')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(entry.itemPayload ?? {})')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(entry.item ?? {})')
@@ -1714,13 +1716,13 @@ function proveEntryCachesFollowLifecycle(): {
 
   const instancePersistenceNormalizesObjectPayloads = instanceDomainPersistenceSource.includes('function normalizeJsonObjectPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(activeSearchPayload))')
-    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(state.statePayload))')
-    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(state.activeSearchPayload))')
+    && instanceDomainPersistenceSource.includes('state_payload: normalizeJsonObjectPayload(state.statePayload)')
+    && instanceDomainPersistenceSource.includes('active_search_payload: normalizeJsonObjectPayload(state.activeSearchPayload)')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(input.statePayload))')
     && instanceDomainPersistenceSource.includes('state_payload: normalizeJsonObjectPayload(entry.statePayload)')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(input.patchPayload))')
     && instanceDomainPersistenceSource.includes('patchPayload: normalizeJsonObjectPayload(entry?.patchPayload)')
-    && instanceDomainPersistenceSource.includes('JSON.stringify(normalizeJsonObjectPayload(entry.patchPayload))')
+    && instanceDomainPersistenceSource.includes('patch_payload: entry.patchPayload')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(activeSearchPayload ?? {})')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(state.statePayload ?? {})')
     && !instanceDomainPersistenceSource.includes('JSON.stringify(state.activeSearchPayload ?? {})')
