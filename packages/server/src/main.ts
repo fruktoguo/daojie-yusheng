@@ -228,4 +228,15 @@ function hasErrorCode(error: unknown, code: string): error is { code: string } {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }
 
+// ─── 全局未捕获异常兜底 ───
+
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('[FATAL] unhandledRejection:', reason instanceof Error ? reason.stack : String(reason));
+});
+
+process.on('uncaughtException', (error: Error) => {
+  console.error('[FATAL] uncaughtException:', error.stack ?? error.message);
+  process.exit(1);
+});
+
 void bootstrap();
