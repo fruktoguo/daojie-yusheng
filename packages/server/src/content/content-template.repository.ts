@@ -32,6 +32,7 @@ export class ContentTemplateRepository {
         readonly monsterTemplateRegistry: MonsterTemplateRegistry = new MonsterTemplateRegistry(),
         readonly dropTableRegistry: DropTableRegistry = new DropTableRegistry(),
     ) {
+        this.dropTableRegistry.setTemplateRegistries(this.itemRegistry, this.techniqueRegistry);
         this.itemTemplates = this.itemRegistry.itemTemplates;
         this.techniqueTemplates = this.techniqueRegistry.techniqueTemplates;
         this.skillTemplatesById = this.skillRegistry.skillTemplatesById;
@@ -108,53 +109,7 @@ export class ContentTemplateRepository {
     }
     
     rollLootPoolItems(query) {
-
-
-        const chance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
-        if (chance <= 0 || Math.random() > chance) {
-            return [];
-        }
-
-        const candidates = this.getLootPoolCandidateIds(query);
-        if (candidates.length === 0) {
-            return [];
-        }
-
-        const rolls = Number.isInteger(query.rolls) && Number(query.rolls) > 0 ? Number(query.rolls) : 1;
-
-        const countMin = Number.isInteger(query.countMin) && Number(query.countMin) > 0 ? Number(query.countMin) : 1;
-
-        const countMax = Number.isInteger(query.countMax) && Number(query.countMax) >= countMin ? Number(query.countMax) : countMin;
-
-        const allowDuplicates = query.allowDuplicates === true;
-
-        const pool = candidates.slice();
-
-        const result = [];
-        for (let index = 0; index < rolls; index += 1) {
-            const source = allowDuplicates ? candidates : pool;
-            if (source.length === 0) {
-                break;
-            }
-
-            const pickedIndex = Math.floor(Math.random() * source.length);
-
-            const pickedItemId = source[pickedIndex];
-            if (!pickedItemId) {
-                continue;
-            }
-
-            const count = randomIntInclusive(countMin, countMax);
-
-            const item = this.createItem(pickedItemId, count);
-            if (item) {
-                result.push(item);
-            }
-            if (!allowDuplicates) {
-                pool.splice(pickedIndex, 1);
-            }
-        }
-        return result;
+        return this.dropTableRegistry.rollLootPoolItems(query);
     }
     
     normalizeItem(item) {
@@ -195,53 +150,7 @@ export class ContentTemplateRepository {
     }
     
     rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context = {}) {
-
-
-        const dropTable = this.monsterDropsByMonsterId.get(monsterId);
-        if (!dropTable || dropTable.length === 0) {
-            return [];
-        }
-
-        const normalizedRolls = Math.max(1, Math.trunc(rolls));
-
-        const result = new Map();
-
-        const normalizedLootRateBonus = Number.isFinite(lootRateBonus) ? lootRateBonus : 0;
-
-        const normalizedRareLootRateBonus = Number.isFinite(rareLootRateBonus) ? rareLootRateBonus : 0;
-        for (let rollIndex = 0; rollIndex < normalizedRolls; rollIndex += 1) {
-            for (const drop of dropTable) {
-                const baseChance = typeof drop.chance === 'number' ? Math.max(0, Math.min(1, drop.chance)) : 1;
-                const totalRateBonus = normalizedLootRateBonus + (baseChance <= 0.001 ? normalizedRareLootRateBonus : 0);
-
-                const killEquivalent = totalRateBonus >= 0
-                    ? 1 + totalRateBonus / 10000
-                    : 1 / (1 + Math.abs(totalRateBonus) / 10000);
-
-                const chance = baseChance <= 0 || killEquivalent <= 0
-                    ? 0
-                    : (1 - Math.pow(1 - baseChance, killEquivalent))
-                        * this.getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context);
-                if (chance <= 0 || Math.random() > chance) {
-                    continue;
-                }
-
-                const existing = result.get(drop.itemId);
-                if (existing) {
-                    existing.count += drop.count;
-                    continue;
-                }
-
-                const item = this.createItem(drop.itemId, drop.count) ?? {
-                    itemId: drop.itemId,
-                    name: drop.name,
-                    type: drop.type,
-                    count: drop.count,
-                };
-                result.set(drop.itemId, item);
-            }
-        }
-        return Array.from(result.values()).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+        return this.dropTableRegistry.rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context);
     }
     
     createRuntimeMonstersForMap(mapId) {
@@ -436,7 +345,7 @@ export class ContentTemplateRepository {
                     this.monsterRuntimeTemplates.set(monsterId, runtimeTemplate);
                 }
 
-                const drops = this.buildMonsterDrops(monster.drops, monster.equipment, {
+                const drops = this.dropTableRegistry.buildMonsterDrops(monster.drops, monster.equipment, {
                     grade: normalizeTechniqueGrade(monster.grade),
                     tier: normalizeMonsterTier(monster.tier ?? inferMonsterTierFromName(monster.name)),
 
@@ -450,280 +359,66 @@ export class ContentTemplateRepository {
                 }
             }
         }
+        this.dropTableRegistry.freezeAll();
         this.loadMonsterRuntimeStates();
     }
     
     buildMonsterDrops(rawDrops, rawEquipment, context) {
-
-
-        const configuredDrops = Array.isArray(rawDrops)
-            ? rawDrops
-                .map((entry) => this.normalizeMonsterDropEntry(entry))
-                .filter((entry) => Boolean(entry))
-            : [];
-
-        let spiritStoneOverride = undefined;
-
-        const drops = [];
-        for (const entry of configuredDrops) {
-            if (entry.itemId === 'spirit_stone') {
-                spiritStoneOverride = entry;
-                continue;
-            }
-            drops.push(this.resolveMonsterDropChance(entry, context));
-        }
-
-        const existingItemIds = new Set(drops.map((entry) => entry.itemId));
-        if (rawEquipment && typeof rawEquipment === 'object') {
-
-            const equipment = rawEquipment;
-            for (const slot of EQUIP_SLOTS) {
-                const itemId = this.resolveRawEquipmentItemId(equipment[slot]);
-                if (!itemId || existingItemIds.has(itemId)) {
-                    continue;
-                }
-
-                const item = this.itemTemplates.get(itemId);
-                if (!item || item.type !== 'equipment') {
-                    continue;
-                }
-                drops.push(this.resolveMonsterDropChance({
-                    itemId,
-                    name: item.name ?? itemId,
-                    type: item.type,
-                    count: 1,
-                }, context));
-                existingItemIds.add(itemId);
-            }
-        }
-
-        const spiritStoneDrop = context?.suppressSpiritStoneDrop === true
-            ? null
-            : this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
-        if (spiritStoneDrop) {
-            drops.push(spiritStoneDrop);
-        }
-        return drops;
+        return this.dropTableRegistry.buildMonsterDrops(rawDrops, rawEquipment, context);
     }
     
     resolveMonsterDropChance(drop, context) {
-
-        if (typeof drop.chance === 'number') {
-            return {
-                ...drop,
-                chance: Math.max(0, Math.min(1, drop.chance)),
-            };
-        }
-        return {
-            ...drop,
-            chance: this.computeDefaultMonsterDropChance(drop, context),
-        };
+        return this.dropTableRegistry.resolveMonsterDropChance(drop, context);
     }
     
     computeDefaultMonsterDropChance(drop, context) {
-
-        if (drop.type === 'quest_item') {
-            return 1;
-        }
-        if (drop.type === 'material') {
-            return this.getMaterialBaseDropChance(context.tier);
-        }
-        if (drop.type === 'equipment') {
-            return this.getEquipmentBaseDropChance(context.tier);
-        }
-
-        const categoryBase = this.getMonsterDropCategoryBase(drop);
-
-        const itemGrade = this.getMonsterDropItemGrade(drop);
-
-        const monsterGradeIndex = resolveTechniqueGradeOrder(context.grade) ?? 0;
-
-        const itemGradeIndex = resolveTechniqueGradeOrder(itemGrade) ?? 0;
-
-        const gradeDelta = Math.max(-7, monsterGradeIndex - itemGradeIndex);
-
-        const chance = 0.01 * categoryBase * (3 ** gradeDelta) * this.getMonsterTierDropFactor(context.tier);
-        return Math.max(Number.MIN_VALUE, Math.min(1, chance));
+        return this.dropTableRegistry.computeDefaultMonsterDropChance(drop, context);
     }
     
     getMaterialBaseDropChance(tier) {
-        switch (tier) {
-            case 'variant':
-                return 0.2;
-            case 'demon_king':
-                return 0.5;
-            default:
-                return 0.05;
-        }
+        return this.dropTableRegistry.getMaterialBaseDropChance(tier);
     }
     getEquipmentBaseDropChance(tier) {
-        switch (tier) {
-            case 'variant':
-                return 0.2;
-            case 'demon_king':
-                return 0.5;
-            default:
-                return 0.05;
-        }
+        return this.dropTableRegistry.getEquipmentBaseDropChance(tier);
     }
     getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context) {
-        if (drop.itemId !== 'spirit_stone' || normalizeSharedMonsterTier(context?.monsterTier) !== 'mortal_blood') {
-            return 1;
-        }
-        const playerRealmLv = Math.max(1, Math.floor(Number(context?.playerRealmLv) || 1));
-        const monsterLevel = Math.max(1, Math.floor(Number(context?.monsterLevel) || 1));
-        return playerRealmLv - monsterLevel >= ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD
-            ? ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER
-            : 1;
+        return this.dropTableRegistry.getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context);
     }
     
     getMonsterDropCategoryBase(drop) {
-
-        if (drop.itemId === 'spirit_stone') {
-            return 1;
-        }
-        switch (drop.type) {
-            case 'skill_book':
-                return 1;
-            case 'equipment':
-                return 2;
-            case 'material':
-                return 20;
-            case 'consumable':
-                return 10;
-            case 'quest_item':
-                return 100;
-            default:
-                return 1;
-        }
+        return this.dropTableRegistry.getMonsterDropCategoryBase(drop);
     }
     
     getMonsterTierDropFactor(tier) {
-        switch (tier) {
-            case 'variant':
-                return 1 / 3;
-            case 'demon_king':
-                return 1;
-            default:
-                return 0.1;
-        }
+        return this.dropTableRegistry.getMonsterTierDropFactor(tier);
     }
     
     getMonsterDropItemGrade(drop) {
-
-
-        const item = this.itemTemplates.get(drop.itemId);
-        if (item?.grade) {
-            return normalizeTechniqueGrade(item.grade);
-        }
-        if (item?.learnTechniqueId) {
-            return normalizeTechniqueGrade(this.techniqueTemplates.get(item.learnTechniqueId)?.grade);
-        }
-        if (typeof item?.level === 'number' && Number.isFinite(item.level)) {
-            return inferTechniqueGradeFromItemLevel(item.level);
-        }
-        return 'mortal';
+        return this.dropTableRegistry.getMonsterDropItemGrade(drop);
     }
     
     buildSpiritStoneMonsterDrop(context, override) {
-
-
-        const item = this.itemTemplates.get('spirit_stone');
-        if (!item) {
-            return null;
-        }
-
-        const count = typeof override?.count === 'number' && Number.isFinite(override.count)
-            ? Math.max(1, Math.trunc(override.count))
-            : this.computeSpiritStoneDropCount(context);
-
-        const chance = typeof override?.chance === 'number' && Number.isFinite(override.chance)
-            ? Math.max(0, Math.min(1, override.chance))
-            : this.computeSpiritStoneDropChance(context.tier);
-        return {
-            itemId: item.itemId,
-            name: item.name ?? item.itemId,
-            type: item.type,
-            count,
-            chance,
-        };
+        return this.dropTableRegistry.buildSpiritStoneMonsterDrop(context, override);
     }
     
     computeSpiritStoneDropChance(tier) {
-        switch (tier) {
-            case 'variant':
-                return 0.03;
-            case 'demon_king':
-                return 0.1;
-            default:
-                return 0.01;
-        }
+        return this.dropTableRegistry.computeSpiritStoneDropChance(tier);
     }
     
     computeSpiritStoneDropCount(context) {
-
-        const gradeIndex = Math.max(0, resolveTechniqueGradeOrder(context.grade) ?? 0);
-
-        const level = typeof context.level === 'number' && Number.isFinite(context.level)
-            ? Math.max(1, Math.trunc(context.level))
-            : 1;
-        return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
+        return this.dropTableRegistry.computeSpiritStoneDropCount(context);
     }
     
     resolveRawEquipmentItemId(entry) {
-
-        if (typeof entry === 'string') {
-            return entry.trim();
-        }
-        if (entry && typeof entry === 'object' && typeof entry.itemId === 'string') {
-            return entry.itemId.trim();
-        }
-        return '';
+        return this.dropTableRegistry.resolveRawEquipmentItemId(entry);
     }
     
     normalizeMonsterDropEntry(raw) {
-
-        if (!raw || typeof raw !== 'object') {
-            return null;
-        }
-
-        const candidate = raw;
-        if (typeof candidate.itemId !== 'string' || !candidate.itemId.trim()) {
-            return null;
-        }
-
-        const itemId = candidate.itemId.trim();
-
-        const item = this.itemTemplates.get(itemId);
-
-        const type = candidate.type ?? item?.type;
-        if (!type) {
-            return null;
-        }
-        return {
-            itemId,
-
-            name: typeof candidate.name === 'string' && candidate.name.trim()
-                ? candidate.name
-                : (item?.name ?? itemId),
-            type,
-            count: Number.isFinite(candidate.count) ? Math.max(1, Math.trunc(candidate.count ?? 1)) : 1,
-            chance: Number.isFinite(candidate.chance) ? Math.max(0, Math.min(1, Number(candidate.chance))) : undefined,
-        };
+        return this.dropTableRegistry.normalizeMonsterDropEntry(raw);
     }
     
     getLootPoolCandidateIds(query) {
-
-
-        const result = [];
-        for (const [itemId, item] of this.itemTemplates) {
-            if (!matchesLootPoolFilters(item, query)) {
-                continue;
-            }
-            result.push(itemId);
-        }
-        result.sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
-        return result;
+        return this.dropTableRegistry.getLootPoolCandidateIds(query);
     }
     
     normalizeMonsterRuntimeTemplate(raw) {

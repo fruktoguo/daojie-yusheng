@@ -167,6 +167,7 @@ class MapInstanceRuntime {
  */
 
     monsterSpawnGroupsByKey = new Map();
+    buffRegistry = null;
     /**
  * monsterSpawnAccelerationStatesByKey：普通妖兽刷新点清场加速状态。
  */
@@ -395,6 +396,7 @@ class MapInstanceRuntime {
             lastPersistedAt: request.lastPersistedAt ?? null,
         };
         this.template = request.template;
+        this.buffRegistry = request.buffRegistry ?? null;
         this.tilePlane = RuntimeTilePlane.fromTemplate(request.template);
         const initialCellCapacity = this.tilePlane.getCellCapacity();
         this.occupancy = new Uint32Array(initialCellCapacity);
@@ -503,7 +505,7 @@ class MapInstanceRuntime {
                 attackReadyTick: 0,
             };
             if (state.alive) {
-                applyMonsterInitialBuffs(state);
+                applyMonsterInitialBuffs(state, this.buffRegistry);
                 recalculateMonsterDerivedState(state);
             }
             this.monstersByRuntimeId.set(monster.runtimeId, state);
@@ -3046,7 +3048,7 @@ class MapInstanceRuntime {
             attackReadyTick: 0,
         };
         if (state.alive) {
-            applyMonsterInitialBuffs(state);
+            applyMonsterInitialBuffs(state, this.buffRegistry);
             recalculateMonsterDerivedState(state);
         }
         this.monstersByRuntimeId.set(runtimeId, state);
@@ -3727,7 +3729,7 @@ class MapInstanceRuntime {
                 }
             }
             if (monster.alive) {
-                ensureMonsterInitialBuffs(monster);
+                ensureMonsterInitialBuffs(monster, this.buffRegistry);
             }
             if (!recalculateMonsterBaseStatsFromFormula(monster)) {
                 recalculateMonsterDerivedState(monster);
@@ -5789,7 +5791,7 @@ class MapInstanceRuntime {
         monster.lastSeenTargetTick = undefined;
         monster.buffs.length = 0;
         monster.damageContributors = {};
-        applyMonsterInitialBuffs(monster);
+        applyMonsterInitialBuffs(monster, this.buffRegistry);
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
@@ -6407,14 +6409,16 @@ function recalculateMonsterBaseStatsFromFormula(monster) {
     return true;
 }
 /** applyMonsterInitialBuffs：按模板给妖兽重建出生自带 Buff。 */
-function applyMonsterInitialBuffs(monster) {
+function applyMonsterInitialBuffs(monster, buffRegistry = null) {
     monster.buffs.length = 0;
-    ensureMonsterInitialBuffs(monster);
+    ensureMonsterInitialBuffs(monster, buffRegistry);
 }
 /** ensureMonsterInitialBuffs：补齐或刷新妖兽模板要求的出生 Buff，不覆盖战斗临时 Buff。 */
-function ensureMonsterInitialBuffs(monster) {
+function ensureMonsterInitialBuffs(monster, buffRegistry = null) {
     for (const effect of monster.initialBuffs ?? []) {
-        const buff = createRuntimeTemporaryBuff(buildMonsterInitialBuffState(monster, effect));
+        const buff = buffRegistry
+            ? buffRegistry.createInstanceFromTemplate(effect, buildMonsterInitialBuffState(monster, effect))
+            : createRuntimeTemporaryBuff(buildMonsterInitialBuffState(monster, effect));
         if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
             continue;
         }

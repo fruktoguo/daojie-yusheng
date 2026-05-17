@@ -6079,14 +6079,33 @@ function cloneItemWithCountPreservingTemplate(item, count) {
     if (!item || typeof item !== 'object') {
         return item;
     }
-    return Object.assign(Object.create(Object.getPrototypeOf(item)), item, { count });
+    const cloned = cloneItemOwnFieldsPreservingTemplate(item);
+    defineClonedItemValue(cloned, 'count', count);
+    return cloned;
 }
 
 function cloneItemPreservingTemplate(item) {
     if (!item || typeof item !== 'object') {
         return item;
     }
-    return Object.assign(Object.create(Object.getPrototypeOf(item)), item);
+    return cloneItemOwnFieldsPreservingTemplate(item);
+}
+
+function cloneItemOwnFieldsPreservingTemplate(item) {
+    const cloned = Object.create(Object.getPrototypeOf(item));
+    for (const [key, value] of Object.entries(item)) {
+        defineClonedItemValue(cloned, key, value);
+    }
+    return cloned;
+}
+
+function defineClonedItemValue(target, key, value) {
+    Object.defineProperty(target, key, {
+        value,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+    });
 }
 /**
  * toTechniqueUpdateEntry：处理to功法Update条目并更新相关状态。

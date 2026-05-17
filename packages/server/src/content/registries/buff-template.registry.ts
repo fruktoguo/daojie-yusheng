@@ -1,5 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
+import {
+  PVP_SHA_BACKLASH_BUFF_ID,
+  PVP_SHA_BACKLASH_DECAY_TICKS,
+  PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+  PVP_SHA_BACKLASH_SOURCE_ID,
+  PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
+  PVP_SHA_INFUSION_BUFF_ID,
+  PVP_SHA_INFUSION_DECAY_TICKS,
+  PVP_SHA_INFUSION_SOURCE_ID,
+  PVP_SOUL_INJURY_BUFF_ID,
+  PVP_SOUL_INJURY_DURATION_TICKS,
+  PVP_SOUL_INJURY_SOURCE_ID,
+} from '../../constants/gameplay/pvp';
 import { createRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
 import { resolveProjectPath } from '../../common/project-path';
 import { collectJsonFiles, normalizeSharedTechniqueBuffEffect } from '../content-template-utils';
@@ -22,10 +35,16 @@ const BUFF_INSTANCE_OWN_KEYS = new Set([
 export class BuffTemplateRegistry {
   readonly sharedTechniqueBuffs = new Map<string, any>();
   readonly buffTemplates = new Map<string, any>();
+  private readonly pvpSoulInjuryBuffByRealmLv = new Map<number, any>();
+  private readonly pvpShaInfusionBuffByRealmLv = new Map<number, any>();
+  private readonly pvpShaBacklashBuffByRealmLv = new Map<number, any>();
 
   loadAll(): void {
     this.sharedTechniqueBuffs.clear();
     this.buffTemplates.clear();
+    this.pvpSoulInjuryBuffByRealmLv.clear();
+    this.pvpShaInfusionBuffByRealmLv.clear();
+    this.pvpShaBacklashBuffByRealmLv.clear();
     this.loadSharedTechniqueBuffs();
   }
 
@@ -78,6 +97,14 @@ export class BuffTemplateRegistry {
 
   createInstance(buffId: string, init: any = {}): any {
     const template = this.getRef(buffId);
+    return this.createInstanceFromTemplate(template, init);
+  }
+
+  createInstanceFromTemplate(template: any, init: any = {}): any {
+    const buffId = String(template?.buffId ?? template?.id ?? '').trim();
+    if (!buffId) {
+      throw new Error('Buff 模板缺少 buffId');
+    }
     const source: Record<string, any> = {};
     for (const key of Object.keys(init ?? {})) {
       if (BUFF_INSTANCE_OWN_KEYS.has(key)) {
@@ -106,4 +133,132 @@ export class BuffTemplateRegistry {
     freezeTemplateMap(this.sharedTechniqueBuffs);
     freezeTemplateMap(this.buffTemplates);
   }
+
+  createPvPSoulInjuryBuff(sourceRealmLv: number): any {
+    const template = this.getOrBuildPvpSoulInjuryTemplate(sourceRealmLv);
+    return this.createInstanceFromTemplate(template, template);
+  }
+
+  createPvPShaInfusionBuff(sourceRealmLv: number): any {
+    const template = this.getOrBuildPvpShaInfusionTemplate(sourceRealmLv);
+    return this.createInstanceFromTemplate(template, template);
+  }
+
+  createPvPShaBacklashBuff(sourceRealmLv: number, stacks = 1): any {
+    const template = this.getOrBuildPvpShaBacklashTemplate(sourceRealmLv);
+    return this.createInstanceFromTemplate(template, {
+      ...template,
+      stacks: Math.max(1, Math.trunc(Number(stacks) || 1)),
+    });
+  }
+
+  private getOrBuildPvpSoulInjuryTemplate(sourceRealmLv: number): any {
+    const realmLv = normalizeRealmLevel(sourceRealmLv);
+    const cached = this.pvpSoulInjuryBuffByRealmLv.get(realmLv);
+    if (cached) {
+      return cached;
+    }
+    const template = deepFreezeTemplate({
+      buffId: PVP_SOUL_INJURY_BUFF_ID,
+      name: '神魂受损',
+      desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+      baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+      shortMark: '残',
+      category: 'debuff',
+      visibility: 'public',
+      remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS,
+      duration: PVP_SOUL_INJURY_DURATION_TICKS,
+      stacks: 1,
+      maxStacks: 1,
+      sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
+      sourceSkillName: '杀孽',
+      realmLv,
+      color: '#8a5a64',
+      persistOnDeath: true,
+      persistOnReturnToSpawn: true,
+    });
+    this.pvpSoulInjuryBuffByRealmLv.set(realmLv, template);
+    this.buffTemplates.set(`${PVP_SOUL_INJURY_BUFF_ID}:${realmLv}`, template);
+    return template;
+  }
+
+  private getOrBuildPvpShaInfusionTemplate(sourceRealmLv: number): any {
+    const realmLv = normalizeRealmLevel(sourceRealmLv);
+    const cached = this.pvpShaInfusionBuffByRealmLv.get(realmLv);
+    if (cached) {
+      return cached;
+    }
+    const desc = `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`;
+    const template = deepFreezeTemplate({
+      buffId: PVP_SHA_INFUSION_BUFF_ID,
+      name: '煞气入体',
+      desc,
+      baseDesc: desc,
+      shortMark: '煞',
+      category: 'buff',
+      visibility: 'public',
+      remainingTicks: PVP_SHA_INFUSION_DECAY_TICKS,
+      duration: PVP_SHA_INFUSION_DECAY_TICKS,
+      stacks: 1,
+      maxStacks: 999999,
+      sourceSkillId: PVP_SHA_INFUSION_SOURCE_ID,
+      sourceSkillName: '杀孽',
+      realmLv,
+      color: '#7a2e2e',
+      stats: deepFreezeTemplate({
+        physAtk: 1,
+        spellAtk: 1,
+        physDef: -2,
+        spellDef: -2,
+      }),
+      statMode: 'percent',
+      persistOnDeath: true,
+      persistOnReturnToSpawn: true,
+    });
+    this.pvpShaInfusionBuffByRealmLv.set(realmLv, template);
+    this.buffTemplates.set(`${PVP_SHA_INFUSION_BUFF_ID}:${realmLv}`, template);
+    return template;
+  }
+
+  private getOrBuildPvpShaBacklashTemplate(sourceRealmLv: number): any {
+    const realmLv = normalizeRealmLevel(sourceRealmLv);
+    const cached = this.pvpShaBacklashBuffByRealmLv.get(realmLv);
+    if (cached) {
+      return cached;
+    }
+    const desc = `每层攻击 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`;
+    const template = deepFreezeTemplate({
+      buffId: PVP_SHA_BACKLASH_BUFF_ID,
+      name: '煞气反噬',
+      desc,
+      baseDesc: desc,
+      shortMark: '蚀',
+      category: 'debuff',
+      visibility: 'public',
+      remainingTicks: PVP_SHA_BACKLASH_DECAY_TICKS,
+      duration: PVP_SHA_BACKLASH_DECAY_TICKS,
+      stacks: 1,
+      maxStacks: 999999,
+      sourceSkillId: PVP_SHA_BACKLASH_SOURCE_ID,
+      sourceSkillName: '煞气反噬',
+      realmLv,
+      color: '#6d2626',
+      stats: deepFreezeTemplate({
+        physAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+        spellAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+        physDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+        spellDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+      }),
+      statMode: 'percent',
+      persistOnDeath: true,
+      persistOnReturnToSpawn: true,
+    });
+    this.pvpShaBacklashBuffByRealmLv.set(realmLv, template);
+    this.buffTemplates.set(`${PVP_SHA_BACKLASH_BUFF_ID}:${realmLv}`, template);
+    return template;
+  }
+}
+
+function normalizeRealmLevel(value: number): number {
+  return Math.max(1, Math.floor(Number(value) || 1));
 }

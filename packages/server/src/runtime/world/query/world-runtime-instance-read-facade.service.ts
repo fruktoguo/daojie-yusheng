@@ -119,6 +119,7 @@ export class WorldRuntimeInstanceReadFacadeService {
         const instance = new MapInstanceRuntime({
             instanceId: input.instanceId,
             template,
+            buffRegistry: deps.contentTemplateRepository.buffRegistry,
             monsterSpawns: deps.contentTemplateRepository.createRuntimeMonstersForMap(template.id),
             kind: input.kind,
             persistent: input.persistent,
