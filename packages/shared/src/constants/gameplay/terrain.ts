@@ -97,4 +97,4 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
 export const TERRAIN_REALM_BASE_HP = 100;
 
 /** 地图境界等级每提升一级的生命成长倍率。 */
-export const TERRAIN_REALM_HP_GROWTH_RATE = 1.3;
+export const TERRAIN_REALM_HP_GROWTH_RATE = 1.4;
