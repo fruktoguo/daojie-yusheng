@@ -469,54 +469,58 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
   return finalizeSummary(breakdown, []);
 }
 
+/** 六维属性中文标签（模块级常量，避免每次调用重建）。 */
+const ATTR_LABELS: Record<string, string> = {
+  constitution: '体魄',
+  spirit: '神识',
+  perception: '身法',
+  talent: '根骨',
+  strength: '力道',
+  meridians: '经脉',
+};
+
 /** 返回六维属性的中文标签。 */
 function getAttrLabel(key: string): string {
-  const labels: Record<string, string> = {
-    constitution: '体魄',
-    spirit: '神识',
-    perception: '身法',
-    talent: '根骨',
-    strength: '力道',
-    meridians: '经脉',
-  };
-  return labels[key] ?? key;
+  return ATTR_LABELS[key] ?? key;
 }
+
+/** 数值属性中文标签（模块级常量，避免每次调用重建）。 */
+const NUMERIC_STAT_LABELS: Record<string, string> = {
+  maxHp: '最大生命',
+  maxQi: '最大灵力',
+  physAtk: '物攻',
+  spellAtk: '法攻',
+  physDef: '物防',
+  spellDef: '法防',
+  hit: '命中',
+  dodge: '闪避',
+  crit: '暴击',
+  antiCrit: '免爆',
+  critDamage: '暴伤',
+  breakPower: '破招',
+  resolvePower: '化解',
+  maxQiOutputPerTick: '每息灵力输出上限',
+  moveSpeed: '移速',
+  qiRegenRate: '灵力回复',
+  hpRegenRate: '生命回复',
+  cooldownSpeed: '冷却速度',
+  auraCostReduce: '灵气消耗减免',
+  auraPowerRate: '灵气强度',
+  playerExpRate: '境界修为倍率',
+  techniqueExpRate: '功法经验倍率',
+  realmExpPerTick: '境界修炼效率',
+  techniqueExpPerTick: '功法修炼效率',
+  lootRate: '掉落倍率',
+  rareLootRate: '稀有掉落倍率',
+  viewRange: '视野范围',
+  extraRange: '额外射程',
+  extraArea: '额外范围',
+  actionsPerTurn: '每回合行动次数',
+};
 
 /** 返回数值属性的中文标签。 */
 function getNumericStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    maxHp: '最大生命',
-    maxQi: '最大灵力',
-    physAtk: '物攻',
-    spellAtk: '法攻',
-    physDef: '物防',
-    spellDef: '法防',
-    hit: '命中',
-    dodge: '闪避',
-    crit: '暴击',
-    antiCrit: '免爆',
-    critDamage: '暴伤',
-    breakPower: '破招',
-    resolvePower: '化解',
-    maxQiOutputPerTick: '每息灵力输出上限',
-    moveSpeed: '移速',
-    qiRegenRate: '灵力回复',
-    hpRegenRate: '生命回复',
-    cooldownSpeed: '冷却速度',
-    auraCostReduce: '灵气消耗减免',
-    auraPowerRate: '灵气强度',
-    playerExpRate: '境界修为倍率',
-    techniqueExpRate: '功法经验倍率',
-    realmExpPerTick: '境界修炼效率',
-    techniqueExpPerTick: '功法修炼效率',
-    lootRate: '掉落倍率',
-    rareLootRate: '稀有掉落倍率',
-    viewRange: '视野范围',
-    extraRange: '额外射程',
-    extraArea: '额外范围',
-    actionsPerTurn: '每回合行动次数',
-  };
-  return labels[key] ?? key;
+  return NUMERIC_STAT_LABELS[key] ?? key;
 }
 
 /** 读取装备等级的线性成长倍率。 */
