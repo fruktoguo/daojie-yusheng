@@ -34,6 +34,7 @@ import { WorldSyncAuxStateService } from './network/world-sync-aux-state.service
 import { WorldSyncEnvelopeService } from './network/world-sync-envelope.service';
 import { WorldSyncPlayerStateService } from './network/world-sync-player-state.service';
 import { WorldSyncService } from './network/world-sync.service';
+import { WorldGatewayBuildingHelper } from './network/world-gateway-building.helper';
 import { WorldGatewayClientEmitHelper } from './network/world-gateway-client-emit.helper';
 import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { WorldGatewaySessionStateHelper } from './network/world-gateway-session-state.helper';
@@ -340,6 +341,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldSyncPlayerStateService,
     WorldSyncService,
     RuntimeMaintenanceService,
+    WorldGatewayBuildingHelper,
     WorldGatewayClientEmitHelper,
     WorldGatewayGuardHelper,
     WorldGatewaySessionStateHelper,

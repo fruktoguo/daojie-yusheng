@@ -198,6 +198,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
         }
       },
     } as never,
+    {} as never,
   );
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);

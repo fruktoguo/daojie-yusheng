@@ -3,80 +3,85 @@
  * 收敛建筑放置、拆除、房间角色设置和风水观察等入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
-
+import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
+import type { Socket } from 'socket.io';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 建筑系统 helper：收敛放置、拆除、房间角色和风水观察入口 */
+@Injectable()
 class WorldGatewayBuildingHelper {
-    private readonly gateway: WorldGatewayHelperContext;
-constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly worldRuntimeService: WorldRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
 
-    handleBuildPlaceIntent(client, payload) {
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    handleBuildPlaceIntent(client: Socket, payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            const result = this.gateway.worldRuntimeService.handleBuildPlaceIntent(playerId, payload);
+            const result = this.worldRuntimeService.handleBuildPlaceIntent(playerId, payload);
             client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
-                client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                client.emit(S2C.RoomSummaryPatch, this.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
             }
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'BUILD_PLACE_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'BUILD_PLACE_FAILED', error);
         }
     }
 
-    handleBuildDeconstruct(client, payload) {
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    handleBuildDeconstruct(client: Socket, payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            const result = this.gateway.worldRuntimeService.handleBuildDeconstructIntent(playerId, payload);
+            const result = this.worldRuntimeService.handleBuildDeconstructIntent(playerId, payload);
             client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
-                client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                client.emit(S2C.RoomSummaryPatch, this.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
             }
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'BUILD_DECONSTRUCT_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'BUILD_DECONSTRUCT_FAILED', error);
         }
     }
 
-    handleRoomSetRole(client, payload) {
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    handleRoomSetRole(client: Socket, payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            const result = this.gateway.worldRuntimeService.handleRoomSetRoleIntent(playerId, payload);
+            const result = this.worldRuntimeService.handleRoomSetRoleIntent(playerId, payload);
             if (result?.ok !== true) {
                 client.emit(S2C.BuildResult, result);
                 return;
             }
-            client.emit(S2C.RoomSummaryPatch, this.gateway.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
-            const view = this.gateway.worldRuntimeService.buildFengShuiObserveView(playerId, { roomId: payload?.roomId, overlay: false });
+            client.emit(S2C.RoomSummaryPatch, this.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+            const view = this.worldRuntimeService.buildFengShuiObserveView(playerId, { roomId: payload?.roomId, overlay: false });
             if (view?.detail) {
                 client.emit(S2C.FengShuiDetail, view.detail);
             }
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'ROOM_SET_ROLE_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'ROOM_SET_ROLE_FAILED', error);
         }
     }
 
-    handleFengShuiObserve(client, payload) {
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    handleFengShuiObserve(client: Socket, payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            const view = this.gateway.worldRuntimeService.buildFengShuiObserveView(playerId, payload);
+            const view = this.worldRuntimeService.buildFengShuiObserveView(playerId, payload);
             if (view?.overlay) {
                 client.emit(S2C.FengShuiOverlayPatch, view.overlay);
             }
@@ -85,7 +90,7 @@ constructor(gateway: WorldGatewayHelperContext) {
             }
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'FENGSHUI_OBSERVE_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'FENGSHUI_OBSERVE_FAILED', error);
         }
     }
 }
