@@ -1938,10 +1938,24 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           JSON.stringify(normalizeJsonObjectPayload(activeSearchPayload)),
         ],
       );
-      for (let entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
-        const entry = entries[entryIndex] && typeof entries[entryIndex] === 'object'
-          ? entries[entryIndex] as Record<string, unknown>
-          : {};
+      if (entries.length > 0) {
+        const entryRows = entries.map((raw, idx) => {
+          const entry = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+          return {
+            idx,
+            payload: JSON.stringify(normalizePersistedItemPayload(entry.item)),
+            createdTick: normalizeNullableInteger(entry.createdTick),
+            visible: entry.visible === true,
+          };
+        });
+        const values = entryRows.map((_, i) => {
+          const base = i * 4 + 3;
+          return `($1, $2, $${base}, $${base + 1}::jsonb, $${base + 2}, $${base + 3}, now())`;
+        }).join(', ');
+        const params: unknown[] = [instanceId, containerId];
+        for (const row of entryRows) {
+          params.push(row.idx, row.payload, row.createdTick, row.visible);
+        }
         await client.query(
           `
             INSERT INTO ${INSTANCE_CONTAINER_ENTRY_TABLE}(
@@ -1953,16 +1967,9 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               visible,
               updated_at
             )
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6, now())
+            VALUES ${values}
           `,
-          [
-            instanceId,
-            containerId,
-            entryIndex,
-            JSON.stringify(normalizePersistedItemPayload(entry.item)),
-            normalizeNullableInteger(entry.createdTick),
-            entry.visible === true,
-          ],
+          params,
         );
       }
       await client.query('COMMIT');
