@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeReadFacadeService } = require("../runtime/world/world-runtime-read-facade.service");
+const { WorldRuntimeReadFacadeService } = require("../runtime/world/query/world-runtime-read-facade.service");
 /**
  * testReadFacade：读取testReadFacade并返回结果。
  * @returns 无返回值，直接更新testReadFacade相关状态。
