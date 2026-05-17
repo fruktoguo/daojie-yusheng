@@ -49,7 +49,7 @@ type ProjectablePlayerBuffState = {
   worldTimeBaseViewRange?: number | null;
 };
 
-const visibleBuffProjectionCache = new WeakMap<VisibleBuffState, VisibleBuffState>();
+const visibleBuffProjectionCache = new WeakMap<VisibleBuffState, { signature: string; projection: VisibleBuffState }>();
 const cultivationBuffProjectionCache = new Map<string, VisibleBuffState>();
 const buildingBuffProjectionCache = new Map<string, VisibleBuffState>();
 const darknessBuffProjectionCache = new Map<string, VisibleBuffState>();
@@ -76,9 +76,10 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
 
 /** 深拷贝单条可见 buff 投影。 */
 export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuffState {
+  const signature = buildVisibleBuffDynamicSignature(source);
   const cached = visibleBuffProjectionCache.get(source);
-  if (cached) {
-    return cached;
+  if (cached?.signature === signature) {
+    return cached.projection;
   }
   const projected: VisibleBuffState = freezeVisibleBuffProjection({
     buffId: source.buffId,
@@ -103,8 +104,19 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
     infiniteDuration: source.infiniteDuration,
     presentationScale: source.presentationScale,
   });
-  visibleBuffProjectionCache.set(source, projected);
+  visibleBuffProjectionCache.set(source, { signature, projection: projected });
   return projected;
+}
+
+function buildVisibleBuffDynamicSignature(source: VisibleBuffState): string {
+  return [
+    source.remainingTicks ?? '',
+    source.duration ?? '',
+    source.stacks ?? '',
+    source.maxStacks ?? '',
+    source.realmLv ?? '',
+    source.infiniteDuration === true ? 1 : 0,
+  ].join('|');
 }
 
 /** 构建修炼状态的虚拟 buff 投影（不写回运行时 buff 真源）。 */

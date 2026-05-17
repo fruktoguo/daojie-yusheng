@@ -17,6 +17,7 @@ import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
+import { materializeRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { NativeManagedAccountService } from './native-managed-account.service';
@@ -811,7 +812,7 @@ export class NativeGmStateQueryService {
       luck: snapshot.luck ?? 0,
       baseAttrs: normalizeRawBaseAttrs(snapshot.attrs.rawBaseAttrs),
       bonuses: [],
-      temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+      temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
       finalAttrs: { ...snapshot.attrs.finalAttrs },
       numericStats: { ...snapshot.attrs.numericStats },
       ratioDivisors: cloneRatioDivisors(snapshot.attrs.ratioDivisors),
@@ -902,7 +903,7 @@ export class NativeGmStateQueryService {
       luck: snapshot.progression.luck ?? 0,
       baseAttrs: decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs),
       bonuses: [],
-      temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+      temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
       inventory: {
         capacity: snapshot.inventory.capacity,
         items: Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [],
@@ -1411,45 +1412,6 @@ function toLegacyEquipmentSlots(slots) {
     body: bySlot.get('body') ?? null,
     legs: bySlot.get('legs') ?? null,
     accessory: bySlot.get('accessory') ?? null,
-  };
-}
-/**
- * cloneTemporaryBuff：构建TemporaryBuff。
- * @param entry 参数说明。
- * @returns 无返回值，直接更新TemporaryBuff相关状态。
- */
-
-
-function cloneTemporaryBuff(entry) {
-  return {
-    buffId: entry.buffId,
-    name: entry.name,
-    desc: entry.desc,
-    baseDesc: entry.baseDesc,
-    shortMark: entry.shortMark,
-    category: entry.category,
-    visibility: entry.visibility,
-    remainingTicks: entry.remainingTicks,
-    duration: entry.duration,
-    stacks: entry.stacks,
-    maxStacks: entry.maxStacks,
-    sourceSkillId: entry.sourceSkillId,
-    sourceSkillName: entry.sourceSkillName,
-    realmLv: entry.realmLv,
-    color: entry.color,
-    attrs: entry.attrs,
-    attrMode: entry.attrMode,
-    stats: entry.stats,
-    statMode: entry.statMode,
-    qiProjection: entry.qiProjection,
-    infiniteDuration: entry.infiniteDuration,
-    presentationScale: entry.presentationScale,
-    sustainCost: entry.sustainCost,
-    sustainTicksElapsed: entry.sustainTicksElapsed,
-    expireWithBuffId: entry.expireWithBuffId,
-    persistOnDeath: entry.persistOnDeath,
-    persistOnReturnToSpawn: entry.persistOnReturnToSpawn,
-    sourceCasterId: entry.sourceCasterId,
   };
 }
 /**

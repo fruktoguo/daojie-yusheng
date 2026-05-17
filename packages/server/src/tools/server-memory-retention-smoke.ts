@@ -1534,17 +1534,22 @@ function proveEntryCachesFollowLifecycle(): {
     && !mapInstanceSource.includes('return {\n        ...item,')
     && !mapInstanceSource.includes('return {\n        ...item,\n        itemId: item.itemId,');
 
-  const playerTemporaryBuffCloneUsesPrototypeRefs = playerRuntimeSource.includes('function createTemporaryBuffPrototype(source)')
-    && playerRuntimeSource.includes('Object.assign(Object.create(prototype), {')
-    && playerRuntimeSource.includes('attrs: source.attrs,')
-    && playerRuntimeSource.includes('stats: source.stats,')
-    && playerRuntimeSource.includes('qiProjection: source.qiProjection,')
-    && playerRuntimeSource.includes('function materializeTemporaryBuff(source)')
-    && playerRuntimeSource.includes('toJSON() {\n            return materializeTemporaryBuff(this);\n        }')
-    && playerRuntimeSource.includes('buffs: player.buffs.buffs.map((entry) => materializeTemporaryBuff(entry))')
-    && !playerRuntimeSource.includes('function cloneTemporaryBuff(source) {\n    return {\n        ...source,')
-    && !playerRuntimeSource.includes('function cloneTemporaryBuff(source) {\n    return {\n        ...source,\n        attrs: source.attrs ? { ...source.attrs } : undefined')
-    && !playerRuntimeSource.includes('function cloneTemporaryBuff(source) {\n    return {\n        ...source,\n        attrs: source.attrs ? { ...source.attrs } : undefined,\n        stats: source.stats ? { ...source.stats } : undefined,\n        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined');
+  const runtimeBuffInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/runtime-buff-instance.ts'), 'utf8');
+  const playerTemporaryBuffCloneUsesPrototypeRefs = runtimeBuffInstanceSource.includes('function createRuntimeTemporaryBuffPrototype(source')
+    && runtimeBuffInstanceSource.includes('Object.assign(Object.create(prototype), {')
+    && runtimeBuffInstanceSource.includes('attrs: source.attrs,')
+    && runtimeBuffInstanceSource.includes('stats: source.stats,')
+    && runtimeBuffInstanceSource.includes('qiProjection: source.qiProjection,')
+    && runtimeBuffInstanceSource.includes('export function materializeRuntimeTemporaryBuff(source')
+    && runtimeBuffInstanceSource.includes('toJSON() {\n      return materializeRuntimeTemporaryBuff(this);\n    }')
+    && playerRuntimeSource.includes('buffs: player.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry))')
+    && mapInstanceSource.includes('monster.buffs.push(createRuntimeTemporaryBuff(buff))')
+    && mapInstanceSource.includes('refreshRuntimeTemporaryBuffPrototype(existing, buff)')
+    && !playerRuntimeSource.includes('function cloneTemporaryBuff')
+    && !mapInstanceSource.includes('function cloneTemporaryBuff')
+    && !mapInstanceSource.includes('existing.attrs = buff.attrs ? { ...buff.attrs } : undefined')
+    && !mapInstanceSource.includes('existing.stats = buff.stats ? { ...buff.stats } : undefined')
+    && !mapInstanceSource.includes('existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined');
 
   const playerNoticeDrainSwapsQueueRef = playerRuntimeSource.includes('const queue = player.notices.queue;\n        player.notices.queue = [];')
     && !playerRuntimeSource.includes('const queue = player.notices.queue.map((entry) => ({ ...entry }));\n        player.notices.queue.length = 0;');

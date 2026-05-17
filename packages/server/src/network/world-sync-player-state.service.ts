@@ -362,32 +362,6 @@ function cloneActionEntry(source) {
   return { ...source };
 }
 
-function cloneTemporaryBuff(source) {
-  return {
-    buffId: source.buffId,
-    name: source.name,
-    desc: source.desc,
-    shortMark: source.shortMark,
-    category: source.category,
-    visibility: source.visibility,
-    remainingTicks: source.remainingTicks,
-    duration: source.duration,
-    stacks: source.stacks,
-    maxStacks: source.maxStacks,
-    sourceSkillId: source.sourceSkillId,
-    sourceSkillName: source.sourceSkillName,
-    realmLv: source.realmLv,
-    color: source.color,
-    attrs: source.attrs,
-    attrMode: source.attrMode,
-    stats: source.stats,
-    statMode: source.statMode,
-    qiProjection: source.qiProjection,
-    infiniteDuration: source.infiniteDuration,
-    presentationScale: source.presentationScale,
-  };
-}
-
 function toQuestRuntimeState(source) {
   return {
     id: source.id,

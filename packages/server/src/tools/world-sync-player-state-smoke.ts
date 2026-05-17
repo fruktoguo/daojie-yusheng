@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 
 const { createNumericStats, createNumericRatioDivisors } = require("@mud/shared");
 const { WorldSyncPlayerStateService } = require("../network/world-sync-player-state.service");
+const { createRuntimeTemporaryBuff } = require("../runtime/player/runtime-buff-instance");
 /**
  * createPlayer：构建并返回目标对象。
  * @returns 无返回值，直接更新玩家相关状态。
@@ -122,6 +123,42 @@ function testPlayerState() {
     assert.deepEqual(state.unlockedMinimapIds, ['map.a', 'map.b']);
 }
 
+function testBuffProjectionReusesStableEntry() {
+    const service = new WorldSyncPlayerStateService();
+    const player = createPlayer();
+    const stats = { physAtk: 3 };
+    player.buffs.buffs = [
+        createRuntimeTemporaryBuff({
+            buffId: 'buff:projection',
+            name: '投影缓存',
+            desc: 'desc',
+            shortMark: '投',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 10,
+            duration: 10,
+            stacks: 1,
+            maxStacks: 3,
+            stats,
+            statMode: 'percent',
+        }),
+    ];
+    const first = service.buildPlayerSyncState(player, { instance: { templateId: 'map.a' } }, []).temporaryBuffs[0];
+    const unchanged = service.buildPlayerSyncState(player, { instance: { templateId: 'map.a' } }, []).temporaryBuffs[0];
+    const runtimeBuff = player.buffs.buffs[0];
+    runtimeBuff.remainingTicks = 9;
+    runtimeBuff.stacks = 2;
+    const second = service.buildPlayerSyncState(player, { instance: { templateId: 'map.a' } }, []).temporaryBuffs[0];
+
+    assert.equal(player.buffs.buffs[0], runtimeBuff);
+    assert.equal(first, unchanged);
+    assert.notEqual(first, second);
+    assert.equal(second.remainingTicks, 9);
+    assert.equal(second.stacks, 2);
+    assert.equal(second.stats, stats);
+}
+
 testPlayerState();
+testBuffProjectionReusesStableEntry();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-player-state' }, null, 2));

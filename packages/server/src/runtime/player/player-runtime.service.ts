@@ -17,6 +17,7 @@ import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
+import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from './runtime-buff-instance';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
 
 /** 新角色默认出生地图。 */
@@ -51,6 +52,9 @@ const PENDING_LOGBOOK_KINDS = new Set([
 ]);
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
+const pvpSoulInjuryBuffByRealmLv = new Map();
+const pvpShaInfusionBuffByRealmLv = new Map();
+const pvpShaBacklashBuffByRealmLv = new Map();
 @Injectable()
 export class PlayerRuntimeService {
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
@@ -2675,10 +2679,10 @@ export class PlayerRuntimeService {
             existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
-            refreshTemporaryBuffPrototype(existing, buff);
+            refreshRuntimeTemporaryBuffPrototype(existing, buff);
         }
         else {
-            player.buffs.buffs.push(cloneTemporaryBuff(buff));
+            player.buffs.buffs.push(createRuntimeTemporaryBuff(buff));
         }
         player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         player.buffs.revision += 1;
@@ -2777,10 +2781,10 @@ export class PlayerRuntimeService {
             existing.realmLv = buff.realmLv;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
-            refreshTemporaryBuffPrototype(existing, buff);
+            refreshRuntimeTemporaryBuffPrototype(existing, buff);
         }
         else {
-            const created = cloneTemporaryBuff(buff);
+            const created = createRuntimeTemporaryBuff(buff);
             created.stacks = Math.max(1, Math.round(stackDelta || buff.stacks || 1));
             player.buffs.buffs.push(created);
         }
@@ -3484,7 +3488,7 @@ export class PlayerRuntimeService {
             buffs: {
                 revision: Math.max(1, snapshot.buffs?.revision ?? 1),
                 buffs: Array.isArray(snapshot.buffs?.buffs)
-                    ? snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry))
+                    ? snapshot.buffs.buffs.map((entry) => createRuntimeTemporaryBuff(entry))
                     : [],
             },
             combat: {
@@ -4073,7 +4077,7 @@ function cloneRuntimePlayerState(player) {
         },
         buffs: {
             revision: player.buffs.revision,
-            buffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+            buffs: player.buffs.buffs.map((entry) => createRuntimeTemporaryBuff(entry)),
         },
         combat: {
             cooldownReadyTickBySkillId: { ...player.combat.cooldownReadyTickBySkillId },
@@ -5465,7 +5469,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
-            buffs: player.buffs.buffs.map((entry) => materializeTemporaryBuff(entry)),
+            buffs: player.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
         } : {
             revision: player.buffs.revision,
             buffs: [],
@@ -6702,145 +6706,14 @@ function hasDetachedRuntimeActivity(player) {
 function hasRemainingRuntimeJob(job) {
     return Boolean(job && Number(job.remainingTicks) > 0);
 }
-/**
- * cloneTemporaryBuff：构建TemporaryBuff。
- * @param source 来源对象。
- * @returns 无返回值，直接更新TemporaryBuff相关状态。
- */
-
-function cloneTemporaryBuff(source) {
-    if (!source || typeof source !== 'object') {
-        return source;
-    }
-    const prototype = isTemporaryBuffRuntimeInstance(source)
-        ? Object.getPrototypeOf(source)
-        : createTemporaryBuffPrototype(source);
-    return compactUndefinedFields(Object.assign(Object.create(prototype), {
-        remainingTicks: source.remainingTicks,
-        duration: source.duration,
-        stacks: source.stacks,
-        maxStacks: source.maxStacks,
-        realmLv: source.realmLv,
-        infiniteDuration: source.infiniteDuration,
-        sustainTicksElapsed: source.sustainTicksElapsed,
-        persistOnDeath: source.persistOnDeath,
-        persistOnReturnToSpawn: source.persistOnReturnToSpawn,
-    }));
-}
-
-function isTemporaryBuffRuntimeInstance(source) {
-    const prototype = Object.getPrototypeOf(source);
-    return prototype && prototype !== Object.prototype && typeof prototype.buffId === 'string';
-}
-
-const TEMPORARY_BUFF_PROTOTYPE_KEYS = [
-    'buffId',
-    'name',
-    'desc',
-    'baseDesc',
-    'shortMark',
-    'category',
-    'visibility',
-    'sourceSkillId',
-    'sourceSkillName',
-    'color',
-    'attrs',
-    'attrMode',
-    'stats',
-    'statMode',
-    'qiProjection',
-    'presentationScale',
-    'sustainCost',
-    'expireWithBuffId',
-    'sourceCasterId',
-];
-
-function refreshTemporaryBuffPrototype(target, source) {
-    if (!target || typeof target !== 'object' || !source || typeof source !== 'object') {
-        return;
-    }
-    Object.setPrototypeOf(target, createTemporaryBuffPrototype(source));
-    for (const key of TEMPORARY_BUFF_PROTOTYPE_KEYS) {
-        delete target[key];
-    }
-}
-
-function createTemporaryBuffPrototype(source) {
-    const prototype = {
-        buffId: source.buffId,
-        name: source.name,
-        desc: source.desc,
-        baseDesc: source.baseDesc,
-        shortMark: source.shortMark,
-        category: source.category,
-        visibility: source.visibility,
-        sourceSkillId: source.sourceSkillId,
-        sourceSkillName: source.sourceSkillName,
-        color: source.color,
-        attrs: source.attrs,
-        attrMode: source.attrMode,
-        stats: source.stats,
-        statMode: source.statMode,
-        qiProjection: source.qiProjection,
-        presentationScale: source.presentationScale,
-        sustainCost: source.sustainCost,
-        expireWithBuffId: source.expireWithBuffId,
-        sourceCasterId: source.sourceCasterId,
-        toJSON() {
-            return materializeTemporaryBuff(this);
-        },
-    };
-    return process.env.NODE_ENV === 'production' ? prototype : Object.freeze(prototype);
-}
-
-function compactUndefinedFields(target) {
-    for (const key of Object.keys(target)) {
-        if (target[key] === undefined) {
-            delete target[key];
-        }
-    }
-    return target;
-}
-
-function materializeTemporaryBuff(source) {
-    if (!source || typeof source !== 'object') {
-        return source;
-    }
-    const target = {
-        buffId: source.buffId,
-        name: source.name,
-        desc: source.desc,
-        baseDesc: source.baseDesc,
-        shortMark: source.shortMark,
-        category: source.category,
-        visibility: source.visibility,
-        remainingTicks: source.remainingTicks,
-        duration: source.duration,
-        stacks: source.stacks,
-        maxStacks: source.maxStacks,
-        sourceSkillId: source.sourceSkillId,
-        sourceSkillName: source.sourceSkillName,
-        realmLv: source.realmLv,
-        color: source.color,
-        attrs: source.attrs,
-        attrMode: source.attrMode,
-        stats: source.stats,
-        statMode: source.statMode,
-        qiProjection: source.qiProjection,
-        infiniteDuration: source.infiniteDuration,
-        presentationScale: source.presentationScale,
-        sustainCost: source.sustainCost,
-        sustainTicksElapsed: source.sustainTicksElapsed,
-        expireWithBuffId: source.expireWithBuffId,
-        persistOnDeath: source.persistOnDeath,
-        persistOnReturnToSpawn: source.persistOnReturnToSpawn,
-        sourceCasterId: source.sourceCasterId,
-    };
-    return compactUndefinedFields(target);
-}
 
 function buildPvPSoulInjuryBuffState(sourceRealmLv) {
-    return {
+    const realmLv = Math.max(1, Math.floor(sourceRealmLv));
+    const cached = pvpSoulInjuryBuffByRealmLv.get(realmLv);
+    if (cached) {
+        return cached;
+    }
+    const buff = freezeRuntimeBuffTemplate({
         buffId: PVP_SOUL_INJURY_BUFF_ID,
         name: '神魂受损',
         desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
@@ -6854,11 +6727,13 @@ function buildPvPSoulInjuryBuffState(sourceRealmLv) {
         maxStacks: 1,
         sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
         sourceSkillName: '杀孽',
-        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        realmLv,
         color: '#8a5a64',
         persistOnDeath: true,
         persistOnReturnToSpawn: true,
-    };
+    });
+    pvpSoulInjuryBuffByRealmLv.set(realmLv, buff);
+    return buff;
 }
 
 function getPlayerRealmLevel(player) {
@@ -6866,7 +6741,12 @@ function getPlayerRealmLevel(player) {
 }
 
 function buildPvPShaInfusionBuffState(sourceRealmLv) {
-    return {
+    const realmLv = Math.max(1, Math.floor(sourceRealmLv));
+    const cached = pvpShaInfusionBuffByRealmLv.get(realmLv);
+    if (cached) {
+        return cached;
+    }
+    const buff = freezeRuntimeBuffTemplate({
         buffId: PVP_SHA_INFUSION_BUFF_ID,
         name: '煞气入体',
         desc: `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
@@ -6880,22 +6760,27 @@ function buildPvPShaInfusionBuffState(sourceRealmLv) {
         maxStacks: 999999,
         sourceSkillId: PVP_SHA_INFUSION_SOURCE_ID,
         sourceSkillName: '杀孽',
-        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        realmLv,
         color: '#7a2e2e',
-        stats: {
+        stats: freezeRuntimeBuffTemplate({
             physAtk: 1,
             spellAtk: 1,
             physDef: -2,
             spellDef: -2,
-        },
+        }),
         statMode: 'percent',
         persistOnDeath: true,
         persistOnReturnToSpawn: true,
-    };
+    });
+    pvpShaInfusionBuffByRealmLv.set(realmLv, buff);
+    return buff;
 }
 
 function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
-    return {
+    const realmLv = Math.max(1, Math.floor(sourceRealmLv));
+    let cached = pvpShaBacklashBuffByRealmLv.get(realmLv);
+    if (!cached) {
+        cached = freezeRuntimeBuffTemplate({
         buffId: PVP_SHA_BACKLASH_BUFF_ID,
         name: '煞气反噬',
         desc: `每层攻击 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
@@ -6905,22 +6790,29 @@ function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
         visibility: 'public',
         remainingTicks: PVP_SHA_BACKLASH_DECAY_TICKS,
         duration: PVP_SHA_BACKLASH_DECAY_TICKS,
-        stacks: Math.max(1, Math.floor(stacks)),
+        stacks: 1,
         maxStacks: 999999,
         sourceSkillId: PVP_SHA_BACKLASH_SOURCE_ID,
         sourceSkillName: '煞气反噬',
-        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        realmLv,
         color: '#6d2626',
-        stats: {
+        stats: freezeRuntimeBuffTemplate({
             physAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
             spellAtk: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
             physDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
             spellDef: -PVP_SHA_BACKLASH_PERCENT_PER_STACK,
-        },
+        }),
         statMode: 'percent',
         persistOnDeath: true,
         persistOnReturnToSpawn: true,
-    };
+        });
+        pvpShaBacklashBuffByRealmLv.set(realmLv, cached);
+    }
+    return cached;
+}
+
+function freezeRuntimeBuffTemplate(entry) {
+    return entry && process.env.NODE_ENV !== 'production' ? Object.freeze(entry) : entry;
 }
 
 function entityHasActiveBuff(buffs, buffId, minStacks = 1) {

@@ -12,6 +12,7 @@ import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTile
 import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-calculator.service';
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
+import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
@@ -3184,15 +3185,14 @@ class MapInstanceRuntime {
             existing.remainingTicks = Math.max(existing.remainingTicks, buff.remainingTicks);
             existing.duration = Math.max(existing.duration, buff.duration);
             existing.stacks = Math.min(existing.maxStacks, Math.max(existing.stacks, buff.stacks));
-            existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
-            existing.stats = buff.stats ? { ...buff.stats } : undefined;
-            existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
-            existing.sourceSkillId = buff.sourceSkillId;
-            existing.sourceSkillName = buff.sourceSkillName;
-            existing.color = buff.color;
+            existing.infiniteDuration = buff.infiniteDuration === true;
+            existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
+            existing.persistOnDeath = buff.persistOnDeath === true;
+            existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
+            refreshRuntimeTemporaryBuffPrototype(existing, buff);
         }
         else {
-            monster.buffs.push(cloneTemporaryBuff(buff));
+            monster.buffs.push(createRuntimeTemporaryBuff(buff));
         }
         monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         if (recalculateMonsterDerivedState(monster)) {
@@ -6383,15 +6383,6 @@ function cloneNumericRatioDivisors(source) {
         elementDamageReduce: { ...source.elementDamageReduce },
     };
 }
-/** cloneTemporaryBuff：克隆临时 Buff。 */
-function cloneTemporaryBuff(source) {
-    return {
-        ...source,
-        attrs: source.attrs ? { ...source.attrs } : undefined,
-        stats: source.stats ? { ...source.stats } : undefined,
-        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
-    };
-}
 /** recalculateMonsterBaseStatsFromFormula：按当前等级/血脉重算妖兽基础属性。 */
 function recalculateMonsterBaseStatsFromFormula(monster) {
     const formula = monster.statFormula;
@@ -6423,7 +6414,7 @@ function applyMonsterInitialBuffs(monster) {
 /** ensureMonsterInitialBuffs：补齐或刷新妖兽模板要求的出生 Buff，不覆盖战斗临时 Buff。 */
 function ensureMonsterInitialBuffs(monster) {
     for (const effect of monster.initialBuffs ?? []) {
-        const buff = buildMonsterInitialBuffState(monster, effect);
+        const buff = createRuntimeTemporaryBuff(buildMonsterInitialBuffState(monster, effect));
         if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
             continue;
         }
@@ -6445,8 +6436,8 @@ function buildMonsterInitialBuffState(monster, effect) {
     const stacks = Math.min(maxStacks, Math.max(1, Math.trunc(Number(effect.stacks) || 1)));
     const name = typeof effect.name === 'string' && effect.name.trim() ? effect.name.trim() : effect.buffId;
     const shortMark = typeof effect.shortMark === 'string' && effect.shortMark.trim()
-        ? Array.from(effect.shortMark.trim())[0]
-        : (Array.from(name)[0] ?? '气');
+        ? String(Array.from(effect.shortMark.trim())[0] ?? '气')
+        : String(Array.from(name)[0] ?? '气');
     return {
         buffId: effect.buffId,
         name,
