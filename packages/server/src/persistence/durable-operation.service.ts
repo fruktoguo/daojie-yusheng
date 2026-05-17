@@ -3463,6 +3463,7 @@ async function replacePlayerInventoryItems(
       )
       DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
       WHERE target.player_id = $1
+        AND target.locked_by IS NULL
         AND NOT EXISTS (
           SELECT 1
           FROM incoming

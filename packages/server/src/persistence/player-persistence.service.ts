@@ -109,6 +109,7 @@ interface PlayerSnapshotInventory {
   revision: number;
   capacity: number;
   items: unknown[];
+  lockedItems?: unknown[];
 }
 
 interface PlayerSnapshotWallet {
@@ -624,6 +625,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
         ? Math.max(DEFAULT_INVENTORY_CAPACITY, Math.trunc(inventory.capacity))
         : DEFAULT_INVENTORY_CAPACITY,
       items: Array.isArray(inventory?.items) ? inventory.items : [],
+      lockedItems: Array.isArray(inventory?.lockedItems) ? inventory.lockedItems : [],
     },
     equipment: {
       revision: isFiniteNumber(equipment?.revision) ? Math.trunc(equipment.revision) : 1,

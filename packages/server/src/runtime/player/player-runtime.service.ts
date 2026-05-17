@@ -257,6 +257,7 @@ export class PlayerRuntimeService {
                 revision: 1,
                 capacity: starterInventory.capacity,
                 items: starterInventory.items,
+                lockedItems: [],
             },
             wallet: {
                 balances: [],
@@ -3319,20 +3320,33 @@ export class PlayerRuntimeService {
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository, dirtyDomains);
     }
     /**
- * markPersisted：判断Persisted是否满足条件。
- * @param playerId 玩家 ID。
- * @returns 无返回值，直接更新Persisted相关状态。
- */
-
-    markPersisted(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+     * markPersisted：标记一次落库完成，精确清除已持久化的 dirty domains。
+     * - 传入 persistedDomains：只清除集合内 domain，保留 flush 期间新增的 dirty。
+     * - 传入 persistedRevision：只把 persistedRevision 推进到 min(snapshotRevision, persistentRevision)，
+     *   避免把 buildSnapshot 之后产生的新变更误标为已落库。
+     * - 不传参数：兼容旧链路的"全清"语义。
+     */
+    markPersisted(playerId, persistedDomains, persistedRevision) {
         const player = this.players.get(playerId);
         if (!player) {
             return;
         }
-        player.persistedRevision = player.persistentRevision;
-        clearPlayerDirtyDomains(player);
+
+        // 只清除本轮真正落库的 domains，保留 flush 期间新增的 dirty
+        if (persistedDomains) {
+            for (const domain of persistedDomains) {
+                player.dirtyDomains?.delete(domain);
+            }
+        } else {
+            clearPlayerDirtyDomains(player);
+        }
+
+        // 只推进到快照时的 revision，不跳过 flush 期间的新变更
+        if (persistedRevision != null && Number.isFinite(persistedRevision)) {
+            player.persistedRevision = Math.min(persistedRevision, player.persistentRevision);
+        } else {
+            player.persistedRevision = player.persistentRevision;
+        }
     }
     /**
  * snapshot：执行快照相关逻辑。
@@ -3538,6 +3552,9 @@ export class PlayerRuntimeService {
                 revision: Math.max(1, snapshot.inventory.revision),
                 capacity: Math.max(DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
                 items: snapshot.inventory.items.map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
+                lockedItems: Array.isArray(snapshot.inventory.lockedItems)
+                    ? snapshot.inventory.lockedItems.map((entry) => ({ ...entry }))
+                    : [],
             },
             wallet: {
                 balances: Array.isArray(snapshot.wallet?.balances)
@@ -3669,6 +3686,33 @@ export class PlayerRuntimeService {
         if (upgradedAny) {
             markPlayerDirtyDomains(player, ['inventory', 'equipment']);
             this.bumpPersistentRevision(player);
+        }
+        // 水合期迁移：旧版 enhancementJob 直接持有 item 完整快照；新版只存 itemInstanceId，
+        // 实际物品落在 inventory.lockedItems。若读到旧格式，把 job.item 迁入 lockedItems
+        // 并在 job 上保留 itemInstanceId，保证旧存档的进行中强化任务不丢失工件。
+        if (player.enhancementJob && typeof player.enhancementJob === 'object') {
+            const legacyItem = player.enhancementJob.item;
+            const hasInstanceId = typeof player.enhancementJob.itemInstanceId === 'string'
+                && player.enhancementJob.itemInstanceId.length > 0;
+            if (!hasInstanceId && legacyItem && typeof legacyItem === 'object') {
+                assignItemInstanceIdIfNeeded(legacyItem);
+                const legacyInstanceId = typeof legacyItem.itemInstanceId === 'string'
+                    ? legacyItem.itemInstanceId
+                    : '';
+                if (legacyInstanceId) {
+                    player.inventory.lockedItems.push({
+                        ...legacyItem,
+                        itemInstanceId: legacyInstanceId,
+                        itemId: String(legacyItem.itemId ?? player.enhancementJob.targetItemId ?? ''),
+                        count: Math.max(1, Math.trunc(Number(legacyItem.count) || 1)),
+                        lockedBy: `enhancement:${player.enhancementJob.jobRunId ?? 'legacy'}`,
+                        lockedAt: Date.now(),
+                    });
+                    player.enhancementJob.itemInstanceId = legacyInstanceId;
+                }
+            }
+            // 新格式不再保留 job.item；迁移后清理掉冗余字段
+            delete player.enhancementJob.item;
         }
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
@@ -4162,6 +4206,9 @@ function cloneRuntimePlayerState(player) {
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
             items: player.inventory.items.map((entry) => cloneItemPreservingTemplate(entry)),
+            lockedItems: Array.isArray(player.inventory.lockedItems)
+                ? player.inventory.lockedItems.map((entry) => ({ ...entry }))
+                : [],
         },
         wallet: {
             balances: Array.isArray(player.wallet?.balances)
@@ -5533,10 +5580,14 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
             items: player.inventory.items.map((entry) => ({ ...entry })),
+            lockedItems: Array.isArray(player.inventory.lockedItems)
+                ? player.inventory.lockedItems.map((entry) => ({ ...entry }))
+                : [],
         } : {
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
             items: [],
+            lockedItems: [],
         },
         equipment: needsDomain('equipment') ? {
             revision: player.equipment.revision,
@@ -5860,7 +5911,12 @@ function normalizeEnhancementJob(value) {
     return {
         ...value,
         target: value.target && typeof value.target === 'object' ? { ...value.target } : value.target,
+        // 旧版兼容：若仍存在 value.item 字段，原样保留以便 hydrateFromSnapshot 完成迁移。
+        // 新版 job 只通过 itemInstanceId 引用 inventory.lockedItems 中的物品。
         item: value.item && typeof value.item === 'object' ? { ...value.item } : value.item,
+        itemInstanceId: typeof value.itemInstanceId === 'string' && value.itemInstanceId.length > 0
+            ? value.itemInstanceId
+            : undefined,
         targetItemId: String(value.targetItemId),
         targetItemName: typeof value.targetItemName === 'string' ? value.targetItemName : String(value.targetItemId),
         targetItemLevel: Math.max(1, Math.floor(Number(value.targetItemLevel) || 1)),
@@ -5894,6 +5950,7 @@ function cloneEnhancementJob(entry) {
     return {
         ...entry,
         target: entry.target && typeof entry.target === 'object' ? { ...entry.target } : entry.target,
+        // 旧版字段：仅在迁移期可能仍出现，clone 时透传不强构造
         item: entry.item && typeof entry.item === 'object' ? { ...entry.item } : entry.item,
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };

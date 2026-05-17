@@ -519,6 +519,7 @@ interface PlayerInventoryItemLoadRow {
   count?: unknown;
   slot_index?: unknown;
   raw_payload?: unknown;
+  locked_by?: unknown;
 }
 
 interface PlayerMarketStorageItemLoadRow {
@@ -1695,7 +1696,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             item_id,
             count,
             slot_index,
-            raw_payload
+            raw_payload,
+            locked_by
           FROM ${PLAYER_INVENTORY_ITEM_TABLE}
           WHERE player_id = $1
           ORDER BY slot_index ASC
@@ -2145,6 +2147,9 @@ export async function savePlayerSnapshotProjectionWithClient(
   const attrState = buildAttrStateRow(snapshot);
   const bodyTraining = asRecord(progression?.bodyTraining);
   const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
+  const inventoryLockedItems = Array.isArray(snapshot.inventory?.lockedItems)
+    ? snapshot.inventory.lockedItems
+    : [];
   const walletBalances = Array.isArray(snapshot.wallet?.balances) ? snapshot.wallet.balances : [];
   const marketStorageItems = Array.isArray(snapshot.marketStorage?.items) ? snapshot.marketStorage.items : [];
   const mapUnlockIds = Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [];
@@ -2317,7 +2322,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   await replacePlayerBodyTrainingState(client, normalizedPlayerId, bodyTraining);
   await replacePlayerAttrState(client, normalizedPlayerId, attrState);
 
-  await replacePlayerInventoryItems(client, normalizedPlayerId, inventoryItems);
+  await replacePlayerInventoryItems(client, normalizedPlayerId, [...inventoryItems, ...inventoryLockedItems]);
   await replacePlayerWalletRows(
     client,
     normalizedPlayerId,
@@ -2484,10 +2489,14 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('inventory')) {
+    const projectedInventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
+    const projectedInventoryLockedItems = Array.isArray(snapshot.inventory?.lockedItems)
+      ? snapshot.inventory.lockedItems
+      : [];
     await replacePlayerInventoryItems(
       client,
       normalizedPlayerId,
-      Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [],
+      [...projectedInventoryItems, ...projectedInventoryLockedItems],
       { allowEmptyOverwrite: options.allowInventoryEmptyOverwrite === true && Array.isArray(snapshot.inventory?.items) },
     );
     watermarkPatch.inventory_version = versionSeed;
@@ -2899,9 +2908,17 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       item_id varchar(160) NOT NULL,
       count bigint NOT NULL DEFAULT 1,
       raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      locked_by varchar(180) DEFAULT NULL,
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE(player_id, slot_index)
     )
+  `);
+  // 旧表升级：为已有 player_inventory_item 表补上 locked_by 列。
+  // locked_by 为 NULL 表示常规背包行；非 NULL 表示进入锁定空间（强化/市场托管等），
+  // 不参与 (player_id, slot_index) 唯一约束的语义槽位（locked 行用负 slot_index 自避让）。
+  await client.query(`
+    ALTER TABLE ${PLAYER_INVENTORY_ITEM_TABLE}
+    ADD COLUMN IF NOT EXISTS locked_by varchar(180) DEFAULT NULL
   `);
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_inventory_item_player_idx
@@ -2910,6 +2927,11 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_inventory_item_item_idx
     ON ${PLAYER_INVENTORY_ITEM_TABLE}(item_id, player_id ASC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_inventory_item_locked_idx
+    ON ${PLAYER_INVENTORY_ITEM_TABLE}(player_id, locked_by)
+    WHERE locked_by IS NOT NULL
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
@@ -3432,7 +3454,11 @@ async function replacePlayerInventoryItems(
     item_id: string;
     count: number;
     raw_payload: Record<string, unknown>;
+    locked_by: string | null;
   }> = [];
+  // 锁定行使用负数 slot_index 与常规背包行 (>=0) 自避让，避免命中 (player_id, slot_index)
+  // 唯一约束。这样保留旧 DDL 约束语义、又不需要把约束改成 partial unique index。
+  let lockedSlotCounter = -1;
   for (let index = 0; index < sourceItems.length; index += 1) {
     const entry = asRecord(sourceItems[index]);
     const itemId = normalizeRequiredString(entry?.itemId);
@@ -3445,7 +3471,10 @@ async function replacePlayerInventoryItems(
         `replacePlayerInventoryItems: 非法 inventory entry 拒绝写入 playerId=${playerId} index=${index} entry=${entryDigest}`,
       );
     }
-    const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
+    const lockedBy = normalizeOptionalString(entry?.lockedBy);
+    const slotIndex = lockedBy != null
+      ? lockedSlotCounter--
+      : (normalizeOptionalInteger(entry?.slotIndex) ?? index);
     const itemInstanceId =
       normalizeOptionalString(entry?.itemInstanceId)
       ?? `inv:${playerId}:${slotIndex}`;
@@ -3457,12 +3486,23 @@ async function replacePlayerInventoryItems(
       enhanceLevel: entry?.enhanceLevel,
       rawPayload,
     });
+    if (lockedBy != null) {
+      // 锁定空间还需要保留 lockedAt 才能在水合后还原 LockedItem 形态。lockedAt 不进
+      // buildPersistedInventoryItemRawPayload（保持其"只 enhanceLevel"的最小 payload 语义），
+      // 而是在 locked 行单独追加进 raw_payload。
+      const lockedAt = normalizeOptionalInteger(entry?.lockedAt)
+        ?? normalizeOptionalInteger(rawPayload?.lockedAt);
+      if (lockedAt != null) {
+        persistedPayload.lockedAt = lockedAt;
+      }
+    }
     rows.push({
       item_instance_id: itemInstanceId,
       slot_index: slotIndex,
       item_id: itemId,
       count,
       raw_payload: persistedPayload,
+      locked_by: lockedBy,
     });
   }
 
@@ -3493,7 +3533,8 @@ async function replacePlayerInventoryItems(
             slot_index bigint,
             item_id varchar(160),
             count bigint,
-            raw_payload jsonb
+            raw_payload jsonb,
+            locked_by varchar(180)
           )
         )
         INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
@@ -3503,9 +3544,10 @@ async function replacePlayerInventoryItems(
           item_id,
           count,
           raw_payload,
+          locked_by,
           updated_at
         )
-        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), now()
+        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), locked_by, now()
         FROM incoming
         ON CONFLICT (item_instance_id)
         DO UPDATE SET
@@ -3514,6 +3556,7 @@ async function replacePlayerInventoryItems(
           item_id = EXCLUDED.item_id,
           count = EXCLUDED.count,
           raw_payload = EXCLUDED.raw_payload,
+          locked_by = EXCLUDED.locked_by,
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
@@ -5321,6 +5364,9 @@ function buildProjectedSnapshotFromDomains(
     revealedBreakthroughRequirementIds: [],
   };
   snapshot.inventory.items = Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items : [];
+  snapshot.inventory.lockedItems = Array.isArray(snapshot.inventory.lockedItems)
+    ? snapshot.inventory.lockedItems
+    : [];
   snapshot.equipment.slots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
   snapshot.techniques.techniques = Array.isArray(snapshot.techniques?.techniques) ? snapshot.techniques.techniques : [];
   snapshot.buffs.buffs = Array.isArray(snapshot.buffs?.buffs) ? snapshot.buffs.buffs : [];
@@ -5491,14 +5537,44 @@ function applyProjectedInventory(
   if (rows.length === 0) {
     return;
   }
-  snapshot.inventory = {
-    ...snapshot.inventory,
-    items: rows.map((row) => hydratePersistedInventoryItem({
+  const items: unknown[] = [];
+  const lockedItems: unknown[] = [];
+  for (const row of rows) {
+    const decodedRawPayload = decodeJsonValue(row.raw_payload);
+    const hydrated = hydratePersistedInventoryItem({
       itemId: row.item_id,
       itemInstanceId: row.item_instance_id,
       count: row.count,
-      rawPayload: decodeJsonValue(row.raw_payload),
-    }, contentTemplateRepository)),
+      rawPayload: decodedRawPayload,
+    }, contentTemplateRepository);
+    const lockedBy = normalizeOptionalString(row.locked_by);
+    if (lockedBy != null) {
+      // lockedAt 来自 raw_payload；命中模板时 hydrated 是 Object.create(template) 实例，
+      // lockedBy/lockedAt 不在模板字段上，但 raw_payload 中可能有同名 key 已落到 own props，
+      // 用 defineProperty 写 own key 兜底，避免严格模式下意外击中模板 readonly 描述符。
+      const rawPayloadRecord = asRecord(decodedRawPayload);
+      const lockedAt = normalizeOptionalInteger(rawPayloadRecord?.lockedAt) ?? Date.now();
+      Object.defineProperty(hydrated, 'lockedBy', {
+        value: lockedBy,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+      Object.defineProperty(hydrated, 'lockedAt', {
+        value: lockedAt,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+      lockedItems.push(hydrated);
+    } else {
+      items.push(hydrated);
+    }
+  }
+  snapshot.inventory = {
+    ...snapshot.inventory,
+    items,
+    lockedItems,
   };
 }
 

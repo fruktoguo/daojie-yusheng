@@ -90,3 +90,24 @@ export function isLegacyItemInstanceId(id: string | undefined | null): boolean {
 export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId'> | null | undefined): boolean {
   return Boolean(item);
 }
+
+/**
+ * 锁定空间中的物品：物品在强化/市场等操作期间移入此区域，
+ * 不参与正常背包操作（不合并、不展示、不可使用/装备/丢弃/交易）。
+ *
+ * 锁定物品保留完整的实例态字段和 itemInstanceId，保证进出一致。
+ */
+export interface LockedItem {
+  /** 物品实例唯一标识，作为锁定空间索引键。 */
+  itemInstanceId: string;
+  /** 物品模板 ID。 */
+  itemId: string;
+  /** 数量（装备类恒为 1）。 */
+  count: number;
+  /** 锁定来源标识，如 "enhancement:{jobRunId}" / "market:{orderId}"。 */
+  lockedBy: string;
+  /** 锁定时间戳（Date.now()）。 */
+  lockedAt: number;
+  /** 物品原始实例态字段快照（enhanceLevel 等），保证进出一致。 */
+  [key: string]: unknown;
+}

@@ -50,7 +50,7 @@ export class CraftPanelEnhancementQueryService {
         return {
             statePatch: {
                 enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
-                job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
+                job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob, player) : null,
                 queue: clonePlayerCraftQueue(player),
                 ...(activeRecord ? { records: [cloneEnhancementRecord(activeRecord)] } : {}),
             },
@@ -73,7 +73,7 @@ export class CraftPanelEnhancementQueryService {
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
             records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
-            job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
+            job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob, player) : null,
             queue: clonePlayerCraftQueue(player),
         };
     }    
@@ -335,11 +335,31 @@ function cloneEnhancementRecord(entry) {
  * @returns 无返回值，直接更新强化Job相关状态。
  */
 
-function cloneEnhancementJob(entry) {
+function cloneEnhancementJob(entry, player = null) {
+    // 强化工件真源在 player.inventory.lockedItems；面板摘要按 itemInstanceId 查表，
+    // 若找不到则回落到旧版 entry.item（迁移期残留），再回落到 targetItemId 等基础字段
+    let summarySource = null;
+    const instanceId = typeof entry?.itemInstanceId === 'string' ? entry.itemInstanceId : '';
+    if (instanceId && player?.inventory?.lockedItems) {
+        summarySource = player.inventory.lockedItems.find((locked) => locked.itemInstanceId === instanceId) ?? null;
+    }
+    if (!summarySource && entry?.item && typeof entry.item === 'object') {
+        summarySource = entry.item;
+    }
+    if (!summarySource) {
+        summarySource = {
+            itemId: entry?.targetItemId,
+            name: entry?.targetItemName,
+            type: 'equipment',
+            count: 1,
+            level: entry?.targetItemLevel,
+            enhanceLevel: entry?.currentLevel ?? 0,
+        };
+    }
     return {
         ...entry,
         target: entry.target ? { ...entry.target } : entry.target,
-        item: entry.item ? summarizeEnhancementItem(entry.item) : undefined,
+        item: summarizeEnhancementItem(summarySource),
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
 }

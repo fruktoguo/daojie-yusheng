@@ -9,6 +9,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isItemInstanceTracked, isLegacyItemInstanceId } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
+import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
@@ -759,9 +760,17 @@ export class CraftPanelRuntimeService {
         }
         const workingItem = target.ref.source === 'inventory'
             ? extractInventoryItemAt(player, target.ref.slotIndex)
-            : cloneItem(target.item);
+            : extractEquipmentItem(player, target.ref.slot);
         if (!workingItem) {
             return buildCraftMutationResult('强化目标不存在。');
+        }
+        // 装备类必须有稳定 itemInstanceId 才能进入锁定空间作为索引键
+        assignItemInstanceIdIfNeeded(workingItem as any);
+        const workingInstanceId = typeof (workingItem as any).itemInstanceId === 'string'
+            ? (workingItem as any).itemInstanceId
+            : '';
+        if (!workingInstanceId) {
+            return buildCraftMutationResult('强化目标缺失实例标识。');
         }
         for (const material of materials) {
             consumeInventoryItemByItemId(player, material.itemId, material.count);
@@ -777,14 +786,20 @@ export class CraftPanelRuntimeService {
         const protectionItemSignature = protection
             ? createItemStackSignature(protection.item)
             : undefined;
+        const jobRunId = createCraftJobRunId(player.playerId, 'enhancement');
+        // 把工件移入锁定空间（escrow）：之后的强化结算路径都通过 itemInstanceId 取出/写回
+        if (!Array.isArray(player.inventory.lockedItems)) {
+            player.inventory.lockedItems = [];
+        }
+        // 锁定时同步把当前 enhanceLevel 对齐到 currentLevel，保证后续 mutation 一致
+        (workingItem as any).enhanceLevel = currentLevel;
+        (workingItem as any).count = 1;
+        lockItem(player.inventory.lockedItems, workingItem as any, `enhancement:${jobRunId}`);
         player.enhancementJob = {
-            jobRunId: createCraftJobRunId(player.playerId, 'enhancement'),
+            jobRunId,
             jobType: 'enhancement',
             target: cloneTargetRef(target.ref),
-            item: {
-                ...cloneItem(workingItem),
-                count: 1,
-            },
+            itemInstanceId: workingInstanceId,
             targetItemId: target.item.itemId,
             targetItemName: target.item.name ?? target.item.itemId,
             targetItemLevel: Math.max(1, Math.floor(Number(target.item.level) || 1)),
@@ -1599,8 +1614,8 @@ export class CraftPanelRuntimeService {
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, job.targetItemLevel);
         const totalTicks = computeEnhancementJobTicks(job.targetItemLevel, totalSpeedRate);
-        const baseJobItem = resolveEnhancementJobItem(this.contentTemplateRepository, job, currentLevel);
-        if (!baseJobItem) {
+        const lockedEntry = getLockedItem(player.inventory.lockedItems ?? [], job.itemInstanceId);
+        if (!lockedEntry) {
             const finishResult = this.finishEnhancementJob(player, currentLevel, 'stopped');
             return {
                 continued: false,
@@ -1614,13 +1629,11 @@ export class CraftPanelRuntimeService {
                     }],
             };
         }
+        // 锁定空间中的物品就是真源；把当前实际等级写回，下一阶段以此为基础结算
+        (lockedEntry as any).enhanceLevel = currentLevel;
+        (lockedEntry as any).count = 1;
         job.currentLevel = currentLevel;
         job.targetLevel = nextTargetLevel;
-        job.item = this.contentTemplateRepository.normalizeItem({
-            ...baseJobItem,
-            count: 1,
-            enhanceLevel: currentLevel,
-        });
         job.spiritStoneCost = nextSpiritStoneCost;
         job.materials = nextMaterials.map((entry) => ({ ...entry }));
         job.phase = 'enhancing';
@@ -1667,8 +1680,15 @@ export class CraftPanelRuntimeService {
                 groundDrops: [],
             };
         }
-        const jobItem = resolveEnhancementJobItem(this.contentTemplateRepository, job, resultingLevel);
-        if (!jobItem) {
+        if (!Array.isArray(player.inventory.lockedItems)) {
+            player.inventory.lockedItems = [];
+        }
+        // 通过 itemInstanceId 从锁定空间取出真源工件；不再走 fallback 重建
+        const lockedRaw = job.itemInstanceId
+            ? unlockItem(player.inventory.lockedItems, job.itemInstanceId)
+            : null;
+        if (!lockedRaw) {
+            // 极端兜底：锁定空间已不存在该工件（异常恢复 / 老存档），仍要清掉 job 防止卡死
             player.enhancementJob = null;
             this.finalizeMutation(player, {
                 persistentOnly: true,
@@ -1684,21 +1704,36 @@ export class CraftPanelRuntimeService {
                 groundDrops: [],
             };
         }
+        // 把目标等级写回真源后还原成普通 ItemStack 形态
+        (lockedRaw as any).enhanceLevel = resultingLevel;
+        const itemFields = lockedItemToItemStack(lockedRaw);
         const resolvedItem = this.contentTemplateRepository.normalizeItem({
-            ...jobItem,
+            ...itemFields,
             count: 1,
             enhanceLevel: resultingLevel,
         });
+        // normalize 后兜底分配 instanceId（理论上 locked 物必然已带）
+        assignItemInstanceIdIfNeeded(resolvedItem);
         let inventoryChanged = false;
         let equipmentChanged = false;
         let attrChanged = false;
         const groundDrops = [];
-        if (job.target.source === 'equipment' && job.target.slot) {
-            setEquippedItem(player, job.target.slot, resolvedItem);
+        const targetSlot = job.target?.source === 'equipment' ? job.target.slot : null;
+        const slotEntry = targetSlot
+            ? player.equipment?.slots?.find((current) => current.slot === targetSlot)
+            : null;
+        const slotIsEmpty = Boolean(slotEntry) && !slotEntry.item;
+        const slotMatchesInstance = Boolean(slotEntry?.item)
+            && typeof slotEntry.item.itemInstanceId === 'string'
+            && slotEntry.item.itemInstanceId === resolvedItem.itemInstanceId;
+        if (targetSlot && (slotIsEmpty || slotMatchesInstance)) {
+            // 装备来源：原槽仍空（启动时取走）或仍是同一实例 → 写回装备槽
+            setEquippedItem(player, targetSlot, resolvedItem);
             equipmentChanged = true;
             attrChanged = true;
         }
         else if (canReceiveCraftItem(player, resolvedItem)) {
+            // 装备槽已被替换，或来源是背包 → 走入手链路
             receiveInventoryItem(player, this.contentTemplateRepository, resolvedItem);
             inventoryChanged = true;
         }
@@ -2360,6 +2395,7 @@ function cloneEnhancementJob(entry) {
     return {
         ...entry,
         target: entry.target ? { ...entry.target } : entry.target,
+        // 旧版字段：仅在迁移期残留，按需透传不强构造；新版工件存在 inventory.lockedItems
         item: entry.item ? cloneItem(entry.item) : undefined,
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
@@ -2648,49 +2684,20 @@ function setEquippedItem(player, slot, item) {
     }
 }
 
-function resolveEnhancementJobItem(contentTemplateRepository, job, enhanceLevel) {
-    const source = job?.item && typeof job.item === 'object'
-        ? job.item
-        : {
-            itemId: job?.targetItemId,
-            name: job?.targetItemName,
-            type: 'equipment',
-            level: job?.targetItemLevel,
-            equipAttrs: job?.equipAttrs ?? null,
-        };
-    const itemId = typeof source?.itemId === 'string' && source.itemId.trim()
-        ? source.itemId.trim()
-        : typeof job?.targetItemId === 'string' && job.targetItemId.trim()
-            ? job.targetItemId.trim()
-            : '';
-    if (!itemId) {
+/**
+ * extractEquipmentItem：把指定装备槽中的物品取出（slot.item 设为 null）并返回。
+ * 用于强化启动时把装备移入锁定空间，避免双副本造成的真源歧义。
+ */
+function extractEquipmentItem(player, slot) {
+    const entry = player.equipment?.slots?.find((current) => current.slot === slot);
+    if (!entry || !entry.item) {
         return null;
     }
-    const count = Math.max(1, Math.floor(Number(source?.count) || 1));
-    // 强化产物必须继承启动时锁定的 itemInstanceId（来自 enhancementJob.item），
-    // 这是"成功 +1 / 失败 -1 / 保护降级 / 取消"四条路径上保持装备身份不变的关键。
-    const itemInstanceId = typeof source?.itemInstanceId === 'string' && source.itemInstanceId.length > 0
-        ? source.itemInstanceId
-        : (typeof job?.item?.itemInstanceId === 'string' && job.item.itemInstanceId.length > 0
-            ? job.item.itemInstanceId
-            : undefined);
-    const normalized = contentTemplateRepository.normalizeItem({
-        ...source,
-        itemId,
-        type: source?.type ?? 'equipment',
-        count,
-        name: source?.name ?? job?.targetItemName ?? itemId,
-        level: source?.level ?? job?.targetItemLevel ?? 1,
-        enhanceLevel,
-        ...(itemInstanceId ? { itemInstanceId } : {}),
-    });
-    if (!normalized || normalized.type !== 'equipment') {
-        return null;
-    }
-    // 若 normalize 后仍缺失（极端边界），lazy 升级一次以保证装备永远有 instanceId
-    assignItemInstanceIdIfNeeded(normalized);
-    return normalized;
+    const item = entry.item;
+    entry.item = null;
+    return item;
 }
+
 /**
  * normalizeText：规范化或转换Text。
  * @param value 参数说明。
