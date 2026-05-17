@@ -1408,6 +1408,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
   playerItemDomainRawPayloadsAreMinimal: boolean;
   marketBuySellSnapshotsLazyDurableOnly: boolean;
+  gmPlayerListUsesLightSummaries: boolean;
   instancePersistenceNormalizesItemPayloads: boolean;
   instancePersistenceNormalizesObjectPayloads: boolean;
   instanceOverlayPortalPersistenceUsesWhitelist: boolean;
@@ -1421,6 +1422,7 @@ function proveEntryCachesFollowLifecycle(): {
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
   const playerPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence.service.ts'), 'utf8');
   const marketRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/market/market-runtime.service.ts'), 'utf8');
+  const nativeGmStateQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-gm-state-query.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1598,6 +1600,12 @@ function proveEntryCachesFollowLifecycle(): {
     && !marketRuntimeSource.includes('const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableBuyNow = false;')
     && !marketRuntimeSource.includes('const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableSellNow = false;');
 
+  const gmPlayerListUsesLightSummaries = playerRuntimeSource.includes('listGmPlayerSummaries()')
+    && playerRuntimeSource.includes('displayName: player.displayName,')
+    && playerRuntimeSource.includes('persistentRevision: player.persistentRevision,')
+    && nativeGmStateQuerySource.includes('const runtimePlayers = typeof this.playerRuntimeService.listGmPlayerSummaries === \'function\'\n      ? this.playerRuntimeService.listGmPlayerSummaries()\n      : this.playerRuntimeService.listPlayerSnapshots();')
+    && !nativeGmStateQuerySource.includes('const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();');
+
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
@@ -1661,6 +1669,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
   assert.equal(playerItemDomainRawPayloadsAreMinimal, true);
   assert.equal(marketBuySellSnapshotsLazyDurableOnly, true);
+  assert.equal(gmPlayerListUsesLightSummaries, true);
   assert.equal(instancePersistenceNormalizesItemPayloads, true);
   assert.equal(instancePersistenceNormalizesObjectPayloads, true);
   assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
@@ -1693,6 +1702,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
     playerItemDomainRawPayloadsAreMinimal,
     marketBuySellSnapshotsLazyDurableOnly,
+    gmPlayerListUsesLightSummaries,
     instancePersistenceNormalizesItemPayloads,
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,
