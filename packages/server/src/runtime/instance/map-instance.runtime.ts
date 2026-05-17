@@ -430,21 +430,8 @@ class MapInstanceRuntime {
             this.getOrCreateBaseTileResourceBucket(entry.resourceKey)[tileIndex] = value;
         }
         for (const npc of request.template.npcs) {
-            const state = {
-                npcId: npc.id,
-                name: npc.name,
-                x: npc.x,
-                y: npc.y,
-                char: npc.char,
-                color: npc.color,
-                dialogue: npc.dialogue,
-                role: npc.role,
-                hasShop: npc.hasShop,
-                shopItems: npc.shopItems,
-                quests: npc.quests,
-            };
-            this.npcsById.set(state.npcId, state);
-            this.npcIdByTile.set(this.toTileIndex(state.x, state.y), state.npcId);
+            this.npcsById.set(npc.npcId, npc);
+            this.npcIdByTile.set(this.toTileIndex(npc.x, npc.y), npc.npcId);
         }
         for (const landmark of request.template.landmarks) {
             this.landmarksById.set(landmark.id, landmark);

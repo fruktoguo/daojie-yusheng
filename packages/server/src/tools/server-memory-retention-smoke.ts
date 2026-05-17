@@ -1442,10 +1442,13 @@ function proveEntryCachesFollowLifecycle(): {
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
-  // tileProjectionByCoord 必须挂在 MapInstanceRuntime 上，且 service 内不再持有 service-level 字段。
+  // tileProjectionByCoord 必须挂在 MapInstanceRuntime 上，且 service / registry 内不再持有 service-level 字段。
+  const tileTemplateRegistrySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/map/registries/tile-template.registry.ts'), 'utf8');
   const tileProjectionOnInstance = mapInstanceSource.includes('tileProjectionByCoord = new Map()')
-    && mapSnapshotSource.includes('instance.tileProjectionByCoord = projectionByCoord')
-    && !mapSnapshotSource.includes('private readonly tileProjectionByCoord = new Map');
+    && tileTemplateRegistrySource.includes('instance.tileProjectionByCoord = projectionByCoord')
+    && mapSnapshotSource.includes('this.tileRegistry.shareProjection(instance,')
+    && !mapSnapshotSource.includes('private readonly tileProjectionByCoord = new Map')
+    && !tileTemplateRegistrySource.includes('private readonly tileProjectionByCoord = new Map');
 
   // npcQuestMarkerCache 必须挂在 player runtime 对象上，且 service 内不再持有 service-level 字段。
   const npcQuestMarkerCacheOnPlayer = playerRuntimeSource.includes('npcQuestMarkerCache: new Map()')
@@ -1471,11 +1474,13 @@ function proveEntryCachesFollowLifecycle(): {
   const groundPersistenceAvoidsItemSpread = mapInstanceSource.includes('items: pile.items.map((entry) => entry.item)')
     && !mapInstanceSource.includes('items: pile.items.map((entry) => ({ ...entry.item }))');
 
-  // landmark/container 静态对象直接挂模板引用，不再为每个实例复制外壳与 drops/lootPools。
+  // landmark/container/npc 静态对象直接挂模板引用，不再为每个实例复制外壳与 drops/lootPools。
   const staticMapObjectsUseTemplateRefs = mapInstanceSource.includes('this.landmarksById.set(landmark.id, landmark)')
     && mapInstanceSource.includes('this.containersById.set(container.id, container)')
+    && mapInstanceSource.includes('this.npcsById.set(npc.npcId, npc)')
     && !mapInstanceSource.includes('this.landmarksById.set(landmark.id, {')
-    && !mapInstanceSource.includes('this.containersById.set(container.id, {');
+    && !mapInstanceSource.includes('this.containersById.set(container.id, {')
+    && !mapInstanceSource.includes('this.npcsById.set(state.npcId, state)');
 
   // 妖兽 spawn 初始化复用模板/已解析基础属性引用，派生态由 recalculateMonsterDerivedState 后续 copy-on-write。
   const monsterSpawnUsesTemplateBaseRefs = mapInstanceSource.includes('baseAttrs: monster.baseAttrs')

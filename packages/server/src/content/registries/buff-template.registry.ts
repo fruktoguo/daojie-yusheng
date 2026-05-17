@@ -122,7 +122,16 @@ export class BuffTemplateRegistry {
   }
 
   hydrate(buffId: string, payload: any = {}): any {
-    return this.createInstance(buffId, payload);
+    const normalizedBuffId = String(buffId ?? '').trim();
+    if (!normalizedBuffId) {
+      return createRuntimeTemporaryBuff(payload);
+    }
+    const template = this.tryGetRef(normalizedBuffId);
+    if (!template) {
+      // 没有静态模板（例如旧版 PVP buff、动态参数 buff），回退到 payload 自身重建 prototype。
+      return createRuntimeTemporaryBuff({ ...payload, buffId: normalizedBuffId });
+    }
+    return this.createInstanceFromTemplate(template, payload);
   }
 
   listIds(): readonly string[] {

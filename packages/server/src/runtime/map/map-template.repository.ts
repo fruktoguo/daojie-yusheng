@@ -8,10 +8,25 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, composeTileTypeFromLayers, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
+import { ContainerTemplateRegistry } from './registries/container-template.registry';
+import { LandmarkTemplateRegistry } from './registries/landmark-template.registry';
+import { NpcTemplateRegistry } from './registries/npc-template.registry';
+import { QuestTemplateRegistry } from './registries/quest-template.registry';
+import { TileTemplateRegistry } from './registries/tile-template.registry';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 @Injectable()
 export class MapTemplateRepository {
+    constructor(
+        readonly npcRegistry: NpcTemplateRegistry = new NpcTemplateRegistry(),
+        readonly questRegistry: QuestTemplateRegistry = new QuestTemplateRegistry(),
+        readonly containerRegistry: ContainerTemplateRegistry = new ContainerTemplateRegistry(),
+        readonly landmarkRegistry: LandmarkTemplateRegistry = new LandmarkTemplateRegistry(),
+        readonly tileRegistry: TileTemplateRegistry = new TileTemplateRegistry(),
+    ) {
+        this.npcLocationById = this.npcRegistry.npcLocationById;
+        this.questSourceById = this.questRegistry.questSourceById;
+    }
 /**
  * logger：日志器引用。
  */
@@ -124,7 +139,9 @@ export class MapTemplateRepository {
         const normalized = normalizeEditableMapDocument(document);
         copyRuntimeMapMetadata(document, normalized);
         const template = this.buildTemplate(normalized, new Map(), new Map());
+        this.registerTemplateObjectRefs(template);
         this.templates.set(template.id, template);
+        this.questRegistry.registerMapTemplate(template);
         this.rebuildMapGroupIndex();
         return template;
     }
@@ -135,7 +152,7 @@ export class MapTemplateRepository {
  */
 
     getNpcLocation(npcId) {
-        return this.npcLocationById.get(npcId) ?? null;
+        return this.npcRegistry.getLocation(npcId);
     }
     /**
  * getQuestSource：读取任务来源。
@@ -144,7 +161,7 @@ export class MapTemplateRepository {
  */
 
     getQuestSource(questId) {
-        return this.questSourceById.get(questId) ?? null;
+        return this.questRegistry.getQuestSource(questId);
     }
     /**
  * loadAll：读取All并返回结果。
@@ -158,8 +175,11 @@ export class MapTemplateRepository {
         this.mapGroupMembersById.clear();
         this.mapGroupNameById.clear();
         this.mapGroupIdByAlias.clear();
-        this.npcLocationById.clear();
-        this.questSourceById.clear();
+        this.npcRegistry.loadAll();
+        this.questRegistry.loadAll();
+        this.containerRegistry.loadAll();
+        this.landmarkRegistry.loadAll();
+        this.tileRegistry.loadAll();
         const mapsDir = resolveProjectPath('packages', 'server', 'data', 'maps');
         const resourceNodeById = loadLandmarkResourceNodeDefinitions();
         const files = collectJsonFiles(mapsDir);
@@ -178,24 +198,9 @@ export class MapTemplateRepository {
         const contentQuestEntriesByGiver = loadContentQuestEntriesByGiver(this.npcLocationById);
         for (const document of documents) {
             const template = this.buildTemplate(document, resourceNodeById, contentQuestEntriesByGiver);
+            this.registerTemplateObjectRefs(template);
             this.templates.set(template.id, template);
-            for (const npc of template.npcs) {
-                for (const quest of npc.quests) {
-                    const questId = typeof quest.id === 'string' ? quest.id.trim() : '';
-                    if (!questId || this.questSourceById.has(questId)) {
-                        continue;
-                    }
-                    this.questSourceById.set(questId, {
-                        quest,
-                        giverNpcId: npc.id,
-                        giverNpcName: npc.name,
-                        giverMapId: template.id,
-                        giverMapName: template.name,
-                        giverX: npc.x,
-                        giverY: npc.y,
-                    });
-                }
-            }
+            this.questRegistry.registerMapTemplate(template);
         }
         this.rebuildMapGroupIndex();
         this.logger.log(`已加载 ${this.templates.size} 个地图模板`);
@@ -226,6 +231,14 @@ export class MapTemplateRepository {
             members.sort(compareMapGroupMembers);
             this.mapGroupMembersById.set(groupId, members.map((entry) => entry.id));
         }
+    }
+    registerTemplateObjectRefs(template) {
+        this.npcRegistry.registerMapTemplate(template);
+        this.containerRegistry.registerMapTemplate(template);
+        this.landmarkRegistry.registerMapTemplate(template);
+        template.npcs = Array.from(this.npcRegistry.listInMap(template.id));
+        template.containers = Array.from(this.containerRegistry.listInMap(template.id));
+        template.landmarks = Array.from(this.landmarkRegistry.listInMap(template.id));
     }
     /**
  * buildTemplate：构建并返回目标对象。
@@ -316,6 +329,7 @@ export class MapTemplateRepository {
             const contentQuests = contentQuestEntriesByGiver.get(buildNpcQuestGiverKey(document.id, npcId)) ?? [];
             npcs.push({
                 id: npcId,
+                npcId,
                 name,
                 x: npc.x,
                 y: npc.y,
@@ -425,6 +439,7 @@ export class MapTemplateRepository {
             qiDrainByTile,
             baseAuraByTile,
             baseTileResourceEntries: Array.from(baseTileResourceEntryByKey.values()).sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex),
+            tileRegistry: this.tileRegistry,
             source: document,
         };
     }
