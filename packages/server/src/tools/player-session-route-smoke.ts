@@ -9,6 +9,7 @@ import { S2C } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { WorldGatewayBootstrapHelper } from '../network/world-gateway-bootstrap.helper';
+import { WorldGatewayPresenceHelper } from '../network/world-gateway-presence.helper';
 import { WorldGateway } from '../network/world.gateway';
 import { WorldSessionBootstrapPlayerInitService } from '../network/world-session-bootstrap-player-init.service';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
@@ -124,20 +125,21 @@ async function verifyHookWiring(): Promise<{
   assert.deepEqual(registerCalls, [{ playerId: 'route_smoke_player', sessionEpoch: 7 }]);
   assert.deepEqual(bootstrapPersistedCalls, ['route_smoke_player']);
 
+  const playerDomainPersistenceService = {
+    isEnabled() {
+      return true;
+    },
+    async savePlayerPresence(playerId: string) {
+      disconnectPresenceCalls.push(playerId);
+      return undefined;
+    },
+  };
   const gateway = new WorldGateway(
     {} as never,
     {} as never,
     {} as never,
     {} as never,
-    {
-      isEnabled() {
-        return true;
-      },
-      async savePlayerPresence(playerId: string) {
-        disconnectPresenceCalls.push(playerId);
-        return undefined;
-      },
-    } as never,
+    playerDomainPersistenceService as never,
     {
       async flushPlayer(playerId: string) {
         flushCalls.push(playerId);
@@ -188,6 +190,7 @@ async function verifyHookWiring(): Promise<{
     {} as never,
     {} as never,
     {} as never,
+    new WorldGatewayPresenceHelper(playerDomainPersistenceService as never, playerRuntimeService as never) as never,
   );
 
   await gateway.handleDisconnect({ id: 'socket:route-smoke' } as never);

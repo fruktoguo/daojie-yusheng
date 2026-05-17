@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { WorldGatewayPresenceHelper } from '../network/world-gateway-presence.helper';
 import { WorldGateway } from '../network/world.gateway';
 import { WorldSessionBootstrapPlayerInitService } from '../network/world-session-bootstrap-player-init.service';
 
@@ -125,24 +126,25 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
       return undefined;
     },
   };
+  const playerDomainPersistenceService = {
+    isEnabled() {
+      return true;
+    },
+    async savePlayerPresence(playerId: string, input: { online: boolean; inWorld: boolean; offlineSinceAt?: number | null }) {
+      presenceWrites.push({
+        playerId,
+        online: input.online,
+        inWorld: input.inWorld,
+        offlineSinceAt: input.offlineSinceAt ?? null,
+      });
+    },
+  };
   const gateway = new WorldGateway(
     {} as never,
     {} as never,
     {} as never,
     {} as never,
-    {
-      isEnabled() {
-        return true;
-      },
-      async savePlayerPresence(playerId: string, input: { online: boolean; inWorld: boolean; offlineSinceAt?: number | null }) {
-        presenceWrites.push({
-          playerId,
-          online: input.online,
-          inWorld: input.inWorld,
-          offlineSinceAt: input.offlineSinceAt ?? null,
-        });
-      },
-    } as never,
+    playerDomainPersistenceService as never,
     {
       async flushPlayer(playerId: string) {
         flushCalls.push(playerId);
@@ -205,6 +207,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     {} as never,
     {} as never,
     {} as never,
+    new WorldGatewayPresenceHelper(playerDomainPersistenceService as never, playerRuntimeService as never) as never,
   );
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);

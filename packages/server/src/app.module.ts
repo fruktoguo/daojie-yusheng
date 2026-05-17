@@ -41,6 +41,7 @@ import { WorldGatewayGmSuggestionHelper } from './network/world-gateway-gm-sugge
 import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { WorldGatewayMovementHelper } from './network/world-gateway-movement.helper';
 import { WorldGatewayNpcHelper } from './network/world-gateway-npc.helper';
+import { WorldGatewayPresenceHelper } from './network/world-gateway-presence.helper';
 import { WorldGatewayReadModelHelper } from './network/world-gateway-read-model.helper';
 import { WorldGatewaySessionStateHelper } from './network/world-gateway-session-state.helper';
 import { WorldGatewaySuggestionHelper } from './network/world-gateway-suggestion.helper';
@@ -354,6 +355,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldGatewayGuardHelper,
     WorldGatewayMovementHelper,
     WorldGatewayNpcHelper,
+    WorldGatewayPresenceHelper,
     WorldGatewayReadModelHelper,
     WorldGatewaySessionStateHelper,
     WorldGatewaySuggestionHelper,

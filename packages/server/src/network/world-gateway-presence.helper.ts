@@ -4,35 +4,39 @@
  * 收敛心跳节流、在线态持久化和断线态 presence 刷新。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { Injectable, Logger } from '@nestjs/common';
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
 
 /** 世界 socket presence helper：收敛心跳节流、在线态和断线态持久化。 */
+@Injectable()
 class WorldGatewayPresenceHelper {
-    private readonly gateway: WorldGatewayHelperContext;
-presenceHeartbeatPersistedAtByPlayerId = new Map();
+    private readonly logger = new Logger(WorldGatewayPresenceHelper.name);
+    presenceHeartbeatPersistedAtByPlayerId = new Map();
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }
+    constructor(
+        private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
+        private readonly playerRuntimeService: PlayerRuntimeService,
+    ) {}
 
     async persistOfflinePresence(binding) {
         this.presenceHeartbeatPersistedAtByPlayerId.delete(binding.playerId);
-        const disconnectPresence = this.gateway.playerDomainPersistenceService?.isEnabled?.()
-            ? this.gateway.playerRuntimeService.describePersistencePresence(binding.playerId)
+        const disconnectPresence = this.playerDomainPersistenceService?.isEnabled?.()
+            ? this.playerRuntimeService.describePersistencePresence(binding.playerId)
             : null;
         if (!disconnectPresence) {
             return;
         }
-        await this.gateway.playerDomainPersistenceService.savePlayerPresence(binding.playerId, {
+        await this.playerDomainPersistenceService.savePlayerPresence(binding.playerId, {
             ...disconnectPresence,
             online: false,
             inWorld: Boolean(disconnectPresence.inWorld),
             offlineSinceAt: Date.now(),
             versionSeed: Date.now(),
         }).catch((error) => {
-            this.gateway.logger.error(`刷新脱机 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+            this.logger.error(`刷新脱机 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
     }
 
@@ -41,25 +45,25 @@ presenceHeartbeatPersistedAtByPlayerId = new Map();
         if (!playerId) {
             return;
         }
-        this.gateway.playerRuntimeService.markHeartbeat(playerId);
-        const heartbeatPresence = this.gateway.playerDomainPersistenceService?.isEnabled?.()
-            ? this.gateway.playerRuntimeService.describePersistencePresence(playerId)
+        this.playerRuntimeService.markHeartbeat(playerId);
+        const heartbeatPresence = this.playerDomainPersistenceService?.isEnabled?.()
+            ? this.playerRuntimeService.describePersistencePresence(playerId)
             : null;
         const now = Date.now();
         if (!heartbeatPresence || !this.shouldPersistHeartbeatPresence(playerId, now)) {
             return;
         }
-        void this.gateway.playerDomainPersistenceService.savePlayerPresence(playerId, {
+        void this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...heartbeatPresence,
             online: true,
             inWorld: Boolean(heartbeatPresence.inWorld),
             offlineSinceAt: null,
             versionSeed: now,
         }).catch((error) => {
-            this.gateway.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
+            this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         });
         this.presenceHeartbeatPersistedAtByPlayerId.set(playerId, now);
-        this.gateway.playerRuntimeService.markPersisted?.(playerId);
+        this.playerRuntimeService.markPersisted?.(playerId);
     }
 
     shouldPersistHeartbeatPresence(playerId, now = Date.now()) {
