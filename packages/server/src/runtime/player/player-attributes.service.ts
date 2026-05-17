@@ -14,6 +14,7 @@ export class PlayerAttributesService {
     buffStatPercentBonusAccumulatorScratch = createNumericStatPercentBonusAccumulator();
     attrPercentBonusAccumulatorScratch = createAttributePercentBonusAccumulator();
     flatBuffAttrsScratch = createEmptyAttributes();
+    techniqueStatesScratch = [];
 
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
@@ -86,16 +87,17 @@ export class PlayerAttributesService {
 
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
 
-        const realmBaseAttrs = cloneAttributes(rawBaseAttrs);
-
-        const techniqueStates = player.techniques.techniques.map(toTechniqueState);
-        const techniqueAttrBonus = calcTechniqueFinalAttrBonus(techniqueStates);
-        const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniqueStates);
+        const techniques = resolveTechniqueStatesForCalculation(
+            Array.isArray(player.techniques?.techniques) ? player.techniques.techniques : [],
+            this.techniqueStatesScratch,
+        );
+        const techniqueAttrBonus = calcTechniqueFinalAttrBonus(techniques);
+        const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniques);
 
         const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
-        addAttributes(realmBaseAttrs, resolvePlayerRealmAttributeBonus(stage));
 
-        const baseAttrs = cloneAttributes(realmBaseAttrs);
+        const baseAttrs = cloneAttributes(rawBaseAttrs);
+        addAttributes(baseAttrs, resolvePlayerRealmAttributeBonus(stage));
         addAttributes(baseAttrs, techniqueAttrBonus);
         for (const bonus of projectedRuntimeBonuses) {
             addAttributes(baseAttrs, bonus.attrs);
@@ -130,7 +132,7 @@ export class PlayerAttributesService {
                 continue;
             }
             if (resolveBuffModifierMode(buff.attrMode) === 'flat') {
-                addAttributes(flatBuffAttrs, scaleAttributes(buff.attrs, effectFactor));
+                addScaledAttributes(flatBuffAttrs, buff.attrs, effectFactor);
             }
             else {
                 const target = isPillAttributeBuff(buff) ? attrPercentBonuses.pill : attrPercentBonuses.buff;
@@ -190,16 +192,12 @@ export class PlayerAttributesService {
             if (effectFactor === 0) {
                 continue;
             }
-            const scaledStats = scaleBuffNumericStats(buff, effectFactor);
-            if (!scaledStats) {
-                continue;
-            }
             if (resolveBuffModifierMode(buff.statMode) === 'percent') {
                 const target = isPillAttributeBuff(buff) ? buffStatPercentBonuses.pill : buffStatPercentBonuses.buff;
-                addPartialNumericStats(target, scaledStats);
+                addBuffNumericStats(target, buff, effectFactor);
             }
             else {
-                addPartialNumericStats(numericStats, scaledStats);
+                addBuffNumericStats(numericStats, buff, effectFactor);
             }
         }
         for (const bonus of projectedRuntimeBonuses) {
@@ -445,19 +443,17 @@ function addAttributes(target, patch) {
     }
 }
 
-function scaleAttributes(source, multiplier = 1) {
-    const scaled: Record<string, number> = {};
+function addScaledAttributes(target, source, multiplier = 1) {
     if (!source) {
-        return scaled;
+        return;
     }
     const normalizedMultiplier = Number.isFinite(multiplier) ? multiplier : 1;
     for (const key of ATTR_KEYS) {
         const value = Number(source[key]);
         if (Number.isFinite(value) && value !== 0) {
-            scaled[key] = value * normalizedMultiplier;
+            target[key] += value * normalizedMultiplier;
         }
     }
-    return scaled;
 }
 
 function accumulateUniformAttributePercentBonus(target, amount) {
@@ -524,7 +520,7 @@ function applyAttrWeight(target, key, value) {
     if (!weight) {
         return;
     }
-    addPartialNumericStats(target, scalePartialNumericStats(weight, value));
+    addScaledPartialNumericStats(target, weight, value);
 }
 /**
  * accumulateAttrPercentBonus：执行accumulateAttrPercentBonu相关逻辑。
@@ -541,7 +537,7 @@ function accumulateAttrPercentBonus(target, key, value) {
     if (!weight) {
         return;
     }
-    addPartialNumericStats(target, scalePartialNumericStats(weight, value));
+    addScaledPartialNumericStats(target, weight, value);
 }
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {
@@ -642,20 +638,6 @@ function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
         return 1;
     }
     return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
-}
-
-function scaleBuffNumericStats(buff, factor) {
-    const scaled = scalePartialNumericStats(buff.stats, factor);
-    if (!scaled || buff.buffId !== PVP_SHA_INFUSION_BUFF_ID) {
-        return scaled;
-    }
-    if (scaled.physAtk !== undefined) {
-        scaled.physAtk = Math.min(scaled.physAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
-    }
-    if (scaled.spellAtk !== undefined) {
-        scaled.spellAtk = Math.min(scaled.spellAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
-    }
-    return scaled;
 }
 
 function roundNumericStats(target) {
@@ -765,61 +747,95 @@ function matchesEquipmentCondition(player, condition) {
             return true;
     }
 }
-/**
- * scalePartialNumericStats：执行scalePartialNumericStat相关逻辑。
- * @param source 来源对象。
- * @param multiplier 参数说明。
- * @returns 无返回值，直接更新scalePartialNumericStat相关状态。
- */
-
-function scalePartialNumericStats(source, multiplier) {
+function addScaledPartialNumericStats(target, source, multiplier) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const scaled: Record<string, any> = {};
+    if (!source) {
+        return;
+    }
     for (const [key, value] of Object.entries(source)) {
         if (value === undefined) {
             continue;
         }
-        if (typeof value === 'number') {
-            scaled[key] = value * multiplier;
+        if (typeof value === 'number' && typeof target[key] === 'number') {
+            target[key] += value * multiplier;
             continue;
         }
         if (typeof value === 'object' && value) {
-
-            const group: Record<string, number> = {};
+            const targetGroup = target[key];
+            if (!targetGroup || typeof targetGroup !== 'object') {
+                continue;
+            }
             for (const [nestedKey, nestedValue] of Object.entries(value)) {
                 if (typeof nestedValue === 'number') {
-                    group[nestedKey] = nestedValue * multiplier;
+                    targetGroup[nestedKey] += nestedValue * multiplier;
                 }
-            }
-            if (Object.keys(group).length > 0) {
-                scaled[key] = group;
             }
         }
     }
-    return scaled;
 }
-/**
- * toTechniqueState：执行to功法状态相关逻辑。
- * @param entry 参数说明。
- * @returns 无返回值，直接更新to功法状态相关状态。
- */
 
-function toTechniqueState(entry) {
-    return {
-        techId: entry.techId,
-        name: entry.name ?? entry.techId,
-        level: entry.level ?? 1,
-        exp: entry.exp ?? 0,
-        expToNext: entry.expToNext ?? 0,
-        realmLv: entry.realmLv ?? 1,
-        realm: entry.realm ?? 0,
-        skills: entry.skills ?? [],
-        grade: entry.grade ?? undefined,
-        category: entry.category ?? undefined,
-        layers: entry.layers ?? undefined,
-    };
+function addBuffNumericStats(target, buff, factor) {
+    if (!buff.stats) {
+        return;
+    }
+    const attackCap = buff.buffId === PVP_SHA_INFUSION_BUFF_ID ? PVP_SHA_INFUSION_ATTACK_CAP_PERCENT : null;
+    for (const [key, value] of Object.entries(buff.stats)) {
+        if (value === undefined) {
+            continue;
+        }
+        if (typeof value === 'number' && typeof target[key] === 'number') {
+            let scaled = value * factor;
+            if ((key === 'physAtk' || key === 'spellAtk') && attackCap !== null) {
+                scaled = Math.min(scaled, attackCap);
+            }
+            target[key] += scaled;
+            continue;
+        }
+        if (typeof value === 'object' && value) {
+            const targetGroup = target[key];
+            if (!targetGroup || typeof targetGroup !== 'object') {
+                continue;
+            }
+            for (const [nestedKey, nestedValue] of Object.entries(value)) {
+                if (typeof nestedValue === 'number') {
+                    targetGroup[nestedKey] += nestedValue * factor;
+                }
+            }
+        }
+    }
 }
+
+function resolveTechniqueStatesForCalculation(techniques, scratch) {
+    let needsNormalization = false;
+    for (const entry of techniques) {
+        if (!entry || typeof entry !== 'object' || !Number.isFinite(Number(entry.level))) {
+            needsNormalization = true;
+            break;
+        }
+    }
+    if (!needsNormalization) {
+        return techniques;
+    }
+    scratch.length = 0;
+    for (const entry of techniques) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        scratch.push({
+            ...entry,
+            name: entry.name ?? entry.techId,
+            level: Number.isFinite(Number(entry.level)) ? entry.level : 1,
+            exp: entry.exp ?? 0,
+            expToNext: entry.expToNext ?? 0,
+            realmLv: entry.realmLv ?? 1,
+            realm: entry.realm ?? 0,
+            skills: entry.skills ?? [],
+        });
+    }
+    return scratch;
+}
+
 /**
  * collectProjectedRuntimeBonuses：执行Projected运行态Bonuse相关逻辑。
  * @param bonuses 参数说明。
@@ -845,7 +861,7 @@ function collectProjectedRuntimeBonuses(bonuses) {
     });
 }
 function resolveTechniqueSpecialStatBonus(techniques) {
-    return calcTechniqueFinalSpecialStatBonus(techniques.map(toTechniqueState));
+    return calcTechniqueFinalSpecialStatBonus(techniques);
 }
 /**
  * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。

@@ -1403,6 +1403,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerContextActionsAvoidEntrySpread: boolean;
   playerProgressionConfigViewsReuseRefs: boolean;
   playerRealmProjectionReusesStableRefs: boolean;
+  playerAttributesAvoidHotpathScratchClones: boolean;
   playerDomainPayloadColumnsAreJsonb: boolean;
   playerDomainCloneJsonValueDecodesOnly: boolean;
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
@@ -1422,6 +1423,7 @@ function proveEntryCachesFollowLifecycle(): {
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
   const playerViewQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-player-view-query.service.ts'), 'utf8');
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
+  const playerAttributesSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-attributes.service.ts'), 'utf8');
   const playerRealmProjectionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-realm-projection.helpers.ts'), 'utf8');
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
@@ -1579,6 +1581,21 @@ function proveEntryCachesFollowLifecycle(): {
     && playerRuntimeSource.includes('return projectRealmState(realm);')
     && playerRuntimeSource.includes('return projectHeavenGateState(state);');
 
+  const playerAttributesAvoidHotpathScratchClones = playerAttributesSource.includes('techniqueStatesScratch = [];')
+    && playerAttributesSource.includes('const techniques = resolveTechniqueStatesForCalculation(')
+    && playerAttributesSource.includes('if (!needsNormalization) {\n        return techniques;\n    }')
+    && playerAttributesSource.includes('scratch.length = 0;')
+    && playerAttributesSource.includes('const baseAttrs = cloneAttributes(rawBaseAttrs);')
+    && playerAttributesSource.includes('addScaledAttributes(flatBuffAttrs, buff.attrs, effectFactor);')
+    && playerAttributesSource.includes('addScaledPartialNumericStats(target, weight, value);')
+    && playerAttributesSource.includes('addBuffNumericStats(target, buff, effectFactor);')
+    && !playerAttributesSource.includes('const techniqueStates = player.techniques.techniques.map(toTechniqueState);')
+    && !playerAttributesSource.includes('function toTechniqueState(entry)')
+    && !playerAttributesSource.includes('const realmBaseAttrs = cloneAttributes(rawBaseAttrs);')
+    && !playerAttributesSource.includes('addAttributes(flatBuffAttrs, scaleAttributes(buff.attrs, effectFactor));')
+    && !playerAttributesSource.includes('addPartialNumericStats(target, scalePartialNumericStats(weight, value));')
+    && !playerAttributesSource.includes('function scaleBuffNumericStats');
+
   const playerDomainPayloadColumnsAreJsonb = [
     'raw_payload jsonb',
     'targeting_rules_payload jsonb',
@@ -1726,6 +1743,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerContextActionsAvoidEntrySpread, true);
   assert.equal(playerProgressionConfigViewsReuseRefs, true);
   assert.equal(playerRealmProjectionReusesStableRefs, true);
+  assert.equal(playerAttributesAvoidHotpathScratchClones, true);
   assert.equal(playerDomainPayloadColumnsAreJsonb, true);
   assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
@@ -1763,6 +1781,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerContextActionsAvoidEntrySpread,
     playerProgressionConfigViewsReuseRefs,
     playerRealmProjectionReusesStableRefs,
+    playerAttributesAvoidHotpathScratchClones,
     playerDomainPayloadColumnsAreJsonb,
     playerDomainCloneJsonValueDecodesOnly,
     playerProjectedSnapshotHydratesStarterInPlace,
