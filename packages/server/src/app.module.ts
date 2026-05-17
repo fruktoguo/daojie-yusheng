@@ -53,6 +53,11 @@ import { ItemTemplateRegistry } from './content/registries/item-template.registr
 import { MonsterTemplateRegistry } from './content/registries/monster-template.registry';
 import { SkillTemplateRegistry } from './content/registries/skill-template.registry';
 import { TechniqueTemplateRegistry } from './content/registries/technique-template.registry';
+import { ContainerTemplateRegistry } from './runtime/map/registries/container-template.registry';
+import { LandmarkTemplateRegistry } from './runtime/map/registries/landmark-template.registry';
+import { NpcTemplateRegistry } from './runtime/map/registries/npc-template.registry';
+import { QuestTemplateRegistry } from './runtime/map/registries/quest-template.registry';
+import { TileTemplateRegistry } from './runtime/map/registries/tile-template.registry';
 import { ActorBlueprintRegistryService } from './runtime/actor/actor-blueprint-registry.service';
 import { ActorPersistencePolicyService } from './runtime/actor/actor-persistence-policy.service';
 import { EphemeralActorIdentityService } from './runtime/actor/ephemeral-actor-identity.service';
@@ -207,6 +212,11 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     FormationTemplateRegistry,
     MonsterTemplateRegistry,
     DropTableRegistry,
+    NpcTemplateRegistry,
+    QuestTemplateRegistry,
+    ContainerTemplateRegistry,
+    LandmarkTemplateRegistry,
+    TileTemplateRegistry,
     EphemeralActorIdentityService,
     ActorPersistencePolicyService,
     ActorBlueprintRegistryService,

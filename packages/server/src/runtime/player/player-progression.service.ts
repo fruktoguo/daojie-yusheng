@@ -161,6 +161,10 @@ export class PlayerProgressionService {
         const resolved = this.resolveInitialRealmState(player);
         this.applyRealmPresentation(player, resolved);
         this.playerAttributesService.recalculate(player);
+        // recalculate 后立刻刷一次 breakthrough preview，避免 detail 文案残留
+        // createInitialState 默认 baseAttrs（六维总值 60）。否则手机端在 recalculate
+        // 之后、下一次 refreshPreview 之前打开突破弹层，会看到"当前六维总属性 60"。
+        this.refreshPreview(player);
         player.hp = clamp(player.hp, 0, player.maxHp);
         player.qi = clamp(player.qi, 0, player.maxQi);
         // 启动时对比补齐 highestRealmLv
@@ -1153,6 +1157,9 @@ export class PlayerProgressionService {
             || !isSameHeavenGateRoots(previousRoots, player.spiritualRoots);
         if (attrRecalculated) {
             this.playerAttributesService.recalculate(player);
+            // recalculate 后立刻刷一次 breakthrough preview，避免下一级突破要求里的
+            // "当前六维总属性 X / Y" 仍按 recalculate 之前的 finalAttrs 拼装。
+            this.refreshPreview(player);
         }
         if (options?.bumpPersistentRevision !== false) {
             player.persistentRevision += 1;

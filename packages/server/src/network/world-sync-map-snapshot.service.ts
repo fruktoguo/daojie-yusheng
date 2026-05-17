@@ -23,6 +23,7 @@ import {
 } from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { TileTemplateRegistry } from '../runtime/map/registries/tile-template.registry';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -54,6 +55,7 @@ interface NativePlayerAuthStorePort {
 interface TemplateRepositoryPort {
   has(mapId: string): boolean;
   getOrThrow(mapId: string): unknown;
+  tileRegistry?: TileTemplateRegistry;
 }
 
 interface RuntimeMapConfigPort {
@@ -77,6 +79,7 @@ export class WorldSyncMapSnapshotService {
   private readonly worldRuntimeService: WorldRuntimePort;
   private readonly playerRuntimeService: PlayerRuntimePort;
   private readonly templateRepository: TemplateRepositoryPort;
+  private readonly tileRegistry: TileTemplateRegistry;
   private readonly mapRuntimeConfigService: RuntimeMapConfigPort;
   private readonly worldSyncMinimapService: WorldSyncMinimapPort;
   private readonly playerAuthStore: NativePlayerAuthStorePort | null;
@@ -99,6 +102,7 @@ export class WorldSyncMapSnapshotService {
     this.worldRuntimeService = worldRuntimeService as WorldRuntimePort;
     this.playerRuntimeService = playerRuntimeService as PlayerRuntimePort;
     this.templateRepository = templateRepository as TemplateRepositoryPort;
+    this.tileRegistry = this.templateRepository.tileRegistry ?? new TileTemplateRegistry();
     this.mapRuntimeConfigService = mapRuntimeConfigService as RuntimeMapConfigPort;
     this.worldSyncMinimapService = worldSyncMinimapService as WorldSyncMinimapPort;
     this.playerAuthStore = playerAuthStore;
@@ -398,30 +402,11 @@ export class WorldSyncMapSnapshotService {
     if (!tile) {
       return null;
     }
-    return this.getSharedTileProjection(lookup.instanceId, lookup.x, lookup.y, tile);
-  }
-
-  private getSharedTileProjection(instanceId: string, x: number, y: number, tile: any): any {
-    // 把 cache 挂在实例对象上，实例销毁时整张 Map 跟着 GC，避免 service-level Map<instanceId:x,y> 累积导致泄漏。
+    // TileTemplateRegistry 负责模板投影共享；cache 仍挂实例对象，实例销毁时跟着 GC。
     const instance: any = typeof this.worldRuntimeService.getInstanceRuntime === 'function'
-      ? this.worldRuntimeService.getInstanceRuntime(instanceId)
+      ? this.worldRuntimeService.getInstanceRuntime(lookup.instanceId)
       : null;
-    if (!instance) {
-      return tile;
-    }
-    let projectionByCoord: Map<string, any> | undefined = instance.tileProjectionByCoord;
-    if (!(projectionByCoord instanceof Map)) {
-      projectionByCoord = new Map();
-      instance.tileProjectionByCoord = projectionByCoord;
-    }
-    const cacheKey = `${x},${y}`;
-    const cached = projectionByCoord.get(cacheKey);
-    if (cached && isSameTileProjection(cached, tile)) {
-      return cached;
-    }
-    freezeTileProjection(tile);
-    projectionByCoord.set(cacheKey, tile);
-    return tile;
+    return this.tileRegistry.shareProjection(instance, lookup.x, lookup.y, tile);
   }
 
   resolveCompositeTileLookup(view, template, x, y) {
@@ -485,6 +470,9 @@ function buildStaticTileSyncState(template, x, y) {
 }
 
 function resolveTemplateLayerSeed(template, x, y) {
+  if (template?.tileRegistry instanceof TileTemplateRegistry) {
+    return template.tileRegistry.resolveLayerSeed(template, x, y);
+  }
   if (hasTemplateLayerRows(template)
     || Array.isArray(template?.surfaceRows)
     || Array.isArray(template?.structureRows)

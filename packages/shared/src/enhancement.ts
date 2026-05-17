@@ -132,12 +132,16 @@ export function getEquipmentAttributeEffectivenessBreakdown(
   };
 }
 
-export function formatEnhancedItemName(name: string, level: number | undefined): string {
+export function formatEnhancedItemName(name: string | undefined | null, level: number | undefined): string {
   const normalized = normalizeEnhanceLevel(level);
+  // 防御性兼容：装备水合 / 内容漂移等异常路径下 name 可能为 undefined/null。
+  // 直接 .replace 会把世界 tick 整个炸掉，这里退化为空字符串以保住运行时连续性，
+  // 真实模板字段缺失会被 tick 上层日志和资产审计捕捉，而非把整服阻塞在 tick 异常上。
+  const safeName = typeof name === 'string' ? name : '';
   if (normalized <= 0) {
-    return name;
+    return safeName;
   }
-  const cleanName = name.replace(/^\+\d+\s+/, '');
+  const cleanName = safeName.replace(/^\+\d+\s+/, '');
   return `+${normalized} ${cleanName}`;
 }
 
