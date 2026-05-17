@@ -1405,6 +1405,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerDomainPayloadColumnsAreJsonb: boolean;
   playerDomainCloneJsonValueDecodesOnly: boolean;
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
+  playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
 } {
   const mapInstanceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/instance/map-instance.runtime.ts'), 'utf8');
   const mapSnapshotSource = readFileSync(resolve(process.cwd(), 'packages/server/src/network/world-sync-map-snapshot.service.ts'), 'utf8');
@@ -1412,6 +1413,7 @@ function proveEntryCachesFollowLifecycle(): {
   const playerRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-runtime.service.ts'), 'utf8');
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
+  const playerPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1568,6 +1570,16 @@ function proveEntryCachesFollowLifecycle(): {
     && !playerDomainPersistenceSource.includes('enhancementRecords: Array.isArray(starterSnapshot.progression.enhancementRecords)\n        ? starterSnapshot.progression.enhancementRecords.map((entry) => cloneJsonValue(entry))')
     && !playerDomainPersistenceSource.includes('buffs: Array.isArray(starterSnapshot.buffs?.buffs)\n        ? starterSnapshot.buffs.buffs.map((entry) => cloneJsonValue(entry))');
 
+  const playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner = playerPersistenceSource.includes('items: Array.isArray(inventory?.items) ? inventory.items : []')
+    && playerPersistenceSource.includes('slots: Array.isArray(equipment?.slots) ? equipment.slots : []')
+    && playerPersistenceSource.includes('techniques: Array.isArray(techniques?.techniques) ? techniques.techniques : []')
+    && playerDomainPersistenceSource.includes('function applyProjectedInventory(')
+    && playerDomainPersistenceSource.includes('function applyProjectedEquipment(')
+    && playerDomainPersistenceSource.includes('function applyProjectedTechniques(')
+    && playerDomainPersistenceSource.includes('function applyProjectedInventory(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerInventoryItemLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
+    && playerDomainPersistenceSource.includes('function applyProjectedEquipment(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerEquipmentSlotLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
+    && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
+
   assert.equal(tileProjectionOnInstance, true);
   assert.equal(npcQuestMarkerCacheOnPlayer, true);
   assert.equal(removePlayerClearsLocalPlayerView, true);
@@ -1593,6 +1605,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerDomainPayloadColumnsAreJsonb, true);
   assert.equal(playerDomainCloneJsonValueDecodesOnly, true);
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
+  assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
   return {
     tileProjectionOnInstance,
     npcQuestMarkerCacheOnPlayer,
@@ -1619,6 +1632,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerDomainPayloadColumnsAreJsonb,
     playerDomainCloneJsonValueDecodesOnly,
     playerProjectedSnapshotHydratesStarterInPlace,
+    playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
   };
 }
 
