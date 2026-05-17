@@ -132,8 +132,11 @@ async function main(): Promise<void> {
   ];
 
   const playerRuntimeService = {
-    listPlayerSnapshots() {
+    listLeaderboardPlayerProjections() {
       return [onlinePlayer];
+    },
+    listPlayerSnapshots() {
+      throw new Error('leaderboard smoke should use listLeaderboardPlayerProjections instead of listPlayerSnapshots');
     },
     buildStarterPersistenceSnapshot(playerId: string) {
       return createRuntimePlayer({

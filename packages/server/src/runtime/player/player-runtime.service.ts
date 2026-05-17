@@ -3300,6 +3300,35 @@ export class PlayerRuntimeService {
             persistedRevision: player.persistedRevision,
         }));
     }
+    /** 列出排行榜与世界摘要所需的轻量投影，避免低频榜单重算深拷完整玩家运行态。 */
+    listLeaderboardPlayerProjections() {
+        return Array.from(this.players.values(), (player) => ({
+            playerId: player.playerId,
+            name: player.name,
+            displayName: player.displayName,
+            sessionId: player.sessionId,
+            templateId: player.templateId,
+            instanceId: player.instanceId,
+            x: player.x,
+            y: player.y,
+            realm: player.realm,
+            foundation: player.foundation,
+            inventory: player.inventory,
+            wallet: player.wallet,
+            marketStorage: player.marketStorage,
+            attrs: player.attrs,
+            combat: player.combat,
+            alchemyJob: player.alchemyJob,
+            enhancementJob: player.enhancementJob,
+            bodyTraining: player.bodyTraining,
+            monsterKillCount: player.monsterKillCount,
+            eliteMonsterKillCount: player.eliteMonsterKillCount,
+            bossMonsterKillCount: player.bossMonsterKillCount,
+            playerKillCount: player.playerKillCount,
+            deathCount: player.deathCount,
+            __leaderboardInWorld: player.__leaderboardInWorld,
+        }));
+    }
     /**
  * restoreSnapshot：执行restore快照相关逻辑。
  * @param snapshot 参数说明。

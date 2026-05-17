@@ -228,7 +228,10 @@ export class LeaderboardRuntimeService {
     /** 采集当前运行态玩家快照，排除 bot；无 session 的离线挂机也保留给排行榜。 */
     collectRuntimeSnapshots() {
 
-        const players = this.playerRuntimeService.listPlayerSnapshots()
+        const source = typeof this.playerRuntimeService.listLeaderboardPlayerProjections === 'function'
+            ? this.playerRuntimeService.listLeaderboardPlayerProjections()
+            : this.playerRuntimeService.listPlayerSnapshots();
+        const players = source
             .filter((player) => !isNativeGmBotPlayerId(player.playerId));
         return players;
     }
