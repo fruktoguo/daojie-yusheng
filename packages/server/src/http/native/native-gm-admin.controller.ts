@@ -3,11 +3,17 @@
  * 提供数据库状态查询、备份触发、备份上传/下载、数据库恢复和服务端日志查看端点。
  * 所有路由需 GM 鉴权。
  */
-import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards, NotFoundException } from '@nestjs/common';
+import { createReadStream } from 'fs';
+import { createGzip } from 'zlib';
+import { pipeline } from 'stream/promises';
+import { stat } from 'fs/promises';
 
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAdminService } from './native-gm-admin.service';
+import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
+import { NativeGmDiagnosticsService } from './native-gm-diagnostics.service';
 import { NativeGmWorkerService } from './native-gm-worker.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
 /** 数据库恢复请求体。 */
@@ -22,9 +28,12 @@ interface DatabaseCleanupBody {
   olderThanDays?: number;
 }
 
-/** Express 下载响应接口。 */
+/** Express 响应接口（下载用）。 */
 interface DownloadResponseLike {
   download(filePath: string, fileName: string): void;
+  setHeader(name: string, value: string): void;
+  status(code: number): DownloadResponseLike;
+  end(data?: unknown): void;
 }
 
 interface UploadRequestLike {
@@ -40,6 +49,7 @@ export class NativeGmAdminController {
   constructor(
     private readonly nextGmAdminService: NativeGmAdminService,
     private readonly nativeGmWorkerService: NativeGmWorkerService,
+    private readonly nativeGmDiagnosticsService: NativeGmDiagnosticsService,
   ) {}
 
   /** 查询数据库连接状态和备份列表。 */
@@ -58,6 +68,15 @@ export class NativeGmAdminController {
   @Get('workers')
   getWorkerState() {
     return this.nativeGmWorkerService.getWorkerState();
+  }
+
+  /** 执行 GM 只读诊断指令。 */
+  @Post('diagnostics/query')
+  runDiagnosticsQuery(@Body() body: { command?: string; limit?: number }, @Req() request: unknown) {
+    return this.nativeGmDiagnosticsService.executeQuery(
+      { command: body?.command ?? '', limit: body?.limit },
+      extractGmActor(request),
+    );
   }
 
   /** 触发一次数据库全量备份。 */
@@ -80,11 +99,19 @@ export class NativeGmAdminController {
     });
   }
 
-  /** 下载指定备份文件。 */
+  /** 下载指定备份文件（gzip 压缩）。 */
   @Get('database/backups/:backupId/download')
   async downloadDatabaseBackup(@Param('backupId') backupId: string, @Res() response: DownloadResponseLike) {
     const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
-    response.download(record.filePath, record.fileName);
+    // 确认文件存在
+    await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
+    const gzFileName = record.fileName.endsWith('.gz') ? record.fileName : `${record.fileName}.gz`;
+    response.setHeader('Content-Disposition', `attachment; filename="${gzFileName}"`);
+    response.setHeader('Content-Type', 'application/gzip');
+    response.setHeader('Content-Encoding', 'identity');
+    const source = createReadStream(record.filePath);
+    const gzip = createGzip();
+    await pipeline(source, gzip, response as unknown as NodeJS.WritableStream);
   }
 
   /** 从指定备份恢复数据库。 */

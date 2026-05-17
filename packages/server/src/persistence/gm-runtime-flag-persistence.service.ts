@@ -6,6 +6,7 @@ import { DatabasePoolProvider } from './database-pool.provider';
 const GM_RUNTIME_FLAG_TABLE = 'server_gm_runtime_flag';
 const GM_RUNTIME_FLAG_LOCK_NAMESPACE = 42873;
 const GM_RUNTIME_MAINTENANCE_FLAG_KEY = 'runtime_maintenance_enabled';
+const GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY = 'gm_network_payload_capture_enabled';
 
 @Injectable()
 export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDestroy {
@@ -117,6 +118,7 @@ async function ensureGmRuntimeFlagTable(pool: Pool): Promise<void> {
     await client.query(`
       INSERT INTO ${GM_RUNTIME_FLAG_TABLE} (key, value)
       VALUES ('combat_audit_enabled', false),
+             ('${GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY}', false),
              ('${GM_RUNTIME_MAINTENANCE_FLAG_KEY}', false)
       ON CONFLICT (key) DO NOTHING
     `);
@@ -129,4 +131,4 @@ async function ensureGmRuntimeFlagTable(pool: Pool): Promise<void> {
   }
 }
 
-export { GM_RUNTIME_FLAG_TABLE, GM_RUNTIME_MAINTENANCE_FLAG_KEY };
+export { GM_RUNTIME_FLAG_TABLE, GM_RUNTIME_MAINTENANCE_FLAG_KEY, GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY };

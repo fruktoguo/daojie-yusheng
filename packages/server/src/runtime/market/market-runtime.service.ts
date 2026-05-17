@@ -5,8 +5,8 @@
  */
 import { Inject, Injectable, Logger, Optional, type BeforeApplicationShutdown } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
-import { compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
+import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
@@ -2802,14 +2802,18 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
 
         const next = cloneStorage(current);
 
-        const signature = createItemStackSignature(item);
+        const incoming = { ...item };
+        assignItemInstanceIdIfNeeded(incoming);
+        const signature = canMergeItemStack(incoming) ? createItemStackSignature(incoming) : null;
 
-        const existing = next.items.find((entry) => createItemStackSignature(entry) === signature);
+        const existing = signature
+            ? next.items.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
+            : null;
         if (existing) {
-            existing.count += item.count;
+            existing.count += incoming.count;
         }
         else {
-            next.items.push({ ...item });
+            next.items.push(incoming);
             next.items.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
         }
         this.setStorage(playerId, next, context);
@@ -3223,11 +3227,14 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
         const remainingItems = [];
         let movedCount = 0;
         for (const item of Array.isArray(storageItems) ? storageItems : []) {
-            const normalized = this.contentTemplateRepository.normalizeItem(item);
+            const normalized = { ...this.contentTemplateRepository.normalizeItem(item) };
             if (!normalized) {
                 continue;
             }
-            const existing = nextInventoryItems.find((entry) => createItemStackSignature(entry) === createItemStackSignature(normalized));
+            assignItemInstanceIdIfNeeded(normalized);
+            const existing = canMergeItemStack(normalized)
+                ? nextInventoryItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === createItemStackSignature(normalized))
+                : null;
             if (existing) {
                 existing.count += normalized.count;
                 movedCount += normalized.count;
@@ -3459,8 +3466,11 @@ function applyMarketSellNowToInventory(existingItems, item, quantity) {
         return nextItems;
     }
     const mergeTarget = { ...item, count: normalizedQuantity };
-    const signature = createItemStackSignature(mergeTarget);
-    const existing = nextItems.find((entry) => createItemStackSignature(entry) === signature);
+    assignItemInstanceIdIfNeeded(mergeTarget);
+    const signature = canMergeItemStack(mergeTarget) ? createItemStackSignature(mergeTarget) : null;
+    const existing = signature
+        ? nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
+        : null;
     if (existing) {
         existing.count += normalizedQuantity;
         return nextItems;
@@ -3522,8 +3532,14 @@ function applyMarketBuyNowToSellerInventory(existingItems, item, quantity) {
     if (!item || normalizedQuantity <= 0) {
         return null;
     }
+    const itemInstanceId = typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()
+        ? item.itemInstanceId.trim()
+        : '';
     const signature = createItemStackSignature(item);
-    const existing = nextItems.find((entry) => createItemStackSignature(entry) === signature);
+    const existing = itemInstanceId
+        ? nextItems.find((entry) => entry?.itemInstanceId === itemInstanceId)
+        : nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
+            ?? nextItems.find((entry) => createItemStackSignature(entry) === signature);
     if (!existing || Number(existing.count ?? 0) < normalizedQuantity) {
         return null;
     }

@@ -26,7 +26,7 @@ export class MinimapRuntime {
 
   /** 将 map store 的快照适配为小地图输入并触发更新。 */
   update(snapshot: MapStoreSnapshot): void {
-    const scene: MinimapSceneInput = snapshot.minimap.mapMeta
+    const scene: MinimapSceneInput = snapshot.minimap.mapMeta && !snapshot.minimap.mapMeta.hideMinimap
       ? {
           mapMeta: snapshot.minimap.mapMeta,
           snapshot: snapshot.minimap.snapshot,

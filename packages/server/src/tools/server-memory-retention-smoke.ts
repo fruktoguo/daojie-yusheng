@@ -245,7 +245,7 @@ function proveItemInstancesUseTemplatePrototype(): {
     slot: 'weapon',
     rawPayload: { enhanceLevel: 2 },
   }, repository as any) as any;
-  const createItemOwnKeysMinimal = JSON.stringify(Object.keys(created).sort()) === JSON.stringify(['count', 'itemId']);
+  const createItemOwnKeysMinimal = JSON.stringify(Object.keys(created).sort()) === JSON.stringify(['count', 'itemId', 'itemInstanceId']);
   const createItemReadsTemplateFields = created.name === template.name
     && created.type === template.type
     && created.equipAttrs === template.equipAttrs;
@@ -626,9 +626,12 @@ function proveProjectorSharesStableInstanceEntryRefs(): { monsterRefShared: bool
 function proveProjectorFullEnvelopeAvoidsPanelCache(): {
   groundItemsRefShared: boolean;
   fullCacheHasNoPanel: boolean;
+  fullCacheHasTechniquePanel: boolean;
   fullCacheHasPanelCursor: boolean;
   diffCacheHasNoPanel: boolean;
+  diffCacheHasTechniquePanel: boolean;
   diffCacheHasPanelCursor: boolean;
+  expPatchAvoidsStaticTemplate: boolean;
 } {
   const service = new WorldProjectorService({
     has: () => true,
@@ -666,6 +669,7 @@ function proveProjectorFullEnvelopeAvoidsPanelCache(): {
   assert.ok(full?.panelDelta?.tech?.techniques?.[0]);
   assert.ok(full?.panelDelta?.act?.actions?.[0]);
   const fullCacheHasNoPanel = fullCache.panel === undefined;
+  const fullCacheHasTechniquePanel = fullCache.techniquePanel?.revision === player.techniques.revision;
   const fullCacheHasPanelCursor = typeof fullCache.panelCursor?.inventoryRevision === 'number'
     && typeof fullCache.panelCursor?.attrSignature === 'string';
 
@@ -686,25 +690,70 @@ function proveProjectorFullEnvelopeAvoidsPanelCache(): {
   const diffCache = (diffService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('projector_player');
   assert.equal(diff?.panelDelta?.inv?.full, 1);
   assert.equal(diff?.panelDelta?.eq?.full, 1);
-  assert.equal(diff?.panelDelta?.tech?.full, 1);
+  assert.equal(diff?.panelDelta?.tech?.full, undefined);
+  assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.techId, 'tech_diff');
+  assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.skills, undefined);
+  assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.layers, undefined);
   assert.equal(diff?.panelDelta?.act?.full, 1);
   const diffCacheHasNoPanel = diffCache.panel === undefined;
+  const diffCacheHasTechniquePanel = diffCache.techniquePanel?.revision === 2;
   const diffCacheHasPanelCursor = diffCache.panelCursor?.inventoryRevision === 2
     && diffCache.panelCursor?.equipmentRevision === 2
     && diffCache.panelCursor?.techniqueRevision === 2
     && diffCache.panelCursor?.actionRevision === 2;
 
+  const expService = new WorldProjectorService({
+    has: () => true,
+    getOrThrow: (mapId: string) => ({ name: mapId }),
+  } as never, null);
+  const expPlayer = createProjectorPlayer();
+  const sharedSkill = { id: 'skill_shared', name: '共享招式', desc: '不应随经验 delta 重复下发', cooldown: 1, cost: 1, range: 1, effects: [] };
+  const sharedLayer = { level: 1, expToNext: 10, attrs: { constitution: 1 } };
+  expPlayer.techniques = {
+    ...expPlayer.techniques,
+    revision: 1,
+    techniques: [{
+      techId: 'tech_exp',
+      name: '经验功法',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      realm: 0,
+      skills: [sharedSkill],
+      layers: [sharedLayer],
+    }],
+  };
+  expService.createInitialEnvelope({ playerId: 'projector_player', sessionId: 'projector_session' }, createProjectorView(), expPlayer);
+  expPlayer.techniques = {
+    ...expPlayer.techniques,
+    revision: 2,
+    techniques: [{ ...expPlayer.techniques.techniques[0], exp: 1 }],
+  };
+  const expDelta = expService.createDeltaEnvelope({ ...createProjectorView(), tick: 3 }, expPlayer);
+  const expPatch = expDelta?.panelDelta?.tech?.techniques?.[0];
+  assert.equal(expPatch?.techId, 'tech_exp');
+  assert.equal(expPatch?.exp, 1);
+  assert.equal(expPatch?.skills, undefined);
+  assert.equal(expPatch?.layers, undefined);
+  assert.equal(expDelta?.panelDelta?.tech?.full, undefined);
+
   assert.equal(groundItemsRefShared, true);
   assert.equal(fullCacheHasNoPanel, true);
+  assert.equal(fullCacheHasTechniquePanel, true);
   assert.equal(fullCacheHasPanelCursor, true);
   assert.equal(diffCacheHasNoPanel, true);
+  assert.equal(diffCacheHasTechniquePanel, true);
   assert.equal(diffCacheHasPanelCursor, true);
   return {
     groundItemsRefShared,
     fullCacheHasNoPanel,
+    fullCacheHasTechniquePanel,
     fullCacheHasPanelCursor,
     diffCacheHasNoPanel,
+    diffCacheHasTechniquePanel,
     diffCacheHasPanelCursor,
+    expPatchAvoidsStaticTemplate: expPatch?.skills === undefined && expPatch?.layers === undefined,
   };
 }
 
@@ -773,6 +822,8 @@ function proveAuxStateReusesStableProjectionRefs(): {
     } as never,
     {
       buildMinimapLibrarySync: () => [],
+      buildMinimapLibraryManifest: () => [],
+      buildMinimapLibraryDelta: () => [],
       buildGameTimeState: (_template: any, view: any) => ({
         totalTicks: view.tick,
         localTicks: view.tick,

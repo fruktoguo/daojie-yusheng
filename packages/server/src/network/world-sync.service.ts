@@ -157,23 +157,21 @@ export class WorldSyncService {
 
     private emitPendingPlayerStatisticRecords(playerId: string, socket: any) {
         const records = typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
-            ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId)
-            : [];
+            ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId) : [];
         const totals = typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'
-            ? this.playerRuntimeService.consumePlayerStatisticTotalsForEmit(playerId)
-            : null;
+            ? this.playerRuntimeService.consumePlayerStatisticTotalsForEmit(playerId) : null;
         if (typeof socket?.emit !== 'function') return;
         if ((!Array.isArray(records) || records.length === 0) && !totals) return;
-        socket.emit(S2C.OfflineGainReports, {
-            reports: Array.isArray(records) ? records : [],
-            ...(totals ? { totals } : {}),
-        });
+        socket.emit(S2C.OfflineGainReports, { reports: Array.isArray(records) ? records : [], ...(totals ? { totals } : {}) });
     }
 
     private syncPlayerInstanceRoom(playerId: string, view: any) {
         const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId : null;
-        if (typeof this.worldSessionService?.syncPlayerInstanceRoom === 'function') {
-            this.worldSessionService.syncPlayerInstanceRoom(playerId, instanceId);
-        }
+        if (typeof this.worldSessionService?.syncPlayerInstanceRoom === 'function') this.worldSessionService.syncPlayerInstanceRoom(playerId, instanceId);
+    }
+
+    handleReportMinimapVersions(socket: any, playerId: string, clientVersions: Record<string, number>): void {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (player) this.worldSyncAuxStateService.handleReportMinimapVersions(socket, player, clientVersions);
     }
 }

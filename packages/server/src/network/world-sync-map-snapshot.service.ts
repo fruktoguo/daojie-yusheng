@@ -278,21 +278,71 @@ export class WorldSyncMapSnapshotService {
     };
   }
 
+  /** 地图快照版本缓存：mapId → version number（启动期计算，运行时不变）。 */
+  private readonly minimapVersionCache = new Map<string, number>();
+
+  /** 获取指定地图的快照版本号（启动期计算后缓存）。 */
+  getMinimapSnapshotVersion(mapId: string): number {
+    const cached = this.minimapVersionCache.get(mapId);
+    if (cached !== undefined) return cached;
+    if (!this.templateRepository.has(mapId)) return 0;
+    const template = this.templateRepository.getOrThrow(mapId);
+    const snapshot = this.worldSyncMinimapService.buildMinimapSnapshotSync(template);
+    const version = computeMinimapSnapshotHash(snapshot);
+    this.minimapVersionCache.set(mapId, version);
+    return version;
+  }
+
+  /** 构建 minimapLibrary 版本清单（只含 mapId + version）。 */
+  buildMinimapLibraryManifest(player): Array<{ mapId: string; version: number }> {
+    const mapIds = this.resolveUnlockedMapIds(player);
+    return mapIds.map((mapId) => ({ mapId, version: this.getMinimapSnapshotVersion(mapId) }));
+  }
+
+  /** 根据客户端上报的版本对比，返回需要下发的完整条目。 */
+  buildMinimapLibraryDelta(
+    player: { unlockedMapIds?: string[] },
+    clientVersions: Record<string, number>,
+  ): any[] {
+    const mapIds = this.resolveUnlockedMapIds(player);
+    const result: any[] = [];
+    for (const mapId of mapIds) {
+      const serverVersion = this.getMinimapSnapshotVersion(mapId);
+      if ((clientVersions[mapId] ?? 0) !== serverVersion) {
+        const template = this.templateRepository.getOrThrow(mapId);
+        result.push({
+          mapId,
+          version: serverVersion,
+          mapMeta: this.buildMapMetaSync(template),
+          snapshot: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
+        });
+      }
+    }
+    return result;
+  }
+
+  /** @deprecated 旧全量构建，保留供 smoke 测试兼容。 */
   buildMinimapLibrarySync(player): any[] {
-    const unlockedMapIds: string[] = Array.isArray(player.unlockedMapIds)
-      ? player.unlockedMapIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-      : [];
-    const mapIds = Array.from(new Set<string>(unlockedMapIds))
-      .filter((entry) => this.templateRepository.has(entry))
-      .sort(compareStableStrings);
+    const mapIds = this.resolveUnlockedMapIds(player);
     return mapIds.map((mapId) => {
       const template = this.templateRepository.getOrThrow(mapId);
       return {
         mapId,
+        version: this.getMinimapSnapshotVersion(mapId),
         mapMeta: this.buildMapMetaSync(template),
         snapshot: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
       };
     });
+  }
+
+  /** 解析玩家已解锁且模板存在的 mapId 列表。 */
+  private resolveUnlockedMapIds(player: { unlockedMapIds?: string[] }): string[] {
+    const unlockedMapIds: string[] = Array.isArray(player.unlockedMapIds)
+      ? player.unlockedMapIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+      : [];
+    return Array.from(new Set<string>(unlockedMapIds))
+      .filter((entry) => this.templateRepository.has(entry))
+      .sort(compareStableStrings);
   }
 
   buildMapMetaSync(template) {
@@ -988,6 +1038,7 @@ function buildMapMetaSync(template) {
     spaceVisionMode: template.source.spaceVisionMode,
     mapLv: template.source.mapLv,
     description: template.source.description,
+    hideMinimap: template.source.hideMinimap || undefined,
   };
 }
 
@@ -999,4 +1050,15 @@ function compareStableStrings(left, right) {
     return 1;
   }
   return 0;
+}
+
+/** 简单 FNV-1a 32 位哈希，用于 minimap 快照版本号。 */
+function computeMinimapSnapshotHash(snapshot: { width: number; height: number; terrainRows: string[]; markers: any[] }): number {
+  let hash = 2166136261;
+  const str = `${snapshot.width}:${snapshot.height}:${snapshot.terrainRows.join('')}:${snapshot.markers.length}`;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }

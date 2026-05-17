@@ -3063,7 +3063,7 @@ gm.mail.sender.default,GM,司命台,
 gm.mail.sent,GM,已向 {roleName} 发送邮件：{mailId},
 gm.network.large-payload.empty,GM,这个流量项当前没有可查看的大包样本,
 gm.network.large-payload.expired,GM,大包样本已过期,缺失 key 自动补齐
-gm.network.large-payload.limit-note,GM,仅开发态记录最近 {count} 个超过 1 KB 的实际包体,
+gm.network.large-payload.limit-note,GM,记录最近 {count} 个超过 1 KB 的完整实际包体,
 gm.network.large-payload.modal-title,GM,网络包体内容,
 gm.network.large-payload.sample-meta,GM,{event} · {recordedAt} · payload {payloadBytes} · packet {packetBytes},
 gm.none,GM,无,

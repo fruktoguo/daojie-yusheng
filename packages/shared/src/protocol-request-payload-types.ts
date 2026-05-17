@@ -278,3 +278,8 @@ export interface C2S_MarkSuggestionRepliesRead extends MarkSuggestionRepliesRead
 export interface C2S_GmMarkSuggestionCompleted extends GmMarkSuggestionCompletedRequestView {}
 /** GM 删除建议。 */
 export interface C2S_GmRemoveSuggestion extends GmRemoveSuggestionRequestView {}
+/** 客户端上报本地 minimapLibrary 缓存版本。 */
+export interface C2S_ReportMinimapVersions {
+  /** mapId → 本地缓存版本号 */
+  versions: Record<string, number>;
+}

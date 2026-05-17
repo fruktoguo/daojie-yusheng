@@ -1,4 +1,5 @@
 import { MAX_ZOOM, MIN_ZOOM } from './display';
+import { C2S, S2C } from '@mud/shared';
 import type { ActionDef, PlayerState } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { LoginUI } from './ui/login';
@@ -34,6 +35,7 @@ import { mountReactUi } from './react-ui/app/mount';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
+import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
 import { bindMainStartup } from './main-startup-bindings';
@@ -457,7 +459,7 @@ type MainBootstrapAssemblyOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;
+  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect' | 'emitEvent'>;
   /**
  * runtimeSender：运行态Sender相关字段。
  */
@@ -687,6 +689,17 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onSelfDelta: (data) => options.runtimeStateSource.handleSelfDelta(data),
     onPanelDelta: (data) => options.runtimeStateSource.handlePanelDelta(data),
     onMapStatic: (data) => options.runtimeStateSource.handleMapStatic(data),
+  });
+
+  // minimapLibrary 版本协商：收到清单后回报本地版本，收到增量后更新缓存
+  options.socket.on(S2C.MinimapLibraryManifest, () => {
+    const clientVersions = getCachedMinimapVersions();
+    options.socket.emitEvent(C2S.ReportMinimapVersions, { versions: clientVersions });
+  });
+  options.socket.on(S2C.MinimapLibraryDelta, (data) => {
+    if (Array.isArray(data?.entries) && data.entries.length > 0) {
+      cacheUnlockedMinimapLibrary(data.entries);
+    }
   });
 
   bindMainLowFrequencySocketEvents({

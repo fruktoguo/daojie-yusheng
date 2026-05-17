@@ -479,6 +479,30 @@ export interface GmHeapSnapshotSummaryRes {
   summary?: GmHeapSnapshotSummary;
 }
 
+/** 单次内存用量快照，单位为字节。 */
+export interface GmMemoryUsageBytesSnapshot {
+  rssBytes: number;
+  heapUsedBytes: number;
+  heapTotalBytes: number;
+  externalBytes: number;
+  arrayBuffersBytes: number;
+}
+
+/** GM 手动 GC 诊断响应。 */
+export interface GmManualGcRes {
+  ok: boolean;
+  reason?: 'in_progress' | 'cooldown' | 'gc_failed';
+  error?: string;
+  hint?: string;
+  triggeredAt?: number;
+  durationMs?: number;
+  cooldownMs?: number;
+  cooldownRemainingMs?: number;
+  before?: GmMemoryUsageBytesSnapshot;
+  after?: GmMemoryUsageBytesSnapshot;
+  delta?: GmMemoryUsageBytesSnapshot;
+}
+
 /** Heap Snapshot 摘要中按 constructor 维度的统计条目。 */
 export interface GmHeapSnapshotConstructorStat {
   /** 构造函数或 V8 类型名（显示名）。 */

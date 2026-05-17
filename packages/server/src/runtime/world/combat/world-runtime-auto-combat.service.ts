@@ -288,13 +288,6 @@ export class WorldRuntimeAutoCombatService {
             if (!instance) {
                 continue;
             }
-            if (player.combat.autoBattle && instance.isSafeZoneTile(player.x, player.y)) {
-                this.playerRuntimeService.updateCombatSettings(playerId, { autoBattle: false }, currentTick);
-                this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
-                const safeNotice = buildStructuredNotice('warn', 'notice.combat.safe-zone-stop', '安全区内无法发起攻击，自动战斗已停止。', {});
-                deps.queuePlayerNotice(playerId, safeNotice.text, safeNotice.kind, undefined, undefined, safeNotice.structured);
-                continue;
-            }
             const command = this.buildAutoCombatCommand(instance, player, deps);
             if (command) {
                 if (isAutoCombatActionCommand(command)) {
@@ -323,11 +316,9 @@ export class WorldRuntimeAutoCombatService {
  */
 
     buildAutoCombatCommand(instance, player, deps, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  // 安全区内允许自动战斗打怪，但不允许自动选择玩家目标。
 
-        if (instance.isPointInSafeZone(player.x, player.y)) {
-            return null;
-        }
+        const inSafeZone = instance.isPointInSafeZone(player.x, player.y);
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
         const view = instance.buildPlayerView(player.playerId, radius);
         if (!view) {
@@ -337,11 +328,15 @@ export class WorldRuntimeAutoCombatService {
         if (!target) {
             return null;
         }
+        if (inSafeZone && target.playerId) {
+            return null;
+        }
         const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
         const skillChoice = target.supportsSkill === false
             ? null
             : this.resolveAutoBattleSkillChoice(player, distance, options);
         if (skillChoice?.skillId) {
+            // selfCast（以自身为中心的 AOE）不需要对目标做 LOS 检查
             if (skillChoice.selfCast) {
                 return {
                     kind: 'castSkill',
@@ -349,6 +344,32 @@ export class WorldRuntimeAutoCombatService {
                     targetPlayerId: null,
                     targetMonsterId: null,
                     targetRef: null,
+                    autoCombat: true,
+                };
+            }
+            // LOS 预检：避免对视线被遮挡的目标发出必然失败的 castSkill 指令
+            const losRange = Math.max(1, Math.round(skillChoice.range ?? 1));
+            if (typeof instance.canSeeTileFrom === 'function' &&
+                instance.canSeeTileFrom(player.x, player.y, target.x, target.y, losRange) === false) {
+                // 视线不通 → 尝试寻路靠近；stationary 模式直接放弃
+                if (player.combat.autoBattleStationary) {
+                    return null;
+                }
+                const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false);
+                if (!losPathResult || losPathResult.points.length === 0) {
+                    return null;
+                }
+                const losDirection = directionFromStep(player.x, player.y, losPathResult.points[0].x, losPathResult.points[0].y);
+                if (losDirection === null) {
+                    return null;
+                }
+                const losMaxSteps = resolveInitialRunLength(losPathResult.points, player.x, player.y, losDirection);
+                return {
+                    kind: 'move',
+                    direction: losDirection,
+                    continuous: true,
+                    maxSteps: losMaxSteps,
+                    path: losPathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
                     autoCombat: true,
                 };
             }
@@ -372,6 +393,11 @@ export class WorldRuntimeAutoCombatService {
             };
         }
         if (distance <= 1) {
+            // 近战基础攻击也做 LOS 预检
+            if (typeof instance.canSeeTileFrom === 'function' &&
+                instance.canSeeTileFrom(player.x, player.y, target.x, target.y, 1) === false) {
+                return null;
+            }
             return buildBasicAttackCommandFromAttackableTarget(target);
         }
         if (player.combat.autoBattleStationary) {

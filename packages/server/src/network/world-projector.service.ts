@@ -152,6 +152,7 @@ export class WorldProjectorService {
                 ? combineProjectorState(currentWorld, {
                     selfRevision: player.selfRevision,
                     self: captureSelfState(player),
+                    techniquePanel: panelUpdate.techniquePanel,
                     panelCursor: panelUpdate.panelCursor,
                 })
                 : mergeWorldState(previous, currentWorld);

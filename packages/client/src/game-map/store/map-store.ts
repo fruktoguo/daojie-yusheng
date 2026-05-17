@@ -481,10 +481,15 @@ export class MapStore {
       cacheMapMeta(mapMeta);
     }
     this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers ?? []);
-    rememberVisibleMarkers(player.mapId, this.visibleMinimapMarkers);
+    if (!mapMeta?.hideMinimap) {
+      rememberVisibleMarkers(player.mapId, this.visibleMinimapMarkers);
+    }
+    // 兼容旧协议 minimapLibrary 全量 + 新协议 unlockedMapIds
     if (minimapLibrary.length > 0) {
       cacheUnlockedMinimapLibrary(minimapLibrary);
       player.unlockedMinimapIds = minimapLibrary.map((entry) => entry.mapId).sort();
+    } else if (Array.isArray((data as any).unlockedMapIds) && (data as any).unlockedMapIds.length > 0) {
+      player.unlockedMinimapIds = (data as any).unlockedMapIds.slice().sort();
     }
     if (!Array.isArray(player.unlockedMinimapIds)) {
       player.unlockedMinimapIds = [];
@@ -572,7 +577,9 @@ export class MapStore {
     }
     if (data.visibleMinimapMarkers !== undefined && data.mapId === this.player.mapId) {
       this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers);
-      rememberVisibleMarkers(data.mapId, this.visibleMinimapMarkers);
+      if (!this.mapMeta?.hideMinimap) {
+        rememberVisibleMarkers(data.mapId, this.visibleMinimapMarkers);
+      }
     }
     if ('minimap' in data && data.mapId === this.player.mapId) {
       this.setMinimapSnapshot(data.minimap ?? null);
@@ -649,7 +656,7 @@ export class MapStore {
         data.visibleMinimapMarkerAdds ?? [],
         data.visibleMinimapMarkerRemoves ?? [],
       );
-      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
+      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 && !this.mapMeta?.hideMinimap) {
         rememberVisibleMarkers(this.player.mapId, data.visibleMinimapMarkerAdds ?? []);
       }
     }
@@ -1145,7 +1152,9 @@ export class MapStore {
       ...patch,
       tile: normalizeVisibleTile(patch.tile),
     }));
-    rememberVisibleTilePatches(mapId, normalizedPatches);
+    if (!this.mapMeta?.hideMinimap) {
+      rememberVisibleTilePatches(mapId, normalizedPatches);
+    }
     for (const patch of normalizedPatches) {
       const key = `${patch.x},${patch.y}`;
       if (patch.tile) {
@@ -1176,7 +1185,9 @@ export class MapStore {
 
     this.visibleTiles.clear();
     const normalizedTiles = tiles.map((row) => row.map((tile) => normalizeVisibleTile(tile)));
-    rememberVisibleTiles(mapId, normalizedTiles, originX, originY);
+    if (!this.mapMeta?.hideMinimap) {
+      rememberVisibleTiles(mapId, normalizedTiles, originX, originY);
+    }
     for (let rowIndex = 0; rowIndex < normalizedTiles.length; rowIndex += 1) {
       for (let columnIndex = 0; columnIndex < normalizedTiles[rowIndex].length; columnIndex += 1) {
         const tile = normalizedTiles[rowIndex][columnIndex];

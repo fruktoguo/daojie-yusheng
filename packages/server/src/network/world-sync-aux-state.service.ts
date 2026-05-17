@@ -7,6 +7,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  S2C,
   type BootstrapView,
   type GameTimeState,
   type HeavenGateRootValues,
@@ -60,6 +61,8 @@ interface MapTemplateRepositoryPort {
 interface WorldSyncMapSnapshotServicePort {
   buildRenderEntitiesSnapshot: WorldSyncMapSnapshotServiceInstance['buildRenderEntitiesSnapshot'];
   buildMinimapLibrarySync: WorldSyncMapSnapshotServiceInstance['buildMinimapLibrarySync'];
+  buildMinimapLibraryManifest: WorldSyncMapSnapshotServiceInstance['buildMinimapLibraryManifest'];
+  buildMinimapLibraryDelta: WorldSyncMapSnapshotServiceInstance['buildMinimapLibraryDelta'];
   buildGameTimeState: WorldSyncMapSnapshotServiceInstance['buildGameTimeState'];
   buildMapTickIntervalMs: WorldSyncMapSnapshotServiceInstance['buildMapTickIntervalMs'];
   buildMapMetaSync: WorldSyncMapSnapshotServiceInstance['buildMapMetaSync'];
@@ -117,6 +120,7 @@ interface MapStaticSyncOptions {
   mapMeta?: MapStaticSyncView['mapMeta'];
   minimap?: MapMinimapSnapshot;
   minimapLibrary?: MapMinimapArchiveEntry[];
+  unlockedMapIds?: string[];
   tiles?: VisibleTilesSnapshot['matrix'];
   tilesOriginX?: number;
   tilesOriginY?: number;
@@ -175,7 +179,8 @@ export class WorldSyncAuxStateService {
     const template = this.templateRepository.getOrThrow(view.instance.templateId);
     const mapStaticState = this.worldSyncMapStaticAuxService.buildInitialMapStaticState(view, player, template);
     const visibleTiles = mapStaticState.visibleTiles;
-    const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
+    const minimapManifest = this.worldSyncMapSnapshotService.buildMinimapLibraryManifest(player);
+    const unlockedMapIds = minimapManifest.map((entry) => entry.mapId);
     const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
     const timeSyncState = this.buildTimeSyncState(template.id, timeState);
@@ -185,7 +190,7 @@ export class WorldSyncAuxStateService {
       this.worldSyncPlayerStateService.buildPlayerSyncState(
         player,
         view,
-        minimapLibrary.map((entry) => entry.mapId),
+        unlockedMapIds,
       ),
       timeState,
     );
@@ -200,9 +205,13 @@ export class WorldSyncAuxStateService {
         tilesOriginX: resolveVisibleTilesOriginX(view, player),
         tilesOriginY: resolveVisibleTilesOriginY(view, player),
         visibleMinimapMarkers: mapStaticState.visibleMinimapMarkers,
-        minimapLibrary: minimapLibrary.length > 0 ? minimapLibrary : undefined,
+        unlockedMapIds: unlockedMapIds.length > 0 ? unlockedMapIds : undefined,
       }),
     );
+    // 发送 minimapLibrary 版本清单，客户端收到后回报本地版本
+    if (minimapManifest.length > 0) {
+      socket.emit(S2C.MinimapLibraryManifest, { manifest: minimapManifest });
+    }
     if (timeSyncState.tickIntervalMs !== 1000) {
       this.worldSyncProtocolService.sendWorldDelta(
         socket,
@@ -226,6 +235,18 @@ export class WorldSyncAuxStateService {
       lootWindow: cloneLootWindow(lootWindow),
       lootWindowSource: lootWindow,
     });
+  }
+
+  /** 处理客户端上报的 minimapLibrary 本地版本，对比后下发变更条目。 */
+  handleReportMinimapVersions(
+    socket: SocketLike,
+    player: RuntimePlayer,
+    clientVersions: Record<string, number>,
+  ): void {
+    const delta = this.worldSyncMapSnapshotService.buildMinimapLibraryDelta(player, clientVersions);
+    if (delta.length > 0) {
+      socket.emit(S2C.MinimapLibraryDelta, { entries: delta });
+    }
   }
 
   /** tick 增量辅助状态同步：对比前帧缓存，仅下发变化的 tile patch、时间、境界、威胁和拾取窗口。 */

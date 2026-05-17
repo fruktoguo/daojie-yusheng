@@ -373,6 +373,8 @@ export interface MapMeta {
  */
 
   description?: string;
+  /** 是否隐藏小地图（不显示、不记录）。 */
+  hideMinimap?: boolean;
 }
 
 /** 传送点类型。 */

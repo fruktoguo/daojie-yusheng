@@ -5,12 +5,13 @@
  */
 import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { createItemStackSignature } from '@mud/shared';
+import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 
 /** 兑换码运行时：负责分组、码表、兑换与持久化。 */
 const REDEEM_CODE_LENGTH = 36;
@@ -812,15 +813,19 @@ function canReceiveAllRewards(currentItems, capacity, items) {
         if (isWalletRewardItemId(item?.itemId)) {
             continue;
         }
-        const existing = snapshot.find((entry) => createItemStackSignature(entry) === createItemStackSignature(item));
+        const incoming = { ...item };
+        assignItemInstanceIdIfNeeded(incoming);
+        const existing = canMergeItemStack(incoming)
+            ? snapshot.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === createItemStackSignature(incoming))
+            : null;
         if (existing) {
-            existing.count += item.count;
+            existing.count += incoming.count;
             continue;
         }
         if (snapshot.length >= capacity) {
             return false;
         }
-        snapshot.push({ ...item });
+        snapshot.push(incoming);
     }
     return true;
 }
@@ -838,7 +843,11 @@ function buildNextInventorySnapshots(currentItems, grantedItems) {
         if (!itemId || count <= 0) {
             continue;
         }
-        const existing = snapshot.find((entry) => entry.itemId === itemId);
+        const incoming = grantedItem ? { ...grantedItem, itemId, count } : { itemId, count };
+        assignItemInstanceIdIfNeeded(incoming);
+        const existing = canMergeItemStack(incoming)
+            ? snapshot.find((entry) => canMergeItemStack(entry.rawPayload ?? entry) && createItemStackSignature(entry.rawPayload ?? entry) === createItemStackSignature(incoming))
+            : null;
         if (existing) {
             existing.count += count;
             existing.rawPayload = { ...(existing.rawPayload ?? existing), itemId, count: existing.count };
@@ -847,7 +856,7 @@ function buildNextInventorySnapshots(currentItems, grantedItems) {
         snapshot.push({
             itemId,
             count,
-            rawPayload: grantedItem ? { ...grantedItem, itemId, count } : { itemId, count },
+            rawPayload: incoming,
         });
     }
     return snapshot;

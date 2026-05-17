@@ -130,6 +130,7 @@ type SpecialStatsCacheEntry = {
 type PanelDeltaBuildResult = {
     delta: S2C_PanelDelta | null;
     panelCursor: ProjectedPanelCursor;
+    techniquePanel?: ProjectedPanelState['technique'];
 };
 
 const specialStatsCache = new WeakMap<ProjectorPlayerLike, SpecialStatsCacheEntry>();
@@ -676,6 +677,7 @@ function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
     return {
         selfRevision: player.selfRevision,
         self: captureSelfState(player),
+        techniquePanel: captureTechniquePanelSlice(player),
         panelCursor: buildPanelCursor(player),
     };
 }
@@ -968,6 +970,7 @@ function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerS
         formations: worldState.formations,
         selfRevision: playerState.selfRevision,
         self: playerState.self,
+        techniquePanel: playerState.techniquePanel,
         panelCursor: playerState.panelCursor,
     };
 }
@@ -1134,15 +1137,37 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
     const panelCursor = buildPanelCursor(player);
-    const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player);
-    return { delta, panelCursor };
+    const hasTechniqueCache = Boolean(previous.techniquePanel);
+    const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player, {
+        skipTechnique: hasTechniqueCache,
+    }) ?? {};
+    let techniquePanel = previous.techniquePanel;
+    if (previous.techniquePanel && previous.panelCursor.techniqueRevision !== panelCursor.techniqueRevision) {
+        const currentTechnique = captureTechniquePanelSlice(player);
+        const techniquePatch = diffTechniqueEntries(previous.techniquePanel.techniques, currentTechnique.techniques);
+        const removed = diffRemovedTechniqueIds(previous.techniquePanel.techniques, currentTechnique.techniques);
+        delta.tech = {
+            r: currentTechnique.revision,
+            techniques: techniquePatch.length > 0 ? techniquePatch : undefined,
+            removeTechniqueIds: removed.length > 0 ? removed : undefined,
+            cultivatingTechId: previous.techniquePanel.cultivatingTechId !== currentTechnique.cultivatingTechId
+                ? currentTechnique.cultivatingTechId : undefined,
+            bodyTraining: !isSameBodyTrainingState(previous.techniquePanel.bodyTraining, currentTechnique.bodyTraining)
+                ? currentTechnique.bodyTraining : undefined,
+        };
+        techniquePanel = currentTechnique;
+    } else if (!techniquePanel) {
+        techniquePanel = captureTechniquePanelSlice(player);
+    }
+    const finalDelta = delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+    return { delta: finalDelta, panelCursor, techniquePanel };
 }
 
 function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
     return buildPanelUpdate(previous, player).delta;
 }
 
-function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, currentCursor: ProjectedPanelCursor, player: ProjectorPlayerLike): S2C_PanelDelta | null {
+function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, currentCursor: ProjectedPanelCursor, player: ProjectorPlayerLike, options: { skipTechnique?: boolean } = {}): S2C_PanelDelta | null {
     const delta: S2C_PanelDelta = {};
     if (previousCursor.inventoryRevision !== currentCursor.inventoryRevision) {
         const inventory = captureInventoryPanelSlice(player);
@@ -1158,7 +1183,7 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
         const equipment = captureEquipmentPanelSlice(player);
         delta.eq = { r: equipment.revision, full: 1, slots: equipment.slots };
     }
-    if (previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
+    if (!options.skipTechnique && previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
         const technique = captureTechniquePanelSlice(player);
         delta.tech = {
             r: technique.revision,
@@ -1178,6 +1203,18 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
         delta.buff = buildFullBuffDelta(player);
     }
     return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+}
+
+function isSameBodyTrainingState(left: ProjectedPanelState['technique']['bodyTraining'], right: ProjectedPanelState['technique']['bodyTraining']): boolean {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right) {
+        return left == null && right == null;
+    }
+    return left.level === right.level
+        && left.exp === right.exp
+        && left.expToNext === right.expToNext;
 }
 
 function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {

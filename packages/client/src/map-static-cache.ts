@@ -27,6 +27,11 @@ interface CachedMapEntry {
  */
 
   unlocked?: boolean;
+  /**
+ * version：服务端快照版本号。
+ */
+
+  version?: number;
 }
 
 /** 序列化写入 localStorage 的对象形状。 */
@@ -350,8 +355,23 @@ export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): 
     cached.meta = toCachedMeta(entry.mapMeta);
     cached.snapshot = cloneSnapshot(entry.snapshot);
     cached.unlocked = true;
+    if (typeof entry.version === 'number') {
+      cached.version = entry.version;
+    }
   }
   persist();
+}
+
+/** 获取所有已缓存地图的版本号映射（用于版本协商）。 */
+export function getCachedMinimapVersions(): Record<string, number> {
+  ensureLoaded();
+  const result: Record<string, number> = {};
+  for (const [mapId, entry] of cachedEntries.entries()) {
+    if (entry.unlocked && typeof entry.version === 'number') {
+      result[mapId] = entry.version;
+    }
+  }
+  return result;
 }
 
 /** 用服务端真源回写已解锁地图集合，清除旧缓存残留的假解锁标记。 */

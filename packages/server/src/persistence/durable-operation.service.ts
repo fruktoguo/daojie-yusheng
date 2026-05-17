@@ -5,6 +5,7 @@
  * 同时维护 player_presence、player_wallet、player_inventory_item、player_equipment_slot 等分域表。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { EQUIP_SLOTS } from '@mud/shared';
 import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
@@ -836,7 +837,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }),
       onMutate: async (client, now) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
-        await replacePlayerMarketStorageItems(client, normalizedPlayerId, normalizedStorageItems);
+        await replacePlayerMarketStorageItems(client, normalizedPlayerId, normalizedStorageItems, {
+          allowEmptyOverwrite: movedCount > 0 && remainingCount === 0,
+        });
 
         await client.query(
           `
@@ -1484,7 +1487,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }),
       onMutate: async (client, now) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
-        await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedEquipmentSlots);
+        await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedEquipmentSlots, {
+          allowEmptyOverwrite: action === 'unequip',
+        });
 
         await client.query(
           `
@@ -3312,6 +3317,44 @@ async function ensurePlayerPresenceColumnsWithClient(client: import('pg').PoolCl
   `);
 }
 
+interface DurableReplaceOptions {
+  allowEmptyOverwrite?: boolean;
+}
+
+function safeStringifyDurableEntry(value: unknown): string {
+  const maxLength = 240;
+  let serialized = '';
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    serialized = '[unserializable]';
+  }
+  if (!serialized) {
+    return '[empty]';
+  }
+  return serialized.length > maxLength ? `${serialized.slice(0, maxLength)}...` : serialized;
+}
+
+async function refuseEmptyOverwriteIfRowsExist(
+  client: import('pg').PoolClient,
+  tableName: string,
+  playerId: string,
+  incomingCount: number,
+  domainTag: string,
+  options: DurableReplaceOptions = {},
+): Promise<void> {
+  if (incomingCount > 0 || options.allowEmptyOverwrite === true) {
+    return;
+  }
+  const result = await client.query(
+    `SELECT 1 AS exists FROM ${tableName} WHERE player_id = $1 LIMIT 1`,
+    [playerId],
+  );
+  if ((result.rowCount ?? 0) > 0) {
+    throw new Error(`replace_${domainTag}_refused_empty_overwrite:playerId=${playerId} table=${tableName}`);
+  }
+}
+
 async function replacePlayerInventoryItems(
   client: import('pg').PoolClient,
   playerId: string,
@@ -3329,7 +3372,9 @@ async function replacePlayerInventoryItems(
     const item = sourceItems[index];
     const itemId = normalizeRequiredString(item?.itemId);
     if (!itemId) {
-      continue;
+      throw new Error(
+        `replacePlayerInventoryItems: invalid inventory entry playerId=${playerId} index=${index} entry=${safeStringifyDurableEntry(item)}`,
+      );
     }
     const count = Math.max(1, Math.trunc(Number(item.count ?? 1)));
     const rawPayload = buildPersistedInventoryItemRawPayload({
@@ -3409,6 +3454,7 @@ async function replacePlayerInventoryItems(
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
   await client.query(
     `
       WITH incoming AS (
@@ -3431,6 +3477,7 @@ async function replacePlayerMarketStorageItems(
   client: import('pg').PoolClient,
   playerId: string,
   items: readonly DurableMarketStorageItemSnapshot[],
+  options: DurableReplaceOptions = {},
 ): Promise<void> {
   const rows: Array<{
     storage_item_id: string;
@@ -3444,7 +3491,9 @@ async function replacePlayerMarketStorageItems(
     const entry = items[index];
     const itemId = normalizeRequiredString(entry?.itemId);
     if (!itemId) {
-      continue;
+      throw new Error(
+        `replacePlayerMarketStorageItems: invalid market storage entry playerId=${playerId} index=${index} entry=${safeStringifyDurableEntry(entry)}`,
+      );
     }
     const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
     const storageItemId = normalizeRequiredString(entry?.storageItemId) || `market_storage:${playerId}:${slotIndex}`;
@@ -3533,6 +3582,7 @@ async function replacePlayerMarketStorageItems(
       throw new Error(`replacePlayerMarketStorageItems: storage_item_id conflict outside player scope playerId=${playerId}`);
     }
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, playerId, rows.length, 'market_storage', options);
   await client.query(
     `
       WITH incoming AS (
@@ -3555,6 +3605,7 @@ async function replacePlayerEquipmentSlots(
   client: import('pg').PoolClient,
   playerId: string,
   slots: readonly DurableEquipmentSlotSnapshot[],
+  options: DurableReplaceOptions = {},
 ): Promise<void> {
   const rows: Array<{
     slot_type: string;
@@ -3564,12 +3615,19 @@ async function replacePlayerEquipmentSlots(
   }> = [];
   for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const slotType = normalizeRequiredString(slotEntry?.slot);
+    if (!EQUIP_SLOTS.includes(slotType as (typeof EQUIP_SLOTS)[number])) {
+      throw new Error(
+        `replacePlayerEquipmentSlots: invalid equipment slot playerId=${playerId} slot=${slotType || 'null'} entry=${safeStringifyDurableEntry(slotEntry)}`,
+      );
+    }
     const item = slotEntry?.item && typeof slotEntry.item === 'object'
       ? slotEntry.item as Record<string, unknown>
       : null;
     const itemId = normalizeRequiredString(item?.itemId);
-    if (!slotType || !itemId) {
-      continue;
+    if (!itemId) {
+      throw new Error(
+        `replacePlayerEquipmentSlots: invalid equipment item playerId=${playerId} slot=${slotType} entry=${safeStringifyDurableEntry(slotEntry)}`,
+      );
     }
     const itemInstanceId =
       normalizeRequiredString(slotEntry?.itemInstanceId)
@@ -3621,6 +3679,7 @@ async function replacePlayerEquipmentSlots(
       [playerId, JSON.stringify(rows)],
     );
   }
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment', options);
   await client.query(
     `
       WITH incoming AS (

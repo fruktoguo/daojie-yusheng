@@ -492,6 +492,7 @@ export interface PlayerStateSlice {
   selfRevision: number;
   self: ProjectedSelfState;
   panel?: ProjectedPanelState;
+  techniquePanel?: ProjectedPanelState['technique'];
   panelCursor: ProjectedPanelCursor;
 }
 export interface ProjectorState extends WorldStateSlice, PlayerStateSlice {}

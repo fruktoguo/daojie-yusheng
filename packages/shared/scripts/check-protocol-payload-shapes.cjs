@@ -53,6 +53,7 @@ const EXPECTED_INTERFACES = {
     mapMeta: { type: 'MapMeta', optional: true },
     minimap: { type: 'MapMinimapSnapshot', optional: true },
     minimapLibrary: { type: 'MapMinimapArchiveEntry[]', optional: true },
+    unlockedMapIds: { type: 'string[]', optional: true },
     tiles: { type: 'VisibleTile[][]', optional: true },
     tilesOriginX: { type: 'number', optional: true },
     tilesOriginY: { type: 'number', optional: true },

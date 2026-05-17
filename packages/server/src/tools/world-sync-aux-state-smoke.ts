@@ -32,6 +32,12 @@ function createService(
       buildMinimapLibrarySync(player: { unlockedMapIds?: string[] }) {
         return (player.unlockedMapIds ?? []).map((mapId) => ({ mapId }));
       },
+      buildMinimapLibraryManifest(player: { unlockedMapIds?: string[] }) {
+        return (player.unlockedMapIds ?? []).map((mapId) => ({ mapId, version: 1 }));
+      },
+      buildMinimapLibraryDelta(_player: { unlockedMapIds?: string[] }, _clientVersions: Record<string, number>) {
+        return [];
+      },
       buildGameTimeState() {
         return {
           totalTicks: 10,
@@ -70,6 +76,7 @@ function createService(
           spaceVisionMode: null,
           mapLv: 1,
           description: null,
+          hideMinimap: false,
         };
       },
     },

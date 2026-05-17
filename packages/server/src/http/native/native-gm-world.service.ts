@@ -47,10 +47,13 @@ interface ContentTemplateRepositoryLike {
 interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): Record<string, unknown>;
   enableNetworkPerfCounters(): void;
+  shouldCaptureNetworkPayloadBody(): boolean;
+  setNetworkPayloadCaptureEnabled(enabled: boolean): void;
   resetNetworkPerfCounters(): void;
   resetCpuPerfCounters(): void;
   writeHeapSnapshot(options?: { deleteSnapshotAfterSummary?: boolean }): unknown | Promise<unknown>;
   getLatestHeapSnapshotSummary(): unknown;
+  triggerManualGc(): unknown | Promise<unknown>;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -211,6 +214,8 @@ interface WorldRuntimeServiceLike {
   getInstance(instanceId: string): { instanceId: string } | null;
   getPlayerLocation(playerId: string): { instanceId: string } | null;
   createInstance(input: unknown): { snapshot(): unknown };
+  listInstanceRuntimes(): Iterable<Record<string, unknown>>;
+  getInstanceCount(): number;
   playerRuntimeService: PlayerRuntimeQueryLike;
   worldRuntimeGmQueueService: WorldRuntimeGmQueueLike;
   worldRuntimeCommandIntakeFacadeService: WorldRuntimeCommandIntakeFacadeLike;
@@ -1006,6 +1011,12 @@ export class NativeGmWorldService {
     this.runtimeGmStateService.enableNetworkPerfCounters();
     this.runtimeGmStateService.resetNetworkPerfCounters();
   }  
+  setNetworkPayloadCaptureEnabled(enabled: boolean) {
+    this.runtimeGmStateService.setNetworkPayloadCaptureEnabled(enabled === true);
+  }
+  isNetworkPayloadCaptureEnabled(): boolean {
+    return this.runtimeGmStateService.shouldCaptureNetworkPayloadBody();
+  }
   /**
  * resetCpuPerf：执行resetCpuPerf相关逻辑。
  * @returns 无返回值，直接更新resetCpuPerf相关状态。
@@ -1028,6 +1039,10 @@ export class NativeGmWorldService {
 
   writeHeapSnapshot(options?: { deleteSnapshotAfterSummary?: boolean }) {
     return this.runtimeGmStateService.writeHeapSnapshot(options);
+  }
+
+  triggerManualGc() {
+    return this.runtimeGmStateService.triggerManualGc();
   }
 
   getLatestHeapSnapshotSummary() {
@@ -1060,6 +1075,71 @@ export class NativeGmWorldService {
         error instanceof Error ? error.message : String(error),
       );
     });
+  }
+
+  /** 聚合所有对象管理器的运行时对象数量。 */
+  getObjectCounts(): Record<string, unknown> {
+    const instances = Array.from(this.worldRuntimeService.listInstanceRuntimes());
+    const instanceCount = this.worldRuntimeService.getInstanceCount();
+    let totalPlayers = 0;
+    let totalMonsters = 0;
+    let totalNpcs = 0;
+    let totalLandmarks = 0;
+    let totalContainers = 0;
+    let totalGroundPiles = 0;
+    let totalPendingCommands = 0;
+    let totalMonsterSpawnGroups = 0;
+    const perInstance: Array<{
+      instanceId: string;
+      players: number;
+      monsters: number;
+      npcs: number;
+      landmarks: number;
+      containers: number;
+      groundPiles: number;
+      pendingCommands: number;
+    }> = [];
+
+    for (const instance of instances as Array<Record<string, any>>) {
+      const instanceId = instance.meta?.instanceId ?? instance.snapshot?.()?.instanceId ?? '';
+      const players = instance.playersById?.size ?? 0;
+      const monsters = instance.monstersByRuntimeId?.size ?? 0;
+      const npcs = instance.npcsById?.size ?? 0;
+      const landmarks = instance.landmarksById?.size ?? 0;
+      const containers = instance.containersById?.size ?? 0;
+      const groundPiles = instance.groundPilesByTile?.size ?? 0;
+      const pendingCommands = instance.pendingCommands?.size ?? 0;
+      const monsterSpawnGroups = instance.monsterSpawnGroupsByKey?.size ?? 0;
+
+      totalPlayers += players;
+      totalMonsters += monsters;
+      totalNpcs += npcs;
+      totalLandmarks += landmarks;
+      totalContainers += containers;
+      totalGroundPiles += groundPiles;
+      totalPendingCommands += pendingCommands;
+      totalMonsterSpawnGroups += monsterSpawnGroups;
+
+      perInstance.push({ instanceId, players, monsters, npcs, landmarks, containers, groundPiles, pendingCommands });
+    }
+
+    // 按怪物数量降序排列，只取前 20 个实例展示细节
+    perInstance.sort((a, b) => (b.monsters + b.players) - (a.monsters + a.players));
+
+    return {
+      totals: {
+        instances: instanceCount,
+        players: totalPlayers,
+        monsters: totalMonsters,
+        npcs: totalNpcs,
+        landmarks: totalLandmarks,
+        containers: totalContainers,
+        groundPiles: totalGroundPiles,
+        pendingCommands: totalPendingCommands,
+        monsterSpawnGroups: totalMonsterSpawnGroups,
+      },
+      topInstances: perInstance.slice(0, 20),
+    };
   }
 }
 

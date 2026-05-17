@@ -132,6 +132,7 @@ export const C2S = {
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
   HeavenGateAction: 'n:c:heavenGateAction',
   Ping: 'n:c:ping',
+  ReportMinimapVersions: 'n:c:reportMinimapVersions',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -180,6 +181,8 @@ export const S2C = {
   Error: 'n:s:error',
   Kick: 'n:s:kick',
   Pong: 'n:s:pong',
+  MinimapLibraryManifest: 'n:s:minimapLibraryManifest',
+  MinimapLibraryDelta: 'n:s:minimapLibraryDelta',
 } as const;
 
 /** 客户端事件名联合。 */
@@ -285,6 +288,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;
   [C2S.HeavenGateAction]: RequestPayloads.C2S_HeavenGateAction;
   [C2S.Ping]: RequestPayloads.C2S_Ping;
+  [C2S.ReportMinimapVersions]: RequestPayloads.C2S_ReportMinimapVersions;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
@@ -333,6 +337,8 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.Error]: ResponsePayloads.S2C_Error;
   [S2C.Kick]: undefined;
   [S2C.Pong]: ResponsePayloads.S2C_Pong;
+  [S2C.MinimapLibraryManifest]: ResponsePayloads.S2C_MinimapLibraryManifest;
+  [S2C.MinimapLibraryDelta]: ResponsePayloads.S2C_MinimapLibraryDelta;
 }
 
 /** 根据客户端事件名读取对应载荷类型。 */

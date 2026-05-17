@@ -219,6 +219,16 @@ export interface PlayerDomainWriteOptions {
   versionSeed?: number | null;
 }
 
+export interface PlayerSnapshotProjectionDomainWriteOptions {
+  allowInventoryEmptyOverwrite?: boolean;
+  allowEquipmentEmptyOverwrite?: boolean;
+  allowBuffEmptyOverwrite?: boolean;
+}
+
+interface PlayerDomainPruneOptions {
+  allowEmptyOverwrite?: boolean;
+}
+
 export interface PlayerWorldAnchorUpsertInput {
   respawnTemplateId: string;
   respawnInstanceId?: string | null;
@@ -1531,6 +1541,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     playerId: string,
     snapshot: PersistedPlayerSnapshot | null | undefined,
     domains: Iterable<string>,
+    options: PlayerSnapshotProjectionDomainWriteOptions = {},
   ): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId || !snapshot?.placement?.templateId) {
@@ -1539,7 +1550,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
-      await savePlayerSnapshotProjectionDomainsWithClient(client, normalizedPlayerId, snapshot, domains);
+      await savePlayerSnapshotProjectionDomainsWithClient(client, normalizedPlayerId, snapshot, domains, options);
     });
   }
 
@@ -2366,6 +2377,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   playerId: string,
   snapshot: PersistedPlayerSnapshot,
   domains: Iterable<string>,
+  options: PlayerSnapshotProjectionDomainWriteOptions = {},
 ): Promise<void> {
   const normalizedPlayerId = normalizeRequiredString(playerId);
   if (!normalizedPlayerId || !snapshot?.placement?.templateId) {
@@ -2476,6 +2488,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
       client,
       normalizedPlayerId,
       Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [],
+      { allowEmptyOverwrite: options.allowInventoryEmptyOverwrite === true && Array.isArray(snapshot.inventory?.items) },
     );
     watermarkPatch.inventory_version = versionSeed;
   }
@@ -2491,10 +2504,15 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('equipment')) {
+    const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
     await replacePlayerEquipmentSlots(
       client,
       normalizedPlayerId,
-      Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [],
+      equipmentSlots,
+      {
+        allowEmptyOverwrite: options.allowEquipmentEmptyOverwrite === true
+          && isExplicitEquipmentSlotProjection(equipmentSlots),
+      },
     );
     watermarkPatch.equipment_version = versionSeed;
   }
@@ -2505,7 +2523,12 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('buff')) {
-    await replacePlayerPersistentBuffStates(client, normalizedPlayerId, buildPersistentBuffStateRows(snapshot));
+    await replacePlayerPersistentBuffStates(
+      client,
+      normalizedPlayerId,
+      buildPersistentBuffStateRows(snapshot),
+      { allowEmptyOverwrite: options.allowBuffEmptyOverwrite === true },
+    );
     watermarkPatch.buff_version = versionSeed;
   }
 
@@ -3345,6 +3368,20 @@ function safeStringifyInventoryEntry(value: unknown): string {
     : serialized;
 }
 
+function isExplicitEquipmentSlotProjection(slots: readonly unknown[]): boolean {
+  if (!Array.isArray(slots) || slots.length < EQUIP_SLOTS.length) {
+    return false;
+  }
+  const projectedSlots = new Set<string>();
+  for (const slotEntry of slots) {
+    const slotType = normalizeRequiredString(asRecord(slotEntry)?.slot);
+    if (slotType) {
+      projectedSlots.add(slotType);
+    }
+  }
+  return EQUIP_SLOTS.every((slotType) => projectedSlots.has(slotType));
+}
+
 /**
  * 拒绝"用空 incoming 把整玩家分域表清空"的 SQL 层最终防御。
  *
@@ -3386,6 +3423,7 @@ async function replacePlayerInventoryItems(
   client: PoolClient,
   playerId: string,
   items: unknown[],
+  options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   const sourceItems = Array.isArray(items) ? items : [];
   const rows: Array<{
@@ -3485,7 +3523,9 @@ async function replacePlayerInventoryItems(
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
-  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
+  if (options.allowEmptyOverwrite !== true) {
+    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
+  }
   await client.query(
     `
       WITH incoming AS (
@@ -3520,7 +3560,9 @@ async function replacePlayerWalletRows(
   for (const row of sourceRows) {
     const walletType = normalizeRequiredString(row?.walletType);
     if (!walletType) {
-      continue;
+      throw new Error(
+        `replacePlayerWalletRows: 非法 wallet entry 拒绝写入 playerId=${playerId} entry=${safeStringifyInventoryEntry(row)}`,
+      );
     }
     const balance = normalizeMinimumInteger(row?.balance, 0, 0);
     const frozenBalance = normalizeMinimumInteger(row?.frozenBalance, 0, 0);
@@ -3667,7 +3709,9 @@ async function replacePlayerMarketStorageItems(
     const entry = items[index];
     const itemId = normalizeRequiredString(entry?.itemId);
     if (!itemId) {
-      continue;
+      throw new Error(
+        `replacePlayerMarketStorageItems: 非法 market_storage entry 拒绝写入 playerId=${playerId} index=${index} entry=${safeStringifyInventoryEntry(entry)}`,
+      );
     }
     const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
     const storageItemId =
@@ -3800,13 +3844,16 @@ async function prunePlayerRowsBySnapshotKeys(
   keys: readonly Record<string, unknown>[],
   recordsetColumns: string,
   matchPredicate: string,
+  options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   // 把 PG 表名 (e.g. 'player_inventory_item') 转成 domain tag (e.g. 'inventory_item') 用于错误日志。
   // SQL 表名是稳定的常量，不会出现注入风险；这里只是给运维一个比 tableName 短的 tag。
   const domainTag = typeof tableName === 'string'
     ? tableName.replace(/^player_/u, '').replace(/_table$/u, '') || tableName
     : 'unknown';
-  await refuseEmptyOverwriteIfRowsExist(client, tableName, playerId, keys.length, domainTag);
+  if (options.allowEmptyOverwrite !== true) {
+    await refuseEmptyOverwriteIfRowsExist(client, tableName, playerId, keys.length, domainTag);
+  }
   await client.query(
     `
       WITH incoming AS (
@@ -3829,6 +3876,7 @@ async function replacePlayerEquipmentSlots(
   client: PoolClient,
   playerId: string,
   slots: unknown[],
+  options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   const rows: Array<{
     slot_type: string;
@@ -3840,12 +3888,19 @@ async function replacePlayerEquipmentSlots(
     const entry = asRecord(slotEntry);
     const slotType = normalizeRequiredString(entry?.slot);
     if (!EQUIP_SLOTS.includes(slotType as (typeof EQUIP_SLOTS)[number])) {
-      continue;
+      throw new Error(
+        `replacePlayerEquipmentSlots: 非法 equipment slot 拒绝写入 playerId=${playerId} slot=${slotType || 'null'} entry=${safeStringifyInventoryEntry(slotEntry)}`,
+      );
     }
     const item = asRecord(entry?.item);
+    if (!item) {
+      continue;
+    }
     const itemId = normalizeRequiredString(item?.itemId);
     if (!itemId) {
-      continue;
+      throw new Error(
+        `replacePlayerEquipmentSlots: 非法 equipment item 拒绝写入 playerId=${playerId} slot=${slotType} entry=${safeStringifyInventoryEntry(slotEntry)}`,
+      );
     }
     const itemInstanceId =
       normalizeOptionalString(entry?.itemInstanceId)
@@ -3897,7 +3952,9 @@ async function replacePlayerEquipmentSlots(
       [playerId, JSON.stringify(rows)],
     );
   }
-  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');
+  if (options.allowEmptyOverwrite !== true) {
+    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');
+  }
   await client.query(
     `
       WITH incoming AS (
@@ -3985,6 +4042,7 @@ async function replacePlayerPersistentBuffStates(
   client: PoolClient,
   playerId: string,
   rows: PersistentBuffStateRow[],
+  options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   const normalizedRows = rows.map((row) => ({
     buff_id: row.buffId,
@@ -4055,6 +4113,7 @@ async function replacePlayerPersistentBuffStates(
     normalizedRows.map(({ buff_id, source_skill_id }) => ({ buff_id, source_skill_id })),
     'buff_id varchar(120), source_skill_id varchar(120)',
     'incoming.buff_id = target.buff_id AND incoming.source_skill_id = target.source_skill_id',
+    options,
   );
 }
 

@@ -90,7 +90,13 @@ function buildSnapshot(savedAt: number): PersistedPlayerSnapshot {
 
 function createHarness() {
   const fullProjectionCalls: string[] = [];
-  const selectiveProjectionCalls: Array<{ playerId: string; domains: string[] }> = [];
+  const selectiveProjectionCalls: Array<{
+    playerId: string;
+    domains: string[];
+    allowInventoryEmptyOverwrite?: boolean;
+    allowEquipmentEmptyOverwrite?: boolean;
+    allowBuffEmptyOverwrite?: boolean;
+  }> = [];
   const presenceCalls: string[] = [];
   const markedPersisted: string[] = [];
   let leaseWritable = true;
@@ -141,10 +147,18 @@ function createHarness() {
       playerId: string,
       _snapshot: PersistedPlayerSnapshot,
       domains: Iterable<string>,
+      options?: {
+        allowInventoryEmptyOverwrite?: boolean;
+        allowEquipmentEmptyOverwrite?: boolean;
+        allowBuffEmptyOverwrite?: boolean;
+      },
     ) {
       selectiveProjectionCalls.push({
         playerId,
         domains: Array.from(domains).sort(),
+        allowInventoryEmptyOverwrite: options?.allowInventoryEmptyOverwrite,
+        allowEquipmentEmptyOverwrite: options?.allowEquipmentEmptyOverwrite,
+        allowBuffEmptyOverwrite: options?.allowBuffEmptyOverwrite,
       });
     },
   };
@@ -194,7 +208,13 @@ async function testSelectiveProjectionFlush(): Promise<void> {
 
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, [
-    { playerId, domains: ['inventory'] },
+    {
+      playerId,
+      domains: ['inventory'],
+      allowInventoryEmptyOverwrite: true,
+      allowEquipmentEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
   ]);
   assert.deepEqual(harness.presenceCalls, [playerId]);
   assert.deepEqual(harness.markedPersisted, [playerId]);
@@ -210,7 +230,57 @@ async function testWalletSelectiveProjectionFlush(): Promise<void> {
 
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, [
-    { playerId, domains: ['wallet'] },
+    {
+      playerId,
+      domains: ['wallet'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
+  ]);
+  assert.deepEqual(harness.presenceCalls, []);
+  assert.deepEqual(harness.markedPersisted, [playerId]);
+}
+
+async function testBuffSelectiveProjectionAllowsEmptyOverwrite(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:buff-expired';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['buff', 'attr']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(210_000));
+
+  await harness.service.flushDirtyPlayers();
+
+  assert.deepEqual(harness.fullProjectionCalls, []);
+  assert.deepEqual(harness.selectiveProjectionCalls, [
+    {
+      playerId,
+      domains: ['attr', 'buff'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: true,
+    },
+  ]);
+  assert.deepEqual(harness.presenceCalls, []);
+  assert.deepEqual(harness.markedPersisted, [playerId]);
+}
+
+async function testEquipmentSelectiveProjectionAllowsEmptyOverwrite(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:all-equipment-unequipped';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['equipment', 'attr']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(220_000));
+
+  await harness.service.flushDirtyPlayers();
+
+  assert.deepEqual(harness.fullProjectionCalls, []);
+  assert.deepEqual(harness.selectiveProjectionCalls, [
+    {
+      playerId,
+      domains: ['attr', 'equipment'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: true,
+      allowBuffEmptyOverwrite: false,
+    },
   ]);
   assert.deepEqual(harness.presenceCalls, []);
   assert.deepEqual(harness.markedPersisted, [playerId]);
@@ -250,6 +320,8 @@ async function main(): Promise<void> {
   await testPresenceOnlyFlush();
   await testSelectiveProjectionFlush();
   await testWalletSelectiveProjectionFlush();
+  await testBuffSelectiveProjectionAllowsEmptyOverwrite();
+  await testEquipmentSelectiveProjectionAllowsEmptyOverwrite();
   await testLeaseGuardBlocksFlush();
   await testSnapshotFallbackDomainRejected();
 
@@ -257,7 +329,7 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；snapshot fallback 脏域会硬失败，lease 失效时不会继续提交。',
+        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交。',
         completionMapping: 'release:proof:with-db.player-persistence-flush-strategy',
       },
       null,

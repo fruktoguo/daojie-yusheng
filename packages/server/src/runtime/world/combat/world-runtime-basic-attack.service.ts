@@ -335,9 +335,15 @@ export class WorldRuntimeBasicAttackService {
     async dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
+        if (instance.isPointInSafeZone(attacker.x, attacker.y)) {
+            throw new BadRequestException('安全区内无法对其他玩家造成伤害。');
+        }
         const target = this.playerRuntimeService.getPlayer(targetPlayerId);
         if (!target) {
             return;
+        }
+        if (instance.isPointInSafeZone(target.x, target.y)) {
+            throw new BadRequestException('目标处于安全区内，无法对其造成伤害。');
         }
         if (target.instanceId !== attacker.instanceId) {
             throw new BadRequestException('目标不在同一地图');

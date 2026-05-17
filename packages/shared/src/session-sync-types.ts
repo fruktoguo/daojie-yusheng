@@ -153,6 +153,7 @@ export interface BootstrapView {
   visibleMinimapMarkers?: MapMinimapMarker[];  
   /**
  * minimapLibrary：minimapLibrary相关字段。
+ * @deprecated 已迁移到版本协商机制，保留字段供旧客户端兼容。
  */
 
   minimapLibrary?: MapMinimapArchiveEntry[];  
@@ -265,9 +266,15 @@ export interface MapStaticView {
   minimap?: MapMinimapSnapshot;  
   /**
  * minimapLibrary：minimapLibrary相关字段。
+ * @deprecated 已迁移到版本协商机制，保留字段供旧客户端兼容。
  */
 
   minimapLibrary?: MapMinimapArchiveEntry[];  
+  /**
+ * unlockedMapIds：已解锁地图ID列表（版本协商阶段使用）。
+ */
+
+  unlockedMapIds?: string[];  
   /**
  * tiles：tile相关字段。
  */

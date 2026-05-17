@@ -251,19 +251,11 @@ export class WorldRuntimeTickDispatchService {
  */
 
     ensureAttackAllowed(player, skill, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  // 安全区只阻止 PVP 伤害，不阻止 PVE 攻击，PVP 检查在具体伤害落地处执行。
 
         if (skill && !isHostileSkill(skill)) {
             return;
         }
-        if (!player.instanceId) {
-            return;
-        }
-        const instance = deps.getInstanceRuntime(player.instanceId);
-        if (!instance || !instance.isPointInSafeZone(player.x, player.y)) {
-            return;
-        }
-        throw new BadRequestException('安全区内无法发起攻击。');
     }
     /**
  * queuePlayerNotice：执行queue玩家Notice相关逻辑。

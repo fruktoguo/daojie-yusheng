@@ -339,6 +339,11 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         playerId,
         snapshot,
         projectedDomains,
+        {
+          allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
+          allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
+          allowBuffEmptyOverwrite: projectedDomains.has('buff'),
+        },
       );
       for (const domain of projectedDomains) {
         persistedDomains.add(domain);

@@ -386,8 +386,12 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
   const applyMapStaticToCurrentRuntime = (data: S2C_MapStatic): void => {
     options.applyMapStaticToRuntime(data);
     const player = options.getPlayer();
-    if (player && data.minimapLibrary) {
-      player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+    if (player && (data.minimapLibrary || (data as any).unlockedMapIds)) {
+      if (data.minimapLibrary) {
+        player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+      } else if (Array.isArray((data as any).unlockedMapIds)) {
+        player.unlockedMinimapIds = (data as any).unlockedMapIds.slice().sort();
+      }
       options.inventorySyncPlayerContext(player);
     }
     if (player && data.mapId === player.mapId) {

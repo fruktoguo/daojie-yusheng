@@ -314,16 +314,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     syncSenseQiOverlay: () => mapRuntimeBridgeSource.syncSenseQiOverlay(),
     syncWangQiOverlay: () => targetingStateSource.syncWangQiOverlay(),
     applyBootstrapToMapRuntime: (data) => mapRuntime.applyBootstrap(data),
-    applyMapStaticToRuntime: (data) => mapRuntime.applyMapStatic({
-      mapId: data.mapId,
-      mapMeta: data.mapMeta,
-      minimap: data.minimap,
-      tiles: data.tiles,
-      tilesOriginX: data.tilesOriginX,
-      tilesOriginY: data.tilesOriginY,
-      minimapLibrary: data.minimapLibrary,
-      visibleMinimapMarkers: data.visibleMinimapMarkers,
-    }),
+    applyMapStaticToRuntime: (data) => mapRuntime.applyMapStatic(data),
     setRuntimePathCells: () => navigationStateSource.syncPathCellsToRuntime(),
     resetObservedBaselinesFromPlayer: (player) => {
       panelDeltaStateSource.seedFromPlayer(player);

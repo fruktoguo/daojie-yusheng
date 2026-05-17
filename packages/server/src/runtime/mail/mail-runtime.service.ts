@@ -4,13 +4,14 @@
  * 所有写操作按玩家串行化执行并持久化到数据库。
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { buildMailPreviewSnippet, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';
+import { buildMailPreviewSnippet, canMergeItemStack, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { MailPersistenceService } from '../../persistence/mail-persistence.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 
 /** 邮件运行时：负责系统信件、附件领取和直接邮件的持久化读写。 */
 const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
@@ -686,26 +687,35 @@ export class MailRuntimeService {
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
 
-        const simulated = player.inventory.items.map((entry) => ({ ...this.contentTemplateRepository.normalizeItem(entry) }));
+        const simulated = player.inventory.items.map((entry) => {
+            const normalized = { ...this.contentTemplateRepository.normalizeItem(entry) };
+            assignItemInstanceIdIfNeeded(normalized);
+            return normalized;
+        });
 
         let nextSize = simulated.length;
 
         const signatureIndex = new Map();
         for (let index = 0; index < simulated.length; index += 1) {
-            signatureIndex.set(createItemStackSignature(simulated[index]), index);
+            if (canMergeItemStack(simulated[index])) {
+                signatureIndex.set(createItemStackSignature(simulated[index]), index);
+            }
         }
         for (const item of items) {
-            const normalized = this.contentTemplateRepository.normalizeItem(item);
-            const signature = createItemStackSignature(normalized);
-            const existingIndex = signatureIndex.get(signature);
-            if (existingIndex !== undefined) {
+            const normalized = { ...this.contentTemplateRepository.normalizeItem(item) };
+            assignItemInstanceIdIfNeeded(normalized);
+            const signature = canMergeItemStack(normalized) ? createItemStackSignature(normalized) : null;
+            const existingIndex = signature ? signatureIndex.get(signature) : undefined;
+            if (signature && existingIndex !== undefined) {
                 simulated[existingIndex].count += normalized.count;
                 continue;
             }
             if (nextSize >= player.inventory.capacity) {
                 return null;
             }
-            signatureIndex.set(signature, simulated.length);
+            if (signature) {
+                signatureIndex.set(signature, simulated.length);
+            }
             simulated.push({ ...normalized });
             nextSize += 1;
         }

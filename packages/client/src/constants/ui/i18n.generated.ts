@@ -3030,7 +3030,7 @@ export const CLIENT_I18N_MESSAGES = {
   "gm.mail.sent": "已向 {roleName} 发送邮件：{mailId}",
   "gm.network.large-payload.empty": "这个流量项当前没有可查看的大包样本",
   "gm.network.large-payload.expired": "大包样本已过期",
-  "gm.network.large-payload.limit-note": "仅开发态记录最近 {count} 个超过 1 KB 的实际包体",
+  "gm.network.large-payload.limit-note": "记录最近 {count} 个超过 1 KB 的完整实际包体",
   "gm.network.large-payload.modal-title": "网络包体内容",
   "gm.network.large-payload.sample-meta": "{event} · {recordedAt} · payload {payloadBytes} · packet {packetBytes}",
   "gm.none": "无",

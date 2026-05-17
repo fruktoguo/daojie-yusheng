@@ -572,9 +572,15 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
+        if (instance.isPointInSafeZone(attacker.x, attacker.y)) {
+            throw new BadRequestException('安全区内无法对其他玩家造成伤害。');
+        }
         const target = this.playerRuntimeService.getPlayer(targetPlayerId);
         if (!target) {
             throw new BadRequestException('目标玩家已离线');
+        }
+        if (instance.isPointInSafeZone(target.x, target.y)) {
+            throw new BadRequestException('目标处于安全区内，无法对其造成伤害。');
         }
         if (attacker.instanceId !== target.instanceId) {
             throw new BadRequestException(`目标 ${targetPlayerId} 不在同一地图实例`);
@@ -1296,7 +1302,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                 continue;
             }
             if (target.kind === 'player') {
+                if (instance.isPointInSafeZone(attacker.x, attacker.y)) {
+                    continue;
+                }
                 const targetPlayer = this.playerRuntimeService.getPlayer(target.playerId);
+                if (targetPlayer && instance.isPointInSafeZone(targetPlayer.x, targetPlayer.y)) {
+                    continue;
+                }
                 if (!targetPlayer || targetPlayer.instanceId !== attacker.instanceId || targetPlayer.hp <= 0) {
                     this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, !targetPlayer
                         ? CombatRejectReason.MissingTargetRuntimeState

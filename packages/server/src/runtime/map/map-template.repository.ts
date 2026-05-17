@@ -943,6 +943,7 @@ function copyRuntimeMapMetadata(source, target) {
         'mapGroupName',
         'mapGroupOrder',
         'mapGroupMemberOrder',
+        'hideMinimap',
         'sectMap',
         'sectId',
         'sectMark',

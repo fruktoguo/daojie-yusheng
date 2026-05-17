@@ -6,6 +6,7 @@ import { BotTokenService } from '../auth/bot-token.service';
 import { NativeDatabaseRestoreCoordinatorService } from './native/native-database-restore-coordinator.service';
 import { NativeGmAdminService } from './native/native-gm-admin.service';
 import { NativeGmEditorQueryService } from './native/native-gm-editor-query.service';
+import { NativeGmDiagnosticsService } from './native/native-gm-diagnostics.service';
 import { NativeGmMailService } from './native/native-gm-mail.service';
 import { NativeGmMapQueryService } from './native/native-gm-map-query.service';
 import { NativeGmMapRuntimeQueryService } from './native/native-gm-map-runtime-query.service';
@@ -59,6 +60,7 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmAuthGuard,
   NativeDatabaseRestoreCoordinatorService,
   NativeGmAdminService,
+  NativeGmDiagnosticsService,
   NativeGmEditorQueryService,
   NativeGmMailService,
   NativeGmMapQueryService,

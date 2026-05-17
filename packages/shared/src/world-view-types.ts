@@ -72,6 +72,26 @@ export interface MapMinimapSnapshot {
   markers: MapMinimapMarker[];
 }
 
+/** minimapLibrary 版本协商：服务端告知的地图清单条目 */
+export interface MinimapLibraryManifestEntry {
+  /** 地图 ID */
+  mapId: string;
+  /** 服务端当前快照版本号（启动期计算的 hash） */
+  version: number;
+}
+
+/** minimapLibrary 版本协商：客户端上报的本地缓存版本 */
+export interface MinimapLibraryClientVersions {
+  /** mapId → 本地缓存版本号，未缓存的不上报 */
+  versions: Record<string, number>;
+}
+
+/** minimapLibrary 版本协商：服务端下发有变更的地图数据 */
+export interface MinimapLibraryDelta {
+  /** 有变更或客户端缺失的地图完整条目 */
+  entries: MapMinimapArchiveEntry[];
+}
+
 /** 已解锁地图图鉴条目 */
 export interface MapMinimapArchiveEntry {
 /**
@@ -79,6 +99,11 @@ export interface MapMinimapArchiveEntry {
  */
 
   mapId: string;  
+  /**
+ * version：快照版本号（服务端启动期计算的 hash）。
+ */
+
+  version?: number;  
   /**
  * mapMeta：地图Meta相关字段。
  */

@@ -7,7 +7,11 @@ import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
-import { GmRuntimeFlagPersistenceService, GM_RUNTIME_MAINTENANCE_FLAG_KEY } from '../../persistence/gm-runtime-flag-persistence.service';
+import {
+  GmRuntimeFlagPersistenceService,
+  GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
+  GM_RUNTIME_MAINTENANCE_FLAG_KEY,
+} from '../../persistence/gm-runtime-flag-persistence.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
@@ -292,6 +296,11 @@ export class NativeGmController {
   @Get('world/summary')
   getWorldSummary() {
     return this.nextGmWorldService.getRuntimeSummary();
+  }
+
+  @Get('world/objects')
+  getWorldObjects() {
+    return this.nextGmWorldService.getObjectCounts();
   }
   /**
  * getWorldDirtyBacklog：读取世界脏积压。
@@ -828,6 +837,11 @@ export class NativeGmController {
     this.nextGmWorldService.resetNetworkPerf();
     return { ok: true };
   }
+  @Post('perf/network/payload-capture')
+  setNetworkPayloadCapture(@Body() body: { enabled?: unknown }) {
+    this.nextGmWorldService.setNetworkPayloadCaptureEnabled(body?.enabled === true);
+    return { ok: true, enabled: body?.enabled === true };
+  }
   /**
  * resetCpuPerf：执行resetCpuPerf相关逻辑。
  * @returns 无返回值，直接更新resetCpuPerf相关状态。
@@ -850,6 +864,11 @@ export class NativeGmController {
     const shouldDelete = typeof deleteAfterSummary === 'string'
       && (deleteAfterSummary === '1' || deleteAfterSummary.toLowerCase() === 'true');
     return this.nextGmWorldService.writeHeapSnapshot({ deleteSnapshotAfterSummary: shouldDelete });
+  }
+
+  @Post('perf/memory/gc')
+  triggerManualGc() {
+    return this.nextGmWorldService.triggerManualGc();
   }
 
   /**
@@ -1065,7 +1084,12 @@ export class NativeGmController {
   @Get('runtime-flags')
   async listRuntimeFlags() {
     const flags = await this.runtimeFlagService.listFlags();
-    return { flags };
+    return {
+      flags: mergeRuntimeFlags(flags, {
+        key: GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
+        value: this.nextGmWorldService.isNetworkPayloadCaptureEnabled(),
+      }),
+    };
   }
 
   @Post('maintenance')
@@ -1111,6 +1135,9 @@ export class NativeGmController {
     }
     const value = body?.value === true;
     await this.runtimeFlagService.setFlag(key, value);
+    if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
+      this.nextGmWorldService.setNetworkPayloadCaptureEnabled(value);
+    }
     return { ok: true, key, value };
   }
 
@@ -1118,6 +1145,11 @@ export class NativeGmController {
   async deleteRuntimeFlag(@Param('key') key: string) {
     if (!key || typeof key !== 'string') {
       throw new BadRequestException('key is required');
+    }
+    if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
+      await this.runtimeFlagService.setFlag(GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY, false);
+      this.nextGmWorldService.setNetworkPayloadCaptureEnabled(false);
+      return { ok: true, key: GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY };
     }
     await this.runtimeFlagService.deleteFlag(key);
     return { ok: true, key };
@@ -1139,4 +1171,19 @@ export class NativeGmController {
       itemKeyword: query?.itemKeyword,
     });
   }
+}
+
+function mergeRuntimeFlags(
+  flags: Array<{ key: string; value: boolean }>,
+  fixedFlag: { key: string; value: boolean },
+): Array<{ key: string; value: boolean }> {
+  const byKey = new Map<string, { key: string; value: boolean }>();
+  for (const flag of Array.isArray(flags) ? flags : []) {
+    const key = typeof flag?.key === 'string' ? flag.key.trim() : '';
+    if (key) {
+      byKey.set(key, { key, value: flag.value === true });
+    }
+  }
+  byKey.set(fixedFlag.key, fixedFlag);
+  return Array.from(byKey.values()).sort((left, right) => left.key.localeCompare(right.key));
 }

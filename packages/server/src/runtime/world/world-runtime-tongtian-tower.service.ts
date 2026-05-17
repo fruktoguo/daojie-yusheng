@@ -349,6 +349,7 @@ export class WorldRuntimeTongtianTowerService {
       terrainProfileId: 'tower_floor',
       mapLv: this.getLayerMonsterLevel(layer),
       description: '通天塔内纯粹空白的一层，四面无墙，只有上下层与退出的塔内交互。',
+      hideMinimap: true,
       tiles: Array.from({ length: this.config.height }, () => row),
       portals: [],
       spawnPoint: { x: this.config.spawnX, y: this.config.spawnY },

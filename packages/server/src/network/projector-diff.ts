@@ -48,6 +48,8 @@ import {
   isSameGroundPile,
   isSameNpcQuestMarker,
   isSameTechniqueEntry,
+  isSameTechniqueLayerList,
+  isSameTechniqueSkillList,
   isSameActionEntry,
   isSameBuffEntry,
 } from './projector-compare';
@@ -312,7 +314,28 @@ export function diffTechniqueEntries(previous: TechniqueUpdateEntryView[], curre
     const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
     return current
         .filter((entry) => !isSameTechniqueEntry(previousById.get(entry.techId) ?? null, entry))
-        .map((entry) => entry);
+        .map((entry) => buildTechniqueEntryPatch(previousById.get(entry.techId) ?? null, entry));
+}
+
+function buildTechniqueEntryPatch(previous: TechniqueUpdateEntryView | null, current: TechniqueUpdateEntryView): TechniqueUpdateEntryView {
+    if (!previous) {
+        return current;
+    }
+    const patch: TechniqueUpdateEntryView = { techId: current.techId };
+    if (previous.level !== current.level) { patch.level = current.level; }
+    if (previous.exp !== current.exp) { patch.exp = current.exp; }
+    if (previous.expToNext !== current.expToNext) { patch.expToNext = current.expToNext; }
+    if (previous.realmLv !== current.realmLv) { patch.realmLv = current.realmLv; }
+    if (previous.realm !== current.realm) { patch.realm = current.realm; }
+    if ((previous.skillsEnabled !== false) !== (current.skillsEnabled !== false)) {
+        patch.skillsEnabled = current.skillsEnabled !== false;
+    }
+    if (previous.name !== current.name) { patch.name = current.name; }
+    if (previous.grade !== current.grade) { patch.grade = current.grade; }
+    if (previous.category !== current.category) { patch.category = current.category; }
+    if (!isSameTechniqueSkillList(previous.skills, current.skills)) { patch.skills = current.skills; }
+    if (!isSameTechniqueLayerList(previous.layers, current.layers)) { patch.layers = current.layers; }
+    return patch;
 }
 
 export function diffRemovedTechniqueIds(previous: TechniqueUpdateEntryView[], current: TechniqueUpdateEntryView[]): string[] {

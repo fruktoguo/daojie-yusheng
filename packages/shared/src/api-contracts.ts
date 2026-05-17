@@ -1233,6 +1233,88 @@ export interface GmWorkerStateRes {
   note?: string;
 }
 
+/** GM 诊断查询请求。 */
+export interface GmDiagnosticsQueryReq {
+/**
+ * command：GM 诊断指令。
+ */
+
+  command: string;
+  /**
+ * limit：结果行数上限。
+ */
+
+  limit?: number;
+}
+
+/** GM 诊断查询结果集。 */
+export interface GmDiagnosticsResultSet {
+/**
+ * title：结果集标题。
+ */
+
+  title: string;
+  /**
+ * columns：列名集合。
+ */
+
+  columns: string[];
+  /**
+ * rows：结果行集合。
+ */
+
+  rows: Array<Record<string, unknown>>;
+  /**
+ * rowCount：返回行数。
+ */
+
+  rowCount: number;
+  /**
+ * truncated：是否被行数上限截断。
+ */
+
+  truncated: boolean;
+}
+
+/** GM 诊断查询响应。 */
+export interface GmDiagnosticsQueryRes {
+/**
+ * ok：是否执行成功。
+ */
+
+  ok: boolean;
+  /**
+ * command：规范化后的指令。
+ */
+
+  command: string;
+  /**
+ * executedAt：执行时间。
+ */
+
+  executedAt: string;
+  /**
+ * durationMs：耗时毫秒。
+ */
+
+  durationMs: number;
+  /**
+ * resultSets：结果集集合。
+ */
+
+  resultSets: GmDiagnosticsResultSet[];
+  /**
+ * message：提示或错误信息。
+ */
+
+  message?: string;
+  /**
+ * warnings：安全限制或截断提示。
+ */
+
+  warnings?: string[];
+}
+
 /** 数据库备份的来源类型。 */
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import' | 'uploaded';
 

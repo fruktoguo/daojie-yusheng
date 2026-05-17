@@ -114,6 +114,14 @@ export class SocketManager {
     this.socket?.emit(event, encodeClientEventPayload(event, payload));
   }
 
+  /** 公开发送接口，用于不适合归入特定 sender 的一次性事件。 */
+  emitEvent<TEvent extends ClientToServerEventName>(
+    event: TEvent,
+    payload: ClientToServerEventPayload<TEvent>,
+  ): void {
+    this.sendEvent(event, payload);
+  }
+
   /** 断开当前连接并清理 token。 */
   disconnect(): void {
     this.disposeSocket({ clearToken: true });

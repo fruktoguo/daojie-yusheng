@@ -3,14 +3,24 @@
  * 负责 minimap marker 的构造、缓存、视野过滤与增量 diff 下发。
  */
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { composeTileTypeFromLayers, getMapCharFromTileType } from '@mud/shared';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
 /** minimap 冷路径同步服务：负责 marker cache、构造、过滤与 diff。 */
 @Injectable()
 export class WorldSyncMinimapService {
     /** 地图级 minimap marker 缓存。 */
     minimapMarkersByMapId = new Map();
+
+    private readonly mapTemplateRepository: MapTemplateRepository | null;
+
+    constructor(
+        @Inject(MapTemplateRepository) mapTemplateRepository?: MapTemplateRepository,
+    ) {
+        this.mapTemplateRepository = mapTemplateRepository ?? null;
+    }
+
     /** 构造 minimap 静态快照。 */
     buildMinimapSnapshotSync(template) {
         return {
@@ -28,7 +38,13 @@ export class WorldSyncMinimapService {
         if (cached) {
             return cached;
         }
-        const markers = buildMinimapMarkers(template);
+        const resolveMapName = (mapId: string): string => {
+            if (this.mapTemplateRepository?.has(mapId)) {
+                return this.mapTemplateRepository.getOrThrow(mapId).name;
+            }
+            return mapId;
+        };
+        const markers = buildMinimapMarkers(template, resolveMapName);
         this.minimapMarkersByMapId.set(template.id, markers);
         return markers;
     }
@@ -76,7 +92,7 @@ function hasTemplateLayerRows(template) {
  * @returns 无返回值，直接更新MinimapMarker相关状态。
  */
 
-function buildMinimapMarkers(template) {
+function buildMinimapMarkers(template, resolveMapName: (mapId: string) => string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const markers = [];
@@ -119,7 +135,7 @@ function buildMinimapMarkers(template) {
             x: portal.x,
             y: portal.y,
             label: portal.kind === 'stairs' ? '楼梯' : '传送点',
-            detail: portal.targetMapId,
+            detail: resolveMapName(portal.targetMapId),
         });
     }
     markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));

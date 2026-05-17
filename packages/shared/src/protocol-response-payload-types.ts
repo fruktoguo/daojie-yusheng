@@ -1,4 +1,5 @@
 import type { LeaderboardPlayerLocationsView, LeaderboardView, RealmUpdateView, WorldSummaryView } from './protocol-envelope-types';
+import type { MapMinimapArchiveEntry, MinimapLibraryManifestEntry } from './world-view-types';
 import type {
   ContainerDetailView,
   GroundDetailView,
@@ -333,3 +334,13 @@ export interface S2C_MailPage extends MailPageSyncView {}
 export interface S2C_MailOpResult extends MailOpResultView {}
 /** 建议列表更新。 */
 export interface S2C_SuggestionUpdate extends SuggestionUpdateView {}
+/** minimapLibrary 版本清单：告知客户端已解锁地图及版本号。 */
+export interface S2C_MinimapLibraryManifest {
+  /** 已解锁地图的 id + 版本号列表 */
+  manifest: MinimapLibraryManifestEntry[];
+}
+/** minimapLibrary 增量下发：仅包含有变更的地图完整数据。 */
+export interface S2C_MinimapLibraryDelta {
+  /** 有变更或客户端缺失的地图完整条目 */
+  entries: MapMinimapArchiveEntry[];
+}

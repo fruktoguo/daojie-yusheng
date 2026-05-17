@@ -523,6 +523,15 @@ class WorldGateway implements WorldGatewayHelperContext {
     handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         this.worldClientEventService.emitPong(client, payload);
     }
+    @SubscribeMessage(C2S.ReportMinimapVersions)
+    handleReportMinimapVersions(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        const playerId = typeof client?.data?.playerId === 'string' ? client.data.playerId : '';
+        if (!playerId) return;
+        const versions = payload && typeof payload === 'object' && payload.versions && typeof payload.versions === 'object'
+            ? payload.versions as Record<string, number>
+            : {};
+        this.worldSyncService.handleReportMinimapVersions(client, playerId, versions);
+    }
 }
 function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -3,6 +3,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 import { Pool } from 'pg';
+import { EQUIP_SLOTS } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
@@ -16,6 +17,7 @@ const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
+  await assertAssetDomainInvalidEntriesRefuseSilentPrune();
 
   if (!databaseUrl.trim()) {
     console.log(
@@ -24,7 +26,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表，并推进 recovery watermark',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，且 wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表、推进 recovery watermark，并验证运行时显式选项可清空最后一个 inventory/equipment/buff row',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -39,6 +41,9 @@ async function main(): Promise<void> {
   const edgePlayerId = `${playerId}_edge`;
   const directPlayerId = `${playerId}_direct`;
   const walletOnlyPlayerId = `${playerId}_wallet`;
+  const buffClearPlayerId = `${playerId}_buff_clear`;
+  const inventoryClearPlayerId = `${playerId}_inventory_clear`;
+  const equipmentClearPlayerId = `${playerId}_equipment_clear`;
   const now = Date.now();
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new PlayerDomainPersistenceService(null, databasePoolProvider);
@@ -54,6 +59,9 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, edgePlayerId);
     await cleanupPlayer(pool, directPlayerId);
     await cleanupPlayer(pool, walletOnlyPlayerId);
+    await cleanupPlayer(pool, buffClearPlayerId);
+    await cleanupPlayer(pool, inventoryClearPlayerId);
+    await cleanupPlayer(pool, equipmentClearPlayerId);
 
     await service.savePlayerPresence(playerId, {
       online: true,
@@ -844,6 +852,126 @@ async function main(): Promise<void> {
       { versionSeed: directBaseVersion + 17 },
     );
 
+    const buffClearVersion = now + 300;
+    await service.savePlayerBuffs(
+      buffClearPlayerId,
+      [{
+        buffId: 'buff.clearable',
+        sourceSkillId: 'skill.clearable',
+        sourceCasterId: buffClearPlayerId,
+        realmLv: 1,
+        remainingTicks: 1,
+        duration: 1,
+        stacks: 1,
+        maxStacks: 1,
+        sustainTicksElapsed: 0,
+        rawPayload: { buffId: 'buff.clearable' },
+      }],
+      { versionSeed: buffClearVersion },
+    );
+    const emptyBuffSnapshot = buildSnapshot(buffClearVersion + 1);
+    emptyBuffSnapshot.buffs = { revision: 3, buffs: [] };
+    let emptyBuffProjectionRefused = false;
+    try {
+      await service.savePlayerSnapshotProjectionDomains(
+        buffClearPlayerId,
+        emptyBuffSnapshot,
+        ['buff'],
+      );
+    } catch (error) {
+      emptyBuffProjectionRefused = error instanceof Error
+        && error.message.includes('replace_persistent_buff_state_refused_empty_overwrite');
+    }
+    if (!emptyBuffProjectionRefused) {
+      throw new Error('expected empty buff projection without explicit runtime option to be refused');
+    }
+    const buffRowsAfterRefusedProjection = await fetchRows(
+      pool,
+      'SELECT buff_id FROM player_persistent_buff_state WHERE player_id = $1',
+      [buffClearPlayerId],
+    );
+    if (buffRowsAfterRefusedProjection.length !== 1) {
+      throw new Error(`unexpected buff rows after refused empty projection: ${JSON.stringify(buffRowsAfterRefusedProjection)}`);
+    }
+    await service.savePlayerSnapshotProjectionDomains(
+      buffClearPlayerId,
+      emptyBuffSnapshot,
+      ['buff'],
+      { allowBuffEmptyOverwrite: true },
+    );
+    const buffRowsAfterAllowedProjection = await fetchRows(
+      pool,
+      'SELECT buff_id FROM player_persistent_buff_state WHERE player_id = $1',
+      [buffClearPlayerId],
+    );
+    if (buffRowsAfterAllowedProjection.length !== 0) {
+      throw new Error(`unexpected buff rows after allowed empty projection: ${JSON.stringify(buffRowsAfterAllowedProjection)}`);
+    }
+
+    const inventoryClearVersion = now + 320;
+    await service.savePlayerInventoryItems(
+      inventoryClearPlayerId,
+      [{
+        itemId: 'clearable_inventory_seed',
+        count: 1,
+        slotIndex: 0,
+        itemInstanceId: `inv:${inventoryClearPlayerId}:0`,
+        rawPayload: { itemId: 'clearable_inventory_seed', count: 1 },
+      }],
+      { versionSeed: inventoryClearVersion },
+    );
+    const emptyInventorySnapshot = buildSnapshot(inventoryClearVersion + 1);
+    emptyInventorySnapshot.inventory = { revision: 5, capacity: 20, items: [] };
+    await service.savePlayerSnapshotProjectionDomains(
+      inventoryClearPlayerId,
+      emptyInventorySnapshot,
+      ['inventory'],
+      { allowInventoryEmptyOverwrite: true },
+    );
+    const inventoryRowsAfterAllowedProjection = await fetchRows(
+      pool,
+      'SELECT item_id FROM player_inventory_item WHERE player_id = $1',
+      [inventoryClearPlayerId],
+    );
+    if (inventoryRowsAfterAllowedProjection.length !== 0) {
+      throw new Error(`unexpected inventory rows after allowed empty projection: ${JSON.stringify(inventoryRowsAfterAllowedProjection)}`);
+    }
+
+    const equipmentClearVersion = now + 340;
+    await service.savePlayerEquipmentSlots(
+      equipmentClearPlayerId,
+      [{
+        slot: 'weapon',
+        itemInstanceId: `equip:${equipmentClearPlayerId}:weapon`,
+        item: {
+          itemId: 'clearable_equipment_seed',
+          count: 1,
+          equipSlot: 'weapon',
+          itemInstanceId: `equip:${equipmentClearPlayerId}:weapon`,
+        },
+      }],
+      { versionSeed: equipmentClearVersion },
+    );
+    const emptyEquipmentSnapshot = buildSnapshot(equipmentClearVersion + 1);
+    emptyEquipmentSnapshot.equipment = {
+      revision: 7,
+      slots: EQUIP_SLOTS.map((slot) => ({ slot, item: null })),
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      equipmentClearPlayerId,
+      emptyEquipmentSnapshot,
+      ['equipment'],
+      { allowEquipmentEmptyOverwrite: true },
+    );
+    const equipmentRowsAfterAllowedProjection = await fetchRows(
+      pool,
+      'SELECT slot_type FROM player_equipment_slot WHERE player_id = $1',
+      [equipmentClearPlayerId],
+    );
+    if (equipmentRowsAfterAllowedProjection.length !== 0) {
+      throw new Error(`unexpected equipment rows after allowed empty projection: ${JSON.stringify(equipmentRowsAfterAllowedProjection)}`);
+    }
+
     const directAnchorRow = await fetchSingleRow(
       pool,
       'SELECT respawn_template_id, last_safe_template_id, preferred_line_preset FROM player_world_anchor WHERE player_id = $1',
@@ -1064,7 +1192,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1083,6 +1211,10 @@ async function main(): Promise<void> {
           enhancementRecordCount: enhancementRecordRows.length,
           directDomainWriteSafe: true,
           emptyStringProjectionSafe: true,
+          invalidAssetEntryRejectsSilentPrune: true,
+          inventoryEmptyProjectionExplicitOptionSafe: true,
+          equipmentEmptyProjectionExplicitOptionSafe: true,
+          buffEmptyProjectionExplicitOptionSafe: true,
         },
         null,
         2,
@@ -1093,6 +1225,9 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, edgePlayerId).catch(() => undefined);
     await cleanupPlayer(pool, directPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, walletOnlyPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, buffClearPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, inventoryClearPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, equipmentClearPlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
@@ -1273,6 +1408,80 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
       && query.includes('jsonb_to_recordset')
       && query.includes('NOT EXISTS'))) {
       throw new Error(`player snapshot missing stale-key delete guard for ${tableName}`);
+    }
+  }
+}
+
+async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void> {
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_enhancement_record')
+        || sql.includes('INSERT INTO player_logbook_message');
+      return { rows: [], rowCount: isCheckedInsert ? 1 : 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  const cases: Array<{ name: string; run: () => Promise<void>; expected: string }> = [
+    {
+      name: 'wallet',
+      run: () => service.savePlayerWallet(
+        'player:invalid-wallet',
+        [{ walletType: '', balance: 1 } as never],
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerWalletRows: 非法 wallet entry',
+    },
+    {
+      name: 'market_storage',
+      run: () => service.savePlayerMarketStorageItems(
+        'player:invalid-market-storage',
+        [{ itemId: '', count: 1, slotIndex: 0 } as never],
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerMarketStorageItems: 非法 market_storage entry',
+    },
+    {
+      name: 'equipment_slot',
+      run: () => service.savePlayerEquipmentSlots(
+        'player:invalid-equipment-slot',
+        [{ slot: 'unknown_slot', item: null } as never],
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerEquipmentSlots: 非法 equipment slot',
+    },
+    {
+      name: 'equipment_item',
+      run: () => service.savePlayerEquipmentSlots(
+        'player:invalid-equipment-item',
+        [{ slot: 'weapon', item: { count: 1 } } as never],
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerEquipmentSlots: 非法 equipment item',
+    },
+  ];
+
+  for (const testCase of cases) {
+    let rejected = false;
+    try {
+      await testCase.run();
+    } catch (error) {
+      rejected = error instanceof Error && error.message.includes(testCase.expected);
+    }
+    if (!rejected) {
+      throw new Error(`expected invalid ${testCase.name} entry to reject before stale cleanup`);
     }
   }
 }

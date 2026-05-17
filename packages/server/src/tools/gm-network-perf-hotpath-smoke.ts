@@ -40,15 +40,28 @@ async function main(): Promise<void> {
     delete process.env.SERVER_GM_NETWORK_PERF_ENABLED;
     service.enableNetworkPerfCounters();
     assert.equal(service.shouldRecordNetworkPerf(), true);
-    assert.equal(service.shouldCaptureNetworkPayloadBody(), true);
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
     assert.equal(service.networkOutBucketByKey.size, 1);
     const [bucket] = Array.from(service.networkOutBucketByKey.values());
     assert.ok(bucket.bytes > 0);
     assert.equal(bucket.count, 1);
+    assert.equal(bucket.largePayloadSamples, undefined);
+
+    service.setNetworkPayloadCaptureEnabled(true);
+    assert.equal(service.shouldRecordNetworkPerf(), true);
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), true);
+    service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
+    assert.equal(service.networkOutBucketByKey.size, 1);
+    assert.equal(bucket.count, 2);
     assert.ok(Array.isArray(bucket.largePayloadSamples));
     assert.equal(bucket.largePayloadSamples.length, 1);
     assert.ok(String(bucket.largePayloadSamples[0]?.body ?? '').includes('测试玩家_0'));
+    assert.ok(String(bucket.largePayloadSamples[0]?.body ?? '').includes('monster_127'));
+    assert.equal(String(bucket.largePayloadSamples[0]?.body ?? '').includes('<truncated>'), false);
+
+    service.setNetworkPayloadCaptureEnabled(false);
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
   } finally {
     JSON.stringify = originalStringify;
     restoreEnv('SERVER_GM_NETWORK_PERF_ENABLED', originalEnabled);
@@ -58,7 +71,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     answers:
-      'GM network perf 默认关闭；显式开启时 recordNetworkOut 不调用 JSON.stringify，避免把 WorldDelta 热路径变成重复序列化与大字符串分配。',
+      'GM network perf 默认关闭；显式开启网络统计时只记录字节桶，不开启大包 body 采样；只有单独开启采样后才允许 JSON.stringify 完整留样。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 GM 网络统计的默认开关语义和包体测量热路径不再依赖 JSON.stringify。',
   }, null, 2));

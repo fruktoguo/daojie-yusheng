@@ -3,12 +3,13 @@
  * 处理玩家购买请求的校验、扣款、物品发放和持久化提交
  */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { createItemStackSignature } from '@mud/shared';
+import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 
 const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
@@ -134,12 +135,16 @@ function applyNpcShopPurchaseToInventory(existingItems, item) {
     const nextItems = Array.isArray(existingItems)
         ? existingItems.map((entry) => ({ ...entry }))
         : [];
-    const existing = nextItems.find((entry) => createItemStackSignature(entry) === createItemStackSignature(item));
+    const incoming = { ...item };
+    assignItemInstanceIdIfNeeded(incoming);
+    const existing = canMergeItemStack(incoming)
+        ? nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === createItemStackSignature(incoming))
+        : null;
     if (existing) {
-        existing.count += item.count;
+        existing.count += incoming.count;
         return nextItems;
     }
-    nextItems.push({ ...item });
+    nextItems.push(incoming);
     return nextItems;
 }
 

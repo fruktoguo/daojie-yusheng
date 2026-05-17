@@ -2,6 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { C2S, S2C } from '@mud/shared';
+import { Session } from 'node:inspector';
 import { cpus, loadavg, uptime } from 'os';
 import { getHeapSnapshot, getHeapSpaceStatistics } from 'v8';
 import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
@@ -27,6 +28,7 @@ const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
 const EMPTY_HEAP_SPACE_SNAPSHOTS = [];
 const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
 const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
+const MANUAL_GC_COOLDOWN_MS = 60_000;
 /**
  * 网络诊断 bucket label 的数量硬上限，防止 resolveNetworkPacketLabel 漏网或新协议事件
  * 接入时让 networkInBucketByKey/networkOutBucketByKey 无限增长。已收敛到 unknown 后
@@ -55,7 +57,6 @@ function resolveNetworkPerfRollingResetIntervalMs() {
 const HEAP_SNAPSHOT_SUMMARY_TOP_LIMIT = Math.max(20, Math.min(120, Math.trunc(Number(process.env.SERVER_HEAP_SNAPSHOT_TOP_LIMIT) || 60)));
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
-const LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS = 4096;
 const NETWORK_PAYLOAD_ESTIMATE_MAX_DEPTH = 16;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
@@ -90,8 +91,8 @@ export class RuntimeGmStateService {
     networkOutBucketByKey = new Map();
     /** GM 手动启动的网络诊断开关；环境变量开启时不依赖此状态。 */
     networkPerfManuallyEnabled = false;
-    /** GM 手动启动的大包包体采样开关；只记录超过阈值且截断后的最近样本。 */
-    networkPayloadCaptureManuallyEnabled = false;
+    /** GM 手动覆盖的大包包体采样开关；null 时才回退环境变量。 */
+    networkPayloadCaptureManualOverride: boolean | null = null;
     /** 滚动 reset 调度计时器，避免长期诊断累积；onModuleDestroy 清理。 */
     networkPerfRollingResetTimer = null;
     /** 上一次 reset 时间戳，供监控/GM 面板观察当前窗口起点。 */
@@ -108,6 +109,10 @@ export class RuntimeGmStateService {
     lastHeapSnapshotSummary: HeapSnapshotSummary | null = null;
     /** 最近一次 heap snapshot 摘要生成时间戳。 */
     lastHeapSnapshotSummaryAt = 0;
+    /** 手动 GC 上次执行时间，用于防止 GM 连续触发 stop-the-world。 */
+    lastManualGcAt = 0;
+    /** 手动 GC 并发保护。 */
+    manualGcInProgress = false;
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(
         mapTemplateRepository: MapTemplateRepository,
@@ -210,13 +215,23 @@ export class RuntimeGmStateService {
     }
     /** 是否记录大包详情样本。 */
     shouldCaptureNetworkPayloadBody() {
-        return this.networkPayloadCaptureManuallyEnabled || isNetworkPayloadBodyCaptureEnabled();
+        if (this.networkPayloadCaptureManualOverride !== null) {
+            return this.networkPayloadCaptureManualOverride === true;
+        }
+        return isNetworkPayloadBodyCaptureEnabled();
     }
-    /** 由 GM 面板显式启动网络性能统计。 */
+    /** 由 GM 面板显式启动网络性能统计；只记录事件字节桶，不默认抓取大包 body。 */
     enableNetworkPerfCounters() {
         this.networkPerfManuallyEnabled = true;
-        this.networkPayloadCaptureManuallyEnabled = true;
         this.ensureNetworkPerfRollingReset();
+    }
+    /** 由 GM 面板显式切换大包 body 采样。开启后才会对大包做 JSON.stringify 截断留样。 */
+    setNetworkPayloadCaptureEnabled(enabled) {
+        this.networkPayloadCaptureManualOverride = enabled === true;
+        if (this.networkPayloadCaptureManualOverride) {
+            this.networkPerfManuallyEnabled = true;
+            this.ensureNetworkPerfRollingReset();
+        }
     }
     /** 清空累计网络统计。 */
     resetNetworkPerfCounters() {
@@ -556,6 +571,63 @@ export class RuntimeGmStateService {
             bytes: text.length,
             summary,
         };
+    }
+
+    /** 手动触发一次 full GC，用于运维确认 heapUsed 是否主要由可回收对象占用。 */
+    async triggerManualGc() {
+        const now = Date.now();
+        if (this.manualGcInProgress) {
+            return {
+                ok: false,
+                reason: 'in_progress',
+                hint: '已有一次手动 GC 正在执行，请稍后再试。',
+                cooldownMs: MANUAL_GC_COOLDOWN_MS,
+                cooldownRemainingMs: 0,
+            };
+        }
+        const elapsedSinceLast = now - this.lastManualGcAt;
+        if (this.lastManualGcAt > 0 && elapsedSinceLast < MANUAL_GC_COOLDOWN_MS) {
+            return {
+                ok: false,
+                reason: 'cooldown',
+                hint: `手动 GC 冷却中，剩余 ${Math.ceil((MANUAL_GC_COOLDOWN_MS - elapsedSinceLast) / 1000)} 秒。`,
+                cooldownMs: MANUAL_GC_COOLDOWN_MS,
+                cooldownRemainingMs: MANUAL_GC_COOLDOWN_MS - elapsedSinceLast,
+            };
+        }
+        this.manualGcInProgress = true;
+        const before = buildMemoryUsageBytesSnapshot();
+        const startedAt = Date.now();
+        try {
+            await collectGarbageOnce();
+            const after = buildMemoryUsageBytesSnapshot();
+            this.lastManualGcAt = Date.now();
+            return {
+                ok: true,
+                triggeredAt: this.lastManualGcAt,
+                durationMs: this.lastManualGcAt - startedAt,
+                cooldownMs: MANUAL_GC_COOLDOWN_MS,
+                before,
+                after,
+                delta: diffMemoryUsageBytesSnapshot(before, after),
+            };
+        }
+        catch (error) {
+            const after = buildMemoryUsageBytesSnapshot();
+            return {
+                ok: false,
+                reason: 'gc_failed',
+                error: error instanceof Error ? error.message : String(error),
+                hint: 'Node 当前进程无法通过 global.gc 或 inspector 触发 GC。',
+                cooldownMs: MANUAL_GC_COOLDOWN_MS,
+                before,
+                after,
+                delta: diffMemoryUsageBytesSnapshot(before, after),
+            };
+        }
+        finally {
+            this.manualGcInProgress = false;
+        }
     }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {
@@ -899,6 +971,7 @@ function estimateGmNetworkBucketsBytes(inMap, outMap) {
             }
         }
     }
+
     return roundMetric(bytes);
 }
 
@@ -1084,20 +1157,11 @@ function appendNetworkLargePayloadSample(bucket, sample) {
 
 function formatNetworkPayloadBody(payload) {
     try {
-        const serialized = JSON.stringify(payload ?? null, null, 2) ?? 'null';
-        return truncateNetworkPayloadBody(serialized);
+        return JSON.stringify(payload ?? null, null, 2) ?? 'null';
     }
     catch (_error) {
         return '';
     }
-}
-
-function truncateNetworkPayloadBody(value) {
-    const normalized = String(value ?? '');
-    if (normalized.length <= LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS) {
-        return normalized;
-    }
-    return `${normalized.slice(0, LARGE_NETWORK_PAYLOAD_SAMPLE_BODY_MAX_CHARS)}\n...<truncated>`;
 }
 
 function estimateNetworkPayloadBytes(payload) {
@@ -1156,6 +1220,78 @@ function isDevelopmentLikeEnv() {
 function isTruthyEnvValue(value) {
     const normalized = String(value ?? '').trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function buildMemoryUsageBytesSnapshot() {
+    const memory = process.memoryUsage();
+    return {
+        rssBytes: Math.max(0, Math.trunc(Number(memory.rss ?? 0) || 0)),
+        heapUsedBytes: Math.max(0, Math.trunc(Number(memory.heapUsed ?? 0) || 0)),
+        heapTotalBytes: Math.max(0, Math.trunc(Number(memory.heapTotal ?? 0) || 0)),
+        externalBytes: Math.max(0, Math.trunc(Number(memory.external ?? 0) || 0)),
+        arrayBuffersBytes: Math.max(0, Math.trunc(Number(memory.arrayBuffers ?? 0) || 0)),
+    };
+}
+
+function diffMemoryUsageBytesSnapshot(before, after) {
+    return {
+        rssBytes: after.rssBytes - before.rssBytes,
+        heapUsedBytes: after.heapUsedBytes - before.heapUsedBytes,
+        heapTotalBytes: after.heapTotalBytes - before.heapTotalBytes,
+        externalBytes: after.externalBytes - before.externalBytes,
+        arrayBuffersBytes: after.arrayBuffersBytes - before.arrayBuffersBytes,
+    };
+}
+
+async function collectGarbageOnce(): Promise<void> {
+    const exposedGc = (globalThis as typeof globalThis & { gc?: () => void }).gc;
+    if (typeof exposedGc === 'function') {
+        exposedGc();
+        return;
+    }
+    await collectGarbageWithInspector();
+}
+
+function collectGarbageWithInspector(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const session = new Session();
+        let settled = false;
+        const timer = setTimeout(() => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            session.disconnect();
+            reject(new Error('inspector HeapProfiler.collectGarbage timed out'));
+        }, 15_000);
+        timer.unref?.();
+        const finish = (error?: Error | null) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            if (error) {
+                session.disconnect();
+                reject(error);
+                return;
+            }
+            resolve();
+            setImmediate(() => {
+                session.disconnect();
+            });
+        };
+        session.connect();
+        session.post('HeapProfiler.enable', (enableError) => {
+            if (enableError) {
+                finish(enableError);
+                return;
+            }
+            session.post('HeapProfiler.collectGarbage', (error) => {
+                finish(error);
+            });
+        });
+    });
 }
 
 function buildCpuBreakdown(summary) {

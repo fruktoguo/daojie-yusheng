@@ -23,6 +23,8 @@ export const SESSION_SERVER_EVENTS = [
   S2C.InitSession,
   S2C.MapEnter,
   S2C.MapStatic,
+  S2C.MinimapLibraryManifest,
+  S2C.MinimapLibraryDelta,
   S2C.Realm,
   S2C.WorldDelta,
   S2C.SelfDelta,

@@ -24,6 +24,8 @@ import {
   type GmDatabaseStateRes,
   type GmDatabaseTableStatsRes,
   type GmDatabaseCleanupRes,
+  type GmDiagnosticsQueryReq,
+  type GmDiagnosticsQueryRes,
   type GmUploadDatabaseBackupRes,
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
@@ -34,6 +36,7 @@ import {
   type GmCpuSectionSnapshot,
   type GmHeapSnapshotRes,
   type GmHeapSnapshotSummaryRes,
+  type GmManualGcRes,
   type GmMemoryDomainEstimateSnapshot,
   type GmMemoryInstanceEstimateSnapshot,
   type GmV8HeapSpaceSnapshot,
@@ -282,6 +285,7 @@ const serverSubtabMemoryBtn = document.getElementById('server-subtab-memory') as
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 /** serverSubtabLogsBtn：服务端Subtab日志Btn。 */
 const serverSubtabLogsBtn = document.getElementById('server-subtab-logs') as HTMLButtonElement;
+const serverSubtabDiagnosticsBtn = document.getElementById('server-subtab-diagnostics') as HTMLButtonElement;
 /** serverSubtabWorkersBtn：服务端Subtab Workers Btn。 */
 const serverSubtabWorkersBtn = document.getElementById('server-subtab-workers') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
@@ -296,10 +300,16 @@ const serverPanelMemoryEl = document.getElementById('server-panel-memory') as HT
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
 /** serverPanelLogsEl：服务端面板日志El。 */
 const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
+const serverPanelDiagnosticsEl = document.getElementById('server-panel-diagnostics') as HTMLElement;
 /** serverPanelWorkersEl：服务端面板Workers El。 */
 const serverPanelWorkersEl = document.getElementById('server-panel-workers') as HTMLElement;
 const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement;
 const serverPanelFlagsEl = document.getElementById('server-panel-flags') as HTMLElement;
+const serverSubtabObjectsBtn = document.getElementById('server-subtab-objects') as HTMLButtonElement;
+const serverPanelObjectsEl = document.getElementById('server-panel-objects') as HTMLElement;
+const serverObjectsRefreshBtn = document.getElementById('server-objects-refresh') as HTMLButtonElement;
+const serverObjectsMetaEl = document.getElementById('server-objects-meta') as HTMLDivElement;
+const serverObjectsContentEl = document.getElementById('server-objects-content') as HTMLDivElement;
 const serverFlagsRefreshBtn = document.getElementById('server-flags-refresh') as HTMLButtonElement;
 const serverFlagsMetaEl = document.getElementById('server-flags-meta') as HTMLDivElement;
 const serverFlagsContentEl = document.getElementById('server-flags-content') as HTMLDivElement;
@@ -319,6 +329,12 @@ const serverLogsRefreshBtn = document.getElementById('server-logs-refresh') as H
 const serverLogsMetaEl = document.getElementById('server-logs-meta') as HTMLDivElement;
 /** serverLogsContentEl：服务端日志内容El。 */
 const serverLogsContentEl = document.getElementById('server-logs-content') as HTMLPreElement;
+const serverDiagnosticsCommandEl = document.getElementById('server-diagnostics-command') as HTMLTextAreaElement;
+const serverDiagnosticsLimitEl = document.getElementById('server-diagnostics-limit') as HTMLInputElement;
+const serverDiagnosticsRunBtn = document.getElementById('server-diagnostics-run') as HTMLButtonElement;
+const serverDiagnosticsHelpBtn = document.getElementById('server-diagnostics-help') as HTMLButtonElement;
+const serverDiagnosticsMetaEl = document.getElementById('server-diagnostics-meta') as HTMLDivElement;
+const serverDiagnosticsOutputEl = document.getElementById('server-diagnostics-output') as HTMLPreElement;
 /** trafficResetMetaEl：traffic Reset元数据El。 */
 const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
 /** trafficTotalInEl：traffic总量In El。 */
@@ -331,10 +347,13 @@ const trafficTotalOutEl = document.getElementById('traffic-total-out') as HTMLDi
 const trafficTotalOutNoteEl = document.getElementById('traffic-total-out-note') as HTMLDivElement;
 /** resetNetworkStatsBtn：reset Network属性Btn。 */
 const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as HTMLButtonElement;
+const toggleNetworkPayloadCaptureBtn = document.getElementById('toggle-network-payload-capture') as HTMLButtonElement;
 /** resetCpuStatsBtn：reset Cpu属性Btn。 */
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
 /** resetPathfindingStatsBtn：reset Pathfinding属性Btn。 */
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
+/** triggerManualGcBtn：手动触发 V8 GC 诊断按钮。 */
+const triggerManualGcBtn = document.getElementById('trigger-manual-gc') as HTMLButtonElement;
 /** writeHeapSnapshotBtn：生成Heap Snapshot按钮。 */
 const writeHeapSnapshotBtn = document.getElementById('write-heap-snapshot') as HTMLButtonElement;
 /** copyHeapSnapshotSummaryBtn：生成 Heap Snapshot 后自动复制摘要 JSON 到剪贴板的按钮。 */
@@ -512,7 +531,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'flags';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'diagnostics' | 'workers' | 'flags' | 'objects';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -734,6 +753,10 @@ function buildGmWorkersApiPath(): string {
   return `${GM_API_BASE_PATH}/workers`;
 }
 
+function buildGmDiagnosticsQueryApiPath(): string {
+  return `${GM_API_BASE_PATH}/diagnostics/query`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -794,12 +817,41 @@ let serverLogsHasMore = false;
 let serverLogsBufferSize = 0;
 /** serverLogsLoading：服务端日志读取中。 */
 let serverLogsLoading = false;
+let serverDiagnosticsLoading = false;
+let lastServerDiagnosticsResult: GmDiagnosticsQueryRes | null = null;
 /** workerState：Worker状态。 */
 let workerState: GmWorkerStateRes | null = null;
 /** workerStateLoading：Worker状态读取中。 */
 let workerStateLoading = false;
 let runtimeFlags: Array<{ key: string; value: boolean }> = [];
 let runtimeFlagsLoading = false;
+const NETWORK_PAYLOAD_CAPTURE_FLAG_KEY = 'gm_network_payload_capture_enabled';
+
+interface ObjectCountsResponse {
+  totals: {
+    instances: number;
+    players: number;
+    monsters: number;
+    npcs: number;
+    landmarks: number;
+    containers: number;
+    groundPiles: number;
+    pendingCommands: number;
+    monsterSpawnGroups: number;
+  };
+  topInstances: Array<{
+    instanceId: string;
+    players: number;
+    monsters: number;
+    npcs: number;
+    landmarks: number;
+    containers: number;
+    groundPiles: number;
+    pendingCommands: number;
+  }>;
+}
+let objectCountsData: ObjectCountsResponse | null = null;
+let objectsLoading = false;
 let redeemGroupsState: RedeemCodeGroupView[] = [];
 /** selectedRedeemGroupId：selected兑换分组ID。 */
 let selectedRedeemGroupId: string | null = null;
@@ -911,6 +963,15 @@ function formatJson(value: unknown): string {
 /** formatBytes：格式化Bytes。 */
 function formatBytes(bytes: number | undefined): string {
   return gmPureHelpers.formatBytes(bytes);
+}
+
+function formatSignedBytes(bytes: number | undefined): string {
+  const value = Number(bytes ?? 0);
+  if (!Number.isFinite(value) || value === 0) {
+    return '0 B';
+  }
+  const sign = value > 0 ? '+' : '-';
+  return `${sign}${formatBytes(Math.abs(value))}`;
 }
 
 /** formatPercent：格式化Percent。 */
@@ -2655,16 +2716,20 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabMemoryBtn.classList.toggle('active', tab === 'memory');
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
+  serverSubtabDiagnosticsBtn.classList.toggle('active', tab === 'diagnostics');
   serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
   serverSubtabFlagsBtn.classList.toggle('active', tab === 'flags');
+  serverSubtabObjectsBtn.classList.toggle('active', tab === 'objects');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
   serverPanelMemoryEl.classList.toggle('hidden', tab !== 'memory');
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
+  serverPanelDiagnosticsEl.classList.toggle('hidden', tab !== 'diagnostics');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
   serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
+  serverPanelObjectsEl.classList.toggle('hidden', tab !== 'objects');
 }
 
 /** switchServerTab：处理switch服务端Tab。 */
@@ -2702,6 +2767,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'flags' && !runtimeFlagsLoading) {
     loadRuntimeFlags().catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载运行时开关失败', true);
+    });
+  }
+  if (tab === 'objects' && !objectsLoading) {
+    loadObjectCounts().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载对象信息失败', true);
     });
   }
 }
@@ -2767,6 +2837,75 @@ async function loadServerLogs(loadOlder: boolean): Promise<void> {
     } else {
       serverLogsContentEl.scrollTop = serverLogsContentEl.scrollHeight;
     }
+  }
+}
+
+function renderDiagnosticsPanel(): void {
+  serverDiagnosticsRunBtn.disabled = serverDiagnosticsLoading;
+  serverDiagnosticsHelpBtn.disabled = serverDiagnosticsLoading;
+  if (serverDiagnosticsLoading) {
+    serverDiagnosticsMetaEl.textContent = '查询执行中…';
+    return;
+  }
+  if (!lastServerDiagnosticsResult) {
+    serverDiagnosticsMetaEl.textContent = '查询尚未执行。';
+    serverDiagnosticsOutputEl.textContent = '可输入 help 查看可用指令。';
+    return;
+  }
+  const statusText = lastServerDiagnosticsResult.ok ? '成功' : '失败';
+  const rowCount = lastServerDiagnosticsResult.resultSets.reduce((sum, resultSet) => sum + resultSet.rowCount, 0);
+  serverDiagnosticsMetaEl.textContent = `${statusText} · ${formatDateTime(lastServerDiagnosticsResult.executedAt)} · ${lastServerDiagnosticsResult.durationMs} ms · ${rowCount} 行`;
+  serverDiagnosticsOutputEl.textContent = formatDiagnosticsResult(lastServerDiagnosticsResult);
+}
+
+function formatDiagnosticsResult(result: GmDiagnosticsQueryRes): string {
+  const lines: string[] = [
+    `command: ${result.command}`,
+    `ok: ${result.ok}`,
+  ];
+  if (result.message) {
+    lines.push(`message: ${result.message}`);
+  }
+  if (result.warnings && result.warnings.length > 0) {
+    lines.push(`warnings: ${result.warnings.join(' | ')}`);
+  }
+  for (const resultSet of result.resultSets) {
+    lines.push('');
+    lines.push(`## ${resultSet.title} (${resultSet.rowCount}${resultSet.truncated ? '+' : ''} rows)`);
+    if (resultSet.rows.length === 0) {
+      lines.push('(empty)');
+      continue;
+    }
+    lines.push(JSON.stringify(resultSet.rows, null, 2));
+  }
+  return lines.join('\n');
+}
+
+async function runDiagnosticsCommand(command: string): Promise<void> {
+  if (!token || serverDiagnosticsLoading) {
+    return;
+  }
+  const normalizedCommand = command.trim();
+  if (!normalizedCommand) {
+    setStatus('请输入查询指令', true);
+    return;
+  }
+  serverDiagnosticsLoading = true;
+  renderDiagnosticsPanel();
+  try {
+    const limit = Number(serverDiagnosticsLimitEl.value);
+    const requestBody: GmDiagnosticsQueryReq = {
+      command: normalizedCommand,
+      limit: Number.isFinite(limit) ? Math.trunc(limit) : undefined,
+    };
+    lastServerDiagnosticsResult = await request<GmDiagnosticsQueryRes>(buildGmDiagnosticsQueryApiPath(), {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    setStatus(lastServerDiagnosticsResult.ok ? '诊断查询完成' : `诊断查询失败：${lastServerDiagnosticsResult.message ?? '未知错误'}`, !lastServerDiagnosticsResult.ok);
+  } finally {
+    serverDiagnosticsLoading = false;
+    renderDiagnosticsPanel();
   }
 }
 
@@ -2865,6 +3004,9 @@ async function toggleRuntimeFlag(key: string, value: boolean): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ value }),
   });
+  if (key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
+    await loadState(true);
+  }
   await loadRuntimeFlags();
 }
 
@@ -2943,13 +3085,16 @@ function renderRuntimeFlagsPanel(): void {
   }
   const rows = runtimeFlags.map((flag) => {
     const checked = flag.value ? 'checked' : '';
+    const deleteButton = flag.key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
+      ? ''
+      : `<button class="small-btn flag-delete-btn" data-flag-key="${flag.key}" type="button" style="margin-left:auto;">删除</button>`;
     return `<div class="flag-row" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
         <code>${flag.key}</code>
       </label>
       <span style="color:var(--text-secondary);font-size:0.85em;">${flag.value ? '启用' : '禁用'}</span>
-      <button class="small-btn flag-delete-btn" data-flag-key="${flag.key}" type="button" style="margin-left:auto;">删除</button>
+      ${deleteButton}
     </div>`;
   });
   serverFlagsContentEl.innerHTML = rows.join('');
@@ -2969,6 +3114,63 @@ function renderRuntimeFlagsPanel(): void {
       });
     });
   });
+}
+
+
+function renderObjectsPanel(): void {
+  serverObjectsRefreshBtn.disabled = objectsLoading;
+  if (objectsLoading) {
+    serverObjectsMetaEl.textContent = '加载中...';
+    return;
+  }
+  if (!objectCountsData) {
+    serverObjectsMetaEl.textContent = '对象信息尚未加载。';
+    serverObjectsContentEl.innerHTML = '<div class="empty-hint">当前没有对象信息。</div>';
+    return;
+  }
+  const t = objectCountsData.totals;
+  serverObjectsMetaEl.textContent = `${t.instances} 个实例 · ${t.players} 玩家 · ${t.monsters} 妖兽`;
+  const instanceRows = objectCountsData.topInstances.length > 0
+    ? objectCountsData.topInstances.map((inst) => `
+      <div class="network-row">
+        <div class="network-row-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(inst.instanceId)}</div>
+        <div class="network-row-meta">玩家 ${inst.players} · 妖兽 ${inst.monsters} · NPC ${inst.npcs} · 地标 ${inst.landmarks} · 容器 ${inst.containers} · 地面堆 ${inst.groundPiles}</div>
+      </div>
+    `).join('')
+    : '<div class="empty-hint">无实例数据。</div>';
+
+  serverObjectsContentEl.innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card"><div class="panel-title">地图实例</div><div class="panel-value">${t.instances}</div></div>
+      <div class="summary-card"><div class="panel-title">在线玩家</div><div class="panel-value">${t.players}</div></div>
+      <div class="summary-card"><div class="panel-title">妖兽</div><div class="panel-value">${t.monsters}</div></div>
+      <div class="summary-card"><div class="panel-title">NPC</div><div class="panel-value">${t.npcs}</div></div>
+      <div class="summary-card"><div class="panel-title">地标</div><div class="panel-value">${t.landmarks}</div></div>
+      <div class="summary-card"><div class="panel-title">容器</div><div class="panel-value">${t.containers}</div></div>
+      <div class="summary-card"><div class="panel-title">地面堆</div><div class="panel-value">${t.groundPiles}</div></div>
+      <div class="summary-card"><div class="panel-title">待处理指令</div><div class="panel-value">${t.pendingCommands}</div></div>
+      <div class="summary-card"><div class="panel-title">刷怪组</div><div class="panel-value">${t.monsterSpawnGroups}</div></div>
+    </div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">对象数 Top 20 实例</div>
+        <div class="network-breakdown-subtitle">按（妖兽+玩家）数量降序</div>
+      </div>
+      <div class="network-breakdown-list">${instanceRows}</div>
+    </div>
+  `;
+}
+
+async function loadObjectCounts(): Promise<void> {
+  if (!token || objectsLoading) return;
+  objectsLoading = true;
+  renderObjectsPanel();
+  try {
+    objectCountsData = await request<ObjectCountsResponse>(`${GM_API_BASE_PATH}/world/objects`);
+  } finally {
+    objectsLoading = false;
+    renderObjectsPanel();
+  }
 }
 
 /** getWorkerRowMarkup：读取Worker行Markup。 */
@@ -3102,6 +3304,9 @@ function renderDatabasePanel(): void {
       `).join('')
     : '<div class="empty-hint">当前还没有持久化备份。</div>';
 
+  // 保留已有的 file input DOM 节点，避免 innerHTML 销毁正在使用中的文件选择对话框引用
+  const prevFileInput = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
+
   serverPanelDatabaseEl.innerHTML = subTabBar + `
     <div class="button-row">
       <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
@@ -3127,6 +3332,15 @@ function renderDatabasePanel(): void {
       <div class="network-breakdown-list">${rows}</div>
     </div>
   `;
+
+  // 如果之前的 file input 有选中文件，把旧节点换回来保持引用和 change 事件正常触发
+  if (prevFileInput && prevFileInput.files && prevFileInput.files.length > 0) {
+    const newFileInput = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
+    if (newFileInput) {
+      newFileInput.replaceWith(prevFileInput);
+      prevFileInput.disabled = busy;
+    }
+  }
 }
 
 function renderTableStatsContent(): string {
@@ -5907,8 +6121,10 @@ function renderSummary(data: GmStateRes): void {
   trafficResetMetaEl.textContent = data.perf.networkStatsEnabled === false
     ? '流量统计尚未启动，打开本页或点击重置后开始采集。'
     : startedAt
-    ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)}`
+    ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)} · 大包采样${data.perf.networkPayloadCaptureEnabled === true ? '开启' : '关闭'}`
     : '统计区间尚未开始。';
+  toggleNetworkPayloadCaptureBtn.textContent = data.perf.networkPayloadCaptureEnabled === true ? '关闭大包采样' : '开启大包采样';
+  toggleNetworkPayloadCaptureBtn.classList.toggle('danger', data.perf.networkPayloadCaptureEnabled === true);
   trafficTotalInEl.textContent = formatBytes(data.perf.networkInBytes);
   trafficTotalInNoteEl.textContent = `均次 ${formatAverageBytesPerEvent(
     data.perf.networkInBytes,
@@ -7966,6 +8182,33 @@ async function resetNetworkStats(): Promise<void> {
   }
 }
 
+async function toggleNetworkPayloadCapture(): Promise<void> {
+  const enabled = state?.perf.networkPayloadCaptureEnabled !== true;
+  toggleNetworkPayloadCaptureBtn.disabled = true;
+  try {
+    if (enabled && state?.perf.networkStatsEnabled !== true) {
+      await activateNetworkStats();
+    }
+    await request<{
+      ok: true;
+      enabled: boolean;
+    }>(`${GM_API_BASE_PATH}/perf/network/payload-capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    await loadState(true);
+    if (currentServerTab === 'flags') {
+      await loadRuntimeFlags();
+    }
+    setStatus(enabled ? '已开启大包采样。' : '已关闭大包采样。');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '切换大包采样失败。', true);
+  } finally {
+    toggleNetworkPayloadCaptureBtn.disabled = false;
+  }
+}
+
 async function activateNetworkStats(): Promise<void> {
   currentNetworkInPage = 1;
   currentNetworkOutPage = 1;
@@ -8035,6 +8278,45 @@ async function resetPathfindingStats(): Promise<void> {
     setStatus(error instanceof Error ? error.message : t('gm.perf.pathfinding.reset.failed'), true);
   } finally {
     resetPathfindingStatsBtn.disabled = false;
+  }
+}
+
+async function triggerManualGc(): Promise<void> {
+  triggerManualGcBtn.disabled = true;
+  writeHeapSnapshotBtn.disabled = true;
+  heapSnapshotMetaEl.textContent = '正在触发手动 GC，服务端会短暂停顿...';
+  try {
+    const result = await request<GmManualGcRes>(
+      `${GM_API_BASE_PATH}/perf/memory/gc`,
+      { method: 'POST' },
+      60_000,
+    );
+    if (!result.ok) {
+      const message = result.hint ?? result.error ?? result.reason ?? '手动 GC 未执行';
+      heapSnapshotMetaEl.textContent = message;
+      setStatus(message, true);
+      return;
+    }
+    const delta = result.delta;
+    const durationMs = Math.max(0, Number(result.durationMs ?? 0));
+    const detail = [
+      `手动 GC 完成：${durationMs.toFixed(0)} ms`,
+      `Heap 已用 ${formatSignedBytes(delta?.heapUsedBytes)}`,
+      `Heap 总量 ${formatSignedBytes(delta?.heapTotalBytes)}`,
+      `RSS ${formatSignedBytes(delta?.rssBytes)}`,
+      `外部 ${formatSignedBytes(delta?.externalBytes)}`,
+      `ArrayBuffer ${formatSignedBytes(delta?.arrayBuffersBytes)}`,
+    ].join(' · ');
+    heapSnapshotMetaEl.textContent = detail;
+    setStatus('手动 GC 已完成，已刷新内存快照');
+    await loadState(true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '手动 GC 失败';
+    heapSnapshotMetaEl.textContent = message;
+    setStatus(message, true);
+  } finally {
+    triggerManualGcBtn.disabled = false;
+    writeHeapSnapshotBtn.disabled = false;
   }
 }
 
@@ -8790,11 +9072,37 @@ serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
 serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'));
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
+serverSubtabDiagnosticsBtn.addEventListener('click', () => switchServerTab('diagnostics'));
 serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
 serverSubtabFlagsBtn.addEventListener('click', () => switchServerTab('flags'));
+serverSubtabObjectsBtn.addEventListener('click', () => switchServerTab('objects'));
+serverDiagnosticsRunBtn.addEventListener('click', () => {
+  runDiagnosticsCommand(serverDiagnosticsCommandEl.value).catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '执行查询失败', true);
+  });
+});
+serverDiagnosticsHelpBtn.addEventListener('click', () => {
+  serverDiagnosticsCommandEl.value = 'help';
+  runDiagnosticsCommand('help').catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '加载查询帮助失败', true);
+  });
+});
+serverDiagnosticsCommandEl.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    runDiagnosticsCommand(serverDiagnosticsCommandEl.value).catch((err: unknown) => {
+      setStatus(err instanceof Error ? err.message : '执行查询失败', true);
+    });
+  }
+});
 serverFlagsRefreshBtn.addEventListener('click', () => {
   loadRuntimeFlags().catch((err: unknown) => {
     setStatus(err instanceof Error ? err.message : '加载运行时开关失败', true);
+  });
+});
+serverObjectsRefreshBtn.addEventListener('click', () => {
+  loadObjectCounts().catch((err: unknown) => {
+    setStatus(err instanceof Error ? err.message : '加载对象信息失败', true);
   });
 });
 serverFlagsAddBtn.addEventListener('click', () => {
@@ -9076,6 +9384,9 @@ redeemWorkspaceEl?.addEventListener('change', (event) => {
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
 });
+toggleNetworkPayloadCaptureBtn.addEventListener('click', () => {
+  toggleNetworkPayloadCapture().catch(() => {});
+});
 serverPanelTrafficEl.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof Element)) {
@@ -9099,6 +9410,9 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
+});
+triggerManualGcBtn.addEventListener('click', () => {
+  triggerManualGc().catch(() => {});
 });
 writeHeapSnapshotBtn.addEventListener('click', () => {
   writeHeapSnapshot().catch(() => {});

@@ -1788,8 +1788,10 @@
           <button class="workspace-tab" id="server-subtab-memory" type="button" data-i18n="gm.server-subtab-memory">内存信息</button>
           <button class="workspace-tab" id="server-subtab-database" type="button" data-i18n="gm.server-subtab-database">数据库</button>
           <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
+          <button class="workspace-tab" id="server-subtab-diagnostics" type="button">查询</button>
           <button class="workspace-tab" id="server-subtab-workers" type="button">Worker</button>
           <button class="workspace-tab" id="server-subtab-flags" type="button">运行时开关</button>
+          <button class="workspace-tab" id="server-subtab-objects" type="button">对象信息</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
           <div class="summary-grid">
@@ -1884,6 +1886,7 @@
         <div id="server-panel-traffic" class="server-tab-panel hidden">
           <div class="button-row">
             <button id="reset-network-stats" class="small-btn danger" type="button" data-i18n="gm.reset-network-stats">重置流量统计</button>
+            <button id="toggle-network-payload-capture" class="small-btn" type="button">开启大包采样</button>
           </div>
           <div id="traffic-reset-meta" class="note-card" data-i18n="gm.traffic-reset-meta">统计区间尚未开始。</div>
           <div class="stats-grid">
@@ -1967,6 +1970,7 @@
           </div>
           <div id="memory-estimate-meta" class="note-card" data-i18n="gm.memory-estimate-meta">运行态内存画像尚未生成。</div>
           <div class="panel-actions">
+            <button id="trigger-manual-gc" class="small-btn danger" type="button" title="触发一次 V8 GC，并显示执行前后内存差值；仅用于诊断">手动 GC</button>
             <button id="write-heap-snapshot" class="small-btn danger" type="button">生成 Heap Snapshot</button>
             <button id="copy-heap-snapshot-summary" class="small-btn primary" type="button" title="生成 Heap Snapshot 后自动把 ~50 KB 摘要 JSON 复制到剪贴板，无需下载 GB 级文件">生成并复制摘要</button>
             <button id="copy-latest-heap-snapshot-summary" class="small-btn" type="button" title="读取服务器上最近一份摘要 JSON 并复制到剪贴板">复制最近摘要</button>
@@ -2005,6 +2009,24 @@
           </div>
           <pre id="server-logs-content" class="server-log-view" data-i18n="gm.server-logs-meta">日志尚未加载。</pre>
         </div>
+        <div id="server-panel-diagnostics" class="server-tab-panel hidden">
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">GM 只读查询</div>
+              <div class="network-breakdown-subtitle">支持 help / outbox / tables / table 表名 / sql SELECT ...；只读、超时、限行、敏感字段脱敏。</div>
+            </div>
+            <div class="server-log-toolbar">
+              <textarea id="server-diagnostics-command" rows="4" placeholder="outbox&#10;sql SELECT topic, status, count(*) FROM outbox_event GROUP BY topic, status ORDER BY count(*) DESC" style="width:100%; min-height:88px; resize:vertical;"></textarea>
+            </div>
+            <div class="server-log-toolbar">
+              <input id="server-diagnostics-limit" type="number" min="1" max="200" value="50" style="width:90px;" />
+              <button id="server-diagnostics-run" class="small-btn primary" type="button">执行查询</button>
+              <button id="server-diagnostics-help" class="small-btn" type="button">帮助</button>
+              <div id="server-diagnostics-meta" class="server-log-meta">查询尚未执行。</div>
+            </div>
+            <pre id="server-diagnostics-output" class="server-log-view">查询结果会显示在这里。</pre>
+          </div>
+        </div>
         <div id="server-panel-workers" class="server-tab-panel hidden">
           <div class="server-log-toolbar">
             <button id="server-workers-refresh" class="small-btn" type="button">刷新 worker 状态</button>
@@ -2025,6 +2047,15 @@
           <div class="server-log-toolbar" style="margin-top:8px;">
             <input id="server-flags-new-key" type="text" placeholder="新开关 key" style="width:180px;" />
             <button id="server-flags-add" class="small-btn" type="button">添加开关</button>
+          </div>
+        </div>
+        <div id="server-panel-objects" class="server-tab-panel hidden">
+          <div class="server-log-toolbar">
+            <button id="server-objects-refresh" class="small-btn" type="button">刷新</button>
+            <div id="server-objects-meta" class="server-log-meta">对象信息尚未加载。</div>
+          </div>
+          <div id="server-objects-content">
+            <div class="empty-hint">当前没有对象信息。</div>
           </div>
         </div>
       </div>

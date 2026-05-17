@@ -1057,9 +1057,12 @@ export class PlayerRuntimeService {
         if (!item) {
             throw new NotFoundException(`物品不存在：${normalizedItemId}`);
         }
+        assignItemInstanceIdIfNeeded(item);
 
         const signature = createItemStackSignature(item);
-        const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
+        const existing = canMergeItemStack(item)
+            ? player.inventory.items.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
+            : null;
         if (existing) {
             existing.count += item.count;
         }
@@ -1768,6 +1771,10 @@ export class PlayerRuntimeService {
         const mergedMap = new Map();
         const mergedOrder = [];
         for (const entry of player.inventory.items) {
+            if (!canMergeItemStack(entry)) {
+                mergedOrder.push(cloneItemWithCountPreservingTemplate(entry, Math.max(1, Math.trunc(Number(entry.count ?? 1)))));
+                continue;
+            }
             const signature = createItemStackSignature(entry);
             const existing = mergedMap.get(signature);
             if (existing) {
