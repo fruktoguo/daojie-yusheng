@@ -4,23 +4,23 @@
  * 收敛玩家建议的查看、创建、投票、回复和标记已读入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { Injectable } from '@nestjs/common';
+import type { Socket } from 'socket.io';
+import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 世界 socket suggestion helper：只收敛玩家建议写路径。 */
+@Injectable()
 class WorldGatewaySuggestionHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly gatewayClientEmitHelper: WorldGatewayClientEmitHelper,
+        private readonly suggestionRuntimeService: SuggestionRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }    
     /**
  * handleRequestSuggestions：处理NextRequestSuggestion并更新相关状态。
  * @param client 参数说明。
@@ -28,14 +28,15 @@ class WorldGatewaySuggestionHelper {
  * @returns 无返回值，直接更新NextRequestSuggestion相关状态。
  */
 
-    handleRequestSuggestions(client, payload) {
+    handleRequestSuggestions(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        void payload;
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        this.gateway.gatewayClientEmitHelper.emitSuggestionUpdate(client, this.gateway.suggestionRuntimeService.getAll());
+        this.gatewayClientEmitHelper.emitSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
     }    
     /**
  * handleCreateSuggestion：构建NextCreateSuggestion。
@@ -44,19 +45,19 @@ class WorldGatewaySuggestionHelper {
  * @returns 无返回值，直接更新NextCreateSuggestion相关状态。
  */
 
-    async handleCreateSuggestion(client, payload) {
+    async handleCreateSuggestion(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.create(playerId, playerId, payload?.title ?? '', payload?.description ?? '');
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.create(playerId, playerId, payload?.title ?? '', payload?.description ?? '');
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_SUGGESTION_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'CREATE_SUGGESTION_FAILED', error);
         }
     }    
     /**
@@ -66,19 +67,19 @@ class WorldGatewaySuggestionHelper {
  * @returns 无返回值，直接更新NextVoteSuggestion相关状态。
  */
 
-    async handleVoteSuggestion(client, payload) {
+    async handleVoteSuggestion(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.vote(playerId, payload?.suggestionId ?? '', payload?.vote);
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.vote(playerId, payload?.suggestionId ?? '', payload?.vote);
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'VOTE_SUGGESTION_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'VOTE_SUGGESTION_FAILED', error);
         }
     }    
     /**
@@ -88,19 +89,19 @@ class WorldGatewaySuggestionHelper {
  * @returns 无返回值，直接更新NextReplySuggestion相关状态。
  */
 
-    async handleReplySuggestion(client, payload) {
+    async handleReplySuggestion(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.addReply(payload?.suggestionId ?? '', 'author', playerId, playerId, payload?.content ?? '');
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.addReply(payload?.suggestionId ?? '', 'author', playerId, playerId, payload?.content ?? '');
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'REPLY_SUGGESTION_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'REPLY_SUGGESTION_FAILED', error);
         }
     }    
     /**
@@ -110,19 +111,19 @@ class WorldGatewaySuggestionHelper {
  * @returns 无返回值，直接更新NextMarkSuggestionReplyRead相关状态。
  */
 
-    async handleMarkSuggestionRepliesRead(client, payload) {
+    async handleMarkSuggestionRepliesRead(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.markRepliesRead(payload?.suggestionId ?? '', playerId);
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.markRepliesRead(payload?.suggestionId ?? '', playerId);
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'MARK_SUGGESTION_REPLIES_READ_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'MARK_SUGGESTION_REPLIES_READ_FAILED', error);
         }
     }
 }

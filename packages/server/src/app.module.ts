@@ -41,6 +41,7 @@ import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { WorldGatewayMovementHelper } from './network/world-gateway-movement.helper';
 import { WorldGatewayNpcHelper } from './network/world-gateway-npc.helper';
 import { WorldGatewaySessionStateHelper } from './network/world-gateway-session-state.helper';
+import { WorldGatewaySuggestionHelper } from './network/world-gateway-suggestion.helper';
 import { ContentTemplateRepository } from './content/content-template.repository';
 import { ActorBlueprintRegistryService } from './runtime/actor/actor-blueprint-registry.service';
 import { ActorPersistencePolicyService } from './runtime/actor/actor-persistence-policy.service';
@@ -351,6 +352,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldGatewayMovementHelper,
     WorldGatewayNpcHelper,
     WorldGatewaySessionStateHelper,
+    WorldGatewaySuggestionHelper,
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
     RuntimeEventBusMetricsService,

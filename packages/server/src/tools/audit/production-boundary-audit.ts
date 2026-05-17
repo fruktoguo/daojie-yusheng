@@ -248,6 +248,14 @@ const CHECKS = [
     forbidden: true,
   },
   {
+    id: "network.world_gateway_suggestion_manual_new",
+    category: "目标差距: 性能/扩展",
+    description: "禁止 WorldGatewaySuggestionHelper 回退为手动 new 并持有完整 gateway",
+    file: "packages/server/src/network/world.gateway.ts",
+    pattern: "new WorldGatewaySuggestionHelper(this)",
+    forbidden: true,
+  },
+  {
     id: "network.world_gateway_helper_untyped_bootstrap",
     category: "目标差距: 性能/扩展",
     description: "禁止 bootstrap helper 构造器回退为无类型 gateway",
