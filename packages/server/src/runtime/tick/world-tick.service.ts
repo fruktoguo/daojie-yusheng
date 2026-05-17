@@ -173,8 +173,12 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
   async beforeApplicationShutdown(): Promise<void> {
     this.shuttingDown = true;
     this.stopTimer();
-    while (this.tickInFlight) {
+    const deadline = Date.now() + 5000;
+    while (this.tickInFlight && Date.now() < deadline) {
       await sleep(25);
+    }
+    if (this.tickInFlight) {
+      this.logger.warn('关停超时：tick 仍在执行，强制继续关停流程');
     }
   }
 
