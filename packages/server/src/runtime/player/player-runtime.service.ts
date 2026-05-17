@@ -1248,7 +1248,7 @@ export class PlayerRuntimeService {
     listQuests(playerId) {
 
         const player = this.getPlayerOrThrow(playerId);
-        return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));
+        return player.quests.quests;
     }
     /**
  * getPendingLogbookMessages：读取待处理LogbookMessage。
@@ -3537,11 +3537,7 @@ export class PlayerRuntimeService {
             },
             quests: {
                 revision: Math.max(1, snapshot.quests.revision),
-                quests: snapshot.quests.entries.map((entry) => ({
-                    ...entry,
-                    rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
-                    rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
-                })),
+                quests: snapshot.quests.entries.map((entry) => cloneQuestRuntimeEntry(entry)),
             },
             lootWindowTarget: null,
             pendingLogbookMessages: normalizePendingLogbookMessages(snapshot.pendingLogbookMessages),
@@ -3965,6 +3961,22 @@ function buildEquipmentSnapshot(equipment) {
         item: equipment[slot] ?? null,
     }));
 }
+function cloneQuestRuntimeEntry(entry) {
+    const cloned: any = {
+        ...entry,
+    };
+    if (Array.isArray(entry.rewardItemIds)) {
+        cloned.rewardItemIds = entry.rewardItemIds.slice();
+    } else {
+        delete cloned.rewardItemIds;
+    }
+    if (Array.isArray(entry.rewards)) {
+        cloned.rewards = entry.rewards.map((reward) => ({ ...reward }));
+    } else {
+        delete cloned.rewards;
+    }
+    return cloned;
+}
 /**
  * cloneRuntimePlayerState：构建运行态玩家状态。
  * @param player 玩家对象。
@@ -4057,11 +4069,7 @@ function cloneRuntimePlayerState(player) {
         },
         quests: {
             revision: player.quests.revision,
-            quests: player.quests.quests.map((entry) => ({
-                ...entry,
-                rewardItemIds: entry.rewardItemIds.slice(),
-                rewards: entry.rewards.map((reward) => ({ ...reward })),
-            })),
+            quests: player.quests.quests.map((entry) => cloneQuestRuntimeEntry(entry)),
         },
         alchemySkill: cloneCraftSkillState(player.alchemySkill),
         forgingSkill: cloneCraftSkillState(player.forgingSkill),
@@ -5428,11 +5436,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         },
         quests: needsDomain('quest') ? {
             revision: player.quests.revision,
-            entries: player.quests.quests.map((entry) => ({
-                ...entry,
-                rewardItemIds: entry.rewardItemIds.slice(),
-                rewards: entry.rewards.map((reward) => ({ ...reward })),
-            })),
+            entries: player.quests.quests.map((entry) => cloneQuestRuntimeEntry(entry)),
         } : {
             revision: player.quests.revision,
             entries: [],

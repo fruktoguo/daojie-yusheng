@@ -520,14 +520,52 @@ export function buildQuestRewardText(quest, rewards) {
     }
     return rewards.map((entry) => formatItemStackLabel(entry)).join('、');
 }
-/** 深拷贝任务状态，避免运行时态被外部污染。 */
+/** 克隆任务运行态，只保留进度、目标索引和提交校验所需字段。 */
 export function cloneQuestState(quest, status = quest.status) {
-    return {
-        ...quest,
+    const cloned: any = {
+        id: quest.id,
+        line: normalizeQuestLine(quest.line),
         status,
-        rewardItemIds: quest.rewardItemIds.slice(),
-        rewards: quest.rewards.map((reward) => ({ ...reward })),
+        objectiveType: normalizeQuestObjectiveType(quest.objectiveType),
+        progress: Math.max(0, Math.trunc(Number(quest.progress ?? 0))),
+        required: normalizeQuestRequired(quest, normalizeQuestObjectiveType(quest.objectiveType)),
+        targetMonsterId: typeof quest.targetMonsterId === 'string' ? quest.targetMonsterId : '',
     };
+    if (typeof quest.targetName === 'string' && quest.targetName.trim() && quest.targetName !== cloned.targetMonsterId) {
+        cloned.targetName = quest.targetName.trim();
+    }
+    if (typeof quest.targetTechniqueId === 'string' && quest.targetTechniqueId.trim()) {
+        cloned.targetTechniqueId = quest.targetTechniqueId.trim();
+    }
+    const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
+    if (targetRealmStage !== undefined) {
+        cloned.targetRealmStage = targetRealmStage;
+    }
+    if (typeof quest.nextQuestId === 'string' && quest.nextQuestId.trim()) {
+        cloned.nextQuestId = quest.nextQuestId.trim();
+    }
+    if (typeof quest.requiredItemId === 'string' && quest.requiredItemId.trim()) {
+        cloned.requiredItemId = quest.requiredItemId.trim();
+    }
+    if (Number.isInteger(quest.requiredItemCount)) {
+        cloned.requiredItemCount = Number(quest.requiredItemCount);
+    }
+    if (typeof quest.targetMapId === 'string' && quest.targetMapId.trim()) {
+        cloned.targetMapId = quest.targetMapId.trim();
+    }
+    if (typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()) {
+        cloned.targetNpcId = quest.targetNpcId.trim();
+    }
+    if (typeof quest.submitNpcId === 'string' && quest.submitNpcId.trim()) {
+        cloned.submitNpcId = quest.submitNpcId.trim();
+    }
+    if (typeof quest.submitMapId === 'string' && quest.submitMapId.trim()) {
+        cloned.submitMapId = quest.submitMapId.trim();
+    }
+    if (typeof quest.giverId === 'string' && quest.giverId.trim()) {
+        cloned.giverId = quest.giverId.trim();
+    }
+    return cloned;
 }
 /** 任务列表稳定排序比较器。 */
 export function compareQuestViews(left, right) {

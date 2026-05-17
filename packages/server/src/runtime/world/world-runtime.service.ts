@@ -1081,6 +1081,9 @@ export class WorldRuntimeService {
         resolveQuestNavigationTarget(quest) {
         return this.worldRuntimeReadFacadeService.resolveQuestNavigationTarget(quest, this);
     }
+        materializeQuestView(playerId, quest) {
+        return this.worldRuntimeReadFacadeService.materializeQuestView(playerId, quest, this);
+    }
         getNpcForPlayerMap(playerId, npcId) {
         return this.worldRuntimeQuestRuntimeFacadeService.getNpcForPlayerMap(playerId, npcId, this);
     }

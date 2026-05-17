@@ -1411,6 +1411,7 @@ function proveEntryCachesFollowLifecycle(): {
   gmPlayerListUsesLightSummaries: boolean;
   leaderboardUsesLightRuntimeProjections: boolean;
   authRuntimeSyncUsesIdentityProjection: boolean;
+  questRuntimeStoresLightState: boolean;
   instancePersistenceNormalizesItemPayloads: boolean;
   instancePersistenceNormalizesObjectPayloads: boolean;
   instanceOverlayPortalPersistenceUsesWhitelist: boolean;
@@ -1428,6 +1429,9 @@ function proveEntryCachesFollowLifecycle(): {
   const nativeGmStateQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-gm-state-query.service.ts'), 'utf8');
   const nativePlayerAuthSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-player-auth.service.ts'), 'utf8');
   const nativeManagedAccountSource = readFileSync(resolve(process.cwd(), 'packages/server/src/http/native/native-managed-account.service.ts'), 'utf8');
+  const questQuerySource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/query/world-runtime-quest-query.service.ts'), 'utf8');
+  const questNormalizationSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime.normalization.helpers.ts'), 'utf8');
+  const npcQuestWriteSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts'), 'utf8');
   const worldLifecycleSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-lifecycle.service.ts'), 'utf8');
   const worldInstanceLeaseSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts'), 'utf8');
 
@@ -1627,6 +1631,18 @@ function proveEntryCachesFollowLifecycle(): {
     && !nativePlayerAuthSource.includes('this.playerRuntimeService.snapshot(user.playerId)')
     && !nativeManagedAccountSource.includes('this.playerRuntimeService.snapshot(user.playerId)');
 
+  const questRuntimeStoresLightState = questNormalizationSource.includes('const cloned: any = {\n        id: quest.id,')
+    && !questNormalizationSource.includes('return {\n        ...quest,\n        status,')
+    && !questNormalizationSource.includes('rewardItemIds: quest.rewardItemIds.slice()')
+    && questQuerySource.includes('const built = cloneQuestState({')
+    && questQuerySource.includes('materializeQuestView(playerId, quest)')
+    && questQuerySource.includes('quest = this.materializeQuestView(\'\', quest);')
+    && playerRuntimeSource.includes('return player.quests.quests;')
+    && playerRuntimeSource.includes('function cloneQuestRuntimeEntry(entry)')
+    && playerRuntimeSource.includes('if (Array.isArray(entry.rewards))')
+    && npcQuestWriteSource.includes('materializeQuestForNpcWrite(deps, playerId, quest)')
+    && !playerRuntimeSource.includes('return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));');
+
   const instancePersistenceNormalizesItemPayloads = instanceDomainPersistenceSource.includes('function normalizePersistedItemPayload(value: unknown): Record<string, unknown>')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(input.itemPayload))')
     && instanceDomainPersistenceSource.includes('JSON.stringify(normalizePersistedItemPayload(entry.itemPayload))')
@@ -1693,6 +1709,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(gmPlayerListUsesLightSummaries, true);
   assert.equal(leaderboardUsesLightRuntimeProjections, true);
   assert.equal(authRuntimeSyncUsesIdentityProjection, true);
+  assert.equal(questRuntimeStoresLightState, true);
   assert.equal(instancePersistenceNormalizesItemPayloads, true);
   assert.equal(instancePersistenceNormalizesObjectPayloads, true);
   assert.equal(instanceOverlayPortalPersistenceUsesWhitelist, true);
@@ -1728,6 +1745,7 @@ function proveEntryCachesFollowLifecycle(): {
     gmPlayerListUsesLightSummaries,
     leaderboardUsesLightRuntimeProjections,
     authRuntimeSyncUsesIdentityProjection,
+    questRuntimeStoresLightState,
     instancePersistenceNormalizesItemPayloads,
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,

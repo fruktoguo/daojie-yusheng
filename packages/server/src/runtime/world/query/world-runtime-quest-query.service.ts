@@ -73,7 +73,7 @@ export class WorldRuntimeQuestQueryService {
 
     buildQuestListView(playerId) {
         return {
-            quests: this.playerRuntimeService.listQuests(playerId),
+            quests: this.playerRuntimeService.listQuests(playerId).map((quest) => this.materializeQuestView(playerId, quest)),
         };
     }    
     /**
@@ -121,7 +121,7 @@ export class WorldRuntimeQuestQueryService {
             const rawQuest = npc.quests[index];
             const existing = byQuestId.get(rawQuest.id);
             if (existing && existing.status !== 'completed') {
-                result.push(cloneQuestState(existing));
+                result.push(this.materializeQuestView(playerId, existing));
                 continue;
             }
             if (existing?.status === 'completed') {
@@ -141,7 +141,7 @@ export class WorldRuntimeQuestQueryService {
                 continue;
             }
             if (quest.targetNpcId === npc.npcId || quest.submitNpcId === npc.npcId) {
-                result.push(cloneQuestState(quest));
+                result.push(this.materializeQuestView(playerId, quest));
             }
         }
         return result.sort(compareQuestViews);
@@ -224,67 +224,35 @@ export class WorldRuntimeQuestQueryService {
 
         const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
 
-        const targetNpcLocation = typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()
-            ? this.templateRepository.getNpcLocation(quest.targetNpcId.trim())
-            : null;
+        const targetNpcId = typeof quest.targetNpcId === 'string' ? quest.targetNpcId.trim() : '';
+        const submitNpcId = typeof quest.submitNpcId === 'string' ? quest.submitNpcId.trim() : '';
+        const targetNpcLocation = targetNpcId ? this.templateRepository.getNpcLocation(targetNpcId) : null;
+        const submitNpcLocation = submitNpcId ? this.templateRepository.getNpcLocation(submitNpcId) : null;
 
-        const submitNpcLocation = typeof quest.submitNpcId === 'string' && quest.submitNpcId.trim()
-            ? this.templateRepository.getNpcLocation(quest.submitNpcId.trim())
-            : null;
-
-        const rewardItems = this.buildQuestRewardItemsFromRecord(quest);
-
-        const built = {
+        const built = cloneQuestState({
             id: source.quest.id,
-            title: source.quest.title,
-            desc: source.quest.desc,
             line: normalizeQuestLine(source.quest.line),
-            chapter: typeof source.quest.chapter === 'string' ? source.quest.chapter : undefined,
-            story: typeof source.quest.story === 'string' ? source.quest.story : undefined,
             status,
             objectiveType,
-            objectiveText: typeof source.quest.objectiveText === 'string' ? source.quest.objectiveText : undefined,
             progress: 0,
             required,
             targetName: resolveQuestTargetLabel(objectiveType, source.quest, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : '')),
             targetTechniqueId: typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : undefined,
             targetRealmStage,
-            rewardText: buildQuestRewardText(source.quest, rewardItems),
             targetMonsterId: typeof source.quest.targetMonsterId === 'string' ? source.quest.targetMonsterId : '',
-            rewardItemId: typeof source.quest.rewardItemId === 'string' ? source.quest.rewardItemId : (rewardItems[0]?.itemId ?? ''),
-            rewardItemIds: rewardItems.map((entry) => entry.itemId),
-            rewards: rewardItems.map((entry) => ({ ...entry })),
             nextQuestId: typeof source.quest.nextQuestId === 'string' ? source.quest.nextQuestId : undefined,
             requiredItemId: typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : undefined,
             requiredItemCount: Number.isInteger(source.quest.requiredItemCount) ? Number(source.quest.requiredItemCount) : undefined,
             giverId: source.giverNpcId,
-            giverName: source.giverNpcName,
-            giverMapId: source.giverMapId,
-            giverMapName: source.giverMapName,
-            giverX: source.giverX,
-            giverY: source.giverY,
             targetMapId: typeof source.quest.targetMapId === 'string' && source.quest.targetMapId.trim()
                 ? source.quest.targetMapId.trim()
                 : targetNpcLocation?.mapId,
-            targetMapName: typeof source.quest.targetMapId === 'string' && this.templateRepository.has(source.quest.targetMapId.trim())
-                ? this.templateRepository.getOrThrow(source.quest.targetMapId.trim()).name
-                : targetNpcLocation?.mapName,
-            targetX: Number.isInteger(source.quest.targetX) ? Number(source.quest.targetX) : targetNpcLocation?.x,
-            targetY: Number.isInteger(source.quest.targetY) ? Number(source.quest.targetY) : targetNpcLocation?.y,
-            targetNpcId: typeof source.quest.targetNpcId === 'string' ? source.quest.targetNpcId : undefined,
-            targetNpcName: typeof source.quest.targetNpcName === 'string' ? source.quest.targetNpcName : targetNpcLocation?.npcName,
-            submitNpcId: typeof source.quest.submitNpcId === 'string' ? source.quest.submitNpcId : undefined,
-            submitNpcName: typeof source.quest.submitNpcName === 'string' ? source.quest.submitNpcName : submitNpcLocation?.npcName,
+            targetNpcId: targetNpcId || undefined,
+            submitNpcId: submitNpcId || undefined,
             submitMapId: typeof source.quest.submitMapId === 'string' && source.quest.submitMapId.trim()
                 ? source.quest.submitMapId.trim()
                 : submitNpcLocation?.mapId,
-            submitMapName: typeof source.quest.submitMapId === 'string' && this.templateRepository.has(source.quest.submitMapId.trim())
-                ? this.templateRepository.getOrThrow(source.quest.submitMapId.trim()).name
-                : submitNpcLocation?.mapName,
-            submitX: Number.isInteger(source.quest.submitX) ? Number(source.quest.submitX) : submitNpcLocation?.x,
-            submitY: Number.isInteger(source.quest.submitY) ? Number(source.quest.submitY) : submitNpcLocation?.y,
-            relayMessage: typeof source.quest.relayMessage === 'string' ? source.quest.relayMessage : undefined,
-        };
+        });
         built.progress = this.resolveQuestProgress(playerId, built);
         if (status !== 'completed' && this.canQuestBecomeReady(playerId, built)) {
             built.status = 'ready';
@@ -300,6 +268,7 @@ export class WorldRuntimeQuestQueryService {
     buildQuestRewardItems(quest) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        quest = this.materializeQuestView('', quest);
         if (quest.rewards.length > 0) {
             return quest.rewards.map((entry) => toQuestRewardItem(this.contentTemplateRepository.createItem(entry.itemId, entry.count), {
                 itemId: entry.itemId,
@@ -375,6 +344,7 @@ export class WorldRuntimeQuestQueryService {
     resolveQuestNavigationTarget(quest) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        quest = this.materializeQuestView('', quest);
         if (quest.status === 'ready') {
             if (quest.submitMapId && Number.isInteger(quest.submitX) && Number.isInteger(quest.submitY)) {
                 return {
@@ -436,5 +406,105 @@ export class WorldRuntimeQuestQueryService {
             };
         }
         return null;
+    }
+    materializeQuestView(playerId, quest) {
+        const source = this.templateRepository.getQuestSource(quest.id);
+        if (!source) {
+            return {
+                ...quest,
+                title: quest.title ?? quest.id,
+                desc: quest.desc ?? '',
+                targetName: quest.targetName ?? quest.targetMonsterId ?? quest.id,
+                rewardText: quest.rewardText ?? '',
+                rewardItemId: quest.rewardItemId ?? '',
+                rewardItemIds: Array.isArray(quest.rewardItemIds) ? quest.rewardItemIds.slice() : [],
+                rewards: Array.isArray(quest.rewards) ? quest.rewards.map((entry) => ({ ...entry })) : [],
+            };
+        }
+
+        const sourceQuest = source.quest;
+        const objectiveType = normalizeQuestObjectiveType(quest.objectiveType ?? sourceQuest.objectiveType);
+        const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage ?? sourceQuest.targetRealmStage);
+        const targetNpcId = typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()
+            ? quest.targetNpcId.trim()
+            : typeof sourceQuest.targetNpcId === 'string' && sourceQuest.targetNpcId.trim()
+                ? sourceQuest.targetNpcId.trim()
+                : undefined;
+        const submitNpcId = typeof quest.submitNpcId === 'string' && quest.submitNpcId.trim()
+            ? quest.submitNpcId.trim()
+            : typeof sourceQuest.submitNpcId === 'string' && sourceQuest.submitNpcId.trim()
+                ? sourceQuest.submitNpcId.trim()
+                : undefined;
+        const targetNpcLocation = targetNpcId ? this.templateRepository.getNpcLocation(targetNpcId) : null;
+        const submitNpcLocation = submitNpcId ? this.templateRepository.getNpcLocation(submitNpcId) : null;
+        const rewardItems = this.buildQuestRewardItemsFromRecord(sourceQuest);
+        const targetMapId = typeof quest.targetMapId === 'string' && quest.targetMapId.trim()
+            ? quest.targetMapId.trim()
+            : typeof sourceQuest.targetMapId === 'string' && sourceQuest.targetMapId.trim()
+                ? sourceQuest.targetMapId.trim()
+                : targetNpcLocation?.mapId;
+        const submitMapId = typeof quest.submitMapId === 'string' && quest.submitMapId.trim()
+            ? quest.submitMapId.trim()
+            : typeof sourceQuest.submitMapId === 'string' && sourceQuest.submitMapId.trim()
+                ? sourceQuest.submitMapId.trim()
+                : submitNpcLocation?.mapId;
+
+        const targetNameSource = quest.targetName
+            ? {
+                targetName: quest.targetName,
+                title: sourceQuest.title,
+                objectiveType: sourceQuest.objectiveType,
+                targetNpcId: sourceQuest.targetNpcId,
+                requiredItemId: sourceQuest.requiredItemId,
+                targetTechniqueId: sourceQuest.targetTechniqueId,
+                targetMonsterId: sourceQuest.targetMonsterId,
+            }
+            : sourceQuest;
+
+        return {
+            ...quest,
+            title: sourceQuest.title,
+            desc: sourceQuest.desc,
+            line: normalizeQuestLine(quest.line ?? sourceQuest.line),
+            chapter: typeof sourceQuest.chapter === 'string' ? sourceQuest.chapter : undefined,
+            story: typeof sourceQuest.story === 'string' ? sourceQuest.story : undefined,
+            objectiveType,
+            objectiveText: typeof sourceQuest.objectiveText === 'string' ? sourceQuest.objectiveText : undefined,
+            required: Number.isInteger(quest.required) ? Number(quest.required) : normalizeQuestRequired(sourceQuest, objectiveType),
+            targetName: resolveQuestTargetLabel(objectiveType, targetNameSource, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof sourceQuest.requiredItemId === 'string' ? sourceQuest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof sourceQuest.targetTechniqueId === 'string' ? sourceQuest.targetTechniqueId : '')),
+            targetTechniqueId: typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : sourceQuest.targetTechniqueId,
+            targetRealmStage,
+            rewardText: buildQuestRewardText(sourceQuest, rewardItems),
+            targetMonsterId: typeof quest.targetMonsterId === 'string' ? quest.targetMonsterId : (typeof sourceQuest.targetMonsterId === 'string' ? sourceQuest.targetMonsterId : ''),
+            rewardItemId: typeof sourceQuest.rewardItemId === 'string' ? sourceQuest.rewardItemId : (rewardItems[0]?.itemId ?? ''),
+            rewardItemIds: rewardItems.map((entry) => entry.itemId),
+            rewards: rewardItems.map((entry) => ({ ...entry })),
+            nextQuestId: typeof quest.nextQuestId === 'string' ? quest.nextQuestId : sourceQuest.nextQuestId,
+            requiredItemId: typeof quest.requiredItemId === 'string' ? quest.requiredItemId : sourceQuest.requiredItemId,
+            requiredItemCount: Number.isInteger(quest.requiredItemCount) ? Number(quest.requiredItemCount) : sourceQuest.requiredItemCount,
+            giverId: typeof quest.giverId === 'string' ? quest.giverId : source.giverNpcId,
+            giverName: source.giverNpcName,
+            giverMapId: source.giverMapId,
+            giverMapName: source.giverMapName,
+            giverX: source.giverX,
+            giverY: source.giverY,
+            targetMapId,
+            targetMapName: typeof targetMapId === 'string' && this.templateRepository.has(targetMapId)
+                ? this.templateRepository.getOrThrow(targetMapId).name
+                : targetNpcLocation?.mapName,
+            targetX: Number.isInteger(sourceQuest.targetX) ? Number(sourceQuest.targetX) : targetNpcLocation?.x,
+            targetY: Number.isInteger(sourceQuest.targetY) ? Number(sourceQuest.targetY) : targetNpcLocation?.y,
+            targetNpcId,
+            targetNpcName: typeof sourceQuest.targetNpcName === 'string' ? sourceQuest.targetNpcName : targetNpcLocation?.npcName,
+            submitNpcId,
+            submitNpcName: typeof sourceQuest.submitNpcName === 'string' ? sourceQuest.submitNpcName : submitNpcLocation?.npcName,
+            submitMapId,
+            submitMapName: typeof submitMapId === 'string' && this.templateRepository.has(submitMapId)
+                ? this.templateRepository.getOrThrow(submitMapId).name
+                : submitNpcLocation?.mapName,
+            submitX: Number.isInteger(sourceQuest.submitX) ? Number(sourceQuest.submitX) : submitNpcLocation?.x,
+            submitY: Number.isInteger(sourceQuest.submitY) ? Number(sourceQuest.submitY) : submitNpcLocation?.y,
+            relayMessage: typeof sourceQuest.relayMessage === 'string' ? sourceQuest.relayMessage : undefined,
+        };
     }
 };

@@ -237,6 +237,17 @@ export class WorldRuntimeReadFacadeService {
         return deps.worldRuntimeQuestQueryService.resolveQuestNavigationTarget(quest);
     }
     /**
+ * materializeQuestView：按任务模板把轻量运行态补成面板/通知视图。
+ * @param playerId 玩家 ID。
+ * @param quest 参数说明。
+ * @param deps 运行时依赖。
+ * @returns 返回任务展示视图。
+ */
+
+    materializeQuestView(playerId, quest, deps) {
+        return deps.worldRuntimeQuestQueryService.materializeQuestView(playerId, quest);
+    }
+    /**
  * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。

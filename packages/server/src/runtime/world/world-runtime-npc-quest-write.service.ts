@@ -9,6 +9,12 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 
 const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;
 
+function materializeQuestForNpcWrite(deps, playerId, quest) {
+    return typeof deps?.worldRuntimeQuestQueryService?.materializeQuestView === 'function'
+        ? deps.worldRuntimeQuestQueryService.materializeQuestView(playerId, quest)
+        : quest;
+}
+
 /** NPC quest 写路径叶子服务：承接交互推进、接取与提交三个直接写入动作。 */
 @Injectable()
 export class WorldRuntimeNpcQuestWriteService {
@@ -57,10 +63,11 @@ export class WorldRuntimeNpcQuestWriteService {
             }
             quest.progress = quest.required;
             changed = true;
-            const relayText = quest.relayMessage?.trim()
-                ? `你向 ${npc.name} 传达了口信：“${quest.relayMessage.trim()}”`
+            const questView = materializeQuestForNpcWrite(deps, playerId, quest);
+            const relayText = questView.relayMessage?.trim()
+                ? `你向 ${npc.name} 传达了口信：“${questView.relayMessage.trim()}”`
                 : `你向 ${npc.name} 传达了来意。`;
-            const nRelay = buildStructuredNotice('info', 'notice.quest.npc-relay', relayText, { vars: { npcName: npc.name, message: quest.relayMessage?.trim() || '' }, pills: [{ key: 'npcName', style: 'target' }] });
+            const nRelay = buildStructuredNotice('info', 'notice.quest.npc-relay', relayText, { vars: { npcName: npc.name, message: questView.relayMessage?.trim() || '' }, pills: [{ key: 'npcName', style: 'target' }] });
             deps.queuePlayerNotice(playerId, nRelay.text, nRelay.kind, undefined, undefined, nRelay.structured);
         }
         if (changed) {
@@ -89,10 +96,11 @@ export class WorldRuntimeNpcQuestWriteService {
         if (player.quests.quests.some((entry) => entry.id === questId && entry.status !== 'completed')) {
             throw new BadRequestException('该任务已经接取');
         }
-        player.quests.quests.push(cloneQuestState(quest, 'active'));
+        const questView = materializeQuestForNpcWrite(deps, playerId, quest);
+        player.quests.quests.push(cloneQuestState(questView, 'active'));
         this.playerRuntimeService.markQuestStateDirty(playerId);
         deps.refreshQuestStates(playerId, true);
-        const nStory = buildStructuredNotice('success', 'notice.quest.npc-story', `${npc.name}：${quest.story ?? quest.desc}`, { vars: { npcName: npc.name, story: quest.story ?? quest.desc }, pills: [{ key: 'npcName', style: 'target' }] });
+        const nStory = buildStructuredNotice('success', 'notice.quest.npc-story', `${npc.name}：${questView.story ?? questView.desc}`, { vars: { npcName: npc.name, story: questView.story ?? questView.desc }, pills: [{ key: 'npcName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, nStory.text, nStory.kind, undefined, undefined, nStory.structured);
     }    
     /**
@@ -117,7 +125,8 @@ export class WorldRuntimeNpcQuestWriteService {
         if (quest.submitNpcId !== npcId) {
             throw new BadRequestException('当前不是该任务的提交目标');
         }
-        const rewards = deps.buildQuestRewardItems(quest);
+        const questView = materializeQuestForNpcWrite(deps, playerId, quest);
+        const rewards = deps.buildQuestRewardItems(questView);
         const walletRewards = rewards.filter((reward) => isWalletRewardItemId(reward.itemId));
         const inventoryRewards = rewards.filter((reward) => !isWalletRewardItemId(reward.itemId));
         const requiredItemId = typeof quest.requiredItemId === 'string' ? quest.requiredItemId.trim() : '';
@@ -139,10 +148,11 @@ export class WorldRuntimeNpcQuestWriteService {
         this.playerRuntimeService.markQuestStateDirty(playerId);
         const nextQuest = deps.tryAcceptNextQuest(playerId, quest.nextQuestId);
         deps.refreshQuestStates(playerId, true);
-        const nReward = buildStructuredNotice('success', 'notice.quest.reward', `${npc.name}：做得不错，这是你的奖励 ${quest.rewardText || '。'}`, { vars: { npcName: npc.name, rewardText: quest.rewardText || '。' }, pills: [{ key: 'npcName', style: 'target' }] });
+        const nReward = buildStructuredNotice('success', 'notice.quest.reward', `${npc.name}：做得不错，这是你的奖励 ${questView.rewardText || '。'}`, { vars: { npcName: npc.name, rewardText: questView.rewardText || '。' }, pills: [{ key: 'npcName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, nReward.text, nReward.kind, undefined, undefined, nReward.structured);
         if (nextQuest) {
-            const nAutoAccept = buildStructuredNotice('info', 'notice.quest.auto-accept', `新的任务《${nextQuest.title}》已自动接取`, { vars: { questTitle: nextQuest.title }, pills: [{ key: 'questTitle', style: 'target' }] });
+            const nextQuestView = materializeQuestForNpcWrite(deps, playerId, nextQuest);
+            const nAutoAccept = buildStructuredNotice('info', 'notice.quest.auto-accept', `新的任务《${nextQuestView.title}》已自动接取`, { vars: { questTitle: nextQuestView.title }, pills: [{ key: 'questTitle', style: 'target' }] });
             deps.queuePlayerNotice(playerId, nAutoAccept.text, nAutoAccept.kind, undefined, undefined, nAutoAccept.structured);
         }
     }    

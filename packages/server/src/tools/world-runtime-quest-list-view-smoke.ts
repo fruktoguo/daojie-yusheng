@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
-const { WorldRuntimeQuestQueryService } = require("../runtime/world/world-runtime-quest-query.service");
+const { WorldRuntimeQuestQueryService } = require("../runtime/world/query/world-runtime-quest-query.service");
 /**
  * createQuestQueryService：构建并返回目标对象。
  * @param log 参数说明。
@@ -118,7 +118,16 @@ function testQuestQueryServiceBuildQuestListView() {
     const service = createQuestQueryService(log, quests);
     const view = service.buildQuestListView('player:1');
     assert.deepEqual(view, {
-        quests: [{ id: 'quest:1', title: '云游初试', rewards: [{ itemId: 'stone', count: 1 }] }],
+        quests: [{
+            id: 'quest:1',
+            title: '云游初试',
+            desc: '',
+            targetName: 'quest:1',
+            rewardText: '',
+            rewardItemId: '',
+            rewardItemIds: [],
+            rewards: [{ itemId: 'stone', count: 1 }],
+        }],
     });
     assert.notEqual(view.quests, quests);
     assert.notEqual(view.quests[0], quests[0]);
