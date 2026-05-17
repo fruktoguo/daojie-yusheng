@@ -4,23 +4,23 @@
  * 收敛 GM 对建议的标记完成和删除操作入口。
  */
 
-import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { Injectable } from '@nestjs/common';
+import type { Socket } from 'socket.io';
+import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper';
+import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 世界 socket GM 建议 helper：只收敛 suggestion 的 GM 维护写路径。 */
+@Injectable()
 class WorldGatewayGmSuggestionHelper {
-/**
- * gateway：gateway相关字段。
- */
-    private readonly gateway: WorldGatewayHelperContext;
-/**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+    constructor(
+        private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
+        private readonly gatewayClientEmitHelper: WorldGatewayClientEmitHelper,
+        private readonly suggestionRuntimeService: SuggestionRuntimeService,
+        private readonly worldClientEventService: WorldClientEventService,
+    ) {}
 
-    constructor(gateway: WorldGatewayHelperContext) {
-        this.gateway = gateway;
-    }    
     /**
  * handleGmMarkSuggestionCompleted：处理GMMarkSuggestionCompleted并更新相关状态。
  * @param client 参数说明。
@@ -28,19 +28,19 @@ class WorldGatewayGmSuggestionHelper {
  * @returns 无返回值，直接更新GMMarkSuggestionCompleted相关状态。
  */
 
-    async handleGmMarkSuggestionCompleted(client, payload) {
+    async handleGmMarkSuggestionCompleted(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
+        const playerId = this.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.markCompleted(payload?.suggestionId ?? '');
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.markCompleted(payload?.suggestionId ?? '');
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
         }
     }    
     /**
@@ -50,19 +50,19 @@ class WorldGatewayGmSuggestionHelper {
  * @returns 无返回值，直接更新GMRemoveSuggestion相关状态。
  */
 
-    async handleGmRemoveSuggestion(client, payload) {
+    async handleGmRemoveSuggestion(client: Socket, payload: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
+        const playerId = this.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.gateway.suggestionRuntimeService.remove(payload?.suggestionId ?? '');
-            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
+            await this.suggestionRuntimeService.remove(payload?.suggestionId ?? '');
+            this.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);
         }
     }
 }
