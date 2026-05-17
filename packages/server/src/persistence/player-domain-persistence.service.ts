@@ -4707,7 +4707,9 @@ function buildAttrStateRow(snapshot: PersistedPlayerSnapshot): AttrStateRow | nu
   const progression = asRecord(snapshot.progression);
   const attrState = asRecord(snapshot.attrState);
   const baseAttrsPayload = asRecord(attrState?.baseAttrs);
-  const bonusEntriesPayload = Array.isArray(snapshot.runtimeBonuses) ? snapshot.runtimeBonuses : [];
+  const bonusEntriesPayload = Array.isArray(snapshot.runtimeBonuses)
+    ? snapshot.runtimeBonuses.filter((entry) => !isDerivedPersistentRuntimeBonusSource(String(entry?.source ?? '')))
+    : [];
   const revealedBreakthroughRequirementIds = normalizeStringArray(
     attrState?.revealedBreakthroughRequirementIds,
   );
@@ -5496,7 +5498,7 @@ function normalizeRuntimeBonusEntry(
     return null;
   }
   const source = normalizeOptionalString(entry.source);
-  if (!source) {
+  if (!source || isDerivedPersistentRuntimeBonusSource(source)) {
     return null;
   }
   const attrs = asRecord(decodeJsonValue(entry.attrs));
@@ -5516,6 +5518,13 @@ function normalizeRuntimeBonusEntry(
     qiProjection,
     meta: meta ? cloneJsonValue(meta) : undefined,
   };
+}
+
+function isDerivedPersistentRuntimeBonusSource(source: string): boolean {
+  return source === 'runtime:realm_stage'
+    || source === 'runtime:realm_state'
+    || source === 'runtime:heaven_gate_roots'
+    || source === 'runtime:technique_aggregate';
 }
 
 function cloneJsonValue<T>(value: T): T {

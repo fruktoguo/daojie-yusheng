@@ -788,7 +788,7 @@ function normalizeRuntimeBonuses(value) {
 
         meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
     }))
-        .filter((entry) => entry.source.length > 0);
+        .filter((entry) => entry.source.length > 0 && !isDerivedPersistentRuntimeBonusSource(entry.source));
 }
 /**
  * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
@@ -820,6 +820,13 @@ function canonicalizeRuntimeBonusSource(source) {
         return `equipment:${normalized.slice('equip:'.length)}`;
     }
     return normalized;
+}
+
+function isDerivedPersistentRuntimeBonusSource(source) {
+    return source === 'runtime:realm_stage'
+        || source === 'runtime:realm_state'
+        || source === 'runtime:heaven_gate_roots'
+        || source === 'runtime:technique_aggregate';
 }
 /**
  * createRealmState：构建并返回目标对象。

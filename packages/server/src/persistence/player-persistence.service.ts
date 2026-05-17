@@ -745,7 +745,7 @@ function normalizeRuntimeBonuses(value: unknown[]): RuntimeBonusSnapshot[] {
         : undefined,
       meta: asRecordOrUndefined(entry.meta),
     }))
-    .filter((entry) => entry.source.length > 0);
+    .filter((entry) => entry.source.length > 0 && !isDerivedPersistentRuntimeBonusSource(entry.source));
 }
 
 function resolveSnapshotArray(
@@ -777,6 +777,13 @@ function canonicalizeRuntimeBonusSource(source: unknown): string {
     return `equipment:${normalized.slice('equip:'.length)}`;
   }
   return normalized;
+}
+
+function isDerivedPersistentRuntimeBonusSource(source: string): boolean {
+  return source === 'runtime:realm_stage'
+    || source === 'runtime:realm_state'
+    || source === 'runtime:heaven_gate_roots'
+    || source === 'runtime:technique_aggregate';
 }
 
 function normalizePendingLogbookMessages(

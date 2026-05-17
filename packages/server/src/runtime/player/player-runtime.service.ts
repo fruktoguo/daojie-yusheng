@@ -3548,7 +3548,7 @@ export class PlayerRuntimeService {
             vitalRecoveryDeferredUntilTick: -1,
             runtimeBonuses: (Array.isArray(snapshot.runtimeBonuses) ? snapshot.runtimeBonuses : [])
                 .map((entry) => cloneRuntimeBonus(entry))
-                .filter((entry) => Boolean(entry)),
+                .filter((entry) => shouldKeepRuntimeBonus(entry)),
             dirtyDomains: createPlayerDirtyDomainSet(),
             // 玩家维度 NPC quest marker 投影缓存；hydrate 路径同样初始化，跟随玩家运行态生命周期。
             npcQuestMarkerCache: new Map(),
@@ -4131,7 +4131,9 @@ function cloneRuntimePlayerState(player) {
             : null,
         pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
         vitalRecoveryDeferredUntilTick: player.vitalRecoveryDeferredUntilTick,
-        runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
+        runtimeBonuses: player.runtimeBonuses
+            .map((entry) => cloneRuntimeBonus(entry))
+            .filter((entry) => shouldKeepRuntimeBonus(entry)),
         dirtyDomains: createPlayerDirtyDomainSet(),
         // cloneRuntimePlayerState 用于快照/旁路读取，不应共享 quest marker cache 引用；新副本起一个空 Map。
         npcQuestMarkerCache: new Map(),
@@ -5504,7 +5506,9 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             autoBattleSkills: [],
         },
         pendingLogbookMessages: needsDomain('logbook') ? player.pendingLogbookMessages.map((entry) => ({ ...entry })) : [],
-        runtimeBonuses: needsDomain('attr') ? player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)) : [],
+        runtimeBonuses: needsDomain('attr')
+            ? player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)).filter((entry) => shouldKeepRuntimeBonus(entry))
+            : [],
     };
 }
 
@@ -7134,6 +7138,17 @@ function cloneRuntimeBonus(source) {
 
         meta: source.meta && typeof source.meta === 'object' ? { ...source.meta } : undefined,
     };
+}
+
+function shouldKeepRuntimeBonus(entry) {
+    return Boolean(entry?.source && !isDerivedPersistentRuntimeBonusSource(entry.source));
+}
+
+function isDerivedPersistentRuntimeBonusSource(source) {
+    return source === 'runtime:realm_stage'
+        || source === 'runtime:realm_state'
+        || source === 'runtime:heaven_gate_roots'
+        || source === 'runtime:technique_aggregate';
 }
 /**
  * ensureVitalBaselineBonus：执行ensureVitalBaselineBonu相关逻辑。

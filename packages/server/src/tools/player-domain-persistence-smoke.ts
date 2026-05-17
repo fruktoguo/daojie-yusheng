@@ -210,7 +210,7 @@ async function main(): Promise<void> {
       || !String(JSON.stringify(attrStateRow.realm_payload ?? '')).includes('qi_refining')
       || !String(JSON.stringify(attrStateRow.heaven_gate_payload ?? '')).includes('averageBonus')
       || !String(JSON.stringify(attrStateRow.spiritual_roots_payload ?? '')).includes('metal')
-      || !String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('runtime:technique_aggregate')
+      || String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('runtime:technique_aggregate')
     ) {
       throw new Error(`unexpected player_attr_state row: ${JSON.stringify(attrStateRow)}`);
     }

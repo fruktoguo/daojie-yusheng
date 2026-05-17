@@ -129,7 +129,7 @@ async function main(): Promise<void> {
       || snapshot.progression.heavenGate?.['averageBonus'] !== 12
       || snapshot.progression.spiritualRoots?.['metal'] !== 18
       || !Array.isArray(snapshot.runtimeBonuses)
-      || snapshot.runtimeBonuses.length !== 1
+      || snapshot.runtimeBonuses.length !== 0
     ) {
       throw new Error(`unexpected recovered attr state: ${JSON.stringify({
         attrState: snapshot.attrState,
