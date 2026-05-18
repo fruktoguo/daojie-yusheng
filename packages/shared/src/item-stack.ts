@@ -41,25 +41,6 @@ export function createItemStackSignature(item: ItemStack | { itemId?: string; [k
   return parts.join('#');
 }
 
-/** 判断两个物品堆叠是否可合并（itemId 一致且强化等级一致即可叠加） */
-export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
-  return createItemStackSignature(left) === createItemStackSignature(right);
-}
-
-/**
- * 是否需要为该物品分配稳定 itemInstanceId。
- *
- * 当前仅装备类（type === 'equipment'）强制需要：装备是单件资产，必须有
- * 跨链路稳定的实例身份才能支持强化乐观一致性校验、装/卸不被错配、
- * 资产追溯等能力。
- *
- * 非装备类（consumable / material / quest_item / skill_book）保留同质堆叠
- * 语义，不分配 instanceId。
- */
-export function isItemInstanceTracked(item: Pick<ItemStack, 'type'> | { type?: unknown } | null | undefined): boolean {
-  return Boolean(item) && (item as { type?: unknown }).type === 'equipment';
-}
-
 /**
  * 是否是迁移期 fallback 形式的 itemInstanceId（含 ":" 的伪 ID，例如
  * `inv:p_xxx:0` 或 `equip:p_xxx:weapon`）。

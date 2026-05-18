@@ -13,23 +13,20 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { ItemStack } from '@mud/shared';
-import { isItemInstanceTracked, isLegacyItemInstanceId } from '@mud/shared';
+import { isLegacyItemInstanceId } from '@mud/shared';
 
 /**
- * 若该物品需要 itemInstanceId 但当前缺失或处于迁移期 fallback，则就地分配新 UUID。
+ * 若该物品当前缺失 itemInstanceId 或处于迁移期 fallback，则就地分配新 UUID。
  *
  * 行为：
- *   - 非装备类（不需要 instanceId）：不动，返回 false
+ *   - null/undefined/非对象：不动，返回 false
  *   - 已有合法 UUID（不含 ":"）：不动，返回 false
  *   - 缺失 / 迁移期 fallback：分配新 UUID，返回 true
  *
- * 这是一次幂等写入：可在生成入口、水合入口、堆叠合并前等任意位置调用。
+ * 规范：每个独立格子的物品都必须有独立的 itemInstanceId，无论物品类型。
  */
 export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined): boolean {
     if (!item || typeof item !== 'object') {
-        return false;
-    }
-    if (!isItemInstanceTracked(item)) {
         return false;
     }
     const current = (item as { itemInstanceId?: unknown }).itemInstanceId;
@@ -47,13 +44,10 @@ export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined)
  * 即使 source 仍带原 instanceId，也必须刷新成新值，避免买家收到的物品
  * 与卖家手里的某个历史副本共用 ID。
  *
- * 仅装备类物品需要重新分配；非装备类原样返回（不做改动）。
+ * 所有物品都需要重新分配；null/非对象原样返回。
  */
 export function reassignItemInstanceId(item: ItemStack | null | undefined): string | undefined {
     if (!item || typeof item !== 'object') {
-        return undefined;
-    }
-    if (!isItemInstanceTracked(item)) {
         return undefined;
     }
     const id = randomUUID();
@@ -62,12 +56,12 @@ export function reassignItemInstanceId(item: ItemStack | null | undefined): stri
 }
 
 /**
- * 重新导出 isLegacyItemInstanceId / isItemInstanceTracked，便于服务端层就近引用。
+ * 重新导出 isLegacyItemInstanceId，便于服务端层就近引用。
  *
  * （shared 工具的实现规范放在 packages/shared/src/item-stack.ts；
  *  服务端无需自己实现，统一从 shared 走以避免协议歧义）
  */
-export { isItemInstanceTracked, isLegacyItemInstanceId };
+export { isLegacyItemInstanceId };
 
 /**
  * 是否启用 itemInstanceId 硬校验模式。

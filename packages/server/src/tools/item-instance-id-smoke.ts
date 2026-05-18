@@ -15,9 +15,7 @@
 import * as assert from 'node:assert/strict';
 import {
     canMergeItemStack,
-    canStackItemStacks,
     createItemStackSignature,
-    isItemInstanceTracked,
     isLegacyItemInstanceId,
 } from '@mud/shared';
 import {
@@ -46,13 +44,6 @@ function makeItem(overrides: Record<string, unknown> = {}): any {
 }
 
 function testSharedHelpers(): void {
-    // isItemInstanceTracked 仅装备类 true
-    assert.equal(isItemInstanceTracked(makeItem()), true);
-    assert.equal(isItemInstanceTracked(makeItem({ type: 'consumable' })), false);
-    assert.equal(isItemInstanceTracked(makeItem({ type: 'material' })), false);
-    assert.equal(isItemInstanceTracked(null), false);
-    assert.equal(isItemInstanceTracked(undefined), false);
-
     // isLegacyItemInstanceId
     assert.equal(isLegacyItemInstanceId('inv:p_xxx:0'), true);
     assert.equal(isLegacyItemInstanceId('equip:p_xxx:weapon'), true);
@@ -73,10 +64,11 @@ function testSharedHelpers(): void {
     // 签名算法仍然只看 itemId + enhanceLevel（保留原有同质堆叠语义）
     assert.equal(createItemStackSignature({ itemId: 'foo', enhanceLevel: 0 }), 'foo#0');
     assert.equal(createItemStackSignature({ itemId: 'foo', enhanceLevel: 9 }), 'foo#9');
-    assert.equal(canStackItemStacks(
-        { itemId: 'foo', enhanceLevel: 0 } as any,
-        { itemId: 'foo', enhanceLevel: 0 } as any,
-    ), true);
+    assert.equal(
+        createItemStackSignature({ itemId: 'foo', enhanceLevel: 0 } as any)
+        === createItemStackSignature({ itemId: 'foo', enhanceLevel: 0 } as any),
+        true,
+    );
 
     console.log('[smoke] shared helpers passed');
 }
@@ -99,10 +91,11 @@ function testAssignment(): void {
     assert.equal(re, false);
     assert.equal(a.itemInstanceId, before);
 
-    // 非装备类 → 不分配
+    // 所有物品类型都分配 instanceId（每个格子独立 ID）
     const consumable = makeItem({ type: 'consumable' });
-    assert.equal(assignItemInstanceIdIfNeeded(consumable), false);
-    assert.equal(consumable.itemInstanceId, undefined);
+    delete consumable.itemInstanceId;
+    assert.equal(assignItemInstanceIdIfNeeded(consumable), true);
+    assert.match(consumable.itemInstanceId, UUID_PATTERN);
 
     // 迁移期 fallback ID → 升级为新 UUID
     const legacy = makeItem({ itemInstanceId: 'inv:p_test:5' });
@@ -239,7 +232,8 @@ function testStackSplitGetsFreshInstanceId(): void {
     const remaining = inventory[0];
     remaining.count = 5 - 1;
     const cloned = { ...remaining, count: 1 } as Record<string, unknown>;
-    if (isItemInstanceTracked(cloned as any)) {
+    // 所有物品拆分时都分配新 instanceId
+    if (typeof cloned.itemInstanceId === 'string' && cloned.itemInstanceId.length > 0) {
         // 真实代码使用 randomUUID()；smoke 用固定值便于断言
         cloned.itemInstanceId = 'aaaaaaaa-2222-4222-8222-222222222222';
     }
@@ -252,14 +246,16 @@ function testStackSplitGetsFreshInstanceId(): void {
         'cloned single item must get a fresh itemInstanceId distinct from the remaining stack',
     );
 
-    // 非装备拆分：不分配 instanceId（保持 undefined）
+    // 非装备拆分：同样分配新 instanceId（每个格子独立 ID）
     const matStack = makeItem({ type: 'material', itemId: 'mat.iron', count: 5 });
-    delete matStack.itemInstanceId;
+    // 按新规范，所有物品入背包时都会被分配 instanceId
+    assignItemInstanceIdIfNeeded(matStack);
+    const matStackId = matStack.itemInstanceId;
     const matCloned = { ...matStack, count: 1 } as Record<string, unknown>;
-    if (isItemInstanceTracked(matCloned as any)) {
-        matCloned.itemInstanceId = 'should-not-happen';
+    if (typeof matCloned.itemInstanceId === 'string' && (matCloned.itemInstanceId as string).length > 0) {
+        matCloned.itemInstanceId = 'bbbbbbbb-3333-4333-8333-333333333333';
     }
-    assert.equal(matCloned.itemInstanceId, undefined, 'non-tracked items must not receive an itemInstanceId on split');
+    assert.notEqual(matCloned.itemInstanceId, matStackId, 'material split must also get a fresh itemInstanceId');
 
     console.log('[smoke] stack-split-fresh-instance-id passed');
 }

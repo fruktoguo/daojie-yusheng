@@ -5,7 +5,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -160,9 +160,31 @@ export class PlayerRuntimeService {
             return lateExisting;
         }
 
+        // 防御：如果 snapshot 为 null 但数据库中已有该玩家的 watermark，
+        // 说明是老玩家但数据加载失败（如数据库连接池未就绪），
+        // 宁可拒绝登录也不能用空白角色覆盖已有存档。
+        if (!snapshot && typeof this.playerDomainPersistenceService?.hasRecoveryWatermark === 'function') {
+            let hasWatermark = false;
+            try {
+                hasWatermark = await this.playerDomainPersistenceService.hasRecoveryWatermark(playerId);
+            } catch (_watermarkCheckError) {
+                // 连接池完全不可用时查询也会失败，此时同样拒绝创建空白角色（fail-safe）
+                throw new ServiceUnavailableException(
+                    `player_fresh_create_blocked_watermark_check_failed:${playerId}`,
+                );
+            }
+            if (hasWatermark) {
+                throw new ServiceUnavailableException(
+                    `player_fresh_create_blocked_existing_watermark:${playerId}`,
+                );
+            }
+        }
+
         const player = snapshot
             ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
             : this.createFreshPlayer(playerId, sessionId);
+        // 标记玩家数据来源：从持久化恢复 vs 凭空创建，供 flush 防御使用
+        (player as any)._hydratedFromPersistence = Boolean(snapshot);
         await this.finalizeOfflineGainSessionForPlayer(player, Date.now());
         const sessionEpochFloor = Number.isFinite(options?.sessionEpochFloor)
             ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
@@ -1565,10 +1587,9 @@ export class PlayerRuntimeService {
             ...item,
             count: nextCount,
         };
-        // 若拆分后原 slot 仍保留剩余堆叠，且物品参与 instanceId 追踪（装备类），
-        // 则被拆出的那部分必须分配新 itemInstanceId，避免与剩余堆叠在
-        // player_inventory_item / market_listing / loot_container 等下游表上共用 PK。
-        if (willKeepRemaining && isItemInstanceTracked(extracted)) {
+        // 若拆分后原 slot 仍保留剩余堆叠，被拆出的那部分必须分配新 itemInstanceId，
+        // 避免与剩余堆叠在 player_inventory_item / market_listing / loot_container 等下游表上共用 PK。
+        if (willKeepRemaining && typeof (extracted as any).itemInstanceId === 'string' && (extracted as any).itemInstanceId.length > 0) {
             (extracted as { itemInstanceId?: string }).itemInstanceId = randomUUID();
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, nextCount);
@@ -2275,6 +2296,20 @@ export class PlayerRuntimeService {
             return player;
         }
         player.hp = Math.max(0, player.hp - normalized);
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['vitals']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+
+    /** 治疗玩家：恢复生命值，不超过 maxHp。 */
+    healPlayer(playerId, amount) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalized = Math.max(0, Math.round(amount));
+        if (normalized <= 0 || player.hp >= player.maxHp) {
+            return player;
+        }
+        player.hp = Math.min(player.maxHp, player.hp + normalized);
         player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['vitals']);
         this.bumpPersistentRevision(player);
@@ -3272,6 +3307,18 @@ export class PlayerRuntimeService {
             }
         }
         return dirtyPlayers;
+    }
+    /**
+     * 检查玩家是否从持久化恢复（而非凭空创建的空白角色）。
+     * 用于 flush 防御：阻止空白角色覆盖数据库中已有的老玩家存档。
+     */
+    isPlayerHydratedFromPersistence(playerId) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return false;
+        }
+        // 未标记时默认视为已恢复（兼容旧路径创建的玩家）
+        return (player as any)._hydratedFromPersistence !== false;
     }
     /**
  * buildFreshPersistenceSnapshot：构建并返回目标对象。
@@ -6539,10 +6586,10 @@ function takeSingleInventoryItemForEquipment(items, slotIndex) {
     }
     item.count = itemCount - 1;
     const cloned = cloneItemWithCountPreservingTemplate(item, 1);
-    // 从 count > 1 的堆叠里拆 1 件出来：被拆出的那件装备必须分配新 itemInstanceId，
+    // 从 count > 1 的堆叠里拆 1 件出来：被拆出的那件必须分配新 itemInstanceId，
     // 否则剩余堆叠（仍在背包）和被拆出的那件（即将进入装备槽 / 强化 / 挂单 / 掉落）
     // 会在 player_inventory_item / player_equipment_slot 等表上共用同一 PK。
-    if (isItemInstanceTracked(cloned)) {
+    if (typeof (cloned as any).itemInstanceId === 'string' && (cloned as any).itemInstanceId.length > 0) {
         (cloned as { itemInstanceId?: string }).itemInstanceId = randomUUID();
     }
     return cloned;
