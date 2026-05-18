@@ -94,8 +94,9 @@ export class ContentTemplateRepository {
         // createItem 是"新实例创建"瓶颈：starter 背包 / 掉落 / 合成产物 / 兑换码 /
         // NPC 商店 / 市场货币 / 任务奖励 / 邮件附件 / 战斗 tile drop 等都走这里。
         // 装备类必须在此分配稳定 itemInstanceId；非装备类不动。
+        // item 由 createItemInstanceFromTemplate 构建，运行时兼容 ItemStack
         if (item) {
-            assignItemInstanceIdIfNeeded(item);
+            assignItemInstanceIdIfNeeded(item as any);
         }
         return item;
     }

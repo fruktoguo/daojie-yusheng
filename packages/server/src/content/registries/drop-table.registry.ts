@@ -276,7 +276,7 @@ export class DropTableRegistry {
       return normalizeTechniqueGrade(item.grade);
     }
     if (item?.learnTechniqueId) {
-      return normalizeTechniqueGrade(this.techniqueRegistry.techniqueTemplates.get(item.learnTechniqueId)?.grade);
+      return normalizeTechniqueGrade(this.techniqueRegistry.techniqueTemplates.get(item.learnTechniqueId as string)?.grade);
     }
     if (typeof item?.level === 'number' && Number.isFinite(item.level)) {
       return inferTechniqueGradeFromItemLevel(item.level);
