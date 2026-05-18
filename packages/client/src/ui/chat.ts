@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { formatDisplayNumber, getDamageTrailColor, uiLabels, type CombatNoticePayload, type ElementKey, type NoticePillConfig, type SkillDamageKind, type StructuredNoticePayload } from '@mud/shared';
+import { formatDisplayNumber, getDamageTrailColor, uiLabels, type BuffModifierMode, type CombatNoticePayload, type ElementKey, type NoticePillConfig, type SkillDamageKind, type StructuredNoticePayload } from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -378,11 +378,11 @@ function toAlphaColor(hex: string, alpha: number): string {
 function expandCombatListToLines(combatList: CombatNoticePayload[]): CombatNoticePayload[] {
   const lines: CombatNoticePayload[] = [];
   for (const combat of combatList) {
-    const effects = Array.isArray((combat as any).effects) ? (combat as any).effects : null;
+    const effects = combat.effects ?? null;
     if (effects && effects.length > 0) {
       // 每个 effect 生成一个独立的虚拟 combat 条目
       for (const effect of effects) {
-        lines.push({ ...combat, effects: [effect] } as any);
+        lines.push({ ...combat, effects: [effect] });
       }
     } else {
       lines.push(combat);
@@ -401,7 +401,7 @@ function appendStructuredCombatLine(
   const { caster, target, skill, resolution, formationResolution, killed } = combat;
   const targetHp = combat.targetHp;
   const targetMaxHp = combat.targetMaxHp;
-  const effects = Array.isArray((combat as any).effects) ? (combat as any).effects : null;
+  const effects = combat.effects ?? null;
 
   // 构建目标标签（含HP百分比）
   const targetLabel = targetHp != null && targetMaxHp != null && targetMaxHp > 0
@@ -540,7 +540,7 @@ function appendCombatEffects(container: DocumentFragment | HTMLElement, effects:
         tooltipLines.push(buffTemplate.desc);
       }
       const bonuses = buffTemplate
-        ? describePreviewBonuses(buffTemplate.attrs, buffTemplate.stats, buffTemplate.valueStats, (buffTemplate.attrMode ?? 'percent') as any, (buffTemplate.statMode ?? 'percent') as any)
+        ? describePreviewBonuses(buffTemplate.attrs, buffTemplate.stats, buffTemplate.valueStats, (buffTemplate.attrMode ?? 'percent') as BuffModifierMode, (buffTemplate.statMode ?? 'percent') as BuffModifierMode)
         : [];
       if (bonuses.length > 0) {
         tooltipLines.push(bonuses.join('，'));

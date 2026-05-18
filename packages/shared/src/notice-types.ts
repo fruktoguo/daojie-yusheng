@@ -41,6 +41,22 @@ export interface CombatNoticeFormationResolution {
   auraDamage: number;
 }
 
+/** 战斗通知中的通用效果条目（buff/debuff/heal 等）。 */
+export interface CombatNoticeEffect {
+  /** 效果类型：buff / debuff / heal 等。 */
+  type: string;
+  /** buff/debuff ID。 */
+  buffId?: string;
+  /** 效果名称。 */
+  name?: string;
+  /** 效果分类。 */
+  category?: string;
+  /** 持续时间（秒）。 */
+  duration?: number;
+  /** 扩展字段。 */
+  [key: string]: unknown;
+}
+
 /** 结构化战斗消息payload。 */
 export interface CombatNoticePayload {
   /** 施法者标签（'你' 或怪物名）。 */
@@ -59,6 +75,8 @@ export interface CombatNoticePayload {
   formationResolution?: CombatNoticeFormationResolution;
   /** 是否击杀。 */
   killed?: boolean;
+  /** 通用效果列表：buff/debuff/heal 等。 */
+  effects?: CombatNoticeEffect[];
 }
 
 /** 胶囊渲染配置。 */
