@@ -297,10 +297,12 @@ function compareStableStrings(left, right) {
 
 function buildTimeCheckpointSnapshot(instance) {
     return {
-        version: 1,
+        version: 2,
         savedAt: Date.now(),
         templateId: typeof instance?.template?.id === 'string' ? instance.template.id : '',
         tick: Number.isFinite(Number(instance?.tick)) ? Math.max(0, Math.trunc(Number(instance.tick))) : 0,
+        tickSpeed: Number.isFinite(Number(instance?.tickSpeed)) ? Math.max(0, Number(instance.tickSpeed)) : 1,
+        paused: instance?.paused === true,
         persistenceRevision: typeof instance?.getPersistenceRevision === 'function'
             ? instance.getPersistenceRevision()
             : undefined,

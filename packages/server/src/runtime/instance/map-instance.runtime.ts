@@ -202,7 +202,11 @@ class MapInstanceRuntime {
  * tick：tick相关字段。
  */
 
-    tick = 0;    
+    tick = 0;
+    /** 实例级 tick 倍速（默认 1，0 表示暂停）。 */
+    tickSpeed = 1;
+    /** 实例是否暂停 tick 推进。 */
+    paused = false;
     /**
  * worldRevision：世界Revision相关字段。
  */
@@ -3645,13 +3649,23 @@ class MapInstanceRuntime {
         this.persistedRevision = 1;
     }
     /** hydrateTime：用持久化数据回填实例时间。 */
-    hydrateTime(tick) {
+    hydrateTime(tick, options) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!Number.isFinite(Number(tick))) {
             return;
         }
         this.tick = Math.max(0, Math.trunc(Number(tick)));
+        if (options && Number.isFinite(Number(options.tickSpeed))) {
+            this.tickSpeed = Math.max(0, Number(options.tickSpeed));
+            this.paused = this.tickSpeed === 0;
+        }
+        if (options && typeof options.paused === 'boolean') {
+            this.paused = options.paused;
+            if (this.paused) {
+                this.tickSpeed = 0;
+            }
+        }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
         this.clearDirtyDomains();

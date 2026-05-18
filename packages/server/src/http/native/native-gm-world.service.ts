@@ -950,11 +950,88 @@ export class NativeGmWorldService {
 
   async updateMapTick(mapId: string, body) {
     this.mapTemplateRepository.getOrThrow(mapId);
+    const normalizedSpeed = normalizePersistedMapTickSpeed(body?.speed);
+    const paused = body?.paused !== undefined ? Boolean(body.paused) : undefined;
     await this.persistMapConfig(mapId, {
-      speed: normalizePersistedMapTickSpeed(body?.speed),
-      paused: body?.paused !== undefined ? Boolean(body.paused) : undefined,
+      speed: normalizedSpeed,
+      paused,
     });
     this.runtimeMapConfigService.updateMapTick(mapId, body);
+    // 同步更新所有使用该模板的实例的 tickSpeed
+    this.applyTickSpeedToInstancesByTemplate(mapId, normalizedSpeed, paused);
+  }
+
+  /** 按 instanceId 更新单个实例的 tickSpeed。 */
+  updateInstanceTick(instanceId: string, body: { speed?: unknown; paused?: unknown }): { ok: boolean; reason?: string } {
+    if (typeof this.worldRuntimeService.listInstanceRuntimes !== 'function') {
+      return { ok: false, reason: 'runtime_not_available' };
+    }
+    let targetInstance: any = null;
+    for (const inst of this.worldRuntimeService.listInstanceRuntimes()) {
+      if ((inst as any)?.meta?.instanceId === instanceId) {
+        targetInstance = inst;
+        break;
+      }
+    }
+    if (!targetInstance) {
+      return { ok: false, reason: 'instance_not_found' };
+    }
+    const normalizedSpeed = normalizePersistedMapTickSpeed(body?.speed);
+    let paused: boolean | undefined;
+    if (body?.paused !== undefined) {
+      paused = Boolean(body.paused);
+    } else if (normalizedSpeed !== undefined) {
+      paused = normalizedSpeed === 0 ? true : false;
+    }
+    if (paused === true) {
+      targetInstance.tickSpeed = 0;
+      targetInstance.paused = true;
+    } else if (paused === false) {
+      targetInstance.paused = false;
+      if (normalizedSpeed !== undefined) {
+        targetInstance.tickSpeed = normalizedSpeed;
+      } else if (targetInstance.tickSpeed === 0) {
+        targetInstance.tickSpeed = 1;
+      }
+    } else if (normalizedSpeed !== undefined) {
+      targetInstance.tickSpeed = normalizedSpeed;
+      targetInstance.paused = normalizedSpeed === 0;
+    }
+    // 标记 time 域为脏以触发 checkpoint 持久化
+    if (typeof targetInstance.markPersistenceDirtyDomains === 'function') {
+      targetInstance.markPersistenceDirtyDomains(['time']);
+    }
+    return { ok: true };
+  }
+
+  /** 将 tickSpeed 应用到所有使用指定模板的实例。 */
+  private applyTickSpeedToInstancesByTemplate(templateId: string, speed: number | undefined, paused: boolean | undefined): void {
+    if (typeof this.worldRuntimeService.listInstanceRuntimes !== 'function') {
+      return;
+    }
+    for (const instance of this.worldRuntimeService.listInstanceRuntimes()) {
+      const inst = instance as any;
+      if (inst?.template?.id !== templateId) {
+        continue;
+      }
+      if (paused === true) {
+        inst.tickSpeed = 0;
+        inst.paused = true;
+      } else if (paused === false) {
+        inst.paused = false;
+        if (speed !== undefined) {
+          inst.tickSpeed = speed;
+        } else if (inst.tickSpeed === 0) {
+          inst.tickSpeed = 1;
+        }
+      } else if (speed !== undefined) {
+        inst.tickSpeed = speed;
+        inst.paused = speed === 0;
+      }
+      if (typeof inst.markPersistenceDirtyDomains === 'function') {
+        inst.markPersistenceDirtyDomains(['time']);
+      }
+    }
   }
   /**
  * updateMapTime：处理地图时间并更新相关状态。

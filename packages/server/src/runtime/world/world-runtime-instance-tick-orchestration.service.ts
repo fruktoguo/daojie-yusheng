@@ -32,9 +32,17 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }
                 continue;
             }
-            const speed = getInstanceTickSpeed
-                ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
-                : 1;
+            // 优先从实例自身读取 tickSpeed；paused 时 speed=0
+            let speed;
+            if (instance.paused === true) {
+                speed = 0;
+            } else if (Number.isFinite(instance.tickSpeed) && instance.tickSpeed >= 0) {
+                speed = instance.tickSpeed;
+            } else if (getInstanceTickSpeed) {
+                speed = Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1));
+            } else {
+                speed = 1;
+            }
             if (!Number.isFinite(speed) || speed <= 0) {
                 continue;
             }

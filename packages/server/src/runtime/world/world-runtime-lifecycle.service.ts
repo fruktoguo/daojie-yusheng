@@ -344,10 +344,26 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
     if (!snapshot) {
         return;
     }
-    if (typeof instance.hydrateTime === 'function') {
-        instance.hydrateTime(snapshot.tick);
+    // 兼容迁移：旧版 checkpoint (version=1) 没有 tickSpeed/paused，
+    // 从 RuntimeMapConfigService fallback 获取
+    let tickSpeed = snapshot.tickSpeed;
+    let paused = snapshot.paused;
+    if (tickSpeed === undefined || tickSpeed === null) {
+        const templateId = instance?.template?.id;
+        if (templateId && typeof deps.getMapTickSpeedFallback === 'function') {
+            const fallbackSpeed = deps.getMapTickSpeedFallback(templateId);
+            if (Number.isFinite(fallbackSpeed)) {
+                tickSpeed = fallbackSpeed;
+                paused = fallbackSpeed === 0;
+            }
+        }
     }
-    void deps;
+    if (typeof instance.hydrateTime === 'function') {
+        instance.hydrateTime(snapshot.tick, {
+            tickSpeed,
+            paused,
+        });
+    }
     void instanceId;
 }
 

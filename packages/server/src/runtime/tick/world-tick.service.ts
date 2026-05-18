@@ -25,12 +25,14 @@ interface RuntimeMaintenancePort {
 /** 地图配置端口：获取每张地图的 tick 倍速。 */
 interface RuntimeMapConfigPort {
   getMapTickSpeed(mapId: string): number;
+  isMapPaused(mapId: string): boolean;
 }
 
 /** 世界运行时端口：推进帧和记录同步耗时。 */
 interface WorldRuntimePort {
-  advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): Promise<unknown> | unknown;
+  advanceFrame(frameDurationMs: number, getMapTickSpeed: ((mapId: string) => number) | null): Promise<unknown> | unknown;
   recordSyncFlushDuration(durationMs: number): void;
+  listInstanceEntries?(): Iterable<[string, { template?: { id?: string }; tickSpeed?: number; paused?: boolean }]>;
 }
 
 /** 同步端口：把当前帧的变化推送给已连接玩家。 */

@@ -33,11 +33,13 @@ async function testAwaitsAdvanceFrameBeforeSyncFlush(): Promise<void> {
         log.push(['getMapTickSpeed', mapId]);
         return 1;
       },
+      isMapPaused(_mapId: string): boolean {
+        return false;
+      },
     },
     {
-      advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): Promise<void> {
+      advanceFrame(frameDurationMs: number, _getMapTickSpeed: unknown): Promise<void> {
         log.push(['advanceFrame:start', frameDurationMs]);
-        log.push(['tickSpeed', getMapTickSpeed('instance:1')]);
         return new Promise((resolve) => {
           resolveFrame = () => {
             log.push('advanceFrame:resolved');
@@ -61,8 +63,6 @@ async function testAwaitsAdvanceFrameBeforeSyncFlush(): Promise<void> {
 
   assert.deepEqual(log, [
     ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS],
-    ['getMapTickSpeed', 'instance:1'],
-    ['tickSpeed', 1],
   ]);
 
   resolveFrame();
@@ -70,8 +70,6 @@ async function testAwaitsAdvanceFrameBeforeSyncFlush(): Promise<void> {
 
   assert.deepEqual(log, [
     ['advanceFrame:start', gameplayConstants.WORLD_TICK_INTERVAL_MS],
-    ['getMapTickSpeed', 'instance:1'],
-    ['tickSpeed', 1],
     'advanceFrame:resolved',
     'flushConnectedPlayers',
     ['recordSyncFlushDuration', 'number'],
@@ -93,6 +91,9 @@ async function testTickInFlightPreventsReentry(): Promise<void> {
     {
       getMapTickSpeed(): number {
         return 1;
+      },
+      isMapPaused(_mapId: string): boolean {
+        return false;
       },
     },
     {
@@ -151,6 +152,9 @@ async function testMaintenanceSkipsFrameAndSync(): Promise<void> {
         log.push('getMapTickSpeed');
         return 1;
       },
+      isMapPaused(_mapId: string): boolean {
+        return false;
+      },
     },
     {
       advanceFrame(): void {
@@ -185,6 +189,9 @@ async function testShutdownWaitsForInFlightTickAndBlocksNewTicks(): Promise<void
     {
       getMapTickSpeed(): number {
         return 1;
+      },
+      isMapPaused(_mapId: string): boolean {
+        return false;
       },
     },
     {
