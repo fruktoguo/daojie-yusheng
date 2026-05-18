@@ -33,11 +33,11 @@ const BUFF_INSTANCE_OWN_KEYS = new Set([
 
 @Injectable()
 export class BuffTemplateRegistry {
-  readonly sharedTechniqueBuffs = new Map<string, any>();
-  readonly buffTemplates = new Map<string, any>();
-  private readonly pvpSoulInjuryBuffByRealmLv = new Map<number, any>();
-  private readonly pvpShaInfusionBuffByRealmLv = new Map<number, any>();
-  private readonly pvpShaBacklashBuffByRealmLv = new Map<number, any>();
+  readonly sharedTechniqueBuffs = new Map<string, Record<string, unknown>>();
+  readonly buffTemplates = new Map<string, Record<string, unknown>>();
+  private readonly pvpSoulInjuryBuffByRealmLv = new Map<number, Record<string, unknown>>();
+  private readonly pvpShaInfusionBuffByRealmLv = new Map<number, Record<string, unknown>>();
+  private readonly pvpShaBacklashBuffByRealmLv = new Map<number, Record<string, unknown>>();
 
   loadAll(): void {
     this.sharedTechniqueBuffs.clear();
@@ -67,7 +67,7 @@ export class BuffTemplateRegistry {
     }
   }
 
-  registerTemplate(template: any): void {
+  registerTemplate(template: Record<string, unknown>): void {
     const buffId = typeof template?.buffId === 'string' && template.buffId.trim()
       ? template.buffId.trim()
       : (typeof template?.id === 'string' ? template.id.trim() : '');
@@ -77,13 +77,13 @@ export class BuffTemplateRegistry {
     this.buffTemplates.set(buffId, deepFreezeTemplate({ ...template, buffId }));
   }
 
-  registerTemplates(templates: Iterable<any>): void {
+  registerTemplates(templates: Iterable<Record<string, unknown>>): void {
     for (const template of templates) {
       this.registerTemplate(template);
     }
   }
 
-  getRef(buffId: string): Readonly<any> {
+  getRef(buffId: string): Readonly<Record<string, unknown>> {
     const template = this.tryGetRef(buffId);
     if (!template) {
       throw new Error(`未找到 Buff 模板：${buffId}`);
@@ -91,21 +91,21 @@ export class BuffTemplateRegistry {
     return template;
   }
 
-  tryGetRef(buffId: string): Readonly<any> | undefined {
+  tryGetRef(buffId: string): Readonly<Record<string, unknown>> | undefined {
     return this.buffTemplates.get(String(buffId ?? '').trim());
   }
 
-  createInstance(buffId: string, init: any = {}): any {
+  createInstance(buffId: string, init: Record<string, unknown> = {}): Record<string, unknown> {
     const template = this.getRef(buffId);
     return this.createInstanceFromTemplate(template, init);
   }
 
-  createInstanceFromTemplate(template: any, init: any = {}): any {
+  createInstanceFromTemplate(template: Record<string, unknown>, init: Record<string, unknown> = {}): Record<string, unknown> {
     const buffId = String(template?.buffId ?? template?.id ?? '').trim();
     if (!buffId) {
       throw new Error('Buff 模板缺少 buffId');
     }
-    const source: Record<string, any> = {};
+    const source: Record<string, unknown> = {};
     for (const key of Object.keys(init ?? {})) {
       if (BUFF_INSTANCE_OWN_KEYS.has(key)) {
         source[key] = init[key];
@@ -121,7 +121,7 @@ export class BuffTemplateRegistry {
     });
   }
 
-  hydrate(buffId: string, payload: any = {}): any {
+  hydrate(buffId: string, payload: Record<string, unknown> = {}): Record<string, unknown> {
     const normalizedBuffId = String(buffId ?? '').trim();
     if (!normalizedBuffId) {
       return createRuntimeTemporaryBuff(payload);
@@ -143,17 +143,17 @@ export class BuffTemplateRegistry {
     freezeTemplateMap(this.buffTemplates);
   }
 
-  createPvPSoulInjuryBuff(sourceRealmLv: number): any {
+  createPvPSoulInjuryBuff(sourceRealmLv: number): Record<string, unknown> {
     const template = this.getOrBuildPvpSoulInjuryTemplate(sourceRealmLv);
     return this.createInstanceFromTemplate(template, template);
   }
 
-  createPvPShaInfusionBuff(sourceRealmLv: number): any {
+  createPvPShaInfusionBuff(sourceRealmLv: number): Record<string, unknown> {
     const template = this.getOrBuildPvpShaInfusionTemplate(sourceRealmLv);
     return this.createInstanceFromTemplate(template, template);
   }
 
-  createPvPShaBacklashBuff(sourceRealmLv: number, stacks = 1): any {
+  createPvPShaBacklashBuff(sourceRealmLv: number, stacks = 1): Record<string, unknown> {
     const template = this.getOrBuildPvpShaBacklashTemplate(sourceRealmLv);
     return this.createInstanceFromTemplate(template, {
       ...template,
@@ -161,7 +161,7 @@ export class BuffTemplateRegistry {
     });
   }
 
-  private getOrBuildPvpSoulInjuryTemplate(sourceRealmLv: number): any {
+  private getOrBuildPvpSoulInjuryTemplate(sourceRealmLv: number): Record<string, unknown> {
     const realmLv = normalizeRealmLevel(sourceRealmLv);
     const cached = this.pvpSoulInjuryBuffByRealmLv.get(realmLv);
     if (cached) {
@@ -191,7 +191,7 @@ export class BuffTemplateRegistry {
     return template;
   }
 
-  private getOrBuildPvpShaInfusionTemplate(sourceRealmLv: number): any {
+  private getOrBuildPvpShaInfusionTemplate(sourceRealmLv: number): Record<string, unknown> {
     const realmLv = normalizeRealmLevel(sourceRealmLv);
     const cached = this.pvpShaInfusionBuffByRealmLv.get(realmLv);
     if (cached) {
@@ -229,7 +229,7 @@ export class BuffTemplateRegistry {
     return template;
   }
 
-  private getOrBuildPvpShaBacklashTemplate(sourceRealmLv: number): any {
+  private getOrBuildPvpShaBacklashTemplate(sourceRealmLv: number): Record<string, unknown> {
     const realmLv = normalizeRealmLevel(sourceRealmLv);
     const cached = this.pvpShaBacklashBuffByRealmLv.get(realmLv);
     if (cached) {
