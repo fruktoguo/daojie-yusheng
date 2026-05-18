@@ -13,8 +13,10 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { createWriteStream, promises as fsPromises } from 'node:fs';
+import { createReadStream, createWriteStream, promises as fsPromises } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
+import { createGunzip } from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
 import { URL } from 'node:url';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
@@ -506,20 +508,35 @@ export class NativeGmAdminService {
 
         const originalFileName = normalizeUploadFileName(input.fileName);
         const extension = resolveUploadedBackupExtension(originalFileName);
+        const isGzipped = extension === '.dump.gz';
         const backupId = buildUploadedBackupId();
         const createdAt = new Date().toISOString();
-        const fileName = `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}${extension}`;
-        const filePath = join(this.backupDirectory, fileName);
+        // 最终存储为 .dump（如果上传的是 .dump.gz 则解压后存储）
+        const finalFileName = `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump`;
+        const finalFilePath = join(this.backupDirectory, finalFileName);
         await fsPromises.mkdir(this.backupDirectory, { recursive: true });
+
+        // 如果是 gzip 压缩文件，先写入临时路径再解压
+        const uploadFilePath = isGzipped
+            ? join(this.backupDirectory, `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump.gz.tmp`)
+            : finalFilePath;
 
         let sizeBytes = 0;
         try {
-            sizeBytes = Number(await writeUploadStreamToFile(input.stream, filePath, maxBytes));
-            const uploaded = await validateUploadedDatabaseBackup(filePath, originalFileName);
+            sizeBytes = Number(await writeUploadStreamToFile(input.stream, uploadFilePath, maxBytes));
+
+            if (isGzipped) {
+                await decompressGzipFile(uploadFilePath, finalFilePath);
+                await fsPromises.rm(uploadFilePath, { force: true }).catch(() => undefined);
+                const decompressedStats = await fsPromises.stat(finalFilePath);
+                sizeBytes = decompressedStats.size;
+            }
+
+            const uploaded = await validateUploadedDatabaseBackup(finalFilePath, originalFileName);
             const record = {
                 id: backupId,
                 kind: 'uploaded',
-                fileName,
+                fileName: finalFileName,
                 createdAt,
                 sizeBytes,
                 scope: uploaded.scope,
@@ -547,7 +564,8 @@ export class NativeGmAdminService {
             };
         }
         catch (error) {
-            await fsPromises.rm(filePath, { force: true }).catch(() => undefined);
+            await fsPromises.rm(uploadFilePath, { force: true }).catch(() => undefined);
+            await fsPromises.rm(finalFilePath, { force: true }).catch(() => undefined);
             throw error;
         }
     }
@@ -3352,11 +3370,14 @@ function decodeHeaderFileName(value) {
 }
 
 function resolveUploadedBackupExtension(fileName) {
-    const extension = extname(fileName).toLowerCase();
-    if (extension === '.dump') {
-        return extension;
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.dump.gz')) {
+        return '.dump.gz';
     }
-    throw new BadRequestException('上传文件类型不受支持，硬切后仅支持 PostgreSQL 自定义备份（.dump）');
+    if (lower.endsWith('.dump')) {
+        return '.dump';
+    }
+    throw new BadRequestException('上传文件类型不受支持，仅支持 PostgreSQL 自定义备份（.dump 或 .dump.gz）');
 }
 
 function buildUploadedBackupId() {
@@ -3399,6 +3420,13 @@ async function writeUploadStreamToFile(stream, filePath, maxBytes) {
     });
 }
 
+async function decompressGzipFile(gzipPath, outputPath) {
+    const source = createReadStream(gzipPath);
+    const gunzip = createGunzip();
+    const destination = createWriteStream(outputPath, { flags: 'wx' });
+    await pipeline(source, gunzip, destination);
+}
+
 async function validateUploadedDatabaseBackup(filePath, originalFileName) {
     const magicFormat = await detectDatabaseBackupFormat(filePath, '');
     if (magicFormat === 'postgres_custom_dump') {
@@ -3413,10 +3441,10 @@ async function validateUploadedDatabaseBackup(filePath, originalFileName) {
     }
 
     if (extname(originalFileName).toLowerCase() === '.json') {
-        throw new BadRequestException('硬切后不再支持上传历史 JSON 快照，请上传新版 PostgreSQL 自定义备份（.dump）');
+        throw new BadRequestException('硬切后不再支持上传历史 JSON 快照，请上传新版 PostgreSQL 自定义备份（.dump 或 .dump.gz）');
     }
 
-    throw new BadRequestException('上传的 .dump 文件不是 PostgreSQL 自定义备份（缺少 PGDMP 文件头）');
+    throw new BadRequestException('上传的文件不是 PostgreSQL 自定义备份（缺少 PGDMP 文件头），支持 .dump 或 .dump.gz');
 }
 /**
  * clampInteger：执行clampInteger相关逻辑。

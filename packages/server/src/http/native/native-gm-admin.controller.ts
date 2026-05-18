@@ -5,7 +5,6 @@
  */
 import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards, NotFoundException } from '@nestjs/common';
 import { createReadStream } from 'fs';
-import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { stat } from 'fs/promises';
 
@@ -99,19 +98,17 @@ export class NativeGmAdminController {
     });
   }
 
-  /** 下载指定备份文件（gzip 压缩）。 */
+  /** 下载指定备份文件（原始 pg_dump custom format）。 */
   @Get('database/backups/:backupId/download')
   async downloadDatabaseBackup(@Param('backupId') backupId: string, @Res() response: DownloadResponseLike) {
     const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
     // 确认文件存在
-    await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
-    const gzFileName = record.fileName.endsWith('.gz') ? record.fileName : `${record.fileName}.gz`;
-    response.setHeader('Content-Disposition', `attachment; filename="${gzFileName}"`);
-    response.setHeader('Content-Type', 'application/gzip');
-    response.setHeader('Content-Encoding', 'identity');
+    const fileStat = await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
+    response.setHeader('Content-Disposition', `attachment; filename="${record.fileName}"`);
+    response.setHeader('Content-Type', 'application/octet-stream');
+    response.setHeader('Content-Length', String(fileStat.size));
     const source = createReadStream(record.filePath);
-    const gzip = createGzip();
-    await pipeline(source, gzip, response as unknown as NodeJS.WritableStream);
+    await pipeline(source, response as unknown as NodeJS.WritableStream);
   }
 
   /** 从指定备份恢复数据库。 */
