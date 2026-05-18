@@ -152,9 +152,11 @@ export function buildCombatNoticePayload(opts: {
     targetHp?: number;
     targetMaxHp?: number;
     skill: string;
-    resolution?: { rawDamage?: number; damage?: number; damageKind?: string; element?: string; dodged?: boolean; crit?: boolean; broken?: boolean; resolved?: boolean };
+    resolution?: { rawDamage?: number; damage?: number; damageKind?: string; element?: string; dodged?: boolean; crit?: boolean; broken?: boolean; resolved?: boolean; heal?: number };
     formationResolution?: { rawDamage: number; damage: number; damageKind?: string; element?: string; auraDamage: number };
     killed?: boolean;
+    /** 通用效果列表：支持 heal / buff / debuff 等扩展类型。 */
+    effects?: Array<{ type: string; [key: string]: unknown }>;
 }): unknown {
     const payload: Record<string, unknown> = {
         caster: opts.caster,
@@ -176,6 +178,7 @@ export function buildCombatNoticePayload(opts: {
         if (r.crit) res.crit = true;
         if (r.broken) res.broken = true;
         if (r.resolved) res.resolved = true;
+        if (r.heal) res.heal = Math.max(0, Math.round(Number(r.heal) || 0));
         payload.resolution = res;
     }
     if (opts.formationResolution) {
@@ -188,6 +191,9 @@ export function buildCombatNoticePayload(opts: {
         };
         if (f.element) res.element = f.element;
         payload.formationResolution = res;
+    }
+    if (Array.isArray(opts.effects) && opts.effects.length > 0) {
+        payload.effects = opts.effects;
     }
     return payload;
 }

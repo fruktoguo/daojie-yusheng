@@ -63,6 +63,9 @@ export class PlayerCombatService {
             applyTargetBuff: (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             },
+            applySelfHeal: (amount) => {
+                this.playerRuntimeService.healPlayer(attacker.playerId, amount);
+            },
         }, options);
         if (options?.skipTargetRetaliation !== true) {
             this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
@@ -102,6 +105,9 @@ export class PlayerCombatService {
             applyTargetBuff: (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
             },
+            applySelfHeal: (amount) => {
+                this.playerRuntimeService.healPlayer(attacker.playerId, amount);
+            },
         }, options);
         return {
             ...result,
@@ -134,6 +140,9 @@ export class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
             },
             applyTargetBuff,
+            applySelfHeal: (amount) => {
+                this.playerRuntimeService.healPlayer(attacker.playerId, amount);
+            },
         }, options);
         return {
             ...result,
@@ -155,6 +164,7 @@ export class PlayerCombatService {
             applyTargetBuff: applyTargetBuff ?? ((buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             }),
+            applySelfHeal: () => undefined,
         }, options);
         if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
@@ -208,6 +218,9 @@ export class PlayerCombatService {
         let primaryDamageKind = null;
         let primaryDamageElement = undefined;
         const damageRolls = [];
+        let totalHeal = 0;
+        const selfBuffs = [];
+        const targetBuffs = [];
 
         let hitCount = 0;
         for (const effect of resolved.skill.effects) {
@@ -234,6 +247,25 @@ export class PlayerCombatService {
                 continue;
             }
 
+            // heal 效果：求值公式 → 治疗施法者（allies 视为施法者自身）
+            // skipSelfEffects 用于 AOE 多目标场景，避免 heal 重复执行
+            if (effect.type === 'heal') {
+                if (options?.skipSelfEffects === true) {
+                    continue;
+                }
+                const healAmount = Math.max(0, Math.round(evaluateSkillFormula(effect.formula, {
+                    attacker,
+                    target,
+                    techLevel: resolved.level,
+                    targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
+                })));
+                if (healAmount > 0) {
+                    totalHeal += healAmount;
+                    handlers.applySelfHeal?.(healAmount);
+                }
+                continue;
+            }
+
             // 仅 buff 类型才走 buff 应用分支；
             // heal / cleanse / temporary_tile 等其他 effect 类型在此处不应被当作 buff 处理，
             // 否则 toTemporaryBuff 会生成 buffId=undefined 的条目，进入 buff 集合后排序时
@@ -243,11 +275,15 @@ export class PlayerCombatService {
             }
             // buff 效果：生成临时 buff 并应用到自身或目标
             const buff = toTemporaryBuff(effect, resolved.skill);
-            if (effect.target === 'self') {
-                handlers.applySelfBuff?.(buff);
+            if (effect.target === 'self' || effect.target === 'allies') {
+                if (options?.skipSelfEffects !== true) {
+                    handlers.applySelfBuff?.(buff);
+                    selfBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
+                }
             }
             else {
                 handlers.applyTargetBuff?.(buff);
+                targetBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
             }
         }
         return {
@@ -255,10 +291,13 @@ export class PlayerCombatService {
             qiCost,
             totalDamage,
             totalRawDamage,
+            totalHeal,
             hitCount,
             damageKind: primaryDamageKind ?? undefined,
             damageElement: primaryDamageElement,
             damageRolls,
+            selfBuffs,
+            targetBuffs,
             crit: damageRolls.some((entry) => entry.crit),
             dodged: damageRolls.length > 0 && damageRolls.every((entry) => entry.dodged),
             resolved: damageRolls.some((entry) => entry.resolved),

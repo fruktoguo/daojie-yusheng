@@ -1002,7 +1002,8 @@ export class WorldRuntimeCombatActionService {
       ...(timing.rejected ?? []),
     ];
     const timingRejected = timing.rejected ?? [];
-    if (targetCollection.targets.length === 0 || validation.allowedCount === 0 || timingRejected.length > 0) {
+    const noTargetsButAllowed = targetCollection.targets.length === 0 && definition.requiresTarget === false;
+    if ((!noTargetsButAllowed && (targetCollection.targets.length === 0 || validation.allowedCount === 0)) || timingRejected.length > 0) {
       return {
         ok: false,
         action,

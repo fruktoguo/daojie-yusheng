@@ -145,6 +145,13 @@ function isSelfBuffNoTargetSkill(skill) {
         && effects.every((effect) => effect?.type === 'buff' && effect.target === 'self');
 }
 
+function hasHealOrAlliesEffect(skill) {
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    return effects.some((effect) =>
+        effect?.type === 'heal'
+        || (effect?.type === 'buff' && effect.target === 'allies'));
+}
+
 function resolveTechniqueLevelForSkill(player, skillId) {
     for (const technique of player.techniques?.techniques ?? []) {
         if ((technique.skills ?? []).some((entry) => entry.id === skillId)) {
@@ -604,9 +611,14 @@ export class WorldRuntimePlayerSkillDispatchService {
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
     async dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, primaryTarget, deps) {
-        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
+        let targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
         if (targets.length === 0) {
-            throw new BadRequestException('没有可命中的目标');
+            // 含有 heal/allies 效果或 requiresTarget:false 的技能允许无敌对目标释放
+            if (hasHealOrAlliesEffect(skill) || skill.requiresTarget === false) {
+                targets = [{ kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y }];
+            } else {
+                throw new BadRequestException('没有可命中的目标');
+            }
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }
@@ -1079,6 +1091,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                 return { kind: 'tile', x: cell.x, y: cell.y };
             }
         }
+        // 含有 heal 或 allies 效果的技能：即使没有敌对目标也允许释放（对自身施加治疗/buff）
+        if (hasHealOrAlliesEffect(skill)) {
+            return { kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y };
+        }
         return null;
     }
 
@@ -1175,11 +1191,14 @@ export class WorldRuntimePlayerSkillDispatchService {
             });
         }
         let castIndex = 0;
+        let totalSkillHeal = 0;
+        let selfBuffs = [];
         const destroyedTiles = [];
         for (const target of targets) {
             const options = {
                 targetCount: targets.length,
                 skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true || castIndex > 0,
+                skipSelfEffects: castIndex > 0,
                 range: effectiveRange,
             };
             if (target.kind === 'self') {
@@ -1194,6 +1213,39 @@ export class WorldRuntimePlayerSkillDispatchService {
                     targetY: attacker.y,
                 });
                 castIndex += 1;
+                const selfHeal = Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                const buffs = Array.isArray(result.selfBuffs) ? result.selfBuffs : [];
+                const effects = [];
+                if (selfHeal > 0) effects.push({ type: 'heal', amount: selfHeal });
+                for (const buff of buffs) {
+                    effects.push({ type: 'buff', buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
+                }
+                if (effects.length > 0) {
+                    const parts = [];
+                    if (selfHeal > 0) parts.push(`恢复生命 ${selfHeal}`);
+                    if (buffs.length > 0) parts.push(`获得 ${buffs.map(b => b.name).join('、')}`);
+                    emitCombatPresentation({
+                        deps,
+                        instanceId: attacker.instanceId,
+                        castId,
+                        notices: [{
+                            playerId: attacker.playerId,
+                            text: `你施展${skill.name}，${parts.join('，')}。`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name, effects }),
+                        }],
+                    });
+                } else {
+                    emitCombatPresentation({
+                        deps,
+                        instanceId: attacker.instanceId,
+                        castId,
+                        notices: [{
+                            playerId: attacker.playerId,
+                            text: `你施展${skill.name}。`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name }),
+                        }],
+                    });
+                }
                 continue;
             }
             if (target.kind === 'monster') {
@@ -1229,6 +1281,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, options);
                 castIndex += 1;
+                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                    selfBuffs = result.selfBuffs;
+                }
                 const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
@@ -1296,7 +1352,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     notices: [{
                         playerId: attacker.playerId,
                         text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, outcome?.hp ?? 0, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
-                        combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
+                        combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement }, effects: Array.isArray(result.targetBuffs) && result.targetBuffs.length > 0 ? result.targetBuffs.map(b => ({ type: b.category === 'debuff' ? 'debuff' : 'buff', buffId: b.buffId, name: b.name, category: b.category, duration: b.duration })) : undefined }),
                     }],
                 });
                 continue;
@@ -1330,6 +1386,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                     skipTargetDamageApplication: true,
                 });
                 castIndex += 1;
+                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                    selfBuffs = result.selfBuffs;
+                }
                 const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 const projectedDefeated = Math.max(0, Math.round(Number(targetPlayer.hp) || 0)) - Math.max(0, Math.round(Number(result.totalDamage) || 0)) <= 0;
                 const appliedOutcome = this.applyPlayerSkillOutcome({
@@ -1411,6 +1471,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                     buffs: [],
                 }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
                 castIndex += 1;
+                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                    selfBuffs = result.selfBuffs;
+                }
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                         kind: CombatTargetKind.Formation,
@@ -1493,6 +1557,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                     buffs: [],
                 }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
                 castIndex += 1;
+                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                    selfBuffs = result.selfBuffs;
+                }
                 if (result.totalDamage <= 0) {
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                         kind: CombatTargetKind.Formation,
@@ -1573,9 +1641,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                     ratioDivisors: createTileCombatRatioDivisors(),
                 },
                 buffs: [],
-            }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
-            castIndex += 1;
-            if (result.totalDamage <= 0) {
+                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                castIndex += 1;
+                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                    selfBuffs = result.selfBuffs;
+                }
+                if (result.totalDamage <= 0) {
                 this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Tile,
                     x: target.x,
@@ -1649,6 +1721,28 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         if (castIndex === 0) {
             throw new BadRequestException('没有可命中的目标');
+        }
+        if (totalSkillHeal > 0 || selfBuffs.length > 0) {
+            const effects = [];
+            if (totalSkillHeal > 0) {
+                effects.push({ type: 'heal', amount: totalSkillHeal });
+            }
+            for (const buff of selfBuffs) {
+                effects.push({ type: 'buff', buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
+            }
+            const parts = [];
+            if (totalSkillHeal > 0) parts.push(`恢复生命 ${totalSkillHeal}`);
+            if (selfBuffs.length > 0) parts.push(`获得 ${selfBuffs.map(b => b.name).join('、')}`);
+            emitCombatPresentation({
+                deps,
+                instanceId: attacker.instanceId,
+                castId,
+                notices: [{
+                    playerId: attacker.playerId,
+                    text: `${skill.name}：${parts.join('，')}。`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name, effects }),
+                }],
+            });
         }
         for (const tile of destroyedTiles) {
             deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, tile.x, tile.y, deps);
