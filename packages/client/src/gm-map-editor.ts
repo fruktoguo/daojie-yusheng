@@ -571,6 +571,11 @@ export class GmMapEditor {
   private composePieces: MapComposePiece[] = [];
   /** selectedComposePieceId：selected Compose Piece ID。 */
   private selectedComposePieceId: string | null = null;
+
+  /** window 事件监听器引用，用于 dispose 时移除。 */
+  private readonly _windowKeydownHandler = (event: KeyboardEvent) => this.handleKeyDown(event);
+  private readonly _windowBlurHandler = () => this.endPointerInteraction();
+  private readonly _windowResizeHandler = () => this.renderCanvas();
   /** composeSourceCache：compose来源缓存。 */
   private readonly composeSourceCache = new Map<string, GmMapDocument>();
   /** composeDragActive：compose Drag活跃。 */
@@ -778,7 +783,7 @@ export class GmMapEditor {
     this.zoomOutBtn.addEventListener('click', () => this.applyZoom(-1));
     this.zoomInBtn.addEventListener('click', () => this.applyZoom(1));
     this.applyJsonBtn.addEventListener('click', () => this.applyRawJson());
-    window.addEventListener('keydown', (event) => this.handleKeyDown(event));
+    window.addEventListener('keydown', this._windowKeydownHandler);
 
     this.listEl.addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-id]');
@@ -930,8 +935,8 @@ export class GmMapEditor {
         this.hoveredCell = null;
       }
     });
-    window.addEventListener('blur', () => this.endPointerInteraction());
-    window.addEventListener('resize', () => this.renderCanvas());
+    window.addEventListener('blur', this._windowBlurHandler);
+    window.addEventListener('resize', this._windowResizeHandler);
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
       this.applyZoom(event.deltaY > 0 ? -1 : 1);
@@ -4872,5 +4877,12 @@ export class GmMapEditor {
     this.updateUndoButtonState();
     if (render) this.renderInspector();
     else this.jsonEl.value = formatJson(this.draft);
+  }
+
+  /** 移除 window 事件监听器，释放全局引用。 */
+  dispose(): void {
+    window.removeEventListener('keydown', this._windowKeydownHandler);
+    window.removeEventListener('blur', this._windowBlurHandler);
+    window.removeEventListener('resize', this._windowResizeHandler);
   }
 }
