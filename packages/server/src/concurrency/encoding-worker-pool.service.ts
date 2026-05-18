@@ -186,7 +186,24 @@ export class EncodingWorkerPoolService {
         fallbackOnTimeout: fallback !== null,
       };
 
-      worker.postMessage(envelope);
+      try {
+        worker.postMessage(envelope);
+      } catch (postErr: unknown) {
+        // Worker 已终止——清理 pending 并走 fallback
+        clearTimeout(timer);
+        this.pendingTasks.delete(taskId);
+        if (fallback) {
+          const fbResult = this.executeFallbackSync(taskId, payload, fallback);
+          resolve(fbResult as WorkerTaskResult<TResult>);
+        } else {
+          resolve({
+            taskId,
+            ok: false,
+            errorMessage: `Worker postMessage failed: ${postErr instanceof Error ? postErr.message : String(postErr)}`,
+            durationMs: 0,
+          });
+        }
+      }
     });
   }
 
