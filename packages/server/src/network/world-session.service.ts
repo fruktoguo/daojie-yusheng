@@ -91,6 +91,9 @@ function resolveExpiredBindingMaxRetries(): number {
 
 const EXPIRED_BINDING_MAX_RETRIES = resolveExpiredBindingMaxRetries();
 
+/** 死信队列最大容量；超出时淘汰最早的条目，防止网络不稳定时无界增长。 */
+const EXPIRED_BINDING_DEAD_LETTER_MAX_SIZE = 200;
+
 export function buildWorldInstanceRoomId(instanceId: string): string {
   return `world:instance:${instanceId}`;
 }
@@ -406,6 +409,13 @@ export class WorldSessionService {
         attempts: nextAttempts,
         lastError,
       });
+      // 超出上限时淘汰最早的条目，防止无界增长
+      if (this.expiredBindingDeadLetter.size > EXPIRED_BINDING_DEAD_LETTER_MAX_SIZE) {
+        const firstKey = this.expiredBindingDeadLetter.keys().next().value;
+        if (firstKey !== undefined) {
+          this.expiredBindingDeadLetter.delete(firstKey);
+        }
+      }
       this.requeueAttemptsByPlayerId.delete(playerId);
       return false;
     }
