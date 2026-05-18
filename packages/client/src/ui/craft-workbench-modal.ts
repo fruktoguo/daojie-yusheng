@@ -2910,7 +2910,7 @@ export class CraftWorkbenchModal {
     };
     try {
       window.localStorage.setItem(ENHANCEMENT_HISTORY_STORAGE_KEY, JSON.stringify(payload));
-    } catch {}
+    } catch (e) { console.warn('[CraftWorkbench] localStorage write failed:', e); }
   }
 
   private mergeServerEnhancementSessionRecord(records: PlayerEnhancementRecord[]): void {

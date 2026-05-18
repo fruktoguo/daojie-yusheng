@@ -1215,7 +1215,7 @@ export class CraftEnhancementView {
         .sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0) || right.itemId.localeCompare(left.itemId, 'zh-Hans-CN')),
       sessionRecord: this.parent.lastServerEnhancementSessionRecord ? cloneEnhancementRecord(this.parent.lastServerEnhancementSessionRecord) : null,
     };
-    try { window.localStorage.setItem(ENHANCEMENT_HISTORY_STORAGE_KEY, JSON.stringify(payload)); } catch {}
+    try { window.localStorage.setItem(ENHANCEMENT_HISTORY_STORAGE_KEY, JSON.stringify(payload)); } catch (e) { console.warn('[EnhancementView] localStorage write failed:', e); }
   }
 
   mergeServerEnhancementSessionRecord(records: PlayerEnhancementRecord[]): void {
