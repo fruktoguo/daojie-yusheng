@@ -833,6 +833,7 @@ class WorldRuntimeFormationService {
         try {
             template = this.resolveFormationTemplate(formationId);
         } catch (_error) {
+            this.logger.warn(`restoreFormationEntry 模板解析失败 formationId=${formationId}: ${_error instanceof Error ? _error.message : String(_error)}`);
             return null;
         }
         const diskTier = normalizeFormationDiskTier(entry.diskTier);

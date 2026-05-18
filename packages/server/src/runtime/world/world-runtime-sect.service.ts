@@ -744,7 +744,8 @@ class WorldRuntimeSectService {
             }, deps);
         }
         catch (_error) {
-            // 解散宗门时大阵已缺失不阻断宗门真源删除。
+            // 解散宗门时大阵已缺失不阻断宗门真源删除，但记录警告便于排查。
+            this.logger.warn(`解散宗门 ${sect.sectId} 时大阵操作异常：${_error instanceof Error ? _error.message : String(_error)}`);
         }
         this.sectsById.delete(sect.sectId);
         this.persistSectsSoon();
