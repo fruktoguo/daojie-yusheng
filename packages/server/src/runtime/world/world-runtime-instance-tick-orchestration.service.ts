@@ -63,11 +63,18 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         deps.dispatchPendingSystemCommands();
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
         const steppedPlayerIds = new Set();
-        const blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
         for (const { instance, steps, speed } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
+                // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
+                if (index > 0) {
+                    deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance(instance.meta.instanceId, deps);
+                    deps.worldRuntimeAutoCombatService.materializeAutoUsePillsForInstance(instance.meta.instanceId, deps);
+                    deps.worldRuntimeAutoCombatService.materializeAutoCombatCommandsForInstance(instance.meta.instanceId, deps);
+                    await deps.dispatchPendingCommands();
+                }
+                const blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
                 deps.tick += 1;
                 totalLogicalTicks += 1;
                 if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {

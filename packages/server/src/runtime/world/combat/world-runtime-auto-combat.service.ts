@@ -254,6 +254,48 @@ export class WorldRuntimeAutoCombatService {
             }
         }
     }
+    /** materializeAutoUsePillsForInstance：只为指定实例的玩家自动使用丹药（加速 tick 补偿用）。 */
+    materializeAutoUsePillsForInstance(instanceId, deps) {
+        for (const playerId of deps.listConnectedPlayerIds()) {
+            if (typeof deps.hasPendingCommand === 'function' && deps.hasPendingCommand(playerId)) {
+                continue;
+            }
+            const player = this.playerRuntimeService.getPlayer(playerId);
+            if (!player || player.hp <= 0) {
+                continue;
+            }
+            const location = deps.getPlayerLocation(playerId);
+            if (!location || location.instanceId !== instanceId) {
+                continue;
+            }
+            const configs = Array.isArray(player.combat?.autoUsePills)
+                ? player.combat.autoUsePills.slice(0, AUTO_USE_PILL_SLOT_LIMIT)
+                : [];
+            if (configs.length === 0) {
+                continue;
+            }
+            for (const config of configs) {
+                const match = findAutoUsePillInventorySlot(player, config?.itemId);
+                if (!match || !shouldAutoUsePill(player, match.item, config?.conditions)) {
+                    continue;
+                }
+                try {
+                    this.playerRuntimeService.useItem(playerId, match.slotIndex);
+                    if (typeof deps.refreshQuestStates === 'function') {
+                        deps.refreshQuestStates(playerId);
+                    }
+                    if (typeof deps.queuePlayerNotice === 'function') {
+                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${match.item.name ?? match.item.itemId}`, { vars: { itemName: match.item.name ?? match.item.itemId }, pills: [{ key: 'itemName', style: 'target' }] });
+                        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+                    }
+                }
+                catch (_error) {
+                    continue;
+                }
+                break;
+            }
+        }
+    }
     /**
  * materializeAutoCombatCommands：执行materializeAuto战斗Command相关逻辑。
  * @param deps 运行时依赖。
@@ -282,6 +324,54 @@ export class WorldRuntimeAutoCombatService {
             }
             const location = deps.getPlayerLocation(playerId);
             if (!location) {
+                continue;
+            }
+            const instance = deps.getInstanceRuntime(location.instanceId);
+            if (!instance) {
+                continue;
+            }
+            const command = this.buildAutoCombatCommand(instance, player, deps);
+            if (command) {
+                if (isAutoCombatActionCommand(command)) {
+                    if (!hasCombatActionBudget(player, currentTick)) {
+                        continue;
+                    }
+                }
+                deps.enqueuePendingCommand(playerId, manualEngagePending ? {
+                    ...command,
+                    manualEngage: true,
+                } : command);
+                continue;
+            }
+            if (manualEngagePending) {
+                this.playerRuntimeService.clearManualEngagePending(playerId);
+                this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
+            }
+        }
+    }
+    /** materializeAutoCombatCommandsForInstance：只为指定实例的玩家物化自动战斗命令（加速 tick 补偿用）。 */
+    materializeAutoCombatCommandsForInstance(instanceId, deps) {
+        for (const playerId of deps.listConnectedPlayerIds()) {
+            if (deps.hasPendingCommand(playerId) || deps.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
+                continue;
+            }
+            const player = this.playerRuntimeService.getPlayer(playerId);
+            if (!player || player.hp <= 0) {
+                continue;
+            }
+            const location = deps.getPlayerLocation(playerId);
+            if (!location || location.instanceId !== instanceId) {
+                continue;
+            }
+            const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
+            if (typeof this.playerRuntimeService.clearRetaliatePlayerTargetIfExpired === 'function') {
+                this.playerRuntimeService.clearRetaliatePlayerTargetIfExpired(playerId, currentTick);
+            }
+            if (player.combat?.pendingSkillCast) {
+                continue;
+            }
+            const manualEngagePending = player.combat.manualEngagePending === true;
+            if (!player.combat.autoBattle && !player.combat.autoRetaliate && !manualEngagePending) {
                 continue;
             }
             const instance = deps.getInstanceRuntime(location.instanceId);

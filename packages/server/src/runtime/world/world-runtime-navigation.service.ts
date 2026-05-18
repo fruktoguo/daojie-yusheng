@@ -343,6 +343,51 @@ export class WorldRuntimeNavigationService {
             }
         }
     }
+    /** materializeNavigationCommandsForInstance：只为指定实例的玩家物化导航命令（加速 tick 补偿用）。 */
+    materializeNavigationCommandsForInstance(instanceId, deps) {
+        if (this.navigationIntents.size === 0) {
+            return;
+        }
+        for (const [playerId, intent] of this.navigationIntents) {
+            if (deps.hasPendingCommand(playerId)) {
+                continue;
+            }
+            const player = this.playerRuntimeService.getPlayer(playerId);
+            if (!player || !player.instanceId || player.hp <= 0) {
+                this.navigationIntents.delete(playerId);
+                continue;
+            }
+            if (player.instanceId !== instanceId) {
+                continue;
+            }
+            try {
+                const step = this.resolveNavigationStep(playerId, intent, deps);
+                logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.step', { playerId, intent, step });
+                if (step.kind === 'done') {
+                    this.navigationIntents.delete(playerId);
+                    continue;
+                }
+                if (step.kind === 'portal') {
+                    deps.enqueuePendingCommand(playerId, { kind: 'portal' });
+                    continue;
+                }
+                deps.enqueuePendingCommand(playerId, {
+                    kind: 'move',
+                    direction: step.direction,
+                    continuous: true,
+                    maxSteps: step.maxSteps,
+                    path: step.path ?? undefined,
+                    resetBudget: false,
+                });
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.error', { playerId, intent, message });
+                this.navigationIntents.delete(playerId);
+                deps.queuePlayerNotice(playerId, message, 'warn');
+            }
+        }
+    }
     /**
  * dispatchMoveTo：判断MoveTo是否满足条件。
  * @param playerId 玩家 ID。
