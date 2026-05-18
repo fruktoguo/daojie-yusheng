@@ -247,7 +247,7 @@ const HudLinkActions = memo(function HudLinkActions() {
         <span className="hud-link-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
             <path d="M12.02 2.4c2.35-2.1 6.03-1.83 8.05.43 2.09 2.34 2 5.95-.22 8.2l-6.96 7.08a1.2 1.2 0 0 1-1.71 0L4.22 11.03A5.87 5.87 0 0 1 3.9 2.84c2.02-2.27 5.7-2.53 8.05-.44l.07.06z" />
-            <path d="M13.93 6.38 9.45 12.1h2.76l-2.14 5.52 4.47-5.72h-2.76z" fill="#fff" />
+            <path d="M13.93 6.38 9.45 12.1h2.76l-2.14 5.52 4.47-5.72h-2.76z" className="hud-icon-inner-fill" />
           </svg>
         </span>
         <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-ifdian', undefined)}</span>

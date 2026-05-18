@@ -482,6 +482,9 @@
       height: 100%;
       fill: currentColor;
     }
+    .hud-icon-inner-fill {
+      fill: var(--paper-white);
+    }
     .hud-link-btn--labeled .hud-link-icon {
       width: 16px;
       height: 16px;
