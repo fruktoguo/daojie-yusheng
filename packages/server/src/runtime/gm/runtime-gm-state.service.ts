@@ -1,6 +1,6 @@
 /** GM 状态聚合器：把玩家、地图与运行时性能信息拼成 GM 面板快照。 */
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { C2S, S2C } from '@mud/shared';
 import { Session } from 'node:inspector';
 import { cpus, loadavg, uptime } from 'os';
@@ -17,6 +17,7 @@ import {
   summarizeHeapSnapshotFromStream,
   type HeapSnapshotSummary,
 } from '../../tools/heap-snapshot-summary';
+import { WorkerPoolMetricsService } from '../../concurrency/worker-pool-metrics.service';
 
 const EMPTY_CPU_BREAKDOWN = [];
 
@@ -111,6 +112,8 @@ export class RuntimeGmStateService {
     worldSessionService;
     /** 运行时事件总线，GM 状态推送标记写入此处。 */
     runtimeEventBusService;
+    /** Worker Pool 指标服务（可选，WorkerPoolModule 未加载时为 null）。 */
+    workerPoolMetricsService: WorkerPoolMetricsService | null;
     /** 网络上行事件累计桶。 */
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
@@ -148,12 +151,14 @@ export class RuntimeGmStateService {
         worldRuntimeService: WorldRuntimeService,
         worldSessionService: WorldSessionService,
         runtimeEventBusService: RuntimeEventBusService,
+        @Optional() @Inject(WorkerPoolMetricsService) workerPoolMetricsService?: WorkerPoolMetricsService,
     ) {
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
         this.worldSessionService = worldSessionService;
         this.runtimeEventBusService = runtimeEventBusService;
+        this.workerPoolMetricsService = workerPoolMetricsService ?? null;
     }
     /** 立即向单个客户端下发 GM 状态快照。 */
     emitState(client) {
@@ -821,6 +826,7 @@ export class RuntimeGmStateService {
             networkOutBytes,
             networkInBuckets: networkInBuckets.length > 0 ? networkInBuckets : EMPTY_NETWORK_BUCKETS,
             networkOutBuckets: networkOutBuckets.length > 0 ? networkOutBuckets : EMPTY_NETWORK_BUCKETS,
+            workerPool: this.workerPoolMetricsService?.getAllMetrics() ?? null,
         };
     }    
     /**

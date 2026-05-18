@@ -190,11 +190,13 @@ import { WorldTickService } from './runtime/tick/world-tick.service';
 import { WorldRuntimeController } from './runtime/world/world-runtime.controller';
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
+import { WorkerPoolModule } from './concurrency/worker-pool.module';
 
 /** 服务端主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    WorkerPoolModule,
   ],
   controllers: [
     HealthController,
