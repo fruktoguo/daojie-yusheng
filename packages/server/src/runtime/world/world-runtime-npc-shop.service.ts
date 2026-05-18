@@ -93,8 +93,9 @@ export class WorldRuntimeNpcShopService {
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
         if (durableOperationService?.isEnabled?.() && runtimeOwnerId && sessionEpoch > 0) {
-            const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item);
-            const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
+            const currencyItemId = this.worldRuntimeNpcShopQueryService.getCurrencyItemId();
+            const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item, currencyItemId, validated.totalCost);
+            const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], currencyItemId, nextInventoryItems);
             if (nextInventoryItems && nextWalletBalances) {
                 const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
                 const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
@@ -114,7 +115,6 @@ export class WorldRuntimeNpcShopService {
                     nextWalletBalances,
                 }).then(() => {
                     this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
-                    this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
                     deps.refreshQuestStates(playerId);
                     const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
                     deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
@@ -131,10 +131,13 @@ export class WorldRuntimeNpcShopService {
     }
 };
 
-function applyNpcShopPurchaseToInventory(existingItems, item) {
+function applyNpcShopPurchaseToInventory(existingItems, item, currencyItemId, totalCost) {
     const nextItems = Array.isArray(existingItems)
         ? existingItems.map((entry) => ({ ...entry }))
         : [];
+    if (!debitInventoryItemCount(nextItems, currencyItemId, totalCost)) {
+        return null;
+    }
     const incoming = { ...item };
     assignItemInstanceIdIfNeeded(incoming);
     const existing = canMergeItemStack(incoming)
@@ -148,27 +151,81 @@ function applyNpcShopPurchaseToInventory(existingItems, item) {
     return nextItems;
 }
 
-function applyNpcShopPurchaseToWallet(existingBalances, walletType, amount) {
+function applyNpcShopPurchaseToWallet(existingBalances, walletType, nextInventoryItems) {
     const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
-    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
-    if (!normalizedWalletType || normalizedAmount <= 0) {
+    if (!normalizedWalletType || !Array.isArray(nextInventoryItems)) {
         return null;
     }
-    const balances = Array.isArray(existingBalances)
-        ? existingBalances.map((entry) => ({
-            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
-            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
-            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
-            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
-        })).filter((entry) => entry.walletType)
-        : [];
+    const balances = collapseWalletBalances(existingBalances);
+    const nextBalance = countInventoryItem(nextInventoryItems, normalizedWalletType);
     const entry = balances.find((row) => row.walletType === normalizedWalletType);
-    if (!entry || entry.balance < normalizedAmount) {
-        return null;
+    if (entry) {
+        entry.balance = nextBalance;
+        entry.frozenBalance = 0;
+        entry.version += 1;
+    } else {
+        balances.push({
+            walletType: normalizedWalletType,
+            balance: nextBalance,
+            frozenBalance: 0,
+            version: 1,
+        });
     }
-    entry.balance -= normalizedAmount;
-    entry.version += 1;
     return balances;
+}
+
+function debitInventoryItemCount(items, itemId, count) {
+    const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+    let remaining = Math.max(0, Math.trunc(Number(count ?? 0)));
+    if (!normalizedItemId || remaining <= 0) {
+        return false;
+    }
+    for (let index = 0; index < items.length && remaining > 0; index += 1) {
+        const entry = items[index];
+        if (entry?.itemId !== normalizedItemId) {
+            continue;
+        }
+        const itemCount = Math.max(0, Math.trunc(Number(entry.count ?? 0)));
+        const consumed = Math.min(itemCount, remaining);
+        entry.count = itemCount - consumed;
+        remaining -= consumed;
+    }
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+        if (items[index]?.itemId === normalizedItemId && Math.max(0, Math.trunc(Number(items[index]?.count ?? 0))) <= 0) {
+            items.splice(index, 1);
+        }
+    }
+    return remaining <= 0;
+}
+
+function countInventoryItem(items, itemId) {
+    const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+    if (!normalizedItemId || !Array.isArray(items)) {
+        return 0;
+    }
+    return items.reduce((total, entry) => total + (entry?.itemId === normalizedItemId ? Math.max(0, Math.trunc(Number(entry.count ?? 0))) : 0), 0);
+}
+
+function collapseWalletBalances(existingBalances) {
+    const byType = new Map();
+    for (const entry of Array.isArray(existingBalances) ? existingBalances : []) {
+        const walletType = typeof entry?.walletType === 'string' ? entry.walletType.trim() : '';
+        if (!walletType) {
+            continue;
+        }
+        const balance = Math.max(0, Math.trunc(Number(entry?.balance ?? 0)));
+        const frozenBalance = Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0)));
+        const version = Math.max(0, Math.trunc(Number(entry?.version ?? 0)));
+        const existing = byType.get(walletType);
+        if (existing) {
+            existing.balance += balance;
+            existing.frozenBalance += frozenBalance;
+            existing.version = Math.max(existing.version, version);
+            continue;
+        }
+        byType.set(walletType, { walletType, balance, frozenBalance, version });
+    }
+    return Array.from(byType.values());
 }
 
 async function resolveInstanceLeaseContext(instanceId, deps) {

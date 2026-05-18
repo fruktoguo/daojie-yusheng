@@ -247,7 +247,7 @@ async function testDispatch() {
             return {
                 runtimeOwnerId: 'runtime:player:1',
                 sessionEpoch: 7,
-                inventory: { items: [] },
+                inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] },
                 wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
             };
         },
@@ -293,6 +293,8 @@ async function testDispatch() {
                 input.totalCost,
                 input.expectedAssignedNodeId,
                 input.expectedOwnershipEpoch,
+                input.nextInventoryItems.map((entry) => `${entry.itemId}:${entry.count}`).join(','),
+                input.nextWalletBalances.map((entry) => `${entry.walletType}:${entry.balance}`).join(','),
             ]);
             return { ok: true, alreadyCommitted: false, itemId: input.itemId, quantity: input.quantity, totalCost: input.totalCost };
         },
@@ -332,13 +334,12 @@ async function testDispatch() {
                 };
             },
         },
-        getPlayerOrThrow() { return { runtimeOwnerId: 'runtime:player:1', sessionEpoch: 7, inventory: { items: [] }, wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] } }; },
+        getPlayerOrThrow() { return { runtimeOwnerId: 'runtime:player:1', sessionEpoch: 7, inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] }, wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] } }; },
     };
     await service.dispatchBuyNpcShopItem('player:1', 'npc_a', 'qi_pill', 1, deps);
     assert.deepEqual(durableLog, [
-        ['purchaseNpcShopItem', 'player:1', 'qi_pill', 1, 5, 'node:npc-shop', 17],
-        ['replaceInventoryItems', 'player:1', 1],
-        ['debitWallet', 'player:1', 'spirit_stone', 5],
+        ['purchaseNpcShopItem', 'player:1', 'qi_pill', 1, 5, 'node:npc-shop', 17, 'spirit_stone:15,qi_pill:1', 'spirit_stone:15'],
+        ['replaceInventoryItems', 'player:1', 2],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);

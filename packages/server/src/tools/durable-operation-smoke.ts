@@ -1623,7 +1623,11 @@ async function main(): Promise<void> {
       'SELECT wallet_type, balance FROM player_wallet WHERE player_id = $1 ORDER BY wallet_type ASC',
       [shopPlayerId],
     );
-    if (shopRejectedInventoryRows.length !== 0) {
+    if (
+      shopRejectedInventoryRows.length !== 1
+      || shopRejectedInventoryRows[0]?.item_id !== 'spirit_stone'
+      || Number(shopRejectedInventoryRows[0]?.count) !== 20
+    ) {
       throw new Error(`unexpected npc shop inventory rows after rejected purchase: ${JSON.stringify(shopRejectedInventoryRows)}`);
     }
     if (
@@ -1707,9 +1711,11 @@ async function main(): Promise<void> {
       throw new Error(`unexpected npc shop durable operation row: ${JSON.stringify(shopOperationRow)}`);
     }
     if (
-      shopInventoryRows.length !== 1
-      || shopInventoryRows[0]?.item_id !== 'qi_pill'
-      || Number(shopInventoryRows[0]?.count) !== 2
+      shopInventoryRows.length !== 2
+      || shopInventoryRows[0]?.item_id !== 'spirit_stone'
+      || Number(shopInventoryRows[0]?.count) !== 10
+      || shopInventoryRows[1]?.item_id !== 'qi_pill'
+      || Number(shopInventoryRows[1]?.count) !== 2
     ) {
       throw new Error(`unexpected npc shop inventory rows: ${JSON.stringify(shopInventoryRows)}`);
     }
@@ -3926,6 +3932,22 @@ async function seedNpcShopFixtureImpl(
       `,
       [input.playerId],
     );
+    await client.query(
+      `
+        INSERT INTO player_inventory_item(
+          item_instance_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          raw_payload,
+          locked_by,
+          updated_at
+        )
+        VALUES ($1, $2, 0, 'spirit_stone', 20, '{}'::jsonb, NULL, now())
+      `,
+      [`inv:${input.playerId}:0`, input.playerId],
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -3953,7 +3975,17 @@ function buildNextWalletBalances() {
 function buildNpcShopInventoryItemsImpl() {
   return [
     {
+      itemId: 'spirit_stone',
+      itemInstanceId: 'inv:legacy-shop-player:0',
+      count: 10,
+      rawPayload: {
+        itemId: 'spirit_stone',
+        count: 10,
+      },
+    },
+    {
       itemId: 'qi_pill',
+      itemInstanceId: 'inv:legacy-shop-player:1',
       count: 2,
       rawPayload: {
         itemId: 'qi_pill',
