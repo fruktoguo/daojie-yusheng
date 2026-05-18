@@ -21,7 +21,7 @@ export function resolveMiningAdjustedTileDamage(input: {
   isOreTile: boolean;
 } {
   const baseDamage = Math.max(0, Math.round(Number(input.baseDamage) || 0));
-  const isOreTile = isOreMinableTileType(input.tileType as any);
+  const isOreTile = isOreMinableTileType(input.tileType as string | undefined);
   if (baseDamage <= 0) {
     return { damage: baseDamage, isOreTile };
   }
@@ -53,7 +53,7 @@ export function applyMiningExpForTileDamage(input: {
   appliedDamage: unknown;
   playerRuntimeService: any;
 }): { gained: number; changed: boolean } {
-  if (!isOreMinableTileType(input.tileType as any)) {
+  if (!isOreMinableTileType(input.tileType as string | undefined)) {
     return { gained: 0, changed: false };
   }
   const damage = Math.max(0, Math.round(Number(input.appliedDamage) || 0));
@@ -65,7 +65,7 @@ export function applyMiningExpForTileDamage(input: {
     return { gained: 0, changed: false };
   }
 
-  const oreTileLevel = getOreMiningLevel(input.tileType as any) ?? 1;
+  const oreTileLevel = getOreMiningLevel(input.tileType as string | undefined) ?? 1;
   const realmLevel = input.attacker?.realmLv ?? input.attacker?.realm?.realmLv ?? 1;
   const miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
   const referenceLevel = Math.min(oreTileLevel, miningLevel, realmLevel);
