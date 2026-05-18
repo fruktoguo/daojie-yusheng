@@ -306,6 +306,10 @@ export class QuestPanel {
   /** bindPaneEvents：绑定Pane事件。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
+      // React 面板模式下由 React 组件自行处理交互，原生事件委托不再介入
+      if (this.useReactPanel()) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;

@@ -188,7 +188,7 @@ function UiInlineReferenceChip({
 
   return (
     <span
-      className={`react-ui-inline-ref react-ui-inline-ref--${tone}`}
+      className={`inline-item-chip inline-item-chip--${tone}`}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => {
         activeReferenceKey = '';
@@ -239,7 +239,7 @@ export function UiInlineReferenceText({
 }: UiInlineReferenceTextProps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const classes = ['react-ui-inline-ref-text'];
+  const classes = ['inline-rich-text'];
   if (className) {
     classes.push(className);
   }

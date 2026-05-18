@@ -82,12 +82,14 @@
   min-width: 0;
 }
 
-.react-ui-inline-ref-text {
+.react-ui-inline-ref-text,
+.inline-rich-text {
   color: var(--ink-dark);
   line-height: 1.7;
 }
 
-.react-ui-inline-ref {
+.react-ui-inline-ref,
+.inline-item-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -104,27 +106,32 @@
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.react-ui-inline-ref:hover {
+.react-ui-inline-ref:hover,
+.inline-item-chip:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(30, 19, 10, 0.14);
 }
 
-.react-ui-inline-ref--reward {
+.react-ui-inline-ref--reward,
+.inline-item-chip--reward {
   border-color: rgba(96, 150, 106, 0.18);
   background: linear-gradient(180deg, rgba(228, 245, 233, 0.95), rgba(208, 233, 214, 0.94));
 }
 
-.react-ui-inline-ref--required {
+.react-ui-inline-ref--required,
+.inline-item-chip--required {
   border-color: rgba(196, 122, 62, 0.2);
   background: linear-gradient(180deg, rgba(255, 239, 221, 0.96), rgba(247, 223, 191, 0.94));
 }
 
-.react-ui-inline-ref--material {
+.react-ui-inline-ref--material,
+.inline-item-chip--material {
   border-color: rgba(104, 136, 196, 0.18);
   background: linear-gradient(180deg, rgba(233, 239, 255, 0.96), rgba(212, 223, 247, 0.94));
 }
 
-.react-ui-inline-ref--monster {
+.react-ui-inline-ref--monster,
+.inline-item-chip--monster {
   border-color: rgba(182, 92, 76, 0.18);
   background: linear-gradient(180deg, rgba(255, 232, 226, 0.96), rgba(245, 214, 206, 0.94));
 }
