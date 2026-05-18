@@ -3,7 +3,7 @@
  * 当 SERVER_AOI_ENVELOPE_WORKER_ENABLED=true 时，
  * 通过 EncodingWorkerPool 异步编码 envelope 并 emit。
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
 import { WorldSyncProtocolService } from './world-sync-protocol.service';
@@ -19,6 +19,7 @@ export interface PendingEnvelopeEmit {
 
 @Injectable()
 export class WorldSyncWorkerEncodeService {
+  private readonly logger = new Logger(WorldSyncWorkerEncodeService.name);
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingWorkerPool?: EncodingWorkerPoolService,
@@ -61,8 +62,9 @@ export class WorldSyncWorkerEncodeService {
         protocol.sendEnvelope(socket, envelope);
         pendingEmits[i].postEmitFn();
       }
-    }).catch(() => {
+    }).catch((error: unknown) => {
       // 全部失败 fallback
+      this.logger.warn(`Worker envelope 编码批量失败，fallback 到同步发送: ${error instanceof Error ? error.message : String(error)}`);
       for (const { socket, envelope, postEmitFn } of pendingEmits) {
         protocol.sendEnvelope(socket, envelope);
         postEmitFn();
