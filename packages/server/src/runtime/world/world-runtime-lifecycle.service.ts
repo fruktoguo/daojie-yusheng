@@ -28,6 +28,9 @@ export class WorldRuntimeLifecycleService {
             if (template?.source?.sectMap === true || String(template?.id ?? '').startsWith('sect_domain:')) {
                 continue;
             }
+            if (String(template?.id ?? '').startsWith('tongtian_tower_layer_')) {
+                continue;
+            }
             deps.createInstance({
                 instanceId: buildPublicInstanceId(template.id),
                 templateId: template.id,
