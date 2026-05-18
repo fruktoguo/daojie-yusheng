@@ -1748,6 +1748,7 @@ export class PlayerProgressionService {
             changed,
             panelDirty: !attrRecalculated && (foundationChanged || combatExpChanged),
             attrRecalculated,
+            realmChanged,
             techniquesDirty: false,
 
             actionsDirty: nextRealm.breakthroughReady !== realm.breakthroughReady,
@@ -2194,7 +2195,8 @@ function describeProgressionDirtyDomains(mutation) {
         return [];
     }
     const domains = ['progression'];
-    if (mutation.attrRecalculated) {
+    // realm_payload 存储在 player_attr_state 表中，realm progress 变化时必须标记 'attr' dirty
+    if (mutation.attrRecalculated || mutation.realmChanged) {
         domains.push('attr');
     }
     if (mutation.techniquesDirty) {
@@ -2234,6 +2236,7 @@ function mergeProgressionMutation(left, right) {
         changed: left.changed || right.changed,
         panelDirty: left.panelDirty || right.panelDirty,
         attrRecalculated: left.attrRecalculated || right.attrRecalculated,
+        realmChanged: left.realmChanged || right.realmChanged,
         techniquesDirty: left.techniquesDirty || right.techniquesDirty,
         bodyTrainingDirty: left.bodyTrainingDirty || right.bodyTrainingDirty,
         actionsDirty: left.actionsDirty || right.actionsDirty,
