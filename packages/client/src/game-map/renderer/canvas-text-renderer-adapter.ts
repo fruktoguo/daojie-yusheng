@@ -42,8 +42,9 @@ export class CanvasTextRendererAdapter {
         this.renderWorker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
         this.offscreenMode = true;
         return;
-      } catch {
+      } catch (e) {
         // OffscreenCanvas 不支持或失败，fallback 到主线程渲染
+        console.debug('[CanvasTextRenderer] OffscreenCanvas fallback:', e);
         this.renderWorker = null;
         this.offscreenMode = false;
       }
