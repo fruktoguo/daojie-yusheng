@@ -92,11 +92,9 @@ export class WorkerPoolToggleService {
   private resolveFlag(flagKey: string, envKey: string): boolean {
     // GM runtime flag 优先（支持运行时动态切换）
     if (this.runtimeFlagService?.isEnabled()) {
-      const flagValue = this.runtimeFlagService.getFlag(flagKey);
-      if (flagValue === true) return true;
-      // flag 显式为 false 时，即使环境变量为 true 也关闭（GM 覆盖）
-      if (this.runtimeFlagService.getFlag(flagKey) !== undefined) {
-        return flagValue;
+      // 只有 GM 显式设置过该 flag 时才覆盖环境变量
+      if (this.runtimeFlagService.hasFlag(flagKey)) {
+        return this.runtimeFlagService.getFlag(flagKey);
       }
     }
     // fallback 到环境变量

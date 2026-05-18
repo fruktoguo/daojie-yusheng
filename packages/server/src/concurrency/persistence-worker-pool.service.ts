@@ -76,7 +76,7 @@ export class PersistenceWorkerPoolService {
     // 当前无 worker 需要关闭
   }
 
-  /** 是否启用 */
+  /** 是否启用（当前为 fallback 模式，始终返回 config.enabled 状态） */
   isEnabled(): boolean {
     return this.config.enabled;
   }

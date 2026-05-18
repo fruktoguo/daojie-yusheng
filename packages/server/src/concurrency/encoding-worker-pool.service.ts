@@ -96,7 +96,7 @@ export class EncodingWorkerPoolService {
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.config.enabled && this.workers.length > 0;
+    return this.config.enabled && this.workers.some((w) => w !== null);
   }
 
   /** 获取指标 */
@@ -149,8 +149,25 @@ export class EncodingWorkerPoolService {
     fallback: SyncFallback<TPayload, TResult> | null,
   ): Promise<WorkerTaskResult<TResult>> {
     return new Promise((resolve) => {
-      const worker = this.workers[this.roundRobinIndex % this.workers.length];
-      this.roundRobinIndex = (this.roundRobinIndex + 1) % this.workers.length;
+      // 找到一个活跃的 worker（跳过 null/dead）
+      let worker: Worker | null = null;
+      for (let attempt = 0; attempt < this.workers.length; attempt++) {
+        const candidate = this.workers[this.roundRobinIndex % this.workers.length];
+        this.roundRobinIndex = (this.roundRobinIndex + 1) % this.workers.length;
+        if (candidate) {
+          worker = candidate;
+          break;
+        }
+      }
+      if (!worker) {
+        // 所有 worker 都死了，走 fallback
+        if (fallback) {
+          resolve(this.executeFallbackSync(taskId, payload, fallback) as WorkerTaskResult<TResult>);
+        } else {
+          resolve({ taskId, ok: false, errorMessage: 'All workers dead', durationMs: 0 });
+        }
+        return;
+      }
 
       const timer = setTimeout(() => {
         this.pendingTasks.delete(taskId);
@@ -228,28 +245,62 @@ export class EncodingWorkerPoolService {
 
   private spawnWorkers(): void {
     const workerPath = resolve(__dirname, 'workers', 'encoding.worker.js');
+    this.workers = new Array(this.config.poolSize).fill(null);
 
     for (let i = 0; i < this.config.poolSize; i++) {
-      try {
-        const worker = new Worker(workerPath);
-        worker.on('message', (msg: WorkerTaskResult) => {
-          this.handleWorkerResult(msg);
+      this.spawnSingleWorker(workerPath, i);
+    }
+  }
+
+  private spawnSingleWorker(workerPath: string, index: number): void {
+    try {
+      const worker = new Worker(workerPath);
+      worker.on('message', (msg: WorkerTaskResult) => {
+        this.handleWorkerResult(msg);
+      });
+      worker.on('error', (err) => {
+        this.logger.error(`Encoding worker ${index} error: ${err.message}`);
+        this.handleWorkerDeath(worker, index, workerPath);
+      });
+      worker.on('exit', (code) => {
+        if (code !== 0) {
+          this.logger.warn(`Encoding worker ${index} exited with code ${code}, restarting...`);
+          this.handleWorkerDeath(worker, index, workerPath);
+        }
+      });
+      this.workers[index] = worker;
+    } catch (err: unknown) {
+      this.logger.error(
+        `Failed to spawn encoding worker ${index}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /** 处理 worker 死亡：清理 pending 任务 + 重启 */
+  private handleWorkerDeath(deadWorker: Worker, index: number, workerPath: string): void {
+    // 清理分配到该 worker 的所有 pending 任务（走 fallback）
+    for (const [taskId, pending] of this.pendingTasks) {
+      clearTimeout(pending.timer);
+      this.pendingTasks.delete(taskId);
+      this.metricsService.recordFailed('encoding');
+      if (pending.fallback) {
+        const fbResult = this.executeFallbackSync(taskId, pending.payload, pending.fallback);
+        pending.resolve(fbResult);
+      } else {
+        pending.resolve({
+          taskId,
+          ok: false,
+          errorMessage: 'Worker died',
+          durationMs: performance.now() - pending.submittedAt,
         });
-        worker.on('error', (err) => {
-          this.logger.error(`Encoding worker ${i} error: ${err.message}`);
-        });
-        worker.on('exit', (code) => {
-          if (code !== 0) {
-            this.logger.warn(`Encoding worker ${i} exited with code ${code}`);
-          }
-        });
-        this.workers.push(worker);
-      } catch (err: unknown) {
-        this.logger.error(
-          `Failed to spawn encoding worker ${i}: ${err instanceof Error ? err.message : String(err)}`,
-        );
       }
     }
+    // 延迟重启（避免快速循环崩溃）
+    setTimeout(() => {
+      if (this.workers[index] === deadWorker || !this.workers[index]) {
+        this.spawnSingleWorker(workerPath, index);
+      }
+    }, 1000);
   }
 
   private handleWorkerResult(msg: WorkerTaskResult): void {

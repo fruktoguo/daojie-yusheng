@@ -64,6 +64,11 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
     return this.cache.get(key) ?? false;
   }
 
+  /** 判断指定 flag 是否已被显式设置（区分"未设置"和"设为 false"） */
+  hasFlag(key: string): boolean {
+    return this.cache.has(key);
+  }
+
   async setFlag(key: string, value: boolean): Promise<void> {
     if (!this.pool || !this.enabled) return;
     const normalizedKey = key.trim();

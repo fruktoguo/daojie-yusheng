@@ -34,41 +34,31 @@ export class WorldSyncWorkerEncodeService {
   }
 
   /**
-   * 批量通过 worker pool 编码 envelope 并 emit。
-   * 编码在 worker 中异步执行，完成后按顺序 emit。
-   * 失败时 fallback 到主线程同步发送。
+   * 批量发送 envelope 并通过 worker pool 异步编码（用于指标统计）。
+   * 发送本身是同步的（保证顺序），worker 编码在后台异步执行不影响发送时序。
    */
   flushPendingEmitsViaWorker(pendingEmits: PendingEnvelopeEmit[]): void {
-    if (pendingEmits.length === 0) return;
-    const pool = this.encodingWorkerPool!;
-    const protocol = this.worldSyncProtocolService!;
+    if (pendingEmits.length === 0 || !this.worldSyncProtocolService) return;
+    const protocol = this.worldSyncProtocolService;
 
-    // 批量提交编码任务
-    const tasks = pendingEmits.map(({ envelope }) =>
-      pool.submit<unknown, Buffer>(
-        'envelope-encode',
-        envelope,
-        (payload) => Buffer.from(JSON.stringify(payload), 'utf-8'),
-        200,
-      ),
-    );
+    // 同步发送所有 envelope（保证顺序和时序）
+    for (const { socket, envelope, postEmitFn } of pendingEmits) {
+      protocol.sendEnvelope(socket, envelope);
+      postEmitFn();
+    }
 
-    // 异步等待编码完成后 emit
-    Promise.all(tasks).then((results) => {
-      for (let i = 0; i < results.length; i++) {
-        const { socket, envelope } = pendingEmits[i];
-        // 无论 worker 成功与否，都用原始 envelope 发送
-        // （binary 编码由 WorldSyncProtocolService.maybeEncodeBinary 处理）
-        protocol.sendEnvelope(socket, envelope);
-        pendingEmits[i].postEmitFn();
+    // 后台异步提交 worker 编码任务（仅用于指标统计和预热）
+    if (this.encodingWorkerPool?.isEnabled()) {
+      for (const { envelope } of pendingEmits) {
+        if (envelope) {
+          this.encodingWorkerPool.submit(
+            'envelope-encode',
+            envelope,
+            (payload) => Buffer.from(JSON.stringify(payload), 'utf-8'),
+            200,
+          ).catch(() => { /* 静默忽略，不影响已发送的数据 */ });
+        }
       }
-    }).catch((error: unknown) => {
-      // 全部失败 fallback
-      this.logger.warn(`Worker envelope 编码批量失败，fallback 到同步发送: ${error instanceof Error ? error.message : String(error)}`);
-      for (const { socket, envelope, postEmitFn } of pendingEmits) {
-        protocol.sendEnvelope(socket, envelope);
-        postEmitFn();
-      }
-    });
+    }
   }
 }
