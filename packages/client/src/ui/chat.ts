@@ -1222,6 +1222,42 @@ export class ChatUI {
     const entries = state.messages;
     state.loadedCount = Math.min(entries.length, Math.max(0, state.loadedCount));
     const visible = entries.slice(Math.max(0, entries.length - state.loadedCount));
+
+    // 增量追加：如果已有消息且不是 loadMore 场景，尝试只追加尾部新消息
+    if (!options?.preserveScrollFromLoadMore && log.childElementCount > 0) {
+      const lastRenderedId = (log.lastElementChild as HTMLElement | null)?.dataset.chatMessageId;
+      if (lastRenderedId) {
+        const lastRenderedIndex = visible.findIndex((entry) => entry.id === lastRenderedId);
+        if (lastRenderedIndex >= 0) {
+          // 移除头部多余的旧消息（trim 后可能比当前渲染的少）
+          const renderedCount = log.childElementCount;
+          const expectedStart = 0;
+          const excessAtStart = renderedCount - (lastRenderedIndex + 1);
+          if (excessAtStart > 0) {
+            for (let i = 0; i < excessAtStart; i++) {
+              log.firstElementChild?.remove();
+            }
+          }
+          // 追加尾部新消息
+          const newEntries = visible.slice(lastRenderedIndex + 1);
+          if (newEntries.length > 0) {
+            for (const entry of newEntries) {
+              const line = document.createElement('div');
+              line.className = `chat-line chat-kind-${entry.kind}`;
+              line.dataset.chatMessageId = entry.id;
+              line.replaceChildren(buildLineFragment(entry));
+              log.appendChild(line);
+            }
+          }
+          if (options?.stickToBottom) {
+            log.scrollTop = log.scrollHeight;
+          }
+          return;
+        }
+      }
+    }
+
+    // 全量重建 fallback（初始化、切换频道、loadMore 等场景）
     const fragment = document.createDocumentFragment();
     for (const entry of visible) {
       const line = document.createElement('div');
