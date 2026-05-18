@@ -2908,16 +2908,13 @@ class MapInstanceRuntime {
             return [];
         }
 
-        const tileIndex = this.toTileIndex(x, y);
-        const handle = this.occupancy[tileIndex];
-        if (handle === INVALID_OCCUPANCY) {
-            return [];
+        const results = [];
+        for (const player of this.playersById.values()) {
+            if (player.x === x && player.y === y) {
+                results.push({ ...player });
+            }
         }
-        const player = this.playersByHandle.get(handle);
-        if (!player || player.x !== x || player.y !== y) {
-            return [];
-        }
-        return [{ ...player }];
+        return results;
     }
     /** getPortalAtTile：读取指定地块上的传送点。 */
     getPortalAtTile(x, y) {
@@ -2947,6 +2944,13 @@ class MapInstanceRuntime {
             return false;
         }
         return this.template.safeZoneMask[this.toTileIndex(x, y)] === 1;
+    }
+    /** isPlayerOverlapTile：判断指定地块是否允许玩家重叠站立。 */
+    isPlayerOverlapTile(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return false;
+        }
+        return this.template.playerOverlapMask?.[this.toTileIndex(x, y)] === 1;
     }
     /** getContainerAtTile：读取指定地块上的容器。 */
     getContainerAtTile(x, y) {
@@ -4483,7 +4487,7 @@ class MapInstanceRuntime {
             }
 
             const nextOccupancy = this.occupancy[this.toTileIndex(nextX, nextY)];
-            if (nextOccupancy !== INVALID_OCCUPANCY) {
+            if (nextOccupancy !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(nextX, nextY)) {
                 break;
             }
             if (player.facing !== stepDirection) {
@@ -5241,9 +5245,16 @@ class MapInstanceRuntime {
         }
 
         const tileIndex = this.toTileIndex(x, y);
-        return this.occupancy[tileIndex] === INVALID_OCCUPANCY
-            && !this.monsterRuntimeIdByTile.has(tileIndex)
-            && !this.npcIdByTile.has(tileIndex);
+        if (this.npcIdByTile.has(tileIndex)) {
+            return false;
+        }
+        if (this.monsterRuntimeIdByTile.has(tileIndex)) {
+            return false;
+        }
+        if (this.occupancy[tileIndex] !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(x, y)) {
+            return false;
+        }
+        return true;
     }
     /** isWalkable：判断地块是否可行走。 */
     isWalkable(x, y, playerId = null) {
