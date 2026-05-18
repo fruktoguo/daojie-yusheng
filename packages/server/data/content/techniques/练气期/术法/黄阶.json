@@ -345,7 +345,7 @@
                     100,
                     {
                       "var": "caster.stat.spellAtk",
-                      "scale": 3
+                      "scale": 1
                     }
                   ]
                 },
