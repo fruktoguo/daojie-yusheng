@@ -3182,6 +3182,9 @@ export class PlayerRuntimeService {
             } catch (error) {
                 mergePlayerStatisticDayTotalMap(this.pendingPlayerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
                 shouldRetry = true;
+                if (error instanceof TypeError || error instanceof ReferenceError) {
+                    this.logger.error(`统计总账落盘编程错误 playerId=${normalizedPlayerId} dayKey=${dayKey}`, error.stack);
+                }
             }
         }
         if (shouldRetry) {
