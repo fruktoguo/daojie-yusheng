@@ -88,6 +88,18 @@ interface LeaseGuardPort {
 }
 
 /**
+ * 检查玩家是否从持久化恢复（而非凭空创建的空白角色）。
+ * 用于 flush 防御：阻止空白角色覆盖数据库中已有的老玩家存档。
+ */
+function isPlayerHydratedFromPersistence(port: PlayerRuntimeFlushPort, playerId: string): boolean {
+  if (typeof (port as any).isPlayerHydratedFromPersistence === 'function') {
+    return (port as any).isPlayerHydratedFromPersistence(playerId);
+  }
+  // 接口未实现时默认允许写入（兼容旧实现）
+  return true;
+}
+
+/**
  * flushPlayerDirtyDomains 的返回值，告诉调用方：
  * - persistedDomains：本轮真正写入数据库的 domain 集合，作为 markPersisted 的精确清理目标。
  * - leaseInvalidated：lease 检查失败需要调用方放弃 markPersisted（dirty 留给下一轮重试）。
@@ -255,6 +267,17 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
             const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
             if (!snapshot) {
               return;
+            }
+            // 防御：如果玩家不是从持久化恢复的（凭空创建的空白角色），
+            // 检查数据库中是否已有该玩家的 watermark，有则拒绝写入以避免覆盖老玩家存档。
+            if (!isPlayerHydratedFromPersistence(this.playerRuntimeService, playerId)) {
+              const hasWatermark = await this.playerDomainPersistenceService.hasRecoveryWatermark(playerId).catch(() => true);
+              if (hasWatermark) {
+                this.logger.error(
+                  `拒绝空白角色覆盖已有存档：playerId=${playerId} — 玩家未从持久化恢复但数据库中已有 watermark`,
+                );
+                return;
+              }
             }
             if (!this.isPlayerPersistenceWritable(playerId)) {
               this.logger.warn(`跳过玩家快照刷盘：lease 已失效 playerId=${playerId}`);
