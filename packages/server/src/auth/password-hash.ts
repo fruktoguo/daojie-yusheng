@@ -7,7 +7,7 @@
  */
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { compareSync as compareBcryptSync } from 'bcryptjs';
+import { compare as compareBcryptAsync } from 'bcryptjs';
 
 /** 异步 scrypt：在 libuv 线程池中计算，不会阻塞事件循环。 */
 const scryptAsync = promisify(scryptCallback) as (
@@ -39,7 +39,7 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
 
   if (isLegacyBcryptHash(normalizedHash)) {
     try {
-      return compareBcryptSync(normalizedPassword, normalizedHash);
+      return await compareBcryptAsync(normalizedPassword, normalizedHash);
     } catch {
       return false;
     }

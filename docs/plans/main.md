@@ -94,6 +94,20 @@
 - 需确认：是否接入 GmAuditLogPersistenceService + 二次确认 token 机制
 - [ ] 确认 restart 接口安全加固方案
 
+#### S67 — GM 接口缺统一 audit log（部分已有）
+
+- 文件：`http/native/native-gm.controller.ts`、`native-gm-world.service.ts` 等
+- 现状：GmAuditLogPersistenceService 已存在且 native-gm-player.service 已接入，但其他 GM 接口（restart/ban/flush/backup/restore）未接入
+- 需确认：哪些 GM 操作必须接入 audit log，是否需要统一 interceptor
+- [ ] 确认 GM audit log 全面接入范围
+
+#### S92 — PlayerDomainPersistence 多 domain 各自独立事务
+
+- 文件：`persistence/player-domain-persistence.service.ts`（32 处 savePlayerXxxDomain）
+- 现状：每个域独立事务，同 cycle 部分失败导致状态分裂
+- 需确认：是否改为 flushPlayer 单事务（性能影响）/ 按 domain group 分批事务 / 失败重试策略
+- [ ] 确认 flush 事务化方案
+
 ### 5. P1 潜在问题待确认修复项
 
 来源：`docs/plans/服务端潜在问题清单.md` 全面审计
