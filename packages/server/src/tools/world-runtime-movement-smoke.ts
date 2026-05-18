@@ -221,7 +221,7 @@ function testManualNavigationMoveKeepsBudget() {
 }
 
 function testHighCostTileAccumulatesMoveBudget() {
-    assert.equal(getMaxStoredMovePoints(0), 800);
+    assert.equal(getMaxStoredMovePoints(0), 100);
     assert.equal(getMaxStoredMovePoints(0, 930), 930);
 
     const templateRepository = new MapTemplateRepository();

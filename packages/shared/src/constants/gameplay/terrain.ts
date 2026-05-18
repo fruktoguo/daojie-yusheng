@@ -20,8 +20,8 @@ export const MOVE_POINT_UNIT = 100;
 /** 每 tick 基础移动点数 */
 export const BASE_MOVE_POINTS_PER_TICK = MOVE_POINT_UNIT;
 
-/** 最大可累积移动点数 */
-export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 8;
+/** 最大可累积移动点数（不允许跨 tick 累积，最多存储 1 tick 基础产出） */
+export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 1;
 
 /** 移速软衰减起点 */
 export const MOVE_SPEED_SOFT_CAP = MOVE_POINT_UNIT * 5;
