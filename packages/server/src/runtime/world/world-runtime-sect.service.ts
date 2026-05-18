@@ -1106,10 +1106,16 @@ class WorldRuntimeSectService {
         return this.sectsById.size;
     }
 
+    private _sectPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
     persistSectsSoon() {
-        void this.saveSectDocument().catch((error) => {
-            this.logger.warn(`宗门持久化失败：${error instanceof Error ? error.message : String(error)}`);
-        });
+        if (this._sectPersistTimer) return;
+        this._sectPersistTimer = setTimeout(() => {
+            this._sectPersistTimer = null;
+            void this.saveSectDocument().catch((error) => {
+                this.logger.warn(`宗门持久化失败：${error instanceof Error ? error.message : String(error)}`);
+            });
+        }, 5000);
     }
 
     async saveSectDocument() {

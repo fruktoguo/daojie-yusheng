@@ -899,10 +899,16 @@ class WorldRuntimeFormationService {
         };
     }
 
+    private _formationPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
     persistInstanceFormationsSoon(instanceId) {
-        void this.saveInstanceFormations(instanceId).catch((error) => {
-            this.logger.warn(`阵法持久化失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-        });
+        if (this._formationPersistTimers.has(instanceId)) return;
+        this._formationPersistTimers.set(instanceId, setTimeout(() => {
+            this._formationPersistTimers.delete(instanceId);
+            void this.saveInstanceFormations(instanceId).catch((error) => {
+                this.logger.warn(`阵法持久化失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+            });
+        }, 5000));
     }
 
     persistFormationSnapshotSoon(formation) {
