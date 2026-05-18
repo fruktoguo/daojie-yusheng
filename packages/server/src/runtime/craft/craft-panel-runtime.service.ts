@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
+import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -721,7 +722,7 @@ export class CraftPanelRuntimeService {
         if (!target) {
             return buildCraftMutationResult('强化目标不存在。');
         }
-        if ((target as any).mismatched) {
+        if ((target as Record<string, unknown>).mismatched) {
             return buildCraftMutationResult('强化目标已变更，请重新选择。');
         }
         if (target.item.type !== 'equipment') {
@@ -767,9 +768,9 @@ export class CraftPanelRuntimeService {
             return buildCraftMutationResult('强化目标不存在。');
         }
         // 装备类必须有稳定 itemInstanceId 才能进入锁定空间作为索引键
-        assignItemInstanceIdIfNeeded(workingItem as any);
-        const workingInstanceId = typeof (workingItem as any).itemInstanceId === 'string'
-            ? (workingItem as any).itemInstanceId
+        assignItemInstanceIdIfNeeded(workingItem as ItemStack);
+        const workingInstanceId = typeof (workingItem as ItemStack).itemInstanceId === 'string'
+            ? (workingItem as ItemStack).itemInstanceId
             : '';
         if (!workingInstanceId) {
             return buildCraftMutationResult('强化目标缺失实例标识。');
@@ -794,9 +795,9 @@ export class CraftPanelRuntimeService {
             player.inventory.lockedItems = [];
         }
         // 锁定时同步把当前 enhanceLevel 对齐到 currentLevel，保证后续 mutation 一致
-        (workingItem as any).enhanceLevel = currentLevel;
-        (workingItem as any).count = 1;
-        lockItem(player.inventory.lockedItems, workingItem as any, `enhancement:${jobRunId}`);
+        (workingItem as ItemStack).enhanceLevel = currentLevel;
+        (workingItem as ItemStack).count = 1;
+        lockItem(player.inventory.lockedItems, workingItem as unknown as Record<string, unknown>, `enhancement:${jobRunId}`);
         player.enhancementJob = {
             jobRunId,
             jobType: 'enhancement',
@@ -1047,7 +1048,7 @@ export class CraftPanelRuntimeService {
                     panelChanged: true,
                     messages: [{
                             kind: 'system',
-                text: `队列任务无法开始，已跳过：${next.label}。${(result as any)?.error ?? ''}`.trim(),
+                text: `队列任务无法开始，已跳过：${next.label}。${(result as Record<string, unknown>)?.error ?? ''}`.trim(),
                         }],
                 };
             }
@@ -1441,7 +1442,7 @@ export class CraftPanelRuntimeService {
                 + `hardCheck=${hardCheck}`,
             );
             if (hardCheck) {
-                return { mismatched: true } as any;
+                return { mismatched: true } as unknown as ReturnType<typeof this.resolveEnhancementTarget>;
             }
         }
         return resolved;
@@ -1635,8 +1636,8 @@ export class CraftPanelRuntimeService {
             };
         }
         // 锁定空间中的物品就是真源；把当前实际等级写回，下一阶段以此为基础结算
-        (lockedEntry as any).enhanceLevel = currentLevel;
-        (lockedEntry as any).count = 1;
+        (lockedEntry as unknown as ItemStack).enhanceLevel = currentLevel;
+        (lockedEntry as unknown as ItemStack).count = 1;
         job.currentLevel = currentLevel;
         job.targetLevel = nextTargetLevel;
         job.spiritStoneCost = nextSpiritStoneCost;
@@ -1719,7 +1720,7 @@ export class CraftPanelRuntimeService {
             };
         }
         // 把目标等级写回真源后还原成普通 ItemStack 形态
-        (lockedRaw as any).enhanceLevel = resultingLevel;
+        (lockedRaw as unknown as ItemStack).enhanceLevel = resultingLevel;
         const itemFields = lockedItemToItemStack(lockedRaw);
         const resolvedItem = this.contentTemplateRepository.normalizeItem({
             ...itemFields,
