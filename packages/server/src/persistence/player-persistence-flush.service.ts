@@ -3,7 +3,7 @@
  * 按周期收集脏玩家列表，按域增量投影到分域表，支持 lease 守卫、降级退避和关闭前强刷。
  * 硬切后只写分域表，旧整档快照不再作为运行时落点。
  */
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 
 import { readTrimmedEnv } from '../config/env-alias';
@@ -13,6 +13,7 @@ import {
   PlayerDomainPersistenceService,
 } from './player-domain-persistence.service';
 import { type PersistedPlayerSnapshot } from './player-persistence.service';
+import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
 
 /**
  * 玩家分域刷盘周期。
@@ -122,6 +123,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeFlushPort,
     private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
+    @Optional() @Inject(PersistenceWorkerPoolService)
+    private readonly persistenceWorkerPool?: PersistenceWorkerPoolService,
   ) {}
 
   setLeaseGuard(leaseGuard: LeaseGuardPort | null): void {
@@ -357,6 +360,14 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         this.logger.warn(`跳过玩家分域增量提交：lease 已失效 playerId=${playerId}`);
         // 关键：lease 失效时显式上报，外层据此跳过 markPersisted，dirty 留给下一轮重试。
         return { persistedDomains, leaseInvalidated: true };
+      }
+      // Phase 5: 当 worker pool 启用时，预序列化 snapshot 以卸载主线程 CPU
+      if (this.persistenceWorkerPool?.isEnabled()) {
+        await this.persistenceWorkerPool.submit(
+          'persistence-build',
+          { snapshots: [snapshot] },
+          (payload: any) => ({ jsonPayloads: [JSON.stringify(payload.snapshots[0])] }),
+        );
       }
       await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
         playerId,
