@@ -4,7 +4,7 @@
  * 战斗配置、移动、修炼、技能冷却、通知队列和持久化脏域追踪。
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -5603,7 +5603,7 @@ function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
         .update(`${normalizedPlayerId}:${normalizedSessionId}:${normalizedEpoch}`)
         .digest('base64url')
         .slice(0, 32);
-    return `rt:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}:${ownerDigest}`;
+    return `rt:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${randomBytes(6).toString('base64url')}:${ownerDigest}`;
 }
 function resolveRespawnPlacement(mapTemplateRepository, templateId, inputX, inputY) {
     const normalizedTemplateId = typeof templateId === 'string' && templateId.trim() ? templateId.trim() : '';

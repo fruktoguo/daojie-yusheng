@@ -1,5 +1,6 @@
 "use strict";
 
+import { randomBytes } from 'node:crypto';
 import { normalizeRuntimeInstancePersistentPolicy, parseRuntimeInstanceDescriptor } from "./world-runtime.normalization.helpers";
 
 const INSTANCE_LEASE_TTL_MS = 45_000;
@@ -217,7 +218,7 @@ export async function syncInstanceLease(runtime, instanceId) {
     return;
   }
   const nodeId = runtime.nodeRegistryService.getNodeId();
-  const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+  const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${randomBytes(6).toString('base64url')}`;
   const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
   let assignedNodeId = typeof instance.meta.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
   let currentLeaseToken = typeof instance.meta.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
@@ -511,7 +512,7 @@ export async function claimRecoverableCatalogInstances(runtime) {
       await markMissingTemplateCatalogEntry(runtime, entry, instanceId, templateId, 'lease 接管');
       continue;
     }
-    const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+    const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${randomBytes(6).toString('base64url')}`;
     const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
     const claim = await runtime.instanceCatalogService.claimInstanceLease({
       instanceId,

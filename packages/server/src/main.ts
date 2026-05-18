@@ -246,4 +246,21 @@ process.on('uncaughtException', (error: Error) => {
   process.exit(1);
 });
 
+// ─── Graceful shutdown 超时兜底 ───
+// NestJS enableShutdownHooks 触发 onModuleDestroy 链，若某 service 阻塞则整体卡住。
+// 此处注册独立超时：SIGTERM/SIGINT 后最多等 15s，超时强制退出。
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 15_000;
+let shutdownTimerSet = false;
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(signal, () => {
+    if (shutdownTimerSet) return;
+    shutdownTimerSet = true;
+    const timer = setTimeout(() => {
+      console.error(`[shutdown] graceful shutdown 超时 ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms，强制退出`);
+      process.exit(1);
+    }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
+    timer.unref();
+  });
+}
+
 void bootstrap();

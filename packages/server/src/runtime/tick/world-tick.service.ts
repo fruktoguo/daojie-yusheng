@@ -65,6 +65,9 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
   private lastTickDurationMs = 0;
   private lastIntervalMs = gameplayConstants.WORLD_TICK_INTERVAL_MS;
   private totalTicks = 0;
+  /** S8：连续 tick 失败计数，用于 readiness 降级判断。 */
+  private consecutiveTickFailures = 0;
+  private static readonly MAX_CONSECUTIVE_FAILURES_BEFORE_UNHEALTHY = 5;
 
   constructor(
     @Inject(RuntimeEventBusService)
@@ -116,9 +119,11 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
       this.worldSyncService.flushConnectedPlayers();
       this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
       this.runtimeEventBusService.flushTick();
+      this.consecutiveTickFailures = 0;
     } catch (error: unknown) {
+      this.consecutiveTickFailures += 1;
       this.logger.error(
-        '世界 Tick 执行失败',
+        `世界 Tick 执行失败（连续第 ${this.consecutiveTickFailures} 次）`,
         error instanceof Error ? error.stack : String(error),
       );
     } finally {
@@ -159,6 +164,11 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
       lastIntervalMs: this.lastIntervalMs,
       totalTicks: this.totalTicks,
     };
+  }
+
+  /** S8：tick 是否健康（连续失败次数未超阈值）。供 readiness 降级消费。 */
+  isTickHealthy(): boolean {
+    return this.consecutiveTickFailures < WorldTickService.MAX_CONSECUTIVE_FAILURES_BEFORE_UNHEALTHY;
   }
 
   onModuleInit(): void {
