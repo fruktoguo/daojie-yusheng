@@ -2061,19 +2061,30 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         ORDER BY player_id ASC
       `,
     );
+    const rows = result.rows ?? [];
     const entries: Array<{ playerId: string; snapshot: PersistedPlayerSnapshot; updatedAt: number }> = [];
-    for (const row of result.rows ?? []) {
-      const playerId = normalizeRequiredString(row.player_id);
-      if (!playerId) {
-        continue;
-      }
-      const snapshot = await this.loadProjectedSnapshot(playerId, buildStarterSnapshot);
-      if (snapshot) {
-        entries.push({
+    const BATCH_SIZE = 50;
+    const CONCURRENCY = 4;
+    for (let offset = 0; offset < rows.length; offset += BATCH_SIZE) {
+      const batch = rows.slice(offset, offset + BATCH_SIZE);
+      const tasks = batch.map((row) => async () => {
+        const playerId = normalizeRequiredString(row.player_id);
+        if (!playerId) return null;
+        const snapshot = await this.loadProjectedSnapshot(playerId, buildStarterSnapshot);
+        if (!snapshot) return null;
+        return {
           playerId,
           snapshot,
           updatedAt: Math.max(0, Math.trunc(Number(row.updated_at_ms ?? snapshot.savedAt ?? 0))),
-        });
+        };
+      });
+      // 按 CONCURRENCY 并发执行当前批次
+      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+        const chunk = tasks.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(chunk.map((fn) => fn()));
+        for (const entry of results) {
+          if (entry) entries.push(entry);
+        }
       }
     }
     return entries;
