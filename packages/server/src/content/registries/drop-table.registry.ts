@@ -323,41 +323,42 @@ export class DropTableRegistry {
     return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
   }
 
-  resolveRawEquipmentItemId(entry: any): string {
+  resolveRawEquipmentItemId(entry: unknown): string {
     if (typeof entry === 'string') {
       return entry.trim();
     }
-    if (entry && typeof entry === 'object' && typeof entry.itemId === 'string') {
-      return entry.itemId.trim();
+    if (entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).itemId === 'string') {
+      return ((entry as Record<string, unknown>).itemId as string).trim();
     }
     return '';
   }
 
-  normalizeMonsterDropEntry(raw: any): any {
+  normalizeMonsterDropEntry(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
-    if (typeof raw.itemId !== 'string' || !raw.itemId.trim()) {
+    const r = raw as Record<string, unknown>;
+    if (typeof r.itemId !== 'string' || !r.itemId.trim()) {
       return null;
     }
-    const itemId = raw.itemId.trim();
+    const itemId = r.itemId.trim();
     const item = this.itemRegistry.itemTemplates.get(itemId);
-    const type = raw.type ?? item?.type;
+    const type = r.type ?? item?.type;
     if (!type) {
       return null;
     }
     return {
       itemId,
-      name: typeof raw.name === 'string' && raw.name.trim()
-        ? raw.name
+      name: typeof r.name === 'string' && (r.name as string).trim()
+        ? r.name
         : (item?.name ?? itemId),
       type,
-      count: Number.isFinite(raw.count) ? Math.max(1, Math.trunc(raw.count ?? 1)) : 1,
-      chance: Number.isFinite(raw.chance) ? Math.max(0, Math.min(1, Number(raw.chance))) : undefined,
+      count: Number.isFinite(r.count) ? Math.max(1, Math.trunc(Number(r.count) ?? 1)) : 1,
+      chance: Number.isFinite(r.chance) ? Math.max(0, Math.min(1, Number(r.chance))) : undefined,
     };
   }
 
-  getLootPoolCandidateIds(query: any): string[] {
+  getLootPoolCandidateIds(query: Record<string, unknown>): string[] {
     const result = [];
     for (const [itemId, item] of this.itemRegistry.itemTemplates) {
       if (!matchesLootPoolFilters(item, query)) {
