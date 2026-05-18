@@ -1,17 +1,11 @@
 /**
  * 地图运行配置服务。
- * 缓存每张地图的 GM 下发 tick 倍速、暂停状态和时间参数，
- * 启动时从数据库恢复，运行时由 GM 命令动态更新。
- *
- * @deprecated tickSpeed/paused 已迁移到实例级别（MapInstanceRuntime.tickSpeed/paused）。
- * 本服务在过渡期保留作为启动迁移 fallback，待线上稳定运行一个版本后删除。
+ * 维护每张地图的 tick 倍速、暂停状态和时间参数的内存视图缓存。
+ * 真源已迁移到实例级别（MapInstanceRuntime.tickSpeed/paused），
+ * 本服务仅作为 GM 查询和同步快照的兼容视图层。
  */
-import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
-import {
-  GmMapConfigPersistenceService,
-  type GmMapConfigRecord,
-} from '../../persistence/gm-map-config-persistence.service';
 import { MapTemplateRepository } from './map-template.repository';
 
 type MapTemplateRepositoryLike = {
@@ -19,81 +13,24 @@ type MapTemplateRepositoryLike = {
   getOrThrow(mapId: string): { source?: { time?: Record<string, unknown> } };
 };
 
-/** 地图运行配置缓存：记录每张地图的 tick 倍速、暂停状态和时间参数。 */
+/** 地图运行配置缓存：记录每张地图的 tick 倍速、暂停状态和时间参数（视图缓存，非真源）。 */
 @Injectable()
-export class RuntimeMapConfigService implements OnModuleInit {
+export class RuntimeMapConfigService {
   private readonly logger = new Logger(RuntimeMapConfigService.name);
-  /** 按地图缓存 GM 下发的 tick 速度。 */
+  /** 按地图缓存 GM 下发的 tick 速度（视图缓存）。 */
   private readonly gmMapTickSpeedByMapId = new Map<string, number>();
-  /** 按地图缓存是否暂停推进。 */
+  /** 按地图缓存是否暂停推进（视图缓存）。 */
   private readonly gmMapPausedByMapId = new Map<string, boolean>();
-  /** 按地图缓存时间缩放与偏移。 */
+  /** 按地图缓存时间缩放与偏移（视图缓存）。 */
   private readonly gmMapTimeConfigByMapId = new Map<string, Record<string, unknown>>();
 
   constructor(
     @Optional()
     @Inject(MapTemplateRepository)
     private readonly mapTemplateRepository: MapTemplateRepositoryLike | null = null,
-    @Optional()
-    @Inject(GmMapConfigPersistenceService)
-    private readonly gmMapConfigPersistenceService: GmMapConfigPersistenceService | null = null,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    await this.restorePersistedMapConfigs();
-  }
-
-  /** 从数据库恢复 GM 地图 tick/time 覆盖配置。 */
-  async restorePersistedMapConfigs(): Promise<number> {
-    if (!this.mapTemplateRepository || !this.gmMapConfigPersistenceService) {
-      return 0;
-    }
-
-    const validMapIds = new Set<string>(
-      this.mapTemplateRepository.listSummaries()
-        .map((entry) => entry.id)
-        .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
-    );
-    await this.gmMapConfigPersistenceService.pruneMapConfigs(validMapIds);
-    const records = await this.gmMapConfigPersistenceService.loadAllMapConfigs();
-    let restoredCount = 0;
-    for (const record of records) {
-      if (!record.mapId || !validMapIds.has(record.mapId)) {
-        continue;
-      }
-      if (this.applyPersistedMapConfig(record)) {
-        restoredCount += 1;
-      }
-    }
-    this.logger.log(`已从数据库恢复 ${restoredCount} 张地图的 GM 配置`);
-    return restoredCount;
-  }
-
-  private applyPersistedMapConfig(record: GmMapConfigRecord): boolean {
-    try {
-      const template = this.mapTemplateRepository?.getOrThrow(record.mapId);
-      if (!template) {
-        return false;
-      }
-      this.updateMapTick(record.mapId, {
-        speed: record.speed,
-        paused: record.paused,
-      });
-      this.updateMapTime(record.mapId, template.source?.time ?? {}, {
-        scale: record.scale,
-        offsetTicks: record.offsetTicks,
-      });
-      return true;
-    } catch (error: unknown) {
-      this.logger.warn(
-        `加载 GM 地图配置失败 mapId=${record.mapId}，已跳过`,
-        error instanceof Error ? error.message : String(error),
-      );
-      return false;
-    }
-  }
-
-  /** 更新地图的 tick 速度与暂停状态。 */
+  /** 更新地图的 tick 速度与暂停状态（视图缓存）。 */
   updateMapTick(mapId: string, body?: { speed?: unknown; paused?: unknown } | null): void {
     if (body?.paused === true || body?.speed === 0) {
       this.gmMapPausedByMapId.set(mapId, true);
@@ -110,16 +47,14 @@ export class RuntimeMapConfigService implements OnModuleInit {
     }
   }
 
-  /** 更新地图时间参数，供 GM 调整昼夜节奏。 */
+  /** 更新地图时间参数，供 GM 调整昼夜节奏（视图缓存）。 */
   updateMapTime(
     mapId: string,
     baseTimeConfig: Record<string, unknown> | null | undefined,
     body?: { scale?: unknown; offsetTicks?: unknown } | null,
   ): void {
     const current = this.getMapTimeConfig(mapId, baseTimeConfig ?? {});
-    const next = {
-      ...current,
-    };
+    const next = { ...current };
     if (Number.isFinite(Number(body?.scale))) {
       next.scale = Math.max(0, Number(body?.scale));
     }
@@ -148,7 +83,6 @@ export class RuntimeMapConfigService implements OnModuleInit {
     if (this.gmMapPausedByMapId.get(mapId) === true) {
       return 0;
     }
-
     const speed = this.gmMapTickSpeedByMapId.get(mapId);
     return Number.isFinite(speed) ? speed : 1;
   }

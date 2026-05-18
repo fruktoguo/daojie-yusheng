@@ -108,7 +108,6 @@ const MAINLINE_BACKUP_TABLES = [
     'server_player_identity',
     'player_identity',
     'server_gm_auth',
-    'server_gm_map_config',
     'server_redeem_code_state',
     'server_redeem_code_group',
     'server_redeem_code',

@@ -156,7 +156,6 @@ import { PlayerFlushLedgerService } from './persistence/player-flush-ledger.serv
 import { PlayerIdentityPersistenceService } from './persistence/player-identity-persistence.service';
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
 import { NodeRegistryService } from './persistence/node-registry.service';
-import { GmMapConfigPersistenceService } from './persistence/gm-map-config-persistence.service';
 import { GmRuntimeFlagPersistenceService } from './persistence/gm-runtime-flag-persistence.service';
 import { GmAuditLogPersistenceService } from './persistence/gm-audit-log-persistence.service';
 import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
@@ -304,7 +303,6 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     MapPersistenceFlushService,
     DurableOperationService,
     NodeRegistryService,
-    GmMapConfigPersistenceService,
     GmRuntimeFlagPersistenceService,
     GmAuditLogPersistenceService,
     NodeRegistryRuntimeService,

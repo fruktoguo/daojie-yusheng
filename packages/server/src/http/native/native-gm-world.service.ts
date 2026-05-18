@@ -3,7 +3,7 @@
  * 编排世界运行时查询、地图实例创建/迁移/冻结/重建、玩家迁移、
  * 性能计数器重置、tick/时间配置修改等 GM 操作。
  */
-import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
@@ -29,8 +29,6 @@ import { NativeGmMapRuntimeQueryService } from './native-gm-map-runtime-query.se
 import { NativeGmStateQueryService } from './native-gm-state-query.service';
 import { NativeGmSuggestionQueryService } from './native-gm-suggestion-query.service';
 import { NodeRegistryService } from '../../persistence/node-registry.service';
-import { GmMapConfigPersistenceService } from '../../persistence/gm-map-config-persistence.service';
-import type { GmMapConfigPayload } from '../../persistence/gm-map-config-persistence.service';
 /**
  * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -101,7 +99,6 @@ interface SuggestionRuntimeServiceLike {
 
 
 interface RuntimeMapConfigServiceLike {
-  restorePersistedMapConfigs?(): Promise<number>;
   updateMapTick(mapId: string, body?: unknown): void;
   updateMapTime(mapId: string, sourceTime: Record<string, unknown>, body?: unknown): void;
   pruneMapConfigs(validMapIds: Set<string>): void;
@@ -347,8 +344,6 @@ export class NativeGmWorldService {
     private readonly nextGmSuggestionQueryService: NativeGmSuggestionQueryServiceLike,
     @Inject(NodeRegistryService)
     private readonly nodeRegistryService: NodeRegistryServiceLike,
-    @Inject(GmMapConfigPersistenceService)
-    private readonly gmMapConfigPersistenceService: GmMapConfigPersistenceService,
     @Inject(OutboxDispatcherService)
     outboxDispatcherService: OutboxDispatcherServiceLike,
     @Inject(DurableOperationService)
@@ -369,7 +364,7 @@ export class NativeGmWorldService {
   }
 
   async onModuleInit(): Promise<void> {
-    await this.runtimeMapConfigService.restorePersistedMapConfigs?.();
+    // Phase 6：不再从旧表恢复 GM 配置，tickSpeed 真源已迁移到实例 checkpoint
   }
 
   /**
@@ -1056,7 +1051,6 @@ export class NativeGmWorldService {
 
     const validMapIds = new Set(this.mapTemplateRepository.listSummaries().map((entry) => entry.id));
     this.runtimeMapConfigService.pruneMapConfigs(validMapIds);
-    await this.prunePersistedMapConfigs(validMapIds);
 
     return { ok: true };
   }  
@@ -1119,34 +1113,6 @@ export class NativeGmWorldService {
 
   getLatestHeapSnapshotSummary() {
     return this.runtimeGmStateService.getLatestHeapSnapshotSummary();
-  }
-
-  private async persistMapConfig(mapId: string, partial: GmMapConfigPayload): Promise<void> {
-    try {
-      await this.gmMapConfigPersistenceService.ensureInitialized();
-      if (!this.gmMapConfigPersistenceService.isEnabled()) {
-        throw new ServiceUnavailableException('GM 地图配置持久化未启用，无法保证重启后仍生效');
-      }
-      await this.gmMapConfigPersistenceService.mergeMapConfig(mapId, partial);
-    } catch (error: unknown) {
-      this.logger.warn(
-        `持久化 GM 地图配置失败 mapId=${mapId}`,
-        error instanceof Error ? error.message : String(error),
-      );
-      if (error instanceof ServiceUnavailableException) {
-        throw error;
-      }
-      throw new ServiceUnavailableException('GM 地图配置持久化失败，已拒绝本次运行时修改');
-    }
-  }
-
-  private async prunePersistedMapConfigs(validMapIds: Set<string>): Promise<void> {
-    await this.gmMapConfigPersistenceService.pruneMapConfigs(validMapIds).catch((error: unknown) => {
-      this.logger.warn(
-        '清理 GM 地图配置持久化脏数据失败',
-        error instanceof Error ? error.message : String(error),
-      );
-    });
   }
 
   /** 聚合所有对象管理器的运行时对象数量。 */

@@ -97,13 +97,6 @@ const RULES: AuditRule[] = [
     ],
   },
   {
-    file: 'packages/server/src/persistence/gm-map-config-persistence.service.ts',
-    banned: [
-      { pattern: 'persistent_documents', reason: 'GM 地图配置真源必须是 server_gm_map_config 专表' },
-      { pattern: 'ensurePersistentDocumentsTable', reason: 'GM 地图配置服务不得初始化通用文档桶' },
-    ],
-  },
-  {
     file: 'packages/server/src/runtime/gm/runtime-gm-auth.service.ts',
     banned: [
       { pattern: 'persistent_documents', reason: 'GM 鉴权真源必须是 server_gm_auth 专表' },

@@ -135,7 +135,6 @@ function createService(queryCalls: QueryCall[]): NativeGmWorldService {
     } as never,
     { getSuggestions() { return {}; } } as never,
     { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } } as never,
-    { ensureInitialized() {}, isEnabled() { return true; }, mergeMapConfig() {}, pruneMapConfigs() {} } as never,
     { listRetryQueue() { return []; } } as never,
     { getOperationReplay() { return {}; } } as never,
     { flushPlayer() {} } as never,
