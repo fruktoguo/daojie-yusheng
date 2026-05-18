@@ -2986,7 +2986,7 @@ export const CLIENT_I18N_MESSAGES = {
   "gm.database.import.file-unsupported": "文件 {fileName} 格式不支持。",
   "gm.database.import.no-file": "尚未选择文件",
   "gm.database.import.selected": "已选择数据库备份：{fileName}",
-  "gm.database.import.unsupported": "仅支持新版 PostgreSQL 自定义备份（.dump 或 .dump.gz）",
+  "gm.database.import.unsupported": "仅支持新版 PostgreSQL 自定义备份（.dump）",
   "gm.database.import.uploaded-with-size": "已上传 {fileName}（{fileSize}）",
   "gm.database.import.uploading": "正在上传 {fileName}（{fileSize}）...",
   "gm.database.restore.confirm": "将使用备份 {fileName} 覆盖当前主线数据库。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？",
