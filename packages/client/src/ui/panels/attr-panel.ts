@@ -1856,7 +1856,7 @@ export class AttrPanel {
             <defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">${gradientStops}</linearGradient></defs>
             ${snapshot.rings.map((points) => `<polygon class="attr-radar-ring" points="${points}"></polygon>`).join('')}
             ${snapshot.axes.map((axis) => `<line class="attr-radar-axis" x1="170" y1="170" x2="${axis.x}" y2="${axis.y}" stroke="${axis.stroke}"></line>`).join('')}
-            <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
+            <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? ATTR_COLORS[0]}" stroke-width="2"></polygon>
             ${snapshot.nodes.map((node, index) => `
               <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
                 <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke-width="1.8"></circle>
@@ -2024,7 +2024,7 @@ export class AttrPanel {
     titleNode.textContent = snapshot.title;
     scaleNode.textContent = `刻度 ${snapshot.scaleLabel}`;
     areaNode.setAttribute('points', snapshot.areaPoints);
-    areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? '#ff8a65');
+    areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? ATTR_COLORS[0]);
     const svgNode = pane.querySelector<SVGSVGElement>('svg.attr-radar');
     svgNode?.setAttribute('aria-label', snapshot.title);
 
