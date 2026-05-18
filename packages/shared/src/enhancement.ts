@@ -540,27 +540,46 @@ export function scaleEquipmentEffectivenessSpecialStats(
 }
 
 export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
-  const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
-  if (enhanceLevel <= 0 || item.type !== 'equipment') {
+  // item 可能是 Object.create(template) 的原型链实例（服务端 normalizeItem 产出），
+  // 展开运算符只复制自有属性，必须先扁平化以保证 type/level/equipStats 等原型链字段不丢失。
+  const flat = flattenItemForSpread(item);
+  const enhanceLevel = normalizeEnhanceLevel(flat.enhanceLevel);
+  if (enhanceLevel <= 0 || flat.type !== 'equipment') {
     return {
-      ...item,
+      ...flat,
       enhanceLevel,
-      name: formatEnhancedItemName(item.name, enhanceLevel),
+      name: formatEnhancedItemName(flat.name, enhanceLevel),
     };
   }
   return {
-    ...item,
+    ...flat,
     enhanceLevel,
-    name: formatEnhancedItemName(item.name, enhanceLevel),
-    equipAttrs: scaleEnhancedAttributes(item.equipAttrs, enhanceLevel),
-    equipStats: scaleEnhancedNumericStats(item.equipStats, enhanceLevel),
-    equipValueStats: scaleEnhancedNumericStats(item.equipValueStats, enhanceLevel),
-    alchemySuccessRate: cloneScaledUtilityRate(item.alchemySuccessRate, enhanceLevel),
-    alchemySpeedRate: cloneScaledUtilityRate(item.alchemySpeedRate, enhanceLevel),
-    enhancementSuccessRate: cloneScaledUtilityRate(item.enhancementSuccessRate, enhanceLevel),
-    enhancementSpeedRate: cloneScaledUtilityRate(item.enhancementSpeedRate, enhanceLevel),
-    miningDamageRate: cloneScaledUtilityRate(item.miningDamageRate, enhanceLevel),
+    name: formatEnhancedItemName(flat.name, enhanceLevel),
+    equipAttrs: scaleEnhancedAttributes(flat.equipAttrs, enhanceLevel),
+    equipStats: scaleEnhancedNumericStats(flat.equipStats, enhanceLevel),
+    equipValueStats: scaleEnhancedNumericStats(flat.equipValueStats, enhanceLevel),
+    alchemySuccessRate: cloneScaledUtilityRate(flat.alchemySuccessRate, enhanceLevel),
+    alchemySpeedRate: cloneScaledUtilityRate(flat.alchemySpeedRate, enhanceLevel),
+    enhancementSuccessRate: cloneScaledUtilityRate(flat.enhancementSuccessRate, enhanceLevel),
+    enhancementSpeedRate: cloneScaledUtilityRate(flat.enhancementSpeedRate, enhanceLevel),
+    miningDamageRate: cloneScaledUtilityRate(flat.miningDamageRate, enhanceLevel),
   };
+}
+
+/**
+ * 将可能的原型链实例扁平化为普通对象。
+ * Object.create(template) 产出的实例，其 for...in 可枚举原型链属性，
+ * 但展开运算符（{...obj}）只复制自有属性。此函数确保所有可枚举属性都成为自有属性。
+ */
+function flattenItemForSpread(item: ItemStack): ItemStack {
+  if (!item || Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null) {
+    return item;
+  }
+  const result = {} as Record<string, unknown>;
+  for (const key in item) {
+    result[key] = (item as unknown as Record<string, unknown>)[key];
+  }
+  return result as unknown as ItemStack;
 }
 
 export function applyEquipmentAttributeEffectivenessToItemStack(
