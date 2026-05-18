@@ -828,17 +828,34 @@ export class WorldRuntimeLootContainerService {
                     nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
                 });
             }
-            catch {
+            catch (grantError) {
                 restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
                 state.entries.length = 0;
                 state.entries.push(...stateEntriesBeforeHarvest.map(cloneContainerEntryForRestore));
+                const prevFailures = Math.max(0, Math.trunc(Number(job.grantFailures) || 0));
+                const grantFailures = prevFailures + 1;
+                const MAX_GRANT_FAILURES = 3;
+                if (grantFailures >= MAX_GRANT_FAILURES) {
+                    state.activeSearch = undefined;
+                    player.gatherJob = null;
+                    this.playerRuntimeService.bumpPersistentRevision(player);
+                    this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+                    this.markContainerPersistenceDirty(location.instanceId);
+                    this.logger.warn(`采集 durable grant 连续失败 ${grantFailures} 次，已终止采集：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
+                    return buildContainerTickResult(false, [{
+                            kind: 'warn',
+                            text: '采集入库失败，请稍后重试。',
+                        }], false, false, false);
+                }
                 state.activeSearch = {
                     itemKey: harvestedRow.itemKey,
                     totalTicks: job.totalTicks,
                     remainingTicks: 1,
                 };
                 job.remainingTicks = 1;
+                job.grantFailures = grantFailures;
                 this.markContainerPersistenceDirty(location.instanceId);
+                this.logger.warn(`采集 durable grant 失败 (${grantFailures}/${MAX_GRANT_FAILURES})：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
                 return buildContainerTickResult(false, [{
                         kind: 'warn',
                         text: '采集失败，草药仍保留在原处。',
