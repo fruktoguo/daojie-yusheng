@@ -52,6 +52,14 @@
 - [x] S93 — tick-dispatch catch{} 吞错 → 添加 TypeError/ReferenceError 日志（2026-05-10）
 - [x] S96 — 生产代码无 unhandledRejection handler → 已有（确认）
 - [x] S94（部分）— runtime 服务 catch{} 吞错 → 关键路径添加日志（2026-05-10）
+- [x] S6 — tick shutdown 等待无超时 → 已有 5s deadline（确认）
+- [x] S7 — setInterval 跳帧不暴露 → 已改为递归 setTimeout + 跳帧检测（确认）
+- [x] S8 — tick 异常不影响 readiness → 添加 consecutiveTickFailures + isTickHealthy()（2026-05-19）
+- [x] S10 — bcrypt compareSync 阻塞 → 改为异步 compare（2026-05-10）
+- [x] S28 — runtimeOwnerId Math.random → crypto.randomBytes（2026-05-19）
+- [x] S38 — leaseToken Math.random → crypto.randomBytes（2026-05-19）
+- [x] S56 — main.ts 缺 graceful shutdown timeout → 添加 15s SIGTERM 超时兜底（2026-05-19）
+- [x] S102 — 备份文件权限 → 已有 mode: 0o600（确认）
 
 ### 4. P0 潜在问题待确认修复项
 
@@ -147,3 +155,14 @@
 - 现状：5000 玩家 × 频繁背包操作，每秒数十万次 N=60 线性扫
 - 需确认：维护 Map<signature, ItemEntry> 索引 / immutable structure / dirty bit 索引
 - [ ] 确认 inventory 索引化方案
+
+### 6. 客户端/shared 扫描结果（P1/P2）
+
+来源：2026-05-19 全面扫描
+
+- [ ] GmMapEditor 异步方法 `.catch(() => {})` 吞网络错误，用户无反馈（P1）
+- [ ] MarketAuctionView 通过 `as any` 访问 tradeDialogView，运行时崩溃风险（P1）
+- [ ] GmMapEditor 无 dispose，window 事件监听器永不移除（P2）
+- [ ] MarketBrowseView/CraftWorkbenchModal 多处 `as any` 绕过类型检查（P2）
+- [ ] localStorage 写入 catch{} 静默失败，强化历史丢失无提示（P2）
+- shared 层代码质量良好，无 P0/P1 问题
