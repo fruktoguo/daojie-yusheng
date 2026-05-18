@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { runStepsParallel, partitionSteps } = require('./parallel-verification');
 
 const repoRoot = path.resolve(__dirname, '..');
 const timingDir = path.join(repoRoot, '.runtime', 'verification-timings');
@@ -74,6 +75,76 @@ function runVerificationSteps(options) {
   return 0;
 }
 
+/**
+ * 并行模式验证步骤运行器。
+ * 无依赖步骤并发执行，碰库步骤串行执行。
+ * @param {object} options 与 runVerificationSteps 相同的参数
+ * @returns {Promise<number>} 退出码
+ */
+async function runVerificationStepsParallel(options) {
+  const timing = createTiming(options.command, options.gate, options);
+  const baseEnv = options.env ?? process.env;
+  const cwd = options.cwd ?? repoRoot;
+
+  const { parallel, serial } = partitionSteps(options.steps);
+
+  // 先并行执行无依赖步骤
+  if (parallel.length > 0) {
+    process.stdout.write(`[${options.gate}] parallel: running ${parallel.length} steps concurrently\n`);
+    const results = await runStepsParallel(parallel, { cwd, env: baseEnv });
+    for (const result of results) {
+      timing.steps.push({
+        label: result.label,
+        durationMs: result.durationMs,
+        status: result.status,
+        parallel: true,
+      });
+      if (result.status !== 0) {
+        process.stderr.write(`[${options.gate}] parallel failed: ${result.label} (status=${result.status})\n`);
+        if (result.stderr) process.stderr.write(result.stderr);
+        timing.failedCase = result.label;
+        finishTiming(timing);
+        writeTiming(timing);
+        return result.status;
+      }
+      process.stdout.write(`[${options.gate}] parallel done: ${result.label} (${result.durationMs}ms)\n`);
+    }
+  }
+
+  // 再串行执行碰库步骤
+  for (const step of serial) {
+    const command = step.command ?? 'pnpm';
+    const stepStartedAt = Date.now();
+    process.stdout.write(`[${options.gate}] serial start: ${step.label}\n`);
+    const result = spawnSync(command, step.args, {
+      cwd,
+      stdio: 'inherit',
+      shell: step.shell ?? (command === 'pnpm' && process.platform === 'win32'),
+      env: { ...baseEnv, ...(step.env ?? null) },
+    });
+    const stepRecord = {
+      label: step.label,
+      durationMs: Date.now() - stepStartedAt,
+      status: result.status ?? (result.error ? 1 : 0),
+      parallel: false,
+    };
+    timing.steps.push(stepRecord);
+    if (result.error || result.status !== 0) {
+      timing.failedCase = step.label;
+      finishTiming(timing);
+      writeTiming(timing);
+      process.stderr.write(`[${options.gate}] serial failed: ${step.label}\n`);
+      return result.status ?? 1;
+    }
+    process.stdout.write(`[${options.gate}] serial done: ${step.label} (${stepRecord.durationMs}ms)\n`);
+  }
+
+  finishTiming(timing);
+  writeTiming(timing);
+  process.stdout.write(`[${options.gate}] timing=${path.relative(repoRoot, path.join(timingDir, 'latest.json'))}\n`);
+  return 0;
+}
+
 function finishTiming(timing) {
   timing.finishedAt = new Date().toISOString();
   timing.durationMs = Date.now() - timing.startedAtMs;
@@ -103,5 +174,6 @@ function readGitState() {
 
 module.exports = {
   runVerificationSteps,
+  runVerificationStepsParallel,
   writeTiming,
 };
