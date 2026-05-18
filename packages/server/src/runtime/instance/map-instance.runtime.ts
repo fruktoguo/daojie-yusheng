@@ -2908,15 +2908,16 @@ class MapInstanceRuntime {
             return [];
         }
 
-        const result = [];
-        for (const player of this.playersById.values()) {
-            if (player.x === x && player.y === y) {
-                result.push({
-                    ...player,
-                });
-            }
+        const tileIndex = this.toTileIndex(x, y);
+        const handle = this.occupancy[tileIndex];
+        if (handle === INVALID_OCCUPANCY) {
+            return [];
         }
-        return result;
+        const player = this.playersByHandle.get(handle);
+        if (!player || player.x !== x || player.y !== y) {
+            return [];
+        }
+        return [{ ...player }];
     }
     /** getPortalAtTile：读取指定地块上的传送点。 */
     getPortalAtTile(x, y) {
