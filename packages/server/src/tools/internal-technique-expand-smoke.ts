@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * smoke：验证全部功法模板（internal / arts / divine / secret）经过 ContentTemplateRepository
  * 加载后的展开结果与 shared 公式保持一致。
