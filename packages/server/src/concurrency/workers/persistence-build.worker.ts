@@ -42,7 +42,23 @@ function handleTask(envelope: WorkerTaskEnvelope): unknown {
   }
 }
 
-function handlePersistenceBuild(_payload: unknown): unknown {
-  // TODO: Phase 5 实现持久化序列化
-  return { sql: '', params: [] };
+/** 持久化序列化：将 snapshot 转为 SQL 参数 */
+function handlePersistenceBuild(payload: unknown): { jsonPayloads: string[] } {
+  const input = payload as { snapshots: unknown[] };
+  const jsonPayloads: string[] = [];
+
+  for (const snapshot of input.snapshots ?? []) {
+    // 核心序列化：JSON.stringify + bigint 转换
+    jsonPayloads.push(JSON.stringify(snapshot, bigintReplacer));
+  }
+
+  return { jsonPayloads };
+}
+
+/** bigint → string 替换器 */
+function bigintReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
 }
