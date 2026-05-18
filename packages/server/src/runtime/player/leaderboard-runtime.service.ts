@@ -265,9 +265,28 @@ export class LeaderboardRuntimeService {
         }
         return players;
     }
-    /** 把持久化玩家快照临时水合成运行态形状，只用于读榜，不注册进在线运行态。 */
+    /**
+     * 从持久化快照构建排行榜所需的轻量投影对象。
+     * 不再调用完整的 hydrateFromSnapshot（会创建 inventory normalize、quests clone、
+     * logbook、notices、npcQuestMarkerCache 等大量不需要的数据），而是只提取排行榜
+     * createSnapshot 实际读取的字段，并用最小化 player 形状调用 buildState 获取 finalAttrs。
+     */
     createOfflineRuntimePlayerFromSnapshot(playerId, snapshot) {
         try {
+            if (!snapshot || typeof snapshot !== 'object') {
+                return null;
+            }
+            // 使用 playerRuntimeService 上的轻量排行榜投影构建器（如果可用），
+            // 否则回退到完整 hydrate。
+            if (typeof this.playerRuntimeService.buildLeaderboardProjectionFromSnapshot === 'function') {
+                const projection = this.playerRuntimeService.buildLeaderboardProjectionFromSnapshot(playerId, snapshot);
+                if (!projection) {
+                    return null;
+                }
+                projection.sessionId = null;
+                return projection;
+            }
+            // 回退：完整 hydrate（兼容旧版本）
             const player = this.playerRuntimeService.hydrateFromSnapshot(playerId, null, snapshot);
             if (!player) {
                 return null;
