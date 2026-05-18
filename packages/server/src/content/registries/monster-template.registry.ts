@@ -7,11 +7,35 @@ import {
 } from '../content-template-utils';
 import { freezeTemplateMap } from './template-freeze';
 
+/** 妖兽运行时模板最小结构约束 */
+type MonsterRuntimeTemplate = Record<string, unknown> & {
+  monsterId: string;
+  name: string;
+  char?: string;
+  color?: string;
+  respawnTicks?: number;
+  ratioDivisors?: unknown;
+  statFormula?: unknown;
+  initialBuffs?: unknown;
+  skills?: unknown[];
+  aggroRange?: number;
+  leashRange?: number;
+  attackRange?: number;
+  attackCooldownTicks?: number;
+};
+
+/** 妖兽运行时状态最小结构约束 */
+type MonsterRuntimeState = Record<string, unknown> & {
+  runtimeId: string;
+  x: number;
+  y: number;
+};
+
 @Injectable()
 export class MonsterTemplateRegistry {
-  readonly monsterRuntimeTemplates = new Map<string, any>();
-  readonly monsterRuntimeStatesByMapId = new Map<string, any[]>();
-  monsterRealmBaselines: any = undefined;
+  readonly monsterRuntimeTemplates = new Map<string, MonsterRuntimeTemplate>();
+  readonly monsterRuntimeStatesByMapId = new Map<string, MonsterRuntimeState[]>();
+  monsterRealmBaselines: Record<string, unknown> | undefined = undefined;
 
   loadAll(): void {
     this.monsterRuntimeTemplates.clear();
@@ -19,7 +43,7 @@ export class MonsterTemplateRegistry {
     this.monsterRealmBaselines = undefined;
   }
 
-  getRef(monsterId: string): Readonly<any> {
+  getRef(monsterId: string): Readonly<MonsterRuntimeTemplate> {
     const template = this.tryGetRef(monsterId);
     if (!template) {
       throw new Error(`未找到妖兽模板：${monsterId}`);
@@ -27,15 +51,15 @@ export class MonsterTemplateRegistry {
     return template;
   }
 
-  tryGetRef(monsterId: string): Readonly<any> | undefined {
+  tryGetRef(monsterId: string): Readonly<MonsterRuntimeTemplate> | undefined {
     return this.monsterRuntimeTemplates.get(String(monsterId ?? '').trim());
   }
 
-  createInstance(monsterId: string, init: any = {}): any {
+  createInstance(monsterId: string, init: Record<string, unknown> = {}): Record<string, unknown> | null {
     return this.createRuntimeMonsterSpawn(monsterId, init);
   }
 
-  hydrate(monsterId: string, payload: any = {}): any {
+  hydrate(monsterId: string, payload: Record<string, unknown> = {}): Record<string, unknown> | null {
     return this.createRuntimeMonsterSpawn(monsterId, payload);
   }
 
@@ -47,12 +71,12 @@ export class MonsterTemplateRegistry {
     freezeTemplateMap(this.monsterRuntimeTemplates);
   }
 
-  createRuntimeMonstersForMap(mapId: string, fallbackResolver?: (mapId: string) => any[] | null): any[] {
+  createRuntimeMonstersForMap(mapId: string, fallbackResolver?: (mapId: string) => MonsterRuntimeState[] | null): Record<string, unknown>[] {
     const states = fallbackResolver?.(mapId) ?? this.monsterRuntimeStatesByMapId.get(mapId);
     if (!states || states.length === 0) {
       return [];
     }
-    const spawns: any[] = [];
+    const spawns: Record<string, unknown>[] = [];
     for (const state of states) {
       const monsterId = parseMonsterIdFromRuntimeId(state.runtimeId);
       if (!monsterId) {
@@ -73,16 +97,16 @@ export class MonsterTemplateRegistry {
         y: state.y,
         spawnOriginX: Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x,
         spawnOriginY: Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y,
-        spawnKey: typeof state.spawnKey === 'string' && state.spawnKey.trim()
-          ? state.spawnKey.trim()
+        spawnKey: typeof state.spawnKey === 'string' && (state.spawnKey as string).trim()
+          ? (state.spawnKey as string).trim()
           : buildMonsterSpawnKey(mapId, monsterId, Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x, Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y),
-        hp: Math.max(0, Math.min(state.hp, resolvedStats.maxHp)),
+        hp: Math.max(0, Math.min(Number(state.hp) || 0, resolvedStats.maxHp)),
         maxHp: resolvedStats.maxHp,
         respawnTicks: Number.isFinite(Number(state.respawnTicks))
           ? Math.max(1, Math.trunc(Number(state.respawnTicks)))
           : template.respawnTicks,
         alive: state.alive,
-        respawnLeft: state.alive ? 0 : Math.max(0, state.respawnLeft),
+        respawnLeft: state.alive ? 0 : Math.max(0, Number(state.respawnLeft) || 0),
         facing: state.facing,
         name: template.name,
         char: template.char,
@@ -106,7 +130,7 @@ export class MonsterTemplateRegistry {
     return spawns;
   }
 
-  createRuntimeMonsterSpawn(monsterId: string, options: any = {}): any {
+  createRuntimeMonsterSpawn(monsterId: string, options: Record<string, unknown> = {}): Record<string, unknown> | null {
     const normalizedMonsterId = typeof monsterId === 'string' ? monsterId.trim() : '';
     if (!normalizedMonsterId) {
       return null;
@@ -143,7 +167,7 @@ export class MonsterTemplateRegistry {
       alive: options.alive === false ? false : true,
       respawnLeft: 0,
       facing: Direction.South,
-      name: typeof options.name === 'string' && options.name.trim() ? options.name.trim() : template.name,
+      name: typeof options.name === 'string' && (options.name as string).trim() ? (options.name as string).trim() : template.name,
       char: template.char,
       color: template.color,
       level: resolvedStats.level,
