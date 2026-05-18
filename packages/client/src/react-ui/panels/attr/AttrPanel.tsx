@@ -184,7 +184,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
                 data-tooltip-title={node.tooltipTitle}
                 data-tooltip-detail={node.tooltipDetail}
               >
-                <circle className="attr-radar-dot" cx={node.dotX} cy={node.dotY} r="6" fill={node.color} stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" />
+                <circle className="attr-radar-dot" cx={node.dotX} cy={node.dotY} r="6" fill={node.color} strokeWidth="1.8" />
                 <text className="attr-radar-label attr-radar-trigger" x={node.labelX} y={node.labelY} textAnchor="middle" dominantBaseline="middle">{node.label}</text>
                 <text className="attr-radar-value attr-radar-trigger" x={node.valueX} y={node.valueY} textAnchor="middle" dominantBaseline="middle">{node.valueLabel}</text>
               </g>
