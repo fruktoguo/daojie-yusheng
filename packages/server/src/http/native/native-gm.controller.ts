@@ -3,7 +3,7 @@
  * 提供世界状态查询、玩家管理、地图实例操作、邮件、兑换码、建议系统、
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
-import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
@@ -12,6 +12,7 @@ import {
   GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
   GM_RUNTIME_MAINTENANCE_FLAG_KEY,
 } from '../../persistence/gm-runtime-flag-persistence.service';
+import { WorkerPoolToggleService, WORKER_POOL_FLAG_KEYS } from '../../concurrency/worker-pool-toggle.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
@@ -262,6 +263,7 @@ export class NativeGmController {
     @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: RedeemCodeRuntimeServicePort,
     @Inject(GmRuntimeFlagPersistenceService) private readonly runtimeFlagService: GmRuntimeFlagPersistenceService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
+    @Optional() @Inject(WorkerPoolToggleService) private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
   }
@@ -1161,6 +1163,38 @@ export class NativeGmController {
     return { ok: true, key };
   }
 
+  @Get('worker-pool/toggles')
+  getWorkerPoolToggles() {
+    return this.workerPoolToggleService?.getAllToggleStates() ?? {
+      poolEnabled: false,
+      aoiEnvelope: false,
+      pathfinding: false,
+      fov: false,
+      instance: false,
+      persistence: false,
+    };
+  }
+
+  @Post('worker-pool/toggle/:key')
+  async setWorkerPoolToggle(@Param('key') key: string, @Body() body: { value?: boolean }) {
+    if (!key || typeof key !== 'string') {
+      throw new BadRequestException('key is required');
+    }
+    const flagKey = resolveWorkerPoolFlagKey(key.trim());
+    if (!flagKey) {
+      throw new BadRequestException(`unknown worker pool toggle: ${key}`);
+    }
+    const value = body?.value === true;
+    await this.runtimeFlagService.setFlag(flagKey, value);
+    return {
+      ok: true,
+      key,
+      flagKey,
+      value,
+      allToggles: this.workerPoolToggleService?.getAllToggleStates() ?? null,
+    };
+  }
+
   /**
    * GM 控制台「交易记录查询」tab 的列表入口。
    * - playerKeyword：纯数字识别为玩家序号 (player_no)；其它当作 playerId 精确匹配。
@@ -1192,4 +1226,19 @@ function mergeRuntimeFlags(
   }
   byKey.set(fixedFlag.key, fixedFlag);
   return Array.from(byKey.values()).sort((left, right) => left.key.localeCompare(right.key));
+}
+
+/** 将 GM toggle key 映射到 runtime flag key */
+function resolveWorkerPoolFlagKey(key: string): string | null {
+  const mapping: Record<string, string> = {
+    enabled: WORKER_POOL_FLAG_KEYS.enabled,
+    pool: WORKER_POOL_FLAG_KEYS.enabled,
+    aoi_envelope: WORKER_POOL_FLAG_KEYS.aoiEnvelope,
+    aoi: WORKER_POOL_FLAG_KEYS.aoiEnvelope,
+    pathfinding: WORKER_POOL_FLAG_KEYS.pathfinding,
+    fov: WORKER_POOL_FLAG_KEYS.fov,
+    instance: WORKER_POOL_FLAG_KEYS.instance,
+    persistence: WORKER_POOL_FLAG_KEYS.persistence,
+  };
+  return mapping[key] ?? null;
 }

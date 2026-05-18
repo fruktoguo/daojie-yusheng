@@ -1,11 +1,12 @@
 /**
  * Worker Pool NestJS 模块。
- * 注册三类 worker pool 服务和指标采集服务。
+ * 注册三类 worker pool 服务、指标采集服务和动态开关服务。
  * 启动时根据 SERVER_WORKER_POOL_ENABLED 决定是否真正拉起 worker 线程。
  */
 import { Module, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
+import { WorkerPoolToggleService } from './worker-pool-toggle.service';
 import { EncodingWorkerPoolService } from './encoding-worker-pool.service';
 import { InstanceWorkerPoolService } from './instance-worker-pool.service';
 import { PersistenceWorkerPoolService } from './persistence-worker-pool.service';
@@ -13,12 +14,14 @@ import { PersistenceWorkerPoolService } from './persistence-worker-pool.service'
 @Module({
   providers: [
     WorkerPoolMetricsService,
+    WorkerPoolToggleService,
     EncodingWorkerPoolService,
     InstanceWorkerPoolService,
     PersistenceWorkerPoolService,
   ],
   exports: [
     WorkerPoolMetricsService,
+    WorkerPoolToggleService,
     EncodingWorkerPoolService,
     InstanceWorkerPoolService,
     PersistenceWorkerPoolService,
