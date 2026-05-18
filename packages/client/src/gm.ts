@@ -638,6 +638,15 @@ let databaseImportBusy = false;
 let databaseImportStatus = '';
 /** selectedDatabaseImportFile：当前已选择但尚未上传的数据库备份文件。 */
 let selectedDatabaseImportFile: File | null = null;
+/** persistentFileInput：持久化的文件选择 input 节点，避免被 innerHTML 销毁导致 change 事件丢失。 */
+const persistentFileInput = document.createElement('input');
+persistentFileInput.id = 'database-import-file';
+persistentFileInput.className = 'search-input';
+persistentFileInput.type = 'file';
+persistentFileInput.accept = '.dump,.gz,application/octet-stream,application/gzip';
+persistentFileInput.addEventListener('change', () => {
+  updateDatabaseImportFileSelection(persistentFileInput.files?.[0] ?? null);
+});
 type DatabaseSubTab = 'backup' | 'table-stats';
 let databaseSubTab: DatabaseSubTab = 'backup';
 let tableStatsState: GmDatabaseTableStatsRes | null = null;
@@ -3288,7 +3297,7 @@ function renderDatabasePanel(): void {
   const backups = databaseState?.backups ?? [];
   const importStatus = databaseImportStatus
     ? databaseImportStatus
-    : '只接受新版 PostgreSQL 自定义备份（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套数据库恢复流程。';
+    : '只接受新版 PostgreSQL 自定义备份（.dump 或 .dump.gz）。上传后会进入下方备份列表；选择"上传并导入"会继续走同一套数据库恢复流程。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -3304,9 +3313,6 @@ function renderDatabasePanel(): void {
       `).join('')
     : '<div class="empty-hint">当前还没有持久化备份。</div>';
 
-  // 保留已有的 file input DOM 节点，避免 innerHTML 销毁正在使用中的文件选择对话框引用
-  const prevFileInput = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
-
   serverPanelDatabaseEl.innerHTML = subTabBar + `
     <div class="button-row">
       <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
@@ -3318,7 +3324,7 @@ function renderDatabasePanel(): void {
         <div class="network-breakdown-subtitle">上传新版 PostgreSQL 自定义备份，登记到当前 GM 备份目录；可直接执行恢复</div>
       </div>
       <div class="filter-row" style="margin-top: 10px;">
-        <input id="database-import-file" class="search-input" type="file" accept=".dump,application/octet-stream" ${busy ? 'disabled' : ''} />
+        <span id="database-import-file-slot"></span>
         <button id="database-upload-backup" class="small-btn" type="button" ${busy ? 'disabled' : ''}>上传到备份列表</button>
         <button id="database-upload-and-restore" class="small-btn danger" type="button" ${busy ? 'disabled' : ''}>上传并导入</button>
       </div>
@@ -3333,13 +3339,11 @@ function renderDatabasePanel(): void {
     </div>
   `;
 
-  // 如果之前的 file input 有选中文件，把旧节点换回来保持引用和 change 事件正常触发
-  if (prevFileInput && prevFileInput.files && prevFileInput.files.length > 0) {
-    const newFileInput = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
-    if (newFileInput) {
-      newFileInput.replaceWith(prevFileInput);
-      prevFileInput.disabled = busy;
-    }
+  // 将持久化的 file input 插入占位容器，保证节点不被销毁、change 事件始终有效
+  const slot = serverPanelDatabaseEl.querySelector<HTMLSpanElement>('#database-import-file-slot');
+  if (slot) {
+    persistentFileInput.disabled = busy;
+    slot.replaceWith(persistentFileInput);
   }
 }
 
@@ -3825,8 +3829,7 @@ async function exportCurrentDatabase(): Promise<void> {
 
 /** getSelectedDatabaseImportFile：读取数据库导入文件。 */
 function getSelectedDatabaseImportFile(): File | null {
-  const input = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
-  const liveFile = input?.files?.[0] ?? null;
+  const liveFile = persistentFileInput.files?.[0] ?? null;
   if (liveFile) {
     selectedDatabaseImportFile = liveFile;
   }
@@ -3845,7 +3848,7 @@ function patchDatabaseImportStatus(message: string): void {
 /** isSupportedDatabaseImportFile：判断数据库导入文件扩展名是否受支持。 */
 function isSupportedDatabaseImportFile(file: File): boolean {
   const lowerName = file.name.toLowerCase();
-  return lowerName.endsWith('.dump');
+  return lowerName.endsWith('.dump') || lowerName.endsWith('.dump.gz');
 }
 
 /** updateDatabaseImportFileSelection：处理数据库导入文件选择变化。 */
@@ -9522,13 +9525,6 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
       setStatus(error instanceof Error ? error.message : t('gm.database.restore.failed'), true);
     });
   }
-});
-serverPanelDatabaseEl.addEventListener('change', (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLInputElement) || target.id !== 'database-import-file') {
-    return;
-  }
-  updateDatabaseImportFileSelection(target.files?.[0] ?? null);
 });
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
