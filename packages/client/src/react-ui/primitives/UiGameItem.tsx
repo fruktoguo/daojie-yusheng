@@ -132,7 +132,7 @@ export function UiGameItem({
       {chips.length > 0 ? (
         <div className="react-ui-game-item-chip-row">
           {chips.map((chip, index) => (
-            <span key={index} className="react-ui-game-item-chip">{chip}</span>
+            <span key={`${chip}-${index}`} className="react-ui-game-item-chip">{chip}</span>
           ))}
         </div>
       ) : null}

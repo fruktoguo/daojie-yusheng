@@ -277,7 +277,7 @@ const MailListEntry = memo(function MailListEntry({ item, selected, checked, onS
         </div>
         <div className="mail-entry-meta">
           <span>{item.senderLabel}</span>
-          {stateChips.map((chip, i) => <span key={i}>{chip}</span>)}
+          {stateChips.map((chip) => <span key={chip}>{chip}</span>)}
           {item.expireAt && <span>{t('mail.expire.until', { time: new Date(item.expireAt).toLocaleString() })}</span>}
         </div>
         <div className="mail-entry-summary">{item.summary || t('mail.summary.empty', undefined)}</div>

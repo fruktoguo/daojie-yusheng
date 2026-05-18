@@ -191,7 +191,7 @@ const AuctionFeed = memo(function AuctionFeed({ feed }: { feed: AuctionFeedEntry
   return (
     <div className="auction-pane-feed">
       {feed.map((entry, i) => (
-        <div key={i} className="auction-pane-feed-row">
+        <div key={`${entry.status}-${entry.name}-${i}`} className="auction-pane-feed-row">
           <span>{entry.status}</span>
           <strong>{entry.name}</strong>
           <small>{entry.meta}</small>
