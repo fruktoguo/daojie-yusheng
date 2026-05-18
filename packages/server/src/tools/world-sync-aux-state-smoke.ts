@@ -77,6 +77,7 @@ function createService(
           mapLv: 1,
           description: null,
           hideMinimap: false,
+          playerOverlapPoints: undefined,
         };
       },
     },
