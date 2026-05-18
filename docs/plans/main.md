@@ -41,3 +41,84 @@
 - [ ] 再收口手动技能 / 普攻 / 自动战斗的统一敌我关系判定
 - [ ] 再把地块单值 `aura` 升成通用 tile resource runtime
 - [ ] 最后把炼丹 / 强化 / 采集收口为统一技艺活动框架
+
+### 3. P0 潜在问题待确认修复项
+
+来源：`docs/plans/服务端潜在问题清单.md` 全面审计
+
+#### S26 — instance tick 全串行（10000 实例 1Hz 不可能收敛）
+
+- 文件：`runtime/world/world-runtime-instance-tick-orchestration.service.ts:69-133`
+- 现状：所有 instance 在单 for 循环内串行 tick，无并行化
+- 需确认：并行化方案选择（Promise.all 分桶 / worker_threads / SharedArrayBuffer）
+- 关联计划：[服务端与客户端多线程并行化改造计划](./服务端与客户端多线程并行化改造计划.md)
+- [ ] 确认并行化方案并启动实施
+
+#### S65 — creditWallet/debitWallet 内存路径绕过 durable fence
+
+- 文件：`runtime/player/player-runtime.service.ts:1122-1177`
+- 现状：钱包变更仅操作内存 + markDirty，依赖异步 flush，崩溃时丢失
+- 需确认：是否将钱包变更纳入 DurableOperationService，还是接受当前 flush 间隔风险
+- [ ] 确认钱包 durable 改造范围
+
+#### S76 — PvP/Combat 完全不走 DurableOperationService，战斗结算无事务
+
+- 文件：`runtime/combat/` 和 `runtime/world/combat/` 全部文件（0 处 DurableOperation 引用）
+- 现状：PvP 杀人奖励、掉落、计数器全走内存 fire-and-forget
+- 需确认：DurableOperation 改造范围（仅 PvP 死亡链路 / 全部战斗结算 / 仅资产变更部分）
+- 关联计划：[战斗链路商业化重构计划](./战斗链路商业化重构计划.md)
+- [ ] 确认战斗 durable 改造范围
+
+#### S64 — 战斗/强化/灵根/掉落全用 Math.random 无 seed PRNG
+
+- 关键文件：craft-panel-runtime.service.ts、player-progression.service.ts、map-instance.runtime.ts、world-runtime-loot-container.service.ts
+- 现状：所有随机判定直接 Math.random()，不可重放、不可审计
+- 需确认：seed 来源（per-tick seed / per-operation seed）、审计格式、是否需要回放能力
+- [ ] 确认 seeded PRNG 方案
+
+#### S100 — GM /server/restart 接口可触发自杀，无 audit/二次确认
+
+- 文件：`http/native/native-gm.controller.ts:1108-1129`
+- 现状：单次 POST 即触发 SIGTERM，无 audit log、无二次确认、无速率限制
+- 需确认：是否接入 GmAuditLogPersistenceService + 二次确认 token 机制
+- [ ] 确认 restart 接口安全加固方案
+
+### 4. P1 潜在问题待确认修复项
+
+来源：`docs/plans/服务端潜在问题清单.md` 全面审计
+
+#### S77 — protobuf 热路径 13 处 JSON.stringify
+
+- 文件：`packages/shared/src/network-protobuf-update-codecs.ts`、`network-protobuf-tick-codecs.ts`
+- 现状：每 tick 协议组包路径用 JSON.stringify 序列化复杂字段塞入 wire string 字段（skills、layers、buffs、bonuses 等）
+- 违反 §12 红线：tick 热路径禁止 JSON.stringify
+- 需确认：为每个字段设计真正的 protobuf message schema，还是先做增量 patch 降频
+- [ ] 确认 protobuf schema 改造范围和优先级
+
+#### S81 — map-instance 单实例内存占用未受预算约束
+
+- 文件：`runtime/instance/map-instance.runtime.ts`
+- 现状：100×100 地图 × 5 数组 ≈ 200KB/实例，10000 实例 ≈ 2GB 仅基础数组
+- 需确认：chunk-based 按需分配 / 不活跃实例完全卸载 / 冷数据 lazy 加载
+- [ ] 确认实例内存预算方案
+
+#### S86 — 服务端不连 Redis，与 AGENTS.md §2 描述不符
+
+- 文件：生产代码 0 处 Redis 连接，docker-stack 启动 Redis 容器空跑
+- 现状：在线态/session fencing 全用 PG advisory lock 兜底
+- 需确认：补上 Redis（在线态镜像 + session 路由缓存 + lease）还是裁剪（移除 Redis 容器 + 更新文档）
+- [ ] 确认 Redis 策略方向
+
+#### S99 — A* 寻路无路径缓存，auto-combat 每 tick 重新规划
+
+- 文件：`runtime/world/world-runtime.path-planning.helpers.ts`、`runtime/world/combat/world-runtime-auto-combat.service.ts`
+- 现状：1500 玩家 × 1Hz × A*(10000 cells) 单次 1-5ms，可能吃满一个核
+- 需确认：路径缓存策略（位置/目标/地图版本未变时复用）/ JPS 替代 / worker_threads 算路
+- [ ] 确认寻路优化方案
+
+#### S90 — inventory 全部 Array.find() 线性扫描
+
+- 文件：`runtime/player/player-runtime.service.ts`（10+ 处 O(N) 线性扫）
+- 现状：5000 玩家 × 频繁背包操作，每秒数十万次 N=60 线性扫
+- 需确认：维护 Map<signature, ItemEntry> 索引 / immutable structure / dirty bit 索引
+- [ ] 确认 inventory 索引化方案
