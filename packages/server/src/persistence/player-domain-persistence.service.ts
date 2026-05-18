@@ -8,7 +8,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EQUIP_SLOTS, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
+import { EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import type { PoolClient } from 'pg';
 import { Pool } from 'pg';
@@ -3615,14 +3615,14 @@ async function replacePlayerInventoryItems(
   options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   const sourceItems = Array.isArray(items) ? items : [];
-  const rows: Array<{
+  const rowsByInstanceId = new Map<string, {
     item_instance_id: string;
     slot_index: number;
     item_id: string;
     count: number;
     raw_payload: Record<string, unknown>;
     locked_by: string | null;
-  }> = [];
+  }>();
   // 锁定行使用负数 slot_index 与常规背包行 (>=0) 自避让，避免命中 (player_id, slot_index)
   // 唯一约束。这样保留旧 DDL 约束语义、又不需要把约束改成 partial unique index。
   let lockedSlotCounter = -1;
@@ -3642,9 +3642,10 @@ async function replacePlayerInventoryItems(
     const slotIndex = lockedBy != null
       ? lockedSlotCounter--
       : (normalizeOptionalInteger(entry?.slotIndex) ?? index);
-    const itemInstanceId =
-      normalizeOptionalString(entry?.itemInstanceId)
-      ?? `inv:${playerId}:${slotIndex}`;
+    const sourceItemInstanceId = normalizeOptionalString(entry?.itemInstanceId);
+    const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
+      ? sourceItemInstanceId
+      : `inv:${playerId}:${slotIndex}`;
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
     const persistedPayload = buildPersistedInventoryItemRawPayload({
@@ -3663,15 +3664,32 @@ async function replacePlayerInventoryItems(
         persistedPayload.lockedAt = lockedAt;
       }
     }
-    rows.push({
+    const row = {
       item_instance_id: itemInstanceId,
       slot_index: slotIndex,
       item_id: itemId,
       count,
       raw_payload: persistedPayload,
       locked_by: lockedBy,
-    });
+    };
+    const existingRow = rowsByInstanceId.get(itemInstanceId);
+    if (existingRow) {
+      if (
+        existingRow.slot_index !== slotIndex
+        || existingRow.item_id !== itemId
+        || existingRow.locked_by !== lockedBy
+        || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(persistedPayload)
+      ) {
+        throw new Error(
+          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId}`,
+        );
+      }
+      existingRow.count += count;
+      continue;
+    }
+    rowsByInstanceId.set(itemInstanceId, row);
   }
+  const rows = Array.from(rowsByInstanceId.values());
 
   if (rows.length > 0) {
     await client.query(

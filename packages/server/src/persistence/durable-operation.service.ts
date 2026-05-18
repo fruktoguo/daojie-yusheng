@@ -5,7 +5,7 @@
  * 同时维护 player_presence、player_wallet、player_inventory_item、player_equipment_slot 等分域表。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EQUIP_SLOTS } from '@mud/shared';
+import { EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
 import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
@@ -3361,13 +3361,13 @@ async function replacePlayerInventoryItems(
   items: DurableInventoryItemSnapshot[],
 ): Promise<void> {
   const sourceItems = Array.isArray(items) ? items : [];
-  const rows: Array<{
+  const rowsByInstanceId = new Map<string, {
     item_instance_id: string;
     slot_index: number;
     item_id: string;
     count: number;
     raw_payload: Record<string, unknown>;
-  }> = [];
+  }>();
   for (let index = 0; index < sourceItems.length; index += 1) {
     const item = sourceItems[index];
     const itemId = normalizeRequiredString(item?.itemId);
@@ -3385,17 +3385,35 @@ async function replacePlayerInventoryItems(
     });
     // 优先取 sourceItem 自带的稳定 instanceId（装备类必须有；非装备类回退到 inv:{playerId}:{index}
     // 让 PG 主键稳定，行为与持久化层保持一致）。
-    const itemInstanceId = normalizeRequiredString(item?.itemInstanceId)
-      || normalizeRequiredString((item?.rawPayload as { itemInstanceId?: unknown })?.itemInstanceId)
-      || `inv:${playerId}:${index}`;
-    rows.push({
+    const sourceItemInstanceId = normalizeRequiredString(item?.itemInstanceId)
+      || normalizeRequiredString((item?.rawPayload as { itemInstanceId?: unknown })?.itemInstanceId);
+    const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
+      ? sourceItemInstanceId
+      : `inv:${playerId}:${index}`;
+    const row = {
       item_instance_id: itemInstanceId,
       slot_index: index,
       item_id: itemId,
       count,
       raw_payload: rawPayload,
-    });
+    };
+    const existingRow = rowsByInstanceId.get(itemInstanceId);
+    if (existingRow) {
+      if (
+        existingRow.slot_index !== index
+        || existingRow.item_id !== itemId
+        || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(rawPayload)
+      ) {
+        throw new Error(
+          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId}`,
+        );
+      }
+      existingRow.count += count;
+      continue;
+    }
+    rowsByInstanceId.set(itemInstanceId, row);
   }
+  const rows = Array.from(rowsByInstanceId.values());
 
   if (rows.length > 0) {
     await client.query(
