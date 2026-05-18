@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react';
 import type { S2C_AttrUpdate } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import {
+  ATTR_COLORS,
   ATTR_ICON_ATLAS_CELLS,
   ATTR_TAB_LABELS,
   type AttrTab,
@@ -173,7 +174,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
               className="attr-radar-area"
               points={pane.areaPoints}
               fill={`url(#${gradientId})`}
-              stroke={pane.nodes[0]?.color ?? '#ff8a65'}
+              stroke={pane.nodes[0]?.color ?? ATTR_COLORS[0]}
               strokeWidth={2}
             />
             {pane.nodes.map((node, i) => (
