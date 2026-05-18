@@ -32,7 +32,11 @@ function getPathWorker(): Worker | null {
       }
     };
     pathWorker.onerror = () => {
-      // Worker 失败时 fallback 到同步
+      // Worker 失败时 resolve pending promise 并 fallback 到同步
+      if (pendingResolve) {
+        pendingResolve({ status: 'failed', path: [], expandedNodes: 0, reason: 'worker_error' });
+        pendingResolve = null;
+      }
       pathWorker = null;
     };
     return pathWorker;
