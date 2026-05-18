@@ -2724,11 +2724,19 @@ class MapInstanceRuntime {
         return changed;
     }
     /** advanceTileRecovery：推进可破坏地块的自然修复与复生。 */
-    advanceTileRecovery(isTerrainStabilized) {
+    advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.tileDamageByTile.size === 0) {
             return false;
+        }
+
+        // 通过 provider 检查恢复是否启用
+        if (tileRecoveryProvider && typeof tileRecoveryProvider.getRecoveryConfig === 'function') {
+            const config = tileRecoveryProvider.getRecoveryConfig(this.meta?.instanceId);
+            if (config && config.enabled === false) {
+                return false;
+            }
         }
 
         const now = Date.now();
@@ -2742,7 +2750,14 @@ class MapInstanceRuntime {
             const normalizedTileIndex = Math.trunc(Number(tileIndex));
             const x = this.tilePlane.getX(normalizedTileIndex);
             const y = this.tilePlane.getY(normalizedTileIndex);
-            const tileType = this.getBaseTileType(x, y);
+            // 优先通过 provider 获取恢复目标地块类型，fallback 到 getBaseTileType
+            let tileType;
+            if (tileRecoveryProvider && typeof tileRecoveryProvider.getOriginalTileType === 'function') {
+                const providerResult = tileRecoveryProvider.getOriginalTileType(this.meta?.instanceId, x, y);
+                tileType = providerResult != null ? providerResult : this.getBaseTileType(x, y);
+            } else {
+                tileType = this.getBaseTileType(x, y);
+            }
             const layerState = typeof this.tilePlane.getTileLayerState === 'function'
                 ? this.tilePlane.getTileLayerState(normalizedTileIndex)
                 : null;

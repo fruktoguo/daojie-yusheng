@@ -952,12 +952,10 @@ export class NativeGmWorldService {
     this.mapTemplateRepository.getOrThrow(mapId);
     const normalizedSpeed = normalizePersistedMapTickSpeed(body?.speed);
     const paused = body?.paused !== undefined ? Boolean(body.paused) : undefined;
-    await this.persistMapConfig(mapId, {
-      speed: normalizedSpeed,
-      paused,
-    });
+    // Phase 6：不再写入旧表 server_gm_map_config，tickSpeed 已迁移到实例 checkpoint。
+    // 保留 RuntimeMapConfigService 内存缓存更新用于 GM 查询兼容。
     this.runtimeMapConfigService.updateMapTick(mapId, body);
-    // 同步更新所有使用该模板的实例的 tickSpeed
+    // 同步更新所有使用该模板的实例的 tickSpeed（真源）
     this.applyTickSpeedToInstancesByTemplate(mapId, normalizedSpeed, paused);
   }
 
@@ -1043,10 +1041,7 @@ export class NativeGmWorldService {
 
   async updateMapTime(mapId: string, body) {
     const template = this.mapTemplateRepository.getOrThrow(mapId);
-    await this.persistMapConfig(mapId, {
-      scale: normalizePersistedMapTimeScale(body?.scale),
-      offsetTicks: normalizePersistedMapTimeOffsetTicks(body?.offsetTicks),
-    });
+    // Phase 6：不再写入旧表 server_gm_map_config，时间配置保留内存缓存兼容。
     this.runtimeMapConfigService.updateMapTime(mapId, template.source.time ?? {}, body);
   }  
   /**

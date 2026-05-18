@@ -196,19 +196,15 @@ async function verifyNativeWritePath(): Promise<void> {
     {} as never,
     {} as never,
     null as never,
-    {} as never,
+    {
+      listInstanceRuntimes() { return []; },
+    } as never,
   );
 
   await service.updateMapTick(MAP_ID, { speed: 6, paused: false });
   await service.updateMapTime(MAP_ID, { scale: 5, offsetTicks: 44 });
   assert.deepEqual(log, [
-    ['ensureInitialized'],
-    ['isEnabled'],
-    ['mergeMapConfig', MAP_ID, { speed: 6, paused: false }],
     ['runtimeTick', MAP_ID, { speed: 6, paused: false }],
-    ['ensureInitialized'],
-    ['isEnabled'],
-    ['mergeMapConfig', MAP_ID, { scale: 5, offsetTicks: 44 }],
     ['runtimeTime', MAP_ID, { scale: 1, offsetTicks: 0 }, { scale: 5, offsetTicks: 44 }],
   ]);
 }

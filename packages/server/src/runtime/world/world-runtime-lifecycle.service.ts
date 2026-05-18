@@ -373,6 +373,21 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
     if (snapshot.dungeonState && typeof snapshot.dungeonState === 'object') {
         instance.tongtianTowerState = snapshot.dungeonState;
     }
+    // Phase 5：根据 dungeonDescriptor.type 确保模板生成器已注册
+    if (snapshot.dungeonDescriptor && typeof snapshot.dungeonDescriptor === 'object') {
+        const descriptor = snapshot.dungeonDescriptor;
+        if (descriptor.type === 'tower' && typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function') {
+            const params = descriptor.params;
+            const layer = params && Number.isFinite(Number(params.layer)) ? Math.trunc(Number(params.layer)) : 0;
+            if (layer > 0) {
+                deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(
+                    { template_id: `tongtian_tower_layer_${layer}`, instance_id: instanceId },
+                    deps,
+                );
+            }
+        }
+        // 后续秘境类型在此扩展：random_cave、trial 等
+    }
     void instanceId;
 }
 

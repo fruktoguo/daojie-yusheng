@@ -109,7 +109,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized);
                 }
                 if (typeof instance.advanceTileRecovery === 'function') {
-                    instance.advanceTileRecovery(isTerrainStabilized);
+                    const tileRecoveryProvider = resolveTileRecoveryProvider(instance);
+                    instance.advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider);
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
                     for (const building of result.completedBuildings) {
@@ -330,4 +331,20 @@ function resolveCultivationResourceValue(player, resourceKey, value) {
         rawValue: value,
         effectiveValue: projectPlayerQiResourceValue(player, resourceKey, value),
     };
+}
+
+/** 秘境（通天塔等）不自动恢复地块的 provider。 */
+const DUNGEON_NO_RECOVERY_PROVIDER = {
+    getOriginalTileType() { return null; },
+    getRecoveryConfig() { return { enabled: false, intervalTicks: 0 }; },
+};
+
+/** 根据实例类型选择地块恢复 provider。 */
+function resolveTileRecoveryProvider(instance) {
+    const kind = instance?.meta?.kind;
+    if (kind === 'tower') {
+        return DUNGEON_NO_RECOVERY_PROVIDER;
+    }
+    // 模板地图和宗门使用默认恢复（通过 getBaseTileType fallback）
+    return null;
 }
