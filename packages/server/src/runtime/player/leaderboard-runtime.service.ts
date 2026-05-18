@@ -20,8 +20,11 @@ const DEFAULT_LEADERBOARD_LIMIT = 10;
 /** 排行榜最大返回条数。 */
 const MAX_LEADERBOARD_LIMIT = 10;
 
-/** 排行榜与世界摘要的缓存时间。 */
-const CACHE_TTL_MS = 10 * 1000;
+/** 排行榜定时刷新间隔（10 分钟）。排行榜数据不需要实时，定时后台刷新即可。 */
+const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+/** 世界摘要缓存时间（30 秒）。摘要含在线人数等稍实时的数据，TTL 短一些。 */
+const WORLD_SUMMARY_CACHE_TTL_MS = 30 * 1000;
 
 /** 以六维主属性做“顶尖属性”榜单的中文标签。 */
 const SUPREME_ATTR_LABELS = {
@@ -67,6 +70,12 @@ export class LeaderboardRuntimeService {
     cachedLeaderboardSnapshotsByPlayerId = new Map();
     /** 缓存后的世界摘要。 */
     cachedWorldSummary = null;
+    /** 后台定时刷新 timer。 */
+    private _refreshTimer: ReturnType<typeof setInterval> | null = null;
+    /** 是否正在刷新中（防止并发重入）。 */
+    private _refreshing = false;
+    /** 宗门服务引用，由首次 buildLeaderboard 调用时捕获。 */
+    private _sectServiceRef: any = null;
     /** 注入玩家运行时和坊市运行时。 */
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
@@ -89,37 +98,79 @@ export class LeaderboardRuntimeService {
 
         const effectiveLimit = clampLeaderboardLimit(limit);
 
+        // 捕获 sectService 引用并启动后台定时刷新
+        if (sectService && !this._sectServiceRef) {
+            this._sectServiceRef = sectService;
+        }
+        if (!this._refreshTimer) {
+            this.startBackgroundRefresh();
+        }
+
+        // 有缓存直接返回，不再同步重算
         const cached = this.cachedLeaderboard;
-        if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS) {
+        if (cached) {
             return this.sliceLeaderboard(cached, effectiveLimit);
         }
 
-        const snapshots = await this.collectLeaderboardSnapshots();
-
-        const payload = {
-            generatedAt: Date.now(),
-            limit: MAX_LEADERBOARD_LIMIT,
-            boards: {
-                realm: this.buildRealmBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                monsterKills: this.buildMonsterKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                spiritStones: this.buildSpiritStoneBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                playerKills: this.buildPlayerKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                deaths: this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                bodyTraining: this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                supremeAttrs: this.buildSupremeAttrBoard(snapshots),
-                sects: this.buildSectBoard(sectService, MAX_LEADERBOARD_LIMIT),
-            },
-        };
-        this.cachedLeaderboard = payload;
-        this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
-        return this.sliceLeaderboard(payload, effectiveLimit);
+        // 首次请求时同步计算一次（后续由定时器刷新）
+        await this.refreshLeaderboardCache();
+        return this.sliceLeaderboard(this.cachedLeaderboard ?? { generatedAt: Date.now(), limit: 0, boards: { realm: [], monsterKills: [], spiritStones: [], playerKills: [], deaths: [], bodyTraining: [], supremeAttrs: [], sects: [] } }, effectiveLimit);
+    }
+    /**
+     * 启动后台定时刷新。首次请求时自动触发，之后每 10 分钟刷新。
+     */
+    startBackgroundRefresh() {
+        if (this._refreshTimer) {
+            return;
+        }
+        this._refreshTimer = setInterval(() => {
+            void this.refreshLeaderboardCache();
+        }, LEADERBOARD_REFRESH_INTERVAL_MS);
+        this._refreshTimer.unref();
+    }
+    /** 停止后台定时刷新。 */
+    stopBackgroundRefresh() {
+        if (this._refreshTimer) {
+            clearInterval(this._refreshTimer);
+            this._refreshTimer = null;
+        }
+    }
+    /** 执行一次排行榜全量刷新（后台调用，不阻塞请求）。 */
+    private async refreshLeaderboardCache() {
+        if (this._refreshing) {
+            return;
+        }
+        this._refreshing = true;
+        try {
+            const snapshots = await this.collectLeaderboardSnapshots();
+            const payload = {
+                generatedAt: Date.now(),
+                limit: MAX_LEADERBOARD_LIMIT,
+                boards: {
+                    realm: this.buildRealmBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    monsterKills: this.buildMonsterKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    spiritStones: this.buildSpiritStoneBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    playerKills: this.buildPlayerKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    deaths: this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    bodyTraining: this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT),
+                    supremeAttrs: this.buildSupremeAttrBoard(snapshots),
+                    sects: this.buildSectBoard(this._sectServiceRef, MAX_LEADERBOARD_LIMIT),
+                },
+            };
+            this.cachedLeaderboard = payload;
+            this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
+        } catch (_error) {
+            // 刷新失败不影响已有缓存
+        } finally {
+            this._refreshing = false;
+        }
     }
     /** 构造世界摘要快照。 */
     async buildWorldSummary() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const cached = this.cachedWorldSummary;
-        if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS) {
+        if (cached && Date.now() - cached.generatedAt < WORLD_SUMMARY_CACHE_TTL_MS) {
             return cached;
         }
 
@@ -170,12 +221,12 @@ export class LeaderboardRuntimeService {
             }),
         };
     }
-    /** 读取最新排行榜位置索引；缓存有效时避免坐标追索重复扫描持久化。 */
+    /** 读取最新排行榜位置索引；直接返回定时刷新维护的缓存。 */
     async getLeaderboardSnapshotIndex() {
-        const cached = this.cachedLeaderboard;
-        if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS && this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
+        if (this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
             return this.cachedLeaderboardSnapshotsByPlayerId;
         }
+        // 首次调用时缓存为空，同步计算一次
         const snapshots = await this.collectLeaderboardSnapshots();
         this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
         return this.cachedLeaderboardSnapshotsByPlayerId;
