@@ -1859,7 +1859,7 @@ export class AttrPanel {
             <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
             ${snapshot.nodes.map((node, index) => `
               <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
-                <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"></circle>
+                <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke-width="1.8"></circle>
                 <text class="attr-radar-label attr-radar-trigger" data-radar-label="true" x="${node.labelX}" y="${node.labelY}" text-anchor="middle" dominant-baseline="middle">${node.label}</text>
                 <text class="attr-radar-value attr-radar-trigger" data-radar-value="true" x="${node.valueX}" y="${node.valueY}" text-anchor="middle" dominant-baseline="middle">${node.valueLabel}</text>
               </g>
@@ -2260,9 +2260,9 @@ export class AttrPanel {
         max-width: min(320px, calc(100vw - 24px));
         padding: 8px 12px;
         border-radius: 8px;
-        border: 1px solid rgba(34,26,19,0.15);
+        border: 1px solid var(--attr-tooltip-border);
         background: var(--surface-card-strong);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        box-shadow: 0 8px 24px var(--attr-tooltip-shadow);
       }
       .attr-tooltip .floating-tooltip-body strong {
         font-weight: var(--font-weight-semibold);
@@ -2288,7 +2288,7 @@ export class AttrPanel {
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-primary-value {
-        color: #b85c38;
+        color: var(--attr-tooltip-primary-value);
       }
       .attr-tooltip .attr-tooltip-section {
         display: inline-flex;
@@ -2300,12 +2300,12 @@ export class AttrPanel {
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-section.fixed {
-        color: #7a4b22;
-        background: rgba(197, 128, 53, 0.14);
+        color: var(--attr-tooltip-fixed-ink);
+        background: var(--attr-tooltip-fixed-bg);
       }
       .attr-tooltip .attr-tooltip-section.percent {
-        color: #1d5d4f;
-        background: rgba(45, 140, 115, 0.14);
+        color: var(--attr-tooltip-percent-ink);
+        background: var(--attr-tooltip-percent-bg);
       }
       .attr-tooltip .attr-tooltip-child {
         display: flex;
@@ -2315,10 +2315,10 @@ export class AttrPanel {
         padding-left: 12px;
       }
       .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
-        color: #8c6742;
+        color: var(--attr-tooltip-fixed-child-label);
       }
       .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
-        color: #2f7e6d;
+        color: var(--attr-tooltip-percent-child-label);
       }
       .attr-tooltip .attr-tooltip-child-value {
         color: var(--ink-black);
@@ -2333,9 +2333,9 @@ export class AttrPanel {
         gap: 10px;
         padding: 14px 16px 18px;
         border-radius: 10px;
-        border: 1px solid rgba(34,26,19,0.18);
+        border: 1px solid var(--attr-radar-shell-border);
         background: var(--surface-gradient-tooltip);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 6px 18px rgba(0,0,0,0.08);
+        box-shadow: var(--attr-radar-shell-shadow);
       }
       .attr-radar-head {
         display: flex;
@@ -2384,7 +2384,7 @@ export class AttrPanel {
       .attr-radar-floating-stat:hover,
       .attr-radar-floating-stat:focus-visible {
         color: var(--stamp-red);
-        text-shadow: 0 1px 8px rgba(124, 37, 31, 0.22);
+        text-shadow: 0 1px 8px var(--attr-radar-hover-shadow);
         outline: none;
       }
       .attr-radar-floating-icon {
@@ -2398,7 +2398,7 @@ export class AttrPanel {
         background-position:
           calc(var(--attr-icon-col) * -22px)
           calc(var(--attr-icon-row) * -22px);
-        filter: drop-shadow(0 2px 4px rgba(58, 38, 24, 0.16));
+        filter: drop-shadow(0 2px 4px var(--attr-radar-icon-shadow));
         pointer-events: none;
       }
       .attr-radar-floating-label {
@@ -2433,6 +2433,9 @@ export class AttrPanel {
         transition: opacity 160ms ease;
         opacity: 0.9;
       }
+      .attr-radar-dot {
+        stroke: var(--attr-radar-dot-stroke);
+      }
       .attr-radar-label {
         display: none;
       }
@@ -2456,7 +2459,7 @@ export class AttrPanel {
       }
       .attr-radar-icon-node:hover,
       .attr-radar-icon-node:focus-visible {
-        text-shadow: 0 1px 8px rgba(124, 37, 31, 0.2);
+        text-shadow: 0 1px 8px var(--attr-radar-hover-shadow);
         outline: none;
       }
       .attr-radar-icon {
@@ -2470,7 +2473,7 @@ export class AttrPanel {
         background-position:
           calc(var(--attr-icon-col) * -22px)
           calc(var(--attr-icon-row) * -22px);
-        filter: drop-shadow(0 2px 4px rgba(58, 38, 24, 0.16));
+        filter: drop-shadow(0 2px 4px var(--attr-radar-icon-shadow));
         pointer-events: none;
       }
       .attr-radar-icon-value {
