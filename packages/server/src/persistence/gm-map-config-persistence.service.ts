@@ -2,6 +2,9 @@
  * GM 地图配置持久化服务。
  * 管理 server_gm_map_config 表，存储 GM 对各地图的速度/暂停/缩放/偏移配置，
  * 支持事务内合并写入和批量清理。
+ *
+ * @deprecated tickSpeed/paused 已迁移到实例级 checkpoint（Phase 1）。
+ * 本服务在过渡期保留只读 fallback，待线上稳定运行一个版本后删除。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
