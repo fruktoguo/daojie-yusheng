@@ -2682,9 +2682,10 @@ class MapInstanceRuntime {
         const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
         let changed = false;
         let topologyChangedCellCount = 0;
-        for (const [tileIndex, state] of Array.from(this.temporaryTileByTile.entries())) {
+        const toDelete: number[] = [];
+        for (const [tileIndex, state] of this.temporaryTileByTile) {
             if (!state || !Number.isFinite(Number(tileIndex))) {
-                this.temporaryTileByTile.delete(tileIndex);
+                toDelete.push(tileIndex);
                 this.markStaticTileSyncDirtyByIndex(tileIndex);
                 changed = true;
                 continue;
@@ -2699,10 +2700,13 @@ class MapInstanceRuntime {
                 if (this.shouldRecalculateRoomsForTileMutation(tileIndex, state.tileType, this.getBaseTileType(x, y))) {
                     topologyChangedCellCount += 1;
                 }
-                this.temporaryTileByTile.delete(tileIndex);
+                toDelete.push(tileIndex);
                 this.markStaticTileSyncDirtyByIndex(tileIndex);
                 changed = true;
             }
+        }
+        for (const key of toDelete) {
+            this.temporaryTileByTile.delete(key);
         }
         if (changed) {
             if (topologyChangedCellCount > 0) {
