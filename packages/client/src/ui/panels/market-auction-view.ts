@@ -715,10 +715,10 @@ export class MarketAuctionView {
     this.panel.selectedAuctionItemKey = entry.itemKey;
     this.panel.selectedItemKey = entry.itemKey;
     if (action === 'buyout') {
-      (this.panel as any).tradeDialogView.openAuctionBuyoutConfirm(entry, lot);
+      this.panel.openAuctionBuyoutConfirm(entry, lot);
       return;
     }
-    (this.panel as any).tradeDialogView.openAuctionBidDialog(entry, lot);
+    this.panel.openAuctionBidDialog(entry, lot);
   }
 
   private handleAuctionCancelClick(button: HTMLElement): void {

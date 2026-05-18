@@ -230,4 +230,6 @@ export interface MarketPanelInternals {
   syncVisibleMarketInventoryState(): void;
   syncSelectedBookActionButtons(body: HTMLElement): void;
   syncOwnedBadge(button: HTMLElement, ownedCount: number): void;
+  openAuctionBidDialog(entry: MarketListedItemView, lot: AuctionLotView): void;
+  openAuctionBuyoutConfirm(entry: MarketListedItemView, lot: AuctionLotView): void;
 }
