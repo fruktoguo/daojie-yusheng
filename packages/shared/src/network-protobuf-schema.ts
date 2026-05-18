@@ -348,8 +348,13 @@ export const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
 /** 属性面板增量包的 protobuf 类型。 */
 export const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
-/** 走 protobuf 二进制编码的 S2C 事件集合；当前主线未启用独立 protobuf 事件。 */
-export const PROTOBUF_S2C_EVENTS = new Set<string>();
+/** 走 protobuf 二进制编码的 S2C 事件集合；包含高频 envelope 事件（JSON binary 模式）。 */
+export const PROTOBUF_S2C_EVENTS = new Set<string>([
+  'n:s:worldDelta',
+  'n:s:selfDelta',
+  'n:s:panelDelta',
+  'n:s:mapEnter',
+]);
 
 /** 走 protobuf 二进制编码的 C2S 事件集合；如重新引入需同步更新 shared/server 校验脚本。 */
 export const PROTOBUF_C2S_EVENTS = new Set<string>();

@@ -1,33 +1,51 @@
 /**
  * 同步协议下发服务。
  * 封装所有 S2C 事件的 socket.emit 调用，统一协议出口。
+ * 支持 binary 编码模式：当 SERVER_AOI_ENVELOPE_WORKER_ENABLED=true 时，
+ * 高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
  */
 
 import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 
+/** 是否启用 binary envelope 编码 */
+function isBinaryEnvelopeEnabled(): boolean {
+  return process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED === 'true';
+}
+
 /** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
 export class WorldSyncProtocolService {
+    private readonly binaryEnabled = isBinaryEnvelopeEnabled();
+
     /** 按 envelope 结构分发各类同步事件 */
-
     sendEnvelope(socket, envelope) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         if (envelope?.initSession) {
             socket.emit(S2C.InitSession, envelope.initSession);
         }
         if (envelope?.mapEnter) {
-            socket.emit(S2C.MapEnter, envelope.mapEnter);
+            socket.emit(S2C.MapEnter, this.maybeEncodeBinary(envelope.mapEnter));
         }
         if (envelope?.worldDelta) {
-            socket.emit(S2C.WorldDelta, envelope.worldDelta);
+            socket.emit(S2C.WorldDelta, this.maybeEncodeBinary(envelope.worldDelta));
         }
         if (envelope?.selfDelta) {
-            socket.emit(S2C.SelfDelta, envelope.selfDelta);
+            socket.emit(S2C.SelfDelta, this.maybeEncodeBinary(envelope.selfDelta));
         }
         if (envelope?.panelDelta) {
-            socket.emit(S2C.PanelDelta, envelope.panelDelta);
+            socket.emit(S2C.PanelDelta, this.maybeEncodeBinary(envelope.panelDelta));
+        }
+    }
+
+    /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
+    private maybeEncodeBinary(payload: unknown): unknown {
+        if (!this.binaryEnabled || !payload) {
+            return payload;
+        }
+        try {
+            return Buffer.from(JSON.stringify(payload), 'utf-8');
+        } catch {
+            return payload;
         }
     }
     /**

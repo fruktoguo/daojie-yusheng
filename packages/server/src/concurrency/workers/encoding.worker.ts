@@ -46,9 +46,9 @@ function handleTask(envelope: WorkerTaskEnvelope): unknown {
   }
 }
 
-function handleEnvelopeEncode(_payload: unknown): unknown {
-  // TODO: Phase 1 实现 envelope spec → protobuf encode
-  return null;
+function handleEnvelopeEncode(payload: unknown): Buffer {
+  // 将 envelope POJO 编码为 UTF-8 JSON bytes
+  return Buffer.from(JSON.stringify(payload), 'utf-8');
 }
 
 function handlePathfind(_payload: unknown): unknown {

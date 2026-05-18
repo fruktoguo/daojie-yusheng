@@ -333,8 +333,16 @@ function assertNetworkProtobufSchema() {
 function assertProtobufEventWhitelists() {
   const s2cEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_S2C_EVENTS', 'S2C');
   const c2sEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_C2S_EVENTS', 'C2S');
-  if (s2cEvents.length > 0 || c2sEvents.length > 0) {
-    throw new Error(`protobuf event whitelist drifted. s2c=${s2cEvents.join(', ') || 'none'} c2s=${c2sEvents.join(', ') || 'none'}`);
+  // 允许的 S2C binary 事件白名单（Phase 1: AOI envelope JSON binary 模式）
+  const allowedS2cEvents = new Set([
+    'n:s:worldDelta',
+    'n:s:selfDelta',
+    'n:s:panelDelta',
+    'n:s:mapEnter',
+  ]);
+  const unexpectedS2c = s2cEvents.filter((e) => !allowedS2cEvents.has(e));
+  if (unexpectedS2c.length > 0 || c2sEvents.length > 0) {
+    throw new Error(`protobuf event whitelist drifted. unexpected_s2c=${unexpectedS2c.join(', ') || 'none'} c2s=${c2sEvents.join(', ') || 'none'}`);
   }
 }
 

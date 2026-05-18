@@ -66,6 +66,67 @@ export function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
   return null;
 }
 
+/** 将 UTF-16 字符串编码为 UTF-8 Uint8Array（纯 JS，不依赖 TextEncoder/Buffer）。 */
+export function encodeUtf8(str: string): Uint8Array {
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code >= 0xD800 && code <= 0xDBFF && i + 1 < str.length) {
+      const next = str.charCodeAt(i + 1);
+      if (next >= 0xDC00 && next <= 0xDFFF) {
+        code = ((code - 0xD800) << 10) + (next - 0xDC00) + 0x10000;
+        i++;
+      }
+    }
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
+    } else if (code < 0x10000) {
+      bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+    } else {
+      bytes.push(
+        0xF0 | (code >> 18),
+        0x80 | ((code >> 12) & 0x3F),
+        0x80 | ((code >> 6) & 0x3F),
+        0x80 | (code & 0x3F),
+      );
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+/** 将 UTF-8 Uint8Array 解码为字符串（纯 JS，不依赖 TextDecoder）。 */
+export function decodeUtf8(bytes: Uint8Array): string {
+  let result = '';
+  let i = 0;
+  while (i < bytes.length) {
+    const byte = bytes[i];
+    let code: number;
+    if (byte < 0x80) {
+      code = byte;
+      i++;
+    } else if ((byte & 0xE0) === 0xC0) {
+      code = ((byte & 0x1F) << 6) | (bytes[i + 1] & 0x3F);
+      i += 2;
+    } else if ((byte & 0xF0) === 0xE0) {
+      code = ((byte & 0x0F) << 12) | ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F);
+      i += 3;
+    } else {
+      code = ((byte & 0x07) << 18) | ((bytes[i + 1] & 0x3F) << 12)
+        | ((bytes[i + 2] & 0x3F) << 6) | (bytes[i + 3] & 0x3F);
+      i += 4;
+    }
+    if (code >= 0x10000) {
+      code -= 0x10000;
+      result += String.fromCharCode(0xD800 + (code >> 10), 0xDC00 + (code & 0x3FF));
+    } else {
+      result += String.fromCharCode(code);
+    }
+  }
+  return result;
+}
+
 /** 按 protobuf clear 语义写入可空字段。 */
 export function setNullableWireValue<T>(wire: Record<string, unknown>, valueKey: string, clearKey: string, value: T | null | undefined): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

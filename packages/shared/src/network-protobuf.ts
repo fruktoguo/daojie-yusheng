@@ -4,7 +4,7 @@
  */
 import { PROTOBUF_C2S_EVENTS, PROTOBUF_S2C_EVENTS } from './network-protobuf-schema';
 import type { BinaryPayload } from './network-protobuf-wire-helpers';
-import { normalizeBinaryPayload } from './network-protobuf-wire-helpers';
+import { normalizeBinaryPayload, encodeUtf8, decodeUtf8 } from './network-protobuf-wire-helpers';
 
 export {
   PROTOBUF_S2C_EVENTS,
@@ -31,6 +31,8 @@ export {
 } from './network-protobuf-payload-codecs';
 export {
   cloneJson,
+  decodeUtf8,
+  encodeUtf8,
   fromWireAttributes,
   fromWireGameTimeState,
   fromWireNpcQuestMarker,
@@ -60,25 +62,34 @@ export {
   toWireVisibleTile,
 } from './network-protobuf-wire-helpers';
 
-/** 服务端发送前把支持的 payload 编码为 Protobuf 二进制。 */
+/** 服务端发送前把支持的 payload 编码为二进制（当前为 JSON binary 模式）。 */
 export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint8Array {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (PROTOBUF_S2C_EVENTS.has(event)) {
+  if (!PROTOBUF_S2C_EVENTS.has(event)) {
     return payload;
   }
-  return payload;
+  // JSON binary 模式：JSON.stringify → UTF-8 bytes
+  // 使用纯 JS 实现 UTF-8 编码，避免依赖 TextEncoder/Buffer
+  try {
+    const json = JSON.stringify(payload);
+    return encodeUtf8(json);
+  } catch {
+    return payload;
+  }
 }
 
-/** 客户端收到后将 Protobuf 二进制还原为业务对象。 */
+/** 客户端收到后将二进制载荷还原为业务对象（当前为 JSON binary 模式）。 */
 export function decodeServerEventPayload<T>(event: string, payload: unknown): T {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   const binary = normalizeBinaryPayload(payload);
   if (!binary || !PROTOBUF_S2C_EVENTS.has(event)) {
     return payload as T;
   }
-  return payload as T;
+  // JSON binary 模式：UTF-8 bytes → string → JSON.parse
+  try {
+    const text = decodeUtf8(binary);
+    return JSON.parse(text) as T;
+  } catch {
+    return payload as T;
+  }
 }
 
 /** 客户端发送前的编码入口，当前仅对称保留。 */
