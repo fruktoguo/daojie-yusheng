@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
@@ -8,6 +8,7 @@ import { WorldSyncProtocolService } from './world-sync-protocol.service';
 import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
 import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
+import { WorldSyncWorkerEncodeService, type PendingEnvelopeEmit } from './world-sync-worker-encode.service';
 import {
     type SyncFlushBreakdownSample,
     createSyncFlushBreakdownSample,
@@ -26,6 +27,7 @@ export class WorldSyncService {
         @Inject(WorldSyncAuxStateService) private readonly worldSyncAuxStateService: any,
         @Inject(WorldSyncEnvelopeService) private readonly worldSyncEnvelopeService: any,
         @Inject(RuntimeGmStateService) private readonly runtimeGmStateService: any,
+        @Optional() @Inject(WorldSyncWorkerEncodeService) private readonly workerEncodeService?: WorldSyncWorkerEncodeService,
     ) {}
 
     emitInitialSync(playerId: string, socketOverride = undefined) {
@@ -64,6 +66,11 @@ export class WorldSyncService {
 
             const bindings = this.worldSessionService.listBindings();
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
+
+            // 当 worker pool 启用且 AOI envelope worker 开关打开时，收集 envelope 批量异步编码
+            const useWorkerEncode = this.workerEncodeService?.shouldUseWorkerEncode() === true;
+            const pendingEmits: PendingEnvelopeEmit[] = [];
+
             for (const binding of bindings) {
                 const getSocketStartedAt = performance.now();
                 const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
@@ -80,11 +87,48 @@ export class WorldSyncService {
                     continue;
                 }
                 breakdown.processedPlayerCount += 1;
-                this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+
+                if (useWorkerEncode) {
+                    // 异步路径：收集 envelope，稍后批量编码
+                    const { envelope, player } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                    if (envelope) {
+                        const playerId = binding.playerId;
+                        pendingEmits.push({
+                            socket, envelope, playerId, player,
+                            postEmitFn: () => {
+                                this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
+                                this.emitPendingRuntimeEvents(playerId, socket, envelope);
+                                this.emitPendingPlayerStatisticRecords(playerId, socket);
+                            },
+                        });
+                    }
+                } else {
+                    // 同步路径：原有逻辑
+                    this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                }
+            }
+
+            // 异步路径：批量提交 worker 编码
+            if (useWorkerEncode && pendingEmits.length > 0) {
+                this.workerEncodeService!.flushPendingEmitsViaWorker(pendingEmits);
             }
         } finally {
             this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);
         }
+    }
+
+    /** 准备 envelope（不 emit），用于同步和异步编码路径 */
+    private prepareDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
+        this.syncPlayerInstanceRoom(playerId, view);
+        incrementSyncFlushCount(breakdown, 'roomSyncCount');
+        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        incrementSyncFlushCount(breakdown, 'contextActionsCount');
+        const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
+        incrementSyncFlushCount(breakdown, 'playerStateCount');
+        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
+        incrementSyncFlushCount(breakdown, 'envelopeCount');
+        this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true });
+        return { envelope, player };
     }
 
     emitEnvelope(socket: any, envelope: any) {
@@ -125,55 +169,14 @@ export class WorldSyncService {
     }
 
     private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
-        const roomStartedAt = performance.now();
-        this.syncPlayerInstanceRoom(playerId, view);
-        addSyncFlushDuration(breakdown, 'roomSyncMs', roomStartedAt);
-        incrementSyncFlushCount(breakdown, 'roomSyncCount');
-
-        const contextStartedAt = performance.now();
-        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
-        addSyncFlushDuration(breakdown, 'contextActionsMs', contextStartedAt);
-        incrementSyncFlushCount(breakdown, 'contextActionsCount');
-
-        const playerStartedAt = performance.now();
-        const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
-        addSyncFlushDuration(breakdown, 'playerStateMs', playerStartedAt);
-        incrementSyncFlushCount(breakdown, 'playerStateCount');
-
-        const envelopeStartedAt = performance.now();
-        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
-        addSyncFlushDuration(breakdown, 'envelopeMs', envelopeStartedAt);
-        incrementSyncFlushCount(breakdown, 'envelopeCount');
-
-        const firstAuxStartedAt = performance.now();
-        const auxEmittedBeforeEnvelope = this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true });
-        addSyncFlushDuration(breakdown, 'auxSyncMs', firstAuxStartedAt);
-        incrementSyncFlushCount(breakdown, 'auxSyncCount');
-
-        const emitStartedAt = performance.now();
+        const { envelope, player } = this.prepareDeltaForPlayer(playerId, sessionId, socket, view, breakdown);
         this.emitEnvelope(socket, envelope);
-        addSyncFlushDuration(breakdown, 'emitEnvelopeMs', emitStartedAt);
         incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
-
-        if (!auxEmittedBeforeEnvelope) {
-            const secondAuxStartedAt = performance.now();
-            this.emitAuxDeltaSync(playerId, socket, view, player);
-            addSyncFlushDuration(breakdown, 'auxSyncMs', secondAuxStartedAt);
-            incrementSyncFlushCount(breakdown, 'auxSyncCount');
-        }
-        const questStartedAt = performance.now();
-        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player.quests.revision);
-        addSyncFlushDuration(breakdown, 'questSyncMs', questStartedAt);
+        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
         incrementSyncFlushCount(breakdown, 'questSyncCount');
-
-        const eventsStartedAt = performance.now();
         this.emitPendingRuntimeEvents(playerId, socket, envelope);
-        addSyncFlushDuration(breakdown, 'runtimeEventsMs', eventsStartedAt);
         incrementSyncFlushCount(breakdown, 'runtimeEventsCount');
-
-        const recordsStartedAt = performance.now();
         this.emitPendingPlayerStatisticRecords(playerId, socket);
-        addSyncFlushDuration(breakdown, 'statisticRecordsMs', recordsStartedAt);
         incrementSyncFlushCount(breakdown, 'statisticRecordsCount');
     }
 
