@@ -6,6 +6,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
+import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 import { WorldSyncProtocolService } from './world-sync-protocol.service';
 
 /** 待发送的 envelope 条目 */
@@ -23,13 +24,15 @@ export class WorldSyncWorkerEncodeService {
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingWorkerPool?: EncodingWorkerPoolService,
+    @Optional() @Inject(WorkerPoolToggleService)
+    private readonly toggleService?: WorkerPoolToggleService,
     @Inject(WorldSyncProtocolService)
     private readonly worldSyncProtocolService?: WorldSyncProtocolService,
   ) {}
 
-  /** 是否应使用 worker 异步编码路径 */
+  /** 是否应使用 worker 异步编码路径（通过 GM toggle 动态控制） */
   shouldUseWorkerEncode(): boolean {
-    return process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED === 'true'
+    return this.toggleService?.isAoiEnvelopeEnabled() === true
       && Boolean(this.encodingWorkerPool?.isEnabled());
   }
 

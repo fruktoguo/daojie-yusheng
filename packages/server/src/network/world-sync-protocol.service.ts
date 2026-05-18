@@ -5,18 +5,17 @@
  * 高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
  */
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
-
-/** 是否启用 binary envelope 编码 */
-function isBinaryEnvelopeEnabled(): boolean {
-  return process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED === 'true';
-}
+import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 
 /** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
 export class WorldSyncProtocolService {
-    private readonly binaryEnabled = isBinaryEnvelopeEnabled();
+    constructor(
+        @Optional() @Inject(WorkerPoolToggleService)
+        private readonly toggleService?: WorkerPoolToggleService,
+    ) {}
 
     /** 按 envelope 结构分发各类同步事件 */
     sendEnvelope(socket, envelope) {
@@ -38,8 +37,9 @@ export class WorldSyncProtocolService {
     }
 
     /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
+    /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
     private maybeEncodeBinary(payload: unknown): unknown {
-        if (!this.binaryEnabled || !payload) {
+        if (!payload || !this.toggleService?.isAoiEnvelopeEnabled()) {
             return payload;
         }
         try {
