@@ -11,8 +11,18 @@ let cachedGrid: PathfindingStaticGrid | null = null;
 
 self.onmessage = (event: MessageEvent<PathfindingTaskInput>) => {
   const input = event.data;
-  const result = handlePathfindRequest(input);
-  self.postMessage(result);
+  try {
+    const result = handlePathfindRequest(input);
+    self.postMessage(result);
+  } catch (err: unknown) {
+    const errorResult: PathfindingTaskResult = {
+      status: 'failed',
+      path: [],
+      expandedNodes: 0,
+      reason: err instanceof Error ? err.message : 'unknown_error',
+    };
+    self.postMessage(errorResult);
+  }
 };
 
 function handlePathfindRequest(input: PathfindingTaskInput): PathfindingTaskResult {
