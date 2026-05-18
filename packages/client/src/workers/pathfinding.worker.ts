@@ -9,19 +9,20 @@ import type { PathfindingTaskInput, PathfindingTaskResult } from '@mud/shared';
 /** 缓存的 staticGrid */
 let cachedGrid: PathfindingStaticGrid | null = null;
 
-self.onmessage = (event: MessageEvent<PathfindingTaskInput>) => {
+self.onmessage = (event: MessageEvent<PathfindingTaskInput & { _requestId?: number }>) => {
   const input = event.data;
+  const requestId = input._requestId;
   try {
     const result = handlePathfindRequest(input);
-    self.postMessage(result);
+    self.postMessage({ ...result, _requestId: requestId });
   } catch (err: unknown) {
-    const errorResult: PathfindingTaskResult = {
+    self.postMessage({
       status: 'failed',
       path: [],
       expandedNodes: 0,
       reason: err instanceof Error ? err.message : 'unknown_error',
-    };
-    self.postMessage(errorResult);
+      _requestId: requestId,
+    });
   }
 };
 

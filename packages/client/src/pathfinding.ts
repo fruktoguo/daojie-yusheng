@@ -8,7 +8,8 @@ import type { PathfindingTaskInput, PathfindingTaskResult } from '@mud/shared';
 // ─── Web Worker 异步寻路 ───────────────────────────────────────
 
 let pathWorker: Worker | null = null;
-let pendingResolve: ((result: PathfindingTaskResult) => void) | null = null;
+let nextRequestId = 0;
+const pendingRequests = new Map<number, (result: PathfindingTaskResult) => void>();
 
 /** 是否禁用寻路 Worker（调试参数） */
 function isPathWorkerDisabled(): boolean {
@@ -25,18 +26,19 @@ function getPathWorker(): Worker | null {
       new URL('./workers/pathfinding.worker.ts', import.meta.url),
       { type: 'module' },
     );
-    pathWorker.onmessage = (event: MessageEvent<PathfindingTaskResult>) => {
-      if (pendingResolve) {
-        pendingResolve(event.data);
-        pendingResolve = null;
+    pathWorker.onmessage = (event: MessageEvent<PathfindingTaskResult & { _requestId?: number }>) => {
+      const requestId = event.data._requestId;
+      if (requestId !== undefined && pendingRequests.has(requestId)) {
+        pendingRequests.get(requestId)!(event.data);
+        pendingRequests.delete(requestId);
       }
     };
     pathWorker.onerror = () => {
-      // Worker 失败时 resolve pending promise 并 fallback 到同步
-      if (pendingResolve) {
-        pendingResolve({ status: 'failed', path: [], expandedNodes: 0, reason: 'worker_error' });
-        pendingResolve = null;
+      // Worker 失败时 resolve 所有 pending promise 并 fallback 到同步
+      for (const [id, resolve] of pendingRequests) {
+        resolve({ status: 'failed', path: [], expandedNodes: 0, reason: 'worker_error' });
       }
+      pendingRequests.clear();
       pathWorker = null;
     };
     return pathWorker;
@@ -92,9 +94,10 @@ export async function findPathAsync(
     maxPathLength: total,
   };
 
+  const requestId = nextRequestId++;
   const result = await new Promise<PathfindingTaskResult>((resolve) => {
-    pendingResolve = resolve;
-    worker.postMessage(input, [walkable.buffer, traversalCost.buffer, input.blocked.buffer]);
+    pendingRequests.set(requestId, resolve);
+    worker.postMessage({ ...input, _requestId: requestId }, [walkable.buffer, traversalCost.buffer, input.blocked.buffer]);
   });
 
   if (result.status !== 'success' || !result.complete) {
