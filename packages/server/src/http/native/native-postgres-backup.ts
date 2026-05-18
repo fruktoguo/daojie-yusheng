@@ -128,7 +128,7 @@ async function runDumpProcess(filePath: string, databaseUrl: string): Promise<vo
     });
     const stdout = child.stdout as Readable;
     const stderrStream = child.stderr as Readable;
-    const output = createWriteStream(filePath);
+    const output = createWriteStream(filePath, { mode: 0o600 });
     let stderr = '';
     let settled = false;
     const timeout = createProcessTimeout(child, 'pg_dump', (message) => {
@@ -191,7 +191,7 @@ async function materializeFilteredRestoreSql(
     });
     const restoreStdout = restoreChild.stdout as Readable;
     const restoreStderrStream = restoreChild.stderr as Readable;
-    const output = createWriteStream(sqlFilePath);
+    const output = createWriteStream(sqlFilePath, { mode: 0o600 });
     let stderr = '';
     let settled = false;
     let resetInjected = false;
