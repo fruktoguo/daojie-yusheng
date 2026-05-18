@@ -9,6 +9,7 @@ import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-pool.service';
 import type { FovPayload, FovResult } from '../../concurrency/worker-task.types';
+import { collectVisibleTileIndices } from '../instance/fov.helpers';
 
 /** 是否启用 FOV Worker */
 function isFovWorkerEnabled(): boolean {
@@ -91,7 +92,6 @@ export class AsyncFovService {
     originY: number,
     radius: number,
   ): Set<number> {
-    const { collectVisibleTileIndices } = require('../instance/fov.helpers');
     const width = instance.template.width;
     const height = instance.template.height;
     return collectVisibleTileIndices(
