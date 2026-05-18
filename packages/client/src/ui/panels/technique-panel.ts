@@ -64,6 +64,19 @@ type TechniquePanelState = {
   techniques: TechniqueState[];
 };
 
+/** TechniqueCardNodeRefs：功法卡片子节点缓存引用，避免每 tick querySelector。 */
+interface TechniqueCardNodeRefs {
+  card: HTMLElement;
+  realmLevel: HTMLElement;
+  realm: HTMLElement;
+  layer: HTMLElement;
+  progressText: HTMLElement;
+  progressFill: HTMLElement;
+  remain: HTMLElement;
+  cultivateButton: HTMLButtonElement;
+  skillToggleButton: HTMLButtonElement | null;
+}
+
 /** TechniqueCategoryFilter：功法分类筛选条件。 */
 type TechniqueCategoryFilter = 'all' | TechniqueCategory;
 /** TechniqueStatusFilter：功法圆满进度筛选条件。 */
@@ -382,7 +395,9 @@ export class TechniquePanel {
   /** lastState：last状态。 */
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
-  private lastVisibleTechniqueIds: string[] | null = null;  
+  private lastVisibleTechniqueIds: string[] | null = null;
+  /** cardNodeRefs：缓存每张功法卡片的子节点引用，避免每 tick 重复 querySelector。 */
+  private cardNodeRefs = new Map<string, TechniqueCardNodeRefs>();  
   /**
  * shellRefs：shellRef相关字段。
  */
@@ -427,6 +442,7 @@ export class TechniquePanel {
   /** clear：清理clear。 */
   clear(): void {
     this.lastVisibleTechniqueIds = null;
+    this.cardNodeRefs.clear();
     this.shellRefs = null;
     if (this.useReactPanel()) {
       syncReactTechniquePanelState({ techniques: [] });
@@ -701,7 +717,34 @@ export class TechniquePanel {
     if (!(card instanceof HTMLElement)) {
       throw new Error(t('technique.error.create-card-failed', undefined));
     }
+    this.cacheCardNodeRefs(tech.techId, card);
     return card;
+  }
+
+  /** cacheCardNodeRefs：缓存卡片子节点引用以避免重复 querySelector。 */
+  private cacheCardNodeRefs(techId: string, card: HTMLElement): void {
+    const escaped = CSS.escape(techId);
+    const realmLevel = card.querySelector<HTMLElement>(`[data-tech-realm-level="${escaped}"]`);
+    const realm = card.querySelector<HTMLElement>(`[data-tech-realm="${escaped}"]`);
+    const layer = card.querySelector<HTMLElement>(`[data-tech-layer="${escaped}"]`);
+    const progressText = card.querySelector<HTMLElement>(`[data-tech-progress-text="${escaped}"]`);
+    const progressFill = card.querySelector<HTMLElement>(`[data-tech-progress-fill="${escaped}"]`);
+    const remain = card.querySelector<HTMLElement>(`[data-tech-progress-remain="${escaped}"]`);
+    const cultivateButton = card.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${escaped}"]`);
+    const skillToggleButton = card.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${escaped}"]`);
+    if (realmLevel && realm && layer && progressText && progressFill && remain && cultivateButton) {
+      this.cardNodeRefs.set(techId, {
+        card,
+        realmLevel,
+        realm,
+        layer,
+        progressText,
+        progressFill,
+        remain,
+        cultivateButton,
+        skillToggleButton,
+      });
+    }
   }
 
   /** syncTechniqueListContent：同步Technique列表Content。 */
@@ -711,6 +754,10 @@ export class TechniquePanel {
     const allowed = new Set(orderedNodes);
     for (const child of Array.from(listRoot.children)) {
       if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        const techId = child instanceof HTMLElement ? child.dataset.techCard : undefined;
+        if (techId) {
+          this.cardNodeRefs.delete(techId);
+        }
         child.remove();
       }
     }
@@ -1427,19 +1474,19 @@ export class TechniquePanel {
 
     const { cultivatingTechId } = this.lastState;
     for (const tech of filteredTechniques) {
-      const card = listRoot.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
-      const realmLevelNode = listRoot.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
-      const realmNode = listRoot.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
-      const layerNode = listRoot.querySelector<HTMLElement>(`[data-tech-layer="${CSS.escape(tech.techId)}"]`);
-      const progressTextNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-text="${CSS.escape(tech.techId)}"]`);
-      const progressFillNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
-      const remainNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
-      const cultivateButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
-      const skillToggleButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
-      const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
-      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
+      let refs = this.cardNodeRefs.get(tech.techId);
+      if (!refs) {
+        const card = listRoot.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
+        if (card) {
+          this.cacheCardNodeRefs(tech.techId, card);
+          refs = this.cardNodeRefs.get(tech.techId);
+        }
+      }
+      if (!refs) {
         return false;
       }
+      const { card, realmLevel: realmLevelNode, realm: realmNode, layer: layerNode, progressText: progressTextNode, progressFill: progressFillNode, remain: remainNode, cultivateButton, skillToggleButton } = refs;
+      const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
       if (showSkillToggle !== Boolean(skillToggleButton)) {
         return false;
       }
