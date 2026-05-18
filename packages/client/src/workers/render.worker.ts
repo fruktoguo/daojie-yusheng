@@ -22,19 +22,23 @@ let ctx: OffscreenCanvasRenderingContext2D | null = null;
 
 self.onmessage = (event: MessageEvent<RenderCommand>) => {
   const cmd = event.data;
-  switch (cmd.type) {
-    case 'init':
-      handleInit(cmd);
-      break;
-    case 'frame':
-      handleFrame(cmd);
-      break;
-    case 'resize':
-      handleResize(cmd);
-      break;
-    case 'clear':
-      handleClear();
-      break;
+  try {
+    switch (cmd.type) {
+      case 'init':
+        handleInit(cmd);
+        break;
+      case 'frame':
+        handleFrame(cmd);
+        break;
+      case 'resize':
+        handleResize(cmd);
+        break;
+      case 'clear':
+        handleClear();
+        break;
+    }
+  } catch (err: unknown) {
+    self.postMessage({ type: 'error', message: err instanceof Error ? err.message : String(err) });
   }
 };
 
