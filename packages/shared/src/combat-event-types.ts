@@ -192,11 +192,13 @@ export function estimateCombatAoiResultEventFieldCount(event: CombatAoiResultEve
   return estimateTopLevelFieldCount(event);
 }
 
-export function assertCombatAoiResultEventBudget(event: CombatAoiResultEvent): void {
+export function assertCombatAoiResultEventBudget(event: CombatAoiResultEvent): boolean {
   const fieldCount = estimateCombatAoiResultEventFieldCount(event);
   if (fieldCount > COMBAT_AOI_RESULT_FIELD_BUDGET) {
-    throw new Error(`combat AOI result field budget exceeded: ${fieldCount} > ${COMBAT_AOI_RESULT_FIELD_BUDGET}`);
+    // 降级：超预算时返回 false 而非 throw，避免中断 tick 主流程
+    return false;
   }
+  return true;
 }
 
 export function isCombatNoticeEvent(item: NoticeItemView): item is CombatNoticeEvent {

@@ -2745,7 +2745,9 @@ export class WorldRuntimeCombatActionService {
       result: normalizeCombatProtocolResult(result),
       damage: Math.max(0, Math.round(Number(result.damage) || 0)),
     };
-    assertCombatAoiResultEventBudget(event);
+    if (!assertCombatAoiResultEventBudget(event)) {
+      this.logger.warn(`combat AOI result field budget exceeded: ${Object.keys(event).length} > budget, event degraded [instanceId=${outcome.instanceId}, actorId=${outcome.actor?.id}]`);
+    }
     return event;
   }
 
