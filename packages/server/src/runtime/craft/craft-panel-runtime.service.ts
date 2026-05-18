@@ -505,7 +505,8 @@ export class CraftPanelRuntimeService {
             dirtyDomains: ['alchemy_preset'],
         });
         void this.persistAlchemyPresets(player).catch((error) => {
-            console.warn(`炼丹预设直写失败：${error instanceof Error ? error.message : String(error)}`);
+            console.warn(`炼丹预设直写失败，已标记 dirty 等待重试：${error instanceof Error ? error.message : String(error)}`);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['alchemy_preset']);
         });
         return {
             ok: true,
@@ -541,7 +542,8 @@ export class CraftPanelRuntimeService {
             dirtyDomains: ['alchemy_preset'],
         });
         void this.persistAlchemyPresets(player).catch((error) => {
-            console.warn(`炼丹预设直写失败：${error instanceof Error ? error.message : String(error)}`);
+            console.warn(`炼丹预设直写失败，已标记 dirty 等待重试：${error instanceof Error ? error.message : String(error)}`);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['alchemy_preset']);
         });
         return {
             ok: true,
@@ -1769,7 +1771,8 @@ export class CraftPanelRuntimeService {
         });
         if (player?.suppressImmediateDomainPersistence !== true) {
             void this.persistEnhancementRecords(player).catch((error) => {
-                this.logger.warn(`强化记录直写失败：${error instanceof Error ? error.message : String(error)}`);
+                this.logger.warn(`强化记录直写失败，已标记 dirty 等待重试：${error instanceof Error ? error.message : String(error)}`);
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['enhancement_record']);
             });
         }
         return {
@@ -2057,7 +2060,8 @@ export class CraftPanelRuntimeService {
         }
         if (dirtyDomains.includes('active_job') && !player?.suppressImmediateDomainPersistence) {
             void this.persistTechniqueActivitySnapshot(player).catch((error) => {
-                console.warn(`活跃任务直写失败：${error instanceof Error ? error.message : String(error)}`);
+                console.warn(`活跃任务直写失败，已标记 dirty 等待重试：${error instanceof Error ? error.message : String(error)}`);
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
             });
         }
     }
