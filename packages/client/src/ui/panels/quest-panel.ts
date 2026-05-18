@@ -411,7 +411,33 @@ export class QuestPanel {
       return card;
     });
     existingCards.forEach((card) => card.remove());
-    section.replaceChildren(titleNode, subtabs, ...orderedCards);
+
+    // 增量同步 section 子节点，保留滚动位置
+    // 确保 titleNode 和 subtabs 在前
+    if (section.firstChild !== titleNode) {
+      section.insertBefore(titleNode, section.firstChild);
+    }
+    if (titleNode.nextSibling !== subtabs) {
+      section.insertBefore(subtabs, titleNode.nextSibling);
+    }
+    // 同步 cards 部分（subtabs 之后）
+    const allowedCards = new Set<HTMLElement>(orderedCards);
+    let cursor = subtabs.nextSibling;
+    while (cursor) {
+      const next = cursor.nextSibling;
+      if (cursor instanceof HTMLElement && !allowedCards.has(cursor)) {
+        cursor.remove();
+      }
+      cursor = next;
+    }
+    let ref: ChildNode | null = subtabs.nextSibling;
+    for (const card of orderedCards) {
+      if (ref !== card) {
+        section.insertBefore(card, ref);
+      } else {
+        ref = ref.nextSibling;
+      }
+    }
 
     this.lastVisibleQuestIds = visibleQuestIds;
     this.lastStructureLine = this.activeLine;
