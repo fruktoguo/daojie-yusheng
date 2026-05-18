@@ -191,6 +191,7 @@ import { WorldRuntimeController } from './runtime/world/world-runtime.controller
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
 import { WorkerPoolModule } from './concurrency/worker-pool.module';
+import { AsyncPathfindingService } from './runtime/world/async-pathfinding.service';
 
 /** 服务端主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
@@ -385,6 +386,7 @@ import { WorkerPoolModule } from './concurrency/worker-pool.module';
     WorldGatewaySuggestionHelper,
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
+    AsyncPathfindingService,
     RuntimeEventBusMetricsService,
     RuntimeEventBusService,
     WorldTickService,

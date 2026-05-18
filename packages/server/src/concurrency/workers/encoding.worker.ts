@@ -4,6 +4,8 @@
  * 不依赖 NestJS 容器，直接 import shared 纯函数。
  */
 import { parentPort } from 'node:worker_threads';
+import { findBoundedPath, type PathfindingStaticGrid } from '@mud/shared';
+import type { PathfindingTaskInput, PathfindingTaskResult } from '@mud/shared';
 
 import type { WorkerTaskEnvelope, WorkerTaskResult } from '../worker-task.types';
 
@@ -51,9 +53,62 @@ function handleEnvelopeEncode(payload: unknown): Buffer {
   return Buffer.from(JSON.stringify(payload), 'utf-8');
 }
 
-function handlePathfind(_payload: unknown): unknown {
-  // TODO: Phase 2 实现 A* 寻路
-  return null;
+/** 缓存的 staticGrid，按 (mapId, mapRevision) 复用 */
+let cachedGrid: PathfindingStaticGrid | null = null;
+
+function handlePathfind(payload: unknown): PathfindingTaskResult {
+  const input = payload as PathfindingTaskInput;
+
+  // 更新或复用缓存
+  if (
+    !cachedGrid
+    || cachedGrid.mapId !== input.mapId
+    || cachedGrid.mapRevision !== input.mapRevision
+    || (input.walkable && input.traversalCost)
+  ) {
+    if (!input.walkable || !input.traversalCost) {
+      return { status: 'failed', path: [], expandedNodes: 0, reason: 'missing_grid_data' };
+    }
+    cachedGrid = {
+      mapId: input.mapId,
+      mapRevision: input.mapRevision,
+      width: input.width,
+      height: input.height,
+      walkable: input.walkable,
+      traversalCost: input.traversalCost,
+    };
+  }
+
+  const result = findBoundedPath(
+    cachedGrid,
+    input.blocked,
+    input.startX,
+    input.startY,
+    input.goals,
+    {
+      maxExpandedNodes: input.maxExpandedNodes,
+      maxPathLength: input.maxPathLength,
+      maxGoalDistance: input.maxGoalDistance,
+      allowPartialPath: input.allowPartialPath,
+    },
+  );
+
+  if (result.status === 'success') {
+    return {
+      status: 'success',
+      path: result.path,
+      expandedNodes: result.expandedNodes,
+      reachedGoal: result.reachedGoal,
+      complete: result.complete,
+    };
+  }
+
+  return {
+    status: 'failed',
+    path: [],
+    expandedNodes: result.expandedNodes,
+    reason: result.reason,
+  };
 }
 
 function handleFov(_payload: unknown): unknown {
