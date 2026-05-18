@@ -296,6 +296,14 @@ function compareStableStrings(left, right) {
 }
 
 function buildTimeCheckpointSnapshot(instance) {
+    // 构建 dungeonDescriptor（通天塔）
+    let dungeonDescriptor = undefined;
+    if (instance?.tongtianTowerState && instance?.meta?.kind === 'tower') {
+        const layer = instance.tongtianTowerState.layer;
+        if (Number.isFinite(layer) && layer > 0) {
+            dungeonDescriptor = { type: 'tower', params: { layer } };
+        }
+    }
     return {
         version: 2,
         savedAt: Date.now(),
@@ -304,6 +312,7 @@ function buildTimeCheckpointSnapshot(instance) {
         tickSpeed: Number.isFinite(Number(instance?.tickSpeed)) ? Math.max(0, Number(instance.tickSpeed)) : 1,
         paused: instance?.paused === true,
         dungeonState: instance?.tongtianTowerState ?? undefined,
+        dungeonDescriptor,
         persistenceRevision: typeof instance?.getPersistenceRevision === 'function'
             ? instance.getPersistenceRevision()
             : undefined,
