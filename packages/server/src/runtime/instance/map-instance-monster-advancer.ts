@@ -132,6 +132,22 @@ export function resolveMonsterTarget(
   ctx: MonsterAdvancerContext,
 ): ResolvedTarget | null {
   const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
+
+  // 快速前置检查：如果没有已锁定目标且附近无玩家，跳过昂贵的 shadowcasting
+  if (!monster.aggroTargetPlayerId) {
+    let hasNearbyPlayer = false;
+    for (const player of ctx.iteratePlayers()) {
+      if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+        && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
+        hasNearbyPlayer = true;
+        break;
+      }
+    }
+    if (!hasNearbyPlayer) {
+      return null;
+    }
+  }
+
   const visibleTileIndices = ctx.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
 
   if (monster.aggroTargetPlayerId) {
