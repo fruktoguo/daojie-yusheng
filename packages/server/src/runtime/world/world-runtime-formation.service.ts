@@ -929,6 +929,12 @@ class WorldRuntimeFormationService {
         if (!normalizedInstanceId) {
             return;
         }
+        // 清理 pending persist timer，避免实例销毁后悬挂 timer 持有闭包引用
+        const pendingTimer = this._formationPersistTimers.get(normalizedInstanceId);
+        if (pendingTimer !== undefined) {
+            clearTimeout(pendingTimer);
+            this._formationPersistTimers.delete(normalizedInstanceId);
+        }
         const formations = this.formationsByInstanceId.get(normalizedInstanceId);
         if (Array.isArray(formations) && formations.length > 0) {
             // 实例已销毁，承载阵法对象再保留也无处广播；统一释放避免悬挂。
