@@ -174,7 +174,24 @@ export class LeaderboardRuntimeService {
             return cached;
         }
 
-        const snapshots = await this.collectWorldSummarySnapshots();
+        // 优先复用排行榜已缓存的 snapshot（避免重复拉离线玩家数据）
+        let snapshots: any[];
+        if (this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
+            // 排行榜缓存已有全量 snapshot，直接复用；
+            // 用运行态数据覆盖在线玩家的实时活动 flags
+            const runtimeSnapshots = this.collectRuntimeSnapshots()
+                .filter((p) => !isNativeGmBotPlayerId(p.playerId))
+                .map((player) => this.createSnapshot(player));
+            // 离线玩家直接取缓存，在线玩家用实时数据
+            const runtimePlayerIds = new Set(runtimeSnapshots.map((s) => s.playerId));
+            snapshots = [
+                ...runtimeSnapshots,
+                ...[...this.cachedLeaderboardSnapshotsByPlayerId.values()]
+                    .filter((s) => !runtimePlayerIds.has(s.playerId)),
+            ];
+        } else {
+            snapshots = await this.collectWorldSummarySnapshots();
+        }
 
         const payload = {
             generatedAt: Date.now(),

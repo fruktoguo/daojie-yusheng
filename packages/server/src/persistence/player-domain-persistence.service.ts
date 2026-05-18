@@ -2234,9 +2234,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         // active job (排行榜只需判断 alchemy/enhancement 存在性)
         const jobRow = activeJobByPid.get(playerId);
         const jobType = jobRow ? normalizeOptionalString(jobRow.job_type) : null;
-        snapshot.progression.alchemyJob = jobType === 'alchemy' || (jobType === 'forging' ? null : (jobType && jobType !== 'enhancement' ? {} : null)) as any;
-        snapshot.progression.forgingJob = jobType === 'forging' ? {} as any : null;
-        snapshot.progression.enhancementJob = jobType === 'enhancement' ? {} as any : null;
+        snapshot.progression.alchemyJob = (jobType === 'alchemy' ? {} : null) as any;
+        snapshot.progression.forgingJob = (jobType === 'forging' ? {} : null) as any;
+        snapshot.progression.enhancementJob = (jobType === 'enhancement' ? {} : null) as any;
         // 排行榜不需要的字段保持 starter 默认值
         entries.push({ playerId, snapshot });
       }
