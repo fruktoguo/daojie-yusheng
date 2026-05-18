@@ -413,19 +413,19 @@ export class MarketBrowseView {
   }
 
   private getMarketCategoryCount(category: MarketCategoryFilter, fallback: number): number {
-    const value = (this.panel as any).marketListings?.counts?.categoryCounts?.[category];
+    const value = this.panel.marketListings?.counts?.categoryCounts?.[category];
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
   }
 
   private getMarketEquipmentSlotCount(slot: MarketEquipmentFilter, fallback: number): number {
-    const value = (this.panel as any).marketListings?.counts?.equipmentSlotCounts?.[slot];
+    const value = this.panel.marketListings?.counts?.equipmentSlotCounts?.[slot];
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
   }
 
   private getMarketTechniqueCategoryCount(category: MarketTechniqueFilter, fallback: number): number {
-    const value = (this.panel as any).marketListings?.counts?.techniqueCategoryCounts?.[category];
+    const value = this.panel.marketListings?.counts?.techniqueCategoryCounts?.[category];
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
   }
@@ -435,7 +435,7 @@ export class MarketBrowseView {
     const totalItems = p.getVisibleMarketTotalItems(p.marketUpdate, items);
     const pageSize = p.marketListings?.pageSize ?? p.getMarketPageSize();
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    const page = p.marketListings?.page ?? p.clampPage((p as any).currentPage, totalItems);
+    const page = p.marketListings?.page ?? p.clampPage(p.currentPage, totalItems);
     return { page, totalPages, totalItems, items };
   }
 }

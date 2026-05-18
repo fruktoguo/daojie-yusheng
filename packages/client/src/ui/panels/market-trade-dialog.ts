@@ -384,8 +384,7 @@ export class MarketTradeDialog {
       const quantity = p.normalizeTradeDialogQuantity(quantitySeed, selected, kind, unitPrice);
       if (kind === 'buy') {
         if (p.tradeDialog.source === 'auction-bid') {
-          const auctionView = (p as any).auctionView;
-          const lot = auctionView.resolveAuctionLotByKey(p.selectedAuctionItemKey ?? selected.itemKey, update, 'participate');
+          const lot = p.resolveAuctionLotByKey(p.selectedAuctionItemKey ?? selected.itemKey, update, 'participate');
           if (!lot) return;
           p.callbacks?.onPlaceAuctionBid(lot.id, lot.itemKey, unitPrice);
           p.tradeDialog = null;
