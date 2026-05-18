@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
+import type { FormationTemplate } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { freezeTemplateMap } from './template-freeze';
 
 @Injectable()
 export class FormationTemplateRegistry {
-  readonly formationTemplates = new Map<string, any>();
+  readonly formationTemplates = new Map<string, FormationTemplate>();
 
   loadAll(): void {
     this.formationTemplates.clear();
@@ -25,7 +26,7 @@ export class FormationTemplateRegistry {
     freezeTemplateMap(this.formationTemplates);
   }
 
-  getRef(formationId: string): Readonly<any> {
+  getRef(formationId: string): Readonly<FormationTemplate> {
     const template = this.tryGetRef(formationId);
     if (!template) {
       throw new Error(`未找到阵法模板：${formationId}`);
@@ -33,16 +34,16 @@ export class FormationTemplateRegistry {
     return template;
   }
 
-  tryGetRef(formationId: string): Readonly<any> | undefined {
+  tryGetRef(formationId: string): Readonly<FormationTemplate> | undefined {
     const normalized = typeof formationId === 'string' ? formationId.trim() : '';
     return normalized ? this.formationTemplates.get(normalized) : undefined;
   }
 
-  createInstance(formationId: string, init: any = {}): any {
+  createInstance(formationId: string, init: Record<string, unknown> = {}): Record<string, unknown> & { formationId: string } {
     return { ...init, formationId };
   }
 
-  hydrate(formationId: string, payload: any = {}): any {
+  hydrate(formationId: string, payload: Record<string, unknown> = {}): Record<string, unknown> & { formationId: string } {
     return this.createInstance(formationId, payload);
   }
 
@@ -50,11 +51,11 @@ export class FormationTemplateRegistry {
     return Array.from(this.formationTemplates.keys()).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
   }
 
-  getFormationTemplate(formationId: string): any | null {
+  getFormationTemplate(formationId: string): FormationTemplate | null {
     return this.tryGetRef(formationId) ?? null;
   }
 
-  listFormationTemplates(): any[] {
+  listFormationTemplates(): FormationTemplate[] {
     return Array.from(this.formationTemplates.values(), (template) => ({ ...template }));
   }
 }
