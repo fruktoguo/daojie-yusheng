@@ -3563,7 +3563,9 @@ export class PlayerRuntimeService {
             inventory: {
                 revision: Math.max(1, snapshot.inventory.revision),
                 capacity: Math.max(DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
-                items: snapshot.inventory.items.map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
+                items: snapshot.inventory.items
+                    .filter((entry) => entry && typeof entry === 'object' && typeof entry.itemId === 'string' && entry.itemId)
+                    .map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
                 lockedItems: Array.isArray(snapshot.inventory.lockedItems)
                     ? snapshot.inventory.lockedItems.map((entry) => ({ ...entry }))
                     : [],
@@ -6230,23 +6232,33 @@ function compareInventoryItems(left, right) {
  * 合并后保留首个遇到的 slot 的 itemInstanceId（现有堆叠胜出）。
  */
 function coalesceInventoryItems(items: any[]): void {
-    const signatureIndex = new Map<string, number>();
+    // 先过滤 null/undefined 脏条目，防止后续签名计算崩溃
     for (let i = items.length - 1; i >= 0; i -= 1) {
+        if (!items[i]) {
+            items.splice(i, 1);
+        }
+    }
+    // 正向遍历：首次遇到的签名保留原位，后续同签名合并进首个并移除
+    const signatureIndex = new Map<string, number>();
+    let writeIndex = 0;
+    for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         if (!canMergeItemStack(item)) {
+            items[writeIndex] = item;
+            writeIndex += 1;
             continue;
         }
         const sig = createItemStackSignature(item);
         const existingIdx = signatureIndex.get(sig);
         if (existingIdx !== undefined) {
-            // 合并到已有 slot（index 更小的那个）
             items[existingIdx].count += Math.max(1, Math.trunc(Number(item.count) || 1));
-            items.splice(i, 1);
-            // 由于 splice 使 existingIdx 以上的 index 向下移动，但 existingIdx < i，不受影响
         } else {
-            signatureIndex.set(sig, i);
+            signatureIndex.set(sig, writeIndex);
+            items[writeIndex] = item;
+            writeIndex += 1;
         }
     }
+    items.length = writeIndex;
 }
 
 function consumeInventoryItemAt(items, slotIndex, count) {

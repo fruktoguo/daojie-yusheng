@@ -61,6 +61,9 @@ export class ItemTemplateRegistry {
   }
 
   normalizeItem(item: any): any {
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
     const template = this.tryGetRef(item?.itemId);
     if (!template) {
       return {
