@@ -9,7 +9,7 @@ import {
   type Tile,
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
-import { findPath } from './pathfinding';
+import { findPath, findPathAsync } from './pathfinding';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 import { t } from './ui/i18n';
 /**
@@ -399,6 +399,18 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  * @returns 返回ClientPreview路径。
  */
 
+  /** 将方向数组转为路径坐标数组 */
+  function directionsToPathCells(sx: number, sy: number, dirs: Direction[]): Array<{ x: number; y: number }> {
+    const cells: Array<{ x: number; y: number }> = [];
+    let cx = sx, cy = sy;
+    for (const dir of dirs) {
+      const [dx, dy] = directionToDelta(dir);
+      cx += dx;
+      cy += dy;
+      cells.push({ x: cx, y: cy });
+    }
+    return cells;
+  }
 
   function buildClientPreviewPath(
     startX: number,
@@ -474,6 +486,14 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
     const previewDirections = findPath(tiles, startX, startY, targetX, targetY);
     if (!previewDirections) {
+      // 同步路径失败时，尝试异步 worker 路径（大地图场景）
+      if (tiles.length > 0 && tiles[0].length > 0 && tiles.length * tiles[0].length > 2048) {
+        findPathAsync(tiles, startX, startY, targetX, targetY).then((asyncDirs) => {
+          if (asyncDirs && asyncDirs.length > 0) {
+            options.setRuntimePathCells?.(directionsToPathCells(startX, startY, asyncDirs));
+          }
+        }).catch(() => { /* worker 失败静默忽略 */ });
+      }
       return null;
     }
 
