@@ -257,6 +257,8 @@ export class InventoryPanel {
   private activeFilter: InventoryFilter = 'all';
   /** lastInventory：last背包。 */
   private lastInventory: Inventory | null = null;
+  /** cachedScrollContainer：缓存的滚动容器引用，避免 scroll 路径中重复 getComputedStyle。 */
+  private cachedScrollContainer: HTMLElement | null | undefined = undefined;
   /** selectedSlotIndex：selected槽位索引。 */
   private selectedSlotIndex: number | null = null;
   /** selectedItemKey：selected物品Key。 */
@@ -346,6 +348,7 @@ export class InventoryPanel {
 
     this.activeFilter = 'all';
     this.lastInventory = null;
+    this.cachedScrollContainer = undefined;
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
@@ -2851,16 +2854,23 @@ export class InventoryPanel {
   private resolveScrollContainer(preferredTarget?: HTMLElement): HTMLElement | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    // 使用缓存避免 scroll 路径中重复 getComputedStyle
+    if (this.cachedScrollContainer !== undefined && !preferredTarget) {
+      return this.cachedScrollContainer;
+    }
     if (preferredTarget && preferredTarget.contains(this.pane) && this.isScrollableContainer(preferredTarget)) {
+      this.cachedScrollContainer = preferredTarget;
       return preferredTarget;
     }
     let current: HTMLElement | null = this.pane.parentElement;
     while (current) {
       if (this.isScrollableContainer(current)) {
+        this.cachedScrollContainer = current;
         return current;
       }
       current = current.parentElement;
     }
+    this.cachedScrollContainer = null;
     return null;
   }
 
