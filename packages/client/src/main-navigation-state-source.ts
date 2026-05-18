@@ -492,7 +492,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
           if (asyncDirs && asyncDirs.length > 0) {
             options.setRuntimePathCells?.(directionsToPathCells(startX, startY, asyncDirs));
           }
-        }).catch(() => { /* worker 失败静默忽略 */ });
+        }).catch((e) => console.debug('[Navigation] async pathfind worker failed:', e));
       }
       return null;
     }
