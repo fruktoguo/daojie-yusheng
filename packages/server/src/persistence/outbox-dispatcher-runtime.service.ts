@@ -261,8 +261,9 @@ function addBoundedDedupeKey(target: Set<string>, order: string[], value: string
 
 function isOutboxRuntimeEnabled(): boolean {
   const explicit = process.env.SERVER_OUTBOX_RUNTIME_ENABLED ?? process.env.DATABASE_OUTBOX_RUNTIME_ENABLED;
+  // 未配置时默认开启；只有显式设为 0/false/no/off 才禁用
   if (typeof explicit !== 'string') {
-    return false;
+    return true;
   }
-  return /^(1|true|yes|on)$/iu.test(explicit.trim());
+  return !/^(0|false|no|off)$/iu.test(explicit.trim());
 }
