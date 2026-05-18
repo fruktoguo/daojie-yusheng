@@ -1144,13 +1144,32 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
   await socket.waitForEvent(S2C.MapStatic, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.Realm, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.LootWindowUpdate, function () { return true; }, timeoutMs);
-  await socket.waitForEvent(S2C.Quests, function () { return true; }, timeoutMs);
+  assertBootstrapQuestsAreRuntimeOnly(bootstrap);
   return {
     playerId: playerId,
     sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
     initSession: initSession,
     bootstrap: bootstrap,
   };
+}
+
+function assertBootstrapQuestsAreRuntimeOnly(bootstrap) {
+  var quests = bootstrap?.self?.quests;
+  if (!Array.isArray(quests)) {
+    throw new Error('expected Bootstrap.self.quests to carry runtime quest state');
+  }
+  for (var i = 0; i < quests.length; i += 1) {
+    var quest = quests[i];
+    if (typeof quest?.id !== 'string' || typeof quest?.status !== 'string' || typeof quest?.progress !== 'number') {
+      throw new Error('expected Bootstrap.self.quests entries to contain id/status/progress');
+    }
+    var forbiddenKeys = ['title', 'desc', 'rewardText', 'objectiveText', 'giverName', 'targetName'];
+    for (var j = 0; j < forbiddenKeys.length; j += 1) {
+      if (quest && Object.prototype.hasOwnProperty.call(quest, forbiddenKeys[j])) {
+        throw new Error('expected Bootstrap.self.quests to avoid static quest field ' + forbiddenKeys[j]);
+      }
+    }
+  }
 }
 
 /**

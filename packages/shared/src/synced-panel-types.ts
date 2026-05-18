@@ -295,6 +295,16 @@ export interface PanelInventoryDeltaView {
  */
 
   slots?: InventorySlotUpdateEntry[];
+  /**
+ * cooldowns：冷却相关字段。
+ */
+
+  cooldowns?: SyncedInventoryCooldownState[];
+  /**
+ * serverTick：servertick相关字段。
+ */
+
+  serverTick?: number;
 }
 
 /** 装备面板增量视图。 */

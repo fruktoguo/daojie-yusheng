@@ -18,6 +18,7 @@ import {
   type SyncedItemStack,
   type TechniqueState,
   type TechniqueUpdateEntryView,
+  type VisibleBuffState,
   type WorldBuildingPatchView,
   type WorldContainerPatchView,
   type WorldDeltaView,
@@ -518,6 +519,8 @@ function buildFullPanelDeltaFromState(panel: ProjectedPanelState): S2C_PanelDelt
                 slotIndex,
                 item: entry,
             })),
+            cooldowns: panel.inventory.cooldowns,
+            serverTick: panel.inventory.serverTick,
         },
         eq: {
             r: panel.equipment.revision,
@@ -710,17 +713,56 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
     };
 }
 
-function buildPanelCursor(player: ProjectorPlayerLike): ProjectedPanelCursor {
+function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: ProjectedPanelCursor | null): ProjectedPanelCursor {
+    const canReuseInventoryCursor = previousCursor
+        && Array.isArray(previousCursor.inventorySlotSignatures)
+        && previousCursor.inventoryRevision === player.inventory.revision
+        && previousCursor.inventoryCapacity === player.inventory.capacity
+        && previousCursor.inventorySize === player.inventory.items.length;
+    const canReuseEquipmentCursor = previousCursor
+        && previousCursor.equipmentSlotSignatures
+        && previousCursor.equipmentRevision === player.equipment.revision;
+    const canReuseActionCursor = previousCursor
+        && Array.isArray(previousCursor.actionIds)
+        && previousCursor.actionEntrySignatures
+        && previousCursor.actionRevision === player.actions.revision;
+    const currentBuffs = projectVisiblePlayerBuffs(player);
+    const buffSignature = buildBuffListSignature(player.buffs.revision, currentBuffs);
+    const canReuseBuffCursor = previousCursor
+        && Array.isArray(previousCursor.buffIds)
+        && previousCursor.buffEntrySignatures
+        && previousCursor.buffRevision === player.buffs.revision
+        && previousCursor.buffSignature === buffSignature;
     return {
         inventoryRevision: player.inventory.revision,
+        inventoryCapacity: player.inventory.capacity,
+        inventorySize: player.inventory.items.length,
+        inventorySlotSignatures: canReuseInventoryCursor
+            ? previousCursor.inventorySlotSignatures
+            : player.inventory.items.map((entry) => buildStableProtocolSignature(entry)),
         equipmentRevision: player.equipment.revision,
+        equipmentSlotSignatures: canReuseEquipmentCursor
+            ? previousCursor.equipmentSlotSignatures
+            : buildEquipmentSlotSignatures(player.equipment.slots),
         techniqueRevision: player.techniques.revision,
         attrRevision: player.attrs.revision,
         actionRevision: player.actions.revision,
+        actionIds: canReuseActionCursor
+            ? previousCursor.actionIds
+            : player.actions.actions.map((entry) => entry.id),
+        actionEntrySignatures: canReuseActionCursor
+            ? previousCursor.actionEntrySignatures
+            : buildActionEntrySignatures(player.actions.actions),
         buffRevision: player.buffs.revision,
+        buffIds: canReuseBuffCursor
+            ? previousCursor.buffIds
+            : currentBuffs.map((entry) => entry.buffId),
+        buffEntrySignatures: canReuseBuffCursor
+            ? previousCursor.buffEntrySignatures
+            : buildBuffEntrySignatures(currentBuffs),
         attrSignature: buildAttrPanelSignature(player),
         actionSignature: buildActionPanelSignature(player),
-        buffSignature: buildBuffPanelSignature(player),
+        buffSignature,
     };
 }
 
@@ -820,15 +862,42 @@ function buildCombatTargetingRulesSignature(rules: CombatTargetingRules | null |
     return rules ? stableShallowSignature(rules) : '';
 }
 
-function buildBuffPanelSignature(player: ProjectorPlayerLike): string {
-    const buffs = projectVisiblePlayerBuffs(player);
-    return `${player.buffs.revision}|${buffs.map((entry) => [
+function buildBuffListSignature(revision: number, buffs: VisibleBuffState[]): string {
+    return `${revision}|${buffs.map((entry) => [
         entry.buffId,
         entry.name,
         entry.remainingTicks,
         entry.stacks,
         entry.presentationScale ?? '',
     ].join(':')).join(';')}`;
+}
+
+function buildEquipmentSlotSignatures(slots: ProjectorPlayerLike['equipment']['slots']): Record<string, string> {
+    const signatures: Record<string, string> = {};
+    for (const entry of slots) {
+        signatures[entry.slot] = buildStableProtocolSignature(entry.item ?? null);
+    }
+    return signatures;
+}
+
+function buildActionEntrySignatures(actions: ProjectedActionEntry[]): Record<string, string> {
+    const signatures: Record<string, string> = {};
+    for (const entry of actions) {
+        signatures[entry.id] = buildStableProtocolSignature(entry);
+    }
+    return signatures;
+}
+
+function buildBuffEntrySignatures(buffs: VisibleBuffState[]): Record<string, string> {
+    const signatures: Record<string, string> = {};
+    for (const entry of buffs) {
+        signatures[entry.buffId] = buildStableProtocolSignature(entry);
+    }
+    return signatures;
+}
+
+function buildStableProtocolSignature(value: unknown): string {
+    return stableShallowSignature(value);
 }
 
 function stableShallowSignature(value: unknown): string {
@@ -893,7 +962,17 @@ function canReuseBuffPanelSlice(previousBuff: ProjectedPanelState['buff'], playe
 }
 
 function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['inventory'] {
-    return { revision: player.inventory.revision, capacity: player.inventory.capacity, items: player.inventory.items.map((entry) => ({ ...entry })) };
+    return {
+        revision: player.inventory.revision,
+        capacity: player.inventory.capacity,
+        items: player.inventory.items.map((entry) => ({ ...entry })),
+        cooldowns: Array.isArray(player.inventory.cooldowns)
+            ? player.inventory.cooldowns.map((entry) => ({ ...entry }))
+            : undefined,
+        serverTick: Number.isFinite(Number(player.inventory.serverTick))
+            ? Math.max(0, Math.trunc(Number(player.inventory.serverTick) || 0))
+            : undefined,
+    };
 }
 
 function captureEquipmentPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['equipment'] {
@@ -1136,7 +1215,7 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
 }
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
-    const panelCursor = buildPanelCursor(player);
+    const panelCursor = buildPanelCursor(player, previous.panelCursor);
     const hasTechniqueCache = Boolean(previous.techniquePanel);
     const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player, {
         skipTechnique: hasTechniqueCache,
@@ -1171,17 +1250,20 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
     const delta: S2C_PanelDelta = {};
     if (previousCursor.inventoryRevision !== currentCursor.inventoryRevision) {
         const inventory = captureInventoryPanelSlice(player);
+        const slotPatch = diffInventorySlotsFromCursor(previousCursor, currentCursor, inventory.items);
         delta.inv = {
             r: inventory.revision,
-            full: 1,
-            capacity: inventory.capacity,
-            size: inventory.items.length,
-            slots: inventory.items.map((entry, slotIndex) => ({ slotIndex, item: entry })),
+            capacity: previousCursor.inventoryCapacity !== currentCursor.inventoryCapacity ? inventory.capacity : undefined,
+            size: previousCursor.inventorySize !== currentCursor.inventorySize ? inventory.items.length : undefined,
+            slots: slotPatch.length > 0 ? slotPatch : undefined,
+            cooldowns: inventory.cooldowns,
+            serverTick: inventory.serverTick,
         };
     }
     if (previousCursor.equipmentRevision !== currentCursor.equipmentRevision) {
         const equipment = captureEquipmentPanelSlice(player);
-        delta.eq = { r: equipment.revision, full: 1, slots: equipment.slots };
+        const slotPatch = diffEquipmentSlotsFromCursor(previousCursor, currentCursor, equipment.slots);
+        delta.eq = { r: equipment.revision, slots: slotPatch };
     }
     if (!options.skipTechnique && previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
         const technique = captureTechniquePanelSlice(player);
@@ -1197,12 +1279,123 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
         delta.attr = buildFullAttrDelta(player);
     }
     if (previousCursor.actionSignature !== currentCursor.actionSignature) {
-        delta.act = buildFullActionDelta(player);
+        const action = captureActionPanelSlice(player);
+        const actionPatch = previousCursor.actionRevision !== currentCursor.actionRevision
+            ? diffActionEntriesFromCursor(previousCursor, currentCursor, action.actions)
+            : [];
+        const removedActionIds = previousCursor.actionRevision !== currentCursor.actionRevision
+            ? diffRemovedIds(previousCursor.actionIds, currentCursor.actionIds)
+            : [];
+        const actionOrderChanged = !isSameStringList(previousCursor.actionIds, currentCursor.actionIds);
+        delta.act = {
+            r: action.revision,
+            actions: actionPatch.length > 0 ? actionPatch : undefined,
+            removeActionIds: removedActionIds.length > 0 ? removedActionIds : undefined,
+            actionOrder: actionOrderChanged ? buildActionOrder(action.actions) : undefined,
+            autoBattle: action.autoBattle,
+            autoUsePills: action.autoUsePills,
+            combatTargetingRules: action.combatTargetingRules,
+            autoBattleTargetingMode: action.autoBattleTargetingMode,
+            retaliatePlayerTargetId: action.retaliatePlayerTargetId,
+            combatTargetId: action.combatTargetId,
+            combatTargetLocked: action.combatTargetLocked,
+            autoRetaliate: action.autoRetaliate,
+            autoBattleStationary: action.autoBattleStationary,
+            allowAoePlayerHit: action.allowAoePlayerHit,
+            autoIdleCultivation: action.autoIdleCultivation,
+            autoSwitchCultivation: action.autoSwitchCultivation,
+            autoRootFoundation: action.autoRootFoundation,
+            cultivationActive: action.cultivationActive,
+            senseQiActive: action.senseQiActive,
+            wangQiActive: action.wangQiActive,
+        };
     }
     if (previousCursor.buffSignature !== currentCursor.buffSignature) {
-        delta.buff = buildFullBuffDelta(player);
+        const buff = captureBuffPanelSlice(player);
+        const buffPatch = diffBuffEntriesFromCursor(previousCursor, currentCursor, buff.buffs);
+        const removedBuffIds = diffRemovedIds(previousCursor.buffIds, currentCursor.buffIds);
+        delta.buff = {
+            r: buff.revision,
+            buffs: buffPatch.length > 0 ? buffPatch : undefined,
+            removeBuffIds: removedBuffIds.length > 0 ? removedBuffIds : undefined,
+        };
     }
     return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+}
+
+function diffInventorySlotsFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    currentItems: SyncedItemStack[],
+): NonNullable<NonNullable<S2C_PanelDelta['inv']>['slots']> {
+    const patch: NonNullable<NonNullable<S2C_PanelDelta['inv']>['slots']> = [];
+    const previousSignatures = previousCursor.inventorySlotSignatures ?? [];
+    const maxLength = Math.max(previousSignatures.length, currentItems.length);
+    for (let index = 0; index < maxLength; index += 1) {
+        const previousSignature = previousSignatures[index] ?? '';
+        const currentSignature = currentCursor.inventorySlotSignatures[index] ?? '';
+        if (previousSignature !== currentSignature) {
+            patch.push({ slotIndex: index, item: currentItems[index] ?? null });
+        }
+    }
+    return patch;
+}
+
+function diffEquipmentSlotsFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    currentSlots: NonNullable<S2C_PanelDelta['eq']>['slots'],
+): NonNullable<S2C_PanelDelta['eq']>['slots'] {
+    const patch: NonNullable<S2C_PanelDelta['eq']>['slots'] = [];
+    const previousSignatures = previousCursor.equipmentSlotSignatures ?? {};
+    const currentSignatures = currentCursor.equipmentSlotSignatures ?? {};
+    for (const entry of currentSlots) {
+        if ((previousSignatures[entry.slot] ?? '') !== (currentSignatures[entry.slot] ?? '')) {
+            patch.push(entry);
+        }
+    }
+    return patch;
+}
+
+function diffActionEntriesFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    currentActions: ProjectedActionEntry[],
+): ProjectedActionEntry[] {
+    const previousSignatures = previousCursor.actionEntrySignatures ?? {};
+    const currentSignatures = currentCursor.actionEntrySignatures ?? {};
+    return currentActions.filter((entry) => (
+        (previousSignatures[entry.id] ?? '') !== (currentSignatures[entry.id] ?? '')
+    ));
+}
+
+function diffBuffEntriesFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    currentBuffs: VisibleBuffState[],
+): VisibleBuffState[] {
+    const previousSignatures = previousCursor.buffEntrySignatures ?? {};
+    const currentSignatures = currentCursor.buffEntrySignatures ?? {};
+    return currentBuffs.filter((entry) => (
+        (previousSignatures[entry.buffId] ?? '') !== (currentSignatures[entry.buffId] ?? '')
+    ));
+}
+
+function diffRemovedIds(previousIds: string[], currentIds: string[]): string[] {
+    const current = new Set(currentIds);
+    return previousIds.filter((id) => !current.has(id));
+}
+
+function isSameStringList(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        if (left[index] !== right[index]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function isSameBodyTrainingState(left: ProjectedPanelState['technique']['bodyTraining'], right: ProjectedPanelState['technique']['bodyTraining']): boolean {
@@ -1238,6 +1431,8 @@ function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPan
             capacity: previousInventory.capacity !== currentInventory.capacity ? currentInventory.capacity : undefined,
             size: previousInventory.items.length !== currentInventory.items.length ? currentInventory.items.length : undefined,
             slots: slotPatch.length > 0 ? slotPatch : undefined,
+            cooldowns: currentInventory.cooldowns,
+            serverTick: currentInventory.serverTick,
         };
     }
     if (previousEquipment.revision !== currentEquipment.revision) {

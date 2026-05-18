@@ -5,7 +5,7 @@
  */
 import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -1632,6 +1632,7 @@ export class PlayerRuntimeService {
         const learnTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
 
         let consumed = false;
+        const currentTick = resolvePlayerRuntimeTick(player, 0);
         if (learnTechniqueId) {
             if (player.techniques.techniques.some((entry) => entry.techId === learnTechniqueId)) {
                 throw new NotFoundException(`功法已经学会：${learnTechniqueId}`);
@@ -1649,16 +1650,20 @@ export class PlayerRuntimeService {
                 player.combat.cultivationActive = true;
             }
             this.playerAttributesService.recalculate(player);
-            this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
+            this.rebuildActionState(player, currentTick);
             consumed = true;
         }
         else {
+            assertConsumableItemCooldownReady(player, item, currentTick);
             consumed = this.applyConsumableItem(player, item);
         }
         if (!consumed) {
             throw new NotFoundException(`物品 ${item.itemId} 没有可用效果`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
+        if (!learnTechniqueId) {
+            markConsumableItemCooldown(player, item, currentTick);
+        }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
@@ -6089,11 +6094,176 @@ function resolvePlayerRuntimeTick(player, fallbackTick = 0) {
     }
     return Math.max(0, Math.trunc(Number(fallbackTick) || 0));
 }
+
+function assertConsumableItemCooldownReady(player, item, currentTick) {
+    const cooldownLeft = getConsumableItemCooldownRemainingTicks(player, item, currentTick);
+    syncConsumableInventoryCooldownProjection(player, currentTick);
+    if (cooldownLeft > 0) {
+        throw new BadRequestException(`${item?.name ?? item?.itemId ?? '物品'}冷却中，还需 ${cooldownLeft} 息。`);
+    }
+}
+
+function markConsumableItemCooldown(player, item, currentTick) {
+    const cooldown = resolveConsumableItemCooldownTicks(item);
+    const groups = resolveConsumableItemCooldownGroups(item);
+    if (cooldown <= 0 || groups.length === 0) {
+        syncConsumableInventoryCooldownProjection(player, currentTick);
+        return;
+    }
+    const state = ensureConsumableCooldownState(player);
+    const startedAtTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    for (const group of groups) {
+        state[group] = startedAtTick;
+    }
+    syncConsumableInventoryCooldownProjection(player, startedAtTick);
+}
+
+function getConsumableItemCooldownRemainingTicks(player, item, currentTick) {
+    const cooldown = resolveConsumableItemCooldownTicks(item);
+    if (cooldown <= 0) {
+        return 0;
+    }
+    const groups = resolveConsumableItemCooldownGroups(item);
+    if (groups.length === 0) {
+        return 0;
+    }
+    const state = getConsumableCooldownState(player);
+    if (!state) {
+        return 0;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    let maxRemaining = 0;
+    for (const group of groups) {
+        const startedAtTick = state[group];
+        if (!Number.isFinite(Number(startedAtTick)) || Number(startedAtTick) < 0) {
+            continue;
+        }
+        const elapsed = Math.max(0, normalizedCurrentTick - Math.max(0, Math.trunc(Number(startedAtTick) || 0)));
+        const remaining = Math.max(0, cooldown - elapsed);
+        if (remaining > 0) {
+            maxRemaining = Math.max(maxRemaining, remaining);
+            continue;
+        }
+        delete state[group];
+    }
+    return maxRemaining;
+}
+
+function syncConsumableInventoryCooldownProjection(player, currentTick) {
+    const inventory = player?.inventory;
+    if (!inventory) {
+        return;
+    }
+    const state = getConsumableCooldownState(player);
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    inventory.serverTick = normalizedCurrentTick;
+    if (!state) {
+        inventory.cooldowns = [];
+        return;
+    }
+    const cooldownsByItemId = new Map();
+    for (const item of Array.isArray(inventory.items) ? inventory.items : []) {
+        if (!item?.itemId || cooldownsByItemId.has(item.itemId)) {
+            continue;
+        }
+        const cooldown = resolveConsumableItemCooldownTicks(item);
+        const groups = resolveConsumableItemCooldownGroups(item);
+        if (cooldown <= 0 || groups.length === 0) {
+            continue;
+        }
+        let selectedStartedAtTick = null;
+        let maxRemaining = 0;
+        for (const group of groups) {
+            const startedAtTick = state[group];
+            if (!Number.isFinite(Number(startedAtTick)) || Number(startedAtTick) < 0) {
+                continue;
+            }
+            const normalizedStartedAtTick = Math.max(0, Math.trunc(Number(startedAtTick) || 0));
+            const remaining = Math.max(0, cooldown - Math.max(0, normalizedCurrentTick - normalizedStartedAtTick));
+            if (remaining > maxRemaining) {
+                maxRemaining = remaining;
+                selectedStartedAtTick = normalizedStartedAtTick;
+            }
+            if (remaining <= 0) {
+                delete state[group];
+            }
+        }
+        if (maxRemaining > 0 && selectedStartedAtTick !== null) {
+            cooldownsByItemId.set(item.itemId, {
+                itemId: item.itemId,
+                cooldown,
+                startedAtTick: selectedStartedAtTick,
+            });
+        }
+    }
+    inventory.cooldowns = Array.from(cooldownsByItemId.values())
+        .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+}
+
+function resolveConsumableItemCooldownTicks(item) {
+    if (!item) {
+        return 0;
+    }
+    const hasCooldownEffect = hasConsumableCooldownEffect(item);
+    if (!hasCooldownEffect && item.type !== 'consumable') {
+        return 0;
+    }
+    if (Number.isFinite(Number(item.cooldown)) && Number(item.cooldown) > 0) {
+        return Math.max(1, Math.trunc(Number(item.cooldown)));
+    }
+    return hasCooldownEffect ? DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS : 0;
+}
+
+function resolveConsumableItemCooldownGroups(item) {
+    if (!item) {
+        return [];
+    }
+    const groups = [];
+    if (hasHpConsumableEffect(item)) {
+        groups.push('hp');
+    }
+    if (hasQiConsumableEffect(item)) {
+        groups.push('qi');
+    }
+    if (groups.length === 0 && resolveConsumableItemCooldownTicks(item) > 0 && typeof item.itemId === 'string' && item.itemId.trim()) {
+        groups.push(`item:${item.itemId.trim()}`);
+    }
+    return groups;
+}
+
+function hasInstantConsumableEffect(item) {
+    return hasHpConsumableEffect(item) || hasQiConsumableEffect(item);
+}
+
+function hasConsumableCooldownEffect(item) {
+    return hasInstantConsumableEffect(item)
+        || (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0);
+}
+
+function hasHpConsumableEffect(item) {
+    return Math.max(0, Number(item?.healAmount ?? 0)) > 0 || Math.max(0, Number(item?.healPercent ?? 0)) > 0;
+}
+
+function hasQiConsumableEffect(item) {
+    return Math.max(0, Number(item?.qiPercent ?? 0)) > 0;
+}
+
+function getConsumableCooldownState(player) {
+    const state = player?.inventory?.consumableCooldownStartedAtByGroup;
+    return state && typeof state === 'object' ? state : null;
+}
+
+function ensureConsumableCooldownState(player) {
+    if (!player.inventory.consumableCooldownStartedAtByGroup || typeof player.inventory.consumableCooldownStartedAtByGroup !== 'object') {
+        player.inventory.consumableCooldownStartedAtByGroup = {};
+    }
+    return player.inventory.consumableCooldownStartedAtByGroup;
+}
 /**
- * normalizeLifespanYears：规范化或转换LifespanYear。
- * @param value 参数说明。
- * @returns 无返回值，直接更新LifespanYear相关状态。
- */
+* normalizeLifespanYears：规范化或转换LifespanYear。
+* @param value 参数说明。
+* @returns 无返回值，直接更新LifespanYear相关状态。
+*/
 
 function normalizeLifespanYears(value) {
     return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? 0)) : null;

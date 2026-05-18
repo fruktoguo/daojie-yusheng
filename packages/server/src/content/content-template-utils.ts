@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel']);
@@ -660,6 +660,15 @@ function normalizeItemTemplate(raw) {
         grade: candidate.grade,
         level: candidate.level,
     });
+    const healAmount = Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined;
+    const healPercent = Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined;
+    const qiPercent = Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined;
+    const consumeBuffs = normalizeConsumableBuffs(raw.consumeBuffs);
+    const cooldown = Number.isFinite(candidate.cooldown)
+        ? Math.max(0, Math.trunc(Number(candidate.cooldown)))
+        : ((healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (qiPercent ?? 0) > 0 || (consumeBuffs?.length ?? 0) > 0)
+            ? DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS
+            : undefined;
     return {
         itemId: candidate.itemId,
 
@@ -682,15 +691,16 @@ function normalizeItemTemplate(raw) {
         equipValueStats: compiledEquipBaselineStats ? undefined : (candidate.equipValueStats ? { ...candidate.equipValueStats } : undefined),
         equipSpecialStats: normalizeItemSpecialStats(candidate.equipSpecialStats),
         effects: Array.isArray(candidate.effects) ? candidate.effects.slice() : undefined,
-        healAmount: Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined,
-        healPercent: Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined,
-        qiPercent: Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined,
+        healAmount,
+        healPercent,
+        qiPercent,
+        cooldown,
         alchemySuccessRate: normalizeUtilityRate(candidate.alchemySuccessRate),
         alchemySpeedRate: normalizeUtilityRate(candidate.alchemySpeedRate),
         enhancementSuccessRate: normalizeUtilityRate(candidate.enhancementSuccessRate),
         enhancementSpeedRate: normalizeUtilityRate(candidate.enhancementSpeedRate),
         miningDamageRate: normalizeUtilityRate(candidate.miningDamageRate),
-        consumeBuffs: normalizeConsumableBuffs(raw.consumeBuffs),
+        consumeBuffs,
         tags: normalizeItemTags(candidate.tags, materialCategory),
         contextActions: normalizeItemContextActions(candidate.contextActions),
 

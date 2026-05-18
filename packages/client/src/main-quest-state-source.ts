@@ -90,6 +90,28 @@ export type MainQuestStateSource = ReturnType<typeof createMainQuestStateSource>
 
 export function createMainQuestStateSource(options: MainQuestStateSourceOptions) {
   let pendingQuestNavigateId: string | null = null;
+  let latestQuestMap = new Map<string, PlayerState['quests'][number]>();
+
+  const seedQuestState = (quests: PlayerState['quests'] | null | undefined): PlayerState['quests'] => {
+    const hydrated = resolvePreviewQuests(quests ?? []);
+    latestQuestMap = new Map(hydrated.map((quest) => [quest.id, quest]));
+    return hydrated;
+  };
+
+  const mergeQuestUpdate = (data: S2C_QuestUpdate): PlayerState['quests'] => {
+    if (data.full || latestQuestMap.size === 0) {
+      return seedQuestState(data.quests as PlayerState['quests']);
+    }
+    const nextMap = new Map(latestQuestMap);
+    for (const questId of data.removeQuestIds ?? []) {
+      nextMap.delete(questId);
+    }
+    for (const quest of resolvePreviewQuests(data.quests as PlayerState['quests'])) {
+      nextMap.set(quest.id, quest);
+    }
+    latestQuestMap = nextMap;
+    return Array.from(nextMap.values());
+  };
 
   const syncMapId = (mapId?: string): void => {
     options.questPanel.setCurrentMapId(mapId);
@@ -118,6 +140,7 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
  */
 
     syncBootstrapQuestState(player: PlayerState): void {
+      player.quests = seedQuestState(player.quests);
       options.syncQuestBridgeState(player.quests ?? null);
     },    
     /**
@@ -128,8 +151,8 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
 
 
     initFromPlayer(player: PlayerState): void {
+      player.quests = seedQuestState(player.quests);
       options.questPanel.initFromPlayer(player);
-      options.sendRequestQuests();
       options.npcQuestModal.initFromPlayer(player);
     },    
     /**
@@ -179,11 +202,12 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
     handleQuestUpdate(data: S2C_QuestUpdate, player: PlayerState | null): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+      const mergedQuestState = mergeQuestUpdate(data);
       if (player) {
-        player.quests = resolvePreviewQuests(data.quests as PlayerState['quests']);
+        player.quests = mergedQuestState;
       }
       syncMapId(player?.mapId);
-      const quests = player?.quests ?? resolvePreviewQuests(data.quests as PlayerState['quests']);
+      const quests = player?.quests ?? mergedQuestState;
       options.questPanel.update(quests);
       if (options.npcQuestModal.getActiveNpcId()) {
         options.npcQuestModal.refreshActive();
@@ -222,6 +246,7 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
 
     clear(): void {
       pendingQuestNavigateId = null;
+      latestQuestMap.clear();
       options.questPanel.clear();
       options.npcQuestModal.clear();
       options.syncQuestBridgeState(null);

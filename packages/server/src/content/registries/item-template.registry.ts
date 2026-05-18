@@ -112,6 +112,7 @@ export class ItemTemplateRegistry {
       healAmount: template.healAmount,
       healPercent: template.healPercent,
       qiPercent: template.qiPercent,
+      cooldown: template.cooldown,
       alchemySuccessRate: template.alchemySuccessRate,
       alchemySpeedRate: template.alchemySpeedRate,
       enhancementSuccessRate: template.enhancementSuccessRate,

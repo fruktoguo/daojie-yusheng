@@ -688,13 +688,16 @@ function proveProjectorFullEnvelopeAvoidsPanelCache(): {
   diffPlayer.actions = { ...diffPlayer.actions, revision: 2, actions: [diffAction] };
   const diff = diffService.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, diffPlayer);
   const diffCache = (diffService as unknown as { cacheByPlayerId: Map<string, any> }).cacheByPlayerId.get('projector_player');
-  assert.equal(diff?.panelDelta?.inv?.full, 1);
-  assert.equal(diff?.panelDelta?.eq?.full, 1);
+  assert.equal(diff?.panelDelta?.inv?.full, undefined);
+  assert.equal(diff?.panelDelta?.inv?.slots?.length, 1);
+  assert.equal(diff?.panelDelta?.eq?.full, undefined);
+  assert.equal(diff?.panelDelta?.eq?.slots?.length, 1);
   assert.equal(diff?.panelDelta?.tech?.full, undefined);
   assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.techId, 'tech_diff');
   assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.skills, undefined);
   assert.equal(diff?.panelDelta?.tech?.techniques?.[0]?.layers, undefined);
-  assert.equal(diff?.panelDelta?.act?.full, 1);
+  assert.equal(diff?.panelDelta?.act?.full, undefined);
+  assert.equal(diff?.panelDelta?.act?.actions?.length, 1);
   const diffCacheHasNoPanel = diffCache.panel === undefined;
   const diffCacheHasTechniquePanel = diffCache.techniquePanel?.revision === 2;
   const diffCacheHasPanelCursor = diffCache.panelCursor?.inventoryRevision === 2

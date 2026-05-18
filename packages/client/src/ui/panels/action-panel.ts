@@ -50,6 +50,7 @@ import { CombatSettingsSubpanel } from './action-panel-combat-settings';
 import { SectManagementSubpanel } from './action-panel-sect-management';
 import {
   mountReactActionPanel,
+  isReactActionPanelMounted,
   setReactActionPanelAfterContentRender,
   shouldUseReactActionPanel,
   syncReactActionPanelState,
@@ -919,13 +920,18 @@ export class ActionPanel {
     this.paneRenderEvents?.abort();
     this.paneRenderEvents = new AbortController();
     const eventSignal = this.paneRenderEvents.signal;
-    setReactActionPanelAfterContentRender(() => {
+    const bindCurrentReactContent = () => {
       this.captureActionRowRefs();
       this.bindEvents(this.currentActions, eventSignal);
       this.bindTooltips(this.pane, eventSignal);
-    });
-    syncReactActionPanelState({ html, contentKey });
+    };
+    setReactActionPanelAfterContentRender(bindCurrentReactContent);
+    const wasMounted = isReactActionPanelMounted();
+    const didRender = syncReactActionPanelState({ html, contentKey });
     mountReactActionPanel();
+    if (!didRender && wasMounted) {
+      bindCurrentReactContent();
+    }
   }
 
   private buildActionPanelContentKey(actions: ActionDef[]): string {

@@ -16,18 +16,23 @@ export function shouldUseReactActionPanel(): boolean {
   return isReactPanelEnabled('action');
 }
 
-export function syncReactActionPanelState(state: ReactActionPanelState): void {
+export function syncReactActionPanelState(state: ReactActionPanelState): boolean {
   const current = actionPanelStore.getState();
   if (current.contentKey === state.contentKey && current.html === state.html) {
-    return;
+    return false;
   }
   if (host?.isConnected) {
     flushSync(() => {
       actionPanelStore.setState(state);
     });
-    return;
+    return true;
   }
   actionPanelStore.setState(state);
+  return true;
+}
+
+export function isReactActionPanelMounted(): boolean {
+  return host?.isConnected === true;
 }
 
 export function setReactActionPanelAfterContentRender(callback: (() => void) | null): void {

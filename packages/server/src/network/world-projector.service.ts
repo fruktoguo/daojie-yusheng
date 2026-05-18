@@ -118,7 +118,7 @@ export class WorldProjectorService {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
                 selfDelta: buildFullSelfDeltaFromState(playerState.self, playerState.selfRevision),
-                panelDelta: buildFullPanelDeltaFromState(capturePlayerStateForFullPanel(player)),
+                panelDelta: buildBootstrapPanelDelta(player),
             };
         }
         const currentWorld = previous.worldRevision === identityView.worldRevision

@@ -26,6 +26,7 @@ import type {
   S2C_PanelAttrDelta,
   S2C_PanelDelta,
   SelfDeltaView,
+  SyncedInventoryCooldownState,
   SyncedItemStack,
   TechniqueUpdateEntryView,
   VisibleBuffState,
@@ -345,6 +346,8 @@ export interface ProjectorPlayerLike {
     revision: number;
     capacity: number;
     items: SyncedItemStack[];
+    cooldowns?: SyncedInventoryCooldownState[];
+    serverTick?: number;
   };
   wallet?: PlayerWalletState | null;
   equipment: {
@@ -447,6 +450,8 @@ export interface ProjectedPanelState {
     revision: number;
     capacity: number;
     items: SyncedItemStack[];
+    cooldowns?: SyncedInventoryCooldownState[];
+    serverTick?: number;
   };
   equipment: {
     revision: number;
@@ -467,11 +472,19 @@ export interface ProjectedPanelState {
 }
 export interface ProjectedPanelCursor {
   inventoryRevision: number;
+  inventoryCapacity: number;
+  inventorySize: number;
+  inventorySlotSignatures: string[];
   equipmentRevision: number;
+  equipmentSlotSignatures: Record<string, string>;
   techniqueRevision: number;
   attrRevision: number;
   actionRevision: number;
+  actionIds: string[];
+  actionEntrySignatures: Record<string, string>;
   buffRevision: number;
+  buffIds: string[];
+  buffEntrySignatures: Record<string, string>;
   attrSignature: string;
   actionSignature: string;
   buffSignature: string;

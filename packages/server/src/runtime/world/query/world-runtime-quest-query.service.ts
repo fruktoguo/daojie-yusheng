@@ -94,7 +94,10 @@ export class WorldRuntimeQuestQueryService {
  */
 
     buildQuestListView(playerId) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
         return {
+            r: player?.quests?.revision,
+            full: 1,
             quests: this.playerRuntimeService.listQuests(playerId).map((quest) => this.materializeQuestView(playerId, quest)),
         };
     }    

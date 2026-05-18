@@ -64,7 +64,7 @@ export class WorldSyncService {
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
         this.emitEnvelope(socket, envelope);
         this.emitAuxInitialSync(binding.playerId, socket, view, player);
-        this.worldSyncQuestLootService.emitQuestSync(socket, binding.playerId, player.quests.revision);
+        this.worldSyncQuestLootService.markQuestSyncBaseline(binding.playerId, player.quests.revision);
         this.emitPendingInitialNotices(binding.playerId, socket);
         this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
     }

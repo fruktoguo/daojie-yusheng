@@ -113,6 +113,13 @@ function resolveRequiredItemProgress(quest: QuestState, inventory: Inventory | n
 }
 
 function resolveProgressText(quest: QuestState, inventory: Inventory | null): string {
+  return resolveProgressTextWithItemProgress(quest, resolveRequiredItemProgress(quest, inventory));
+}
+
+function resolveProgressTextWithItemProgress(
+  quest: QuestState,
+  requiredItemProgress: { itemName: string; current: number; required: number } | null,
+): string {
   if (quest.objectiveType === 'talk') {
     return quest.progress >= quest.required
       ? t('quest.progress.talk.done', undefined)
@@ -128,7 +135,6 @@ function resolveProgressText(quest: QuestState, inventory: Inventory | null): st
       ? t('quest.progress.realm-stage.done', { targetName: quest.targetName })
       : t('quest.progress.realm-stage.pending', { targetName: quest.targetName });
   }
-  const requiredItemProgress = resolveRequiredItemProgress(quest, inventory);
   if (quest.objectiveType === 'kill' && requiredItemProgress) {
     return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
   }
@@ -136,6 +142,13 @@ function resolveProgressText(quest: QuestState, inventory: Inventory | null): st
 }
 
 function resolveNextStep(quest: QuestState, inventory: Inventory | null): string {
+  return resolveNextStepWithItemProgress(quest, resolveRequiredItemProgress(quest, inventory));
+}
+
+function resolveNextStepWithItemProgress(
+  quest: QuestState,
+  requiredItemProgress: { itemName: string; current: number; required: number } | null,
+): string {
   if (quest.status === 'ready') {
     const submitLabel = quest.submitNpcName ?? quest.giverName;
     const submitLocation = formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
@@ -174,7 +187,6 @@ function resolveNextStep(quest: QuestState, inventory: Inventory | null): string
   if (quest.objectiveType === 'realm_stage') {
     return t('quest.next.realm-stage', { targetName: quest.targetName });
   }
-  const requiredItemProgress = resolveRequiredItemProgress(quest, inventory);
   if (quest.objectiveType === 'kill' && requiredItemProgress) {
     if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
       return t('quest.next.collect-item', requiredItemProgress);
@@ -218,23 +230,20 @@ function buildQuestReferences(text: string, quest: QuestState): UiInlineReferenc
 export function QuestPanel() {
   const { quests, inventory } = useQuestPanelStore();
   const [activeLine, setActiveLine] = useState<QuestState['line']>('main');
+  const [userHasSelected, setUserHasSelected] = useState(false);
 
   const counts = useMemo(() => buildCounts(quests), [quests]);
-  const visibleQuests = useMemo(() => getVisibleQuests(quests, activeLine), [quests, activeLine]);
 
-  // 如果当前 tab 没有任务，自动切到有任务的 tab
+  // 只在用户未手动选择过 tab 且当前 tab 为空时自动切换
   const effectiveLine = useMemo(() => {
-    if (counts[activeLine] > 0) return activeLine;
-    const fallback = LINE_ORDER.find((line) => counts[line] > 0);
-    return fallback ?? activeLine;
-  }, [activeLine, counts]);
+    if (userHasSelected || counts[activeLine] > 0) return activeLine;
+    return LINE_ORDER.find((line) => counts[line] > 0) ?? activeLine;
+  }, [activeLine, counts, userHasSelected]);
 
-  const effectiveQuests = useMemo(() => {
-    if (effectiveLine === activeLine) return visibleQuests;
-    return getVisibleQuests(quests, effectiveLine);
-  }, [effectiveLine, activeLine, visibleQuests, quests]);
+  const visibleQuests = useMemo(() => getVisibleQuests(quests, effectiveLine), [quests, effectiveLine]);
 
   const handleTabClick = useCallback((line: QuestState['line']) => {
+    setUserHasSelected(true);
     setActiveLine(line);
   }, []);
 
@@ -263,15 +272,15 @@ export function QuestPanel() {
         counts={counts}
         onTabClick={handleTabClick}
       />
-      {effectiveQuests.length === 0 ? (
+      {visibleQuests.length === 0 ? (
         <div className="empty-hint" data-quest-empty="true">{t('quest.empty.line', { line: getQuestLineLabel(effectiveLine) })}</div>
       ) : (
         <div className="quest-card-list">
-          {effectiveQuests.map((quest) => (
+          {visibleQuests.map((quest) => (
             <QuestCard
               key={quest.id}
               quest={quest}
-              inventory={inventory}
+              requiredItemCount={quest.requiredItemId ? getInventoryItemCount(inventory, quest.requiredItemId) : 0}
               onClick={handleQuestClick}
               onNavigate={handleNavigate}
             />
@@ -315,12 +324,12 @@ const QuestLineTabs = memo(function QuestLineTabs({
 
 const QuestCard = memo(function QuestCard({
   quest,
-  inventory,
+  requiredItemCount,
   onClick,
   onNavigate,
 }: {
   quest: QuestState;
-  inventory: Inventory | null;
+  requiredItemCount: number;
   onClick: (questId: string) => void;
   onNavigate: (questId: string) => void;
 }) {
@@ -328,8 +337,19 @@ const QuestCard = memo(function QuestCard({
     ? Math.min(100, Math.floor((quest.progress / quest.required) * 100))
     : 0;
 
-  const progressText = useMemo(() => resolveProgressText(quest, inventory), [quest, inventory]);
-  const nextStepText = useMemo(() => resolveNextStep(quest, inventory), [quest, inventory]);
+  const requiredItemProgress = useMemo(() => {
+    if (!quest.requiredItemId) return null;
+    const required = Math.max(1, quest.requiredItemCount ?? 1);
+    const current = Math.min(required, requiredItemCount);
+    return {
+      itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+      current,
+      required,
+    };
+  }, [quest.requiredItemId, quest.requiredItemCount, requiredItemCount]);
+
+  const progressText = useMemo(() => resolveProgressTextWithItemProgress(quest, requiredItemProgress), [quest, requiredItemProgress]);
+  const nextStepText = useMemo(() => resolveNextStepWithItemProgress(quest, requiredItemProgress), [quest, requiredItemProgress]);
   const references = useMemo(() => buildQuestReferences(progressText + nextStepText, quest), [progressText, nextStepText, quest]);
 
   const canNav = canNavigateQuest(quest);

@@ -22,6 +22,8 @@ export class WorldSyncQuestLootService {
     worldSyncProtocolService;
     /** 每个玩家最近一次任务 revision。 */
     lastQuestRevisionByPlayerId = new Map();
+    /** 每个玩家最近一次已同步的任务运行态，用于按 revision 构造小 patch。 */
+    lastQuestRuntimeByPlayerId = new Map();
     /** 每个玩家的拾取窗口缓存。 */
     lootWindowByPlayerId = new Map();
     /**
@@ -46,12 +48,20 @@ export class WorldSyncQuestLootService {
     }
     /** 下发任务同步，并记录最新 revision。 */
     emitQuestSync(socket, playerId, revision) {
-
+        const quests = this.buildQuestRuntimeList(playerId);
         const payload = {
-            quests: this.playerRuntimeService.listQuests(playerId).map((entry) => toQuestRuntimeState(entry)),
+            r: revision,
+            full: 1,
+            quests,
         };
         this.worldSyncProtocolService.sendQuestSync(socket, payload);
         this.lastQuestRevisionByPlayerId.set(playerId, revision);
+        this.lastQuestRuntimeByPlayerId.set(playerId, quests);
+    }
+    /** 首包已通过 Bootstrap.self.quests 同步时，只记录 baseline，避免额外 s2c_Quests 整包。 */
+    markQuestSyncBaseline(playerId, revision) {
+        this.lastQuestRevisionByPlayerId.set(playerId, revision);
+        this.lastQuestRuntimeByPlayerId.set(playerId, this.buildQuestRuntimeList(playerId));
     }
     /** revision 变化时才下发任务同步。 */
     emitQuestSyncIfChanged(socket, playerId, revision) {
@@ -61,7 +71,18 @@ export class WorldSyncQuestLootService {
         if (lastQuestRevision === revision) {
             return;
         }
-        this.emitQuestSync(socket, playerId, revision);
+        const previous = this.lastQuestRuntimeByPlayerId.get(playerId);
+        const quests = this.buildQuestRuntimeList(playerId);
+        const payload = previous
+            ? buildQuestDeltaPayload(previous, quests, revision)
+            : { r: revision, full: 1, quests };
+        this.worldSyncProtocolService.sendQuestSync(socket, payload);
+        this.lastQuestRevisionByPlayerId.set(playerId, revision);
+        this.lastQuestRuntimeByPlayerId.set(playerId, quests);
+    }
+    /** 构造任务运行态列表。 */
+    buildQuestRuntimeList(playerId) {
+        return this.playerRuntimeService.listQuests(playerId).map((entry) => toQuestRuntimeState(entry));
     }
     /** 打开或刷新拾取窗口。 */
     openLootWindow(playerId, x, y) {
@@ -112,9 +133,39 @@ export class WorldSyncQuestLootService {
     /** 清理指定玩家的 quest / loot 同步缓存。 */
     clearPlayerCache(playerId) {
         this.lastQuestRevisionByPlayerId.delete(playerId);
+        this.lastQuestRuntimeByPlayerId.delete(playerId);
         this.lootWindowByPlayerId.delete(playerId);
     }
 };
+
+type QuestRuntimeSyncEntry = {
+    id: string;
+    status: string;
+    progress: number;
+};
+
+function buildQuestDeltaPayload(previous: QuestRuntimeSyncEntry[], current: QuestRuntimeSyncEntry[], revision: number) {
+    const previousById = new Map(previous.map((entry) => [entry.id, entry]));
+    const currentById = new Map(current.map((entry) => [entry.id, entry]));
+    const changed = [];
+    for (const entry of current) {
+        const prev = previousById.get(entry.id);
+        if (!prev || prev.status !== entry.status || prev.progress !== entry.progress) {
+            changed.push(entry);
+        }
+    }
+    const removeQuestIds = [];
+    for (const entry of previous) {
+        if (!currentById.has(entry.id)) {
+            removeQuestIds.push(entry.id);
+        }
+    }
+    return {
+        r: revision,
+        quests: changed,
+        removeQuestIds: removeQuestIds.length > 0 ? removeQuestIds : undefined,
+    };
+}
 
 function toQuestRuntimeState(source) {
     return {

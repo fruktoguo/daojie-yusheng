@@ -156,7 +156,6 @@ export class QuestPanel {
     this.inventory = inventory;
     if (this.useReactPanel()) {
       this.syncReactState();
-      this.mountReactPanel();
       this.patchModal();
       return;
     }
@@ -378,6 +377,22 @@ export class QuestPanel {
       return true;
     }
 
+    // Fast path: structure unchanged — only patch card contents in place
+    if (
+      this.lastStructureLine === this.activeLine
+      && isSameQuestIdSequence(this.lastVisibleQuestIds, visibleQuestIds)
+    ) {
+      for (const quest of visibleQuests) {
+        const card = this.pane.querySelector<HTMLElement>(`[data-quest-id="${CSS.escape(quest.id)}"]`);
+        if (card) {
+          this.patchQuestCard(card, quest);
+        }
+      }
+      this.lastVisibleQuestIds = visibleQuestIds;
+      this.lastStructureLine = this.activeLine;
+      return true;
+    }
+
     const existingCards = new Map<string, HTMLElement>();
     this.pane.querySelectorAll<HTMLElement>('[data-quest-id]').forEach((card) => {
       const questId = card.dataset.questId;
@@ -393,16 +408,6 @@ export class QuestPanel {
     });
     existingCards.forEach((card) => card.remove());
     section.replaceChildren(titleNode, subtabs, ...orderedCards);
-
-    for (const quest of visibleQuests) {
-      const card = this.pane.querySelector<HTMLElement>(`[data-quest-id="${CSS.escape(quest.id)}"]`);
-      if (!card) {
-        return false;
-      }
-      if (!this.patchQuestCard(card, quest)) {
-        return false;
-      }
-    }
 
     this.lastVisibleQuestIds = visibleQuestIds;
     this.lastStructureLine = this.activeLine;

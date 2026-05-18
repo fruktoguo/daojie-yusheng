@@ -489,10 +489,25 @@ export interface TileRuntimeDetailView {
 /** 任务列表更新视图。 */
 export interface QuestUpdateView {
 /**
+ * r：任务 revision。
+ */
+
+  r?: number;
+/**
+ * full：为 1 时表示全量任务列表。
+ */
+
+  full?: 1;
+/**
  * quests：集合字段。
  */
 
   quests: QuestRuntimeStateView[];
+/**
+ * removeQuestIds：从客户端任务列表移除的任务 ID。
+ */
+
+  removeQuestIds?: string[];
 }
 
 /** 邮件摘要同步视图。 */
