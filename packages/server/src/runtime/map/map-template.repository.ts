@@ -368,6 +368,9 @@ export class MapTemplateRepository {
             portalIndexByTile[getTileIndex(portal.x, portal.y, width)] = index;
             walkableMask[getTileIndex(portal.x, portal.y, width)] = 1;
         }
+        const playerOverlapMask = buildPlayerOverlapMask(
+            width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile,
+        );
         for (const aura of document.auras ?? []) {
             if (!isInBounds(aura.x, aura.y, width, height) || !Number.isFinite(aura.value)) {
                 continue;
@@ -433,6 +436,7 @@ export class MapTemplateRepository {
             portals,
             portalIndexByTile,
             safeZoneMask,
+            playerOverlapMask,
             walkableMask,
             blocksSightMask,
             movementCostOverrideByTile,
@@ -663,6 +667,45 @@ function fillSafeZoneMask(mask, width, height, zone) {
         }
     }
 }
+/** 四方向偏移量。 */
+const FOUR_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+/** 构建玩家可重叠地块掩码：安全区 + NPC 邻格 + 传送阵及邻格。 */
+function buildPlayerOverlapMask(width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile) {
+    const mask = new Uint8Array(width * height);
+    // 1. 安全区内可行走格子
+    for (let i = 0; i < mask.length; i += 1) {
+        if (safeZoneMask[i] === 1 && walkableMask[i] === 1) {
+            mask[i] = 1;
+        }
+    }
+    // 2. NPC 四方向邻格
+    for (const npc of npcs) {
+        for (const [dx, dy] of FOUR_DIRS) {
+            const nx = npc.x + dx;
+            const ny = npc.y + dy;
+            if (isInBounds(nx, ny, width, height) && walkableMask[getTileIndex(nx, ny, width)] === 1) {
+                mask[getTileIndex(nx, ny, width)] = 1;
+            }
+        }
+    }
+    // 3. 传送阵本身格子 + 四方向邻格
+    for (const portal of portals) {
+        const portalTileIndex = getTileIndex(portal.x, portal.y, width);
+        if (walkableMask[portalTileIndex] === 1) {
+            mask[portalTileIndex] = 1;
+        }
+        for (const [dx, dy] of FOUR_DIRS) {
+            const nx = portal.x + dx;
+            const ny = portal.y + dy;
+            if (isInBounds(nx, ny, width, height) && walkableMask[getTileIndex(nx, ny, width)] === 1) {
+                mask[getTileIndex(nx, ny, width)] = 1;
+            }
+        }
+    }
+    return mask;
+}
+
 /**
  * normalizeLandmarks：规范化或转换Landmark。
  * @param input 输入参数。
