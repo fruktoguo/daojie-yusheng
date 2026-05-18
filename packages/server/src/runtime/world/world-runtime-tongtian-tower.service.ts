@@ -189,6 +189,10 @@ export class WorldRuntimeTongtianTowerService {
       instance.meta.runtimeStatus = 'stopped';
       instance.meta.status = 'destroyed';
       instance.meta.destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
+      // 清理分域持久化数据
+      if (typeof deps.instanceDomainPersistenceService?.purgeInstanceState === 'function') {
+        await deps.instanceDomainPersistenceService.purgeInstanceState(instanceId);
+      }
       deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(instanceId);
       deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
       deps.instanceTickProgressById?.delete?.(instanceId);
@@ -229,6 +233,18 @@ export class WorldRuntimeTongtianTowerService {
       return null;
     }
     return this.ensureLayerInstance(layer, deps);
+  }
+
+  /** 恢复 catalog 中通天塔条目的模板注册（不创建实例）。 */
+  restoreCatalogTowerTemplate(entry: { template_id?: string; instance_id?: string }, _deps?: any): boolean {
+    const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
+    const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+    const layer = parseTowerLayerFromTemplateId(templateId) || parseTowerLayerFromInstanceId(instanceId);
+    if (layer <= 0) {
+      return false;
+    }
+    this.ensureLayerTemplate(layer);
+    return true;
   }
 
   onPlayerSessionAttachedToLayer(instance: any, deps: any): void {
@@ -321,7 +337,7 @@ export class WorldRuntimeTongtianTowerService {
       instanceId,
       templateId,
       kind: 'tower',
-      persistent: false,
+      persistent: true,
       linePreset: 'peaceful',
       lineIndex: layer,
       displayName: `通天塔 第 ${layer} 层`,
@@ -548,7 +564,7 @@ export class WorldRuntimeTongtianTowerService {
         instanceId,
         templateId: instance?.template?.id ?? '',
         instanceType: typeof instance?.meta?.kind === 'string' ? instance.meta.kind : 'tower',
-        persistentPolicy: typeof instance?.meta?.persistentPolicy === 'string' ? instance.meta.persistentPolicy : 'ephemeral',
+        persistentPolicy: typeof instance?.meta?.persistentPolicy === 'string' ? instance.meta.persistentPolicy : 'persistent',
         ownerPlayerId: null,
         ownerSectId: null,
         partyId: null,

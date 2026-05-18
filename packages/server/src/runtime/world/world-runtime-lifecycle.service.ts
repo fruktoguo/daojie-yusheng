@@ -182,6 +182,11 @@ export class WorldRuntimeLifecycleService {
                     && typeof deps.worldRuntimeSectService?.restoreCatalogSectTemplate === 'function') {
                     deps.worldRuntimeSectService.restoreCatalogSectTemplate(entry, deps);
                 }
+                if (typeof deps.templateRepository?.has === 'function'
+                    && !deps.templateRepository.has(templateId)
+                    && typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function') {
+                    deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, deps);
+                }
                 if (typeof deps.templateRepository?.has === 'function' && !deps.templateRepository.has(templateId)) {
                     await markMissingTemplateCatalogEntry(deps, entry, instanceId, templateId, '恢复');
                     continue;
@@ -363,6 +368,10 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
             tickSpeed,
             paused,
         });
+    }
+    // 恢复通天塔波次状态
+    if (snapshot.dungeonState && typeof snapshot.dungeonState === 'object') {
+        instance.tongtianTowerState = snapshot.dungeonState;
     }
     void instanceId;
 }
