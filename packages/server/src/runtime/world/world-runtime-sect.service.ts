@@ -1227,6 +1227,11 @@ class WorldRuntimeSectService {
     }
 
     async closePersistencePool() {
+        // 清理 pending persist timer，避免 pool 释放后回调执行报错
+        if (this._sectPersistTimer) {
+            clearTimeout(this._sectPersistTimer);
+            this._sectPersistTimer = null;
+        }
         // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
         this.persistenceReady = false;
