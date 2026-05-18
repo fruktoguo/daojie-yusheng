@@ -1084,7 +1084,26 @@ function buildMapMetaSync(template) {
     mapLv: template.source.mapLv,
     description: template.source.description,
     hideMinimap: template.source.hideMinimap || undefined,
+    playerOverlapPoints: buildPlayerOverlapPoints(template),
   };
+}
+
+function buildPlayerOverlapPoints(template) {
+  const mask = template.playerOverlapMask;
+  if (!mask) {
+    return undefined;
+  }
+  const points = [];
+  const width = template.width;
+  const height = template.height;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (mask[y * width + x] === 1) {
+        points.push({ x, y });
+      }
+    }
+  }
+  return points.length > 0 ? points : undefined;
 }
 
 function compareStableStrings(left, right) {
