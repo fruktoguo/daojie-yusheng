@@ -3,7 +3,7 @@
  * 按运行态与持久化玩家快照聚合各类榜单（境界、战力、属性、击杀等）
  * 和世界摘要，结果做短缓存避免高频重算。
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
@@ -38,6 +38,7 @@ const SUPREME_ATTR_LABELS = {
 
 @Injectable()
 export class LeaderboardRuntimeService {
+    private readonly logger = new Logger(LeaderboardRuntimeService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -160,7 +161,7 @@ export class LeaderboardRuntimeService {
             this.cachedLeaderboard = payload;
             this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
         } catch (_error) {
-            // 刷新失败不影响已有缓存
+            this.logger.warn(`排行榜缓存刷新失败: ${_error instanceof Error ? _error.message : String(_error)}`);
         } finally {
             this._refreshing = false;
         }
@@ -393,6 +394,7 @@ export class LeaderboardRuntimeService {
             return player;
         }
         catch (_error) {
+            this.logger.warn(`排行榜离线玩家快照 hydrate 失败 [playerId=${playerId}]: ${_error instanceof Error ? _error.message : String(_error)}`);
             return null;
         }
     }
