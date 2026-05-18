@@ -189,6 +189,7 @@ export class WorldProjectorService {
 
     clear(playerId: string): void {
         this.cacheByPlayerId.delete(playerId);
+        this.identityProjectionByPlayerId.delete(playerId);
     }
 
     getCachedProjectorState(playerId: string): any | null {
