@@ -3014,20 +3014,24 @@ export class PlayerRuntimeService {
     /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
     private emitPlayerStateDeltaIfChanged(player, prevHp, prevMp, prevExp, prevLevel, buffTickResult) {
         if (!this.runtimeEventBusService) return;
+        const hpChanged = player.hp !== prevHp;
+        const mpChanged = player.mp !== prevMp;
+        const expChanged = player.exp !== prevExp;
+        const levelChanged = player.level !== prevLevel;
+        const buffsChanged = buffTickResult?.changed && (buffTickResult.added?.length || buffTickResult?.removed?.length);
+        if (!hpChanged && !mpChanged && !expChanged && !levelChanged && !buffsChanged) return;
         const delta: Record<string, unknown> = {};
-        if (player.hp !== prevHp) delta.hp = player.hp;
-        if (player.mp !== prevMp) delta.mp = player.mp;
-        if (player.exp !== prevExp) delta.exp = player.exp;
-        if (player.level !== prevLevel) delta.level = player.level;
-        if (buffTickResult?.changed && buffTickResult.added?.length || buffTickResult?.removed?.length) {
+        if (hpChanged) delta.hp = player.hp;
+        if (mpChanged) delta.mp = player.mp;
+        if (expChanged) delta.exp = player.exp;
+        if (levelChanged) delta.level = player.level;
+        if (buffsChanged) {
             delta.buffs = {
                 added: buffTickResult.added ?? [],
                 removed: buffTickResult.removed ?? [],
             };
         }
-        if (Object.keys(delta).length > 0) {
-            this.runtimeEventBusService.queuePlayerStateDelta(player.playerId, delta);
-        }
+        this.runtimeEventBusService.queuePlayerStateDelta(player.playerId, delta);
     }
 
     /** captureOfflineGainBeforeTick：捕获离线收益tick前快照。 */
