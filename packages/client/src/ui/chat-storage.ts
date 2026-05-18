@@ -178,6 +178,8 @@ function toStoredMessage(record: ChatMessageRecord): ChatStoredMessage {
     from: record.from,
     kind: record.kind,
     scope: record.scope,
+    ...(record.combat ? { combat: record.combat } : undefined),
+    ...(record.combatGroup ? { combatGroup: record.combatGroup } : undefined),
   };
 }
 
@@ -319,6 +321,8 @@ async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
           from: pending.entry.from,
           kind: pending.entry.kind as ChatMessageKind,
           scope: pending.entry.scope as ChatMessageScope | undefined,
+          ...(pending.entry.combat ? { combat: pending.entry.combat } : undefined),
+          ...(pending.entry.combatGroup ? { combatGroup: pending.entry.combatGroup } : undefined),
         });
         touchedChannels.set(`${pending.scopeId}\n${channel}`, { scopeId: pending.scopeId, channel });
       }

@@ -27,6 +27,8 @@ import {
 } from './chat-storage';
 import { hasI18nKey, tLoose } from './i18n';
 import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels/chat/mount-chat-panel';
+import { getLocalBuffTemplate } from '../content/local-templates';
+import { describePreviewBonuses } from './stat-preview';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -371,6 +373,24 @@ function toAlphaColor(hex: string, alpha: number): string {
 }
 
 /** 构建聊天行中的可交互片段。 */
+
+/** 将 combatList 中含 effects 的条目展开为独立行。 */
+function expandCombatListToLines(combatList: CombatNoticePayload[]): CombatNoticePayload[] {
+  const lines: CombatNoticePayload[] = [];
+  for (const combat of combatList) {
+    const effects = Array.isArray((combat as any).effects) ? (combat as any).effects : null;
+    if (effects && effects.length > 0) {
+      // 每个 effect 生成一个独立的虚拟 combat 条目
+      for (const effect of effects) {
+        lines.push({ ...combat, effects: [effect] } as any);
+      }
+    } else {
+      lines.push(combat);
+    }
+  }
+  return lines;
+}
+
 /** 从结构化CombatNoticePayload渲染单行战斗消息。 */
 function appendStructuredCombatLine(
   container: DocumentFragment | HTMLElement,
@@ -381,6 +401,7 @@ function appendStructuredCombatLine(
   const { caster, target, skill, resolution, formationResolution, killed } = combat;
   const targetHp = combat.targetHp;
   const targetMaxHp = combat.targetMaxHp;
+  const effects = Array.isArray((combat as any).effects) ? (combat as any).effects : null;
 
   // 构建目标标签（含HP百分比）
   const targetLabel = targetHp != null && targetMaxHp != null && targetMaxHp > 0
@@ -401,6 +422,12 @@ function appendStructuredCombatLine(
     appendTargetPill(container, caster);
     container.append('对你施展');
     container.appendChild(buildSkillPill(skill));
+  }
+
+  // 纯 effects 渲染（无 resolution 时，如 heal/buff 独立行）
+  if (effects && effects.length > 0 && !resolution && !formationResolution) {
+    appendCombatEffects(container, effects);
+    return;
   }
 
   if (resolution) {
@@ -467,6 +494,67 @@ function appendStructuredCombatLine(
     const auraDamage = formatCombatLogAmount(String(formationResolution.auraDamage));
     container.append(` 伤害，削减灵力 ${auraDamage}`);
   }
+
+  // 伤害行后追加 buff/debuff 标签（如"凝"对目标施加 debuff）
+  if (effects && effects.length > 0 && (resolution || formationResolution)) {
+    appendCombatEffects(container, effects);
+  }
+}
+
+/** 渲染通用 effects 数组（heal / buff / debuff 等）。每个 effect 追加到当前行。 */
+function appendCombatEffects(container: DocumentFragment | HTMLElement, effects: Array<{ type: string; [key: string]: unknown }>): void {
+  for (const effect of effects) {
+    if (effect.type === 'heal') {
+      const amount = Math.max(0, Math.round(Number(effect.amount) || 0));
+      if (amount <= 0) continue;
+      container.append('，恢复 ');
+      const pill = document.createElement('span');
+      pill.className = 'chat-damage-pill';
+      pill.textContent = formatCombatLogAmount(String(amount));
+      pill.setAttribute('aria-label', `治疗 ${formatCombatLogAmount(String(amount))}`);
+      pill.dataset.chatDamageTooltipTitle = '治疗';
+      pill.dataset.chatDamageTooltipLines = `治疗量 ${formatCombatLogAmount(String(amount))}`;
+      const color = COMBAT_HEAL_PILL_COLOR;
+      pill.style.setProperty('--chat-damage-pill-color', color);
+      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      container.appendChild(pill);
+      container.append(' 生命');
+    } else if (effect.type === 'buff' || effect.type === 'debuff') {
+      const name = String(effect.name ?? effect.buffId ?? '');
+      if (!name) continue;
+      container.append('，施加 ');
+      const pill = document.createElement('span');
+      pill.className = 'chat-damage-pill';
+      pill.textContent = name;
+      const color = effect.category === 'debuff' ? '#b91c1c' : '#1d6e42';
+      pill.style.setProperty('--chat-damage-pill-color', color);
+      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      // 从本地模板获取 buff 详细信息
+      const buffTemplate = effect.buffId ? getLocalBuffTemplate(String(effect.buffId)) : null;
+      const tooltipLines: string[] = [];
+      if (buffTemplate?.desc) {
+        tooltipLines.push(buffTemplate.desc);
+      }
+      const bonuses = buffTemplate
+        ? describePreviewBonuses(buffTemplate.attrs, buffTemplate.stats, buffTemplate.valueStats, (buffTemplate.attrMode ?? 'percent') as any, (buffTemplate.statMode ?? 'percent') as any)
+        : [];
+      if (bonuses.length > 0) {
+        tooltipLines.push(bonuses.join('，'));
+      }
+      const duration = buffTemplate?.duration ?? effect.duration;
+      const maxStacks = buffTemplate?.maxStacks;
+      if (duration) tooltipLines.push(`持续 ${duration} 回合${maxStacks && maxStacks > 1 ? `，最多 ${maxStacks} 层` : ''}`);
+      pill.setAttribute('aria-label', tooltipLines[0] ?? name);
+      pill.dataset.chatDamageTooltipTitle = name;
+      pill.dataset.chatDamageTooltipLines = tooltipLines.length > 0 ? tooltipLines.join('\n') : name;
+      if (effect.buffId) pill.dataset.buffId = String(effect.buffId);
+      container.appendChild(pill);
+    }
+  }
 }
 
 /** 从resolution中提取战斗标签。 */
@@ -489,12 +577,14 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     const combatList = entry.combatGroup
       ? entry.combatGroup as CombatNoticePayload[]
       : [entry.combat as CombatNoticePayload];
-    if (combatList.length === 1) {
-      appendStructuredCombatLine(fragment, combatList[0], linePrefix);
+    // 展开 effects 条目为独立行
+    const expandedLines = expandCombatListToLines(combatList);
+    if (expandedLines.length === 1) {
+      appendStructuredCombatLine(fragment, expandedLines[0], linePrefix);
     } else {
       const skill = combatList[0].skill;
-      for (let i = 0; i < combatList.length; i++) {
-        const c = combatList[i];
+      for (let i = 0; i < expandedLines.length; i++) {
+        const c = expandedLines[i];
         const lineEl = document.createElement('div');
         lineEl.className = 'chat-merged-combat-line';
         if (i === 0) {

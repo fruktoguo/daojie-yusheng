@@ -50,6 +50,14 @@ type LocalBuffTemplate = {
  */
 
   category?: 'buff' | 'debuff';
+  desc?: string;
+  duration?: number;
+  maxStacks?: number;
+  valueStats?: Record<string, number>;
+  stats?: Record<string, number>;
+  attrs?: Record<string, number>;
+  attrMode?: string;
+  statMode?: string;
 };
 
 /** 按 Buff ID 建立的本地 Buff 模板索引。 */
@@ -63,7 +71,15 @@ const buffTemplateMap = new Map<string, LocalBuffTemplate>(
             name: effect.name,
             shortMark: effect.shortMark,
             category: effect.category,
-          }] as const]
+            desc: effect.desc,
+            duration: effect.duration,
+            maxStacks: effect.maxStacks,
+            valueStats: effect.valueStats as Record<string, number> | undefined,
+            stats: effect.stats as Record<string, number> | undefined,
+            attrs: effect.attrs as Record<string, number> | undefined,
+            attrMode: effect.attrMode,
+            statMode: effect.statMode,
+          } satisfies LocalBuffTemplate] as const]
           : []
       )),
     ),
