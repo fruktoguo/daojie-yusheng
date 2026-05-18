@@ -1045,6 +1045,12 @@ export class NativeGmController {
     await this.nextGmWorldService.updateMapTick(mapId, body ?? {});
     return { ok: true };
   }
+
+  /** 按 instanceId 更新单个实例的 tickSpeed。 */
+  @Put('instances/:instanceId/tick')
+  updateInstanceTick(@Param('instanceId') instanceId: string, @Body() body: MapConfigBody) {
+    return this.nextGmWorldService.updateInstanceTick(instanceId, body ?? {});
+  }
   /**
  * updateMapTime：处理地图时间并更新相关状态。
  * @param mapId string 地图 ID。

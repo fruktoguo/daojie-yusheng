@@ -112,7 +112,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
 
       await this.worldRuntimeService.advanceFrame(
         gameplayConstants.WORLD_TICK_INTERVAL_MS,
-        (mapId: string) => this.getMapTickSpeed(mapId),
+        null,
       );
 
       const syncStartedAt = performance.now();
