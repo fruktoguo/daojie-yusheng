@@ -48,8 +48,11 @@ import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
 import { CraftAlchemyView } from './craft-alchemy-view';
+import type { CraftAlchemyParent } from './craft-alchemy-view';
 import { CraftEnhancementView } from './craft-enhancement-view';
+import type { CraftEnhancementParent } from './craft-enhancement-view';
 import { CraftQueueView } from './craft-queue-view';
+import type { CraftQueueParent } from './craft-queue-view';
 import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 import {
   mountReactCraftWorkbenchPanel,
@@ -396,9 +399,9 @@ export class CraftWorkbenchModal {
   private readonly enhancementFormulaTooltip = new FloatingTooltip();
 
   /** @internal Sub-view delegates */
-  readonly alchemyView = new CraftAlchemyView(this as any);
-  readonly enhancementView = new CraftEnhancementView(this as any);
-  readonly queueView = new CraftQueueView(this as any);
+  readonly alchemyView = new CraftAlchemyView(this as unknown as CraftAlchemyParent);
+  readonly enhancementView = new CraftEnhancementView(this as unknown as CraftEnhancementParent);
+  readonly queueView = new CraftQueueView(this as unknown as CraftQueueParent);
 
   setCallbacks(callbacks: CraftWorkbenchCallbacks): void {
     this.callbacks = callbacks;
