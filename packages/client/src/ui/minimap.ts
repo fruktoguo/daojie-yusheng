@@ -981,12 +981,22 @@ export class Minimap {
       }
     });
 
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     window.addEventListener('resize', () => {
       if (!this.modalOpen) {
         return;
       }
-      this.syncResponsiveModalChrome();
-      this.scheduleRender();
+      if (resizeTimer !== null) {
+        return;
+      }
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        if (!this.modalOpen) {
+          return;
+        }
+        this.syncResponsiveModalChrome();
+        this.scheduleRender();
+      }, 100);
     });
   }
 
