@@ -2090,6 +2090,162 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     return entries;
   }
 
+  /**
+   * 批量查询排行榜所需的最小字段集。
+   * 用 ~10 个全表/条件查询替代逐个玩家的 loadPlayerDomains（20+ 表/玩家），
+   * 跳过 quests、logbook、map_unlocks、auto_battle_skills 等排行榜不需要的表。
+   * 返回的 snapshot 形状与 buildLeaderboardProjectionFromSnapshot 兼容。
+   */
+  async listLeaderboardSnapshots(
+    buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
+    currencyItemId: string,
+  ): Promise<Array<{ playerId: string; snapshot: PersistedPlayerSnapshot }>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const client = await this.pool.connect();
+    try {
+      // 1. 获取所有玩家 ID
+      const watermarkResult = await client.query<{ player_id?: unknown }>(
+        `SELECT player_id FROM ${PLAYER_RECOVERY_WATERMARK_TABLE} ORDER BY player_id ASC`,
+      );
+      const playerIds = (watermarkResult.rows ?? [])
+        .map((row) => normalizeRequiredString(row.player_id))
+        .filter((id) => id.length > 0);
+      if (playerIds.length === 0) {
+        return [];
+      }
+
+      // 2. 批量查询所有排行榜所需表
+      const [
+        worldAnchorRows,
+        checkpointRows,
+        progressionRows,
+        attrStateRows,
+        bodyTrainingRows,
+        walletRows,
+        inventorySpiritStoneRows,
+        marketStorageSpiritStoneRows,
+        equipmentRows,
+        techniqueRows,
+        buffRows,
+        combatRows,
+        activeJobRows,
+      ] = await Promise.all([
+        client.query<{ player_id?: unknown } & PlayerWorldAnchorLoadRow>(
+          `SELECT player_id, respawn_template_id, last_safe_template_id, last_safe_instance_id, last_safe_x, last_safe_y, respawn_instance_id, respawn_x, respawn_y FROM ${PLAYER_WORLD_ANCHOR_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerPositionCheckpointLoadRow>(
+          `SELECT player_id, instance_id, x, y, facing FROM ${PLAYER_POSITION_CHECKPOINT_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerProgressionCoreLoadRow>(
+          `SELECT player_id, foundation, root_foundation FROM ${PLAYER_PROGRESSION_CORE_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerAttrStateLoadRow>(
+          `SELECT player_id, base_attrs_payload, bonus_entries_payload, realm_payload FROM ${PLAYER_ATTR_STATE_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerBodyTrainingLoadRow>(
+          `SELECT player_id, level, exp, exp_to_next FROM ${PLAYER_BODY_TRAINING_STATE_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown; wallet_type?: unknown; balance?: unknown }>(
+          `SELECT player_id, wallet_type, balance FROM ${PLAYER_WALLET_TABLE} WHERE wallet_type = $1`,
+          [currencyItemId],
+        ),
+        client.query<{ player_id?: unknown; total_count?: unknown }>(
+          `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE item_id = $1 AND (locked_by IS NULL OR locked_by = '') GROUP BY player_id`,
+          [currencyItemId],
+        ),
+        client.query<{ player_id?: unknown; total_count?: unknown }>(
+          `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE item_id = $1 GROUP BY player_id`,
+          [currencyItemId],
+        ),
+        client.query<{ player_id?: unknown } & PlayerEquipmentSlotLoadRow>(
+          `SELECT player_id, slot_type, item_instance_id, item_id, raw_payload FROM ${PLAYER_EQUIPMENT_SLOT_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerTechniqueStateLoadRow>(
+          `SELECT player_id, tech_id, level, exp, exp_to_next, realm_lv, skills_enabled, raw_payload FROM ${PLAYER_TECHNIQUE_STATE_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerPersistentBuffStateLoadRow>(
+          `SELECT player_id, buff_id, source_skill_id, source_caster_id, realm_lv, remaining_ticks, duration, stacks, max_stacks, sustain_ticks_elapsed, raw_payload FROM ${PLAYER_PERSISTENT_BUFF_STATE_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown } & PlayerCombatPreferencesLoadRow>(
+          `SELECT player_id, auto_battle, combat_target_id, cultivating_tech_id FROM ${PLAYER_COMBAT_PREFERENCES_TABLE}`,
+        ),
+        client.query<{ player_id?: unknown; job_type?: unknown }>(
+          `SELECT player_id, job_type FROM ${PLAYER_ACTIVE_JOB_TABLE}`,
+        ),
+      ]);
+
+      // 3. 按 playerId 索引
+      const worldAnchorByPid = indexRowsByPlayerId(worldAnchorRows.rows);
+      const checkpointByPid = indexRowsByPlayerId(checkpointRows.rows);
+      const progressionByPid = indexRowsByPlayerId(progressionRows.rows);
+      const attrStateByPid = indexRowsByPlayerId(attrStateRows.rows);
+      const bodyTrainingByPid = indexRowsByPlayerId(bodyTrainingRows.rows);
+      const walletByPid = indexRowsByPlayerId(walletRows.rows);
+      const invSpiritByPid = indexRowsByPlayerId(inventorySpiritStoneRows.rows);
+      const mktSpiritByPid = indexRowsByPlayerId(marketStorageSpiritStoneRows.rows);
+      const equipByPid = indexMultiRowsByPlayerId(equipmentRows.rows);
+      const techByPid = indexMultiRowsByPlayerId(techniqueRows.rows);
+      const buffByPid = indexMultiRowsByPlayerId(buffRows.rows);
+      const combatByPid = indexRowsByPlayerId(combatRows.rows);
+      const activeJobByPid = indexRowsByPlayerId(activeJobRows.rows);
+
+      // 4. 组装每个玩家的轻量 snapshot
+      const entries: Array<{ playerId: string; snapshot: PersistedPlayerSnapshot }> = [];
+      for (const playerId of playerIds) {
+        const starterSnapshot = buildStarterSnapshot(playerId);
+        if (!starterSnapshot) {
+          continue;
+        }
+        const snapshot = starterSnapshot;
+        // placement
+        const worldAnchor = worldAnchorByPid.get(playerId) ?? null;
+        const checkpoint = checkpointByPid.get(playerId) ?? null;
+        applyProjectedPlacement(snapshot, worldAnchor, checkpoint);
+        // progression
+        applyProjectedProgressionCore(snapshot, progressionByPid.get(playerId) ?? null);
+        // attr state (realm, baseAttrs, runtimeBonuses)
+        applyProjectedAttrState(snapshot, attrStateByPid.get(playerId) ?? null);
+        // body training
+        applyProjectedBodyTraining(snapshot, bodyTrainingByPid.get(playerId) ?? null);
+        // equipment
+        applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
+        // techniques
+        applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? []);
+        // buffs
+        applyProjectedPersistentBuffs(snapshot, buffByPid.get(playerId) ?? []);
+        // combat preferences (排行榜只需 autoBattle, combatTargetId, cultivatingTechId)
+        applyProjectedCombatPreferences(snapshot, combatByPid.get(playerId) ?? null);
+        // wallet/inventory/marketStorage 灵石计数
+        const walletRow = walletByPid.get(playerId);
+        const walletBalance = walletRow ? Math.max(0, Math.trunc(Number(walletRow.balance) || 0)) : 0;
+        const invCount = Math.max(0, Math.trunc(Number(invSpiritByPid.get(playerId)?.total_count) || 0));
+        const mktCount = Math.max(0, Math.trunc(Number(mktSpiritByPid.get(playerId)?.total_count) || 0));
+        snapshot.wallet = { balances: walletBalance > 0 || invCount > 0
+          ? [{ walletType: currencyItemId, balance: walletBalance, count: invCount }] as any
+          : [] };
+        snapshot.inventory = { ...snapshot.inventory, items: invCount > 0
+          ? [{ itemId: currencyItemId, count: invCount }] as any
+          : [] };
+        snapshot.marketStorage = { items: mktCount > 0
+          ? [{ itemId: currencyItemId, count: mktCount }] as any
+          : [] };
+        // active job (排行榜只需判断 alchemy/enhancement 存在性)
+        const jobRow = activeJobByPid.get(playerId);
+        const jobType = jobRow ? normalizeOptionalString(jobRow.job_type) : null;
+        snapshot.progression.alchemyJob = jobType === 'alchemy' || (jobType === 'forging' ? null : (jobType && jobType !== 'enhancement' ? {} : null)) as any;
+        snapshot.progression.forgingJob = jobType === 'forging' ? {} as any : null;
+        snapshot.progression.enhancementJob = jobType === 'enhancement' ? {} as any : null;
+        // 排行榜不需要的字段保持 starter 默认值
+        entries.push({ playerId, snapshot });
+      }
+      return entries;
+    } finally {
+      client.release();
+    }
+  }
+
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
     if (!this.pool || !this.enabled) {
       throw new Error('player_domain_persistence_disabled');
@@ -6160,6 +6316,29 @@ async function queryRows<T>(
 ): Promise<T[]> {
   const result = await client.query<T>(sql, params);
   return result.rows ?? [];
+}
+
+/** 按 player_id 索引单行结果（后出现的覆盖先出现的）。 */
+function indexRowsByPlayerId<T extends { player_id?: unknown }>(rows: T[]): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const row of rows) {
+    const pid = typeof row.player_id === 'string' ? row.player_id.trim() : '';
+    if (pid) map.set(pid, row);
+  }
+  return map;
+}
+
+/** 按 player_id 索引多行结果（同一 player_id 聚合为数组）。 */
+function indexMultiRowsByPlayerId<T extends { player_id?: unknown }>(rows: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const pid = typeof row.player_id === 'string' ? row.player_id.trim() : '';
+    if (!pid) continue;
+    const list = map.get(pid);
+    if (list) list.push(row);
+    else map.set(pid, [row]);
+  }
+  return map;
 }
 
 function normalizeRequiredString(value: unknown): string {

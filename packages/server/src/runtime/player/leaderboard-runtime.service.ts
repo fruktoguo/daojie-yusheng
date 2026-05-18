@@ -240,8 +240,16 @@ export class LeaderboardRuntimeService {
         const persistence = this.playerDomainPersistenceService;
         if (typeof persistence?.isEnabled !== 'function'
             || !persistence.isEnabled()
-            || typeof persistence.listProjectedSnapshots !== 'function'
-            || typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function'
+            || typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function') {
+            return [];
+        }
+        // 优先使用批量查询（13 次 SQL 替代 2219×20+ 次），大幅降低 DB 和内存压力
+        if (typeof persistence.listLeaderboardSnapshots === 'function'
+            && typeof this.playerRuntimeService.buildLeaderboardProjectionFromSnapshot === 'function') {
+            return this.collectPersistedOfflineSnapshotsBatch(existingSnapshotsByPlayerId, persistence);
+        }
+        // 回退：逐个玩家加载完整 snapshot
+        if (typeof persistence.listProjectedSnapshots !== 'function'
             || typeof this.playerRuntimeService.hydrateFromSnapshot !== 'function') {
             return [];
         }
@@ -260,6 +268,26 @@ export class LeaderboardRuntimeService {
                 player.__leaderboardInWorld = presence
                     ? presence.inWorld === true
                     : Boolean(player.instanceId || player.templateId);
+                players.push(player);
+            }
+        }
+        return players;
+    }
+    /** 批量查询路径：用 listLeaderboardSnapshots 一次性拉出所有离线玩家的排行榜数据。 */
+    private async collectPersistedOfflineSnapshotsBatch(existingSnapshotsByPlayerId, persistence) {
+        const entries = await persistence.listLeaderboardSnapshots(
+            (playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId),
+            MARKET_CURRENCY_ITEM_ID,
+        );
+        const players = [];
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const playerId = typeof entry?.playerId === 'string' ? entry.playerId.trim() : '';
+            if (!playerId || isNativeGmBotPlayerId(playerId) || existingSnapshotsByPlayerId.has(playerId)) {
+                continue;
+            }
+            const player = this.createOfflineRuntimePlayerFromSnapshot(playerId, entry.snapshot);
+            if (player) {
+                player.__leaderboardInWorld = Boolean(player.instanceId || player.templateId);
                 players.push(player);
             }
         }
