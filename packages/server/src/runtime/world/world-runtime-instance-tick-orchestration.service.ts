@@ -1,15 +1,27 @@
 /**
  * 实例级 tick 编排服务
  * 按阶段推进每个实例的 tick：资源流动、阵法、建筑、传送、怪物、玩家修炼等
+ * Phase 4: 当 SERVER_INSTANCE_WORKER_ENABLED=true 时，实例级独立子阶段可外移到 InstanceWorkerPool
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
+import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
 export class WorldRuntimeInstanceTickOrchestrationService {
+  constructor(
+    @Optional() @Inject(InstanceWorkerPoolService)
+    private readonly instanceWorkerPool?: InstanceWorkerPoolService,
+  ) {}
+
+  /** Phase 4: 是否启用实例 worker 分片 */
+  private isInstanceWorkerEnabled(): boolean {
+    return process.env.SERVER_INSTANCE_WORKER_ENABLED === 'true'
+      && Boolean(this.instanceWorkerPool?.isEnabled());
+  }
 /**
  * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
