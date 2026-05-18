@@ -2768,7 +2768,11 @@ export class PlayerRuntimeService {
         else {
             player.buffs.buffs.push(createRuntimeTemporaryBuff(buff));
         }
-        player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+        player.buffs.buffs.sort((left, right) => {
+            const a = String(left.buffId ?? '');
+            const b = String(right.buffId ?? '');
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['buff', 'attr']);
@@ -2872,7 +2876,11 @@ export class PlayerRuntimeService {
             created.stacks = Math.max(1, Math.round(stackDelta || buff.stacks || 1));
             player.buffs.buffs.push(created);
         }
-        player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+        player.buffs.buffs.sort((left, right) => {
+            const a = String(left.buffId ?? '');
+            const b = String(right.buffId ?? '');
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['buff', 'attr']);
