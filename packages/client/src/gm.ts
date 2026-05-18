@@ -4023,7 +4023,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   secretsWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
   tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
   if (tab === 'suggestions') {
-    loadSuggestions().catch(() => {});
+    loadSuggestions().catch((e) => console.error('[GM]', e));
   } else if (tab === 'redeem') {
     loadRedeemGroups(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载兑换码面板失败', true);
@@ -4045,7 +4045,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
       setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
     });
   } else if (tab === 'secrets') {
-    loadSecrets().catch(() => {});
+    loadSecrets().catch((e) => console.error('[GM]', e));
   } else if (tab === 'trades') {
     // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
     loadTrades({ resetPage: true }).catch((error: unknown) => {
@@ -6946,7 +6946,7 @@ function renderSecretList(list: GmSecretListItem[]): void {
   secretListEl.querySelectorAll('[data-secret-delete]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = (btn as HTMLElement).dataset.secretDelete!;
-      deleteSecret(key).catch(() => {});
+      deleteSecret(key).catch((e) => console.error('[GM]', e));
     });
   });
 }
@@ -8627,23 +8627,23 @@ editorContentEl.addEventListener('click', (event) => {
     return;
   }
   if (action === 'save-player-account') {
-    saveSelectedPlayerAccount().catch(() => {});
+    saveSelectedPlayerAccount().catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'save-player-password') {
-    saveSelectedPlayerPassword().catch(() => {});
+    saveSelectedPlayerPassword().catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'reset-player-password-default') {
-    saveSelectedPlayerPassword(GM_PLAYER_QUICK_RESET_PASSWORD, 'reset-player-password-default').catch(() => {});
+    saveSelectedPlayerPassword(GM_PLAYER_QUICK_RESET_PASSWORD, 'reset-player-password-default').catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'ban-player-account') {
-    banSelectedPlayerAccount().catch(() => {});
+    banSelectedPlayerAccount().catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'unban-player-account') {
-    unbanSelectedPlayerAccount().catch(() => {});
+    unbanSelectedPlayerAccount().catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'set-body-training-level') {
@@ -8919,7 +8919,7 @@ suggestionListEl.addEventListener('click', (event) => {
     return;
   }
   if (action === 'complete-suggestion') {
-    completeSuggestion(suggestionId).catch(() => {});
+    completeSuggestion(suggestionId).catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'reply-suggestion') {
@@ -8929,11 +8929,11 @@ suggestionListEl.addEventListener('click', (event) => {
       setStatus(t('gm.suggestion.reply.empty'), true);
       return;
     }
-    replySuggestion(suggestionId, content).catch(() => {});
+    replySuggestion(suggestionId, content).catch((e) => console.error('[GM]', e));
     return;
   }
   if (action === 'remove-suggestion') {
-    removeSuggestion(suggestionId).catch(() => {});
+    removeSuggestion(suggestionId).catch((e) => console.error('[GM]', e));
   }
 });
 
@@ -8946,7 +8946,7 @@ suggestionSearchInput.addEventListener('input', () => {
     window.clearTimeout(suggestionSearchTimer);
   }
   suggestionSearchTimer = window.setTimeout(() => {
-    loadSuggestions().catch(() => {});
+    loadSuggestions().catch((e) => console.error('[GM]', e));
   }, 250);
 });
 
@@ -8961,7 +8961,7 @@ suggestionSearchClearBtn.addEventListener('click', () => {
     /** suggestionSearchTimer：建议搜索Timer。 */
     suggestionSearchTimer = null;
   }
-  loadSuggestions().catch(() => {});
+  loadSuggestions().catch((e) => console.error('[GM]', e));
 });
 
 suggestionPrevPageBtn.addEventListener('click', () => {
@@ -8969,7 +8969,7 @@ suggestionPrevPageBtn.addEventListener('click', () => {
     return;
   }
   currentSuggestionPage -= 1;
-  loadSuggestions().catch(() => {});
+  loadSuggestions().catch((e) => console.error('[GM]', e));
 });
 
 suggestionNextPageBtn.addEventListener('click', () => {
@@ -8977,7 +8977,7 @@ suggestionNextPageBtn.addEventListener('click', () => {
     return;
   }
   currentSuggestionPage += 1;
-  loadSuggestions().catch(() => {});
+  loadSuggestions().catch((e) => console.error('[GM]', e));
 });
 
 networkInPrevPageBtn.addEventListener('click', () => {
@@ -9143,7 +9143,7 @@ cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('co
 cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
 loginForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  login().catch(() => {});
+  login().catch((e) => console.error('[GM]', e));
 });
 editorTabBasicBtn.addEventListener('click', () => switchEditorTab('basic'));
 editorTabPositionBtn.addEventListener('click', () => switchEditorTab('position'));
@@ -9181,22 +9181,22 @@ document.getElementById('refresh-state')?.addEventListener('click', () => {
 });
 document.getElementById('logout')?.addEventListener('click', () => logout());
 document.getElementById('spawn-bots')?.addEventListener('click', () => {
-  spawnBots().catch(() => {});
+  spawnBots().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('remove-all-bots')?.addEventListener('click', () => {
-  removeAllBots().catch(() => {});
+  removeAllBots().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListener('click', () => {
-  returnAllPlayersToDefaultSpawn().catch(() => {});
+  returnAllPlayersToDefaultSpawn().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('click', () => {
-  cleanupAllPlayersInvalidItems().catch(() => {});
+  cleanupAllPlayersInvalidItems().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
-  compensateAllPlayersCombatExp().catch(() => {});
+  compensateAllPlayersCombatExp().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-compensate-foundation-2026-04-09')?.addEventListener('click', () => {
-  compensateAllPlayersFoundation().catch(() => {});
+  compensateAllPlayersFoundation().catch((e) => console.error('[GM]', e));
 });
 shortcutWorkspaceEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
@@ -9385,10 +9385,10 @@ redeemWorkspaceEl?.addEventListener('change', (event) => {
   }
 });
 resetNetworkStatsBtn.addEventListener('click', () => {
-  resetNetworkStats().catch(() => {});
+  resetNetworkStats().catch((e) => console.error('[GM]', e));
 });
 toggleNetworkPayloadCaptureBtn.addEventListener('click', () => {
-  toggleNetworkPayloadCapture().catch(() => {});
+  toggleNetworkPayloadCapture().catch((e) => console.error('[GM]', e));
 });
 serverPanelTrafficEl.addEventListener('click', (event) => {
   const target = event.target;
@@ -9409,22 +9409,22 @@ serverPanelTrafficEl.addEventListener('click', (event) => {
   openNetworkPayloadModal(bucket);
 });
 resetCpuStatsBtn.addEventListener('click', () => {
-  resetCpuStats().catch(() => {});
+  resetCpuStats().catch((e) => console.error('[GM]', e));
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
-  resetPathfindingStats().catch(() => {});
+  resetPathfindingStats().catch((e) => console.error('[GM]', e));
 });
 triggerManualGcBtn.addEventListener('click', () => {
-  triggerManualGc().catch(() => {});
+  triggerManualGc().catch((e) => console.error('[GM]', e));
 });
 writeHeapSnapshotBtn.addEventListener('click', () => {
-  writeHeapSnapshot().catch(() => {});
+  writeHeapSnapshot().catch((e) => console.error('[GM]', e));
 });
 copyHeapSnapshotSummaryBtn?.addEventListener('click', () => {
-  writeAndCopyHeapSnapshotSummary().catch(() => {});
+  writeAndCopyHeapSnapshotSummary().catch((e) => console.error('[GM]', e));
 });
 copyLatestHeapSnapshotSummaryBtn?.addEventListener('click', () => {
-  copyLatestHeapSnapshotSummary().catch(() => {});
+  copyLatestHeapSnapshotSummary().catch((e) => console.error('[GM]', e));
 });
 serverLogsLoadOlderBtn.addEventListener('click', () => {
   loadServerLogs(true).catch((error: unknown) => {
@@ -9449,14 +9449,14 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     databaseSubTab = subTabBtn.dataset.dbSubtab as DatabaseSubTab;
     renderDatabasePanel();
     if (databaseSubTab === 'table-stats' && !tableStatsState && !tableStatsLoading) {
-      loadTableStats().catch(() => {});
+      loadTableStats().catch((e) => console.error('[GM]', e));
     }
     return;
   }
 
   const loadStatsBtn = target?.closest<HTMLButtonElement>('[data-action="load-table-stats"]');
   if (loadStatsBtn) {
-    loadTableStats().catch(() => {});
+    loadTableStats().catch((e) => console.error('[GM]', e));
     return;
   }
 
@@ -9468,7 +9468,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
       ? `确认直接清空 ${tableName}？这会删除该表所有记录，此操作不可撤销。`
       : `确认清理 ${tableName} 中 7 天前的数据？此操作不可撤销。`;
     if (confirm(confirmMessage)) {
-      cleanupTable(tableName, cleanupMode).catch(() => {});
+      cleanupTable(tableName, cleanupMode).catch((e) => console.error('[GM]', e));
     }
     return;
   }
@@ -9528,11 +9528,11 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
 });
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  changeGmPassword().catch(() => {});
+  changeGmPassword().catch((e) => console.error('[GM]', e));
 });
 secretForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  saveSecret().catch(() => {});
+  saveSecret().catch((e) => console.error('[GM]', e));
 });
 tradesFormEl.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -9573,22 +9573,22 @@ tradesPageNextBtn.addEventListener('click', () => {
   });
 });
 savePlayerBtn.addEventListener('click', () => {
-  saveSelectedPlayer().catch(() => {});
+  saveSelectedPlayer().catch((e) => console.error('[GM]', e));
 });
 refreshPlayerBtn.addEventListener('click', () => {
-  refreshSelectedPlayer().catch(() => {});
+  refreshSelectedPlayer().catch((e) => console.error('[GM]', e));
 });
 openPlayerMailBtn.addEventListener('click', () => {
   openSelectedPlayerMailTab();
 });
 resetPlayerBtn.addEventListener('click', () => {
-  resetSelectedPlayer().catch(() => {});
+  resetSelectedPlayer().catch((e) => console.error('[GM]', e));
 });
 resetHeavenGateBtn.addEventListener('click', () => {
-  resetSelectedPlayerHeavenGate().catch(() => {});
+  resetSelectedPlayerHeavenGate().catch((e) => console.error('[GM]', e));
 });
 removeBotBtn.addEventListener('click', () => {
-  removeSelectedBot().catch(() => {});
+  removeSelectedBot().catch((e) => console.error('[GM]', e));
 });
 
 syncPersistedGmPasswordToInputs();

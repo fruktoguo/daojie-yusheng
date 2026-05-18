@@ -764,14 +764,14 @@ export class GmMapEditor {
   private bindEvents(): void {
     this.searchInput.addEventListener('input', () => this.renderMapList());
     this.refreshListBtn.addEventListener('click', () => {
-      this.loadMapList(true).catch(() => {});
+      this.loadMapList(true).catch((e) => console.error('[GmMapEditor] loadMapList failed:', e));
     });
     this.saveBtn.addEventListener('click', () => {
-      this.saveCurrentMap().catch(() => {});
+      this.saveCurrentMap().catch((e) => console.error('[GmMapEditor] saveCurrentMap failed:', e));
     });
     this.resetBtn.addEventListener('click', () => this.resetDraft());
     this.reloadBtn.addEventListener('click', () => {
-      this.reloadCurrentMap().catch(() => {});
+      this.reloadCurrentMap().catch((e) => console.error('[GmMapEditor] reloadCurrentMap failed:', e));
     });
     this.undoBtn.addEventListener('click', () => this.undo());
     this.centerBtn.addEventListener('click', () => this.centerView());
@@ -784,7 +784,7 @@ export class GmMapEditor {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-id]');
       const mapId = button?.dataset.mapId;
       if (!mapId) return;
-      this.selectMap(mapId).catch(() => {});
+      this.selectMap(mapId).catch((e) => console.error('[GmMapEditor] selectMap failed:', e));
     });
 
     this.toolButtonsEl.addEventListener('click', (event) => {
@@ -2420,7 +2420,7 @@ export class GmMapEditor {
         this.moveSelectedEntityToCurrentCell();
         return;
       case 'compose-add-piece':
-        this.addComposePiece().catch(() => {});
+        this.addComposePiece().catch((e) => console.error('[GmMapEditor] addComposePiece failed:', e));
         return;
       case 'compose-rotate-left':
         this.rotateSelectedComposePiece(false);
@@ -3366,7 +3366,7 @@ export class GmMapEditor {
     if (this.dirty && !window.confirm(t('gm-map-editor.confirm.reset-dirty'))) {
       return;
     }
-    this.loadMap(this.selectedMapId).catch(() => {});
+    this.loadMap(this.selectedMapId).catch((e) => console.error('[GmMapEditor] loadMap failed:', e));
   }
 
   /** reloadCurrentMap：重载当前地图。 */

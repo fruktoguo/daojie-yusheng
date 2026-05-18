@@ -391,7 +391,7 @@ export class GmWorldViewer {
       this.refreshInstanceList(false)
         .then(() => (this.currentInstanceId ? this.loadRuntime() : undefined))
         .then(() => this.renderAll())
-        .catch(() => {});
+        .catch((e) => console.error('[GmWorldViewer] poll failed:', e));
     }, GM_WORLD_POLL_INTERVAL_MS);
     this.startRaf();
   }
@@ -791,7 +791,7 @@ export class GmWorldViewer {
       this.isDragging = false;
       this.canvas.releasePointerCapture(e.pointerId);
       // 松手后重新加载当前视口数据
-      this.loadRuntime().then(() => this.renderAll()).catch(() => {});
+      this.loadRuntime().then(() => this.renderAll()).catch((e) => console.error('[GmWorldViewer] loadRuntime failed:', e));
     }
   };  
   /**
@@ -807,7 +807,7 @@ export class GmWorldViewer {
     setZoom(next);
     updateDisplayMetrics(this.canvas.width, this.canvas.height, GM_WORLD_VIEW_MAX);
     this.snapCamera();
-    this.loadRuntime().then(() => this.renderAll()).catch(() => {});
+    this.loadRuntime().then(() => this.renderAll()).catch((e) => console.error('[GmWorldViewer] loadRuntime failed:', e));
   };  
   /**
  * handleResize：数量或计量字段。
@@ -965,7 +965,7 @@ export class GmWorldViewer {
           button.addEventListener('click', () => {
             const instanceId = button.dataset.instanceId;
             if (instanceId && instanceId !== this.currentInstanceId) {
-              this.selectInstance(instanceId).catch(() => {});
+              this.selectInstance(instanceId).catch((e) => console.error('[GmWorldViewer] selectInstance failed:', e));
             }
           });
         }
@@ -1030,7 +1030,7 @@ export class GmWorldViewer {
         <span class="world-instance-tab-count">${counts.get(tab.id) ?? 0}</span>
       `;
       button.addEventListener('click', () => {
-        this.switchInstanceListTab(tab.id).catch(() => {});
+        this.switchInstanceListTab(tab.id).catch((e) => console.error('[GmWorldViewer] switchTab failed:', e));
       });
       tabBar.append(button);
     }
@@ -1306,25 +1306,25 @@ export class GmWorldViewer {
       if (speedButton) {
         const speed = parseFloat(speedButton.dataset.speed ?? '1');
         this.speedDraft = String(speed);
-        this.setWorldSpeed(speed).catch(() => {});
+        this.setWorldSpeed(speed).catch((e) => console.error('[GmWorldViewer] setWorldSpeed failed:', e));
         return;
       }
       if (target.closest('[data-world-speed-apply]')) {
         const speed = parseFloat(speedInput?.value ?? '1');
         if (Number.isFinite(speed)) {
-          this.setWorldSpeed(speed).catch(() => {});
+          this.setWorldSpeed(speed).catch((e) => console.error('[GmWorldViewer] setWorldSpeed failed:', e));
         }
         return;
       }
       if (target.closest('[data-world-time-apply]')) {
         const offset = parseInt(offsetInput?.value ?? '0', 10);
         if (Number.isFinite(offset)) {
-          this.updateTime({ offsetTicks: offset }).catch(() => {});
+          this.updateTime({ offsetTicks: offset }).catch((e) => console.error('[GmWorldViewer] updateTime failed:', e));
         }
         return;
       }
       if (target.closest('[data-world-reload-tick-config]')) {
-        this.reloadTickConfig().catch(() => {});
+        this.reloadTickConfig().catch((e) => console.error('[GmWorldViewer] reloadTickConfig failed:', e));
       }
     });
   }  
@@ -1432,7 +1432,7 @@ export class GmWorldViewer {
  */
  ok: true }>(`${GM_API_BASE_PATH}/world-observers/${encodeURIComponent(this.viewerId)}`, {
       method: 'DELETE',
-    }).catch(() => {});
+    }).catch((e) => console.error('[GmWorldViewer] unregister observer failed:', e));
   }  
   /**
  * renderInfo：执行Info相关逻辑。
@@ -1841,12 +1841,12 @@ export class GmWorldViewer {
       if (createButton) {
         const preset = createButton.getAttribute('data-instance-create-line');
         if (preset === 'peaceful' || preset === 'real') {
-          this.createWorldInstance(preset).catch(() => {});
+          this.createWorldInstance(preset).catch((e) => console.error('[GmWorldViewer] createWorldInstance failed:', e));
         }
         return;
       }
       if (target.closest('[data-instance-transfer-player]')) {
-        this.transferPlayerToCurrentInstance().catch(() => {});
+        this.transferPlayerToCurrentInstance().catch((e) => console.error('[GmWorldViewer] transferPlayer failed:', e));
       }
     });
   }
