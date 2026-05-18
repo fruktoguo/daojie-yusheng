@@ -33,6 +33,7 @@ export class EncodingWorkerPoolService {
     fallback: SyncFallback<unknown, unknown> | null;
     payload: unknown;
     submittedAt: number;
+    workerIndex: number;
   }>();
 
   constructor(private readonly metricsService: WorkerPoolMetricsService) {
@@ -151,11 +152,14 @@ export class EncodingWorkerPoolService {
     return new Promise((resolve) => {
       // 找到一个活跃的 worker（跳过 null/dead）
       let worker: Worker | null = null;
+      let selectedIndex = -1;
       for (let attempt = 0; attempt < this.workers.length; attempt++) {
-        const candidate = this.workers[this.roundRobinIndex % this.workers.length];
+        const idx = this.roundRobinIndex % this.workers.length;
+        const candidate = this.workers[idx];
         this.roundRobinIndex = (this.roundRobinIndex + 1) % this.workers.length;
         if (candidate) {
           worker = candidate;
+          selectedIndex = idx;
           break;
         }
       }
@@ -193,6 +197,7 @@ export class EncodingWorkerPoolService {
         fallback: fallback as SyncFallback<unknown, unknown> | null,
         payload,
         submittedAt: performance.now(),
+        workerIndex: selectedIndex,
       });
 
       const envelope: WorkerTaskEnvelope = {
@@ -276,10 +281,19 @@ export class EncodingWorkerPoolService {
     }
   }
 
-  /** 处理 worker 死亡：清理 pending 任务 + 重启 */
+  /** 处理 worker 死亡：清理该 worker 的 pending 任务 + 重启 */
   private handleWorkerDeath(deadWorker: Worker, index: number, workerPath: string): void {
-    // 清理分配到该 worker 的所有 pending 任务（走 fallback）
+    // 防止 error + exit 重复触发
+    if (this.workers[index] !== deadWorker && this.workers[index] !== null) {
+      return; // 已经被处理过（重启了新 worker）
+    }
+    // 标记该 worker 为 null（防止新任务分配到它）
+    if (this.workers[index] === deadWorker) {
+      this.workers[index] = null as unknown as Worker;
+    }
+    // 只清理分配到该 worker 的 pending 任务
     for (const [taskId, pending] of this.pendingTasks) {
+      if (pending.workerIndex !== index) continue;
       clearTimeout(pending.timer);
       this.pendingTasks.delete(taskId);
       this.metricsService.recordFailed('encoding');
