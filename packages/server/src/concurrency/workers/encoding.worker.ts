@@ -111,7 +111,98 @@ function handlePathfind(payload: unknown): PathfindingTaskResult {
   };
 }
 
-function handleFov(_payload: unknown): unknown {
-  // TODO: Phase 3 实现 FOV 计算
-  return null;
+function handleFov(payload: unknown): { visibleIndices: number[] } {
+  const input = payload as {
+    blocksSightMask: Uint8Array;
+    width: number;
+    height: number;
+    originX: number;
+    originY: number;
+    radius: number;
+  };
+
+  const { blocksSightMask, width, height, originX, originY, radius } = input;
+  const visibleSet = new Set<number>();
+
+  // 原点始终可见
+  if (originX >= 0 && originX < width && originY >= 0 && originY < height) {
+    visibleSet.add(originY * width + originX);
+  }
+
+  // 8 八分区 shadowcasting
+  const octants: [number, number, number, number][] = [
+    [1, 0, 0, 1], [0, 1, 1, 0], [0, -1, 1, 0], [-1, 0, 0, 1],
+    [-1, 0, 0, -1], [0, -1, -1, 0], [0, 1, -1, 0], [1, 0, 0, -1],
+  ];
+
+  for (const [xx, xy, yx, yy] of octants) {
+    castLightOctant(
+      width, height, originX, originY, radius,
+      1, 1, 0, xx, xy, yx, yy,
+      blocksSightMask, visibleSet,
+    );
+  }
+
+  return { visibleIndices: Array.from(visibleSet) };
+}
+
+function castLightOctant(
+  width: number, height: number,
+  ox: number, oy: number, radius: number,
+  row: number, startSlope: number, endSlope: number,
+  xx: number, xy: number, yx: number, yy: number,
+  mask: Uint8Array, visible: Set<number>,
+): void {
+  if (startSlope < endSlope) return;
+
+  let nextStartSlope = startSlope;
+
+  for (let i = row; i <= radius; i++) {
+    let blocked = false;
+    for (let dx = -i; dx <= 0; dx++) {
+      const dy = -i;
+      const lSlope = (dx - 0.5) / (dy + 0.5);
+      const rSlope = (dx + 0.5) / (dy - 0.5);
+
+      if (startSlope < rSlope) continue;
+      if (endSlope > lSlope) break;
+
+      const mapX = ox + dx * xx + dy * xy;
+      const mapY = oy + dx * yx + dy * yy;
+
+      if (mapX < 0 || mapX >= width || mapY < 0 || mapY >= height) {
+        blocked = true;
+        nextStartSlope = rSlope;
+        continue;
+      }
+
+      const distSq = dx * dx + dy * dy;
+      if (distSq > radius * radius) {
+        blocked = true;
+        nextStartSlope = rSlope;
+        continue;
+      }
+
+      const index = mapY * width + mapX;
+      visible.add(index);
+
+      if (mask[index]) {
+        if (!blocked) {
+          castLightOctant(
+            width, height, ox, oy, radius,
+            i + 1, nextStartSlope, lSlope,
+            xx, xy, yx, yy, mask, visible,
+          );
+        }
+        blocked = true;
+        nextStartSlope = rSlope;
+      } else {
+        if (blocked) {
+          nextStartSlope = rSlope;
+        }
+        blocked = false;
+      }
+    }
+    if (blocked) break;
+  }
 }
