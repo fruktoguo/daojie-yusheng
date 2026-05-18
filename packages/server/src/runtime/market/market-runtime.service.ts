@@ -2611,7 +2611,8 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
         try {
             this.playerRuntimeService.debitWallet(playerId, MARKET_CURRENCY_ITEM_ID, normalizedAmount);
         }
-        catch {
+        catch (error) {
+            this.logger.warn(`market debitWallet failed for player=${playerId} amount=${normalizedAmount}: ${error instanceof Error ? error.message : String(error)}`);
             return false;
         }
         return true;

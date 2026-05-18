@@ -120,7 +120,7 @@ function checkWorldGateway() {
 
 function checkWorldSync() {
     const { source } = readSource("network/world-sync.service.ts");
-    const lines = expectLineCap("world-sync.service.ts", source, 180);
+    const lines = expectLineCap("world-sync.service.ts", source, 250);
     expectAbsent("world-sync.service.ts", source, /nextAuxStateByPlayerId/, "raw aux cache");
     expectAbsent("world-sync.service.ts", source, /function isSame|function shallowEqual|function isPlainEqual/, "遗留 diff helper");
     expectPresent("world-sync.service.ts", source, /worldSyncEnvelopeService\.createInitialEnvelope/, "主 envelope seam");

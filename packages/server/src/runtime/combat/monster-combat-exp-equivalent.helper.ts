@@ -50,8 +50,11 @@ function loadRealmCombatExpByLevel() {
             next.set(runtimeEntry.realmLv, Math.max(0, Math.floor(runtimeEntry.runtimeExpToNext * gradeFactor)));
         }
     }
-    catch {
+    catch (error) {
         // 启动期或测试桩缺少内容文件时保持 0，调用方不再退回旧的 level * 100 口径。
+        if (error instanceof TypeError || error instanceof ReferenceError) {
+            console.error('[monster-combat-exp] unexpected error building realm combat exp table:', error);
+        }
     }
     realmCombatExpByLevel = next;
     return realmCombatExpByLevel;

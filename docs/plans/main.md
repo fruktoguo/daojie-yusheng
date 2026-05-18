@@ -42,7 +42,18 @@
 - [ ] 再把地块单值 `aura` 升成通用 tile resource runtime
 - [ ] 最后把炼丹 / 强化 / 采集收口为统一技艺活动框架
 
-### 3. P0 潜在问题待确认修复项
+### 3. P0 潜在问题已修复项
+
+来源：`docs/plans/服务端潜在问题清单.md` 全面审计
+
+- [x] S9 — login 候选串行 verifyPassword → 改为 Promise.all 并行验证（2026-05-10）
+- [x] S16 — outbox 死信迁移分两步可丢消息 → 合并为单事务 RETURNING（2026-05-10）
+- [x] S19 — 战斗审计内存队列溢出无日志 → 添加溢出计数 + 限频 warn（2026-05-10）
+- [x] S93 — tick-dispatch catch{} 吞错 → 添加 TypeError/ReferenceError 日志（2026-05-10）
+- [x] S96 — 生产代码无 unhandledRejection handler → 已有（确认）
+- [x] S94（部分）— runtime 服务 catch{} 吞错 → 关键路径添加日志（2026-05-10）
+
+### 4. P0 潜在问题待确认修复项
 
 来源：`docs/plans/服务端潜在问题清单.md` 全面审计
 
@@ -83,7 +94,7 @@
 - 需确认：是否接入 GmAuditLogPersistenceService + 二次确认 token 机制
 - [ ] 确认 restart 接口安全加固方案
 
-### 4. P1 潜在问题待确认修复项
+### 5. P1 潜在问题待确认修复项
 
 来源：`docs/plans/服务端潜在问题清单.md` 全面审计
 

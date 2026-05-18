@@ -8,36 +8,12 @@ import { WorldSyncProtocolService } from './world-sync-protocol.service';
 import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
 import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
-
-interface SyncFlushBreakdownSample {
-    playerCount: number;
-    processedPlayerCount: number;
-    skippedPlayerCount: number;
-    getSocketMs: number;
-    getSocketCount: number;
-    getViewMs: number;
-    getViewCount: number;
-    roomSyncMs: number;
-    roomSyncCount: number;
-    contextActionsMs: number;
-    contextActionsCount: number;
-    playerStateMs: number;
-    playerStateCount: number;
-    envelopeMs: number;
-    envelopeCount: number;
-    auxSyncMs: number;
-    auxSyncCount: number;
-    emitEnvelopeMs: number;
-    emitEnvelopeCount: number;
-    questSyncMs: number;
-    questSyncCount: number;
-    runtimeEventsMs: number;
-    runtimeEventsCount: number;
-    statisticRecordsMs: number;
-    statisticRecordsCount: number;
-    clearCachesMs: number;
-    clearCachesCount: number;
-}
+import {
+    type SyncFlushBreakdownSample,
+    createSyncFlushBreakdownSample,
+    addSyncFlushDuration,
+    incrementSyncFlushCount,
+} from './world-sync-flush-breakdown';
 
 @Injectable()
 export class WorldSyncService {
@@ -264,78 +240,4 @@ export class WorldSyncService {
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (player) this.worldSyncAuxStateService.handleReportMinimapVersions(socket, player, clientVersions);
     }
-}
-
-function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
-    return {
-        playerCount: 0,
-        processedPlayerCount: 0,
-        skippedPlayerCount: 0,
-        getSocketMs: 0,
-        getSocketCount: 0,
-        getViewMs: 0,
-        getViewCount: 0,
-        roomSyncMs: 0,
-        roomSyncCount: 0,
-        contextActionsMs: 0,
-        contextActionsCount: 0,
-        playerStateMs: 0,
-        playerStateCount: 0,
-        envelopeMs: 0,
-        envelopeCount: 0,
-        auxSyncMs: 0,
-        auxSyncCount: 0,
-        emitEnvelopeMs: 0,
-        emitEnvelopeCount: 0,
-        questSyncMs: 0,
-        questSyncCount: 0,
-        runtimeEventsMs: 0,
-        runtimeEventsCount: 0,
-        statisticRecordsMs: 0,
-        statisticRecordsCount: 0,
-        clearCachesMs: 0,
-        clearCachesCount: 0,
-    };
-}
-
-function addSyncFlushDuration(
-    breakdown: SyncFlushBreakdownSample | undefined,
-    key: keyof Pick<SyncFlushBreakdownSample,
-        | 'getSocketMs'
-        | 'getViewMs'
-        | 'roomSyncMs'
-        | 'contextActionsMs'
-        | 'playerStateMs'
-        | 'envelopeMs'
-        | 'auxSyncMs'
-        | 'emitEnvelopeMs'
-        | 'questSyncMs'
-        | 'runtimeEventsMs'
-        | 'statisticRecordsMs'
-        | 'clearCachesMs'>,
-    startedAt: number,
-): void {
-    if (!breakdown) {
-        return;
-    }
-    breakdown[key] += performance.now() - startedAt;
-}
-
-function incrementSyncFlushCount(
-    breakdown: SyncFlushBreakdownSample | undefined,
-    key: keyof Pick<SyncFlushBreakdownSample,
-        | 'roomSyncCount'
-        | 'contextActionsCount'
-        | 'playerStateCount'
-        | 'envelopeCount'
-        | 'auxSyncCount'
-        | 'emitEnvelopeCount'
-        | 'questSyncCount'
-        | 'runtimeEventsCount'
-        | 'statisticRecordsCount'>,
-): void {
-    if (!breakdown) {
-        return;
-    }
-    breakdown[key] += 1;
 }

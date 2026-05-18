@@ -203,7 +203,10 @@ export class WorldRuntimeCraftMutationService {
                 const n = buildStructuredNotice('loot', 'notice.craft.overflow-ground', `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, { vars: { itemLabel: formatItemStackLabel(item) }, pills: [{ key: 'itemLabel', style: 'target' }] });
                 deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             }
-            catch {
+            catch (error) {
+                if (error instanceof TypeError || error instanceof ReferenceError) {
+                    console.error(`[craft-mutation] spawnGroundItem error for player=${playerId}:`, error);
+                }
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
                 const n = buildStructuredNotice('warn', 'notice.craft.overflow-inventory', `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, { vars: { itemLabel: formatItemStackLabel(item) }, pills: [{ key: 'itemLabel', style: 'target' }] });
                 deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

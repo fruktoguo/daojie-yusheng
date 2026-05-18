@@ -260,7 +260,10 @@ export class WorldRuntimeNavigationService {
             const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals);
             return path ? path.map((entry) => [entry.x, entry.y]) : [];
         }
-        catch {
+        catch (error) {
+            if (error instanceof TypeError || error instanceof RangeError) {
+                console.error(`[navigation] path planning error:`, error);
+            }
             return [];
         }
     }

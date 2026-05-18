@@ -302,8 +302,11 @@ export class RuntimeGmStateService {
             try {
                 this.resetNetworkPerfCounters();
             }
-            catch {
-                // ignore: 监控诊断路径异常不影响主线
+            catch (error) {
+                // 监控诊断路径异常不影响主线，但记录以便排查
+                if (error instanceof Error) {
+                    console.error('[gm-state] resetNetworkPerfCounters error:', error.message);
+                }
             }
         }, intervalMs);
         if (typeof this.networkPerfRollingResetTimer?.unref === 'function') {

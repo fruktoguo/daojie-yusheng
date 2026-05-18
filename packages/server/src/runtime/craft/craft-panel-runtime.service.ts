@@ -953,7 +953,10 @@ export class CraftPanelRuntimeService {
             try {
                 this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, job.spiritStoneCost);
             }
-            catch {
+            catch (error) {
+                if (error instanceof TypeError || error instanceof ReferenceError) {
+                    console.error(`[craft] debitWallet unexpected error for player=${player.playerId}:`, error);
+                }
                 const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
                 return buildCraftTickResult(true, [{
                         kind: 'system',
