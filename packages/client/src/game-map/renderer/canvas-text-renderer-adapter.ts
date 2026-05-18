@@ -16,6 +16,10 @@ export class CanvasTextRendererAdapter {
   private readonly cameraBridge = new Camera();
   /** 当前挂载画布。 */
   private canvas: HTMLCanvasElement | null = null;
+  /** OffscreenCanvas render worker（Phase 6） */
+  private renderWorker: Worker | null = null;
+  /** 是否使用 OffscreenCanvas worker 模式 */
+  private offscreenMode = false;
 
   /** 绑定宿主并初始化画布渲染器。 */
   mount(host: HTMLElement): void {
@@ -26,18 +30,52 @@ export class CanvasTextRendererAdapter {
       throw new Error('地图宿主节点缺少 canvas');
     }
     this.canvas = canvas;
+
+    // Phase 6: OffscreenCanvas worker 模式
+    if (this.shouldUseOffscreenCanvas(canvas)) {
+      try {
+        const offscreen = canvas.transferControlToOffscreen();
+        this.renderWorker = new Worker(
+          new URL('../../workers/render.worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+        this.renderWorker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
+        this.offscreenMode = true;
+        return;
+      } catch {
+        // OffscreenCanvas 不支持或失败，fallback 到主线程渲染
+        this.renderWorker = null;
+        this.offscreenMode = false;
+      }
+    }
+
     this.renderer.init(canvas);
   }
 
   /** 清理挂载引用，不销毁底层渲染器。 */
   unmount(): void {
     this.canvas = null;
+    if (this.renderWorker) {
+      this.renderWorker.postMessage({ type: 'clear' });
+    }
   }
 
   /** 销毁渲染器并清空画布引用。 */
   destroy(): void {
+    if (this.renderWorker) {
+      this.renderWorker.terminate();
+      this.renderWorker = null;
+      this.offscreenMode = false;
+    }
     this.renderer.destroy();
     this.canvas = null;
+  }
+
+  /** 判断是否应使用 OffscreenCanvas worker 模式 */
+  private shouldUseOffscreenCanvas(canvas: HTMLCanvasElement): boolean {
+    if (typeof window === 'undefined') return false;
+    if (new URLSearchParams(window.location.search).has('disableRenderWorker')) return false;
+    return typeof canvas.transferControlToOffscreen === 'function';
   }
 
   /** 同步样式尺寸与实际像素尺寸。 */
@@ -49,8 +87,12 @@ export class CanvasTextRendererAdapter {
     }
     this.canvas.style.width = `${Math.max(1, width)}px`;
     this.canvas.style.height = `${Math.max(1, height)}px`;
-    this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
-    this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
+    if (this.offscreenMode && this.renderWorker) {
+      this.renderWorker.postMessage({ type: 'resize', width: Math.max(1, Math.floor(backbufferWidth)), height: Math.max(1, Math.floor(backbufferHeight)) });
+    } else {
+      this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
+      this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
+    }
   }  
   /**
  * syncScene：处理Scene并更新相关状态。
