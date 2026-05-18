@@ -3,7 +3,7 @@
  * 管理在线玩家的全部运行态：登录/登出、背包/装备/钱包、buff、
  * 战斗配置、移动、修炼、技能冷却、通知队列和持久化脏域追踪。
  */
-import { Inject, BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isItemInstanceTracked, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
@@ -59,6 +59,7 @@ const pvpShaInfusionBuffByRealmLv = new Map();
 const pvpShaBacklashBuffByRealmLv = new Map();
 @Injectable()
 export class PlayerRuntimeService {
+    private readonly logger = new Logger(PlayerRuntimeService.name);
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
     contentTemplateRepository;
     /** 地图仓库，用于出生点、地图索引和传送相关校验。 */
@@ -1134,7 +1135,11 @@ export class PlayerRuntimeService {
         }
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
         if (existing) {
-            existing.count = Math.min(existing.count + item.count, MAX_ITEM_COUNT);
+            const newCount = existing.count + item.count;
+            if (newCount > MAX_ITEM_COUNT) {
+                this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${item.itemId}, attempted=${newCount}, capped=${MAX_ITEM_COUNT}]`);
+            }
+            existing.count = Math.min(newCount, MAX_ITEM_COUNT);
         } else {
             player.inventory.items.push(item);
         }
@@ -1596,7 +1601,11 @@ export class PlayerRuntimeService {
                 canMergeItemStack(entry) && createItemStackSignature(entry) === signature,
             );
             if (existing) {
-                existing.count = Math.min(existing.count + normalized.count, MAX_ITEM_COUNT);
+                const newCount = existing.count + normalized.count;
+                if (newCount > MAX_ITEM_COUNT) {
+                    this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${newCount}, capped=${MAX_ITEM_COUNT}]`);
+                }
+                existing.count = Math.min(newCount, MAX_ITEM_COUNT);
             } else {
                 player.inventory.items.push(normalized);
             }
