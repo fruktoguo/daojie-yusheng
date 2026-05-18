@@ -21,7 +21,6 @@ import { URL } from 'node:url';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
-import { ensurePersistentDocumentsTable } from '../../persistence/persistent-document-table';
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
 import { GM_AUTH_CONTRACT, NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
