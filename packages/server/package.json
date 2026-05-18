@@ -26,6 +26,7 @@
     "smoke:shadow:gm-database": "pnpm compile && node dist/tools/run-compiled-tool.js -- shadow-gm-database-proof",
     "smoke:all": "node dist/tools/run-stable-smoke-suite.js",
     "smoke:all:with-db": "node dist/tools/run-stable-smoke-suite.js --include-persistence",
+    "smoke:worker-pool-equivalence": "pnpm compile && node dist/tools/worker-pool-equivalence-smoke.js",
     "smoke:runtime": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case runtime",
     "smoke:building-room-fengshui": "pnpm compile && node dist/tools/world-runtime-building-room-fengshui-smoke.js",
     "smoke:persistence": "pnpm compile && node dist/tools/persistence-smoke.js",
