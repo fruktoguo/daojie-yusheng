@@ -147,9 +147,9 @@ const COMBAT_DAMAGE_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，�
 const COMBAT_HEAL_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>[^\s]+) - 实际 (?<actual>[^\s]+) 治疗(?<after>.*)$/;
 const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，(?:结果 (?<result>闪避)|(?<dodgeResult>被闪避，未造成伤害))(?:（(?<dodgeDetails>[^）]+)）)?(?<after>.*)$/;
 /** 治疗数值胶囊的颜色。 */
-const COMBAT_HEAL_PILL_COLOR = '#1d6e42';
+const COMBAT_HEAL_PILL_COLOR = 'var(--chat-pill-buff)';
 /** 闪避结果胶囊的颜色。 */
-const COMBAT_RESULT_PILL_COLOR = '#6a7282';
+const COMBAT_RESULT_PILL_COLOR = 'var(--chat-pill-result)';
 
 const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   金: 'metal',
@@ -372,6 +372,39 @@ function toAlphaColor(hex: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
+/** 为 pill 元素设置颜色相关 CSS 变量，支持 hex 和 CSS 变量两种格式。 */
+function applyPillColorVars(el: HTMLElement, color: string, bgVar?: string, borderVar?: string, shadowVar?: string): void {
+  el.style.setProperty('--chat-damage-pill-color', color);
+  if (bgVar) {
+    el.style.setProperty('--chat-damage-pill-bg', bgVar);
+    el.style.setProperty('--chat-damage-pill-border', borderVar!);
+    el.style.setProperty('--chat-damage-pill-shadow', shadowVar!);
+  } else {
+    el.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
+    el.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
+    el.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+  }
+}
+
+/** 聊天 pill 颜色预设映射，key 为 CSS 变量引用值。 */
+const PILL_COLOR_PRESETS: Record<string, { bg: string; border: string; shadow: string }> = {
+  'var(--chat-pill-buff)': { bg: 'var(--chat-pill-buff-bg)', border: 'var(--chat-pill-buff-border)', shadow: 'var(--chat-pill-buff-shadow)' },
+  'var(--chat-pill-debuff)': { bg: 'var(--chat-pill-debuff-bg)', border: 'var(--chat-pill-debuff-border)', shadow: 'var(--chat-pill-debuff-shadow)' },
+  'var(--chat-pill-result)': { bg: 'var(--chat-pill-result-bg)', border: 'var(--chat-pill-result-border)', shadow: 'var(--chat-pill-result-shadow)' },
+  'var(--chat-pill-dodge)': { bg: 'var(--chat-pill-dodge-bg)', border: 'var(--chat-pill-dodge-border)', shadow: 'var(--chat-pill-dodge-shadow)' },
+  'var(--chat-pill-damage-default)': { bg: 'var(--chat-pill-damage-default-bg)', border: 'var(--chat-pill-damage-default-border)', shadow: 'var(--chat-pill-damage-default-shadow)' },
+};
+
+/** 为 pill 元素设置颜色，自动识别 CSS 变量预设或 hex 值。 */
+function setPillColor(el: HTMLElement, color: string): void {
+  const preset = PILL_COLOR_PRESETS[color];
+  if (preset) {
+    applyPillColorVars(el, color, preset.bg, preset.border, preset.shadow);
+  } else {
+    applyPillColorVars(el, color);
+  }
+}
+
 /** 构建聊天行中的可交互片段。 */
 
 /** 将 combatList 中含 effects 的条目展开为独立行。 */
@@ -439,10 +472,7 @@ function appendStructuredCombatLine(
       const pill = document.createElement('span');
       pill.className = 'chat-damage-pill';
       pill.textContent = '闪避';
-      pill.style.setProperty('--chat-damage-pill-color', '#7dd3fc');
-      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor('#7dd3fc', 0.16));
-      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor('#7dd3fc', 0.36));
-      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor('#7dd3fc', 0.22));
+      setPillColor(pill, 'var(--chat-pill-dodge)');
       container.appendChild(pill);
       container.append(' 未造成伤害');
       for (const l of labels) container.appendChild(buildLabelBadge(l));
@@ -460,10 +490,7 @@ function appendStructuredCombatLine(
       pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
       pill.dataset.chatDamageTooltipTitle = tooltipTitle;
       pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
-      pill.style.setProperty('--chat-damage-pill-color', color);
-      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      setPillColor(pill, color);
       container.appendChild(pill);
       container.append(' 伤害');
       const labels = getCombatResolutionLabels(resolution);
@@ -486,10 +513,7 @@ function appendStructuredCombatLine(
     pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
     pill.dataset.chatDamageTooltipTitle = tooltipTitle;
     pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
-    pill.style.setProperty('--chat-damage-pill-color', color);
-    pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-    pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-    pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+    setPillColor(pill, color);
     container.appendChild(pill);
     const auraDamage = formatCombatLogAmount(String(formationResolution.auraDamage));
     container.append(` 伤害，削减灵力 ${auraDamage}`);
@@ -515,10 +539,7 @@ function appendCombatEffects(container: DocumentFragment | HTMLElement, effects:
       pill.dataset.chatDamageTooltipTitle = '治疗';
       pill.dataset.chatDamageTooltipLines = `治疗量 ${formatCombatLogAmount(String(amount))}`;
       const color = COMBAT_HEAL_PILL_COLOR;
-      pill.style.setProperty('--chat-damage-pill-color', color);
-      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      setPillColor(pill, color);
       container.appendChild(pill);
       container.append(' 生命');
     } else if (effect.type === 'buff' || effect.type === 'debuff') {
@@ -528,11 +549,8 @@ function appendCombatEffects(container: DocumentFragment | HTMLElement, effects:
       const pill = document.createElement('span');
       pill.className = 'chat-damage-pill';
       pill.textContent = name;
-      const color = effect.category === 'debuff' ? '#b91c1c' : '#1d6e42';
-      pill.style.setProperty('--chat-damage-pill-color', color);
-      pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-      pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-      pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+      const color = effect.category === 'debuff' ? 'var(--chat-pill-debuff)' : 'var(--chat-pill-buff)';
+      setPillColor(pill, color);
       // 从本地模板获取 buff 详细信息
       const buffTemplate = effect.buffId ? getLocalBuffTemplate(String(effect.buffId)) : null;
       const tooltipLines: string[] = [];
@@ -705,11 +723,8 @@ function buildNoticePill(value: string, config: NoticePillConfig): HTMLSpanEleme
     pill.className = 'chat-skill-pill';
   } else if (style === 'damage') {
     pill.className = 'chat-damage-pill';
-    const color = config.color ?? '#ef4444';
-    pill.style.setProperty('--chat-damage-pill-color', color);
-    pill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-    pill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-    pill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+    const color = config.color;
+    setPillColor(pill, color ?? 'var(--chat-pill-damage-default)');
   } else {
     pill.className = 'chat-target-pill';
   }
@@ -875,10 +890,7 @@ function buildDamagePill(parsed: ParsedCombatDamageSegment): HTMLSpanElement {
     ...parsed.tooltipLines,
     ...parsed.details,
   ].join('\n');
-  damagePill.style.setProperty('--chat-damage-pill-color', color);
-  damagePill.style.setProperty('--chat-damage-pill-bg', toAlphaColor(color, 0.16));
-  damagePill.style.setProperty('--chat-damage-pill-border', toAlphaColor(color, 0.36));
-  damagePill.style.setProperty('--chat-damage-pill-shadow', toAlphaColor(color, 0.22));
+  setPillColor(damagePill, color);
   return damagePill;
 }
 
