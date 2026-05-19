@@ -18,9 +18,6 @@ const ENV_VAR_CHECKS: Array<{ name: string; aliases: string[]; required: boolean
   { name: 'SERVER_PLAYER_TOKEN_SECRET', aliases: ['SERVER_PLAYER_TOKEN_SECRET'], required: true, description: '玩家 Token 签名密钥' },
   { name: 'SERVER_GM_AUTH_SECRET', aliases: ['SERVER_GM_AUTH_SECRET', 'GM_AUTH_SECRET'], required: false, description: 'GM Token 签名密钥' },
   { name: 'SERVER_NODE_ID', aliases: ['SERVER_NODE_ID'], required: false, description: '节点 ID' },
-  { name: 'SERVER_PATHFINDING_WORKER_ENABLED', aliases: ['SERVER_PATHFINDING_WORKER_ENABLED'], required: false, description: '寻路 Worker 开关' },
-  { name: 'SERVER_INSTANCE_WORKER_ENABLED', aliases: ['SERVER_INSTANCE_WORKER_ENABLED'], required: false, description: '实例 Worker 开关' },
-  { name: 'SERVER_FOV_WORKER_ENABLED', aliases: ['SERVER_FOV_WORKER_ENABLED'], required: false, description: 'FOV Worker 开关' },
 ];
 
 /** 需要检测的核心依赖包。 */
