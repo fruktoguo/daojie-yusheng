@@ -117,15 +117,22 @@ export function installConsoleLogCapture(): void {
 export function readConsoleLogEntries(options: {
   beforeSeq?: string | number;
   limit?: string | number;
+  levels?: ConsoleCaptureLevel[];
 } = {}): GmServerLogsRes {
   const limit = normalizeLimit(options.limit);
   const beforeSeq = normalizeBeforeSeq(options.beforeSeq);
+  const levelSet = options.levels && options.levels.length > 0
+    ? new Set<string>(options.levels)
+    : null;
+  const filtered = levelSet
+    ? entries.filter((entry) => levelSet.has(entry.level))
+    : entries;
   const visibleEntries = beforeSeq === undefined
-    ? entries
-    : entries.filter((entry) => entry.seq < beforeSeq);
+    ? filtered
+    : filtered.filter((entry) => entry.seq < beforeSeq);
   const selected = visibleEntries.slice(Math.max(0, visibleEntries.length - limit));
   const firstSeq = selected[0]?.seq;
-  const hasMore = firstSeq !== undefined && entries.some((entry) => entry.seq < firstSeq);
+  const hasMore = firstSeq !== undefined && filtered.some((entry) => entry.seq < firstSeq);
   return {
     bufferSize: entries.length,
     entries: selected,

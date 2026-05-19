@@ -19,6 +19,8 @@ export interface RuntimeFlagEntry {
   group: string;
   /** 是否禁止通过面板删除（预置开关默认不可删除）。 */
   undeletable?: boolean;
+  /** 服务端未设置时的默认值，缺省为 false。 */
+  defaultValue?: boolean;
 }
 
 /** 分组元信息。 */
@@ -36,6 +38,7 @@ export interface RuntimeFlagGroup {
 export const FLAG_GROUPS: RuntimeFlagGroup[] = [
   { id: 'worker_pool', label: 'Worker Pool', order: 0 },
   { id: 'network', label: '网络', order: 10 },
+  { id: 'console_log', label: '控制台日志', order: 15 },
   { id: 'gameplay', label: '玩法', order: 20 },
   { id: 'misc', label: '其他', order: 100 },
 ];
@@ -53,6 +56,14 @@ export const PRESET_FLAGS: RuntimeFlagEntry[] = [
 
   // 网络
   { key: 'gm_network_payload_capture_enabled', label: '网络载荷抓取', group: 'network', undeletable: true },
+
+  // 控制台日志级别
+  { key: 'console_log_trace_enabled', label: 'Trace', group: 'console_log', undeletable: true },
+  { key: 'console_log_debug_enabled', label: 'Debug', group: 'console_log', undeletable: true },
+  { key: 'console_log_info_enabled', label: 'Info', group: 'console_log', undeletable: true },
+  { key: 'console_log_log_enabled', label: 'Log', group: 'console_log', undeletable: true, defaultValue: true },
+  { key: 'console_log_warn_enabled', label: 'Warn (警告)', group: 'console_log', undeletable: true, defaultValue: true },
+  { key: 'console_log_error_enabled', label: 'Error (错误)', group: 'console_log', undeletable: true, defaultValue: true },
 
   // 玩法
   { key: 'combat_audit_enabled', label: '战斗审计日志', group: 'gameplay', undeletable: true },
@@ -74,7 +85,7 @@ export function mergeRuntimeFlags(
   for (const preset of PRESET_FLAGS) {
     result.push({
       ...preset,
-      value: serverMap.get(preset.key) ?? false,
+      value: serverMap.get(preset.key) ?? (preset.defaultValue ?? false),
       isPreset: true,
     });
     serverMap.delete(preset.key);
