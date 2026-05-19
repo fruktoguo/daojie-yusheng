@@ -375,6 +375,11 @@ function resolveQqGroupLink(mobile: string, desktop: string): string {
   return isMobile ? mobile : desktop;
 }
 
+function openQqGroupLink(url: string): boolean {
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  return opened !== null;
+}
+
 function resolveQqGroupButton(target: EventTarget | null): HTMLAnchorElement | null {
   return target instanceof Element ? target.closest<HTMLAnchorElement>('[data-qq-group-link="true"]') : null;
 }
@@ -474,16 +479,19 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     }
     event.preventDefault();
     void (async () => {
-      const copied = await copyTextToClipboard(options.qqGroupNumber);
-      window.location.href = resolveQqGroupLink(options.qqGroupMobileDeepLink, options.qqGroupDesktopDeepLink);
+      const copyPromise = copyTextToClipboard(options.qqGroupNumber);
+      const opened = openQqGroupLink(resolveQqGroupLink(options.qqGroupMobileDeepLink, options.qqGroupDesktopDeepLink));
+      const copied = await copyPromise;
       window.setTimeout(() => {
         if (document.visibilityState !== 'visible') {
           return;
         }
         options.showToast(
-          copied
-            ? `已尝试唤起 QQ，加群失败时可直接粘贴群号 ${options.qqGroupNumber}`
-            : `已尝试唤起 QQ，如未打开请手动搜索群号 ${options.qqGroupNumber}`,
+          !opened
+            ? `浏览器已拦截唤起 QQ，可手动搜索群号 ${options.qqGroupNumber}`
+            : copied
+              ? `已尝试唤起 QQ，加群失败时可直接粘贴群号 ${options.qqGroupNumber}`
+              : `已尝试唤起 QQ，如未打开请手动搜索群号 ${options.qqGroupNumber}`,
         );
       }, 600);
     })();
