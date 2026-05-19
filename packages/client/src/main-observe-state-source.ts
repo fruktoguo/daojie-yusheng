@@ -580,7 +580,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
     lines.push(t('observe.buff.tooltip.stacks', { stacks: formatDisplayInteger(buff.stacks), max: stackLimit }));
   }
   if (buff.sourceSkillName || buff.sourceSkillId) {
-    lines.push(t('observe.buff.tooltip.source', { source: buff.sourceSkillName ?? buff.sourceSkillId }));
+    lines.push(t('observe.buff.tooltip.source', { source: buff.sourceSkillName ?? t('observe.value.unknown', undefined) }));
   }
   const effectLines = buildBuffEffectLines(buff);
   if (effectLines.length > 0) {
@@ -970,7 +970,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const monsterPresentation = entity.kind === 'monster'
       ? getMonsterPresentation(entity.name, entity.monsterTier)
       : null;
-    const title = monsterPresentation?.label ?? entity.name ?? entity.id;
+    const title = monsterPresentation?.label ?? entity.name ?? t('observe.entity.target', undefined);
     const badge = entity.badge ?? monsterPresentation?.badge;
     const badgeClassName = getEntityBadgeClassName(badge);
     const badgeHtml = badge && badgeClassName
@@ -1232,7 +1232,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       });
     }
     if (sortedEntities.length > 0) {
-      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
+      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind)).join('、') });
     } else if (observedTile.occupiedBy) {
       terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: t('observe.tile.presence.unknown', undefined) });
     }

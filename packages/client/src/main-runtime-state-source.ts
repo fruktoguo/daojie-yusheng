@@ -326,7 +326,7 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
   const nextType = action.type ?? staticAction?.type ?? (skillTemplate ? 'skill' : 'interact');
   return {
     id: action.id,
-    name: action.name ?? staticAction?.name ?? skillTemplate?.name ?? action.id,
+    name: String(action.name ?? staticAction?.name ?? skillTemplate?.name ?? '').trim() || '未知动作',
     type: nextType,
     desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? '',
     cooldownLeft: action.cooldownLeft ?? 0,

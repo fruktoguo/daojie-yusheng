@@ -201,7 +201,7 @@ function describeSpecialStats(specialStats?: ItemStack['equipSpecialStats']): st
 
 /** getTimePhaseLabel：读取时段标签。 */
 function getTimePhaseLabel(phaseId: string): string {
-  return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
+  return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? '未知时辰';
 }
 
 /** getMapLabel：读取地图标签。 */
