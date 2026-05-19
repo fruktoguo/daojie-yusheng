@@ -61,6 +61,8 @@ type SkillEnabledEntry = {
   skillEnabled?: boolean;
 };
 
+const UNKNOWN_AUTO_USE_PILL_NAME = '未知物品';
+
 function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
@@ -2771,7 +2773,7 @@ export class ActionPanel {
       const template = getLocalItemTemplate(config.itemId);
       entries.set(config.itemId, {
         itemId: config.itemId,
-        name: template?.name ?? config.itemId,
+        name: template?.name ?? UNKNOWN_AUTO_USE_PILL_NAME,
         desc: template?.desc ?? t('action.combat-settings.pill.missing-inventory-desc', undefined),
         count: 0,
         healAmount: template?.healAmount,

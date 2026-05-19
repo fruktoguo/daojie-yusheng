@@ -50,6 +50,7 @@ type StoredEnhancementHistoryState = {
 };
 
 const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
+const UNKNOWN_ITEM_NAME = '未知物品';
 
 function escapeHtml(value: string): string {
   return value
@@ -95,7 +96,7 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
   const source = item as Partial<ItemStack>;
   return {
     ...item,
-    name: template?.name ?? item.name ?? item.itemId,
+    name: template?.name ?? item.name ?? UNKNOWN_ITEM_NAME,
     type: template?.type ?? item.type ?? 'equipment',
     count: Math.max(1, Math.floor(Number(item.count) || 1)),
     desc: template?.desc ?? source.desc ?? '',
@@ -584,7 +585,7 @@ export class CraftEnhancementView {
           <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
             ${selectedItem
               ? `
-                <span class="enhancement-target-slot-name">${escapeHtml(selectedItem.name ?? selectedItem.itemId)}</span>
+                <span class="enhancement-target-slot-name">${escapeHtml(selectedItem.name ?? UNKNOWN_ITEM_NAME)}</span>
                 <span class="enhancement-target-slot-meta">等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(normalizeEnhanceLevel(selectedItem.enhanceLevel))}</span>
               `
               : `
@@ -719,7 +720,7 @@ export class CraftEnhancementView {
               return `
                 <label class="enhancement-protection-option">
                   <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.parent.selectedEnhancementProtectionKey === key ? 'checked' : ''}>
-                  <span>${escapeHtml(entry.item.name ?? entry.item.itemId)}</span>
+                  <span>${escapeHtml(entry.item.name ?? UNKNOWN_ITEM_NAME)}</span>
                   <em>${escapeHtml(sourceLabel)}</em>
                 </label>
               `;
@@ -770,7 +771,7 @@ export class CraftEnhancementView {
           <div class="enhancement-summary-card">
             <div class="enhancement-summary-head">
               <div>
-                <div class="enhancement-summary-title">${escapeHtml(selected.item.name ?? selected.item.itemId)}</div>
+                <div class="enhancement-summary-title">${escapeHtml(selected.item.name ?? UNKNOWN_ITEM_NAME)}</div>
                 <div class="enhancement-summary-subtitle">当前 +${formatDisplayInteger(selected.currentLevel)} · 最终目标 +${formatDisplayInteger(selectedTargetLevel)}</div>
               </div>
               <div class="enhancement-summary-rate">首阶 ${formatEnhancementPercent(selected.successRate)}</div>
@@ -885,7 +886,7 @@ export class CraftEnhancementView {
             ${job.materials.length > 0
               ? job.materials.map((entry) => `
                 <div class="enhancement-material-row">
-                  <span>${escapeHtml(getLocalItemTemplate(entry.itemId)?.name ?? entry.itemId)}</span>
+                  <span>${escapeHtml(getLocalItemTemplate(entry.itemId)?.name ?? UNKNOWN_ITEM_NAME)}</span>
                   <strong>${formatDisplayInteger(entry.count)}</strong>
                   <span class="enhancement-material-owned">已投入</span>
                 </div>
@@ -1358,7 +1359,7 @@ export class CraftEnhancementView {
     });
   }
 
-  private getEnhancementHistoryItemName(itemId: string): string { return getLocalItemTemplate(itemId)?.name ?? itemId; }
+  private getEnhancementHistoryItemName(itemId: string): string { return getLocalItemTemplate(itemId)?.name ?? UNKNOWN_ITEM_NAME; }
   private getEnhancementHistoryItemLevel(itemId: string): number { return Math.max(1, Math.floor(Number(getLocalItemTemplate(itemId)?.level) || 1)); }
   private getEnhancementHistoryAttemptCount(record: PlayerEnhancementRecord): number {
     return (record.levels ?? []).reduce((total, entry) => total + Math.max(0, entry.successCount) + Math.max(0, entry.failureCount), 0);
@@ -1417,7 +1418,7 @@ export class CraftEnhancementView {
               const sourceLabel = entry.ref.source === 'equipment'
                 ? t('craft.workbench.enhancement.picker.source.equipped', { slot: getEquipSlotLabel(entry.ref.slot ?? 'weapon') })
                 : t('craft.workbench.enhancement.picker.source.inventory', { slot: formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1) });
-              const nameClass = getItemNameClass(entry.item.name ?? entry.item.itemId);
+              const nameClass = getItemNameClass(entry.item.name ?? UNKNOWN_ITEM_NAME);
               const itemTypeLabel = entry.item.type ? getItemTypeLabel(entry.item.type) : t('craft.workbench.enhancement.picker.type.equipment');
               return `
                 <button
@@ -1429,7 +1430,7 @@ export class CraftEnhancementView {
                     <span class="inventory-cell-type">${escapeHtml(getItemAffixTypeLabel(itemMeta.displayItem, itemTypeLabel))}</span>
                     <span class="inventory-cell-count">x${formatDisplayInteger(entry.item.count ?? 1)}</span>
                   </div>
-                  <div class="inventory-cell-name ${nameClass}">${escapeHtml(entry.item.name ?? entry.item.itemId)}</div>
+                  <div class="inventory-cell-name ${nameClass}">${escapeHtml(entry.item.name ?? UNKNOWN_ITEM_NAME)}</div>
                   <div class="enhancement-picker-cell-meta">
                     <span>${escapeHtml(sourceLabel)}</span>
                     <span>+${formatDisplayInteger(entry.currentLevel)} → +${formatDisplayInteger(entry.nextLevel)} · ${formatDisplayInteger(entry.durationTicks)} 息</span>

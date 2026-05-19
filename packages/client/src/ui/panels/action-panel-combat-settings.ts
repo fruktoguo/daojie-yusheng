@@ -27,6 +27,8 @@ import type {
 
 // ─── 本地常量 ───
 
+const UNKNOWN_AUTO_USE_PILL_NAME = '未知物品';
+
 const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{ mode: AutoBattleTargetingMode; label: string; summary: string }> = [
   { mode: 'auto', label: t('action.targeting-plan.mode.auto.label', undefined), summary: t('action.targeting-plan.mode.auto.summary', undefined) },
   { mode: 'nearest', label: t('action.targeting-plan.mode.nearest.label', undefined), summary: t('action.targeting-plan.mode.nearest.summary', undefined) },
@@ -262,7 +264,7 @@ export class CombatSettingsSubpanel {
       const template = getLocalItemTemplate(config.itemId);
       entries.set(config.itemId, {
         itemId: config.itemId,
-        name: template?.name ?? config.itemId,
+        name: template?.name ?? UNKNOWN_AUTO_USE_PILL_NAME,
         desc: template?.desc ?? t('action.combat-settings.pill.missing-inventory-desc', undefined),
         count: 0,
         healAmount: template?.healAmount,
