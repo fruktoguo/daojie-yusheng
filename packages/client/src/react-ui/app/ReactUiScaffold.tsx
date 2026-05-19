@@ -41,7 +41,7 @@ export function ReactUiScaffold() {
           </div>
           <div className="react-ui-scaffold-row">
             <span className="react-ui-scaffold-label">{t('react.prototype.field.map', undefined)}</span>
-            <span className="react-ui-scaffold-value" title={shellState.runtime.mapId ?? undefined}>{mapLabel}</span>
+            <span className="react-ui-scaffold-value" title={mapLabel}>{mapLabel}</span>
           </div>
           <div className="react-ui-scaffold-row">
             <span className="react-ui-scaffold-label">{t('react.prototype.field.inventory', undefined)}</span>

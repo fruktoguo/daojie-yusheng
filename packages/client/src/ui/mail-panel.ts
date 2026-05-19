@@ -1049,8 +1049,9 @@ export class MailPanel {
       item.className = 'mail-attachment-item';
       const name = document.createElement('span');
       name.className = 'mail-attachment-item-name';
-      name.textContent = resolveMailAttachmentItemName(attachment.itemId);
-      name.title = attachment.itemId;
+      const attachmentName = resolveMailAttachmentItemName(attachment.itemId);
+      name.textContent = attachmentName;
+      name.title = attachmentName;
       const count = document.createElement('strong');
       count.textContent = `x${attachment.count}`;
       item.append(name, count);
@@ -1170,7 +1171,7 @@ export class MailPanel {
         ${detail.attachments.length > 0
           ? `<div class="mail-attachment-list">${visibleAttachments.map((attachment) => `
               <div class="mail-attachment-item">
-                <span class="mail-attachment-item-name" title="${escapeHtmlAttr(attachment.itemId)}">${escapeHtml(resolveMailAttachmentItemName(attachment.itemId))}</span>
+                <span class="mail-attachment-item-name" title="${escapeHtmlAttr(resolveMailAttachmentItemName(attachment.itemId))}">${escapeHtml(resolveMailAttachmentItemName(attachment.itemId))}</span>
                 <strong>x${attachment.count}</strong>
               </div>
             `).join('')}</div>`

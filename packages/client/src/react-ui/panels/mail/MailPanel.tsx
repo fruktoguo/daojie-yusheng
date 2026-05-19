@@ -361,7 +361,7 @@ const MailDetailSection = memo(function MailDetailSection({ detail, attachmentPa
             <div className="mail-attachment-list">
               {visibleAttachments.map((attachment, idx) => (
                 <div key={`${attachment.itemId}-${idx}`} className="mail-attachment-item">
-                  <span className="mail-attachment-item-name" title={attachment.itemId}>{resolveMailAttachmentItemName(attachment.itemId)}</span>
+                  <span className="mail-attachment-item-name" title={resolveMailAttachmentItemName(attachment.itemId)}>{resolveMailAttachmentItemName(attachment.itemId)}</span>
                   <strong>x{attachment.count}</strong>
                 </div>
               ))}
