@@ -104,6 +104,7 @@ import {
   diffNumericStats,
   diffRatioDivisors,
 } from './projector-diff';
+import { buildAttrDetailBonuses } from './world-gateway-attr-detail.helper';
 
 const npcProjectionCache = new WeakMap<ProjectorNpcLike, ProjectedNpcEntry>();
 const monsterProjectionCache = new WeakMap<ProjectorMonsterLike, ProjectedMonsterEntry>();
@@ -113,6 +114,7 @@ const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedCo
 const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
 const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
+const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, { signature: string; bonuses: AttrBonus[] }>();
 
 type SpecialStatsCacheEntry = {
     attrsRevision: number;
@@ -319,22 +321,46 @@ function resolvePortalDisplayName(
     return kindLabel;
 }
 
-function buildAttrBonuses(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBonus[] {
-    const source = getPlayerAttrBonusSource(player);
+function buildAttrBonuses(player: ProjectorPlayerLike): AttrBonus[] {
+    const signature = buildProjectedAttrBonusesSignature(player);
+    const projectedCached = projectedAttrBonusCache.get(player);
+    if (projectedCached?.signature === signature) {
+        return projectedCached.bonuses;
+    }
+    const source = buildAttrDetailBonuses(player);
     if (source.length === 0) {
+        projectedAttrBonusCache.set(player, { signature, bonuses: [] });
         return [];
     }
     const cached = attrBonusCloneCache.get(source);
     if (cached && isSameAttrBonuses(cached, source)) {
+        projectedAttrBonusCache.set(player, { signature, bonuses: cached });
         return cached;
     }
     const cloned = source.map((entry) => cloneAttrBonus(entry));
     attrBonusCloneCache.set(source, cloned);
+    projectedAttrBonusCache.set(player, { signature, bonuses: cloned });
     return cloned;
 }
 
-function getPlayerAttrBonusSource(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBonus[] {
-    return Array.isArray(player.bonuses) ? player.bonuses : [];
+function buildProjectedAttrBonusesSignature(player: ProjectorPlayerLike): string {
+    const realm = player.realm as Record<string, unknown> | null | undefined;
+    return [
+        player.attrs.revision,
+        player.techniques.revision,
+        player.equipment.revision,
+        player.buffs.revision,
+        player.realmLv ?? '',
+        player.hp,
+        player.maxHp,
+        player.qi,
+        player.maxQi,
+        player.combat.cultivationActive === true ? 1 : 0,
+        realm?.stage ?? '',
+        realm?.displayName ?? '',
+        realm?.name ?? '',
+        stableShallowSignature((player as { runtimeBonuses?: unknown }).runtimeBonuses),
+    ].join('|');
 }
 
 function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpecialStats): Partial<PlayerSpecialStats> | undefined {
@@ -789,7 +815,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         buildCraftSkillSignature(player.gatherSkill),
         buildCraftSkillSignature(player.enhancementSkill),
         buildCraftSkillSignature(player.miningSkill),
-        buildAttrBonusesSignature(getPlayerAttrBonusSource(player)),
+        buildAttrBonusesSignature(buildAttrBonuses(player)),
     ].join('|');
 }
 
@@ -933,7 +959,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
         && isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
-        && isSameAttrBonuses(previousAttr.bonuses, getPlayerAttrBonusSource(player));
+        && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
 }
 
 function canReuseActionPanelSlice(previousAction: ProjectedActionPanelState, player: ProjectorPlayerLike): boolean {

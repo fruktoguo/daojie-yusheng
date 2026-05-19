@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { WorldProjectorService } from '../network/world-projector.service';
+import { TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE } from '@mud/shared';
 
 type TechniqueEntry = {
   techId: string;
@@ -27,6 +28,7 @@ function main(): void {
   const learnedTechniqueProof = proveLearnedTechniquePatchKeepsStaticDetails();
   const expDeltaProof = proveTechniqueExpDeltaAvoidsStaticDetails();
   const levelDeltaProof = proveTechniqueLevelDeltaAvoidsStaticDetails();
+  const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
 
   console.log(JSON.stringify({
     ok: true,
@@ -34,8 +36,9 @@ function main(): void {
     learnedTechniqueProof,
     expDeltaProof,
     levelDeltaProof,
+    attrPanelBonusProof,
     answers:
-      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情。',
+      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影。',
   }, null, 2));
 }
 
@@ -176,6 +179,45 @@ function proveTechniqueLevelDeltaAvoidsStaticDetails(): {
   return { patchHasDynamicFields, patchHasNoFull, patchHasNoSkills, patchHasNoLayers };
 }
 
+function proveAttrPanelUsesProjectedTechniqueBonuses(): {
+  hasTechniqueMaxBonus: boolean;
+  techniqueMaxValue: number | undefined;
+  hasQiProjectionBonus: boolean;
+  qiProjectionEfficiencyBpMultiplier: number | undefined;
+  legacyPlayerBonusesWasEmpty: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  player.techniques = {
+    revision: 2,
+    techniques: [createTechnique('ningqi_projector', 0)],
+    cultivatingTechId: 'ningqi_projector',
+  };
+  const envelope = service.createDeltaEnvelope(createProjectorView(), player);
+  const bonuses = envelope?.panelDelta?.attr?.bonuses ?? [];
+  const techniqueMaxBonus = bonuses.find((entry: any) => entry.source === TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE);
+  const qiProjectionBonus = bonuses.find((entry: any) => entry.source === 'technique:ningqi_projector');
+  const qiProjectionEfficiencyBpMultiplier = qiProjectionBonus?.qiProjection?.[0]?.efficiencyBpMultiplier;
+
+  const hasTechniqueMaxBonus = techniqueMaxBonus?.label === '万法归元'
+    && techniqueMaxBonus.attrMode === 'percent'
+    && techniqueMaxBonus.attrs?.constitution === 1;
+  const hasQiProjectionBonus = qiProjectionBonus?.label === '功法-ningqi_projector'
+    && qiProjectionEfficiencyBpMultiplier === 11000;
+  const legacyPlayerBonusesWasEmpty = player.bonuses.length === 0;
+
+  assert.equal(hasTechniqueMaxBonus, true);
+  assert.equal(hasQiProjectionBonus, true);
+  assert.equal(legacyPlayerBonusesWasEmpty, true);
+  return {
+    hasTechniqueMaxBonus,
+    techniqueMaxValue: techniqueMaxBonus?.attrs?.constitution,
+    hasQiProjectionBonus,
+    qiProjectionEfficiencyBpMultiplier,
+    legacyPlayerBonusesWasEmpty,
+  };
+}
+
 function createProjector(): WorldProjectorService {
   return new WorldProjectorService({
     has: () => true,
@@ -221,7 +263,12 @@ function createTechnique(techId: string, exp: number): TechniqueEntry {
     layers: [{
       level: 1,
       expToNext: 10,
-      attrs: { constitution: 1 },
+      attrs: { constitution: 10 },
+      qiProjection: [{
+        selector: { families: ['aura'], forms: ['refined'], elements: ['neutral'] },
+        visibility: 'absorbable',
+        efficiencyBpMultiplier: 11000,
+      }],
     }],
   };
 }
