@@ -3087,20 +3087,46 @@ function renderRuntimeFlagsPanel(): void {
     serverFlagsMetaEl.textContent = '加载中...';
     return;
   }
-  serverFlagsMetaEl.textContent = `共 ${runtimeFlags.length} 个开关`;
-  if (runtimeFlags.length === 0) {
+
+  // Worker Pool 预置开关（始终显示，即使未被显式设置）
+  const WORKER_POOL_PRESET_FLAGS = [
+    { key: 'worker_pool_enabled', label: 'Worker Pool 总开关' },
+    { key: 'worker_pool_aoi_envelope_enabled', label: 'AOI Envelope 编码' },
+    { key: 'worker_pool_pathfinding_enabled', label: '寻路 Worker' },
+    { key: 'worker_pool_fov_enabled', label: 'FOV 计算' },
+    { key: 'worker_pool_instance_enabled', label: '实例 Tick 分片' },
+    { key: 'worker_pool_persistence_enabled', label: '持久化序列化' },
+  ];
+
+  // 合并预置开关和已有 flags（去重）
+  const existingKeys = new Set(runtimeFlags.map((f) => f.key));
+  const mergedFlags = [
+    ...WORKER_POOL_PRESET_FLAGS.map((preset) => ({
+      key: preset.key,
+      value: runtimeFlags.find((f) => f.key === preset.key)?.value ?? false,
+      label: preset.label,
+      isPreset: true,
+    })),
+    ...runtimeFlags
+      .filter((f) => !WORKER_POOL_PRESET_FLAGS.some((p) => p.key === f.key))
+      .map((f) => ({ key: f.key, value: f.value, label: null as string | null, isPreset: false })),
+  ];
+
+  serverFlagsMetaEl.textContent = `共 ${mergedFlags.length} 个开关`;
+  if (mergedFlags.length === 0) {
     serverFlagsContentEl.innerHTML = '<div class="empty-hint">当前没有运行时开关。</div>';
     return;
   }
-  const rows = runtimeFlags.map((flag) => {
+  const rows = mergedFlags.map((flag) => {
     const checked = flag.value ? 'checked' : '';
-    const deleteButton = flag.key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
+    const labelText = flag.label ? `<span style="color:var(--text-secondary);font-size:0.85em;margin-left:4px;">${flag.label}</span>` : '';
+    const deleteButton = flag.isPreset || flag.key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
       ? ''
       : `<button class="small-btn flag-delete-btn" data-flag-key="${flag.key}" type="button" style="margin-left:auto;">删除</button>`;
     return `<div class="flag-row" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
-        <code>${flag.key}</code>
+        <code>${flag.key}</code>${labelText}
       </label>
       <span style="color:var(--text-secondary);font-size:0.85em;">${flag.value ? '启用' : '禁用'}</span>
       ${deleteButton}
