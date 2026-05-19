@@ -191,6 +191,7 @@ import { WorldRuntimeController } from './runtime/world/world-runtime.controller
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
 import { WorkerPoolModule } from './concurrency/worker-pool.module';
+import { WorkerPoolToggleService } from './concurrency/worker-pool-toggle.service';
 import { AsyncPathfindingService } from './runtime/world/async-pathfinding.service';
 import { AsyncFovService } from './runtime/world/async-fov.service';
 import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode.service';
@@ -391,6 +392,7 @@ import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode
     AsyncPathfindingService,
     AsyncFovService,
     WorldSyncWorkerEncodeService,
+    WorkerPoolToggleService,
     RuntimeEventBusMetricsService,
     RuntimeEventBusService,
     WorldTickService,

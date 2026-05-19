@@ -74,7 +74,7 @@ export class WorkerPoolToggleService {
   }
 
   /** 获取所有开关状态（供 GM 性能页展示） */
-  getAllToggleStates(): Record<string, boolean> {
+  getAllToggleStates(): Record<string, boolean | string> {
     return {
       poolEnabled: this.isPoolEnabled(),
       aoiEnvelope: this.isAoiEnvelopeEnabled(),
@@ -82,6 +82,10 @@ export class WorkerPoolToggleService {
       fov: this.isFovEnabled(),
       instance: this.isInstanceEnabled(),
       persistence: this.isPersistenceEnabled(),
+      _runtimeFlagServiceInjected: Boolean(this.runtimeFlagService) as any,
+      _runtimeFlagServiceEnabled: Boolean(this.runtimeFlagService?.isEnabled()) as any,
+      _hasPoolFlag: Boolean(this.runtimeFlagService?.hasFlag?.(WORKER_POOL_FLAG_KEYS.enabled)) as any,
+      _poolFlagValue: Boolean(this.runtimeFlagService?.getFlag?.(WORKER_POOL_FLAG_KEYS.enabled)) as any,
     };
   }
 
