@@ -335,7 +335,7 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{
   if (entry.kind === 'alchemy' || entry.kind === 'forging') {
     return [
       { tone: 'map', text: entry.mapName },
-      { tone: 'quest', text: entry.recipeName?.trim() || entry.recipeId },
+      { tone: 'quest', text: entry.recipeName?.trim() || '未知配方' },
     ];
   }
 

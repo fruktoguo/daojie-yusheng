@@ -1558,7 +1558,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${this.draft.npcs.map((npc, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'npc' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="npc" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${npc.name || npc.id} @ (${npc.x},${npc.y})`)}
+              ${escapeHtml(`${npc.name?.trim() || '未命名场景人物'} @ (${npc.x},${npc.y})`)}
             </button>
           `).join('') || '<div class="editor-note">暂无场景人物。</div>'}
         </div>
@@ -1594,7 +1594,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${this.draft.monsterSpawns.map((spawn, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'monster' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="monster" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${spawn.name || spawn.id} @ (${spawn.x},${spawn.y})`)}
+              ${escapeHtml(`${spawn.name?.trim() || '未命名怪物'} @ (${spawn.x},${spawn.y})`)}
             </button>
           `).join('') || '<div class="editor-note">暂无怪物刷新点。</div>'}
         </div>
@@ -1781,7 +1781,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${landmarks.map(({ landmark, index }) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'landmark' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="landmark" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${landmark.name || landmark.id} @ (${landmark.x},${landmark.y})`)}
+              ${escapeHtml(`${landmark.name?.trim() || '未命名地标'} @ (${landmark.x},${landmark.y})`)}
             </button>
           `).join('') || '<div class="editor-note">暂无地标。</div>'}
         </div>
@@ -1818,7 +1818,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${containers.map(({ landmark, index }) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'container' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="container" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${landmark.name || landmark.id} @ (${landmark.x},${landmark.y}) · ${landmark.container?.char || '箱'} · ${TECHNIQUE_GRADE_LABELS[landmark.container?.grade ?? 'mortal'] ?? (landmark.container?.grade ?? 'mortal')}`)}
+              ${escapeHtml(`${landmark.name?.trim() || '未命名容器'} @ (${landmark.x},${landmark.y}) · ${landmark.container?.char || '箱'} · ${TECHNIQUE_GRADE_LABELS[landmark.container?.grade ?? 'mortal'] ?? (landmark.container?.grade ?? 'mortal')}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无容器。</div>'}
         </div>
@@ -2130,11 +2130,11 @@ export class GmMapEditor {
     }
     if (this.selectedEntity.kind === 'npc') {
       const npc = this.draft.npcs[this.selectedEntity.index];
-      return npc ? `场景人物 ${npc.name || npc.id}` : '无';
+      return npc ? `场景人物 ${npc.name?.trim() || '未命名场景人物'}` : '无';
     }
     if (this.selectedEntity.kind === 'monster') {
       const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
-      return spawn ? `怪物 ${spawn.name || spawn.id}` : '无';
+      return spawn ? `怪物 ${spawn.name?.trim() || '未命名怪物'}` : '无';
     }
     if (this.selectedEntity.kind === 'aura') {
       const aura = this.draft.auras?.[this.selectedEntity.index];
@@ -2150,10 +2150,10 @@ export class GmMapEditor {
     }
     if (this.selectedEntity.kind === 'container') {
       const landmark = this.getContainerLandmark(this.selectedEntity.index);
-      return landmark ? `容器 ${landmark.name || landmark.id}` : '无';
+      return landmark ? `容器 ${landmark.name?.trim() || '未命名容器'}` : '无';
     }
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
-    return landmark ? `地标 ${landmark.name || landmark.id}` : '无';
+    return landmark ? `地标 ${landmark.name?.trim() || '未命名地标'}` : '无';
   }
 
   /** findComposePieceAt：查找Compose Piece At。 */
@@ -3700,7 +3700,7 @@ export class GmMapEditor {
       const sx = landmark.x * cellSize - this.viewCenterX + screenW / 2;
       const sy = landmark.y * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
-      const label = landmark.name || landmark.id;
+      const label = landmark.name?.trim() || '未命名地标';
       if (!label) return;
       const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
 
@@ -3734,8 +3734,8 @@ export class GmMapEditor {
         'npc',
       );
     });
-    this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name || npc.id, 'npc'));
-    this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name || spawn.id, 'monster'));
+    this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name?.trim() || '未命名场景人物', 'npc'));
+    this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name?.trim() || '未命名怪物', 'monster'));
     (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', formatAuraPointLabel(point.value), 'npc'));
     (this.draft.resources ?? []).forEach((point) => drawEntity(
       point.x,
@@ -3754,7 +3754,7 @@ export class GmMapEditor {
         landmark.y,
         landmark.container?.char?.trim() || '箱',
         landmark.container?.color?.trim() || '#c18b46',
-        landmark.name || landmark.id,
+        landmark.name?.trim() || '未命名容器',
         'container',
       ));
     (this.draft.landmarks ?? [])

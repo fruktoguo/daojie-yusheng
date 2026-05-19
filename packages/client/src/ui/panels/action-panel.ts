@@ -2210,7 +2210,7 @@ export class ActionPanel {
         if (action && action.cooldownLeft > 0) {
           return;
         }
-        this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
+        this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name?.trim() || '未知行动');
       }, { signal });
     });
   }

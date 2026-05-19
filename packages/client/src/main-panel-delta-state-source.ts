@@ -848,7 +848,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previousSameAction?.autoBattleEnabled),
       autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previousSameAction?.autoBattleOrder),
       skillEnabled: applyNullablePatch(patch.skillEnabled, previousSameAction?.skillEnabled),
-      name: applyNullablePatch(patch.name, previousSameAction?.name ?? staticAction?.name) ?? skillTemplate?.name ?? patch.id,
+      name: String(applyNullablePatch(patch.name, previousSameAction?.name ?? staticAction?.name) ?? skillTemplate?.name ?? '').trim() || '未知动作',
       type: nextType,
       desc: applyNullablePatch(patch.desc, previousSameAction?.desc ?? staticAction?.desc) ?? skillTemplate?.desc ?? '',
       range: applyNullablePatch(patch.range, previousSameAction?.range ?? staticAction?.range) ?? skillTemplate?.range,
