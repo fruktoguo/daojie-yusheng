@@ -10,7 +10,7 @@
  *   - attrRatio 为正的维度在每层都能贡献至少 1 点属性；六维总量与 `calcInternalTechniqueAttrTotal` 对齐
  *   - arts：根级 skills 原样保留，运行时 skills 数组长度等于原 JSON skills 长度
  *   - divine / secret：逐层 attrs / specialStats 完整透传到运行时 layers
- *   - 天阶 `ningqi_chengji` 的 sparse qiProjection 按原 level 精确挂回（L7/14/21/28/35/42/48/49，L49 upgraded）
+ *   - 天阶 `ningqi_chengji` 和 `xuesha_huanling_jue` 的 sparse qiProjection 按原 level 精确挂回
  *   - 全量 layers 总经验 === `sum(shared.expandTechniqueExpCurve(...).perLayerExp)`，末层归零
  *
  * 产物仅读；不改动真源文件，也不依赖数据库或网络。
@@ -287,6 +287,27 @@ function main(): void {
   assert.ok(
     Array.isArray(lastQi) && lastQi.some((entry) => Number(entry.efficiencyBpMultiplier) === 10300),
     'ningqi_chengji level 49 should keep upgraded efficiencyBpMultiplier=10300',
+  );
+
+  const xuesha = byId.get('xuesha_huanling_jue');
+  assert.ok(xuesha, 'xuesha_huanling_jue runtime template missing');
+  const xueshaQiLayersByLevel = new Map<number, Array<Record<string, unknown>>>();
+  for (const layer of xuesha.layers ?? []) {
+    if (Array.isArray(layer.qiProjection) && layer.qiProjection.length > 0) {
+      xueshaQiLayersByLevel.set(Number(layer.level), layer.qiProjection as never);
+    }
+  }
+  assert.deepEqual(
+    [...xueshaQiLayersByLevel.keys()].sort((a, b) => a - b),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    `xuesha_huanling_jue qiProjection levels mismatch: got ${[...xueshaQiLayersByLevel.keys()].sort().join(',')}`,
+  );
+  const firstXueshaQi = xueshaQiLayersByLevel.get(1);
+  assert.ok(
+    Array.isArray(firstXueshaQi)
+      && firstXueshaQi.some((entry) => Number(entry.efficiencyBpMultiplier) === 9000)
+      && firstXueshaQi.some((entry) => Number(entry.efficiencyBpMultiplier) === 12000),
+    'xuesha_huanling_jue level 1 should keep aura 9000 and sha 12000 qiProjection multipliers',
   );
 
   console.log(

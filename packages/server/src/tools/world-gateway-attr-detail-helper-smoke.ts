@@ -7,6 +7,7 @@ const { PlayerAttributesService } = require("../runtime/player/player-attributes
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
 const { PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
+const { ContentTemplateRepository } = require("../content/content-template.repository");
 /**
  * testAttrDetailBuilders：构建testAttr详情Builder。
  * @returns 无返回值，直接更新testAttr详情Builder相关状态。
@@ -503,6 +504,34 @@ function testNingqiAddsAuraEfficiencyOnTopOfXuesha() {
     assert.equal(shaProjection?.visibility, 'absorbable');
     assert.equal(shaProjection?.efficiencyBp, 18000);
     assert.equal(projectPlayerQiResourceValue(player, 'aura.refined.neutral', 1000), 200);
+}
+
+function testXueshaContentQiProjectionAppliesToRuntimeProjection() {
+    const repository = new ContentTemplateRepository();
+    repository.loadAll();
+    const technique = repository.hydrateTechniqueState({
+        techId: 'xuesha_huanling_jue',
+        level: 9,
+        exp: 0,
+        expToNext: 0,
+        realm: 2,
+        skills: [],
+    });
+    assert.ok(technique, 'xuesha_huanling_jue should hydrate from real content');
+    const player = {
+        techniques: { techniques: [technique] },
+        buffs: { buffs: [] },
+        attrBonuses: [],
+        runtimeBonuses: [],
+    };
+    const auraProjection = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    const shaProjection = resolvePlayerQiResourceProjection(player, 'sha.refined.neutral');
+    assert.equal(auraProjection?.visibility, 'absorbable');
+    assert.equal(auraProjection?.efficiencyBp, 1000);
+    assert.equal(shaProjection?.visibility, 'absorbable');
+    assert.equal(shaProjection?.efficiencyBp, 18000);
+    assert.equal(projectPlayerQiResourceValue(player, 'aura.refined.neutral', 1000), 100);
+    assert.equal(projectPlayerQiResourceValue(player, 'sha.refined.neutral', 1000), 1800);
 }
 
 function testRealmLevelScalesNumericStats() {
@@ -1086,6 +1115,7 @@ testCultivationEquipmentProgressBoostAffectsRuntimeStats();
 testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testNingqiAddsAuraEfficiencyOnTopOfXuesha();
+testXueshaContentQiProjectionAppliesToRuntimeProjection();
 testRealmLevelScalesNumericStats();
 testRealmStageConfigAccumulatesFromIncrementalEntries();
 testBodyTrainingScalesAllAttributesLikeRootFoundation();

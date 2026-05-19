@@ -160,6 +160,269 @@
     "category": "secret",
     "realmLv": 42,
     "maxLayer": 9,
-    "expDifficulty": 1
+    "expDifficulty": 1,
+    "layers": [
+      {
+        "level": 1,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 4,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 5,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 6,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 7,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 8,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 9,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      }
+    ]
   }
 ]
