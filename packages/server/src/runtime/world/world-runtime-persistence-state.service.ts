@@ -231,6 +231,11 @@ export class WorldRuntimePersistenceStateService {
             if (delta && delta.fullReplace !== true && typeof persistence.saveMonsterRuntimeDelta === 'function') {
                 await persistence.saveMonsterRuntimeDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
             }
+            else if (delta?.fullReplace === true && typeof persistence.replaceMonsterRuntimeStates === 'function') {
+                await persistence.replaceMonsterRuntimeStates(instanceId, typeof instance.buildMonsterRuntimePersistenceEntries === 'function'
+                    ? instance.buildMonsterRuntimePersistenceEntries()
+                    : []);
+            }
             else {
                 throw new Error(`instance_domain_delta_required:${instanceId}:monster_runtime`);
             }

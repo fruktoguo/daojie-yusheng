@@ -400,6 +400,58 @@ async function testFlushFullReplaceTileDamageDomain() {
     ]);
 }
 
+async function testFlushFullReplaceMonsterRuntimeDomain() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 888,
+        getPersistenceRevision() { return 15; },
+        buildMonsterRuntimePersistenceDelta() {
+            log.push('buildMonsterRuntimePersistenceDelta');
+            return {
+                fullReplace: true,
+                upserts: [],
+                deletes: [],
+            };
+        },
+        buildMonsterRuntimePersistenceEntries() {
+            log.push('buildMonsterRuntimePersistenceEntries');
+            return [
+                { monsterRuntimeId: 'monster:boss:1', monsterTier: 'demon_king', hp: 100, maxHp: 100 },
+            ];
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['monster_runtime'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async replaceMonsterRuntimeStates(instanceId, entries) {
+                log.push(['replaceMonsterRuntimeStates', instanceId, entries.length, entries[0]?.monsterRuntimeId]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildMonsterRuntimePersistenceDelta',
+        'buildMonsterRuntimePersistenceEntries',
+        ['replaceMonsterRuntimeStates', 'public:yunlai_town', 1, 'monster:boss:1'],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 888, 15, ['monster_runtime']],
+        ['markPersistenceDomainsPersisted', ['monster_runtime']],
+    ]);
+}
+
 async function testFlushTimeDomainCheckpoint() {
     const log = [];
     const service = new WorldRuntimePersistenceStateService();
@@ -500,6 +552,7 @@ Promise.all([
     testFlushOverlayAndMonsterDomains(),
     testFlushIncrementalInstanceDomains(),
     testFlushFullReplaceTileDamageDomain(),
+    testFlushFullReplaceMonsterRuntimeDomain(),
     testFlushTemporaryTileDomain(),
     testFlushTimeDomainCheckpoint(),
 ]).then(() => {
