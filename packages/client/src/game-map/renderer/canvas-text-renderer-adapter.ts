@@ -75,7 +75,10 @@ export class CanvasTextRendererAdapter {
   /** 判断是否应使用 OffscreenCanvas worker 模式 */
   private shouldUseOffscreenCanvas(canvas: HTMLCanvasElement): boolean {
     if (typeof window === 'undefined') return false;
-    if (new URLSearchParams(window.location.search).has('disableRenderWorker')) return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('disableRenderWorker')) return false;
+    // 当前 render.worker 仍是骨架实现，未接入完整地图帧数据前只能显式调试启用。
+    if (!params.has('enableRenderWorker')) return false;
     return typeof canvas.transferControlToOffscreen === 'function';
   }
 
