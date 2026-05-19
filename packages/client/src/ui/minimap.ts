@@ -473,7 +473,7 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
 function attachCatalogGroup(entry: Omit<CatalogEntry, 'mapGroupId' | 'mapGroupName' | 'mapGroupOrder' | 'mapGroupMemberOrder'>): CatalogEntry {
   const group = resolveMapGroupInfo({
     id: entry.mapMeta?.id ?? entry.mapId,
-    name: entry.mapMeta?.name ?? entry.mapId,
+    name: entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined),
     parentMapId: entry.mapMeta?.parentMapId,
     mapGroupId: entry.mapMeta?.mapGroupId,
     mapGroupName: entry.mapMeta?.mapGroupName,
