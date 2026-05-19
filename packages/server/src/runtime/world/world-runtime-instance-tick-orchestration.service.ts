@@ -23,10 +23,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
       && Boolean(this.instanceWorkerPool?.isEnabled());
   }
 
-  /** Phase 4：仅把 POJO 镜像快照送入 worker 做确定性预计算；权威状态仍由主线程 tickOnce 修改。 */
-  private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick) {
-    if (!this.isInstanceWorkerEnabled()) return;
-    await Promise.all(instanceStepPlans.map(({ instance }) => this.instanceWorkerPool.submit(
+  /**
+   * Phase 4：把 POJO 镜像快照送入 worker 做确定性预计算，收集 monster intent proposals。
+   * 返回 Map<instanceId, MonsterIntentProposal[]>，主线程在 advanceMonsters 中作为 target hints 使用。
+   */
+  private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
+    const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
+    if (!this.isInstanceWorkerEnabled()) return proposals;
+    const results = await Promise.all(instanceStepPlans.map(({ instance }) => this.instanceWorkerPool.submit(
       'instance-advance',
       {
         instanceId: instance.meta.instanceId,
@@ -36,6 +40,15 @@ export class WorldRuntimeInstanceTickOrchestrationService {
       (payload) => computeFallbackInstanceIntentProposal(payload),
       800,
     )));
+    for (const result of results) {
+      if (result.ok && result.result) {
+        const output = result.result as { instanceId: string; monsterIntents: Array<{ monsterId: string; action: string; targetId?: string }> };
+        if (output.instanceId && Array.isArray(output.monsterIntents)) {
+          proposals.set(output.instanceId, output.monsterIntents);
+        }
+      }
+    }
+    return proposals;
   }
 
   /** 构造 worker 可结构化克隆的只读镜像，禁止传 MapInstanceRuntime class 实例。 */
@@ -118,7 +131,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const systemCommandsStartedAt = performance.now();
         deps.dispatchPendingSystemCommands();
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
-        await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick);
+        const workerProposals = await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick);
         const steppedPlayerIds = new Set();
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
@@ -147,7 +160,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     isFormationTerrainStabilized(x, y) === true
                     || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                 );
-                const result = instance.tickOnce();
+                const instanceIntents = workerProposals.get(instance.meta.instanceId) ?? null;
+                const result = instance.tickOnce(instanceIntents);
                 if (typeof instance.advanceTileResourceFlow === 'function') {
                     instance.advanceTileResourceFlow();
                 }

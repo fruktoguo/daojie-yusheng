@@ -2052,8 +2052,10 @@ class MapInstanceRuntime {
         }
         return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
     }
-    /** tickOnce：推进当前地图实例的一个逻辑 tick。 */
-    tickOnce() {
+    /** tickOnce：推进当前地图实例的一个逻辑 tick。
+     * @param precomputedMonsterIntents 可选的 worker 预计算怪物意图，作为 target hints 加速 AI 决策。
+     */
+    tickOnce(precomputedMonsterIntents = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.tick += 1;
@@ -2088,7 +2090,7 @@ class MapInstanceRuntime {
         }
         this.pendingCommands.clear();
         const completedBuildings = this.advanceBuildingConstruction();
-        this.advanceMonsters(monsterActions);
+        this.advanceMonsters(monsterActions, precomputedMonsterIntents);
         return {
             completedBuildings,
             transfers,
@@ -5046,8 +5048,13 @@ class MapInstanceRuntime {
         return entry;
     }
     /** advanceMonsters：推进妖兽 AI 和行动。 */
-    advanceMonsters(monsterActions) {
+    advanceMonsters(monsterActions, precomputedIntents = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        // Phase 4: 构建 worker 预计算 intent 索引，用于加速 target 解析
+        const intentByMonsterId = precomputedIntents
+            ? new Map(precomputedIntents.map((intent) => [intent.monsterId, intent]))
+            : null;
 
         let changed = false;
         for (const monster of this.monstersByRuntimeId.values()) {
@@ -5110,7 +5117,9 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            const target = this.resolveMonsterTarget(monster);
+            // Phase 4: 使用 worker 预计算 intent 作为 target hint 加速解析
+            const preIntent = intentByMonsterId?.get(String(monster.runtimeId ?? monster.monsterId ?? ''));
+            const target = this.resolveMonsterTargetWithHint(monster, preIntent);
             if (!target) {
                 const lostSightTarget = this.resolveMonsterLostSightChaseTarget(monster);
                 if (lostSightTarget) {
@@ -5929,6 +5938,36 @@ class MapInstanceRuntime {
             this.rememberMonsterTargetSight(monster, best);
         }
         return best;
+    }
+    /**
+     * Phase 4: 使用 worker 预计算 intent 作为 target hint 加速解析。
+     * 如果 hint 指向的玩家仍然有效（存活、在范围内、在视线内），直接使用；
+     * 否则 fallback 到完整的 resolveMonsterTarget 扫描。
+     */
+    resolveMonsterTargetWithHint(monster, preIntent) {
+        if (!preIntent || preIntent.action !== 'attack' || !preIntent.targetId) {
+            return this.resolveMonsterTarget(monster);
+        }
+        // hint 指向一个具体玩家，快速验证其有效性
+        const hintPlayer = this.playersById.get(preIntent.targetId);
+        if (!hintPlayer) {
+            return this.resolveMonsterTarget(monster);
+        }
+        const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
+        if (chebyshevDistance(monster.spawnX, monster.spawnY, hintPlayer.x, hintPlayer.y) > monster.leashRange) {
+            return this.resolveMonsterTarget(monster);
+        }
+        if (chebyshevDistance(monster.x, monster.y, hintPlayer.x, hintPlayer.y) > aggroRange) {
+            return this.resolveMonsterTarget(monster);
+        }
+        // 验证视线（使用 tile index 检查）
+        const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
+        if (!visibleTileIndices.has(this.toTileIndex(hintPlayer.x, hintPlayer.y))) {
+            return this.resolveMonsterTarget(monster);
+        }
+        // hint 有效，直接使用
+        this.rememberMonsterTargetSight(monster, hintPlayer);
+        return hintPlayer;
     }
     /** rememberMonsterTargetSight：记录妖兽最后一次真正看见目标的位置。 */
     rememberMonsterTargetSight(monster, target) {
