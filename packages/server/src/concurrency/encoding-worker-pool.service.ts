@@ -4,7 +4,7 @@
  * 当前为空实现：所有 submit() 直接走主线程同步 fallback。
  * 设置 SERVER_WORKER_POOL_ENABLED=true 后启用真实 worker 线程。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { Worker } from 'node:worker_threads';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
@@ -17,6 +17,7 @@ import type {
   WorkerPoolMetrics,
 } from './worker-task.types';
 import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
+import { WorkerPoolToggleService } from './worker-pool-toggle.service';
 
 /** 同步 fallback 函数签名 */
 export type SyncFallback<TPayload, TResult> = (payload: TPayload) => TResult;
@@ -36,7 +37,11 @@ export class EncodingWorkerPoolService {
     workerIndex: number;
   }>();
 
-  constructor(private readonly metricsService: WorkerPoolMetricsService) {
+  constructor(
+    private readonly metricsService: WorkerPoolMetricsService,
+    @Optional() @Inject(WorkerPoolToggleService)
+    private readonly toggleService?: WorkerPoolToggleService,
+  ) {
     this.config = {
       enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true',
       poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
@@ -56,8 +61,21 @@ export class EncodingWorkerPoolService {
 
     this.metricsService.recordSubmit('encoding');
 
-    // 未启用或无 worker 时走同步 fallback
-    if (!this.config.enabled || this.workers.length === 0) {
+    // 动态检查 toggle（支持 GM 运行时切换）
+    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
+
+    // 未启用时走同步 fallback
+    if (!dynamicEnabled) {
+      return this.executeFallback(taskId, kind, payload, fallback);
+    }
+
+    // 延迟启动：toggle 刚打开但 worker 还没启动
+    if (!this.workers.some((w) => w !== null)) {
+      this.ensureWorkersStarted();
+    }
+
+    // worker 仍然没启动成功，走 fallback
+    if (!this.workers.some((w) => w !== null)) {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
 
@@ -66,14 +84,26 @@ export class EncodingWorkerPoolService {
 
   /** 初始化 worker pool（由 WorkerPoolModule onModuleInit 调用） */
   initialize(): void {
-    if (!this.config.enabled) {
-      this.logger.log('EncodingWorkerPool 已禁用（SERVER_WORKER_POOL_ENABLED=false）');
+    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
+    if (!dynamicEnabled) {
+      this.logger.log('EncodingWorkerPool 已禁用（等待 GM toggle 或环境变量启用）');
       return;
     }
-    this.spawnWorkers();
+    this.ensureWorkersStarted();
     this.logger.log(
-      `EncodingWorkerPool 已启动：${this.workers.length} 个 worker`,
+      `EncodingWorkerPool 已启动：${this.workers.filter((w) => w !== null).length} 个 worker`,
     );
+  }
+
+  /** 延迟启动 worker（GM toggle 运行时打开时调用） */
+  private ensureWorkersStarted(): void {
+    if (this.workers.some((w) => w !== null)) return; // 已有活跃 worker
+    this.spawnWorkers();
+    const activeCount = this.workers.filter((w) => w !== null).length;
+    if (activeCount > 0) {
+      this.logger.log(`EncodingWorkerPool 延迟启动：${activeCount} 个 worker`);
+      this.metricsService.setActiveWorkers('encoding', activeCount);
+    }
   }
 
   /** 关闭所有 worker */
@@ -96,8 +126,10 @@ export class EncodingWorkerPoolService {
   }
 
   /** 是否启用 */
+  /** 是否启用（动态检查 GM toggle） */
   isEnabled(): boolean {
-    return this.config.enabled && this.workers.some((w) => w !== null);
+    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
+    return dynamicEnabled;
   }
 
   /** 获取指标 */
