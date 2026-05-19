@@ -164,7 +164,8 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers, staticSyncRe
         viewRadius: resolveVisibleTilesRadius(visibleTiles.matrix, view),
         tilesOriginX: resolveVisibleTilesOriginX(view, visibleTiles.matrix),
         tilesOriginY: resolveVisibleTilesOriginY(view, visibleTiles.matrix),
-        visibleTiles: new Map(visibleTiles.byKey),
+        visibleTiles: visibleTiles.byKey,
+        visibleTilesMatrix: visibleTiles.matrix,
         visibleMinimapMarkers,
     };
 }
@@ -186,7 +187,7 @@ function buildUnchangedDeltaMapStaticPlan(previous, view, player, staticSyncRevi
     }
     return {
         mapChanged: false,
-        visibleTiles: { matrix: [], byKey: previous.visibleTiles },
+        visibleTiles: { matrix: previous.visibleTilesMatrix ?? [], byKey: previous.visibleTiles },
         visibleMinimapMarkers: previous.visibleMinimapMarkers,
         tilePatches: [],
         visibleMinimapMarkerAdds: [],

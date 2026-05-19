@@ -83,10 +83,11 @@ function createService(
     },
     {
       buildInitialMapStaticState() {
+        const matrix = [[{ type: 'floor' }]];
         const visibleTiles = new Map([['3,4', { type: 'floor' }]]);
         const visibleMinimapMarkers = [{ id: 'marker.a', kind: 'npc', x: 3, y: 4, label: '甲', detail: '乙' }];
         return {
-          visibleTiles: { matrix: [[{ type: 'floor' }]], byKey: visibleTiles },
+          visibleTiles: { matrix, byKey: visibleTiles },
           visibleMinimapMarkers,
           cacheState: {
             mapId: 'map.a',
@@ -97,18 +98,20 @@ function createService(
             tilesOriginX: 3,
             tilesOriginY: 4,
             visibleTiles,
+            visibleTilesMatrix: matrix,
             visibleMinimapMarkers,
             phase: 'initial',
           },
         };
       },
       buildDeltaMapStaticPlan() {
+        const matrix = [[{ type: 'floor' }]];
         const visibleTiles = new Map([['3,4', { type: 'floor' }]]);
         const visibleMinimapMarkers = [{ id: 'marker.a', kind: 'npc', x: 3, y: 4, label: '甲', detail: '乙' }];
         const hasMapPatch = options.deltaMapPatch !== false;
         return {
           mapChanged: options.deltaMapChanged === true,
-          visibleTiles: { matrix: [[{ type: 'floor' }]], byKey: visibleTiles },
+          visibleTiles: { matrix, byKey: visibleTiles },
           visibleMinimapMarkers,
           tilePatches: hasMapPatch ? [{ x: 3, y: 4, tile: { type: 'wall' } }] : [],
           visibleMinimapMarkerAdds: hasMapPatch ? [{ id: 'marker.b', kind: 'npc', x: 4, y: 4, label: '丙', detail: '丁' }] : [],
@@ -122,6 +125,7 @@ function createService(
             tilesOriginX: 3,
             tilesOriginY: 4,
             visibleTiles,
+            visibleTilesMatrix: matrix,
             visibleMinimapMarkers,
             phase: 'delta',
           },
