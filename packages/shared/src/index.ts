@@ -19,6 +19,7 @@ export * from './client-social-admin-request-types';
 export * from './protocol-envelope-types';
 export * from './protocol-request-payload-types';
 export * from './protocol-response-payload-types';
+export * from './content-resolver-types';
 export * from './cultivation-types';
 export * from './crafting-types';
 export * from './entity-detail-types';

@@ -5,8 +5,8 @@ import {
   expandTechniqueExpCurve,
   expandTechniqueLayerGains,
   type GmEditorItemOption,
-  type GmEditorTechniqueOption,
   type GmEditorRealmOption,
+  type GmEditorTechniqueOption,
   type ItemStack,
   type QuestState,
   type SkillDef,
@@ -16,75 +16,11 @@ import {
   type TechniqueState,
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
+import { contentResolver, type LocalBuffTemplate } from './content-resolver';
 
 // 本地目录只用于预览补齐与离线辅助，不参与正式玩法真源判定。
-const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
+// 以下 Map 保留用于 resolvePreview 系列函数中的功法层级展开等复杂逻辑。
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
-const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));
-const questTemplateMap = new Map((LOCAL_EDITOR_CATALOG.quests ?? []).map((quest) => [quest.id, quest] as const));
-/** 按技能 ID 建立的本地技能模板索引。 */
-const skillTemplateMap = new Map(
-  LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
-    (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
-  ),
-);
-/** 本地 Buff 模板的最小字段集合。 */
-type LocalBuffTemplate = {
-/**
- * buffId：buffID标识。
- */
-
-  buffId: string;  
-  /**
- * name：名称名称或显示文本。
- */
-
-  name: string;  
-  /**
- * shortMark：shortMark相关字段。
- */
-
-  shortMark?: string;  
-  /**
- * category：category相关字段。
- */
-
-  category?: 'buff' | 'debuff';
-  desc?: string;
-  duration?: number;
-  maxStacks?: number;
-  valueStats?: Record<string, number>;
-  stats?: Record<string, number>;
-  attrs?: Record<string, number>;
-  attrMode?: string;
-  statMode?: string;
-};
-
-/** 按 Buff ID 建立的本地 Buff 模板索引。 */
-const buffTemplateMap = new Map<string, LocalBuffTemplate>(
-  LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
-    (technique.skills ?? []).flatMap((skill) =>
-      skill.effects.flatMap((effect) => (
-        effect.type === 'buff'
-          ? [[effect.buffId, {
-            buffId: effect.buffId,
-            name: effect.name,
-            shortMark: effect.shortMark,
-            category: effect.category,
-            desc: effect.desc,
-            duration: effect.duration,
-            maxStacks: effect.maxStacks,
-            valueStats: effect.valueStats as Record<string, number> | undefined,
-            stats: effect.stats as Record<string, number> | undefined,
-            attrs: effect.attrs as Record<string, number> | undefined,
-            attrMode: effect.attrMode,
-            statMode: effect.statMode,
-          } satisfies LocalBuffTemplate] as const]
-          : []
-      )),
-    ),
-  ),
-);
 /** 记录所有神通系技能名称，供预览时识别。 */
 const divineSkillNameSet = new Set(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) => {
@@ -149,16 +85,14 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
   }
 }
 
-/** 读取本地物品模板副本。 */
+/** 读取本地物品模板（委托给 ContentResolver）。 */
 export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null {
-  const template = itemTemplateMap.get(itemId);
-  return template ? clone(template) : null;
+  return contentResolver.getItem(itemId);
 }
 
-/** 读取本地功法模板副本。 */
+/** 读取本地功法模板（委托给 ContentResolver）。 */
 export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOption | null {
-  const template = techniqueTemplateMap.get(techId);
-  return template ? clone(template) : null;
+  return contentResolver.getTechnique(techId);
 }
 
 /** 根据书籍物品 ID 读取功法类别。 */
@@ -166,33 +100,24 @@ export function getLocalTechniqueCategoryForBookItem(itemId: string): TechniqueC
   return techniqueCategoryByBookItemId.get(itemId) ?? null;
 }
 
-/** 读取本地境界等级配置。 */
+/** 读取本地境界等级配置（委托给 ContentResolver）。 */
 export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRealmOption | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!Number.isFinite(realmLv)) {
-    return null;
-  }
-  const entry = realmLevelMap.get(Math.max(1, Math.floor(Number(realmLv))));
-  return entry ? clone(entry) : null;
+  return contentResolver.getRealmLevel(realmLv);
 }
 
-/** 读取本地技能模板副本。 */
+/** 读取本地技能模板（委托给 ContentResolver）。 */
 export function getLocalSkillTemplate(skillId: string): SkillDef | null {
-  const template = skillTemplateMap.get(skillId);
-  return template ? clone(template) : null;
+  return contentResolver.getSkill(skillId);
 }
 
-/** 读取本地 Buff 模板副本。 */
+/** 读取本地 Buff 模板（委托给 ContentResolver）。 */
 export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
-  const template = buffTemplateMap.get(buffId);
-  return template ? { ...template } : null;
+  return contentResolver.getBuff(buffId);
 }
 
-/** 读取本地任务模板副本。 */
+/** 读取本地任务模板（委托给 ContentResolver）。 */
 export function getLocalQuestTemplate(questId: string): QuestState | null {
-  const template = questTemplateMap.get(questId);
-  return template ? clone(template as QuestState) : null;
+  return contentResolver.getQuest(questId);
 }
 
 /** 判断某个技能名是否属于本地神通系技能。 */

@@ -45,6 +45,7 @@ import { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper
 import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 import { WorldGatewaySessionStateHelper } from './world-gateway-session-state.helper';
 import { WorldGatewayPresenceHelper } from './world-gateway-presence.helper';
+import { WorldGatewayContentHelper } from './world-gateway-content.helper';
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
@@ -81,7 +82,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper; gatewayPresenceHelper: WorldGatewayPresenceHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
-    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewaySuggestionHelper: WorldGatewaySuggestionHelper, gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper) {
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewaySuggestionHelper: WorldGatewaySuggestionHelper, gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -531,6 +532,11 @@ class WorldGateway implements WorldGatewayHelperContext {
             ? payload.versions as Record<string, number>
             : {};
         this.worldSyncService.handleReportMinimapVersions(client, playerId, versions);
+    }
+
+    @SubscribeMessage(C2S.RequestContentTemplates)
+    handleRequestContentTemplates(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayContentHelper.handleRequestContentTemplates(client, payload);
     }
 }
 export { WorldGateway };

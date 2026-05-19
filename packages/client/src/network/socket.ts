@@ -19,6 +19,7 @@ import { createSocketBuildingSender } from './socket-send-building';
 import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
 import { createSocketSocialEconomySender } from './socket-send-social-economy';
+import { createSocketContentSender } from './socket-send-content';
 import { createSocketServerEventRegistry } from './socket-event-registry';
 import { createSocketLifecycleController } from './socket-lifecycle-controller';
 import type { SocketAdminSender } from './socket-send-admin';
@@ -26,6 +27,7 @@ import type { SocketBuildingSender } from './socket-send-building';
 import type { SocketPanelSender } from './socket-send-panel';
 import type { SocketRuntimeSender } from './socket-send-runtime';
 import type { SocketSocialEconomySender } from './socket-send-social-economy';
+import type { SocketContentSender } from './socket-send-content';
 import type { BoundServerEventName, ServerEventCallback } from './socket-server-events';
 
 /** 客户端 Socket.IO 连接管理器，负责连接生命周期、协议编解码和事件分发。 */
@@ -55,6 +57,10 @@ export class SocketManager {
   });
   /** 建造、房间与风水低频意图发包 owner。 */
   private readonly buildingSender = createSocketBuildingSender({
+    emitEvent: (event, payload) => this.sendEvent(event, payload),
+  });
+  /** 内容模板按需查询发包 owner。 */
+  private readonly contentSender = createSocketContentSender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
   });
   /** 服务端事件注册与回调桶 owner。 */
@@ -257,6 +263,10 @@ export class SocketManager {
 
   get building(): SocketBuildingSender {
     return this.buildingSender;
+  }
+
+  get content(): SocketContentSender {
+    return this.contentSender;
   }
 }
 

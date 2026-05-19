@@ -67,4 +67,5 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.AlchemyPanel,
   S2C.EnhancementPanel,
   S2C.GmState,
+  S2C.ContentTemplates,
 ] as const satisfies BoundServerEventName[];

@@ -1,6 +1,7 @@
 import { S2C, type ServerToClientEventPayload } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import { bindTechniqueActivityPanelEvents } from './technique-activity-client.helpers';
+import { contentResolver } from './content/content-resolver';
 /**
  * MainLowFrequencySocketBindingsOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -228,6 +229,14 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.Error, options.onError);
   options.socket.onKick(options.onKick);
   options.socket.onConnectError(options.onConnectError);
-  options.socket.onDisconnect(options.onDisconnect);
+  options.socket.onDisconnect((...args) => {
+    contentResolver.clearDynamicCache();
+    options.onDisconnect(...args);
+  });
   options.socket.on(S2C.Pong, options.onPong);
+
+  // ContentResolver: 绑定 S2C 响应 + 注入发包能力
+  options.socket.on(S2C.ContentTemplates, (data) => {
+    contentResolver.handleContentTemplatesResponse(data);
+  });
 }

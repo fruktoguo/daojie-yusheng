@@ -26,6 +26,7 @@ export type * from './protocol-response-payload-types';
 import type { S2C_Bootstrap, S2C_MapStatic, S2C_PanelDelta, S2C_Detail, S2C_AttrDetail } from './protocol-core';
 import type { S2C_AlchemyPanel, S2C_EnhancementPanel } from './protocol-craft';
 import type { S2C_MailDetail } from './protocol-social';
+import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
 
 // ===== 本地 shadowing 接口（与 export type * 同名，必须留在本文件以避免 TS2308） =====
 
@@ -133,6 +134,7 @@ export const C2S = {
   HeavenGateAction: 'n:c:heavenGateAction',
   Ping: 'n:c:ping',
   ReportMinimapVersions: 'n:c:reportMinimapVersions',
+  RequestContentTemplates: 'n:c:requestContentTemplates',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -183,6 +185,7 @@ export const S2C = {
   Pong: 'n:s:pong',
   MinimapLibraryManifest: 'n:s:minimapLibraryManifest',
   MinimapLibraryDelta: 'n:s:minimapLibraryDelta',
+  ContentTemplates: 'n:s:contentTemplates',
 } as const;
 
 /** 客户端事件名联合。 */
@@ -289,6 +292,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.HeavenGateAction]: RequestPayloads.C2S_HeavenGateAction;
   [C2S.Ping]: RequestPayloads.C2S_Ping;
   [C2S.ReportMinimapVersions]: RequestPayloads.C2S_ReportMinimapVersions;
+  [C2S.RequestContentTemplates]: C2S_RequestContentTemplates;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
@@ -339,6 +343,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.Pong]: ResponsePayloads.S2C_Pong;
   [S2C.MinimapLibraryManifest]: ResponsePayloads.S2C_MinimapLibraryManifest;
   [S2C.MinimapLibraryDelta]: ResponsePayloads.S2C_MinimapLibraryDelta;
+  [S2C.ContentTemplates]: S2C_ContentTemplates;
 }
 
 /** 根据客户端事件名读取对应载荷类型。 */

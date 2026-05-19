@@ -35,6 +35,7 @@ import { mountReactUi } from './react-ui/app/mount';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
+import { contentResolver } from './content/content-resolver';
 import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
@@ -459,7 +460,7 @@ type MainBootstrapAssemblyOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect' | 'emitEvent'>;
+  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect' | 'emitEvent' | 'content'>;
   /**
  * runtimeSender：运行态Sender相关字段。
  */
@@ -748,6 +749,11 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onPong: (data) => {
       options.connectionStateSource.handlePong(data);
     },
+  });
+
+  // ContentResolver: 注入发包能力
+  contentResolver.bindEmitter((payload) => {
+    options.socket.content.sendRequestContentTemplates(payload);
   });
 
   options.runtimeMonitorSource.restartPingLoop();

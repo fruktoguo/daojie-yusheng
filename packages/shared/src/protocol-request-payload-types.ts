@@ -283,3 +283,6 @@ export interface C2S_ReportMinimapVersions {
   /** mapId → 本地缓存版本号 */
   versions: Record<string, number>;
 }
+
+/** 批量查询内容模板（动态资源按需拉取）。 */
+export type { C2S_RequestContentTemplates } from './content-resolver-types';
