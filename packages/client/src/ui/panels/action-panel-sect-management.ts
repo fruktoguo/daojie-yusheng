@@ -99,7 +99,7 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
   const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
   return {
     playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-member', undefined),
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : t('action.sect.fallback.unknown-member', undefined),
     roleId,
     roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? '未知角色',
     realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
@@ -114,7 +114,7 @@ function normalizeSectManagementApplication(input: unknown): { playerId: string;
   const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
   return {
     playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-applicant', undefined),
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : t('action.sect.fallback.unknown-applicant', undefined),
     appliedAt: Number.isFinite(Number(source.appliedAt)) ? Math.trunc(Number(source.appliedAt)) : 0,
   };
 }
@@ -137,7 +137,7 @@ function normalizeSectManagementRolePermissions(
 
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
   const playerId = player?.id ?? '';
-  const name = player?.name || player?.displayName || playerId || t('action.sect.fallback.current-leader', undefined);
+  const name = player?.name || player?.displayName || t('action.sect.fallback.current-leader', undefined);
   const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
   return {
     selfPlayerId: playerId,

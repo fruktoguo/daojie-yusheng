@@ -2474,7 +2474,7 @@ export class CraftWorkbenchModal {
     const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
     const nextLines = describeEquipmentBonuses(nextPreview, this.playerRealmLv);
     const protectionNote = selected.protectionItemId
-      ? `保护物固定为 ${selected.protectionItemName ?? selected.protectionItemId}`
+      ? `保护物固定为 ${selected.protectionItemName?.trim() || UNKNOWN_ITEM_NAME}`
       : '未配置独立保护物，当前仅可消耗同名装备作为保护';
     const minProtectionStartLevel = 2;
     const protectionStartLevel = this.getSelectedEnhancementProtectionStartLevel(selected);

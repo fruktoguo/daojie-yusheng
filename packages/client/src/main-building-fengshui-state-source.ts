@@ -374,7 +374,7 @@ function formatSelectedMaterialSummary(slots: BuildMaterialSlot[]): string {
 }
 
 function resolveBuildingDisplayLabel(entry: BuildingCatalogEntry): string {
-  const name = String(entry.name || entry.id || '造').trim();
+  const name = String(entry.name || '未命名建筑').trim();
   if (entry.opening === 'door' || name.endsWith('门')) {
     return '门';
   }

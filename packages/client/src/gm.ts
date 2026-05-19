@@ -1450,7 +1450,7 @@ function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty =
  label: string }> {
   const options = techniques.map((technique) => ({
     value: technique.techId,
-    label: technique.name || technique.techId,
+    label: technique.name?.trim() || '未知功法',
   }));
   return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
 }

@@ -139,7 +139,7 @@ function renderTechniqueSection(report: OfflineGainReportView): string {
     `),
     ...report.techniques.map((entry) => `
       <div class="offline-gain-row">
-        <span>${escapeHtml(entry.name || entry.techniqueId)}</span>
+        <span>${escapeHtml(entry.name?.trim() || '未知功法')}</span>
         <strong>${escapeHtml(formatSignedAmount(entry.expGained, entry.expLost, entry.levelGain, entry.levelLoss))}</strong>
       </div>
     `),
