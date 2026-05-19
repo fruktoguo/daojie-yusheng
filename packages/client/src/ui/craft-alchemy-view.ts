@@ -732,7 +732,7 @@ export class CraftAlchemyView {
               const ingredientMeta = recipe?.ingredients.find((entry) => entry.itemId === ingredient.itemId);
               return this.renderAlchemyItemReference(
                 ingredient.itemId,
-                ingredientMeta?.name ?? ingredient.itemId,
+                ingredientMeta?.name?.trim() || UNKNOWN_ITEM_NAME,
                 'material',
                 ingredient.count,
               );

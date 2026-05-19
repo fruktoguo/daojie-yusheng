@@ -26,6 +26,12 @@ import {
   unmountReactQuestPanel,
 } from '../../react-ui/panels/quest/mount-quest-panel';
 
+const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
+
+function resolveQuestRequiredItemName(itemId: string): string {
+  return getLocalItemTemplate(itemId)?.name?.trim() || UNKNOWN_QUEST_ITEM_NAME;
+}
+
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
@@ -879,7 +885,7 @@ export class QuestPanel {
     const required = Math.max(1, quest.requiredItemCount ?? 1);
     const current = Math.min(required, this.getInventoryItemCount(quest.requiredItemId));
     return {
-      itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+      itemName: resolveQuestRequiredItemName(quest.requiredItemId),
       current,
       required,
     };

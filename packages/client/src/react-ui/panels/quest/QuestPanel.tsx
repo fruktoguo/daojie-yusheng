@@ -15,6 +15,12 @@ import { createPanelStore } from '../../stores/create-panel-store';
 import { UiInlineReferenceText, type UiInlineReference } from '../../primitives/UiInlineReferenceText';
 import { t } from '../../../ui/i18n';
 
+const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
+
+function resolveQuestRequiredItemName(itemId: string): string {
+  return getLocalItemTemplate(itemId)?.name?.trim() || UNKNOWN_QUEST_ITEM_NAME;
+}
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 interface QuestPanelState {
@@ -106,7 +112,7 @@ function resolveRequiredItemProgress(quest: QuestState, inventory: Inventory | n
   const required = Math.max(1, quest.requiredItemCount ?? 1);
   const current = Math.min(required, getInventoryItemCount(inventory, quest.requiredItemId));
   return {
-    itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+    itemName: resolveQuestRequiredItemName(quest.requiredItemId),
     current,
     required,
   };
@@ -342,7 +348,7 @@ const QuestCard = memo(function QuestCard({
     const required = Math.max(1, quest.requiredItemCount ?? 1);
     const current = Math.min(required, requiredItemCount);
     return {
-      itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+    itemName: resolveQuestRequiredItemName(quest.requiredItemId),
       current,
       required,
     };

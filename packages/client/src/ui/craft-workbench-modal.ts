@@ -1691,7 +1691,7 @@ export class CraftWorkbenchModal {
     if (job) {
       const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
       return t('craft.workbench.alchemy.subtitle.job', {
-        itemName: recipe?.outputName ?? job.outputItemId,
+        itemName: recipe?.outputName?.trim() || UNKNOWN_ITEM_NAME,
         completed: formatDisplayInteger(job.completedCount),
         quantity: formatDisplayInteger(job.quantity),
       });
@@ -2087,7 +2087,7 @@ export class CraftWorkbenchModal {
         <div class="alchemy-job-head">
           <div>
             <div class="alchemy-job-title">${escapeHtml(t('craft.workbench.alchemy.job.title'))}</div>
-            <div class="alchemy-job-name">${this.renderAlchemyItemReference(job.outputItemId, recipe?.outputName ?? job.outputItemId, 'reward')}</div>
+            <div class="alchemy-job-name">${this.renderAlchemyItemReference(job.outputItemId, recipe?.outputName?.trim() || UNKNOWN_ITEM_NAME, 'reward')}</div>
           </div>
           <div class="alchemy-job-metrics">
             <span class="alchemy-metric-chip alchemy-job-phase-chip ${phaseClass}">${escapeHtml(getAlchemyPhaseLabel(job.phase))}</span>
@@ -2116,7 +2116,7 @@ export class CraftWorkbenchModal {
               const ingredientMeta = recipe?.ingredients.find((entry) => entry.itemId === ingredient.itemId);
               return this.renderAlchemyItemReference(
                 ingredient.itemId,
-                ingredientMeta?.name ?? ingredient.itemId,
+                ingredientMeta?.name?.trim() || UNKNOWN_ITEM_NAME,
                 'material',
                 ingredient.count,
               );

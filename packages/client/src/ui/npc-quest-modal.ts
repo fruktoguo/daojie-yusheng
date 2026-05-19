@@ -5,6 +5,12 @@ import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 import { t } from './i18n';
 
+const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
+
+function resolveQuestRequiredItemName(itemId: string): string {
+  return getLocalItemTemplate(itemId)?.name?.trim() || UNKNOWN_QUEST_ITEM_NAME;
+}
+
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
@@ -711,7 +717,7 @@ export class NpcQuestModal {
       item.itemId === quest.requiredItemId ? total + item.count : total
     ), 0));
     return {
-      itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+      itemName: resolveQuestRequiredItemName(quest.requiredItemId),
       current,
       required,
     };

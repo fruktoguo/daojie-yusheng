@@ -543,16 +543,17 @@ function appendCombatEffects(container: DocumentFragment | HTMLElement, effects:
       container.appendChild(pill);
       container.append(' 生命');
     } else if (effect.type === 'buff' || effect.type === 'debuff') {
-      const name = String(effect.name ?? effect.buffId ?? '');
-      if (!name) continue;
+      // 从本地模板获取 buff 详细信息
+      const buffTemplate = effect.buffId ? getLocalBuffTemplate(String(effect.buffId)) : null;
+      const effectName = typeof effect.name === 'string' ? effect.name.trim() : '';
+      const templateName = typeof buffTemplate?.name === 'string' ? buffTemplate.name.trim() : '';
+      const name = effectName || templateName || '未知效果';
       container.append('，施加 ');
       const pill = document.createElement('span');
       pill.className = 'chat-damage-pill';
       pill.textContent = name;
       const color = effect.category === 'debuff' ? 'var(--chat-pill-debuff)' : 'var(--chat-pill-buff)';
       setPillColor(pill, color);
-      // 从本地模板获取 buff 详细信息
-      const buffTemplate = effect.buffId ? getLocalBuffTemplate(String(effect.buffId)) : null;
       const tooltipLines: string[] = [];
       if (buffTemplate?.desc) {
         tooltipLines.push(buffTemplate.desc);
