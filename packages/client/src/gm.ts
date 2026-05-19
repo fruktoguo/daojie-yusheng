@@ -6205,6 +6205,28 @@ function renderSummary(data: GmStateRes): void {
   memoryEstimateMetaEl.textContent = memoryEstimate?.generatedAt > 0
     ? `运行态容器估算：${new Date(memoryEstimate.generatedAt).toLocaleString()} · 已覆盖 ${formatBytes(memoryEstimate.coveredBytes)} / RSS ${formatBytes(memoryEstimate.rssBytes)} · 覆盖 ${memoryEstimate.coveragePercent.toFixed(1)}% · 未覆盖部分需看 V8 heap space 或 Heap Snapshot · 缓存 ${Math.round(memoryEstimate.cacheTtlMs / 1000)} 秒`
     : '运行态内存画像尚未生成。';
+  // Worker Pool 状态渲染
+  const wp = (data.perf as any).workerPool;
+  const wpStatusEl = document.getElementById('worker-pool-status-meta');
+  if (wpStatusEl) {
+    if (wp?.encoding) {
+      const enc = wp.encoding;
+      wpStatusEl.textContent = enc.totalSubmitted > 0
+        ? `Encoding Pool 活跃 · 已处理 ${enc.totalCompleted} 任务 · Fallback ${enc.totalFallback} 次`
+        : 'Worker Pool 未启用或无任务提交（开关关闭时所有任务走主线程 fallback）';
+      const setEl = (id: string, text: string) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+      setEl('wp-total-submitted', String(enc.totalSubmitted));
+      setEl('wp-total-completed', String(enc.totalCompleted));
+      setEl('wp-total-timed-out', String(enc.totalTimedOut));
+      setEl('wp-total-failed', String(enc.totalFailed));
+      setEl('wp-total-fallback', String(enc.totalFallback));
+      setEl('wp-p50', `${enc.p50Ms.toFixed(1)} ms`);
+      setEl('wp-p95', `${enc.p95Ms.toFixed(1)} ms`);
+      setEl('wp-active-workers', String(enc.activeWorkers));
+    } else {
+      wpStatusEl.textContent = 'Worker Pool 指标不可用（服务端未返回 workerPool 字段）';
+    }
+  }
   pathfindingResetMetaEl.textContent = data.perf.pathfinding.statsStartedAt > 0
     ? `寻路统计起点：${new Date(data.perf.pathfinding.statsStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.pathfinding.statsElapsedSec)}`
     : '寻路统计区间尚未开始。';

@@ -1735,6 +1735,127 @@
       font-size: 13px;
       margin-top: 0;
     }
+
+    /* Diagnostics shortcuts */
+    .diagnostics-shortcuts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--wash-ink);
+      margin-bottom: 8px;
+    }
+    .diagnostics-shortcut-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+    }
+    .diagnostics-shortcut-label {
+      font-size: 11px;
+      color: var(--ink-grey);
+      font-weight: 600;
+      padding: 2px 6px;
+      background: var(--wash-ink);
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .diag-btn {
+      font-size: 12px;
+      padding: 3px 8px;
+      border: 1px solid var(--ink-light);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .diag-btn:hover {
+      background: var(--highlight);
+      border-color: var(--ink-grey);
+    }
+    .diag-btn:active {
+      background: var(--wash-ink);
+    }
+
+    /* Diagnostics table output */
+    .diagnostics-output-container {
+      overflow-x: auto;
+      max-height: 520px;
+      overflow-y: auto;
+      border: 1px solid var(--wash-ink);
+      border-radius: 4px;
+      background: var(--paper-white);
+    }
+    .diagnostics-result-section {
+      margin-bottom: 12px;
+    }
+    .diagnostics-result-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-dark);
+      padding: 6px 10px;
+      background: var(--paper-bg);
+      border-bottom: 1px solid var(--wash-ink);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .diagnostics-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    }
+    .diagnostics-table th {
+      text-align: left;
+      padding: 4px 8px;
+      background: var(--paper-light);
+      border-bottom: 1px solid var(--wash-ink);
+      color: var(--ink-grey);
+      font-weight: 600;
+      white-space: nowrap;
+      position: sticky;
+      top: 30px;
+      z-index: 1;
+    }
+    .diagnostics-table td {
+      padding: 3px 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      color: var(--ink-dark);
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .diagnostics-table tr:hover td {
+      background: var(--highlight);
+    }
+    .diagnostics-table td.cell-number {
+      text-align: right;
+      color: #2563eb;
+    }
+    .diagnostics-table td.cell-bool-true {
+      color: #16a34a;
+    }
+    .diagnostics-table td.cell-bool-false {
+      color: #dc2626;
+    }
+    .diagnostics-table td.cell-null {
+      color: var(--ink-light);
+      font-style: italic;
+    }
+    .diagnostics-meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--ink-grey);
+      background: var(--paper-bg);
+      border-bottom: 1px solid var(--wash-ink);
+    }
   </style>
 </head>
 <body>
@@ -1851,6 +1972,22 @@
               </div>
               <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit" data-i18n="gm.password-save">修改 GM 密码</button></div>
             </form>
+          </div>
+          <div class="network-breakdown" style="margin-top: 12px;">
+            <div class="network-breakdown-head">
+              <div class="panel-title">Worker Pool 状态</div>
+            </div>
+            <div id="worker-pool-status-meta" class="network-breakdown-subtitle">Worker Pool 状态尚未加载。</div>
+            <div class="stats-grid" id="worker-pool-stats-grid">
+              <div class="stats-card"><div class="stats-card-label">总提交</div><div id="wp-total-submitted" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
+              <div class="stats-card"><div class="stats-card-label">已完成</div><div id="wp-total-completed" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
+              <div class="stats-card"><div class="stats-card-label">超时</div><div id="wp-total-timed-out" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
+              <div class="stats-card"><div class="stats-card-label">失败</div><div id="wp-total-failed" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
+              <div class="stats-card"><div class="stats-card-label">Fallback</div><div id="wp-total-fallback" class="stats-card-value">0</div><div class="stats-card-note">走主线程同步</div></div>
+              <div class="stats-card"><div class="stats-card-label">P50</div><div id="wp-p50" class="stats-card-value">0 ms</div><div class="stats-card-note">最近 100 任务</div></div>
+              <div class="stats-card"><div class="stats-card-label">P95</div><div id="wp-p95" class="stats-card-value">0 ms</div><div class="stats-card-note">最近 100 任务</div></div>
+              <div class="stats-card"><div class="stats-card-label">活跃 Worker</div><div id="wp-active-workers" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
+            </div>
           </div>
           <div class="network-breakdown" style="margin-top: 12px;">
             <div class="network-breakdown-head">
@@ -2013,10 +2150,49 @@
           <div class="network-breakdown">
             <div class="network-breakdown-head">
               <div class="panel-title">GM 只读查询</div>
-              <div class="network-breakdown-subtitle">支持 help / outbox / tables / table 表名 / sql SELECT ...；只读、超时、限行、敏感字段脱敏。</div>
+              <div class="network-breakdown-subtitle">支持 help 查看全部指令；只读、超时、限行、敏感字段脱敏。</div>
+            </div>
+            <div class="diagnostics-shortcuts" id="diagnostics-shortcuts">
+              <div class="diagnostics-shortcut-group">
+                <span class="diagnostics-shortcut-label">玩家</span>
+                <button type="button" class="diag-btn" data-diag-cmd="presence">在线列表</button>
+                <button type="button" class="diag-btn" data-diag-cmd="presence all">全量状态</button>
+                <button type="button" class="diag-btn" data-diag-cmd="player " data-diag-prompt="player_id 或 username">查玩家</button>
+                <button type="button" class="diag-btn" data-diag-cmd="inventory " data-diag-prompt="player_id">背包</button>
+                <button type="button" class="diag-btn" data-diag-cmd="equipment " data-diag-prompt="player_id">装备</button>
+                <button type="button" class="diag-btn" data-diag-cmd="techniques " data-diag-prompt="player_id">功法</button>
+                <button type="button" class="diag-btn" data-diag-cmd="quests " data-diag-prompt="player_id">任务</button>
+                <button type="button" class="diag-btn" data-diag-cmd="buffs " data-diag-prompt="player_id">Buff</button>
+                <button type="button" class="diag-btn" data-diag-cmd="wallet " data-diag-prompt="player_id">钱包</button>
+                <button type="button" class="diag-btn" data-diag-cmd="counters " data-diag-prompt="player_id">计数器</button>
+                <button type="button" class="diag-btn" data-diag-cmd="mail " data-diag-prompt="player_id">邮件</button>
+                <button type="button" class="diag-btn" data-diag-cmd="audit " data-diag-prompt="player_id">审计</button>
+              </div>
+              <div class="diagnostics-shortcut-group">
+                <span class="diagnostics-shortcut-label">世界</span>
+                <button type="button" class="diag-btn" data-diag-cmd="instances">实例摘要</button>
+                <button type="button" class="diag-btn" data-diag-cmd="instances active">活跃实例</button>
+                <button type="button" class="diag-btn" data-diag-cmd="market">市场挂单</button>
+                <button type="button" class="diag-btn" data-diag-cmd="trades">最近成交</button>
+              </div>
+              <div class="diagnostics-shortcut-group">
+                <span class="diagnostics-shortcut-label">运维</span>
+                <button type="button" class="diag-btn" data-diag-cmd="outbox">Outbox</button>
+                <button type="button" class="diag-btn" data-diag-cmd="flush">脏数据队列</button>
+                <button type="button" class="diag-btn" data-diag-cmd="deadletter">死信</button>
+                <button type="button" class="diag-btn" data-diag-cmd="tables">表大小</button>
+              </div>
+              <div class="diagnostics-shortcut-group">
+                <span class="diagnostics-shortcut-label">数据库</span>
+                <button type="button" class="diag-btn" data-diag-cmd="dbsize">DB 大小</button>
+                <button type="button" class="diag-btn" data-diag-cmd="connections">连接数</button>
+                <button type="button" class="diag-btn" data-diag-cmd="locks">锁等待</button>
+                <button type="button" class="diag-btn" data-diag-cmd="slowqueries">慢查询</button>
+                <button type="button" class="diag-btn" data-diag-cmd="replication">复制状态</button>
+              </div>
             </div>
             <div class="server-log-toolbar">
-              <textarea id="server-diagnostics-command" rows="4" placeholder="outbox&#10;sql SELECT topic, status, count(*) FROM outbox_event GROUP BY topic, status ORDER BY count(*) DESC" style="width:100%; min-height:88px; resize:vertical;"></textarea>
+              <textarea id="server-diagnostics-command" rows="3" placeholder="输入命令或点击上方快捷按钮，Ctrl+Enter 执行，↑↓ 切换历史" style="width:100%; min-height:68px; resize:vertical;"></textarea>
             </div>
             <div class="server-log-toolbar">
               <input id="server-diagnostics-limit" type="number" min="1" max="200" value="50" style="width:90px;" />
@@ -2024,7 +2200,9 @@
               <button id="server-diagnostics-help" class="small-btn" type="button">帮助</button>
               <div id="server-diagnostics-meta" class="server-log-meta">查询尚未执行。</div>
             </div>
-            <pre id="server-diagnostics-output" class="server-log-view">查询结果会显示在这里。</pre>
+            <div id="server-diagnostics-output" class="diagnostics-output-container">
+              <pre class="server-log-view">可输入 help 查看可用指令。</pre>
+            </div>
           </div>
         </div>
         <div id="server-panel-workers" class="server-tab-panel hidden">
