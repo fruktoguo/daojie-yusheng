@@ -206,7 +206,7 @@ function getTimePhaseLabel(phaseId: string): string {
 
 /** getMapLabel：读取地图标签。 */
 function getMapLabel(mapId: string): string {
-  return getCachedMapMeta(mapId)?.name ?? mapId;
+  return getCachedMapMeta(mapId)?.name ?? t('minimap.catalog.unknown-region', undefined);
 }
 
 /** getConditionTargetKindLabel：读取条件目标类型标签。 */
