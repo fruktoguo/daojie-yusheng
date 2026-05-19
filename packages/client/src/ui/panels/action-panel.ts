@@ -3141,7 +3141,7 @@ export class ActionPanel {
             if (!actionId) return;
             if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
             if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
-            this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
+            this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
           }, { signal });
         });
         body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
@@ -4109,7 +4109,7 @@ export class ActionPanel {
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.buffs', {
-        buffs: entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || t('action.combat-settings.auto-pills.effect.buff-fallback', undefined)).join('、') ?? '',
+        buffs: entry.consumeBuffs?.map((buff) => buff.name?.trim() || t('action.combat-settings.auto-pills.effect.buff-fallback', undefined)).join('、') ?? '',
       }));
     }
     return parts.join('；') || t('action.combat-settings.auto-pills.effect.fallback', undefined);

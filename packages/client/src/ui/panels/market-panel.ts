@@ -2082,7 +2082,7 @@ export class MarketPanel {
       return {
         itemId,
         count,
-        name: itemId,
+        name: '未知物品',
         type: 'material',
         desc: '',
         enhanceLevel,
