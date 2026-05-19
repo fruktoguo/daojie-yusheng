@@ -190,6 +190,10 @@ type MainRuntimeStateSourceOptions = {
  */
  mapId?: string | null;  
  /**
+ * mapName：地图名称或显示文本。
+ */
+ mapName?: string | null;  
+ /**
  * shellVisible：shell可见相关字段。
  */
  shellVisible?: boolean }) => void;  
@@ -395,6 +399,10 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.inventorySyncPlayerContext(player);
     }
     if (player && data.mapId === player.mapId) {
+      options.setPanelRuntime({
+        mapId: player.mapId,
+        mapName: data.mapMeta?.name ?? player.mapId,
+      });
       options.refreshUiChrome();
     }
   };
@@ -648,6 +656,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         connected: true,
         playerId: latestInitSession?.pid ?? player.id,
         mapId: player.mapId,
+        mapName: data.mapMeta?.name ?? latestMapEnter?.n ?? player.mapId,
         shellVisible: true,
       });
       options.initAttrPanel(player);

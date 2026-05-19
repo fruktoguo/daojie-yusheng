@@ -120,7 +120,7 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
 
 
     setRuntimeMapId(mapId: string | null): void {
-      options.store.setRuntime({ mapId });
+      options.store.setRuntime({ mapId, mapName: null });
     },    
     /**
  * setRuntimeShellVisible：写入运行态Shell可见。
@@ -152,6 +152,7 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
         connected: false,
         playerId: null,
         mapId: null,
+        mapName: null,
         shellVisible: false,
       });
     },

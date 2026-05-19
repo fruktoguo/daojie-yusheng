@@ -9,6 +9,7 @@ export const INITIAL_RUNTIME_STATE: PanelRuntimeState = {
   connected: false,
   playerId: null,
   mapId: null,
+  mapName: null,
   shellVisible: false,
 };
 

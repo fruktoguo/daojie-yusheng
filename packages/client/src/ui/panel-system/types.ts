@@ -221,6 +221,11 @@ export interface PanelRuntimeState {
 
   mapId: string | null;  
   /**
+ * mapName：地图名称或显示文本。
+ */
+
+  mapName: string | null;  
+  /**
  * shellVisible：shell可见相关字段。
  */
 

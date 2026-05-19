@@ -33,6 +33,7 @@ const INITIAL_SHELL_RUNTIME: PanelRuntimeState = {
   shellVisible: false,
   playerId: null,
   mapId: null,
+  mapName: null,
 };
 
 export const shellStore = createExternalStore<ReactUiShellState>({

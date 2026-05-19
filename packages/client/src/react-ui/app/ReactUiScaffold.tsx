@@ -24,6 +24,7 @@ export function ReactUiScaffold() {
   const shellState = useExternalStoreSnapshot(shellStore);
   const panelState = useExternalStoreSnapshot(panelDataStore);
   const player = panelState.player;
+  const mapLabel = shellState.runtime.mapName ?? shellState.runtime.mapId ?? t('react.prototype.value.unknown', undefined);
 
   return (
     <div className="react-ui-scaffold">
@@ -40,7 +41,7 @@ export function ReactUiScaffold() {
           </div>
           <div className="react-ui-scaffold-row">
             <span className="react-ui-scaffold-label">{t('react.prototype.field.map', undefined)}</span>
-            <span className="react-ui-scaffold-value">{shellState.runtime.mapId ?? t('react.prototype.value.unknown', undefined)}</span>
+            <span className="react-ui-scaffold-value" title={shellState.runtime.mapId ?? undefined}>{mapLabel}</span>
           </div>
           <div className="react-ui-scaffold-row">
             <span className="react-ui-scaffold-label">{t('react.prototype.field.inventory', undefined)}</span>
