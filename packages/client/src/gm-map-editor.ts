@@ -2205,11 +2205,11 @@ export class GmMapEditor {
 
     const target = this.mapList.find((map) => map.id === mapId);
     if (!target) {
-      return mapId;
+      return t('minimap.catalog.unknown-region', undefined);
     }
     return target.name && target.name !== mapId
       ? `${target.name} (${mapId})`
-      : target.name || mapId;
+      : target.name || t('minimap.catalog.unknown-region', undefined);
   }
 
   /** getContainerLandmarks：读取容器Landmarks。 */
