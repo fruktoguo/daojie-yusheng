@@ -2254,22 +2254,6 @@
           </div>
           <div class="network-breakdown" style="margin-top: 12px;">
             <div class="network-breakdown-head">
-              <div class="panel-title">Worker Pool 状态</div>
-            </div>
-            <div id="worker-pool-status-meta" class="network-breakdown-subtitle">Worker Pool 状态尚未加载。</div>
-            <div class="stats-grid" id="worker-pool-stats-grid">
-              <div class="stats-card"><div class="stats-card-label">总提交</div><div id="wp-total-submitted" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
-              <div class="stats-card"><div class="stats-card-label">已完成</div><div id="wp-total-completed" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
-              <div class="stats-card"><div class="stats-card-label">超时</div><div id="wp-total-timed-out" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
-              <div class="stats-card"><div class="stats-card-label">失败</div><div id="wp-total-failed" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
-              <div class="stats-card"><div class="stats-card-label">Fallback</div><div id="wp-total-fallback" class="stats-card-value">0</div><div class="stats-card-note">走主线程同步</div></div>
-              <div class="stats-card"><div class="stats-card-label">P50</div><div id="wp-p50" class="stats-card-value">0 ms</div><div class="stats-card-note">最近 100 任务</div></div>
-              <div class="stats-card"><div class="stats-card-label">P95</div><div id="wp-p95" class="stats-card-value">0 ms</div><div class="stats-card-note">最近 100 任务</div></div>
-              <div class="stats-card"><div class="stats-card-label">活跃 Worker</div><div id="wp-active-workers" class="stats-card-value">0</div><div class="stats-card-note">encoding pool</div></div>
-            </div>
-          </div>
-          <div class="network-breakdown" style="margin-top: 12px;">
-            <div class="network-breakdown-head">
               <div class="panel-title" data-i18n="gm.pathfinding-summary">寻路调度摘要</div>
               <button id="reset-pathfinding-stats" class="small-btn danger" type="button" data-i18n="gm.reset-pathfinding-stats">重置寻路统计</button>
             </div>
@@ -2426,6 +2410,14 @@
           <pre id="server-logs-content" class="server-log-view" data-i18n="gm.server-logs-meta">日志尚未加载。</pre>
         </div>
         <div id="server-panel-workers" class="server-tab-panel hidden">
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">多线程 Worker Pool</div>
+            </div>
+            <div id="worker-pool-status-meta" class="network-breakdown-subtitle">Worker Pool 状态尚未加载。</div>
+            <div id="worker-pool-all-pools"></div>
+          </div>
+          <hr style="border:none;border-top:1px solid rgba(0,0,0,0.06);margin:16px 0;" />
           <div class="server-log-toolbar">
             <button id="server-workers-refresh" class="small-btn" type="button">刷新 worker 状态</button>
             <div id="server-workers-meta" class="server-log-meta">Worker 状态尚未加载。</div>

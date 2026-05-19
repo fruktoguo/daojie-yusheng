@@ -3268,6 +3268,44 @@ async function runDiagnosticsCommand(command: string): Promise<void> {
   }
 }
 
+/** renderWorkerPoolSection：渲染多线程 Worker Pool 指标到 Worker tab。 */
+function renderWorkerPoolSection(wp: any): void {
+  const statusEl = document.getElementById('worker-pool-status-meta');
+  const containerEl = document.getElementById('worker-pool-all-pools');
+  if (!statusEl || !containerEl) return;
+  if (!wp || (!wp.encoding && !wp.instance && !wp.persistence)) {
+    statusEl.textContent = 'Worker Pool 未启用或数据未就绪（所有开关关闭时走主线程 fallback）';
+    containerEl.innerHTML = '';
+    return;
+  }
+  const totalActive = (wp.encoding?.activeWorkers ?? 0) + (wp.instance?.activeWorkers ?? 0) + (wp.persistence?.activeWorkers ?? 0);
+  const totalSubmitted = (wp.encoding?.totalSubmitted ?? 0) + (wp.instance?.totalSubmitted ?? 0) + (wp.persistence?.totalSubmitted ?? 0);
+  statusEl.textContent = totalActive > 0
+    ? `${totalActive} 个 worker 线程活跃 · 累计 ${totalSubmitted} 任务`
+    : '所有 Pool 未启用或无活跃 worker';
+  const pools = [
+    { key: 'encoding', label: 'AOI 编码池', note: 'envelope encode / pathfind / fov' },
+    { key: 'instance', label: '实例分片池', note: '怪物 AI 预计算 / 资源流动' },
+    { key: 'persistence', label: '持久化序列化池', note: 'JSON.stringify / bigint 转换' },
+  ];
+  containerEl.innerHTML = pools.map(({ key, label, note }) => {
+    const m = wp[key];
+    if (!m) return `<div class="note-card">${label}：无数据</div>`;
+    const active = m.activeWorkers > 0;
+    return `<div class="stats-grid" style="margin-top:10px;">
+      <div class="stats-card" style="grid-column:1/-1;"><div class="stats-card-label">${label}</div><div class="stats-card-value" style="color:${active ? '#16a34a' : '#888'}">${active ? m.activeWorkers + ' worker' : '未启用'}</div><div class="stats-card-note">${note}</div></div>
+      <div class="stats-card"><div class="stats-card-label">提交</div><div class="stats-card-value">${m.totalSubmitted}</div></div>
+      <div class="stats-card"><div class="stats-card-label">完成</div><div class="stats-card-value">${m.totalCompleted}</div></div>
+      <div class="stats-card"><div class="stats-card-label">超时</div><div class="stats-card-value">${m.totalTimedOut}</div></div>
+      <div class="stats-card"><div class="stats-card-label">失败</div><div class="stats-card-value">${m.totalFailed}</div></div>
+      <div class="stats-card"><div class="stats-card-label">Fallback</div><div class="stats-card-value">${m.totalFallback}</div></div>
+      <div class="stats-card"><div class="stats-card-label">进行中</div><div class="stats-card-value">${m.inFlight}</div></div>
+      <div class="stats-card"><div class="stats-card-label">P50</div><div class="stats-card-value">${m.p50Ms.toFixed(1)} ms</div></div>
+      <div class="stats-card"><div class="stats-card-label">P95</div><div class="stats-card-value">${m.p95Ms.toFixed(1)} ms</div></div>
+    </div>`;
+  }).join('');
+}
+
 /** renderWorkerPanel：渲染Worker状态面板。 */
 function renderWorkerPanel(): void {
   serverWorkersRefreshBtn.disabled = workerStateLoading;
@@ -6648,28 +6686,8 @@ function renderSummary(data: GmStateRes): void {
   memoryEstimateMetaEl.textContent = memoryEstimate?.generatedAt > 0
     ? `运行态容器估算：${new Date(memoryEstimate.generatedAt).toLocaleString()} · 已覆盖 ${formatBytes(memoryEstimate.coveredBytes)} / RSS ${formatBytes(memoryEstimate.rssBytes)} · 覆盖 ${memoryEstimate.coveragePercent.toFixed(1)}% · 未覆盖部分需看 V8 heap space 或 Heap Snapshot · 缓存 ${Math.round(memoryEstimate.cacheTtlMs / 1000)} 秒`
     : '运行态内存画像尚未生成。';
-  // Worker Pool 状态渲染
-  const wp = (data.perf as any).workerPool;
-  const wpStatusEl = document.getElementById('worker-pool-status-meta');
-  if (wpStatusEl) {
-    if (wp?.encoding) {
-      const enc = wp.encoding;
-      wpStatusEl.textContent = enc.totalSubmitted > 0
-        ? `Encoding Pool 活跃 · 已处理 ${enc.totalCompleted} 任务 · Fallback ${enc.totalFallback} 次`
-        : 'Worker Pool 未启用或无任务提交（开关关闭时所有任务走主线程 fallback）';
-      const setEl = (id: string, text: string) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-      setEl('wp-total-submitted', String(enc.totalSubmitted));
-      setEl('wp-total-completed', String(enc.totalCompleted));
-      setEl('wp-total-timed-out', String(enc.totalTimedOut));
-      setEl('wp-total-failed', String(enc.totalFailed));
-      setEl('wp-total-fallback', String(enc.totalFallback));
-      setEl('wp-p50', `${enc.p50Ms.toFixed(1)} ms`);
-      setEl('wp-p95', `${enc.p95Ms.toFixed(1)} ms`);
-      setEl('wp-active-workers', String(enc.activeWorkers));
-    } else {
-      wpStatusEl.textContent = 'Worker Pool 指标不可用（服务端未返回 workerPool 字段）';
-    }
-  }
+  // Worker Pool 状态渲染（已移至 Worker tab）
+  renderWorkerPoolSection((data.perf as any).workerPool);
   pathfindingResetMetaEl.textContent = data.perf.pathfinding.statsStartedAt > 0
     ? `寻路统计起点：${new Date(data.perf.pathfinding.statsStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.pathfinding.statsElapsedSec)}`
     : '寻路统计区间尚未开始。';
