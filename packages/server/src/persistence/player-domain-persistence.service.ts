@@ -1098,8 +1098,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     );
   }
 
-  /** 查询所有离线挂机中的玩家位置（in_world=true, online=false） */
-  async listOfflineHangingPlayerPositions(): Promise<Array<{
+  /** 查询所有离线挂机中的玩家位置（in_world=true, online=false, 未超时） */
+  async listOfflineHangingPlayerPositions(offlineTimeoutMs: number = 48 * 60 * 60 * 1000): Promise<Array<{
     playerId: string;
     instanceId: string;
     x: number;
@@ -1108,6 +1108,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     if (!this.pool || !this.enabled) {
       return [];
     }
+    const cutoffAt = Date.now() - Math.max(0, Math.trunc(offlineTimeoutMs));
     const result = await this.pool.query<{
       player_id?: unknown;
       instance_id?: unknown;
@@ -1122,7 +1123,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           AND p.online = false
           AND pc.instance_id IS NOT NULL
           AND pc.instance_id <> ''
+          AND COALESCE(p.offline_since_at, 0) >= $1
       `,
+      [cutoffAt],
     );
     return result.rows
       .map((row) => ({
@@ -1132,6 +1135,25 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         y: Math.trunc(Number(row.y) || 0),
       }))
       .filter((entry) => entry.playerId.length > 0 && entry.instanceId.length > 0);
+  }
+
+  /** 将超时离线玩家标记为彻底离线（in_world=false） */
+  async expireOfflineHangingPlayers(offlineTimeoutMs: number = 48 * 60 * 60 * 1000): Promise<number> {
+    if (!this.pool || !this.enabled) {
+      return 0;
+    }
+    const cutoffAt = Date.now() - Math.max(0, Math.trunc(offlineTimeoutMs));
+    const result = await this.pool.query(
+      `
+        UPDATE ${PLAYER_PRESENCE_TABLE}
+        SET in_world = false, updated_at = now()
+        WHERE in_world = true
+          AND online = false
+          AND COALESCE(offline_since_at, 0) < $1
+      `,
+      [cutoffAt],
+    );
+    return Number(result.rowCount ?? 0);
   }
 
   /** 保存玩家离线收益报告 */

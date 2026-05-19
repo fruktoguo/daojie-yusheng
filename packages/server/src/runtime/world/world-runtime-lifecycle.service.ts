@@ -273,6 +273,16 @@ export class WorldRuntimeLifecycleService {
         if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
             return;
         }
+        // 先将超过 48 小时的离线玩家标记为彻底离线
+        try {
+            const expiredCount = await persistenceService.expireOfflineHangingPlayers();
+            if (expiredCount > 0) {
+                deps.logger?.log?.(`离线挂机超时离场：${expiredCount} 名玩家已标记为彻底离线`);
+            }
+        } catch (error) {
+            deps.logger?.warn?.(`清理超时离线玩家失败：${error instanceof Error ? error.message : String(error)}`);
+        }
+        // 恢复未超时的离线挂机玩家
         let positions: Array<{ playerId: string; instanceId: string; x: number; y: number }>;
         try {
             positions = await persistenceService.listOfflineHangingPlayerPositions();
