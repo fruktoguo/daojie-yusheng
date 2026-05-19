@@ -21,8 +21,8 @@
 **示例**：
 ```typescript
 // world-runtime-inventory-grant.helpers.ts
-export function canGrantItem(inventory: InventorySlot[], itemId: string): boolean { ... }
-export function computeGrantResult(inventory: InventorySlot[], item: ItemStack): GrantResult { ... }
+export function canGrantItem(inventory: InventorySlot[], itemId: string): boolean;
+export function computeGrantResult(inventory: InventorySlot[], item: ItemStack): GrantResult;
 ```
 
 ---
@@ -45,7 +45,7 @@ export function computeGrantResult(inventory: InventorySlot[], item: ItemStack):
 @Injectable()
 export class PlayerInventoryService {
   constructor(private readonly playerRuntime: PlayerRuntimeService) {}
-  grantItem(playerId: string, itemId: string, count: number): GrantResult { ... }
+  grantItem(playerId: string, itemId: string, count: number): GrantResult;
 }
 ```
 
@@ -68,30 +68,8 @@ export class PlayerInventoryService {
 // world-runtime-state-facade.service.ts
 @Injectable()
 export class WorldRuntimeStateFacadeService {
-  async advanceFrame(): Promise<void> {
-    this.orchestration.advanceFrame();
-  }
+  async advanceFrame(): Promise<void>;
 }
-```
-
----
-
-## 拆分决策流程
-
-```
-需要拆分的逻辑
-  │
-  ├─ 是否需要依赖注入？
-  │   ├─ 否 → 纯函数 Helper (.helpers.ts)
-  │   └─ 是 ─┐
-  │           ├─ 是否只做调用编排？
-  │           │   ├─ 是 → Facade Service
-  │           │   └─ 否 → 独立 Service
-  │           └─ 是否有运行时状态？
-  │               ├─ 是 → 独立 Service
-  │               └─ 否 → 可选 Helper 或 Service
-  └─ 是否是热路径纯计算？
-      └─ 是 → 纯函数 Helper（便于 bench 和内联优化）
 ```
 
 ---
