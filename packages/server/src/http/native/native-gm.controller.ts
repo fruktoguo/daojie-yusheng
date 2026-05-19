@@ -1146,7 +1146,16 @@ export class NativeGmController {
     if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
       this.nextGmWorldService.setNetworkPayloadCaptureEnabled(value);
     }
-    return { ok: true, key, value };
+    const workerPoolChanged = isWorkerPoolFlagKey(key.trim());
+    if (workerPoolChanged) {
+      this.workerPoolToggleService?.syncToPool();
+    }
+    return {
+      ok: true,
+      key,
+      value,
+      workerPool: workerPoolChanged ? this.workerPoolToggleService?.getAllToggleStates() ?? null : undefined,
+    };
   }
 
   @Delete('runtime-flags/:key')
@@ -1159,8 +1168,17 @@ export class NativeGmController {
       this.nextGmWorldService.setNetworkPayloadCaptureEnabled(false);
       return { ok: true, key: GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY };
     }
-    await this.runtimeFlagService.deleteFlag(key);
-    return { ok: true, key };
+    const normalizedKey = key.trim();
+    await this.runtimeFlagService.deleteFlag(normalizedKey);
+    const workerPoolChanged = isWorkerPoolFlagKey(normalizedKey);
+    if (workerPoolChanged) {
+      this.workerPoolToggleService?.syncToPool();
+    }
+    return {
+      ok: true,
+      key: normalizedKey,
+      workerPool: workerPoolChanged ? this.workerPoolToggleService?.getAllToggleStates() ?? null : undefined,
+    };
   }
 
   @Get('worker-pool/toggles')
@@ -1207,6 +1225,7 @@ export class NativeGmController {
     }
     const value = body?.value === true;
     await this.runtimeFlagService.setFlag(flagKey, value);
+    this.workerPoolToggleService?.syncToPool();
     return {
       ok: true,
       key,
@@ -1262,4 +1281,8 @@ function resolveWorkerPoolFlagKey(key: string): string | null {
     persistence: WORKER_POOL_FLAG_KEYS.persistence,
   };
   return mapping[key] ?? null;
+}
+
+function isWorkerPoolFlagKey(key: string): boolean {
+  return (Object.values(WORKER_POOL_FLAG_KEYS) as string[]).includes(key);
 }

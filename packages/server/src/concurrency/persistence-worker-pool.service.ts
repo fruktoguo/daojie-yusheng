@@ -2,6 +2,9 @@
  * Persistence Worker Pool 服务。
  * 无状态池：吃 dirty domain 快照，输出 JSON/SQL 构造所需的序列化结果。
  * 主线程仍负责 pool.query、lease 校验和 markPersisted。
+ *
+ * 热路径只读 config.enabled（零开销）。
+ * GM toggle 变更时通过 setEnabled() 写入 config.enabled 并按需启动/关闭 worker。
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -30,13 +33,31 @@ export class PersistenceWorkerPoolService {
   private roundRobinIndex = 0;
   private shuttingDown = false;
 
-  constructor(private readonly metricsService: WorkerPoolMetricsService) {
+  constructor(
+    private readonly metricsService: WorkerPoolMetricsService,
+  ) {
     this.config = {
       enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true'
         && process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED === 'true',
       poolSize: Math.max(1, Math.min(Number(process.env.SERVER_PERSISTENCE_WORKER_COUNT) || 2, 4)),
       defaultDeadlineMs: 1000,
     };
+  }
+
+  /**
+   * 运行时开关：由 WorkerPoolToggleService 在 GM flag 变更时调用。
+   * 打开时延迟启动 worker，关闭时终止 worker。
+   */
+  setEnabled(value: boolean): void {
+    if (this.config.enabled === value) return;
+    this.config.enabled = value;
+    if (value) {
+      this.logger.log('PersistenceWorkerPool 运行时启用');
+      this.ensureWorkersStarted();
+    } else {
+      this.logger.log('PersistenceWorkerPool 运行时禁用');
+      this.shutdownWorkers();
+    }
   }
 
   async submit<TPayload, TResult>(
@@ -47,15 +68,15 @@ export class PersistenceWorkerPoolService {
   ): Promise<WorkerTaskResult<TResult>> {
     const taskId = randomUUID();
     this.metricsService.recordSubmit('persistence');
-    if (!this.isEnabled()) return this.executeFallback(taskId, payload, fallback);
+    if (!this.config.enabled) return this.executeFallback(taskId, payload, fallback);
     this.ensureWorkersStarted();
     if (!this.workers.some(Boolean)) return this.executeFallback(taskId, payload, fallback);
     return this.dispatchToWorker(taskId, kind, payload, deadlineMs ?? this.config.defaultDeadlineMs, fallback);
   }
 
   initialize(): void {
-    if (!this.isEnabled()) {
-      this.logger.log('PersistenceWorkerPool 已禁用');
+    if (!this.config.enabled) {
+      this.logger.log('PersistenceWorkerPool 已禁用（等待 GM toggle 启用）');
       return;
     }
     this.ensureWorkersStarted();
@@ -63,6 +84,10 @@ export class PersistenceWorkerPoolService {
 
   shutdown(): void {
     this.shuttingDown = true;
+    this.shutdownWorkers();
+  }
+
+  private shutdownWorkers(): void {
     for (const worker of this.workers) worker?.terminate();
     this.workers = [];
     for (const [taskId, pending] of this.pendingTasks) {

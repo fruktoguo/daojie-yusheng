@@ -1,10 +1,11 @@
 /**
  * Encoding Worker Pool 服务。
  * CPU 无状态池：处理 AOI envelope 编码、A* 寻路、FOV 计算。
- * 当前为空实现：所有 submit() 直接走主线程同步 fallback。
- * 设置 SERVER_WORKER_POOL_ENABLED=true 后启用真实 worker 线程。
+ *
+ * 热路径只读 config.enabled（零开销）。
+ * GM toggle 变更时通过 setEnabled() 写入 config.enabled 并按需启动/关闭 worker。
  */
-import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'node:worker_threads';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
@@ -17,7 +18,6 @@ import type {
   WorkerPoolMetrics,
 } from './worker-task.types';
 import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
-import { WorkerPoolToggleService } from './worker-pool-toggle.service';
 
 /** 同步 fallback 函数签名 */
 export type SyncFallback<TPayload, TResult> = (payload: TPayload) => TResult;
@@ -40,14 +40,28 @@ export class EncodingWorkerPoolService {
 
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly toggleService?: WorkerPoolToggleService,
   ) {
     this.config = {
       enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true',
       poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
       defaultDeadlineMs: 500,
     };
+  }
+
+  /**
+   * 运行时开关：由 WorkerPoolToggleService 在 GM flag 变更时调用。
+   * 打开时延迟启动 worker，关闭时终止 worker。
+   */
+  setEnabled(value: boolean): void {
+    if (this.config.enabled === value) return;
+    this.config.enabled = value;
+    if (value) {
+      this.logger.log('EncodingWorkerPool 运行时启用');
+      this.ensureWorkersStarted();
+    } else {
+      this.logger.log('EncodingWorkerPool 运行时禁用');
+      this.shutdownWorkers();
+    }
   }
 
   /** 提交任务到 worker pool，返回结果 Promise */
@@ -62,11 +76,8 @@ export class EncodingWorkerPoolService {
 
     this.metricsService.recordSubmit('encoding');
 
-    // 动态检查 toggle（支持 GM 运行时切换）
-    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
-
-    // 未启用时走同步 fallback
-    if (!dynamicEnabled) {
+    // 热路径只读 config.enabled
+    if (!this.config.enabled) {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
 
@@ -85,9 +96,8 @@ export class EncodingWorkerPoolService {
 
   /** 初始化 worker pool（由 WorkerPoolModule onModuleInit 调用） */
   initialize(): void {
-    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
-    if (!dynamicEnabled) {
-      this.logger.log('EncodingWorkerPool 已禁用（等待 GM toggle 或环境变量启用）');
+    if (!this.config.enabled) {
+      this.logger.log('EncodingWorkerPool 已禁用（等待 GM toggle 启用）');
       return;
     }
     this.ensureWorkersStarted();
@@ -108,14 +118,18 @@ export class EncodingWorkerPoolService {
     }
   }
 
-  /** 关闭所有 worker */
+  /** 关闭所有 worker（进程退出时调用） */
   shutdown(): void {
     this.shuttingDown = true;
+    this.shutdownWorkers();
+  }
+
+  /** 关闭 worker 线程（运行时禁用 / 进程退出） */
+  private shutdownWorkers(): void {
     for (const worker of this.workers) {
       worker.terminate();
     }
     this.workers = [];
-    // 清理所有 pending 任务
     for (const [taskId, pending] of this.pendingTasks) {
       clearTimeout(pending.timer);
       pending.resolve({
@@ -130,10 +144,8 @@ export class EncodingWorkerPoolService {
   }
 
   /** 是否启用 */
-  /** 是否启用（动态检查 GM toggle） */
   isEnabled(): boolean {
-    const dynamicEnabled = this.toggleService?.isPoolEnabled() ?? this.config.enabled;
-    return dynamicEnabled;
+    return this.config.enabled;
   }
 
   /** 获取指标 */

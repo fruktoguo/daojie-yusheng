@@ -1,6 +1,9 @@
 /**
  * Instance Worker Pool 服务。
  * 实例分片池：只接收 POJO 快照并返回 intent/mutation proposal，权威状态仍由主线程应用。
+ *
+ * 热路径只读 config.enabled（零开销）。
+ * GM toggle 变更时通过 setEnabled() 写入 config.enabled 并按需启动/关闭 worker。
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -30,13 +33,31 @@ export class InstanceWorkerPoolService {
   private roundRobinIndex = 0;
   private shuttingDown = false;
 
-  constructor(private readonly metricsService: WorkerPoolMetricsService) {
+  constructor(
+    private readonly metricsService: WorkerPoolMetricsService,
+  ) {
     this.config = {
       enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true'
         && process.env.SERVER_INSTANCE_WORKER_ENABLED === 'true',
       poolSize: Math.max(1, Math.min(Number(process.env.SERVER_INSTANCE_WORKER_COUNT) || cpus().length - 2, 6)),
       defaultDeadlineMs: 800,
     };
+  }
+
+  /**
+   * 运行时开关：由 WorkerPoolToggleService 在 GM flag 变更时调用。
+   * 打开时延迟启动 worker，关闭时终止 worker。
+   */
+  setEnabled(value: boolean): void {
+    if (this.config.enabled === value) return;
+    this.config.enabled = value;
+    if (value) {
+      this.logger.log('InstanceWorkerPool 运行时启用');
+      this.ensureWorkersStarted();
+    } else {
+      this.logger.log('InstanceWorkerPool 运行时禁用');
+      this.shutdownWorkers();
+    }
   }
 
   async submit<TPayload, TResult>(
@@ -47,15 +68,15 @@ export class InstanceWorkerPoolService {
   ): Promise<WorkerTaskResult<TResult>> {
     const taskId = randomUUID();
     this.metricsService.recordSubmit('instance');
-    if (!this.isEnabled()) return this.executeFallback(taskId, payload, fallback);
+    if (!this.config.enabled) return this.executeFallback(taskId, payload, fallback);
     this.ensureWorkersStarted();
     if (!this.workers.some(Boolean)) return this.executeFallback(taskId, payload, fallback);
     return this.dispatchToWorker(taskId, kind, payload, deadlineMs ?? this.config.defaultDeadlineMs, fallback);
   }
 
   initialize(): void {
-    if (!this.isEnabled()) {
-      this.logger.log('InstanceWorkerPool 已禁用');
+    if (!this.config.enabled) {
+      this.logger.log('InstanceWorkerPool 已禁用（等待 GM toggle 启用）');
       return;
     }
     this.ensureWorkersStarted();
@@ -63,6 +84,10 @@ export class InstanceWorkerPoolService {
 
   shutdown(): void {
     this.shuttingDown = true;
+    this.shutdownWorkers();
+  }
+
+  private shutdownWorkers(): void {
     for (const worker of this.workers) worker?.terminate();
     this.workers = [];
     for (const [taskId, pending] of this.pendingTasks) {
