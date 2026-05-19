@@ -26,6 +26,7 @@ import {
   type GmDatabaseCleanupRes,
   type GmDiagnosticsQueryReq,
   type GmDiagnosticsQueryRes,
+  type GmDiagnosticsResultSet,
   type GmUploadDatabaseBackupRes,
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
@@ -116,6 +117,11 @@ import {
   GM_QUEST_STATUS_OPTIONS,
   GM_TECHNIQUE_REALM_OPTIONS,
 } from './constants/world/gm';
+import {
+  mergeRuntimeFlags,
+  groupRuntimeFlags,
+  PRESET_FLAGS,
+} from './constants/world/gm-runtime-flag-registry';
 import { getLocalEditorCatalog } from './content/editor-catalog';
 import { resolveTechniqueIdFromBookItemId } from './content/local-templates';
 import { GmWorldViewer } from './gm-world-viewer';
@@ -285,7 +291,6 @@ const serverSubtabMemoryBtn = document.getElementById('server-subtab-memory') as
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 /** serverSubtabLogsBtn：服务端Subtab日志Btn。 */
 const serverSubtabLogsBtn = document.getElementById('server-subtab-logs') as HTMLButtonElement;
-const serverSubtabDiagnosticsBtn = document.getElementById('server-subtab-diagnostics') as HTMLButtonElement;
 /** serverSubtabWorkersBtn：服务端Subtab Workers Btn。 */
 const serverSubtabWorkersBtn = document.getElementById('server-subtab-workers') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
@@ -300,7 +305,6 @@ const serverPanelMemoryEl = document.getElementById('server-panel-memory') as HT
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
 /** serverPanelLogsEl：服务端面板日志El。 */
 const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
-const serverPanelDiagnosticsEl = document.getElementById('server-panel-diagnostics') as HTMLElement;
 /** serverPanelWorkersEl：服务端面板Workers El。 */
 const serverPanelWorkersEl = document.getElementById('server-panel-workers') as HTMLElement;
 const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement;
@@ -329,12 +333,14 @@ const serverLogsRefreshBtn = document.getElementById('server-logs-refresh') as H
 const serverLogsMetaEl = document.getElementById('server-logs-meta') as HTMLDivElement;
 /** serverLogsContentEl：服务端日志内容El。 */
 const serverLogsContentEl = document.getElementById('server-logs-content') as HTMLPreElement;
-const serverDiagnosticsCommandEl = document.getElementById('server-diagnostics-command') as HTMLTextAreaElement;
-const serverDiagnosticsLimitEl = document.getElementById('server-diagnostics-limit') as HTMLInputElement;
-const serverDiagnosticsRunBtn = document.getElementById('server-diagnostics-run') as HTMLButtonElement;
-const serverDiagnosticsHelpBtn = document.getElementById('server-diagnostics-help') as HTMLButtonElement;
-const serverDiagnosticsMetaEl = document.getElementById('server-diagnostics-meta') as HTMLDivElement;
-const serverDiagnosticsOutputEl = document.getElementById('server-diagnostics-output') as HTMLPreElement;
+function getDiagCommandEl(): HTMLTextAreaElement | null { return document.getElementById('server-diagnostics-command') as HTMLTextAreaElement | null; }
+function getDiagLimitEl(): HTMLInputElement | null { return document.getElementById('server-diagnostics-limit') as HTMLInputElement | null; }
+function getDiagRunBtn(): HTMLButtonElement | null { return document.getElementById('server-diagnostics-run') as HTMLButtonElement | null; }
+function getDiagHelpBtn(): HTMLButtonElement | null { return document.getElementById('server-diagnostics-help') as HTMLButtonElement | null; }
+function getDiagMetaEl(): HTMLDivElement | null { return document.getElementById('server-diagnostics-meta') as HTMLDivElement | null; }
+function getDiagOutputEl(): HTMLDivElement | null { return document.getElementById('server-diagnostics-output') as HTMLDivElement | null; }
+function getDiagUndoBtn(): HTMLButtonElement | null { return document.getElementById('server-diagnostics-undo') as HTMLButtonElement | null; }
+function getDiagShortcutsEl(): HTMLDivElement | null { return document.getElementById('diagnostics-shortcuts') as HTMLDivElement | null; }
 /** trafficResetMetaEl：traffic Reset元数据El。 */
 const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
 /** trafficTotalInEl：traffic总量In El。 */
@@ -531,7 +537,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'diagnostics' | 'workers' | 'flags' | 'objects';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'flags' | 'objects';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -647,8 +653,8 @@ persistentFileInput.accept = '.dump,.gz,application/octet-stream,application/gzi
 persistentFileInput.addEventListener('change', () => {
   updateDatabaseImportFileSelection(persistentFileInput.files?.[0] ?? null);
 });
-type DatabaseSubTab = 'backup' | 'table-stats';
-let databaseSubTab: DatabaseSubTab = 'backup';
+type DatabaseSubTab = 'commands' | 'backup' | 'table-stats';
+let databaseSubTab: DatabaseSubTab = 'commands';
 let tableStatsState: GmDatabaseTableStatsRes | null = null;
 let tableStatsLoading = false;
 let cleanupBusy = false;
@@ -828,6 +834,8 @@ let serverLogsBufferSize = 0;
 let serverLogsLoading = false;
 let serverDiagnosticsLoading = false;
 let lastServerDiagnosticsResult: GmDiagnosticsQueryRes | null = null;
+let lastExecCommand: string | null = null;
+let lastExecPreviousCommand: string | null = null;
 /** workerState：Worker状态。 */
 let workerState: GmWorkerStateRes | null = null;
 /** workerStateLoading：Worker状态读取中。 */
@@ -2725,7 +2733,6 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabMemoryBtn.classList.toggle('active', tab === 'memory');
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
-  serverSubtabDiagnosticsBtn.classList.toggle('active', tab === 'diagnostics');
   serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
   serverSubtabFlagsBtn.classList.toggle('active', tab === 'flags');
   serverSubtabObjectsBtn.classList.toggle('active', tab === 'objects');
@@ -2735,7 +2742,6 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverPanelMemoryEl.classList.toggle('hidden', tab !== 'memory');
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
-  serverPanelDiagnosticsEl.classList.toggle('hidden', tab !== 'diagnostics');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
   serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
   serverPanelObjectsEl.classList.toggle('hidden', tab !== 'objects');
@@ -2849,45 +2855,379 @@ async function loadServerLogs(loadOlder: boolean): Promise<void> {
   }
 }
 
+const DIAG_HISTORY_KEY = 'gm_diag_history';
+const DIAG_HISTORY_MAX = 20;
+let diagHistoryIndex = -1;
+
+function diagHistoryLoad(): string[] {
+  try {
+    const raw = localStorage.getItem(DIAG_HISTORY_KEY);
+    return raw ? JSON.parse(raw) as string[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function diagHistoryPush(command: string): void {
+  const history = diagHistoryLoad();
+  const idx = history.indexOf(command);
+  if (idx !== -1) history.splice(idx, 1);
+  history.unshift(command);
+  if (history.length > DIAG_HISTORY_MAX) history.length = DIAG_HISTORY_MAX;
+  localStorage.setItem(DIAG_HISTORY_KEY, JSON.stringify(history));
+  diagHistoryIndex = -1;
+}
+
+function diagHistoryNavigate(direction: 'up' | 'down'): string | null {
+  const history = diagHistoryLoad();
+  if (history.length === 0) return null;
+  if (direction === 'up') {
+    if (diagHistoryIndex < history.length - 1) {
+      diagHistoryIndex++;
+      return history[diagHistoryIndex] ?? null;
+    }
+    return null;
+  }
+  if (diagHistoryIndex > 0) {
+    diagHistoryIndex--;
+    return history[diagHistoryIndex] ?? null;
+  }
+  if (diagHistoryIndex === 0) {
+    diagHistoryIndex = -1;
+    return '';
+  }
+  return null;
+}
+
 function renderDiagnosticsPanel(): void {
-  serverDiagnosticsRunBtn.disabled = serverDiagnosticsLoading;
-  serverDiagnosticsHelpBtn.disabled = serverDiagnosticsLoading;
+  const runBtn = getDiagRunBtn();
+  const helpBtn = getDiagHelpBtn();
+  const metaEl = getDiagMetaEl();
+  const outputEl = getDiagOutputEl();
+  if (runBtn) runBtn.disabled = serverDiagnosticsLoading;
+  if (helpBtn) helpBtn.disabled = serverDiagnosticsLoading;
   if (serverDiagnosticsLoading) {
-    serverDiagnosticsMetaEl.textContent = '查询执行中…';
+    if (metaEl) metaEl.textContent = '查询执行中…';
     return;
   }
   if (!lastServerDiagnosticsResult) {
-    serverDiagnosticsMetaEl.textContent = '查询尚未执行。';
-    serverDiagnosticsOutputEl.textContent = '可输入 help 查看可用指令。';
+    if (metaEl) metaEl.textContent = '查询尚未执行。';
+    if (outputEl) outputEl.innerHTML = '<pre class="server-log-view">可输入 help 查看可用指令。</pre>';
     return;
   }
   const statusText = lastServerDiagnosticsResult.ok ? '成功' : '失败';
   const rowCount = lastServerDiagnosticsResult.resultSets.reduce((sum, resultSet) => sum + resultSet.rowCount, 0);
-  serverDiagnosticsMetaEl.textContent = `${statusText} · ${formatDateTime(lastServerDiagnosticsResult.executedAt)} · ${lastServerDiagnosticsResult.durationMs} ms · ${rowCount} 行`;
-  serverDiagnosticsOutputEl.textContent = formatDiagnosticsResult(lastServerDiagnosticsResult);
+  if (metaEl) metaEl.textContent = `${statusText} · ${formatDateTime(lastServerDiagnosticsResult.executedAt)} · ${lastServerDiagnosticsResult.durationMs} ms · ${rowCount} 行`;
+  if (outputEl) outputEl.innerHTML = renderDiagnosticsResultAsTable(lastServerDiagnosticsResult);
 }
 
-function formatDiagnosticsResult(result: GmDiagnosticsQueryRes): string {
-  const lines: string[] = [
-    `command: ${result.command}`,
-    `ok: ${result.ok}`,
-  ];
+function updateUndoButton(): void {
+  const btn = getDiagUndoBtn();
+  if (btn) {
+    btn.disabled = !lastExecCommand;
+    btn.title = lastExecCommand ? `撤回: ${lastExecCommand.slice(0, 80)}` : '';
+  }
+}
+
+function renderDiagnosticsResultAsTable(result: GmDiagnosticsQueryRes): string {
+  const parts: string[] = [];
   if (result.message) {
-    lines.push(`message: ${result.message}`);
+    parts.push(`<div class="diagnostics-meta-bar" style="color:var(--stamp-red);">${escapeHtml(result.message)}</div>`);
   }
   if (result.warnings && result.warnings.length > 0) {
-    lines.push(`warnings: ${result.warnings.join(' | ')}`);
+    parts.push(`<div class="diagnostics-meta-bar">${result.warnings.map((w) => escapeHtml(w)).join(' · ')}</div>`);
   }
   for (const resultSet of result.resultSets) {
-    lines.push('');
-    lines.push(`## ${resultSet.title} (${resultSet.rowCount}${resultSet.truncated ? '+' : ''} rows)`);
+    parts.push('<div class="diagnostics-result-section">');
+    parts.push(`<div class="diagnostics-result-title">${escapeHtml(resultSet.title)} (${resultSet.rowCount}${resultSet.truncated ? '+' : ''} rows)</div>`);
     if (resultSet.rows.length === 0) {
-      lines.push('(empty)');
-      continue;
+      parts.push('<div class="diagnostics-meta-bar">(empty)</div>');
+    } else {
+      parts.push(renderResultSetTable(resultSet));
     }
-    lines.push(JSON.stringify(resultSet.rows, null, 2));
+    parts.push('</div>');
   }
-  return lines.join('\n');
+  return parts.join('');
+}
+
+function renderResultSetTable(resultSet: GmDiagnosticsResultSet): string {
+  const columns = resultSet.columns && resultSet.columns.length > 0
+    ? resultSet.columns
+    : Object.keys(resultSet.rows[0] ?? {});
+  const rows: string[] = [];
+  rows.push(`<table class="diagnostics-table" data-diag-title="${escapeHtml(resultSet.title)}"><thead><tr>`);
+  for (const col of columns) {
+    rows.push(`<th>${escapeHtml(col)}</th>`);
+  }
+  rows.push('</tr></thead><tbody>');
+  for (let rowIdx = 0; rowIdx < resultSet.rows.length; rowIdx++) {
+    const row = resultSet.rows[rowIdx] as Record<string, unknown>;
+    rows.push(`<tr data-row-idx="${rowIdx}">`);
+    for (const col of columns) {
+      const value = row[col];
+      rows.push(renderTableCell(value, col));
+    }
+    rows.push('</tr>');
+  }
+  rows.push('</tbody></table>');
+  return rows.join('');
+}
+
+function renderTableCell(value: unknown, col: string): string {
+  const colAttr = `data-col="${escapeHtml(col)}"`;
+  if (value === null || value === undefined) {
+    return `<td class="cell-null diag-cell-editable" ${colAttr} data-raw-value="NULL">NULL</td>`;
+  }
+  if (typeof value === 'boolean') {
+    return `<td class="cell-bool-${value} diag-cell-editable" ${colAttr} data-raw-value="${value}">${value}</td>`;
+  }
+  if (typeof value === 'number') {
+    return `<td class="cell-number diag-cell-editable" ${colAttr} data-raw-value="${value}">${value}</td>`;
+  }
+  if (typeof value === 'object') {
+    const json = JSON.stringify(value);
+    const display = json.length > 120 ? `${json.slice(0, 120)}…` : json;
+    return `<td class="diag-cell-editable" ${colAttr} title="${escapeHtml(json)}" data-raw-value="${escapeHtml(json)}">${escapeHtml(display)}</td>`;
+  }
+  const str = String(value);
+  const display = str.length > 80 ? `${str.slice(0, 80)}…` : str;
+  return `<td class="diag-cell-editable" ${colAttr} title="${escapeHtml(str)}" data-raw-value="${escapeHtml(str)}">${escapeHtml(display)}</td>`;
+}
+
+const DIAG_PLAYER_HISTORY_KEY = 'gm_diag_player_history';
+const DIAG_PLAYER_HISTORY_MAX = 10;
+
+function diagPlayerHistoryLoad(): string[] {
+  try {
+    const raw = localStorage.getItem(DIAG_PLAYER_HISTORY_KEY);
+    return raw ? JSON.parse(raw) as string[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function diagPlayerHistorySave(value: string): void {
+  const history = diagPlayerHistoryLoad();
+  const idx = history.indexOf(value);
+  if (idx !== -1) history.splice(idx, 1);
+  history.unshift(value);
+  if (history.length > DIAG_PLAYER_HISTORY_MAX) history.length = DIAG_PLAYER_HISTORY_MAX;
+  localStorage.setItem(DIAG_PLAYER_HISTORY_KEY, JSON.stringify(history));
+}
+
+function showDiagPrompt(title: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const history = diagPlayerHistoryLoad();
+    const overlay = document.createElement('div');
+    overlay.className = 'diag-prompt-overlay';
+
+    const box = document.createElement('div');
+    box.className = 'diag-prompt-box';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'diag-prompt-title';
+    titleEl.textContent = title;
+    box.appendChild(titleEl);
+
+    const input = document.createElement('input');
+    input.className = 'diag-prompt-input';
+    input.type = 'text';
+    input.placeholder = '输入后回车确认';
+    box.appendChild(input);
+
+    if (history.length > 0) {
+      const historySection = document.createElement('div');
+      historySection.className = 'diag-prompt-history';
+      const historyTitle = document.createElement('div');
+      historyTitle.className = 'diag-prompt-history-title';
+      historyTitle.textContent = '最近使用';
+      historySection.appendChild(historyTitle);
+      for (const item of history) {
+        const row = document.createElement('div');
+        row.className = 'diag-prompt-history-item';
+        row.textContent = item;
+        row.addEventListener('click', () => { cleanup(); diagPlayerHistorySave(item); resolve(item); });
+        historySection.appendChild(row);
+      }
+      box.appendChild(historySection);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'diag-prompt-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '取消';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'primary';
+    confirmBtn.textContent = '确定';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    box.appendChild(actions);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    input.focus();
+
+    const cleanup = () => { overlay.remove(); };
+    const submit = () => {
+      const val = input.value.trim();
+      if (!val) { cleanup(); resolve(null); return; }
+      cleanup();
+      diagPlayerHistorySave(val);
+      resolve(val);
+    };
+
+    cancelBtn.addEventListener('click', () => { cleanup(); resolve(null); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(null); } });
+    confirmBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(); resolve(null); }
+    });
+  });
+}
+
+function startDiagCellEdit(td: HTMLTableCellElement): void {
+  const rawValue = td.dataset.rawValue ?? td.textContent ?? '';
+  const originalHtml = td.innerHTML;
+  const originalClasses = td.className;
+  td.className = 'cell-editing';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = rawValue === 'NULL' ? '' : rawValue;
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  const cancel = () => {
+    td.className = originalClasses;
+    td.innerHTML = originalHtml;
+  };
+
+  const commit = () => {
+    const newValue = input.value;
+    if (newValue === rawValue || (rawValue === 'NULL' && newValue === '')) {
+      cancel();
+      return;
+    }
+    // 生成 UPDATE SQL 并执行
+    const col = td.dataset.col;
+    const tr = td.closest('tr');
+    const table = td.closest<HTMLTableElement>('table.diagnostics-table');
+    const title = table?.dataset.diagTitle ?? '';
+    if (!col || !tr || !title) {
+      cancel();
+      setStatus('无法确定表名或列名', true);
+      return;
+    }
+    const tableName = inferTableName(title);
+    if (!tableName) {
+      cancel();
+      setStatus(`无法从 "${title}" 推断表名，请手动执行 exec`, true);
+      return;
+    }
+    const whereClause = buildWhereFromRow(tr, col);
+    if (!whereClause) {
+      cancel();
+      setStatus('无法确定 WHERE 条件（需要行内有可用主键列）', true);
+      return;
+    }
+    const sqlValue = newValue === '' || newValue.toLowerCase() === 'null' ? 'NULL' : `'${newValue.replace(/'/gu, "''")}'`;
+    const sql = `exec UPDATE ${tableName} SET ${col} = ${sqlValue} WHERE ${whereClause}`;
+    const cmdEl = getDiagCommandEl();
+    if (cmdEl) cmdEl.value = sql;
+    cancel();
+    runDiagnosticsCommand(sql).catch((err: unknown) => {
+      setStatus(err instanceof Error ? err.message : '执行修改失败', true);
+    });
+  };
+
+  input.addEventListener('blur', cancel, { once: true });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.removeEventListener('blur', cancel);
+      commit();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      input.removeEventListener('blur', cancel);
+      cancel();
+    }
+  });
+}
+
+function inferTableName(title: string): string {
+  // title 格式如 "techniques 454", "inventory xxx", "table outbox_event", "identity (xxx)", "wallet (xxx)"
+  const cleaned = title.replace(/\s*\(.*\)\s*$/u, '').trim();
+  const parts = cleaned.split(/\s+/u);
+  // 预置命令名到表名的映射
+  const commandToTable: Record<string, string> = {
+    identity: 'server_player_identity',
+    inventory: 'player_inventory_item',
+    equipment: 'player_equipment_slot',
+    techniques: 'player_technique_state',
+    quests: 'player_quest_progress',
+    buffs: 'player_persistent_buff_state',
+    wallet: 'player_wallet',
+    counters: 'player_counters',
+    mail: 'player_mail',
+    presence: 'player_presence',
+    snapshot: 'server_player_snapshot',
+    'outbox summary': 'outbox_event',
+    'outbox topics': 'outbox_event',
+    'outbox sample': 'outbox_event',
+    deadletter: 'dead_letter_event',
+    market: 'server_market_order',
+    trades: 'server_market_trade_history',
+    flush: 'player_flush_ledger',
+    audit: 'asset_audit_log',
+  };
+  const verb = parts[0]?.toLowerCase() ?? '';
+  if (commandToTable[verb]) return commandToTable[verb];
+  // "table xxx" 格式
+  if (verb === 'table' && parts[1]) return parts[1];
+  // 如果 title 本身看起来像表名
+  if (/^[a-z_][a-z0-9_]*$/u.test(cleaned)) return cleaned;
+  return '';
+}
+
+function buildWhereFromRow(tr: HTMLElement, excludeCol: string): string {
+  // 优先用常见主键列构建 WHERE
+  const primaryKeyCandidates = [
+    'player_id', 'item_instance_id', 'event_id', 'mail_id', 'order_id',
+    'log_id', 'instance_id', 'slot_type', 'tech_id', 'quest_id',
+    'buff_id', 'counter_key', 'wallet_type', 'slot_index',
+  ];
+  const cells = tr.querySelectorAll<HTMLTableCellElement>('td[data-col]');
+  const conditions: string[] = [];
+  // 先找主键列
+  for (const candidate of primaryKeyCandidates) {
+    for (const cell of cells) {
+      if (cell.dataset.col === candidate) {
+        const val = cell.dataset.rawValue ?? '';
+        if (val && val !== 'NULL') {
+          conditions.push(`${candidate} = '${val.replace(/'/gu, "''")}'`);
+        }
+      }
+    }
+    if (conditions.length > 0) break;
+  }
+  // 如果没找到主键，用前两个非空非修改列
+  if (conditions.length === 0) {
+    for (const cell of cells) {
+      const col = cell.dataset.col ?? '';
+      if (col === excludeCol) continue;
+      const val = cell.dataset.rawValue ?? '';
+      if (val && val !== 'NULL' && val !== '{}' && val !== '[]') {
+        conditions.push(`${col} = '${val.replace(/'/gu, "''")}'`);
+        if (conditions.length >= 2) break;
+      }
+    }
+  }
+  return conditions.join(' AND ');
 }
 
 async function runDiagnosticsCommand(command: string): Promise<void> {
@@ -2899,22 +3239,32 @@ async function runDiagnosticsCommand(command: string): Promise<void> {
     setStatus('请输入查询指令', true);
     return;
   }
+  // 在重绘前读取当前 UI 状态
+  const limitEl = getDiagLimitEl();
+  const currentLimit = limitEl ? Number(limitEl.value) : 50;
+  diagHistoryPush(normalizedCommand);
   serverDiagnosticsLoading = true;
   renderDiagnosticsPanel();
   try {
-    const limit = Number(serverDiagnosticsLimitEl.value);
     const requestBody: GmDiagnosticsQueryReq = {
       command: normalizedCommand,
-      limit: Number.isFinite(limit) ? Math.trunc(limit) : undefined,
+      limit: Number.isFinite(currentLimit) ? Math.trunc(currentLimit) : undefined,
+      confirm: true,
     };
     lastServerDiagnosticsResult = await request<GmDiagnosticsQueryRes>(buildGmDiagnosticsQueryApiPath(), {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
+    // 记录 exec 命令用于撤回
+    if (lastServerDiagnosticsResult.ok && normalizedCommand.toLowerCase().startsWith('exec ')) {
+      lastExecPreviousCommand = lastExecCommand;
+      lastExecCommand = normalizedCommand;
+    }
     setStatus(lastServerDiagnosticsResult.ok ? '诊断查询完成' : `诊断查询失败：${lastServerDiagnosticsResult.message ?? '未知错误'}`, !lastServerDiagnosticsResult.ok);
   } finally {
     serverDiagnosticsLoading = false;
     renderDiagnosticsPanel();
+    updateUndoButton();
   }
 }
 
@@ -3088,51 +3438,61 @@ function renderRuntimeFlagsPanel(): void {
     return;
   }
 
-  // Worker Pool 预置开关（始终显示，即使未被显式设置）
-  const WORKER_POOL_PRESET_FLAGS = [
-    { key: 'worker_pool_enabled', label: 'Worker Pool 总开关' },
-    { key: 'worker_pool_aoi_envelope_enabled', label: 'AOI Envelope 编码' },
-    { key: 'worker_pool_pathfinding_enabled', label: '寻路 Worker' },
-    { key: 'worker_pool_fov_enabled', label: 'FOV 计算' },
-    { key: 'worker_pool_instance_enabled', label: '实例 Tick 分片' },
-    { key: 'worker_pool_persistence_enabled', label: '持久化序列化' },
-  ];
+  const merged = mergeRuntimeFlags(runtimeFlags);
+  const grouped = groupRuntimeFlags(merged);
+  const totalCount = merged.length;
 
-  // 合并预置开关和已有 flags（去重）
-  const existingKeys = new Set(runtimeFlags.map((f) => f.key));
-  const mergedFlags = [
-    ...WORKER_POOL_PRESET_FLAGS.map((preset) => ({
-      key: preset.key,
-      value: runtimeFlags.find((f) => f.key === preset.key)?.value ?? false,
-      label: preset.label,
-      isPreset: true,
-    })),
-    ...runtimeFlags
-      .filter((f) => !WORKER_POOL_PRESET_FLAGS.some((p) => p.key === f.key))
-      .map((f) => ({ key: f.key, value: f.value, label: null as string | null, isPreset: false })),
-  ];
-
-  serverFlagsMetaEl.textContent = `共 ${mergedFlags.length} 个开关`;
-  if (mergedFlags.length === 0) {
-    serverFlagsContentEl.innerHTML = '<div class="empty-hint">当前没有运行时开关。</div>';
+  serverFlagsMetaEl.textContent = `共 ${totalCount} 个开关`;
+  if (totalCount === 0) {
+    serverFlagsContentEl.innerHTML = '<div class="flag-empty">当前没有运行时开关。</div>';
     return;
   }
-  const rows = mergedFlags.map((flag) => {
-    const checked = flag.value ? 'checked' : '';
-    const labelText = flag.label ? `<span style="color:var(--text-secondary);font-size:0.85em;margin-left:4px;">${flag.label}</span>` : '';
-    const deleteButton = flag.isPreset || flag.key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
-      ? ''
-      : `<button class="small-btn flag-delete-btn" data-flag-key="${flag.key}" type="button" style="margin-left:auto;">删除</button>`;
-    return `<div class="flag-row" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-        <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
-        <code>${flag.key}</code>${labelText}
-      </label>
-      <span style="color:var(--text-secondary);font-size:0.85em;">${flag.value ? '启用' : '禁用'}</span>
-      ${deleteButton}
+
+  const html = grouped.map(({ group, flags }) => {
+    const rows = flags.map((flag) => {
+      const checked = flag.value ? 'checked' : '';
+      const badgeClass = flag.value ? 'on' : 'off';
+      const badgeText = flag.value ? '已启用' : '已禁用';
+      const displayLabel = flag.isPreset && flag.label !== flag.key ? flag.label : '';
+      const canDelete = !flag.isPreset && flag.key !== NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
+        && !PRESET_FLAGS.some((p) => p.key === flag.key);
+      const deleteBtn = canDelete
+        ? `<button class="flag-delete-btn" data-flag-delete="${flag.key}" type="button" title="删除此开关">删除</button>`
+        : '';
+      return `<div class="flag-row" data-flag-row="${flag.key}">
+        <label class="flag-toggle" onclick="event.stopPropagation()">
+          <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
+          <span class="flag-toggle-track"></span>
+        </label>
+        <div class="flag-info">
+          <span class="flag-label">${displayLabel || flag.key}</span>
+          ${displayLabel ? `<span class="flag-key">${flag.key}</span>` : ''}
+        </div>
+        <span class="flag-badge ${badgeClass}">${badgeText}</span>
+        ${deleteBtn}
+      </div>`;
+    });
+    return `<div class="flag-group">
+      <div class="flag-group-title">${group.label}</div>
+      ${rows.join('')}
     </div>`;
   });
-  serverFlagsContentEl.innerHTML = rows.join('');
+
+  serverFlagsContentEl.innerHTML = html.join('');
+
+  // 整行点击切换（排除删除按钮区域）
+  serverFlagsContentEl.querySelectorAll<HTMLElement>('[data-flag-row]').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      // 如果点击的是删除按钮，不触发切换
+      if ((e.target as HTMLElement).closest('[data-flag-delete]')) return;
+      const input = row.querySelector<HTMLInputElement>('input[data-flag-key]');
+      if (!input) return;
+      input.checked = !input.checked;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+
+  // 绑定 toggle 事件
   serverFlagsContentEl.querySelectorAll<HTMLInputElement>('input[data-flag-key]').forEach((input) => {
     input.addEventListener('change', () => {
       const key = input.dataset.flagKey!;
@@ -3141,9 +3501,13 @@ function renderRuntimeFlagsPanel(): void {
       });
     });
   });
-  serverFlagsContentEl.querySelectorAll<HTMLButtonElement>('.flag-delete-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.flagKey!;
+
+  // 绑定删除事件
+  serverFlagsContentEl.querySelectorAll<HTMLButtonElement>('[data-flag-delete]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.flagDelete!;
+      if (!confirm(`确定删除开关 "${key}" 吗？`)) return;
       deleteRuntimeFlag(key).catch((err: unknown) => {
         setStatus(err instanceof Error ? err.message : '删除开关失败', true);
       });
@@ -3305,14 +3669,93 @@ function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): s
   }
 }
 
+function renderCommandsContent(): string {
+  const metaText = serverDiagnosticsLoading ? '查询执行中…' : (lastServerDiagnosticsResult
+    ? `${lastServerDiagnosticsResult.ok ? '成功' : '失败'} · ${formatDateTime(lastServerDiagnosticsResult.executedAt)} · ${lastServerDiagnosticsResult.durationMs} ms`
+    : '查询尚未执行。');
+  const outputHtml = lastServerDiagnosticsResult
+    ? renderDiagnosticsResultAsTable(lastServerDiagnosticsResult)
+    : '<pre class="server-log-view">可输入 help 查看可用指令。</pre>';
+  return `
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">数据库查询与操作</div>
+        <div class="network-breakdown-subtitle">支持 help 查看全部指令；只读查询自动 READ ONLY，写操作需勾选确认。</div>
+      </div>
+      <div class="diagnostics-shortcuts" id="diagnostics-shortcuts">
+        <div class="diagnostics-shortcut-group">
+          <span class="diagnostics-shortcut-label">玩家</span>
+          <button type="button" class="diag-btn" data-diag-cmd="presence">在线列表</button>
+          <button type="button" class="diag-btn" data-diag-cmd="presence all">全量状态</button>
+          <button type="button" class="diag-btn" data-diag-cmd="player " data-diag-prompt="player_id / username / 角色名 / 序号">查玩家</button>
+          <button type="button" class="diag-btn" data-diag-cmd="inventory " data-diag-prompt="player_id / 角色名">背包</button>
+          <button type="button" class="diag-btn" data-diag-cmd="equipment " data-diag-prompt="player_id / 角色名">装备</button>
+          <button type="button" class="diag-btn" data-diag-cmd="techniques " data-diag-prompt="player_id / 角色名">功法</button>
+          <button type="button" class="diag-btn" data-diag-cmd="quests " data-diag-prompt="player_id / 角色名">任务</button>
+          <button type="button" class="diag-btn" data-diag-cmd="buffs " data-diag-prompt="player_id / 角色名">Buff</button>
+          <button type="button" class="diag-btn" data-diag-cmd="wallet " data-diag-prompt="player_id / 角色名">钱包</button>
+          <button type="button" class="diag-btn" data-diag-cmd="counters " data-diag-prompt="player_id / 角色名">计数器</button>
+          <button type="button" class="diag-btn" data-diag-cmd="mail " data-diag-prompt="player_id / 角色名">邮件</button>
+          <button type="button" class="diag-btn" data-diag-cmd="audit " data-diag-prompt="player_id / 角色名">审计</button>
+        </div>
+        <div class="diagnostics-shortcut-group">
+          <span class="diagnostics-shortcut-label">世界</span>
+          <button type="button" class="diag-btn" data-diag-cmd="instances">实例摘要</button>
+          <button type="button" class="diag-btn" data-diag-cmd="instances active">活跃实例</button>
+          <button type="button" class="diag-btn" data-diag-cmd="market">市场挂单</button>
+          <button type="button" class="diag-btn" data-diag-cmd="trades">最近成交</button>
+        </div>
+        <div class="diagnostics-shortcut-group">
+          <span class="diagnostics-shortcut-label">运维</span>
+          <button type="button" class="diag-btn" data-diag-cmd="outbox">Outbox</button>
+          <button type="button" class="diag-btn" data-diag-cmd="flush">脏数据队列</button>
+          <button type="button" class="diag-btn" data-diag-cmd="deadletter">死信</button>
+          <button type="button" class="diag-btn" data-diag-cmd="tables">表大小</button>
+        </div>
+        <div class="diagnostics-shortcut-group">
+          <span class="diagnostics-shortcut-label">数据库</span>
+          <button type="button" class="diag-btn" data-diag-cmd="dbsize">DB 大小</button>
+          <button type="button" class="diag-btn" data-diag-cmd="connections">连接数</button>
+          <button type="button" class="diag-btn" data-diag-cmd="locks">锁等待</button>
+          <button type="button" class="diag-btn" data-diag-cmd="slowqueries">慢查询</button>
+          <button type="button" class="diag-btn" data-diag-cmd="replication">复制状态</button>
+        </div>
+      </div>
+      <div class="server-log-toolbar">
+        <textarea id="server-diagnostics-command" rows="3" placeholder="输入命令或点击上方快捷按钮，Ctrl+Enter 执行，↑↓ 切换历史&#10;写操作示例：exec UPDATE player_wallet SET balance = 1000 WHERE player_id = 'xxx'" style="width:100%; min-height:68px; resize:vertical;"></textarea>
+      </div>
+      <div class="server-log-toolbar">
+        <input id="server-diagnostics-limit" type="number" min="1" max="200" value="50" style="width:90px;" />
+        <button id="server-diagnostics-run" class="small-btn primary" type="button">执行</button>
+        <button id="server-diagnostics-help" class="small-btn" type="button">帮助</button>
+        <button id="server-diagnostics-undo" class="small-btn" type="button" disabled>撤回</button>
+        <div id="server-diagnostics-meta" class="server-log-meta">${escapeHtml(metaText)}</div>
+      </div>
+      <div id="server-diagnostics-output" class="diagnostics-output-container">${outputHtml}</div>
+    </div>
+  `;
+}
+
 /** renderDatabasePanel：渲染数据库面板。 */
-function renderDatabasePanel(): void {
+function renderDatabasePanel(force = false): void {
+  // 指令子 tab：如果 DOM 已存在且非强制刷新，跳过重绘以保留 textarea 内容和查询结果
+  if (databaseSubTab === 'commands' && !force && getDiagCommandEl()) {
+    return;
+  }
+
   const subTabBar = `
     <div class="button-row">
+      <button class="small-btn ${databaseSubTab === 'commands' ? 'primary' : ''}" data-db-subtab="commands" type="button">指令</button>
       <button class="small-btn ${databaseSubTab === 'backup' ? 'primary' : ''}" data-db-subtab="backup" type="button">备份管理</button>
       <button class="small-btn ${databaseSubTab === 'table-stats' ? 'primary' : ''}" data-db-subtab="table-stats" type="button">表占用分析</button>
     </div>
   `;
+
+  if (databaseSubTab === 'commands') {
+    serverPanelDatabaseEl.innerHTML = subTabBar + renderCommandsContent();
+    renderDiagnosticsPanel();
+    return;
+  }
 
   if (databaseSubTab === 'table-stats') {
     serverPanelDatabaseEl.innerHTML = subTabBar + renderTableStatsContent();
@@ -6348,13 +6791,22 @@ function renderEditor(data: GmStateRes): void {
   editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
 
   const structureKey = buildEditorStructureKey(detail, draftSnapshot);
+  const activeElement = document.activeElement;
+  const hasActiveEditorInteraction = (
+    (!!activeSearchableItemField
+      && activeSearchableItemField.isConnected
+      && editorContentEl.contains(activeSearchableItemField)
+      && activeSearchableItemField.dataset.open === 'true')
+    || (activeElement instanceof HTMLElement
+      && editorContentEl.contains(activeElement)
+      && (activeElement instanceof HTMLSelectElement
+        || activeElement instanceof HTMLInputElement
+        || activeElement instanceof HTMLTextAreaElement))
+  );
   const shouldDelayStructureRefresh = (
     lastEditorStructureKey !== structureKey
     && draftSourcePlayerId === detail.id
-    && !!activeSearchableItemField
-    && activeSearchableItemField.isConnected
-    && editorContentEl.contains(activeSearchableItemField)
-    && activeSearchableItemField.dataset.open === 'true'
+    && hasActiveEditorInteraction
   );
   if (shouldDelayStructureRefresh) {
     /** editorRenderRefreshBlocked：编辑器渲染Refresh Blocked。 */
@@ -9123,27 +9575,83 @@ serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
 serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'));
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
-serverSubtabDiagnosticsBtn.addEventListener('click', () => switchServerTab('diagnostics'));
 serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
 serverSubtabFlagsBtn.addEventListener('click', () => switchServerTab('flags'));
 serverSubtabObjectsBtn.addEventListener('click', () => switchServerTab('objects'));
-serverDiagnosticsRunBtn.addEventListener('click', () => {
-  runDiagnosticsCommand(serverDiagnosticsCommandEl.value).catch((err: unknown) => {
-    setStatus(err instanceof Error ? err.message : '执行查询失败', true);
-  });
+// 诊断面板事件委托（动态渲染，通过 database panel 委托）
+serverPanelDatabaseEl.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement;
+  // 撤回按钮
+  if (target.closest('#server-diagnostics-undo')) {
+    if (!lastExecCommand) return;
+    const undoCmd = lastExecCommand;
+    if (!window.confirm(`确认撤回上一次写操作？\n\n${undoCmd}`)) return;
+    // 撤回 = 把上一条 exec 的记录清除，重新执行之前的查询
+    lastExecCommand = lastExecPreviousCommand;
+    lastExecPreviousCommand = null;
+    const cmdEl = getDiagCommandEl();
+    // 回到上一条历史查询
+    const history = diagHistoryLoad();
+    const prevQuery = history.find((h) => !h.toLowerCase().startsWith('exec ')) ?? 'help';
+    if (cmdEl) cmdEl.value = prevQuery;
+    setStatus(`已撤回记录，请手动执行反向操作恢复数据。原命令: ${undoCmd.slice(0, 100)}`, true);
+    updateUndoButton();
+    return;
+  }
+  // 执行按钮
+  if (target.closest('#server-diagnostics-run')) {
+    const cmdEl = getDiagCommandEl();
+    if (cmdEl) runDiagnosticsCommand(cmdEl.value).catch((err: unknown) => { setStatus(err instanceof Error ? err.message : '执行查询失败', true); });
+    return;
+  }
+  // 帮助按钮
+  if (target.closest('#server-diagnostics-help')) {
+    const cmdEl = getDiagCommandEl();
+    if (cmdEl) cmdEl.value = 'help';
+    runDiagnosticsCommand('help').catch((err: unknown) => { setStatus(err instanceof Error ? err.message : '加载查询帮助失败', true); });
+    return;
+  }
+  // 快捷按钮
+  const diagBtn = target.closest<HTMLElement>('[data-diag-cmd]');
+  if (diagBtn) {
+    const cmd = diagBtn.dataset.diagCmd ?? '';
+    const prompt = diagBtn.dataset.diagPrompt;
+    const cmdEl = getDiagCommandEl();
+    if (prompt) {
+      showDiagPrompt(prompt).then((input) => {
+        if (!input || !cmdEl) return;
+        cmdEl.value = cmd + input.trim();
+        runDiagnosticsCommand(cmdEl.value).catch((err: unknown) => { setStatus(err instanceof Error ? err.message : '执行查询失败', true); });
+      });
+    } else {
+      if (cmdEl) cmdEl.value = cmd;
+      if (cmdEl) runDiagnosticsCommand(cmdEl.value).catch((err: unknown) => { setStatus(err instanceof Error ? err.message : '执行查询失败', true); });
+    }
+    return;
+  }
+  // 单元格点击编辑
+  const td = target.closest<HTMLTableCellElement>('td.diag-cell-editable');
+  if (td && !td.classList.contains('cell-editing')) {
+    startDiagCellEdit(td);
+    return;
+  }
 });
-serverDiagnosticsHelpBtn.addEventListener('click', () => {
-  serverDiagnosticsCommandEl.value = 'help';
-  runDiagnosticsCommand('help').catch((err: unknown) => {
-    setStatus(err instanceof Error ? err.message : '加载查询帮助失败', true);
-  });
-});
-serverDiagnosticsCommandEl.addEventListener('keydown', (event) => {
+serverPanelDatabaseEl.addEventListener('keydown', (event) => {
+  const target = event.target as HTMLElement;
+  if (target.id !== 'server-diagnostics-command') return;
+  const cmdEl = target as HTMLTextAreaElement;
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
-    runDiagnosticsCommand(serverDiagnosticsCommandEl.value).catch((err: unknown) => {
-      setStatus(err instanceof Error ? err.message : '执行查询失败', true);
-    });
+    runDiagnosticsCommand(cmdEl.value).catch((err: unknown) => { setStatus(err instanceof Error ? err.message : '执行查询失败', true); });
+    return;
+  }
+  if (event.key === 'ArrowUp' && !event.shiftKey) {
+    const prev = diagHistoryNavigate('up');
+    if (prev !== null) { event.preventDefault(); cmdEl.value = prev; }
+  }
+  if (event.key === 'ArrowDown' && !event.shiftKey) {
+    const next = diagHistoryNavigate('down');
+    if (next !== null) { event.preventDefault(); cmdEl.value = next; }
   }
 });
 serverFlagsRefreshBtn.addEventListener('click', () => {

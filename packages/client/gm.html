@@ -1807,12 +1807,13 @@
       border-collapse: collapse;
       font-size: 12px;
       font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      border: 1px solid var(--wash-ink);
     }
     .diagnostics-table th {
-      text-align: left;
-      padding: 4px 8px;
+      text-align: center;
+      padding: 5px 8px;
       background: var(--paper-light);
-      border-bottom: 1px solid var(--wash-ink);
+      border: 1px solid var(--wash-ink);
       color: var(--ink-grey);
       font-weight: 600;
       white-space: nowrap;
@@ -1822,18 +1823,19 @@
     }
     .diagnostics-table td {
       padding: 3px 8px;
-      border-bottom: 1px solid rgba(0,0,0,0.04);
+      border: 1px solid rgba(0,0,0,0.08);
       color: var(--ink-dark);
       max-width: 320px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-align: center;
+      cursor: pointer;
     }
     .diagnostics-table tr:hover td {
       background: var(--highlight);
     }
     .diagnostics-table td.cell-number {
-      text-align: right;
       color: #2563eb;
     }
     .diagnostics-table td.cell-bool-true {
@@ -1846,6 +1848,21 @@
       color: var(--ink-light);
       font-style: italic;
     }
+    .diagnostics-table td.cell-editing {
+      padding: 0;
+      overflow: visible;
+    }
+    .diagnostics-table td.cell-editing input {
+      width: 100%;
+      border: none;
+      outline: 2px solid var(--stamp-red);
+      background: #fff;
+      font-size: 12px;
+      font-family: inherit;
+      padding: 3px 6px;
+      text-align: center;
+      box-sizing: border-box;
+    }
     .diagnostics-meta-bar {
       display: flex;
       align-items: center;
@@ -1855,6 +1872,269 @@
       color: var(--ink-grey);
       background: var(--paper-bg);
       border-bottom: 1px solid var(--wash-ink);
+    }
+    .diag-confirm-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--stamp-red);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .diag-confirm-label input[type="checkbox"] {
+      accent-color: var(--stamp-red);
+    }
+
+    /* 自定义输入弹窗 */
+    .diag-prompt-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 18vh;
+      z-index: 9999;
+    }
+    .diag-prompt-box {
+      background: var(--paper-white);
+      border: 1px solid var(--wash-ink);
+      border-radius: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      width: 380px;
+      max-width: 90vw;
+      padding: 16px;
+    }
+    .diag-prompt-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-dark);
+      margin-bottom: 10px;
+    }
+    .diag-prompt-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--ink-light);
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: var(--font-body);
+      outline: none;
+      box-sizing: border-box;
+    }
+    .diag-prompt-input:focus {
+      border-color: var(--stamp-red);
+    }
+    .diag-prompt-history {
+      margin-top: 8px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .diag-prompt-history-title {
+      font-size: 11px;
+      color: var(--ink-grey);
+      margin-bottom: 4px;
+    }
+    .diag-prompt-history-item {
+      padding: 5px 8px;
+      font-size: 13px;
+      color: var(--ink-dark);
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .diag-prompt-history-item:hover {
+      background: var(--highlight);
+    }
+    .diag-prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .diag-prompt-actions button {
+      padding: 6px 16px;
+      border: 1px solid var(--ink-light);
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      background: var(--paper-white);
+      color: var(--ink-dark);
+    }
+    .diag-prompt-actions button.primary {
+      background: var(--stamp-red);
+      color: #fff;
+      border-color: var(--stamp-red);
+    }
+    .diag-prompt-actions button.primary:hover {
+      background: var(--stamp-red-hover);
+    }
+
+    /* ─── Runtime Flags Toggle Panel ─────────────────────────────── */
+    .flag-group {
+      margin-bottom: 16px;
+    }
+    .flag-group:last-child {
+      margin-bottom: 0;
+    }
+    .flag-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--ink-grey);
+      padding: 6px 8px 4px;
+      margin-bottom: 2px;
+    }
+    .flag-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .flag-row:hover {
+      background: var(--paper-white, #f8f8f5);
+      border-color: var(--wash-ink);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .flag-row:active {
+      background: var(--highlight);
+    }
+    .flag-toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .flag-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+      pointer-events: none;
+    }
+    .flag-toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #d4d4d4;
+      border-radius: 11px;
+      transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .flag-toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .flag-toggle input:checked + .flag-toggle-track {
+      background: #43a047;
+    }
+    .flag-toggle input:checked + .flag-toggle-track::after {
+      transform: translateX(18px);
+    }
+    .flag-toggle input:focus-visible + .flag-toggle-track {
+      outline: 2px solid var(--ink-dark);
+      outline-offset: 2px;
+    }
+    .flag-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .flag-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-dark);
+      line-height: 1.3;
+    }
+    .flag-key {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--light-ink);
+      line-height: 1.2;
+      word-break: break-all;
+    }
+    .flag-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.3px;
+    }
+    .flag-badge.on {
+      color: #1b5e20;
+      background: rgba(67, 160, 71, 0.14);
+    }
+    .flag-badge.off {
+      color: var(--ink-grey);
+      background: rgba(0,0,0,0.05);
+    }
+    .flag-delete-btn {
+      flex-shrink: 0;
+      font-size: 11px;
+      padding: 3px 10px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--light-ink);
+      cursor: pointer;
+      transition: all 0.15s;
+      opacity: 0;
+    }
+    .flag-row:hover .flag-delete-btn {
+      opacity: 1;
+    }
+    .flag-delete-btn:hover {
+      color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+      border-color: rgba(197, 60, 60, 0.2);
+    }
+    .flag-add-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--wash-ink);
+      border-radius: 0 0 8px 8px;
+    }
+    .flag-add-row input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 12px;
+      border: 1px solid var(--ink-light);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .flag-add-row input[type="text"]:focus {
+      outline: none;
+      border-color: var(--ink-dark);
+      box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+    }
+    .flag-empty {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--light-ink);
+      font-size: 13px;
     }
   </style>
 </head>
@@ -1909,7 +2189,6 @@
           <button class="workspace-tab" id="server-subtab-memory" type="button" data-i18n="gm.server-subtab-memory">内存信息</button>
           <button class="workspace-tab" id="server-subtab-database" type="button" data-i18n="gm.server-subtab-database">数据库</button>
           <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
-          <button class="workspace-tab" id="server-subtab-diagnostics" type="button">查询</button>
           <button class="workspace-tab" id="server-subtab-workers" type="button">Worker</button>
           <button class="workspace-tab" id="server-subtab-flags" type="button">运行时开关</button>
           <button class="workspace-tab" id="server-subtab-objects" type="button">对象信息</button>
@@ -2136,7 +2415,7 @@
           </div>
         </div>
         <div id="server-panel-database" class="server-tab-panel hidden">
-          <div class="note-card" data-i18n="gm.note-card-preparing-database-panel">正在准备数据库管理面板…</div>
+          <div class="note-card">正在准备数据库面板…</div>
         </div>
         <div id="server-panel-logs" class="server-tab-panel hidden">
           <div class="server-log-toolbar">
@@ -2145,65 +2424,6 @@
             <div id="server-logs-meta" class="server-log-meta" data-i18n="gm.server-logs-meta">日志尚未加载。</div>
           </div>
           <pre id="server-logs-content" class="server-log-view" data-i18n="gm.server-logs-meta">日志尚未加载。</pre>
-        </div>
-        <div id="server-panel-diagnostics" class="server-tab-panel hidden">
-          <div class="network-breakdown">
-            <div class="network-breakdown-head">
-              <div class="panel-title">GM 只读查询</div>
-              <div class="network-breakdown-subtitle">支持 help 查看全部指令；只读、超时、限行、敏感字段脱敏。</div>
-            </div>
-            <div class="diagnostics-shortcuts" id="diagnostics-shortcuts">
-              <div class="diagnostics-shortcut-group">
-                <span class="diagnostics-shortcut-label">玩家</span>
-                <button type="button" class="diag-btn" data-diag-cmd="presence">在线列表</button>
-                <button type="button" class="diag-btn" data-diag-cmd="presence all">全量状态</button>
-                <button type="button" class="diag-btn" data-diag-cmd="player " data-diag-prompt="player_id 或 username">查玩家</button>
-                <button type="button" class="diag-btn" data-diag-cmd="inventory " data-diag-prompt="player_id">背包</button>
-                <button type="button" class="diag-btn" data-diag-cmd="equipment " data-diag-prompt="player_id">装备</button>
-                <button type="button" class="diag-btn" data-diag-cmd="techniques " data-diag-prompt="player_id">功法</button>
-                <button type="button" class="diag-btn" data-diag-cmd="quests " data-diag-prompt="player_id">任务</button>
-                <button type="button" class="diag-btn" data-diag-cmd="buffs " data-diag-prompt="player_id">Buff</button>
-                <button type="button" class="diag-btn" data-diag-cmd="wallet " data-diag-prompt="player_id">钱包</button>
-                <button type="button" class="diag-btn" data-diag-cmd="counters " data-diag-prompt="player_id">计数器</button>
-                <button type="button" class="diag-btn" data-diag-cmd="mail " data-diag-prompt="player_id">邮件</button>
-                <button type="button" class="diag-btn" data-diag-cmd="audit " data-diag-prompt="player_id">审计</button>
-              </div>
-              <div class="diagnostics-shortcut-group">
-                <span class="diagnostics-shortcut-label">世界</span>
-                <button type="button" class="diag-btn" data-diag-cmd="instances">实例摘要</button>
-                <button type="button" class="diag-btn" data-diag-cmd="instances active">活跃实例</button>
-                <button type="button" class="diag-btn" data-diag-cmd="market">市场挂单</button>
-                <button type="button" class="diag-btn" data-diag-cmd="trades">最近成交</button>
-              </div>
-              <div class="diagnostics-shortcut-group">
-                <span class="diagnostics-shortcut-label">运维</span>
-                <button type="button" class="diag-btn" data-diag-cmd="outbox">Outbox</button>
-                <button type="button" class="diag-btn" data-diag-cmd="flush">脏数据队列</button>
-                <button type="button" class="diag-btn" data-diag-cmd="deadletter">死信</button>
-                <button type="button" class="diag-btn" data-diag-cmd="tables">表大小</button>
-              </div>
-              <div class="diagnostics-shortcut-group">
-                <span class="diagnostics-shortcut-label">数据库</span>
-                <button type="button" class="diag-btn" data-diag-cmd="dbsize">DB 大小</button>
-                <button type="button" class="diag-btn" data-diag-cmd="connections">连接数</button>
-                <button type="button" class="diag-btn" data-diag-cmd="locks">锁等待</button>
-                <button type="button" class="diag-btn" data-diag-cmd="slowqueries">慢查询</button>
-                <button type="button" class="diag-btn" data-diag-cmd="replication">复制状态</button>
-              </div>
-            </div>
-            <div class="server-log-toolbar">
-              <textarea id="server-diagnostics-command" rows="3" placeholder="输入命令或点击上方快捷按钮，Ctrl+Enter 执行，↑↓ 切换历史" style="width:100%; min-height:68px; resize:vertical;"></textarea>
-            </div>
-            <div class="server-log-toolbar">
-              <input id="server-diagnostics-limit" type="number" min="1" max="200" value="50" style="width:90px;" />
-              <button id="server-diagnostics-run" class="small-btn primary" type="button">执行查询</button>
-              <button id="server-diagnostics-help" class="small-btn" type="button">帮助</button>
-              <div id="server-diagnostics-meta" class="server-log-meta">查询尚未执行。</div>
-            </div>
-            <div id="server-diagnostics-output" class="diagnostics-output-container">
-              <pre class="server-log-view">可输入 help 查看可用指令。</pre>
-            </div>
-          </div>
         </div>
         <div id="server-panel-workers" class="server-tab-panel hidden">
           <div class="server-log-toolbar">
@@ -2222,8 +2442,8 @@
           <div id="server-flags-content">
             <div class="empty-hint">当前没有运行时开关。</div>
           </div>
-          <div class="server-log-toolbar" style="margin-top:8px;">
-            <input id="server-flags-new-key" type="text" placeholder="新开关 key" style="width:180px;" />
+          <div class="flag-add-row">
+            <input id="server-flags-new-key" type="text" placeholder="输入新开关 key（如 my_feature_enabled）" />
             <button id="server-flags-add" class="small-btn" type="button">添加开关</button>
           </div>
         </div>

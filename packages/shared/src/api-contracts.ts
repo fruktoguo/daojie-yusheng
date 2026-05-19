@@ -1245,6 +1245,11 @@ export interface GmDiagnosticsQueryReq {
  */
 
   limit?: number;
+  /**
+ * confirm：确认执行写操作（exec 命令需要此标志为 true）。
+ */
+
+  confirm?: boolean;
 }
 
 /** GM 诊断查询结果集。 */
