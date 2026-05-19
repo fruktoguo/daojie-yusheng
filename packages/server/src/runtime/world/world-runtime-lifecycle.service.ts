@@ -264,6 +264,66 @@ export class WorldRuntimeLifecycleService {
             await deps.worldRuntimeSectService.restoreSects(deps);
         }
         await this.restorePublicInstancePersistence(deps);
+        await this.restoreOfflineHangingPlayers(deps);
+    }
+
+    /** 启动时恢复离线挂机玩家到对应实例，使其继续参与 tick。 */
+    private async restoreOfflineHangingPlayers(deps) {
+        const persistenceService = deps.playerRuntimeService?.playerDomainPersistenceService;
+        if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
+            return;
+        }
+        let positions: Array<{ playerId: string; instanceId: string; x: number; y: number }>;
+        try {
+            positions = await persistenceService.listOfflineHangingPlayerPositions();
+        } catch (error) {
+            deps.logger?.warn?.(`查询离线挂机玩家位置失败：${error instanceof Error ? error.message : String(error)}`);
+            return;
+        }
+        if (!positions || positions.length === 0) {
+            return;
+        }
+        let restored = 0;
+        let skipped = 0;
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < positions.length; i += BATCH_SIZE) {
+            const batch = positions.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(async (entry) => {
+                try {
+                    const instance = deps.getInstanceRuntime(entry.instanceId);
+                    if (!instance) {
+                        skipped++;
+                        return;
+                    }
+                    const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
+                        entry.playerId,
+                        persistenceService,
+                    );
+                    if (!player) {
+                        skipped++;
+                        return;
+                    }
+                    instance.connectPlayer({
+                        playerId: entry.playerId,
+                        sessionId: null,
+                        preferredX: entry.x,
+                        preferredY: entry.y,
+                    });
+                    deps.worldRuntimePlayerLocationService.setPlayerLocation(entry.playerId, {
+                        instanceId: entry.instanceId,
+                    });
+                    restored++;
+                } catch (error) {
+                    skipped++;
+                    deps.logger?.warn?.(
+                        `恢复离线挂机玩家失败：${entry.playerId} ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                }
+            }));
+        }
+        if (restored > 0 || skipped > 0) {
+            deps.logger?.log?.(`离线挂机玩家恢复完成：成功 ${restored}，跳过 ${skipped}，总计 ${positions.length}`);
+        }
     }
 };
 

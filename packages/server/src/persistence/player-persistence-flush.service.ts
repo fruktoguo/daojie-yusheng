@@ -310,6 +310,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           },
         );
       }
+      // 同步刷新离线收益累积数据
+      await this.flushOfflineGainAccumulated();
     })();
 
     this.flushPromise = promise;
@@ -429,6 +431,34 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         new Set([PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]),
       ]),
     );
+  }
+
+  /** 将内存中离线收益会话的 accumulatedPayload 增量写入数据库，防止崩溃丢失。 */
+  private async flushOfflineGainAccumulated(): Promise<void> {
+    const runtimeService = this.playerRuntimeService as any;
+    const sessions: Map<string, any> | undefined = runtimeService.offlineGainSessionsByPlayerId;
+    if (!sessions || sessions.size === 0) {
+      return;
+    }
+    if (!this.playerDomainPersistenceService.isEnabled()) {
+      return;
+    }
+    for (const [playerId, session] of sessions) {
+      if (!session || !session.accumulatedPayload) {
+        continue;
+      }
+      try {
+        await this.playerDomainPersistenceService.updatePlayerOfflineGainAccumulated(
+          playerId,
+          session.accumulatedPayload,
+          session.accumulatedDurationMs ?? 0,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `刷新离线收益累积失败：${playerId} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
 }
 

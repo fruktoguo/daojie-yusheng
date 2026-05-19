@@ -316,12 +316,16 @@ export interface PlayerOfflineGainSessionRecord {
   sessionId: string;
   startedAt: number;
   baselinePayload: Record<string, unknown>;
+  accumulatedPayload?: Record<string, unknown>;
+  accumulatedDurationMs?: number;
 }
 
 export interface PlayerOfflineGainSessionUpsertInput {
   sessionId: string;
   startedAt: number;
   baselinePayload: Record<string, unknown>;
+  accumulatedPayload?: Record<string, unknown>;
+  accumulatedDurationMs?: number;
 }
 
 export interface PlayerStatisticDayTotalRecord {
@@ -980,14 +984,18 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             session_id,
             started_at,
             baseline_payload,
+            accumulated_payload,
+            accumulated_duration_ms,
             updated_at
           )
-          VALUES ($1, $2, $3, $4::jsonb, now())
+          VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, now())
           ON CONFLICT (player_id)
           DO UPDATE SET
             session_id = EXCLUDED.session_id,
             started_at = EXCLUDED.started_at,
             baseline_payload = EXCLUDED.baseline_payload,
+            accumulated_payload = EXCLUDED.accumulated_payload,
+            accumulated_duration_ms = EXCLUDED.accumulated_duration_ms,
             updated_at = now()
         `,
         [
@@ -995,6 +1003,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           sessionId,
           normalizeMinimumInteger(input.startedAt, Date.now(), 0),
           JSON.stringify(input.baselinePayload ?? {}),
+          JSON.stringify(input.accumulatedPayload ?? {}),
+          Math.max(0, Math.trunc(Number(input.accumulatedDurationMs) || 0)),
         ],
       );
     });
@@ -1012,9 +1022,11 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       session_id?: unknown;
       started_at?: unknown;
       baseline_payload?: unknown;
+      accumulated_payload?: unknown;
+      accumulated_duration_ms?: unknown;
     }>(
       `
-        SELECT player_id, session_id, started_at, baseline_payload
+        SELECT player_id, session_id, started_at, baseline_payload, accumulated_payload, accumulated_duration_ms
         FROM ${PLAYER_OFFLINE_GAIN_SESSION_TABLE}
         WHERE player_id = $1
       `,
@@ -1033,6 +1045,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       sessionId,
       startedAt: normalizeMinimumInteger(row.started_at, Date.now(), 0),
       baselinePayload: asRecord(decodeJsonValue(row.baseline_payload)) ?? {},
+      accumulatedPayload: asRecord(decodeJsonValue(row.accumulated_payload)) ?? {},
+      accumulatedDurationMs: Math.max(0, Math.trunc(Number(row.accumulated_duration_ms) || 0)),
     };
   }
 
@@ -1056,6 +1070,68 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         [normalizedPlayerId],
       );
     });
+  }
+
+  /** 增量更新离线收益会话的累积数据（不覆盖 baseline） */
+  async updatePlayerOfflineGainAccumulated(
+    playerId: string,
+    accumulatedPayload: Record<string, unknown>,
+    accumulatedDurationMs: number,
+  ): Promise<void> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return;
+    }
+    await this.pool.query(
+      `
+        UPDATE ${PLAYER_OFFLINE_GAIN_SESSION_TABLE}
+        SET accumulated_payload = $2::jsonb,
+            accumulated_duration_ms = $3,
+            updated_at = now()
+        WHERE player_id = $1
+      `,
+      [
+        normalizedPlayerId,
+        JSON.stringify(accumulatedPayload ?? {}),
+        Math.max(0, Math.trunc(Number(accumulatedDurationMs) || 0)),
+      ],
+    );
+  }
+
+  /** 查询所有离线挂机中的玩家位置（in_world=true, online=false） */
+  async listOfflineHangingPlayerPositions(): Promise<Array<{
+    playerId: string;
+    instanceId: string;
+    x: number;
+    y: number;
+  }>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query<{
+      player_id?: unknown;
+      instance_id?: unknown;
+      x?: unknown;
+      y?: unknown;
+    }>(
+      `
+        SELECT p.player_id, pc.instance_id, pc.x, pc.y
+        FROM ${PLAYER_PRESENCE_TABLE} p
+        JOIN ${PLAYER_POSITION_CHECKPOINT_TABLE} pc ON pc.player_id = p.player_id
+        WHERE p.in_world = true
+          AND p.online = false
+          AND pc.instance_id IS NOT NULL
+          AND pc.instance_id <> ''
+      `,
+    );
+    return result.rows
+      .map((row) => ({
+        playerId: normalizeRequiredString(row.player_id),
+        instanceId: normalizeRequiredString(row.instance_id),
+        x: Math.trunc(Number(row.x) || 0),
+        y: Math.trunc(Number(row.y) || 0),
+      }))
+      .filter((entry) => entry.playerId.length > 0 && entry.instanceId.length > 0);
   }
 
   /** 保存玩家离线收益报告 */
@@ -3378,6 +3454,14 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_OFFLINE_GAIN_SESSION_TABLE}
+    ADD COLUMN IF NOT EXISTS accumulated_payload jsonb DEFAULT '{}'
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_OFFLINE_GAIN_SESSION_TABLE}
+    ADD COLUMN IF NOT EXISTS accumulated_duration_ms bigint DEFAULT 0
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_OFFLINE_GAIN_REPORT_TABLE} (

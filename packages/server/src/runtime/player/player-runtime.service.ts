@@ -216,6 +216,46 @@ export class PlayerRuntimeService {
         this.players.set(playerId, player);
         return player;
     }
+    /**
+     * 恢复离线挂机玩家到内存（服务器重启后调用）。
+     * 不触发 finalizeOfflineGainSession，因为离线挂机仍在继续。
+     */
+    async restoreOfflineHangingPlayer(playerId, persistenceService) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return null;
+        }
+        if (this.players.has(normalizedPlayerId)) {
+            return this.players.get(normalizedPlayerId);
+        }
+        if (!persistenceService?.isEnabled?.()) {
+            return null;
+        }
+        const buildStarterSnapshot = (pid) => this.buildStarterPersistenceSnapshot?.(pid) ?? null;
+        const snapshot = await persistenceService.loadProjectedSnapshot(normalizedPlayerId, buildStarterSnapshot);
+        if (!snapshot) {
+            return null;
+        }
+        const player = this.hydrateFromSnapshot(normalizedPlayerId, null, snapshot);
+        (player as any)._hydratedFromPersistence = true;
+        player.sessionId = null;
+        if (!Number.isFinite(player.offlineSinceAt)) {
+            player.offlineSinceAt = Date.now();
+        }
+        this.players.set(normalizedPlayerId, player);
+        // 从 DB 恢复离线收益会话（含已累积的 payload）
+        const persistedSession = await persistenceService.loadPlayerOfflineGainSession(normalizedPlayerId);
+        if (persistedSession) {
+            this.offlineGainSessionsByPlayerId.set(normalizedPlayerId, {
+                sessionId: persistedSession.sessionId,
+                startedAt: persistedSession.startedAt,
+                baselinePayload: persistedSession.baselinePayload,
+                accumulatedPayload: persistedSession.accumulatedPayload ?? createEmptyOfflineGainReportParts(),
+                accumulatedDurationMs: persistedSession.accumulatedDurationMs ?? 0,
+            });
+        }
+        return player;
+    }
     /** 创建新玩家的初始运行时状态，包含装备、动作、修炼与通知容器。 */
     createFreshPlayer(playerId, sessionId) {
 
