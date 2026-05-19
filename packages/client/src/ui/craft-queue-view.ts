@@ -128,7 +128,7 @@ export class CraftQueueView {
       active.push({
         queueId: activeAlchemyJob.jobRunId ?? `active:${jobKind}:${activeAlchemyJob.startedAt}`,
         kind: jobKind as CraftQueueItemView['kind'],
-        label: recipe?.outputName ?? activeAlchemyJob.outputItemId,
+        label: recipe?.outputName?.trim() || '未知物品',
         quantity: Math.max(1, activeAlchemyJob.quantity - activeAlchemyJob.completedCount),
         createdAt: activeAlchemyJob.startedAt,
         isActive: true,

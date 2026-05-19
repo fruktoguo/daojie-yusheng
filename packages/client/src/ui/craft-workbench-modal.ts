@@ -1306,7 +1306,7 @@ export class CraftWorkbenchModal {
             <div class="craft-queue-item">
               <span>${escapeHtml(recipe.note)}</span>
               <strong>${escapeHtml(recipe.outputName)}</strong>
-              <em>${escapeHtml(recipe.outputItemId)}</em>
+              <em>未知物品</em>
             </div>
           `).join('')}
         </div>

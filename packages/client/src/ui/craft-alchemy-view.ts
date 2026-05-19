@@ -1404,7 +1404,7 @@ export class CraftAlchemyView {
     if (job) {
       const recipe = this.parent.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
       return t('craft.workbench.alchemy.subtitle.job', {
-        itemName: recipe?.outputName ?? job.outputItemId,
+        itemName: recipe?.outputName?.trim() || '未知物品',
         completed: formatDisplayInteger(job.completedCount),
         quantity: formatDisplayInteger(job.quantity),
       });
