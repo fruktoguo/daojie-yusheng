@@ -303,7 +303,7 @@ function normalizeSectManagementRole(input: unknown): SectManagementRole {
   const fallback = DEFAULT_SECT_MANAGEMENT_ROLES.find((role) => role.id === id);
   return {
     id,
-    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? '未知角色',
     assignable: source.assignable === true,
   };
 }
@@ -314,7 +314,7 @@ function normalizeSectManagementPermission(input: unknown): SectManagementPermis
   const fallback = DEFAULT_SECT_MANAGEMENT_PERMISSIONS.find((permission) => permission.id === id);
   return {
     id,
-    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? '未知权限',
   };
 }
 
@@ -327,7 +327,7 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
     playerId,
     name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || t('action.sect.fallback.unknown-member', undefined),
     roleId,
-    roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
+    roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? '未知角色',
     realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
     statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : t('action.sect.status.offline', undefined),
     self: source.self === true,

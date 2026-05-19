@@ -699,7 +699,7 @@ export class EntityDetailModal {
       lines.push(t('entity-detail.buff.tooltip.stacks', { stacks: Math.max(0, Math.round(buff.stacks)), max: Math.max(1, Math.round(buff.maxStacks)) }));
     }
     if (buff.sourceSkillName || buff.sourceSkillId) {
-      lines.push(t('entity-detail.buff.tooltip.source', { source: buff.sourceSkillName ?? buff.sourceSkillId }));
+      lines.push(t('entity-detail.buff.tooltip.source', { source: buff.sourceSkillName ?? t('entity-detail.value.unknown', undefined) }));
     }
     const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
     const effectLines = describePreviewBonuses(
