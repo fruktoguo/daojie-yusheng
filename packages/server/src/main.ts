@@ -188,12 +188,6 @@ async function bootstrap(): Promise<void> {
   installConsoleLogCapture();
   const logger = new DateConsoleLogger('Bootstrap');
 
-  const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
-  const runtimeEnv = (process.env.SERVER_RUNTIME_ENV ?? '').trim().toLowerCase();
-  if (!DEVELOPMENT_LIKE_ENVS.has(runtimeEnv)) {
-    logger.setLogLevels(['log', 'warn', 'error']);
-  }
-
   const app = await NestFactory.create(AppModule, { logger });
 
   app.enableShutdownHooks();
