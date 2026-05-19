@@ -290,7 +290,7 @@ export class SectManagementSubpanel {
             if (!actionId) return;
             if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
             if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
-            this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
+            this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
           }, { signal });
         });
         body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {

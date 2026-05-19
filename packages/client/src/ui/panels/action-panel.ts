@@ -2226,7 +2226,7 @@ export class ActionPanel {
           this.openSectManagementModal();
           return;
         }
-        const actionName = button.dataset.actionName || actionId;
+        const actionName = button.dataset.actionName?.trim() || '未知行动';
         const requiresTarget = button.dataset.actionTarget === '1';
         const targetMode = button.dataset.actionTargetMode || undefined;
         const rangeText = button.dataset.actionRange;
