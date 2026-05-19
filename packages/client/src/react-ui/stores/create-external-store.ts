@@ -29,6 +29,13 @@ export interface ExternalStore<TState> {
 
   subscribe: (listener: ExternalStoreListener) => () => void;
 }
+
+function hasPatchChanges<TState extends object>(state: TState, patch: Partial<TState>): boolean {
+  return Object.keys(patch).some((key) => {
+    const typedKey = key as keyof TState;
+    return !Object.is(state[typedKey], patch[typedKey]);
+  });
+}
 /**
  * createExternalStore：构建并返回目标对象。
  * @param initialState TState 参数说明。
@@ -56,14 +63,13 @@ export function createExternalStore<TState extends object>(initialState: TState)
       emit();
     },
     patchState: (patch) => {
-      const nextState = {
+      if (!hasPatchChanges(state, patch)) {
+        return;
+      }
+      state = {
         ...state,
         ...patch,
       };
-      if (Object.is(state, nextState)) {
-        return;
-      }
-      state = nextState;
       emit();
     },
     subscribe: (listener) => {
