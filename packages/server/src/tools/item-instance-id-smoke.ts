@@ -260,6 +260,34 @@ function testStackSplitGetsFreshInstanceId(): void {
     console.log('[smoke] stack-split-fresh-instance-id passed');
 }
 
+function testDuplicateVisibleInventoryRepair(): void {
+    const duplicateId = '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112';
+    const inventory = [
+        makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 81 }),
+        makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 170 }),
+    ];
+    const seen = new Set<string>();
+    let repaired = false;
+    for (const item of inventory) {
+        const itemInstanceId = typeof item.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
+        if (!itemInstanceId || !seen.has(itemInstanceId)) {
+            if (itemInstanceId) {
+                seen.add(itemInstanceId);
+            }
+            continue;
+        }
+        item.itemInstanceId = 'aaaaaaaa-4444-4444-8444-444444444444';
+        seen.add(item.itemInstanceId);
+        repaired = true;
+    }
+
+    assert.equal(repaired, true);
+    assert.equal(inventory[0].itemInstanceId, duplicateId);
+    assert.notEqual(inventory[1].itemInstanceId, duplicateId);
+
+    console.log('[smoke] duplicate-visible-inventory-repair passed');
+}
+
 function testMarketShed(): void {
     // 模拟 toOrderItem 把卖家物品脱壳后挂入 market_listing
     const sellerItem = makeItem({ itemInstanceId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' });
@@ -331,6 +359,7 @@ async function main(): Promise<void> {
     testEnhancementInheritance();
     testEquipCanMergeBySignature();
     testStackSplitGetsFreshInstanceId();
+    testDuplicateVisibleInventoryRepair();
     testMarketShed();
     testGrantPassthrough();
     testCompareItemInstanceId();

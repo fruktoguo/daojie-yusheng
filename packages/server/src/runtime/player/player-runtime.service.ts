@@ -3404,6 +3404,10 @@ export class PlayerRuntimeService {
         if (!player || !player.templateId || isNativeGmBotPlayerId(playerId)) {
             return null;
         }
+        if (repairDuplicateInventoryItemInstanceIds(player.inventory?.items)) {
+            markPlayerDirtyDomains(player, ['inventory']);
+            this.bumpPersistentRevision(player);
+        }
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository, dirtyDomains);
     }
     /**
@@ -3846,6 +3850,10 @@ export class PlayerRuntimeService {
         }
         if (upgradedAny) {
             markPlayerDirtyDomains(player, ['inventory', 'equipment']);
+            this.bumpPersistentRevision(player);
+        }
+        if (repairDuplicateInventoryItemInstanceIds(player.inventory.items)) {
+            markPlayerDirtyDomains(player, ['inventory']);
             this.bumpPersistentRevision(player);
         }
         // 水合期迁移：旧版 enhancementJob 直接持有 item 完整快照；新版只存 itemInstanceId，
@@ -6571,6 +6579,30 @@ function coalesceInventoryItems(items: any[]): void {
         }
     }
     items.length = writeIndex;
+}
+
+function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {
+    if (!Array.isArray(items) || items.length <= 1) {
+        return false;
+    }
+    const seen = new Set<string>();
+    let repaired = false;
+    for (const item of items) {
+        if (!item || typeof item !== 'object') {
+            continue;
+        }
+        const itemInstanceId = typeof item.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
+        if (!itemInstanceId || !seen.has(itemInstanceId)) {
+            if (itemInstanceId) {
+                seen.add(itemInstanceId);
+            }
+            continue;
+        }
+        item.itemInstanceId = randomUUID();
+        seen.add(item.itemInstanceId);
+        repaired = true;
+    }
+    return repaired;
 }
 
 function consumeInventoryItemAt(items, slotIndex, count) {

@@ -10,6 +10,7 @@
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
+import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { Pool } from 'pg';
 
@@ -3650,7 +3651,7 @@ async function replacePlayerInventoryItems(
       ? lockedSlotCounter--
       : (normalizeOptionalInteger(entry?.slotIndex) ?? index);
     const sourceItemInstanceId = normalizeOptionalString(entry?.itemInstanceId);
-    const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
+    let itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
       ? sourceItemInstanceId
       : `inv:${playerId}:${slotIndex}`;
     const rawPayload = asRecord(entry?.rawPayload);
@@ -3687,6 +3688,20 @@ async function replacePlayerInventoryItems(
         || existingRow.locked_by !== lockedBy
         || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(persistedPayload)
       ) {
+        if (lockedBy == null) {
+          itemInstanceId = randomUUID();
+          row.item_instance_id = itemInstanceId;
+          rowsByInstanceId.set(itemInstanceId, row);
+          continue;
+        }
+        if (existingRow.locked_by == null) {
+          const reassignedExistingId = randomUUID();
+          rowsByInstanceId.delete(itemInstanceId);
+          existingRow.item_instance_id = reassignedExistingId;
+          rowsByInstanceId.set(reassignedExistingId, existingRow);
+          rowsByInstanceId.set(itemInstanceId, row);
+          continue;
+        }
         throw new Error(
           `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId} existingSlot=${existingRow.slot_index} incomingSlot=${slotIndex} existingLockedBy=${existingRow.locked_by ?? 'null'} incomingLockedBy=${lockedBy ?? 'null'} existingItemId=${existingRow.item_id} incomingItemId=${itemId}`,
         );

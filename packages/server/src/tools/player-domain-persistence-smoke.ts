@@ -1275,9 +1275,13 @@ async function main(): Promise<void> {
 
 async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<void> {
   const queries: string[] = [];
+  const inventoryInsertPayloads: unknown[][] = [];
   const fakeClient = {
-    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
       queries.push(sql);
+      if (sql.includes('INSERT INTO player_inventory_item') && Array.isArray(params) && typeof params[1] === 'string') {
+        inventoryInsertPayloads.push(JSON.parse(params[1]) as unknown[]);
+      }
       if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
         return { rows: [{ row_count: 1 }], rowCount: 1 };
       }
@@ -1286,7 +1290,10 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
         || sql.includes('INSERT INTO player_equipment_slot')
         || sql.includes('INSERT INTO player_enhancement_record')
         || sql.includes('INSERT INTO player_logbook_message');
-      return { rows: [], rowCount: isCheckedInsert ? 1 : 0 };
+      const parsedRows = isCheckedInsert && Array.isArray(params) && typeof params[1] === 'string'
+        ? JSON.parse(params[1]) as unknown[]
+        : [];
+      return { rows: [], rowCount: isCheckedInsert ? Math.max(1, parsedRows.length) : 0 };
     },
     release() {
       return undefined;
@@ -1311,6 +1318,26 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
         slotIndex: 0,
         itemInstanceId: 'inv:player:fake:0',
         rawPayload: { itemId: 'spirit_grass', count: 1 },
+      },
+    ],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerInventoryItems(
+    'player:fake',
+    [
+      {
+        itemId: 'equip.mount_guard_helm',
+        count: 1,
+        slotIndex: 81,
+        itemInstanceId: '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112',
+        rawPayload: { itemId: 'equip.mount_guard_helm', count: 1 },
+      },
+      {
+        itemId: 'equip.mount_guard_helm',
+        count: 1,
+        slotIndex: 170,
+        itemInstanceId: '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112',
+        rawPayload: { itemId: 'equip.mount_guard_helm', count: 1 },
       },
     ],
     { versionSeed: 1 },
@@ -1468,6 +1495,18 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
       && query.includes('NOT EXISTS'))) {
       throw new Error(`player snapshot missing stale-key delete guard for ${tableName}`);
     }
+  }
+  const duplicateRepairPayload = inventoryInsertPayloads.find((payload) => payload.length === 2);
+  const repairedInventoryRows = Array.isArray(duplicateRepairPayload)
+    ? duplicateRepairPayload as Array<Record<string, unknown>>
+    : [];
+  if (
+    repairedInventoryRows.length !== 2
+    || repairedInventoryRows[0]?.item_instance_id !== '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
+    || typeof repairedInventoryRows[1]?.item_instance_id !== 'string'
+    || repairedInventoryRows[1]?.item_instance_id === '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
+  ) {
+    throw new Error(`duplicate inventory itemInstanceId repair did not allocate a fresh row id: ${JSON.stringify(repairedInventoryRows)}`);
   }
 }
 
