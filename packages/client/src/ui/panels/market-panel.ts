@@ -483,7 +483,15 @@ export class MarketPanel {
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
     const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
     const auctionConsignModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
+    const previousMarketUpdate = this.marketUpdate;
+    const previousSelectedItemKey = this.selectedItemKey;
     const knownListedItems = data.listedItems.length > 0 ? data.listedItems : this.getKnownListedItems(this.marketUpdate);
+    const nextMarketUpdate = {
+      ...data,
+      listedItems: knownListedItems,
+    };
+    const canPatchMarketModal = marketModalOpen
+      && this.canPatchMarketModalUpdateInPlace(previousMarketUpdate, nextMarketUpdate);
     this.marketUpdate = {
       ...data,
       listedItems: knownListedItems,
@@ -501,6 +509,9 @@ export class MarketPanel {
     if (marketModalOpen) {
       if (this.modalTab === 'market' && this.selectedItemKey) {
         this.requestItemBook(this.selectedItemKey);
+      }
+      if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+        return;
       }
       this.renderModal();
     } else if (auctionModalOpen) {
@@ -584,6 +595,9 @@ export class MarketPanel {
     };
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      if (this.patchMarketModalLiveState()) {
+        return;
+      }
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.patchAuctionModalLiveState();
@@ -609,6 +623,9 @@ export class MarketPanel {
     };
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      if (this.patchMarketModalLiveState()) {
+        return;
+      }
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.patchAuctionModalLiveState();
@@ -1690,6 +1707,118 @@ export class MarketPanel {
     });
     body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => {
       button.classList.toggle('active', button.dataset.marketSelectGroup === this.selectedGroupItemId);
+    });
+  }
+
+  /** 判断当前市场列表结构是否能在原 DOM 上热更新。 */
+  private canPatchMarketModalUpdateInPlace(previous: S2C_MarketUpdate | null, next: S2C_MarketUpdate): boolean {
+    if (this.modalTab !== 'market' || !previous) {
+      return false;
+    }
+    const body = this.getOpenModalBody();
+    if (!body?.querySelector('.market-market-tab')) {
+      return false;
+    }
+    const renderedSignature = this.getRenderedMarketListSignature(body);
+    if (!renderedSignature) {
+      return false;
+    }
+    if (previous.listedItems === next.listedItems) {
+      return true;
+    }
+    return renderedSignature === this.getExpectedMarketListSignature(next);
+  }
+
+  /** 同步普通坊市弹层的可变数据，避免每秒重建 hover 中的物品节点。 */
+  private patchMarketModalLiveState(options: { patchBook?: boolean; requireStableList?: boolean } = {}): boolean {
+    if (this.modalTab !== 'market') {
+      return false;
+    }
+    const body = this.getOpenModalBody();
+    if (!body?.querySelector('.market-market-tab')) {
+      return false;
+    }
+    if (options.requireStableList === false) {
+      return false;
+    }
+    if (options.patchBook) {
+      const selected = this.getSelectedListedItem(this.marketUpdate);
+      if (!selected || !this.marketUpdate) {
+        return false;
+      }
+      this.patchSelectedBookPanel();
+    }
+    this.patchMarketActiveSelection();
+    this.patchVisibleMarketListPrices(body);
+    this.syncVisibleMarketInventoryState();
+    this.refreshMarketTooltipContent(body);
+    this.syncTradeDialogOverlay();
+    return true;
+  }
+
+  /** 读取当前 DOM 中市场列表的结构签名。 */
+  private getRenderedMarketListSignature(body: HTMLElement): string | null {
+    const itemButtons = [...body.querySelectorAll<HTMLElement>('[data-market-select-item]')];
+    if (itemButtons.length > 0) {
+      return `items:${itemButtons.map((button) => button.dataset.marketSelectItem ?? '').join('|')}`;
+    }
+    const groupButtons = [...body.querySelectorAll<HTMLElement>('[data-market-select-group]')];
+    if (groupButtons.length > 0) {
+      return `groups:${groupButtons.map((button) => button.dataset.marketSelectGroup ?? '').join('|')}`;
+    }
+    return null;
+  }
+
+  /** 按当前筛选和浏览模式生成列表期望结构签名。 */
+  private getExpectedMarketListSignature(update: S2C_MarketUpdate): string {
+    const groups = this.getVisibleListingGroups(update);
+    const selectedGroup = groups.find((item) => item.itemId === this.selectedGroupItemId) ?? groups[0] ?? null;
+    const browsingEnhancementVariants = Boolean(selectedGroup?.canEnhance && this.enhancementBrowseItemId === selectedGroup.itemId);
+    if (browsingEnhancementVariants) {
+      return `items:${(selectedGroup?.variants ?? []).map((entry) => entry.itemKey).join('|')}`;
+    }
+    return `groups:${groups.map((entry) => entry.itemId).join('|')}`;
+  }
+
+  /** 局部同步当前可见列表卡片的买卖价文本。 */
+  private patchVisibleMarketListPrices(body: HTMLElement): void {
+    const syncPriceText = (button: HTMLElement, entry: MarketListedItemView | null): void => {
+      const priceNodes = button.querySelectorAll<HTMLElement>('.market-item-cell-prices span');
+      if (priceNodes.length < 2) {
+        return;
+      }
+      priceNodes[0]!.textContent = `卖 ${entry?.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(entry.lowestSellPrice) : '--'}`;
+      priceNodes[1]!.textContent = `买 ${entry?.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(entry.highestBuyPrice) : '--'}`;
+    };
+    body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
+      syncPriceText(button, this.resolveMarketTooltipEntry(button.dataset.marketSelectItem ?? ''));
+    });
+    const groups = new Map(this.getVisibleListingGroups(this.marketUpdate).map((entry) => [entry.itemId, entry] as const));
+    body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => {
+      const group = groups.get(button.dataset.marketSelectGroup ?? '') ?? null;
+      syncPriceText(button, group ? this.getGroupReferenceEntry(group) : null);
+    });
+  }
+
+  /** 如果 tooltip 的锚点还在原 DOM 中，只刷新内容，不关闭浮层。 */
+  private refreshMarketTooltipContent(body: HTMLElement): void {
+    if (!this.tooltipNode) {
+      return;
+    }
+    if (!this.tooltipNode.isConnected || !body.contains(this.tooltipNode)) {
+      this.tooltipNode = null;
+      this.tooltip.hide();
+      return;
+    }
+    const tooltip = this.resolveMarketTooltipPayload(this.tooltipNode);
+    if (!tooltip) {
+      this.tooltipNode = null;
+      this.tooltip.hide();
+      return;
+    }
+    this.tooltip.updateContent(tooltip.title, tooltip.lines, {
+      allowHtml: tooltip.allowHtml,
+      asideCards: tooltip.asideCards,
     });
   }
 
