@@ -9,7 +9,7 @@ import {
   type Tile,
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
-import { findPath, findPathAsync } from './pathfinding';
+import { findPath } from './pathfinding';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 import { t } from './ui/i18n';
 /**
@@ -486,14 +486,6 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
     const previewDirections = findPath(tiles, startX, startY, targetX, targetY);
     if (!previewDirections) {
-      // 同步路径失败时，尝试异步 worker 路径（大地图场景）
-      if (tiles.length > 0 && tiles[0].length > 0 && tiles.length * tiles[0].length > 2048) {
-        findPathAsync(tiles, startX, startY, targetX, targetY).then((asyncDirs) => {
-          if (asyncDirs && asyncDirs.length > 0) {
-            options.setRuntimePathCells?.(directionsToPathCells(startX, startY, asyncDirs));
-          }
-        }).catch((e) => console.debug('[Navigation] async pathfind worker failed:', e));
-      }
       return null;
     }
 
