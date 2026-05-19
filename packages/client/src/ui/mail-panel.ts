@@ -1169,12 +1169,15 @@ export class MailPanel {
           ` : ''}
         </div>
         ${detail.attachments.length > 0
-          ? `<div class="mail-attachment-list">${visibleAttachments.map((attachment) => `
+          ? `<div class="mail-attachment-list">${visibleAttachments.map((attachment) => {
+              const attachmentName = resolveMailAttachmentItemName(attachment.itemId);
+              return `
               <div class="mail-attachment-item">
-                <span class="mail-attachment-item-name" title="${escapeHtmlAttr(resolveMailAttachmentItemName(attachment.itemId))}">${escapeHtml(resolveMailAttachmentItemName(attachment.itemId))}</span>
+                <span class="mail-attachment-item-name" title="${escapeHtmlAttr(attachmentName)}">${escapeHtml(attachmentName)}</span>
                 <strong>x${attachment.count}</strong>
               </div>
-            `).join('')}</div>`
+            `;
+            }).join('')}</div>`
           : `<div class="empty-hint">${escapeHtml(MAIL_ATTACHMENT_EMPTY_TEXT)}</div>`}
       </div>
     `;

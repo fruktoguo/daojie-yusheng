@@ -359,12 +359,15 @@ const MailDetailSection = memo(function MailDetailSection({ detail, attachmentPa
           </div>
           {detail.attachments.length > 0 ? (
             <div className="mail-attachment-list">
-              {visibleAttachments.map((attachment, idx) => (
-                <div key={`${attachment.itemId}-${idx}`} className="mail-attachment-item">
-                  <span className="mail-attachment-item-name" title={resolveMailAttachmentItemName(attachment.itemId)}>{resolveMailAttachmentItemName(attachment.itemId)}</span>
-                  <strong>x{attachment.count}</strong>
-                </div>
-              ))}
+              {visibleAttachments.map((attachment, idx) => {
+                const attachmentName = resolveMailAttachmentItemName(attachment.itemId);
+                return (
+                  <div key={`${attachment.itemId}-${idx}`} className="mail-attachment-item">
+                    <span className="mail-attachment-item-name" title={attachmentName}>{attachmentName}</span>
+                    <strong>x{attachment.count}</strong>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="empty-hint">{t('mail.empty.attachments', undefined)}</div>

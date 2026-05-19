@@ -104,7 +104,8 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
 }
 
 function getMapLabel(mapId: string): string {
-  return getCachedMapMeta(mapId)?.name ? `${getCachedMapMeta(mapId)?.name} (${mapId})` : mapId;
+  const mapMeta = getCachedMapMeta(mapId);
+  return mapMeta?.name ? `${mapMeta.name} (${mapId})` : mapId;
 }
 
 function getPlayerMapLabel(player: GmPlayerSummary): string {

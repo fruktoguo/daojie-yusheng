@@ -74,7 +74,8 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
 
 /** 生成玩家所在地图的展示文本。 */
 function getMapLabel(mapId: string): string {
-  return getCachedMapMeta(mapId)?.name ? `${getCachedMapMeta(mapId)?.name} (${mapId})` : mapId;
+  const mapMeta = getCachedMapMeta(mapId);
+  return mapMeta?.name ? `${mapMeta.name} (${mapId})` : mapId;
 }
 
 function getPlayerMapLabel(player: GmPlayerSummary): string {
