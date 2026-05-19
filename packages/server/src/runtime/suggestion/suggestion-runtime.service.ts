@@ -10,6 +10,7 @@ import { SuggestionPersistenceService } from '../../persistence/suggestion-persi
 const SUGGESTION_TITLE_MAX_LENGTH = 50;
 const SUGGESTION_BODY_MAX_LENGTH = 500;
 const SUGGESTION_AUTHOR_NAME_MAX_LENGTH = 64;
+const SUGGESTION_MAX_COUNT = 500;
 
 @Injectable()
 export class SuggestionRuntimeService {
@@ -60,6 +61,9 @@ export class SuggestionRuntimeService {
             return null;
         }
         return this.runExclusive(async () => {
+            if (this.suggestions.length >= SUGGESTION_MAX_COUNT) {
+                return null;
+            }
 
             const suggestion = {
                 id: randomUUID(),
