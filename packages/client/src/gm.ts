@@ -135,6 +135,7 @@ import {
   GM_AUTH_API_BASE_PATH,
 } from './constants/api';
 import { applyStaticI18n, t } from './ui/i18n';
+import { getCachedMapMeta } from './map-static-cache';
 import { startClientVersionReload } from './version-reload';
 
 const GM_PLAYER_QUICK_RESET_PASSWORD = '123456789';
@@ -4983,8 +4984,8 @@ function getMapSummary(mapId: string): GmMapSummary | null {
 }
 
 function getMapDisplayName(mapId: string, fallbackName?: string): string {
-  const name = getMapSummary(mapId)?.name || fallbackName || mapId;
-  return name.trim() || mapId;
+  const name = getMapSummary(mapId)?.name || getCachedMapMeta(mapId)?.name || fallbackName || '未知地域';
+  return name.trim() || '未知地域';
 }
 
 function getPositionMapCategoryCounts(): Map<GmPositionMapCategory, number> {
@@ -5049,7 +5050,7 @@ function getPositionMapOptions(category: GmPositionMapCategory, currentMapId: st
         if (memberOrder !== 0) return memberOrder;
         return left.name.localeCompare(right.name, 'zh-Hans-CN') || left.id.localeCompare(right.id);
       })
-      : Array.from(new Set(state?.mapIds ?? [])).map((mapId) => ({ id: mapId, name: mapId } as GmMapSummary));
+      : Array.from(new Set(state?.mapIds ?? [])).map((mapId) => ({ id: mapId, name: getCachedMapMeta(mapId)?.name ?? '未知地域' } as GmMapSummary));
     for (const map of maps) {
       optionsByMapId.set(map.id, { value: map.id, label: getMapDisplayName(map.id, map.name) });
     }
