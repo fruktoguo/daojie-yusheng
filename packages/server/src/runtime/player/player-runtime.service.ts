@@ -7333,6 +7333,9 @@ function hasDetachedRuntimeActivity(player) {
     if (combat.cultivationActive === true || combat.autoRootFoundation === true) {
         return true;
     }
+    if (combat.autoBattle === true) {
+        return true;
+    }
     return hasRemainingRuntimeJob(player.alchemyJob)
         || hasRemainingRuntimeJob(player.forgingJob)
         || hasRemainingRuntimeJob(player.enhancementJob)
