@@ -30,6 +30,7 @@ export * from './qi';
 export * from './combat';
 export * from './terrain';
 export * from './house-terrain';
+export * from './map-layer-chars';
 export * from './building';
 export * from './fengshui';
 export * from './inventory';

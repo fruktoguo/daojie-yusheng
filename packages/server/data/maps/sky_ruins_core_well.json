@@ -1,27 +1,78 @@
 {
+  "format": 2,
   "id": "sky_ruins_core_well",
   "name": "天穹残宫·封天核心井",
+  "mapGroupId": "sky_ruins_core_well",
+  "mapGroupName": "天穹残宫",
+  "mapGroupOrder": 1000,
+  "mapGroupMemberOrder": 0,
   "width": 18,
   "height": 12,
   "routeDomain": "system",
+  "mapLv": 18,
   "spaceVisionMode": "isolated",
   "description": "核心井内壁并未完全塌穿，残存云台与星纹环廊仍围着井心缓慢转动，像一座还在下坠的旧天门。",
-  "tiles": [
-    "##################",
-    "#空空空空霞霞霞霞空空空空云云云云#",
-    "#空空..oo霞霞oo..云云..#",
-    "#霞霞::::====::::霞霞#",
-    "#云云::::..oo::..云云#",
-    "#空空霞霞云云霞霞空空云云霞霞..#",
-    "#空空霞霞....霞霞云云....#",
-    "#霞霞::::....::::霞霞#",
-    "#..霞霞==..==霞霞..oo#",
-    "#P===::::霞霞::::P.#",
-    "#霞霞霞霞....oo..霞霞..#",
-    "##################"
+  "terrain": [
+    "草草草草草草草草草草草草草草草草草草",
+    "草空空空空霞霞霞霞空空空空云云云云草",
+    "草空空草草草草霞霞草草草草云云草草草",
+    "草霞霞草草草草草草草草草草草草霞霞草",
+    "草云云草草草草草草草草草草草草云云草",
+    "草空空霞霞云云霞霞空空云云霞霞草草草",
+    "草空空霞霞草草草草霞霞云云草草草草草",
+    "草霞霞草草草草草草草草草草草草霞霞草",
+    "草草草霞霞草草草草草草霞霞草草草草草",
+    "草草草草草草草草草霞霞草草草草草草草",
+    "草霞霞霞霞草草草草草草草草霞霞草草草",
+    "草草霞霞草草草草草草草草草草草草草草"
+  ],
+  "structure": [
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙",
+    "墙................墙",
+    "墙....石石..石石......墙",
+    "墙................墙",
+    "墙........石石......墙",
+    "墙................墙",
+    "墙................墙",
+    "墙................墙",
+    "墙..............石石墙",
+    "墙................墙",
+    "墙........石石......墙",
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙"
+  ],
+  "surface": [
+    "板板板板板板板板板板板板板板板板板板",
+    "板................板",
+    "板..板板板板..板板板板..板板板",
+    "板..径径径径路路路路径径径径..板",
+    "板..径径径径板板板板径径板板..板",
+    "板..............板板板",
+    "板....板板板板....板板板板板",
+    "板..径径径径板板板板径径径径..板",
+    "板板板..路路板板路路..板板板板板",
+    "板板路路路径径径径..径径径径板板板",
+    "板....板板板板板板板板..板板板",
+    "板板..板板板板板板板板板板板板板板"
+  ],
+  "auras": [
+    [
+      14,
+      5,
+      5
+    ]
+  ],
+  "monsterSpawns": [
+    [
+      13,
+      5,
+      "m_fallen_palace_lord"
+    ]
   ],
   "portals": [
     {
+      "id": "sky_ruins_core_well:1,9",
+      "targetPortalId": "sky_ruins:24,5",
+      "direction": "two_way",
       "x": 1,
       "y": 9,
       "targetMapId": "sky_ruins",
@@ -31,12 +82,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "sky_ruins_core_well:1,9",
-      "direction": "two_way",
-      "targetPortalId": "sky_ruins:24,5"
+      "hidden": false
     },
     {
+      "id": "sky_ruins_core_well:15,9",
+      "targetPortalId": "qizhen_crossing:29,15",
+      "direction": "two_way",
       "x": 15,
       "y": 9,
       "targetMapId": "qizhen_crossing",
@@ -46,10 +97,7 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "sky_ruins_core_well:15,9",
-      "direction": "two_way",
-      "targetPortalId": "qizhen_crossing:29,15"
+      "hidden": false
     }
   ],
   "spawnPoint": {
@@ -65,14 +113,6 @@
     },
     "palette": {}
   },
-  "auras": [
-    {
-      "x": 14,
-      "y": 5,
-      "value": 5
-    }
-  ],
-  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_core_well_throne",
@@ -81,14 +121,5 @@
       "y": 5,
       "desc": "环廊最深处还保留着一圈压井的旧座痕，坠星宫主正借这里残存的封天力把整口核心井拖向更深的坠落。"
     }
-  ],
-  "npcs": [],
-  "monsterSpawns": [
-    {
-      "id": "m_fallen_palace_lord",
-      "x": 13,
-      "y": 5
-    }
-  ],
-  "mapLv": 18
+  ]
 }

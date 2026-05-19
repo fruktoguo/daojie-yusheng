@@ -24,7 +24,8 @@ import {
 } from './api-contracts';
 import { parseQiResourceKey } from './qi';
 import { resolveMapGroupInfo } from './map-groups';
-import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
+import { getTileTypeFromMapChar, getMapCharFromTileType, isTileTypeWalkable } from './terrain';
+import { TERRAIN_CHAR_TO_TYPE, STRUCTURE_CHAR_TO_TYPE, SURFACE_CHAR_TO_TYPE, LAYER_EMPTY_CHAR } from './constants/gameplay/map-layer-chars';
 import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
 import {
   InteractableKind,
@@ -734,7 +735,7 @@ export function cloneMapDocument(document: GmMapDocument): GmMapDocument {
 
 /** 将编辑器原始 JSON 归一成标准地图文档，并顺手做边界修正。 */
 export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
-  const source = raw as Partial<GmMapDocument>;
+  const source = preprocessFormatV2(raw) as Partial<GmMapDocument>;
   const mapId = typeof source.id === 'string' ? source.id : '';
   const tiles = Array.isArray(source.tiles)
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
@@ -1576,4 +1577,45 @@ export function buildEditableMapList(documents: GmMapDocument[]): GmMapListRes {
       .map((document) => buildEditableMapSummary(document))
       .sort((left, right) => left.id.localeCompare(right.id, 'zh-CN')),
   };
+}
+
+/** format:2 预处理：将分层中文字符图解码为内部结构。非 format:2 原样返回。 */
+function preprocessFormatV2(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const doc = raw as Record<string, unknown>;
+  if (doc.format !== 2) return raw;
+  const width = Number(doc.width) || 0;
+  const height = Number(doc.height) || 0;
+  const terrainCharRows = Array.isArray(doc.terrain) ? doc.terrain as string[] : [];
+  const structureCharRows = Array.isArray(doc.structure) ? doc.structure as string[] : [];
+  const surfaceCharRows = Array.isArray(doc.surface) ? doc.surface as string[] : undefined;
+  const terrainRows: (TerrainType | undefined)[][] = [];
+  const structureRows: (StructureType | null)[][] = [];
+  const surfaceRows: (SurfaceType | null)[][] = [];
+  const tiles: string[] = [];
+  for (let y = 0; y < height; y++) {
+    const tChars = [...(terrainCharRows[y] ?? '')];
+    const sChars = [...(structureCharRows[y] ?? '')];
+    const fChars = surfaceCharRows ? [...(surfaceCharRows[y] ?? '')] : [];
+    const tRow: (TerrainType | undefined)[] = [];
+    const sRow: (StructureType | null)[] = [];
+    const fRow: (SurfaceType | null)[] = [];
+    let tileRow = '';
+    for (let x = 0; x < width; x++) {
+      const terrain = TERRAIN_CHAR_TO_TYPE.get(tChars[x] ?? '') ?? TerrainType.Floor;
+      const structure = (sChars[x] ?? LAYER_EMPTY_CHAR) === LAYER_EMPTY_CHAR ? null : (STRUCTURE_CHAR_TO_TYPE.get(sChars[x]!) ?? null);
+      const surface = (fChars[x] ?? LAYER_EMPTY_CHAR) === LAYER_EMPTY_CHAR ? null : (SURFACE_CHAR_TO_TYPE.get(fChars[x]!) ?? null);
+      tRow.push(terrain);
+      sRow.push(structure);
+      fRow.push(surface);
+      tileRow += getMapCharFromTileType(composeTileTypeFromLayers(terrain, surface, structure, []));
+    }
+    terrainRows.push(tRow);
+    structureRows.push(sRow);
+    surfaceRows.push(fRow);
+    tiles.push(tileRow);
+  }
+  const auras = Array.isArray(doc.auras) ? (doc.auras as unknown[]).map((e) => Array.isArray(e) && e.length >= 3 ? { x: e[0], y: e[1], value: e[2] } : e) : [];
+  const monsterSpawns = Array.isArray(doc.monsterSpawns) ? (doc.monsterSpawns as unknown[]).map((e) => Array.isArray(e) && e.length >= 3 ? { x: e[0], y: e[1], id: e[2] } : e) : [];
+  return { ...doc, tiles, terrainRows, structureRows, surfaceRows, auras, monsterSpawns, terrain: undefined, structure: undefined, surface: undefined, format: undefined };
 }

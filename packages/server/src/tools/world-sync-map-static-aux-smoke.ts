@@ -250,7 +250,7 @@ function testTilePatchKeepsAuthorityTraversalAndLayerFields() {
             blocksSight: false,
             aura: 26,
             modifiedAt: 1778174999999,
-            terrainType: 'stone_ground',
+            terrainType: 'floor',
             surfaceType: null,
             structureType: null,
         },

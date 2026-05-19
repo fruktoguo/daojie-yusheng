@@ -24,7 +24,6 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Wall]: '墙体',
   [TileType.Door]: '门扉',
   [TileType.Window]: '窗户',
-  [TileType.BrokenWindow]: '破窗',
   [TileType.Portal]: '传送阵',
   [TileType.Stairs]: '楼梯',
   [TileType.StoneStairs]: '石梯',
@@ -62,7 +61,6 @@ export const TERRAIN_TYPE_LABELS: Record<TerrainType, string> = {
   [TerrainType.Cloud]: '云障',
   [TerrainType.CloudFloor]: '云地',
   [TerrainType.Void]: '虚空',
-  [TerrainType.StoneGround]: '石地',
 };
 
 /** 地表铺装中文标签。 */
@@ -79,7 +77,6 @@ export const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
   [StructureType.Wall]: '墙体',
   [StructureType.Door]: '门扉',
   [StructureType.Window]: '窗户',
-  [StructureType.BrokenWindow]: '破窗',
   [StructureType.HouseEave]: '屋檐',
   [StructureType.HouseCorner]: '屋角',
   [StructureType.ScreenWall]: '影壁',

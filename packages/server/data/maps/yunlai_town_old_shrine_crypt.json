@@ -1,30 +1,76 @@
 {
+  "format": 2,
   "id": "yunlai_town_old_shrine_crypt",
   "name": "云来镇·旧祠暗室",
+  "mapGroupId": "yunlai_town",
+  "mapGroupName": "云来镇",
+  "mapGroupOrder": 10,
+  "mapGroupMemberOrder": 99,
   "width": 16,
   "height": 10,
   "routeDomain": "system",
-  "parentMapId": "yunlai_town",
-  "parentOriginX": 11,
-  "parentOriginY": 11,
-  "floorLevel": -1,
-  "floorName": "暗室",
+  "mapLv": 1,
   "spaceVisionMode": "parent_overlay",
+  "parentMapId": "yunlai_town",
   "description": "旧祠供桌下还压着一间暗室，潮气重，香灰和纸钱味一直散不干净。",
-  "tiles": [
-    "################",
-    "#......oo......#",
-    "#..####..####..#",
-    "#..#..#..#..#..#",
-    "#..#..#..#..#..#",
-    "#..#..####..#..#",
-    "#..#........#..#",
-    "#..###.S..###..#",
-    "#.....;;.......#",
-    "################"
+  "terrain": [
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草",
+    "草草草草草草泥泥草草草草草草草草",
+    "草草草草草草草草草草草草草草草草"
+  ],
+  "structure": [
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙",
+    "墙......石石......墙",
+    "墙..墙墙墙墙..墙墙墙墙..墙",
+    "墙..墙..墙..墙..墙..墙",
+    "墙..墙..墙..墙..墙..墙",
+    "墙..墙..墙墙墙墙..墙..墙",
+    "墙..墙........墙..墙",
+    "墙..墙墙墙....墙墙墙..墙",
+    "墙..............墙",
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙"
+  ],
+  "surface": [
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板板板板板板板板板板板",
+    "板板板板板板..板板板板板板板板",
+    "板板板板板板板板板板板板板板板板"
+  ],
+  "auras": [
+    [
+      10,
+      5,
+      1
+    ],
+    [
+      5,
+      5,
+      2
+    ],
+    [
+      8,
+      6,
+      1
+    ]
   ],
   "portals": [
     {
+      "id": "yunlai_town_old_shrine_crypt:7,7",
+      "targetPortalId": "yunlai_town:14,13",
+      "direction": "two_way",
       "x": 7,
       "y": 7,
       "targetMapId": "yunlai_town",
@@ -34,10 +80,7 @@
       "trigger": "auto",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "yunlai_town_old_shrine_crypt:7,7",
-      "direction": "two_way",
-      "targetPortalId": "yunlai_town:14,13"
+      "hidden": false
     }
   ],
   "spawnPoint": {
@@ -53,24 +96,6 @@
     },
     "palette": {}
   },
-  "auras": [
-    {
-      "x": 10,
-      "y": 5,
-      "value": 1
-    },
-    {
-      "x": 5,
-      "y": 5,
-      "value": 2
-    },
-    {
-      "x": 8,
-      "y": 6,
-      "value": 1
-    }
-  ],
-  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_old_shrine_crypt_casket",
@@ -249,8 +274,5 @@
         ]
       }
     }
-  ],
-  "npcs": [],
-  "monsterSpawns": [],
-  "mapLv": 1
+  ]
 }

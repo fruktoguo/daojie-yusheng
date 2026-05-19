@@ -17,7 +17,6 @@ export const PAINT_TILE_TYPES: TileType[] = [
   TileType.Wall,
   TileType.Door,
   TileType.Window,
-  TileType.BrokenWindow,
   TileType.HouseEave,
   TileType.HouseCorner,
   TileType.ScreenWall,
@@ -51,7 +50,6 @@ export const PAINT_TERRAIN_TYPES: TerrainType[] = [
   TerrainType.Cloud,
   TerrainType.CloudFloor,
   TerrainType.Void,
-  TerrainType.StoneGround,
 ];
 
 export const PAINT_SURFACE_TYPES: Array<SurfaceType | null> = [
@@ -68,7 +66,6 @@ export const PAINT_STRUCTURE_TYPES: Array<StructureType | null> = [
   StructureType.Wall,
   StructureType.Door,
   StructureType.Window,
-  StructureType.BrokenWindow,
   StructureType.HouseEave,
   StructureType.HouseCorner,
   StructureType.ScreenWall,

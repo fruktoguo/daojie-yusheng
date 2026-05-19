@@ -3570,7 +3570,7 @@ class MapInstanceRuntime {
         if (seed.structure && structureType === null) {
             return true;
         }
-        return terrainType === TerrainType.StoneGround && !hasSurface && !hasStructure && !hasInteractables;
+        return terrainType === 'stone_ground' && !hasSurface && !hasStructure && !hasInteractables;
     }
     /** shouldNormalizePersistedRuntimeTileLayers：旧 bug 可能把 floor 地块持久化成 stone_ground，回读时按 tileType 自修复。 */
     shouldNormalizePersistedRuntimeTileLayers(tileType, terrainType, surfaceType, structureType, interactableKinds) {

@@ -353,7 +353,7 @@ export function isRoomTopologyTileType(tileType: string): boolean {
 
 export function getStaticRoomOpeningKind(tileType: string, countEntryTilesAsOpenings = false): number {
   if (tileType === TileType.Door) return BUILDING_OPENING_KIND_ID_BY_KEY.door;
-  if (tileType === TileType.Window || tileType === TileType.BrokenWindow) return BUILDING_OPENING_KIND_ID_BY_KEY.window;
+  if (tileType === TileType.Window) return BUILDING_OPENING_KIND_ID_BY_KEY.window;
   if (countEntryTilesAsOpenings && (tileType === TileType.Stairs || tileType === TileType.Portal)) {
     return BUILDING_OPENING_KIND_ID_BY_KEY.door;
   }
@@ -364,7 +364,6 @@ export function isStaticRoomBoundaryTile(tileType: string): boolean {
   return tileType === TileType.Wall
     || tileType === TileType.Door
     || tileType === TileType.Window
-    || tileType === TileType.BrokenWindow
     || tileType === TileType.HouseEave
     || tileType === TileType.HouseCorner
     || tileType === TileType.ScreenWall;

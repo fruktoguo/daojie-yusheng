@@ -42,10 +42,8 @@ export enum TileType {
 
   Window = 'window',
   /**
- * BrokenWindow：枚举成员常量定义。
  */
 
-  BrokenWindow = 'broken_window',
   /**
  * HouseEave：枚举成员常量定义。
  */

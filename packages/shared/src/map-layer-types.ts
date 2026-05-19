@@ -15,7 +15,6 @@ export enum TerrainType {
   Cloud = 'cloud',
   CloudFloor = 'cloud_floor',
   Void = 'void',
-  StoneGround = 'stone_ground',
 }
 
 /** 可选地表铺装：道路、地板、回廊等覆盖在地形上。 */
@@ -32,7 +31,6 @@ export enum StructureType {
   Wall = 'wall',
   Door = 'door',
   Window = 'window',
-  BrokenWindow = 'broken_window',
   HouseEave = 'house_eave',
   HouseCorner = 'house_corner',
   ScreenWall = 'screen_wall',
@@ -132,7 +130,7 @@ const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
   [TileType.Wall]: seed(TerrainType.Floor, null, StructureType.Wall, TileType.Wall),
   [TileType.Door]: seed(TerrainType.Floor, null, StructureType.Door, TileType.Door),
   [TileType.Window]: seed(TerrainType.Floor, null, StructureType.Window, TileType.Window),
-  [TileType.BrokenWindow]: seed(TerrainType.Floor, null, StructureType.BrokenWindow, TileType.BrokenWindow),
+
   [TileType.HouseEave]: seed(TerrainType.Floor, null, StructureType.HouseEave, TileType.HouseEave),
   [TileType.HouseCorner]: seed(TerrainType.Floor, null, StructureType.HouseCorner, TileType.HouseCorner),
   [TileType.ScreenWall]: seed(TerrainType.Floor, null, StructureType.ScreenWall, TileType.ScreenWall),
@@ -499,7 +497,6 @@ function tileTypeFromTerrainType(terrain: TerrainType): TileType {
     case TerrainType.CloudFloor: return TileType.CloudFloor;
     case TerrainType.Void: return TileType.Void;
     case TerrainType.Floor:
-    case TerrainType.StoneGround:
     default:
       return TileType.Floor;
   }
@@ -521,7 +518,6 @@ function tileTypeFromStructureType(structure: StructureType): TileType {
   switch (structure) {
     case StructureType.Door: return TileType.Door;
     case StructureType.Window: return TileType.Window;
-    case StructureType.BrokenWindow: return TileType.BrokenWindow;
     case StructureType.HouseEave: return TileType.HouseEave;
     case StructureType.HouseCorner: return TileType.HouseCorner;
     case StructureType.ScreenWall: return TileType.ScreenWall;
@@ -584,7 +580,7 @@ function isStructureRoomBoundary(structure: StructureType): boolean {
   return structure === StructureType.Wall
     || structure === StructureType.Door
     || structure === StructureType.Window
-    || structure === StructureType.BrokenWindow
+    
     || structure === StructureType.HouseEave
     || structure === StructureType.HouseCorner
     || structure === StructureType.ScreenWall;
@@ -592,7 +588,7 @@ function isStructureRoomBoundary(structure: StructureType): boolean {
 
 function resolveStructureOpeningKind(structure: StructureType): 'none' | 'door' | 'window' {
   if (structure === StructureType.Door) return 'door';
-  if (structure === StructureType.Window || structure === StructureType.BrokenWindow) return 'window';
+  if (structure === StructureType.Window ) return 'window';
   return 'none';
 }
 

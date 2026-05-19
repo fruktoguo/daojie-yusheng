@@ -309,7 +309,6 @@ const TERRAIN_TYPE_LABELS: Record<TerrainType, string> = {
   [TerrainType.Cloud]: '云障',
   [TerrainType.CloudFloor]: '云地',
   [TerrainType.Void]: '虚空',
-  [TerrainType.StoneGround]: '石地',
 };
 const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
   [SurfaceType.Floor]: '地板',
@@ -322,7 +321,6 @@ const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
   [StructureType.Wall]: '墙',
   [StructureType.Door]: '门',
   [StructureType.Window]: '窗',
-  [StructureType.BrokenWindow]: '破窗',
   [StructureType.HouseEave]: '屋檐',
   [StructureType.HouseCorner]: '转角',
   [StructureType.ScreenWall]: '影壁',
