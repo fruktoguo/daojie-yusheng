@@ -37,8 +37,7 @@ export class PersistenceWorkerPoolService {
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
     this.config = {
-      enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true'
-        && process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED === 'true',
+      enabled: false,
       poolSize: Math.max(1, Math.min(Number(process.env.SERVER_PERSISTENCE_WORKER_COUNT) || 2, 4)),
       defaultDeadlineMs: 1000,
     };

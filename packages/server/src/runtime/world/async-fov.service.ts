@@ -3,18 +3,14 @@
  * 从 MapInstanceRuntime 提取 blocksSightMask，通过 EncodingWorkerPool 异步执行 FOV。
  * 用于批量玩家 FOV 计算的并行化。
  *
- * 特性开关：SERVER_FOV_WORKER_ENABLED（默认关闭）
+ * 特性开关：由 runtime flag 控制（默认关闭）
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-pool.service';
+import { WorkerPoolToggleService } from '../../concurrency/worker-pool-toggle.service';
 import type { FovPayload, FovResult } from '../../concurrency/worker-task.types';
 import { collectVisibleTileIndices } from '../instance/fov.helpers';
-
-/** 是否启用 FOV Worker */
-function isFovWorkerEnabled(): boolean {
-  return process.env.SERVER_FOV_WORKER_ENABLED === 'true';
-}
 
 /** FOV 计算所需的实例最小接口 */
 interface FovInstancePort {
@@ -26,7 +22,6 @@ interface FovInstancePort {
 @Injectable()
 export class AsyncFovService {
   private readonly logger = new Logger(AsyncFovService.name);
-  private readonly enabled = isFovWorkerEnabled();
 
   /** 缓存的 blocksSightMask，按 instanceId 复用 */
   private maskCache = new Map<string, { revision: number; mask: Uint8Array }>();
@@ -34,6 +29,8 @@ export class AsyncFovService {
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
+    @Optional() @Inject(WorkerPoolToggleService)
+    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {}
 
   /**
@@ -49,7 +46,7 @@ export class AsyncFovService {
     const width = instance.template.width;
     const height = instance.template.height;
 
-    if (!this.enabled || !this.encodingPool?.isEnabled()) {
+    if (!this.workerPoolToggleService?.isFovEnabled() || !this.encodingPool?.isEnabled()) {
       return this.computeFovSync(instance, originX, originY, radius);
     }
 
@@ -82,7 +79,8 @@ export class AsyncFovService {
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.enabled;
+    return this.workerPoolToggleService?.isFovEnabled() === true
+      && Boolean(this.encodingPool?.isEnabled());
   }
 
   /** 同步 FOV 计算（fallback） */

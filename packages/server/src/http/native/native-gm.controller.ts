@@ -1205,10 +1205,6 @@ export class NativeGmController {
       diagnostics: {
         flagServiceEnabled,
         rawFlags,
-        envVars: {
-          SERVER_WORKER_POOL_ENABLED: process.env.SERVER_WORKER_POOL_ENABLED ?? 'unset',
-          SERVER_AOI_ENVELOPE_WORKER_ENABLED: process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED ?? 'unset',
-        },
         toggleServiceInjected: Boolean(this.workerPoolToggleService),
       },
     };

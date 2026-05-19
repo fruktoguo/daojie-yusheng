@@ -1,7 +1,7 @@
 /**
  * 同步协议下发服务。
  * 封装所有 S2C 事件的 socket.emit 调用，统一协议出口。
- * 支持 binary 编码模式：当 SERVER_AOI_ENVELOPE_WORKER_ENABLED=true 时，
+ * 支持 binary 编码模式：当 runtime flag 开启时，
  * 高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
  */
 

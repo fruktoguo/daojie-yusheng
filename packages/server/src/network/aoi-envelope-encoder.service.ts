@@ -9,6 +9,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
+import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 
 /** 编码后的 envelope 包；仅包含需要以二进制下发的 S2C payload。 */
 export interface EncodedEnvelope {
@@ -25,11 +26,6 @@ interface EnvelopeLike {
   mapEnter?: unknown;
 }
 
-/** 特性开关：是否启用 AOI envelope worker 编码 */
-function isAoiEnvelopeWorkerEnabled(): boolean {
-  return process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED === 'true';
-}
-
 /** 灰度比例（0-100），按 playerId hash 决定是否走 worker 路径 */
 function getAoiEnvelopeWorkerGrayPercent(): number {
   const raw = Number(process.env.SERVER_AOI_ENVELOPE_WORKER_GRAY_PERCENT);
@@ -38,20 +34,21 @@ function getAoiEnvelopeWorkerGrayPercent(): number {
 
 @Injectable()
 export class AoiEnvelopeEncoderService {
-  private readonly enabled: boolean;
   private readonly grayPercent: number;
 
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
+    @Optional() @Inject(WorkerPoolToggleService)
+    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {
-    this.enabled = isAoiEnvelopeWorkerEnabled();
     this.grayPercent = getAoiEnvelopeWorkerGrayPercent();
   }
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.enabled && Boolean(this.encodingPool?.isEnabled());
+    return this.workerPoolToggleService?.isAoiEnvelopeEnabled() === true
+      && Boolean(this.encodingPool?.isEnabled());
   }
 
   /** 判断指定玩家是否走 worker 编码路径（灰度控制） */
@@ -74,7 +71,7 @@ export class AoiEnvelopeEncoderService {
 
   /** 通过 worker pool 异步编码 envelope 内各 S2C payload。 */
   async encodeEnvelopeAsync(envelope: EnvelopeLike): Promise<EncodedEnvelope> {
-    if (!this.encodingPool?.isEnabled()) {
+    if (!this.isEnabled()) {
       return this.encodeEnvelopeSync(envelope);
     }
 
@@ -101,7 +98,7 @@ export class AoiEnvelopeEncoderService {
   /** 单 payload worker 编码；失败时回退同步编码。 */
   async encodePayloadAsync(payload: unknown): Promise<Buffer | null> {
     if (!payload) return null;
-    if (!this.encodingPool?.isEnabled()) {
+    if (!this.isEnabled()) {
       return this.encodePayloadSync(payload);
     }
 

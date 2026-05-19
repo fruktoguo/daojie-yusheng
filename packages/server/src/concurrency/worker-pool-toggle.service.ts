@@ -1,7 +1,7 @@
 /**
  * Worker Pool 动态开关服务。
  * 支持通过 GM runtime flag 在运行时动态开关 worker pool 各子功能。
- * 优先级：GM runtime flag > 环境变量。
+ * 不再读取环境变量，所有开关都只以 runtime flag 为准。
  *
  * 架构：toggle 变更时主动调用各 pool 的 setEnabled()，pool 热路径只读自己的 config.enabled。
  *
@@ -63,7 +63,7 @@ export class WorkerPoolToggleService implements OnModuleInit {
     try {
       await this.runtimeFlagService?.ensureInitialized();
     } catch (error: unknown) {
-      this.logger.warn(`Worker Pool 开关初始化读取失败，将按环境变量同步：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`Worker Pool 开关初始化读取失败，将按默认关闭状态同步：${error instanceof Error ? error.message : String(error)}`);
     }
     // 延迟一个 tick，确保 WorkerPoolModule.onModuleInit() 已完成 pool 的 initialize()
     setImmediate(() => {
@@ -76,13 +76,13 @@ export class WorkerPoolToggleService implements OnModuleInit {
    * 在 GM flag 变更后由 controller 调用。
    */
   syncToPool(): void {
-    const poolEnabled = this.resolveFlag(WORKER_POOL_FLAG_KEYS.enabled, 'SERVER_WORKER_POOL_ENABLED');
+    const poolEnabled = this.isPoolEnabled();
 
-    // 子开关：如果 GM 没有显式设置子开关，默认跟随总开关
+    // 子开关：如果 runtime flag 没有显式设置子开关，默认跟随总开关
     const instanceEnabled = poolEnabled
-      && this.resolveFlagWithDefault(WORKER_POOL_FLAG_KEYS.instance, 'SERVER_INSTANCE_WORKER_ENABLED', poolEnabled);
+      && this.resolveFlagWithDefault(WORKER_POOL_FLAG_KEYS.instance, poolEnabled);
     const persistenceEnabled = poolEnabled
-      && this.resolveFlagWithDefault(WORKER_POOL_FLAG_KEYS.persistence, 'SERVER_PERSISTENCE_BUILD_WORKER_ENABLED', poolEnabled);
+      && this.resolveFlagWithDefault(WORKER_POOL_FLAG_KEYS.persistence, poolEnabled);
 
     this.logger.log(
       `syncToPool: poolEnabled=${poolEnabled}, encoding=${poolEnabled}, instance=${instanceEnabled}, persistence=${persistenceEnabled}` +
@@ -96,37 +96,37 @@ export class WorkerPoolToggleService implements OnModuleInit {
 
   /** 总开关是否启用 */
   isPoolEnabled(): boolean {
-    return this.resolveFlag(WORKER_POOL_FLAG_KEYS.enabled, 'SERVER_WORKER_POOL_ENABLED');
+    return this.resolveFlag(WORKER_POOL_FLAG_KEYS.enabled);
   }
 
   /** AOI envelope worker 是否启用 */
   isAoiEnvelopeEnabled(): boolean {
     return this.isPoolEnabled()
-      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.aoiEnvelope, 'SERVER_AOI_ENVELOPE_WORKER_ENABLED');
+      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.aoiEnvelope);
   }
 
   /** 寻路 worker 是否启用 */
   isPathfindingEnabled(): boolean {
     return this.isPoolEnabled()
-      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.pathfinding, 'SERVER_PATHFINDING_WORKER_ENABLED');
+      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.pathfinding);
   }
 
   /** FOV worker 是否启用 */
   isFovEnabled(): boolean {
     return this.isPoolEnabled()
-      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.fov, 'SERVER_FOV_WORKER_ENABLED');
+      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.fov);
   }
 
   /** 实例 tick 分片 worker 是否启用 */
   isInstanceEnabled(): boolean {
     return this.isPoolEnabled()
-      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.instance, 'SERVER_INSTANCE_WORKER_ENABLED');
+      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.instance);
   }
 
   /** 持久化序列化 worker 是否启用 */
   isPersistenceEnabled(): boolean {
     return this.isPoolEnabled()
-      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.persistence, 'SERVER_PERSISTENCE_BUILD_WORKER_ENABLED');
+      && this.resolveFlag(WORKER_POOL_FLAG_KEYS.persistence);
   }
 
   /** 获取所有开关状态（供 GM 性能页展示） */
@@ -146,36 +146,24 @@ export class WorkerPoolToggleService implements OnModuleInit {
   }
 
   /**
-   * 解析开关值。优先级：GM runtime flag > 环境变量。
-   * GM flag 未设置时 fallback 到环境变量。
+   * 解析开关值，仅以 GM runtime flag 为准。
+   * 未显式设置时，默认关闭。
    */
-  private resolveFlag(flagKey: string, envKey: string): boolean {
-    // GM runtime flag 优先（支持运行时动态切换）
-    if (this.runtimeFlagService?.isEnabled()) {
-      // 只有 GM 显式设置过该 flag 时才覆盖环境变量
-      if (this.runtimeFlagService.hasFlag(flagKey)) {
-        return this.runtimeFlagService.getFlag(flagKey);
-      }
+  private resolveFlag(flagKey: string): boolean {
+    if (this.runtimeFlagService?.isEnabled() && this.runtimeFlagService.hasFlag(flagKey)) {
+      return this.runtimeFlagService.getFlag(flagKey);
     }
-    // fallback 到环境变量
-    return process.env[envKey] === 'true';
+    return false;
   }
 
   /**
-   * 与 resolveFlag 类似，但当 GM flag 未设置且环境变量也未设置时，
-   * 使用 defaultValue 作为 fallback（用于子开关跟随总开关）。
+   * 与 resolveFlag 类似，但未显式设置时返回 defaultValue。
+   * 用于子开关默认跟随总开关。
    */
-  private resolveFlagWithDefault(flagKey: string, envKey: string, defaultValue: boolean): boolean {
-    if (this.runtimeFlagService?.isEnabled()) {
-      if (this.runtimeFlagService.hasFlag(flagKey)) {
-        return this.runtimeFlagService.getFlag(flagKey);
-      }
+  private resolveFlagWithDefault(flagKey: string, defaultValue: boolean): boolean {
+    if (this.runtimeFlagService?.isEnabled() && this.runtimeFlagService.hasFlag(flagKey)) {
+      return this.runtimeFlagService.getFlag(flagKey);
     }
-    // 环境变量显式设置了就用环境变量
-    const envVal = process.env[envKey];
-    if (envVal === 'true') return true;
-    if (envVal === 'false') return false;
-    // 都没设置，跟随 defaultValue（即总开关）
     return defaultValue;
   }
 }

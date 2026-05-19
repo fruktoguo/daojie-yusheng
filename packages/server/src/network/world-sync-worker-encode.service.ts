@@ -1,7 +1,6 @@
 /**
  * AOI Envelope Worker 编码委托服务。
- * 当 SERVER_AOI_ENVELOPE_WORKER_ENABLED=true 时，
- * 通过 EncodingWorkerPool 异步编码 envelope payload 并按原顺序 emit。
+ * 当 runtime flag 开启时，通过 EncodingWorkerPool 异步编码 envelope payload 并按原顺序 emit。
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 

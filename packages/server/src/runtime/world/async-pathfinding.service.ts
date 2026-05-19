@@ -3,17 +3,13 @@
  * 从 MapInstanceRuntime 提取 staticGrid，通过 EncodingWorkerPool 异步执行 A* 寻路。
  * 用于 tick 外的玩家寻路意图解析（enqueueMoveTo），不阻塞 tick。
  *
- * 特性开关：SERVER_PATHFINDING_WORKER_ENABLED（默认关闭，走同步 fallback）
+ * 特性开关：由 runtime flag 控制（默认关闭，走同步 fallback）
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { findBoundedPath, type PathPoint, type PathfindingTaskInput, type PathfindingTaskResult } from '@mud/shared';
 
 import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-pool.service';
-
-/** 是否启用寻路 Worker */
-function isPathfindingWorkerEnabled(): boolean {
-  return process.env.SERVER_PATHFINDING_WORKER_ENABLED === 'true';
-}
+import { WorkerPoolToggleService } from '../../concurrency/worker-pool-toggle.service';
 
 /** 从 instance 提取 staticGrid 所需的最小接口 */
 interface PathfindingInstancePort {
@@ -28,7 +24,6 @@ interface PathfindingInstancePort {
 @Injectable()
 export class AsyncPathfindingService {
   private readonly logger = new Logger(AsyncPathfindingService.name);
-  private readonly enabled = isPathfindingWorkerEnabled();
 
   /** 缓存的 staticGrid，按 (instanceId, mapRevision) 复用 */
   private gridCache = new Map<string, {
@@ -40,6 +35,8 @@ export class AsyncPathfindingService {
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
+    @Optional() @Inject(WorkerPoolToggleService)
+    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {}
 
   /**
@@ -66,7 +63,7 @@ export class AsyncPathfindingService {
     // 提取或复用 staticGrid
     const grid = this.getOrBuildGrid(instance);
 
-    if (!this.enabled || !this.encodingPool?.isEnabled()) {
+    if (!this.workerPoolToggleService?.isPathfindingEnabled() || !this.encodingPool?.isEnabled()) {
       // 同步 fallback：直接调用 shared 的 findBoundedPath
       return this.executeSyncFallback(grid, blocked, startX, startY, goals, limits, width, height);
     }
@@ -108,7 +105,8 @@ export class AsyncPathfindingService {
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.enabled;
+    return this.workerPoolToggleService?.isPathfindingEnabled() === true
+      && Boolean(this.encodingPool?.isEnabled());
   }
 
   private getOrBuildGrid(instance: PathfindingInstancePort): { walkable: Uint8Array; traversalCost: Uint16Array } {

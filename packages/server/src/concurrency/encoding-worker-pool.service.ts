@@ -42,7 +42,7 @@ export class EncodingWorkerPoolService {
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
     this.config = {
-      enabled: process.env.SERVER_WORKER_POOL_ENABLED === 'true',
+      enabled: false,
       poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
       defaultDeadlineMs: 500,
     };
